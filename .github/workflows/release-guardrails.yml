@@ -1,0 +1,65 @@
+name: release-guardrails
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+
+      - name: Verify web artifact
+        run: npm run verify:web
+
+      - name: Verify ontology freeze
+        run: npm run verify:freeze
+
+      - name: Verify SNAP + release guardrails
+        run: npm run ci:guardrails
+
+      - name: Sanction-risk suite
+        run: npm run test:legal-safety
+
+      - name: Deterministic replay suite
+        run: npm run test:replay
+
+      - name: Product API RBAC/fail-closed suite
+        run: npm run test:product-api
+
+      - name: Release manifest
+        env:
+          RELEASE_SIGNOFF: ci
+          RELEASE_ID: ci-${{ github.run_id }}
+        run: npm run release:manifest
+
+      - name: Verify release manifest gates
+        env:
+          RELEASE_ID: ci-${{ github.run_id }}
+        run: npm run verify:manifest
+
+      - name: Report blockers
+        run: npm run report:blockers
+
+      - name: Report coverage
+        run: npm run report:coverage

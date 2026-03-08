@@ -1,0 +1,54 @@
+{
+  "version": "5.0.0-COMPLETE-EXPANDED",
+  "total_laws": 6,
+  "laws": [
+    {
+      "law_id": 164,
+      "name": "Law of Hidden Laws (Completeness Impossibility)",
+      "category": "meta_law",
+      "gate": "META",
+      "company": "LML-META",
+      "detection_logic": "Unknown failure classes must emit HOLE, never safe-pass."
+    },
+    {
+      "law_id": 165,
+      "name": "Law of Future Mutation (Temporal Robustness)",
+      "category": "meta_law",
+      "gate": "META",
+      "company": "LML-META",
+      "detection_logic": "Regime shifts must trigger re-check and bounded claims."
+    },
+    {
+      "law_id": 166,
+      "name": "Law That Creates Laws (Adaptive Law Formation)",
+      "category": "meta_law",
+      "gate": "META",
+      "company": "LML-META",
+      "detection_logic": "Novel recurring patterns synthesize new enforceable law."
+    },
+    {
+      "law_id": 167,
+      "name": "No Repeat Without New Constraint Coverage",
+      "category": "meta_law",
+      "gate": "META",
+      "company": "LML-META",
+      "detection_logic": "Repeated novelty without new coverage is illegal."
+    },
+    {
+      "law_id": 168,
+      "name": "Authenticated Updates Only",
+      "category": "meta_law",
+      "gate": "META",
+      "company": "LML-META",
+      "detection_logic": "Planet manifest updates require signed ledger-linked proof."
+    },
+    {
+      "law_id": 169,
+      "name": "Strict Improvement After Shock",
+      "category": "meta_law",
+      "gate": "META",
+      "company": "LML-META",
+      "detection_logic": "Coverage must improve after novelty shock."
+    }
+  ]
+}

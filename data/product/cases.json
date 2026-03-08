@@ -1,0 +1,428 @@
+{
+  "cases": [
+    {
+      "id": "d7b153a0-b796-4a22-b9a8-9c7a7f7bb0d1",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-0b4ae886-c10f-4b72-a8a9-2eaec4d185f3",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-aa2e0c1c-0cb3-45cb-8bbd-a1562947183c",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-16T12:47:46.648Z",
+      "updatedAt": "2026-02-16T12:47:46.652Z",
+      "timeline": [
+        {
+          "id": "5419c252-3275-4024-b9d3-2e5e6162a1c4",
+          "caseId": "d7b153a0-b796-4a22-b9a8-9c7a7f7bb0d1",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-aa2e0c1c-0cb3-45cb-8bbd-a1562947183c",
+          "ownerId": "lawyer-aa2e0c1c-0cb3-45cb-8bbd-a1562947183c",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-16T12:47:46.648Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "3e78136f-47af-4389-9a21-2ae81f227766",
+          "caseId": "d7b153a0-b796-4a22-b9a8-9c7a7f7bb0d1",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-aa2e0c1c-0cb3-45cb-8bbd-a1562947183c",
+          "createdAt": "2026-02-16T12:47:46.652Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "c9a3ae95-56d2-48d0-a105-f6bae45e2c74",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-5ccb9997-10be-4374-aea6-5d605e02f9f5",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-9d70a732-a265-4dc5-8948-90c0ed827758",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-16T12:51:28.514Z",
+      "updatedAt": "2026-02-16T12:51:28.520Z",
+      "timeline": [
+        {
+          "id": "059db891-7589-4ad3-a0aa-6988c5d0d790",
+          "caseId": "c9a3ae95-56d2-48d0-a105-f6bae45e2c74",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-9d70a732-a265-4dc5-8948-90c0ed827758",
+          "ownerId": "lawyer-9d70a732-a265-4dc5-8948-90c0ed827758",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-16T12:51:28.514Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "80e71710-ae25-4099-84ed-448a9c2d734b",
+          "caseId": "c9a3ae95-56d2-48d0-a105-f6bae45e2c74",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-9d70a732-a265-4dc5-8948-90c0ed827758",
+          "createdAt": "2026-02-16T12:51:28.520Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "5db8d67c-f186-4749-b73c-d21d51ecadd1",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-548a27ae-c764-4634-ae7f-d134736d9483",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-e12f5de5-c85f-4477-b334-a9a072063e5d",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-16T12:53:58.821Z",
+      "updatedAt": "2026-02-16T12:53:58.826Z",
+      "timeline": [
+        {
+          "id": "fe0f60f2-8541-45cf-9d71-46c3e3b9e2e1",
+          "caseId": "5db8d67c-f186-4749-b73c-d21d51ecadd1",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-e12f5de5-c85f-4477-b334-a9a072063e5d",
+          "ownerId": "lawyer-e12f5de5-c85f-4477-b334-a9a072063e5d",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-16T12:53:58.821Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "50ee711e-076a-40ed-bbae-c4570434e359",
+          "caseId": "5db8d67c-f186-4749-b73c-d21d51ecadd1",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-e12f5de5-c85f-4477-b334-a9a072063e5d",
+          "createdAt": "2026-02-16T12:53:58.826Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "083fb552-cb58-4fad-9e97-8774389a545d",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-e39d8a16-622b-48a2-951c-0a029f0b791f",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-eebd5c68-004a-4783-9f4d-db52f4ddfaf4",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-16T12:57:29.568Z",
+      "updatedAt": "2026-02-16T12:57:29.572Z",
+      "timeline": [
+        {
+          "id": "c621f860-eb96-4540-bf25-264f2cabab07",
+          "caseId": "083fb552-cb58-4fad-9e97-8774389a545d",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-eebd5c68-004a-4783-9f4d-db52f4ddfaf4",
+          "ownerId": "lawyer-eebd5c68-004a-4783-9f4d-db52f4ddfaf4",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-16T12:57:29.568Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "51262e81-0d11-478c-b9fd-fd8f9315683f",
+          "caseId": "083fb552-cb58-4fad-9e97-8774389a545d",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-eebd5c68-004a-4783-9f4d-db52f4ddfaf4",
+          "createdAt": "2026-02-16T12:57:29.572Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "b527357b-69a7-42fc-9001-86ab61b9aeb7",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-7fe0120d-f1b0-42bf-8c6c-e03ff9507b9f",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-86d03955-45db-4b21-8923-f2f0490c5512",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-16T12:59:55.828Z",
+      "updatedAt": "2026-02-16T12:59:55.833Z",
+      "timeline": [
+        {
+          "id": "5e538100-bced-4283-ac9a-6a43b56d6074",
+          "caseId": "b527357b-69a7-42fc-9001-86ab61b9aeb7",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-86d03955-45db-4b21-8923-f2f0490c5512",
+          "ownerId": "lawyer-86d03955-45db-4b21-8923-f2f0490c5512",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-16T12:59:55.828Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "71276527-6fcf-4a19-83c3-bf287c65eeb0",
+          "caseId": "b527357b-69a7-42fc-9001-86ab61b9aeb7",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-86d03955-45db-4b21-8923-f2f0490c5512",
+          "createdAt": "2026-02-16T12:59:55.833Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "4d1b177a-461b-440d-939e-c6876835b010",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-cb20cc1c-2d83-44c8-abad-c84365c75c2e",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-0e38900e-194d-43fc-bfd6-e8827632f30a",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-17T16:42:55.294Z",
+      "updatedAt": "2026-02-17T16:42:55.298Z",
+      "timeline": [
+        {
+          "id": "95d22072-f05c-4862-8f59-6497802f810e",
+          "caseId": "4d1b177a-461b-440d-939e-c6876835b010",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-0e38900e-194d-43fc-bfd6-e8827632f30a",
+          "ownerId": "lawyer-0e38900e-194d-43fc-bfd6-e8827632f30a",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-17T16:42:55.294Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "58bf00f6-12d8-44d6-942a-75594166f213",
+          "caseId": "4d1b177a-461b-440d-939e-c6876835b010",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-0e38900e-194d-43fc-bfd6-e8827632f30a",
+          "createdAt": "2026-02-17T16:42:55.298Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "22990efd-a436-4f64-87d8-93ef56403e36",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-a84a0a03-429b-4ffa-8e9f-1f8783f4b1a2",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-610dd6c4-2321-44b1-ac28-c1b4b2405f28",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-17T16:46:32.193Z",
+      "updatedAt": "2026-02-17T16:46:32.198Z",
+      "timeline": [
+        {
+          "id": "3b704b9e-8eab-405f-a1bb-e522b65309ab",
+          "caseId": "22990efd-a436-4f64-87d8-93ef56403e36",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-610dd6c4-2321-44b1-ac28-c1b4b2405f28",
+          "ownerId": "lawyer-610dd6c4-2321-44b1-ac28-c1b4b2405f28",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-17T16:46:32.193Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "ec62a31b-cb2d-4e6b-bcbc-f2e15e58c4d3",
+          "caseId": "22990efd-a436-4f64-87d8-93ef56403e36",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-610dd6c4-2321-44b1-ac28-c1b4b2405f28",
+          "createdAt": "2026-02-17T16:46:32.198Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    },
+    {
+      "id": "3bf921ac-0d9e-4fb1-8481-8d00774ab8b9",
+      "firmId": "firm-policy",
+      "title": "Policy enforcement case",
+      "clientId": "client-977d27c0-49b2-4137-8790-5fc52b82a6cd",
+      "clientName": "Policy Client",
+      "assignedLawyerId": "lawyer-ba567e46-0e8d-42df-acc4-f7d7ba62f3df",
+      "nextStep": "Gather initial documents",
+      "currentStage": "intake",
+      "currentStatus": "in_progress",
+      "eta": null,
+      "createdAt": "2026-02-19T07:46:52.191Z",
+      "updatedAt": "2026-02-19T07:46:52.195Z",
+      "timeline": [
+        {
+          "id": "d83389e9-4f95-4377-b310-c5da5025797d",
+          "caseId": "3bf921ac-0d9e-4fb1-8481-8d00774ab8b9",
+          "stage": "intake",
+          "status": "in_progress",
+          "note": "Case created and intake started.",
+          "eta": null,
+          "visibility": "client",
+          "actorId": "lawyer-ba567e46-0e8d-42df-acc4-f7d7ba62f3df",
+          "ownerId": "lawyer-ba567e46-0e8d-42df-acc4-f7d7ba62f3df",
+          "objectType": "action",
+          "obligationBand": "B4",
+          "riskBand": "C6",
+          "dueAt": null,
+          "artifactRefs": [],
+          "createdAt": "2026-02-19T07:46:52.191Z"
+        }
+      ],
+      "questions": [],
+      "files": [
+        {
+          "id": "a93ee804-8154-400f-8400-ccbdcc33e80d",
+          "caseId": "3bf921ac-0d9e-4fb1-8481-8d00774ab8b9",
+          "name": "proof.txt",
+          "contentType": "text/plain",
+          "digest": "digest-test",
+          "sizeBytes": 5,
+          "storageRef": "data/product/artifacts/proof.txt",
+          "visibility": "private",
+          "uploadedBy": "lawyer-ba567e46-0e8d-42df-acc4-f7d7ba62f3df",
+          "createdAt": "2026-02-19T07:46:52.195Z"
+        }
+      ],
+      "autoAckPresets": {
+        "questionReceived": "Thanks, I received your question. I'll review it in my update window.",
+        "uploadReceived": "Thanks, your document was received. I'll review it shortly.",
+        "waitingOnCourt": "We're currently waiting on the court. I'll post an update as soon as we hear back."
+      }
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+services:
+  lml-demo:
+    build:
+      context: .
+      dockerfile: Dockerfile.demo
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+

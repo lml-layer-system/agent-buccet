@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-02-17T16:46:32.820Z",
+  "releaseId": "local-2026-02-17-all-gates-full",
+  "signedBy": "ryan.gatoloai-faupula",
+  "profiles": [
+    {
+      "profileId": "DOC_LAW_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "doc-law-v1-immutable"
+    },
+    {
+      "profileId": "FORMAT_PROOF_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "format-proof-v1-immutable"
+    },
+    {
+      "profileId": "CITATION_ZERO_HALLUCINATION_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "citation-zero-v1-immutable"
+    },
+    {
+      "profileId": "LEGAL_AI_ZERO_SANCTIONS_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "legal-zero-sanctions-v1-immutable"
+    },
+    {
+      "profileId": "WRITING_343_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "writing-343-v1-immutable"
+    },
+    {
+      "profileId": "FACTUAL_343_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "factual-343-v1-immutable"
+    },
+    {
+      "profileId": "META_EFUE_12x12_PROFILE",
+      "version": "1.0.0",
+      "immutableHash": "meta-efue-12x12-v1-immutable"
+    }
+  ],
+  "gateResults": {
+    "blockerCriticalHigh": 0,
+    "determinismPass": true,
+    "ledgerChainVerified": true
+  },
+  "testMatrix": {
+    "verifySnap": "pass",
+    "legalSafety": "pass",
+    "deterministicReplay": "pass",
+    "productApi": "pass"
+  },
+  "digest": "bbb1a0128324025df8eeb7e842ced06980559fd4d4f77fc15035175de67e1437"
+}

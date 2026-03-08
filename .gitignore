@@ -1,0 +1,12 @@
+node_modules/
+.next/
+out/
+coverage/
+.env*
+.DS_Store
+*.log
+.tmp/
+handoff/*
+!handoff/README.md
+data/generated_backups/
+data/lml-context/
