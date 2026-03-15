@@ -1,7 +1,7 @@
 # Demo Runbook
 
 ## Universe Ontology
-- `Sun` = base/core law body
+- `Sun` = sun law body
 - `Ability planet` = the planet that holds ability laws
 - `Meta planet` = the planet that holds meta laws
 - `Universe` = the full boot-loaded system

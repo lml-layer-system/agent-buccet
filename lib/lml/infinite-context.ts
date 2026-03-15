@@ -1,5 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { defaultActiveChatBranchState, type ActiveChatBranchState } from "./active-chat-branch.ts";
+import { isCriticalMetaProposal, uniquePendingProposals, type PendingLawProposal } from "./meta-delivery.ts";
 
 export type ContextDoc = {
   id: string;
@@ -38,6 +40,15 @@ export type InfiniteContextState = {
   docs: ContextDoc[];
   pendingLawProposals: Array<{ text: string; scope: string; enforcement: string; source: string }>;
   activeAutoLaws: Array<{ text: string; scope: string; enforcement: string; source: string }>;
+  automation: {
+    metaLoopMode: "ask_every_update" | "automate";
+    metaLoopAlwaysOn: boolean;
+    quantumBlanketAlwaysOn: boolean;
+    modelPolicy: "model_agnostic";
+    lastMetaLoopTickAt: string | null;
+    lastQuantumBlanketTickAt: string | null;
+  };
+  activeChat: ActiveChatBranchState;
   step: number;
 };
 
@@ -56,7 +67,7 @@ export async function getOrCreateContextState(sessionId: string): Promise<Infini
   }
   try {
     const loaded = await fs.readFile(path.join(CONTEXT_DIR, `${key}.json`), "utf8");
-    const parsed = JSON.parse(loaded) as InfiniteContextState;
+    const parsed = normalizeContextState(JSON.parse(loaded) as InfiniteContextState);
     CONTEXT_STORE.set(sessionId, parsed);
     return parsed;
   } catch {
@@ -84,6 +95,8 @@ export async function getOrCreateContextState(sessionId: string): Promise<Infini
     docs: [],
     pendingLawProposals: [],
     activeAutoLaws: [],
+    automation: defaultAutomation(),
+    activeChat: defaultActiveChatBranchState(),
     step: 0,
   };
   CONTEXT_STORE.set(sessionId, created);
@@ -91,14 +104,28 @@ export async function getOrCreateContextState(sessionId: string): Promise<Infini
   return created;
 }
 
-export function applyPendingLawProposals(state: InfiniteContextState): number {
+export function applyPendingLawProposals(
+  state: InfiniteContextState,
+  options?: {
+    autoApplySources?: string[];
+  },
+): number {
   if (state.pendingLawProposals.length === 0) {
     return 0;
   }
+  const autoApplySources = options?.autoApplySources;
+  const applicable = autoApplySources
+    ? state.pendingLawProposals.filter((law) => autoApplySources.includes(law.source) || isCriticalMetaProposal(law))
+    : state.pendingLawProposals;
+  if (applicable.length === 0) {
+    return 0;
+  }
   const before = state.activeAutoLaws.length;
-  const all = [...state.activeAutoLaws, ...state.pendingLawProposals];
+  const all = [...state.activeAutoLaws, ...applicable];
   state.activeAutoLaws = uniqueLaws(all);
-  state.pendingLawProposals = [];
+  state.pendingLawProposals = autoApplySources
+    ? state.pendingLawProposals.filter((law) => !autoApplySources.includes(law.source) && !isCriticalMetaProposal(law))
+    : [];
   return state.activeAutoLaws.length - before;
 }
 
@@ -186,6 +213,62 @@ export async function persistContextState(state: InfiniteContextState): Promise<
   const key = sanitizeSessionId(state.sessionId);
   await fs.mkdir(CONTEXT_DIR, { recursive: true });
   await fs.writeFile(path.join(CONTEXT_DIR, `${key}.json`), JSON.stringify(state), "utf8");
+}
+
+export async function listPersistedContextStates(): Promise<InfiniteContextState[]> {
+  await fs.mkdir(CONTEXT_DIR, { recursive: true });
+  const files = await fs.readdir(CONTEXT_DIR);
+  const states: InfiniteContextState[] = [];
+  for (const file of files) {
+    if (!file.endsWith(".json")) {
+      continue;
+    }
+    const raw = await fs.readFile(path.join(CONTEXT_DIR, file), "utf8");
+    states.push(normalizeContextState(JSON.parse(raw) as InfiniteContextState));
+  }
+  return states;
+}
+
+export function queuePendingLawProposals(state: InfiniteContextState, proposals: PendingLawProposal[]): number {
+  const before = state.pendingLawProposals.length;
+  state.pendingLawProposals = uniquePendingProposals([
+    ...state.pendingLawProposals,
+    ...proposals,
+  ]);
+  return state.pendingLawProposals.length - before;
+}
+
+function normalizeContextState(state: InfiniteContextState): InfiniteContextState {
+  const normalizedActiveChat = state.activeChat
+    ? {
+      activeBranchId: state.activeChat.activeBranchId ?? null,
+      activeTreeId: state.activeChat.activeTreeId ?? null,
+      branches: (state.activeChat.branches ?? []).map((branch) => ({
+        ...branch,
+        dominanceScore: branch.dominanceScore ?? 0,
+        lineageParentBranchId: branch.lineageParentBranchId ?? null,
+      })),
+    }
+    : defaultActiveChatBranchState();
+  return {
+    ...state,
+    automation: {
+      ...defaultAutomation(),
+      ...(state.automation ?? {}),
+    },
+    activeChat: normalizedActiveChat,
+  };
+}
+
+function defaultAutomation(): InfiniteContextState["automation"] {
+  return {
+    metaLoopMode: "ask_every_update",
+    metaLoopAlwaysOn: true,
+    quantumBlanketAlwaysOn: true,
+    modelPolicy: "model_agnostic",
+    lastMetaLoopTickAt: null,
+    lastQuantumBlanketTickAt: null,
+  };
 }
 
 function pruneWorkingMemory(state: InfiniteContextState): void {

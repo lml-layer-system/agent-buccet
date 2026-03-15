@@ -1,7 +1,8 @@
-import { runUIC, runUUIS, runLmlIntegration } from "@/lib/snap";
+import { runUIC, runLmlIntegration } from "@/lib/snap";
 import { appendSnapRunLedger } from "@/lib/ledger";
 import type { RuntimeUserLaw } from "@/lib/lml/chat-runtime";
 import type { InfiniteContextState } from "@/lib/lml/infinite-context";
+import { encodeUuisEnvelope } from "@/lib/uuis";
 
 export type NoveltyCycleResult = {
   noveltyDetected: boolean;
@@ -33,7 +34,7 @@ export async function runNoveltyControllerCycle(args: {
   }
 
   const per = runUIC(args.message, undefined, "demo");
-  const uuis = runUUIS(per);
+  const uuis = encodeUuisEnvelope(per);
   const { delta } = runLmlIntegration(per, uuis, {
     artifactRef: `novelty:${args.runId}`,
     runMode: "demo",

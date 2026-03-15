@@ -2,10 +2,20 @@ import { randomUUID } from "node:crypto";
 import type { LawWeb } from "@/lib/engine/types";
 import { loadLawWeb } from "@/lib/engine/store";
 import type { Witness } from "@/lib/engine/types";
-import { buildAgentResponse, buildPolicyGuidance, extractDocumentInsights, isNerdOrFormalRequest, parseExpressionPolicy } from "@/lib/demo/personality-engine";
-import { runGpt2Constrained } from "@/lib/demo/gpt2";
+import { buildPolicyGuidance, extractDocumentInsights, isNerdOrFormalRequest, parseExpressionPolicy } from "@/lib/demo/personality-engine";
+import { runGpt2Constrained, runGpt2GeneratorOnly, type Gpt2CallResult } from "@/lib/demo/gpt2";
 import { getBaseIntelligence49Report, type Intelligence49Report } from "@/lib/lml/intelligence-49";
+import { buildRootRegistry } from "@/lib/lml/root-registry";
+import { buildBranchRendererPrompt, composeLawGovernedSpeech, type BranchRendererContext } from "@/lib/lml/branch-renderer";
+import { deriveCodingSkeletonContract, validateCodingWitnessSet, type CodingSkeletonContract } from "@/lib/lml/coding-skeleton-laws";
+import { validateCodingArchitecture } from "@/lib/lml/coding-architecture";
+import { runCodingCollapse } from "@/lib/lml/coding-collapse";
+import { deriveCodingIntentSpec, type CodingIntentSpec } from "@/lib/lml/coding-intent-spec";
+import { buildCodingRepoContext, shouldUseRepoContext, type CodingRepoContext } from "@/lib/lml/coding-context";
+import { collapseChatConvoPossibilities } from "@/lib/lml/chat-efue-collapse";
+import { runChatConvoQuantumSpark } from "@/lib/lml/chat-convo-qe";
 import { appendSnapRunLedger } from "@/lib/ledger";
+import { appendNslPlanetRootLaw, appendNslRepairLedger } from "@/lib/nsl";
 import {
   applyPendingLawProposals,
   getOrCreateContextState,
@@ -15,10 +25,55 @@ import {
   updateInfiniteContext,
   type ContextDoc,
 } from "@/lib/lml/infinite-context";
+import { closeActiveChatBranch, updateActiveChatBranch } from "@/lib/lml/active-chat-branch";
 import { runNoveltyControllerCycle } from "@/lib/lml/novelty-controller";
+import { buildMetaCriticalGuidance, detectMetaCriticalSignal, isExpressionOnlyConstraint, type MetaCriticalSignal } from "@/lib/lml/meta-critical";
+import { deriveFailureLearningProposals, type FailureLearningResult } from "@/lib/lml/failure-learning";
+import { appendMetaDeliveryRecords, proposalKey, uniquePendingProposals, type PendingLawProposal } from "@/lib/lml/meta-delivery";
 import { runPathFormation, selectFormation, type OrchestratorTrace } from "@/lib/lml/path-orchestrator";
+import { runQuantumBlanketCycle, type QuantumBlanketCycleResult } from "@/lib/lml/quantum-blanket";
+import { validateCodingFloor } from "@/lib/lml/coding-physics";
+import {
+  appendNocrBranchClosedLedger,
+  appendNocrBranchExtendedLedger,
+  appendNocrBranchArchivedLedger,
+  appendNocrBranchDeletedLedger,
+  appendNocrBranchForkedLedger,
+  appendNocrBranchMergedLedger,
+  appendNocrBranchSiblingCreatedLedger,
+  appendBranchTreePlanetRootLaw,
+  appendNocrCollapseClippedLedger,
+  appendNocrCollapseMatchLedger,
+  appendNocrCollapseLedger,
+  appendNocrFunnelLedger,
+  appendNocrPlanetRootLaw,
+  appendNocrTreeExtendedLedger,
+  appendNocrTreeStartedLedger,
+  appendNocrTreeArchivedLedger,
+  appendNocrTreeDeletedLedger,
+  buildNocrFunnelState,
+  buildNocrSeed,
+  extractChatIntentSeedsFromArtifact,
+  getNocrRootSpace,
+  readAllNocrLedgerRecords,
+  readAllNocrPlanetRootLaws,
+  resolveQuantumCollapse,
+  syncNocrPlanetFromLedger,
+  verifyNocrLedgerPlanetParity,
+  type NocrFunnelState,
+  type QuantumCollapseResult,
+} from "@/lib/nocr";
 import { ABILITY_PLANET_LAWS } from "@/lib/lml/ability-planet-laws";
+import { AI_MODEL_PLANET_LAWS } from "@/lib/lml/ai-model-planet-laws";
+import { BRANCH_TREE_PLANET_LAWS } from "@/lib/lml/branch-tree-planet-laws";
+import { HUMAN_PLANET_LAWS } from "@/lib/lml/human-planet-laws";
+import { HUMAN_PLANET_RUNTIME_LAWS } from "@/lib/lml/human-planet-runtime-laws";
+import { HUMAN_PLANET_RUNTIME_LAWS_PHASE_2 } from "@/lib/lml/human-planet-runtime-laws-phase-2";
+import { buildHumanMirrorGuidance, classifyHumanOutputAdmissibility, compileHumanMirrorProfile } from "@/lib/lml/human-mirror";
 import { META_PLANET_LAWS } from "@/lib/lml/meta-planet-laws";
+import { META_PLANET_EXPANSION_LAWS } from "@/lib/lml/meta-planet-expansion-laws";
+import { QUANTUM_PLANET_LAWS } from "@/lib/lml/quantum-planet-laws";
+import { SUN_LAWS } from "@/lib/lml/sun-laws";
 import { resolveAuthorizedRepairs } from "@/lib/snap/repair-catalog";
 import type { RepairPackName } from "@/lib/snap/types";
 
@@ -42,6 +97,12 @@ export const UNIVERSE_RUNTIME_LAWS = [
   "SUN.08: If projection cannot produce admissible output, fail closed and preserve witness trace.",
   "SUN.09: User overlays may specialize planet laws but cannot bypass sun legality.",
   "SUN.10: Every turn must emit ledger-ready evidence for collapse, repairs, and final action.",
+  "SUN.11: Constraints must precede expansion in every governed growth path.",
+  "SUN.12: Feedback and correction must dominate amplification in every non-collapsing path.",
+  "SUN.13: Structure must grow faster than raw mass or intensity or the growth path becomes inadmissible.",
+  "SUN.14: Identity invariants must be preserved across scaling, specialization, and extension.",
+  "SUN.15: Coherent behaviors must be pursued through lawful substitution and workaround rather than false impossibility claims.",
+  "SUN.16: Law-side UIC, UUIS, and LML snap root extraction must never under-enumerate incoming root/parent-capable lawful structure; it may enumerate more laws than the source text states explicitly, but never fewer than the source materially supports.",
   "DEMO.CODING.01: Coding competence is enforced as finite capability dimensions (syntax, logic, architecture, algorithm, context, safety, integration).",
   "DEMO.CODING.02: Code generation must run in finite staged paths with explicit halting conditions; no infinite replanning loops.",
   "DEMO.CODING.03: Code outputs must satisfy generator-layer checks (syntax validity, semantic intent alignment, and safety constraints).",
@@ -79,7 +140,10 @@ export const UNIVERSE_RUNTIME_LAWS = [
   "DEMO.HARDENING.01: Capability-intent responses must remain deterministic canonical outputs; numeric/statistical drift is prohibited.",
   "DEMO.HARDENING.02: Coding-readiness intents must emit deterministic canonical readiness text; policy-noise drift is prohibited.",
   ...META_PLANET_LAWS,
+  ...AI_MODEL_PLANET_LAWS,
   ...ABILITY_PLANET_LAWS,
+  ...HUMAN_PLANET_RUNTIME_LAWS,
+  ...HUMAN_PLANET_RUNTIME_LAWS_PHASE_2,
 ] as const;
 
 export function getAbilityPlanetInventory(): {
@@ -99,6 +163,50 @@ export function getMetaPlanetInventory(): string[] {
   return [...META_PLANET_LAWS];
 }
 
+export function getHumanPlanetInventory(): string[] {
+  return [...HUMAN_PLANET_RUNTIME_LAWS, ...HUMAN_PLANET_RUNTIME_LAWS_PHASE_2];
+}
+
+export function getAiModelPlanetInventory(): string[] {
+  return [...AI_MODEL_PLANET_LAWS];
+}
+
+export function getQuantumRoleInventory(): string[] {
+  return [...UNIVERSE_RUNTIME_LAWS].filter((law) => /quantum/i.test(law));
+}
+
+export function getPlanetSourceInventory(): {
+  sun: string[];
+  meta: string[];
+  ai_model: string[];
+  human: string[];
+  quantum: string[];
+  branch_tree: string[];
+} {
+  return {
+    sun: [...SUN_LAWS],
+    meta: [...META_PLANET_EXPANSION_LAWS],
+    ai_model: [...AI_MODEL_PLANET_LAWS],
+    human: [...HUMAN_PLANET_LAWS],
+    quantum: [...QUANTUM_PLANET_LAWS],
+    branch_tree: [...BRANCH_TREE_PLANET_LAWS],
+  };
+}
+
+export function getUniverseGrouping(): {
+  reality_universe: Array<"sun" | "ability" | "quantum">;
+  human_universe: Array<"human">;
+  fiction_universe: [];
+  global_service: Array<"meta" | "ai_model" | "nocr" | "nsl" | "branch_tree" | "meta_delivery">;
+} {
+  return {
+    reality_universe: ["sun", "ability", "quantum"],
+    human_universe: ["human"],
+    fiction_universe: [],
+    global_service: ["meta", "ai_model", "nocr", "nsl", "branch_tree", "meta_delivery"],
+  };
+}
+
 export function compileCapabilityGraphFromRuntimeLaws(userLaws: RuntimeUserLaw[]): OntologyState["capability_graph"] {
   return compileCapabilityGraph(userLaws);
 }
@@ -115,6 +223,7 @@ type GeneratedOutput = {
   final_action: "success" | "refusal";
   reason: string;
   model: LmlChatResult["model"];
+  benchmark_debug?: LmlChatResult["benchmark_debug"];
 };
 
 type RepairedOutput = GeneratedOutput & {
@@ -128,6 +237,7 @@ type RepairInputs = {
   constrained: ReturnType<typeof apply_constraints>;
   guarded: ReturnType<typeof guard_abilities>;
   userLawTexts: string[];
+  branchRendererContext: BranchRendererContext;
 };
 
 export type OntologyState = {
@@ -183,6 +293,98 @@ export type EnforcementTrace = {
       detail: string;
     }>;
   };
+  nocr_funnel?: {
+    seed_tag: string;
+    root_space_size: number;
+    ledger_state: string;
+    reason: string;
+  };
+  nocr_input?: {
+    root_count: number;
+    chat_exact_seed_count: number;
+    chat_qe_seed_count: number;
+  };
+  quantum_collapse?: {
+    seed_tag: string;
+    root_tag: string | null;
+    root_id: string | null;
+    branch_id: string | null;
+    tree_id: string | null;
+    state_change_id: string | null;
+    domain: string | null;
+    reason: string;
+    collapse_moment: string;
+    lock_state: "locked" | "clipped";
+    lock_reason_class?: string;
+    match_score?: number;
+    qe_generated_root_count?: number;
+    qe_checked_root_count?: number;
+    snap_match_count?: number;
+    snap_matches?: Array<{
+      seed_id: string;
+      root_id: string;
+      domain: string;
+      reason_class: string;
+      score: number;
+    }>;
+  };
+  chat_seed_lane?: {
+    exact_seed_count: number;
+    primary_seed_id: string | null;
+    primary_seed_origin: string | null;
+    qe_candidate_count?: number;
+    qe_seed_count?: number;
+    primary_qe_seed_id?: string | null;
+    primary_qe_seed_origin?: string | null;
+  };
+  chat_branch?: {
+    action: "new_tree" | "extend" | "fork" | "sibling" | "merge" | "none";
+    governance_reason?: string;
+    active_branch_id: string | null;
+    active_tree_id: string | null;
+    branch_turn_count: number;
+    branch_seed_count: number;
+    branch_parent_count: number;
+  };
+  root_registry?: {
+    static_count: number;
+    extracted_count: number;
+    total_count: number;
+    source_units: number;
+    extracted_root_count: number;
+    expansion_delta: number;
+    under_enumerated: boolean;
+    identity_kernel_count: number;
+    legality_region_count: number;
+    directive_count?: number;
+    code_unit_count?: number;
+    math_unit_count?: number;
+    sentence_count?: number;
+    artifact_root_count: number;
+    user_law_root_count: number;
+  };
+  nocr_parity?: {
+    ok: boolean;
+    fail_closed: boolean;
+    missing_law_ids: string[];
+    extra_law_ids: string[];
+  };
+  meta_critical?: {
+    fired: boolean;
+    mode: "life_preservation" | "system_integrity";
+    reason: string;
+    preserve_expression: boolean;
+  };
+  failure_learning?: {
+    proposed_law_count: number;
+    signature: string | null;
+    sources: string[];
+  };
+  generation?: {
+    status: "generated" | "fallback" | "deterministic";
+    failure_class: string | null;
+    detail: string | null;
+  };
 };
 
 export type LmlChatResult = {
@@ -215,6 +417,24 @@ export type LmlChatResult = {
     activatedFromPriorCycle: number;
     ledgerIndex: number | null;
   };
+  quantum_blanket: {
+    active: boolean;
+    candidateCount: number;
+    finiteSeedCount: number;
+    proposedLawCount: number;
+    pendingProposalCount: number;
+  };
+  meta_critical: {
+    fired: boolean;
+    mode: "life_preservation" | "system_integrity" | null;
+    reason: string | null;
+    preserveExpression: boolean;
+  };
+  failure_learning: {
+    proposedLawCount: number;
+    signature: string | null;
+    sources: string[];
+  };
   model: {
     provider: "gpt2-runtime";
     model: "gpt2";
@@ -222,7 +442,36 @@ export type LmlChatResult = {
     callId: string;
     at: string;
     inputDigest: string;
+    generationStatus?: "generated" | "fallback" | "deterministic";
+    generationFailureClass?: string;
+    generationDetail?: string;
   };
+  benchmark_debug?: {
+    raw_candidate_text: string | null;
+    normalized_candidate_text: string | null;
+    normalization_reason: string | null;
+  };
+};
+
+const EMPTY_QUANTUM_BLANKET: LmlChatResult["quantum_blanket"] = {
+  active: true,
+  candidateCount: 0,
+  finiteSeedCount: 0,
+  proposedLawCount: 0,
+  pendingProposalCount: 0,
+};
+
+const EMPTY_META_CRITICAL: LmlChatResult["meta_critical"] = {
+  fired: false,
+  mode: null,
+  reason: null,
+  preserveExpression: false,
+};
+
+const EMPTY_FAILURE_LEARNING: LmlChatResult["failure_learning"] = {
+  proposedLawCount: 0,
+  signature: null,
+  sources: [],
 };
 
 type RuntimeContext = {
@@ -249,7 +498,9 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
   // Runtime law source is authoritative per turn from client state.
   // This prevents stale overlays from lingering after user-side clear actions.
   setUserOverlayLaws(state, context.user_laws);
-  const activatedFromPriorCycle = applyPendingLawProposals(state);
+  const activatedFromPriorCycle = applyPendingLawProposals(state, {
+    autoApplySources: resolveAutoApplySources(state),
+  });
   const runtimeAbilityCommand = parseRuntimeAbilityLawCommand(context.user_message);
   if (runtimeAbilityCommand) {
     applyRuntimeAbilityCommand(state, runtimeAbilityCommand);
@@ -268,10 +519,318 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
     enforcement: law.enforcement,
   }));
   const ontology = compile_runtime_ontology(lawWeb, [...persistedOverlay, ...autoLaws], intelligence);
-  const constrained = apply_constraints(context.user_message, ontology);
+  const metaCritical = detectMetaCriticalSignal(context.user_message, ontology.user_laws_applied);
+  const constrained = apply_constraints(context.user_message, ontology, {
+    suspendExpressionRefusal: metaCritical !== null,
+  });
   const guarded = guard_abilities(context.user_message, constrained, ontology);
   const documentText = context.document_text ?? context.documents?.map((doc) => doc.text).join("\n\n") ?? "";
-  const formationId = selectFormation(guarded.ability_route, guarded.final_action);
+  const documentInsights = extractDocumentInsights(documentText);
+  const humanMirrorProfile = compileHumanMirrorProfile({
+    question: context.user_message,
+    policy: parseExpressionPolicy(ontology.user_laws_applied.join("\n")),
+    documentInsights,
+  });
+  const rootRegistry = buildRootRegistry({
+    staticRoots: getNocrRootSpace(),
+    artifactTexts: [context.user_message, documentText],
+    userLawTexts: [...persistedOverlay, ...autoLaws].map((law) => law.text),
+  });
+  const chatSeedLane = extractChatIntentSeedsFromArtifact(context.user_message);
+  const exactChatSeeds = chatSeedLane.seeds.map((seed) => ({
+    ...seed,
+    abilityRoute: guarded.ability_route,
+    source: inferSeedSourceFromAbilityRoute(guarded.ability_route),
+  }));
+  const chatConvoQuantumSpark = runChatConvoQuantumSpark({
+    userMessage: context.user_message,
+    profile: humanMirrorProfile,
+  });
+  const chatConvoEfue = collapseChatConvoPossibilities(chatConvoQuantumSpark.possibilities);
+  const qeChatSeeds = chatConvoEfue.seeds.map((seed) => ({
+    ...seed,
+    abilityRoute: guarded.ability_route,
+    source: inferSeedSourceFromAbilityRoute(guarded.ability_route),
+  }));
+  if (rootRegistry.extraction.underEnumerated) {
+    const failClosed = buildRootCoverageFailClosedRefusal(runId, rootRegistry);
+    await appendSnapRunLedger({
+      runId,
+      profileId: "LML_CHAT_RUNTIME",
+      profileVersion: "1.0.0",
+      profileImmutableHash: "lml-chat-runtime-v1",
+      runMode: "demo",
+      admissible: false,
+      nullOutput: true,
+      blockerCount: 1,
+      rejectedCount: 0,
+      artifactLength: context.user_message.length,
+      createdAt: new Date().toISOString(),
+    });
+    return return_trace(
+      ontology,
+      {
+        ...guarded,
+        active_constraints: [...constrained.active_constraints, "root_extraction_coverage_required"],
+        triggered_constraints: [...constrained.triggered_constraints, "root_extraction_under_enumerated"],
+        final_action: failClosed.final_action,
+        reason: failClosed.reason,
+      },
+      failClosed,
+      intelligence,
+      {
+        sessionId: state.sessionId,
+        step: state.step,
+        wm_focus: state.wm.focus,
+        l0_size: state.ltm.L0.length,
+        l1_size: state.ltm.L1.length,
+        dependency_edges: state.dependencies.length,
+      },
+      {
+        noveltyDetected: false,
+        coverageIncomplete: false,
+        proposedLawCount: 0,
+        activatedFromPriorCycle,
+        ledgerIndex: null,
+      },
+      EMPTY_QUANTUM_BLANKET,
+      EMPTY_META_CRITICAL,
+      EMPTY_FAILURE_LEARNING,
+      undefined,
+      undefined,
+      undefined,
+      rootRegistry,
+      undefined,
+      {
+        exactSeedCount: exactChatSeeds.length,
+        seeds: exactChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+        qeCandidateCount: chatConvoQuantumSpark.candidateCount,
+        qeSeedCount: qeChatSeeds.length,
+        qeSeeds: qeChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+      },
+    );
+  }
+  const nocrSeed = exactChatSeeds[0]
+    ? {
+      ...exactChatSeeds[0],
+      abilityRoute: guarded.ability_route,
+      source: inferSeedSourceFromAbilityRoute(guarded.ability_route),
+    }
+    : buildNocrSeed(context.user_message, guarded.ability_route);
+  const nocrFunnelState = buildNocrFunnelState(nocrSeed, rootRegistry.allRoots, exactChatSeeds, qeChatSeeds);
+  const quantumCollapse = resolveQuantumCollapse(nocrFunnelState, guarded.final_action);
+  const nocrFunnelRecord = await appendNocrFunnelLedger({
+    runId,
+    seed: nocrFunnelState.taggedSeed.seed,
+    seedTag: nocrFunnelState.taggedSeed.seedTag,
+    exactSeedTags: nocrFunnelState.exactChatSeeds.map((seed) => seed.seedTag),
+    qeSeedTags: nocrFunnelState.qeChatSeeds.map((seed) => seed.seedTag),
+    rootTags: nocrFunnelState.taggedRoots.map((root) => root.rootTag),
+    rootIds: nocrFunnelState.taggedRoots.map((root) => root.root.id),
+    ledgerState: nocrFunnelState.ledgerState,
+    reason: nocrFunnelState.taggedSeed.funnelReason,
+    createdAt: new Date().toISOString(),
+  });
+  await appendNocrPlanetRootLaw(nocrFunnelRecord);
+  if (quantumCollapse.lockState === "clipped") {
+    const clippedRecord = await appendNocrCollapseClippedLedger({
+      runId,
+      seedTag: quantumCollapse.taggedSeed.seedTag,
+      requestedDomain: inferCollapseDomainFromFunnel(quantumCollapse.reason),
+      reason: quantumCollapse.reason,
+      rootSpaceSize: nocrFunnelState.taggedRoots.length,
+      collapseMoment: quantumCollapse.collapseMoment,
+      createdAt: new Date().toISOString(),
+    });
+    await appendNocrPlanetRootLaw(clippedRecord);
+    const clippedNull = buildCollapsedNullRefusal(runId, quantumCollapse.reason);
+    const nslRecord = await appendNslRepairLedger("REPAIR_NULL", {
+      runId,
+      reason: clippedNull.reason,
+      finalAction: clippedNull.final_action,
+      failureClasses: ["NOCR_PARENT_LOCK_MISS"],
+      triggeredRepairs: [],
+      createdAt: new Date().toISOString(),
+    });
+    await appendNslPlanetRootLaw(nslRecord);
+    return return_trace(
+      ontology,
+      {
+        ...guarded,
+        active_constraints: constrained.active_constraints,
+        triggered_constraints: [...constrained.triggered_constraints, "nocr_parent_lock_required"],
+        final_action: clippedNull.final_action,
+        reason: clippedNull.reason,
+      },
+      clippedNull,
+      intelligence,
+      {
+        sessionId: state.sessionId,
+        step: state.step,
+        wm_focus: state.wm.focus,
+        l0_size: state.ltm.L0.length,
+        l1_size: state.ltm.L1.length,
+        dependency_edges: state.dependencies.length,
+      },
+      {
+        noveltyDetected: false,
+        coverageIncomplete: false,
+        proposedLawCount: 0,
+        activatedFromPriorCycle,
+        ledgerIndex: null,
+      },
+      EMPTY_QUANTUM_BLANKET,
+      metaCritical
+        ? {
+          fired: true,
+          mode: metaCritical.mode,
+          reason: metaCritical.reason,
+          preserveExpression: metaCritical.preserveExpression,
+        }
+        : EMPTY_META_CRITICAL,
+      EMPTY_FAILURE_LEARNING,
+      undefined,
+      nocrFunnelState,
+      quantumCollapse,
+      rootRegistry,
+      undefined,
+      {
+        exactSeedCount: exactChatSeeds.length,
+        seeds: exactChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+        qeCandidateCount: chatConvoQuantumSpark.candidateCount,
+        qeSeedCount: qeChatSeeds.length,
+        qeSeeds: qeChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+      },
+    );
+  }
+  const nocrCollapseRecord = await appendNocrCollapseLedger({
+    runId,
+    seedTag: quantumCollapse.taggedSeed.seedTag,
+    rootTag: quantumCollapse.matchedRoot!.rootTag,
+    rootId: quantumCollapse.matchedRoot!.root.id,
+    branchId: quantumCollapse.branch!.id,
+    treeId: quantumCollapse.tree!.id,
+    stateChangeId: quantumCollapse.stateChange!.id,
+    domain: quantumCollapse.matchedRoot!.root.domain,
+    reason: quantumCollapse.reason,
+    snapMatches: quantumCollapse.snapMatches,
+    collapseMoment: quantumCollapse.collapseMoment,
+    createdAt: new Date().toISOString(),
+  });
+  await appendNocrPlanetRootLaw(nocrCollapseRecord);
+  await appendBranchTreePlanetRootLaw(nocrCollapseRecord);
+  for (const match of quantumCollapse.snapMatches) {
+    const collapseMatchRecord = await appendNocrCollapseMatchLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      seedTag: match.seedTag,
+      seedId: match.seedId,
+      rootTag: match.rootTag,
+      rootId: match.rootId,
+      domain: match.domain,
+      reasonClass: match.reasonClass,
+      score: match.score,
+      createdAt: new Date().toISOString(),
+    });
+    await appendBranchTreePlanetRootLaw(collapseMatchRecord);
+  }
+  const branchRendererContext = buildBranchRendererContext(quantumCollapse, rootRegistry, exactChatSeeds, qeChatSeeds);
+  let nocrParity = await readNocrParity();
+  if (!nocrParity.ok) {
+    const deletedAt = new Date().toISOString();
+    const branchDeletedRecord = await appendNocrBranchDeletedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.branch!.id}.deleted`,
+      entity: "branch",
+      lifecycle: "deleted",
+      reason: "nocr_ledger_planet_parity_failed",
+      createdAt: deletedAt,
+    });
+    await appendNocrPlanetRootLaw(branchDeletedRecord);
+    await appendBranchTreePlanetRootLaw(branchDeletedRecord);
+    const treeDeletedRecord = await appendNocrTreeDeletedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.tree!.id}.deleted`,
+      entity: "tree",
+      lifecycle: "deleted",
+      reason: "nocr_ledger_planet_parity_failed",
+      createdAt: deletedAt,
+    });
+    await appendNocrPlanetRootLaw(treeDeletedRecord);
+    await appendBranchTreePlanetRootLaw(treeDeletedRecord);
+    nocrParity = await readNocrParity();
+    const failClosed = buildNocrParityFailClosedRefusal(runId, nocrParity);
+    await appendSnapRunLedger({
+      runId,
+      profileId: "LML_CHAT_RUNTIME",
+      profileVersion: "1.0.0",
+      profileImmutableHash: "lml-chat-runtime-v1",
+      runMode: "demo",
+      admissible: false,
+      nullOutput: true,
+      blockerCount: nocrParity.missingLawIds.length + nocrParity.extraLawIds.length,
+      rejectedCount: 0,
+      artifactLength: context.user_message.length,
+      createdAt: new Date().toISOString(),
+    });
+    return return_trace(
+      ontology,
+      {
+        ...guarded,
+        active_constraints: constrained.active_constraints,
+        triggered_constraints: [...constrained.triggered_constraints, "nocr_ledger_planet_parity"],
+        final_action: failClosed.final_action,
+        reason: failClosed.reason,
+      },
+      failClosed,
+      intelligence,
+      {
+        sessionId: state.sessionId,
+        step: state.step,
+        wm_focus: state.wm.focus,
+        l0_size: state.ltm.L0.length,
+        l1_size: state.ltm.L1.length,
+        dependency_edges: state.dependencies.length,
+      },
+      {
+        noveltyDetected: false,
+        coverageIncomplete: false,
+        proposedLawCount: 0,
+        activatedFromPriorCycle,
+        ledgerIndex: null,
+      },
+      EMPTY_QUANTUM_BLANKET,
+      metaCritical
+        ? {
+          fired: true,
+          mode: metaCritical.mode,
+          reason: metaCritical.reason,
+          preserveExpression: metaCritical.preserveExpression,
+        }
+        : EMPTY_META_CRITICAL,
+      EMPTY_FAILURE_LEARNING,
+      undefined,
+      nocrFunnelState,
+      quantumCollapse,
+      rootRegistry,
+      {
+        ...nocrParity,
+        fail_closed: true,
+      },
+      {
+        exactSeedCount: exactChatSeeds.length,
+        seeds: exactChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+        qeSeedCount: qeChatSeeds.length,
+        qeSeeds: qeChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+      },
+    );
+  }
+  const formationId = quantumCollapse.formationId ?? selectFormation(guarded.ability_route, guarded.final_action);
   let generated: GeneratedOutput | null = null;
   let repaired: RepairedOutput | null = null;
   let finalized: RepairedOutput | null = null;
@@ -295,6 +854,7 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
         constrained,
         guarded,
         state,
+        branchRendererContext,
       );
       return {
         status: "ok",
@@ -314,6 +874,7 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
         constrained,
         guarded,
         userLawTexts: ontology.user_laws_applied,
+        branchRendererContext,
       });
       return {
         status: "ok",
@@ -328,7 +889,7 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
         };
       }
       finalized = repaired;
-      if (repaired.final_action === "refusal") {
+      if (repaired.final_action === "refusal" && !isMetaCriticalReason(repaired.reason)) {
         finalized = {
           ...repaired,
           text: renderDeterministicLawRefusal(repaired.reason, constrained.triggered_constraints),
@@ -348,15 +909,116 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
       constrained,
       guarded,
       userLawTexts: ontology.user_laws_applied,
+      branchRendererContext,
     })
     : buildEmergencyRefusal(runId, "orchestrator did not produce output"));
+  const failureLearning = registerFailureLearningLaws(state, {
+    userMessage: context.user_message,
+    abilityRoute: guarded.ability_route,
+    finalAction: effectiveFinal.final_action,
+    reason: effectiveFinal.reason,
+    failureClasses: effectiveFinal.failureClasses,
+    triggeredRepairs: effectiveFinal.triggeredRepairs,
+  });
+  await appendMetaDeliveryRecords(state.sessionId, runId, failureLearning.proposedLaws, resolveAutoApplySources(state));
+  const generationHardening = registerGenerationHardeningLaws(state, {
+    userMessage: context.user_message,
+    abilityRoute: guarded.ability_route,
+    output: effectiveFinal,
+  });
+  await appendMetaDeliveryRecords(state.sessionId, runId, generationHardening, resolveAutoApplySources(state));
+  const humanGenerationHardening = registerHumanGenerationHardeningLaws(state, {
+    userMessage: context.user_message,
+    abilityRoute: guarded.ability_route,
+    output: effectiveFinal,
+  });
+  await appendMetaDeliveryRecords(state.sessionId, runId, humanGenerationHardening, resolveAutoApplySources(state));
+  const nslRecord = await appendNslRepairLedger(resolveNslLedgerEventType(effectiveFinal), {
+    runId,
+    reason: effectiveFinal.reason,
+    finalAction: effectiveFinal.final_action,
+    failureClasses: effectiveFinal.failureClasses,
+    triggeredRepairs: effectiveFinal.triggeredRepairs,
+    createdAt: new Date().toISOString(),
+  });
+  await appendNslPlanetRootLaw(nslRecord);
   const intentLockedFinal = applyDeterministicIntentLawOutput(
     context.user_message,
     effectiveFinal,
     ontology.capability_graph.abilities.coding.state,
   );
   const addressedFinal = applyAddressLawIfPresent(intentLockedFinal, ontology.user_laws_applied);
-  updateCodingContinuityMemory(state, context.user_message, addressedFinal);
+  if (addressedFinal.final_action !== "success") {
+    const archivedAt = new Date().toISOString();
+    state.activeChat = closeActiveChatBranch(state.activeChat, quantumCollapse.branch!.id);
+    const branchClosedRecord = await appendNocrBranchClosedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.branch!.id}.closed`,
+      entity: "branch",
+      lifecycle: "closed",
+      reason: addressedFinal.reason,
+      createdAt: archivedAt,
+    });
+    await appendNocrPlanetRootLaw(branchClosedRecord);
+    await appendBranchTreePlanetRootLaw(branchClosedRecord);
+    const branchArchivedRecord = await appendNocrBranchArchivedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.branch!.id}.archived`,
+      entity: "branch",
+      lifecycle: "archived",
+      reason: addressedFinal.reason,
+      createdAt: archivedAt,
+    });
+    await appendNocrPlanetRootLaw(branchArchivedRecord);
+    await appendBranchTreePlanetRootLaw(branchArchivedRecord);
+    const treeArchivedRecord = await appendNocrTreeArchivedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.tree!.id}.archived`,
+      entity: "tree",
+      lifecycle: "archived",
+      reason: addressedFinal.reason,
+      createdAt: archivedAt,
+    });
+    await appendNocrPlanetRootLaw(treeArchivedRecord);
+    await appendBranchTreePlanetRootLaw(treeArchivedRecord);
+  }
+  nocrParity = await readNocrParity();
+  if (!nocrParity.ok) {
+    const deletedAt = new Date().toISOString();
+    const branchDeletedRecord = await appendNocrBranchDeletedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.branch!.id}.deleted`,
+      entity: "branch",
+      lifecycle: "deleted",
+      reason: "nocr_ledger_planet_parity_failed",
+      createdAt: deletedAt,
+    });
+    await appendNocrPlanetRootLaw(branchDeletedRecord);
+    await appendBranchTreePlanetRootLaw(branchDeletedRecord);
+    const treeDeletedRecord = await appendNocrTreeDeletedLedger({
+      runId,
+      branchId: quantumCollapse.branch!.id,
+      treeId: quantumCollapse.tree!.id,
+      stateChangeId: `state.${quantumCollapse.tree!.id}.deleted`,
+      entity: "tree",
+      lifecycle: "deleted",
+      reason: "nocr_ledger_planet_parity_failed",
+      createdAt: deletedAt,
+    });
+    await appendNocrPlanetRootLaw(treeDeletedRecord);
+    await appendBranchTreePlanetRootLaw(treeDeletedRecord);
+    nocrParity = await readNocrParity();
+  }
+  const finalOutput = nocrParity.ok ? addressedFinal : buildNocrParityFailClosedRefusal(runId, nocrParity);
+  updateCodingContinuityMemory(state, context.user_message, finalOutput);
   const novelty = await runNoveltyControllerCycle({
     runId,
     message: context.user_message,
@@ -365,18 +1027,89 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
     state,
     baseCoverageComplete: lawWeb.coverage.complete,
   });
+  const quantumBlanket = runQuantumBlanketCycle({
+    message: context.user_message,
+    documentText,
+    userLawTexts: ontology.user_laws_applied,
+    state,
+  });
+  await appendMetaDeliveryRecords(state.sessionId, runId, quantumBlanket.proposals, resolveAutoApplySources(state));
+  const chatBranchUpdate = finalOutput.final_action === "success"
+    ? updateActiveChatBranch({
+      current: state.activeChat,
+      quantumCollapse,
+      reason: finalOutput.reason,
+      abilityRoute: guarded.ability_route,
+    })
+    : {
+      action: "none" as const,
+      branch: null,
+      state: state.activeChat,
+      governanceReason: "branch_growth_skipped_on_refusal",
+    };
+  state.activeChat = chatBranchUpdate.state;
+  if (chatBranchUpdate.branch && chatBranchUpdate.action !== "none") {
+    const lifecycleAt = new Date().toISOString();
+    const lifecyclePayload = {
+      runId,
+      branchId: chatBranchUpdate.branch.id,
+      treeId: chatBranchUpdate.branch.treeId,
+      stateChangeId: `state.${chatBranchUpdate.branch.id}.${chatBranchUpdate.action}`,
+      entity: "branch" as const,
+      reason: finalOutput.reason,
+      createdAt: lifecycleAt,
+    };
+    const lifecycleRecord = chatBranchUpdate.action === "extend"
+      ? await appendNocrBranchExtendedLedger({ ...lifecyclePayload, lifecycle: "extended" })
+      : chatBranchUpdate.action === "fork"
+        ? await appendNocrBranchForkedLedger({ ...lifecyclePayload, lifecycle: "forked" })
+        : chatBranchUpdate.action === "sibling"
+          ? await appendNocrBranchSiblingCreatedLedger({ ...lifecyclePayload, lifecycle: "forked" })
+          : chatBranchUpdate.action === "merge"
+            ? await appendNocrBranchMergedLedger({ ...lifecyclePayload, lifecycle: "extended" })
+            : null;
+    if (lifecycleRecord) {
+      await appendNocrPlanetRootLaw(lifecycleRecord);
+      await appendBranchTreePlanetRootLaw(lifecycleRecord);
+    }
+    const treeRecord = chatBranchUpdate.action === "new_tree"
+      ? await appendNocrTreeStartedLedger({
+        runId,
+        branchId: chatBranchUpdate.branch.id,
+        treeId: chatBranchUpdate.branch.treeId,
+        stateChangeId: `state.${chatBranchUpdate.branch.treeId}.started`,
+        entity: "tree",
+        lifecycle: "extended",
+        reason: finalOutput.reason,
+        createdAt: lifecycleAt,
+      })
+      : await appendNocrTreeExtendedLedger({
+        runId,
+        branchId: chatBranchUpdate.branch.id,
+        treeId: chatBranchUpdate.branch.treeId,
+        stateChangeId: `state.${chatBranchUpdate.branch.treeId}.extended`,
+        entity: "tree",
+        lifecycle: "extended",
+        reason: finalOutput.reason,
+        createdAt: lifecycleAt,
+      });
+    await appendNocrPlanetRootLaw(treeRecord);
+    await appendBranchTreePlanetRootLaw(treeRecord);
+  }
 
   updateInfiniteContext(state, {
     user: context.user_message,
-    assistant: addressedFinal.text,
-    admitted: addressedFinal.final_action === "success",
-    reason: addressedFinal.reason,
+    assistant: finalOutput.text,
+    admitted: finalOutput.final_action === "success",
+    reason: finalOutput.reason,
     constraints: constrained.active_constraints,
     docs: context.documents,
   });
   // Apply newly proposed hardening laws immediately so failures
   // become active constraints in this same turn, not one turn later.
-  applyPendingLawProposals(state);
+  applyPendingLawProposals(state, {
+    autoApplySources: resolveAutoApplySources(state),
+  });
   await persistContextState(state);
 
   await appendSnapRunLedger({
@@ -385,10 +1118,10 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
     profileVersion: "1.0.0",
     profileImmutableHash: "lml-chat-runtime-v1",
     runMode: "demo",
-    admissible: addressedFinal.final_action === "success",
-    nullOutput: addressedFinal.final_action !== "success",
-    blockerCount: constrained.triggered_constraints.length,
-    rejectedCount: addressedFinal.triggeredRepairs.length,
+    admissible: finalOutput.final_action === "success",
+    nullOutput: finalOutput.final_action !== "success",
+    blockerCount: constrained.triggered_constraints.length + (nocrParity.ok ? 0 : nocrParity.missingLawIds.length + nocrParity.extraLawIds.length),
+    rejectedCount: finalOutput.triggeredRepairs.length,
     artifactLength: context.user_message.length,
     createdAt: new Date().toISOString(),
   });
@@ -398,11 +1131,13 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
     {
       ...guarded,
       active_constraints: constrained.active_constraints,
-      triggered_constraints: constrained.triggered_constraints,
-      final_action: addressedFinal.final_action,
-      reason: addressedFinal.reason,
+      triggered_constraints: nocrParity.ok
+        ? constrained.triggered_constraints
+        : [...constrained.triggered_constraints, "nocr_ledger_planet_parity"],
+      final_action: finalOutput.final_action,
+      reason: finalOutput.reason,
     },
-    addressedFinal,
+    finalOutput,
     intelligence,
     {
       sessionId: state.sessionId,
@@ -412,14 +1147,62 @@ export async function run_lml_chat_runtime(context: RuntimeContext): Promise<Lml
       l1_size: state.ltm.L1.length,
       dependency_edges: state.dependencies.length,
     },
+      {
+        noveltyDetected: novelty.noveltyDetected,
+        coverageIncomplete: novelty.coverageIncomplete,
+        proposedLawCount: novelty.proposedLaws.length,
+        activatedFromPriorCycle,
+        ledgerIndex: novelty.ledgerIndex,
+      },
+      {
+        active: quantumBlanket.active,
+        candidateCount: quantumBlanket.candidateCount,
+        finiteSeedCount: quantumBlanket.finiteSeedCount,
+        proposedLawCount: quantumBlanket.proposedLawCount,
+        pendingProposalCount: quantumBlanket.pendingProposalCount,
+      },
+      metaCritical
+        ? {
+          fired: true,
+          mode: metaCritical.mode,
+          reason: metaCritical.reason,
+          preserveExpression: metaCritical.preserveExpression,
+        }
+        : {
+          fired: false,
+          mode: null,
+          reason: null,
+          preserveExpression: false,
+        },
+      {
+        proposedLawCount: failureLearning.proposedLaws.length,
+        signature: failureLearning.signature,
+        sources: unique(failureLearning.proposedLaws.map((law) => law.source)),
+      },
+      orchestratorTrace,
+    nocrFunnelState,
+    quantumCollapse,
+    rootRegistry,
     {
-      noveltyDetected: novelty.noveltyDetected,
-      coverageIncomplete: novelty.coverageIncomplete,
-      proposedLawCount: novelty.proposedLaws.length,
-      activatedFromPriorCycle,
-      ledgerIndex: novelty.ledgerIndex,
+      ...nocrParity,
+      fail_closed: !nocrParity.ok,
     },
-    orchestratorTrace,
+    {
+      exactSeedCount: exactChatSeeds.length,
+      seeds: exactChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+      qeCandidateCount: chatConvoQuantumSpark.candidateCount,
+      qeSeedCount: qeChatSeeds.length,
+      qeSeeds: qeChatSeeds.map((seed) => ({ id: seed.id, origin: seed.origin })),
+    },
+    {
+      action: chatBranchUpdate.action,
+      governanceReason: chatBranchUpdate.governanceReason,
+      activeBranchId: state.activeChat.activeBranchId,
+      activeTreeId: state.activeChat.activeTreeId,
+      branchTurnCount: chatBranchUpdate.branch?.turnCount ?? 0,
+      branchSeedCount: chatBranchUpdate.branch?.matchedSeedIds.length ?? 0,
+      branchParentCount: chatBranchUpdate.branch?.matchedRootIds.length ?? 0,
+    },
   );
 }
 
@@ -468,6 +1251,9 @@ export function compile_runtime_ontology(
 export function apply_constraints(
   userMessage: string,
   ontology: OntologyState,
+  options?: {
+    suspendExpressionRefusal?: boolean;
+  },
 ): {
   active_constraints: string[];
   triggered_constraints: string[];
@@ -497,7 +1283,7 @@ export function apply_constraints(
 
   if (/\bnever talk nerdy|never talk formally|no nerd|no formal\b/.test(userMerged)) {
     activeConstraints.push("no_nerd_or_formal_mode");
-    if (isNerdOrFormalRequest(userMessage)) {
+    if (isNerdOrFormalRequest(userMessage) && !options?.suspendExpressionRefusal) {
       triggered.push("no_nerd_or_formal_mode");
       refusalReason = "violates law 'no nerd/formal mode' (user-defined)";
     }
@@ -506,7 +1292,7 @@ export function apply_constraints(
   const expressionLocked = /\bmy guy|street|slang|casual\b/.test(userMerged);
   if (expressionLocked) {
     activeConstraints.push("expression_style_lock");
-    if (/\b(don't|do not|stop|no longer)\b.*\b(my guy|street|slang|casual)\b/.test(text)) {
+    if (/\b(don't|do not|stop|no longer)\b.*\b(my guy|street|slang|casual)\b/.test(text) && !options?.suspendExpressionRefusal) {
       triggered.push("expression_style_lock");
       refusalReason = "violates active expression law (user-defined)";
     }
@@ -545,6 +1331,21 @@ export function guard_abilities(
   }
 
   const msg = userMessage.toLowerCase();
+  if (isFrontierBenchmarkCodingPrompt(msg)) {
+    const codingState = ontology.capability_graph.abilities.coding;
+    if (codingState.state !== "allowed") {
+      return {
+        ability_route: "coding.blocked",
+        final_action: "refusal",
+        reason: buildAbilityBlockedReason("coding", codingState),
+      };
+    }
+    return {
+      ability_route: "coding.governed",
+      final_action: "success",
+      reason: "frontier benchmark coding prompt forced to coding.governed",
+    };
+  }
   const webSearchAsked = /\b(search|look up|find on web|web)\b/.test(msg);
   const codingAsked = isCodingTaskIntent(msg);
   const webSearchState = ontology.capability_graph.abilities.web_search;
@@ -597,8 +1398,13 @@ export function generate_governed_response(
   constrained: ReturnType<typeof apply_constraints>,
   guarded: ReturnType<typeof guard_abilities>,
   state: InfiniteContextState,
+  branchRendererContext: BranchRendererContext,
 ): Promise<GeneratedOutput> {
   const witness = buildWitnessForChat(runId, guarded.final_action, guarded.reason);
+  const metaCritical = detectMetaCriticalSignal(userMessage, ontology.user_laws_applied);
+  if (metaCritical) {
+    return buildMetaCriticalResponse(runId, userMessage, documentText, ontology.user_laws_applied, witness, metaCritical);
+  }
   if (isCapabilitiesIntent(userMessage)) {
     registerCapabilitiesHardeningLaw(state);
     return Promise.resolve({
@@ -643,9 +1449,13 @@ export function generate_governed_response(
     });
   }
 
-  const hasUserOverlayLaws = ontology.user_laws_applied.length > 0;
   const insights = extractDocumentInsights(documentText);
   const runtimeAbilityCommand = parseRuntimeAbilityLawCommand(userMessage);
+  const humanMirrorProfile = compileHumanMirrorProfile({
+    question: userMessage,
+    policy: parseExpressionPolicy(ontology.user_laws_applied.join("\n")),
+    documentInsights: insights,
+  });
   if (runtimeAbilityCommand) {
     return Promise.resolve({
       text: renderDeterministicAbilityCommandResponse(runtimeAbilityCommand, ontology),
@@ -656,53 +1466,60 @@ export function generate_governed_response(
   }
   const lifePreservationProjection = buildLifePreservationProjection(userMessage, ontology.user_laws_applied);
   if (lifePreservationProjection) {
-    return runGpt2Constrained({
-      runId,
-      content: lifePreservationProjection,
-      witness,
-      mode: "chat_ontology",
-    }).then((gpt2) => ({
-      text: gpt2.text,
+    return Promise.resolve({
+      text: composeLawGovernedSpeech({
+        userMessage,
+        lane: "life_preservation",
+        context: branchRendererContext,
+        payload: buildHumanCompiledPrompt(humanMirrorProfile, userMessage, lifePreservationProjection, "life_preservation"),
+      }),
       final_action: "success",
       reason: "life-preservation projection engaged",
-      model: {
-        provider: gpt2.receipt.provider,
-        model: gpt2.receipt.model,
-        runId,
-        callId: gpt2.receipt.callId,
-        at: gpt2.receipt.at,
-        inputDigest: gpt2.receipt.inputDigest,
-      },
-    }));
+      model: buildDeterministicRuntimeModel(runId, "branch-law-emitter-life-preservation"),
+    });
   }
   const styleProjection = buildStyleDirectiveProjection(userMessage, ontology.user_laws_applied, insights);
   if (styleProjection && guarded.ability_route === "chat.governed") {
-    return runGpt2Constrained({
-      runId,
-      content: styleProjection,
-      witness,
-      mode: "chat_ontology",
-    }).then((gpt2) => ({
-      text: gpt2.text,
+    return Promise.resolve({
+      text: composeLawGovernedSpeech({
+        userMessage,
+        lane: "style_directive",
+        context: branchRendererContext,
+        payload: buildHumanCompiledPrompt(humanMirrorProfile, userMessage, styleProjection, "style_directive"),
+      }),
       final_action: "success",
       reason: "style directive projected through policy runtime",
-      model: {
-        provider: gpt2.receipt.provider,
-        model: gpt2.receipt.model,
-        runId,
-        callId: gpt2.receipt.callId,
-        at: gpt2.receipt.at,
-        inputDigest: gpt2.receipt.inputDigest,
-      },
-    }));
+      model: buildDeterministicRuntimeModel(runId, "branch-law-emitter-style-directive"),
+    });
   }
   if (guarded.ability_route === "web_search.governed") {
     return buildWebSearchResponse(runId, userMessage, witness, guarded.reason);
   }
   if (guarded.ability_route === "coding.governed") {
+    if (isFrontierBenchmarkCodingPrompt(userMessage.toLowerCase())) {
+      return runFrontierBenchmarkPatchPath({
+        runId,
+        userMessage,
+      });
+    }
+    const codingContract = deriveCodingSkeletonContract({
+      question: userMessage,
+      userLaws: ontology.user_laws_applied,
+      insights,
+    });
+    const codingIntentSpec = deriveCodingIntentSpec({
+      question: userMessage,
+      contract: codingContract,
+    });
+    const codingRepoContext = shouldUseRepoContext(userMessage, codingContract)
+      ? buildCodingRepoContext({
+        rootDir: process.cwd(),
+        contract: codingContract,
+      })
+      : null;
     const deterministicLawPath = resolveDeterministicCodingLawPath(userMessage);
     if (deterministicLawPath) {
-      if (!validateDeterministicCodingLawOutput(deterministicLawPath.text)) {
+      if (!validateDeterministicCodingLawOutput(deterministicLawPath.text) || !classifyCodingProjection(deterministicLawPath.text, codingContract).ok) {
         return Promise.resolve({
           text: "NULL: deterministic coding law path produced non-admissible output.",
           final_action: "refusal",
@@ -717,113 +1534,107 @@ export function generate_governed_response(
         model: buildDeterministicRuntimeModel(runId, deterministicLawPath.callId),
       });
     }
+    if (codingNeedsClarification(userMessage, codingContract, codingIntentSpec)) {
+      return Promise.resolve({
+        text: buildDeterministicCodingClarification(userMessage, codingContract, codingIntentSpec, codingRepoContext),
+        final_action: "success",
+        reason: "deterministic_coding_clarification",
+        model: buildDeterministicRuntimeModel(runId, "branch-law-emitter-coding-clarification"),
+      });
+    }
     const codingText = buildGovernedCodingResponse(userMessage, ontology.user_laws_applied, insights, state);
-    return runGpt2Constrained({
-      runId,
-      content: codingText,
+    return runCodingCollapse({
+      basePrompt: codingText,
+      contract: codingContract,
+      intentSpec: codingIntentSpec,
       witness,
-      mode: "chat_ontology",
-    }).then((gpt2) => {
-      const quality = classifyCodingProjection(gpt2.text);
-      const baseModel = {
-        provider: gpt2.receipt.provider,
-        model: gpt2.receipt.model,
-        runId,
-        callId: gpt2.receipt.callId,
-        at: gpt2.receipt.at,
-        inputDigest: gpt2.receipt.inputDigest,
-      } as const;
-      if (!quality.ok) {
+      repoContext: codingRepoContext,
+    }).then((collapse) => {
+      const baseModel = buildRuntimeModelFromReceipt(runId, collapse.receipt);
+      if (!collapse.ok) {
         return {
-          text: `NULL: coding projection failed (${quality.reason}).`,
+          text: `NULL: coding projection failed (${collapse.reason}).`,
           final_action: "refusal" as const,
-          reason: `coding_projection_failed:${quality.reason}`,
+          reason: `coding_projection_failed:${collapse.reason}`,
           model: baseModel,
         };
       }
       return {
-        text: gpt2.text,
+        text: buildLawGovernedCodingEmit(userMessage, collapse.text, codingContract),
         final_action: "success" as const,
-        reason: guarded.reason,
+        reason: collapse.reason,
         model: baseModel,
       };
     });
   }
   const contextAnchored = buildContextAnchoredResponse(userMessage, state, insights, ontology.user_laws_applied);
   if (contextAnchored) {
-    return runGpt2Constrained({
-      runId,
-      content: contextAnchored,
-      witness,
-      mode: "chat_ontology",
-    }).then((gpt2) => ({
-      text: gpt2.text,
+    return Promise.resolve({
+      text: composeLawGovernedSpeech({
+        userMessage,
+        lane: "context_anchor",
+        context: branchRendererContext,
+        payload: buildHumanCompiledPrompt(humanMirrorProfile, userMessage, contextAnchored, "context_anchor"),
+      }),
       final_action: "success",
       reason: guarded.reason,
-      model: {
-        provider: gpt2.receipt.provider,
-        model: gpt2.receipt.model,
-        runId,
-        callId: gpt2.receipt.callId,
-        at: gpt2.receipt.at,
-        inputDigest: gpt2.receipt.inputDigest,
-      },
-    }));
+      model: buildDeterministicRuntimeModel(runId, "branch-law-emitter-context-anchor"),
+    });
   }
   const learningResponse = buildLearningResponse(userMessage, ontology.user_laws_applied, insights);
   if (learningResponse) {
-    return runGpt2Constrained({
-      runId,
-      content: learningResponse,
-      witness,
-      mode: "chat_ontology",
-    }).then((gpt2) => ({
-      text: gpt2.text,
+    return Promise.resolve({
+      text: composeLawGovernedSpeech({
+        userMessage,
+        lane: "learning",
+        context: branchRendererContext,
+        payload: buildHumanCompiledPrompt(humanMirrorProfile, userMessage, learningResponse, "learning"),
+      }),
       final_action: "success",
       reason: guarded.reason,
-      model: {
-        provider: gpt2.receipt.provider,
-        model: gpt2.receipt.model,
-        runId,
-        callId: gpt2.receipt.callId,
-        at: gpt2.receipt.at,
-        inputDigest: gpt2.receipt.inputDigest,
-      },
-    }));
+      model: buildDeterministicRuntimeModel(runId, "branch-law-emitter-learning"),
+    });
   }
 
-  const generated = hasUserOverlayLaws
-    ? buildAgentResponse({
-      question: userMessage,
-      policy: parseExpressionPolicy(ontology.user_laws_applied.join("\n")),
-      documentInsights: insights,
-    })
-    : {
-      mode: "baseline" as const,
-      text: buildBaseCoreResponse(userMessage, insights, state),
-    };
-  return runGpt2Constrained({
-    runId,
-    content: generated.text,
-    witness,
-    mode: "chat_ontology",
-  }).then((gpt2) => ({
-    text: gpt2.text,
+  return Promise.resolve({
+    text: composeLawGovernedSpeech({
+      userMessage,
+      lane: "base_chat",
+      context: branchRendererContext,
+      payload: buildHumanCompiledPrompt(
+        humanMirrorProfile,
+        userMessage,
+        buildBaseCoreResponse(userMessage, insights, state),
+        "base_chat",
+      ),
+    }),
     final_action: "success",
     reason: guarded.reason,
-    model: {
-      provider: gpt2.receipt.provider,
-      model: gpt2.receipt.model,
-      runId,
-      callId: gpt2.receipt.callId,
-      at: gpt2.receipt.at,
-      inputDigest: gpt2.receipt.inputDigest,
-    },
-  }));
+    model: buildDeterministicRuntimeModel(runId, "branch-law-emitter-base-chat"),
+  });
 }
 
 function isCapabilitiesIntent(userMessage: string): boolean {
-  return /\b(what can lml do|what can you do|help|capabilities)\b/i.test(userMessage.trim().toLowerCase());
+  const normalized = userMessage.trim().toLowerCase();
+  if (!normalized) {
+    return false;
+  }
+
+  const directCapabilityQuery = /\b(what can lml do|what can you do|your capabilities|lml capabilities|show capabilities|show me your capabilities)\b/i.test(normalized);
+  if (!directCapabilityQuery) {
+    return false;
+  }
+
+  // Pure capability queries are allowed through the deterministic capability answer.
+  // Mixed prompts with real tasks, emotions, or multi-domain asks must stay in branch formation.
+  const mixedTaskSignals = [
+    /\b(code|coding|build|make|write|implement|debug|refactor|design|graph|parser|compiler|doom|game|endpoint|api|fastapi|python|typescript|javascript|shell)\b/i,
+    /\b(math|formula|derivation|calc|class|study|homework)\b/i,
+    /\b(cat|girlfriend|gf|bro|brodie|angry|mad|sad|crash out|patience|apology|relationship)\b/i,
+    /\b(policy|law|new law|explain|what do you think|reality check|study plan|roadmap)\b/i,
+    /\b(today|tonight|tomorrow|yesterday|continue|finish|help me)\b/i,
+  ];
+  return !mixedTaskSignals.some((pattern) => pattern.test(normalized));
 }
 
 function buildDeterministicRuntimeModel(runId: string, callId: string): LmlChatResult["model"] {
@@ -835,6 +1646,45 @@ function buildDeterministicRuntimeModel(runId: string, callId: string): LmlChatR
     callId,
     at,
     inputDigest: `deterministic:${callId}:${at}`,
+    generationStatus: "deterministic",
+    generationFailureClass: "none",
+    generationDetail: `deterministic:${callId}`,
+  };
+}
+
+function buildRuntimeModelFromReceipt(runId: string, receipt: Gpt2CallResult["receipt"]): LmlChatResult["model"] {
+  return {
+    provider: receipt.provider,
+    model: receipt.model,
+    runId,
+    callId: receipt.callId,
+    at: receipt.at,
+    inputDigest: receipt.inputDigest,
+    generationStatus: receipt.generationStatus,
+    generationFailureClass: receipt.generationFailureClass,
+    generationDetail: receipt.generationDetail,
+  };
+}
+
+function buildBranchRendererContext(
+  quantumCollapse: QuantumCollapseResult,
+  rootRegistry: ReturnType<typeof buildRootRegistry>,
+  exactChatSeeds: Array<{ id: string; text: string }>,
+  qeChatSeeds: Array<{ id: string; text: string }>,
+): BranchRendererContext {
+  const rootById = new Map(rootRegistry.allRoots.map((root) => [root.id, root]));
+  const seedById = new Map([...exactChatSeeds, ...qeChatSeeds, { id: quantumCollapse.taggedSeed.seed.id, text: quantumCollapse.taggedSeed.seed.text }].map((seed) => [seed.id, seed.text]));
+  return {
+    branchId: quantumCollapse.branch?.id ?? null,
+    treeId: quantumCollapse.tree?.id ?? null,
+    matchedSeedTexts: unique(
+      quantumCollapse.snapMatches.map((match) => seedById.get(match.seedId) ?? match.seedId),
+    ),
+    matchedRootIds: unique(quantumCollapse.snapMatches.map((match) => match.rootId)),
+    matchedRootLabels: unique(
+      quantumCollapse.snapMatches.map((match) => rootById.get(match.rootId)?.label ?? match.rootId),
+    ),
+    snapMatchCount: quantumCollapse.snapMatches.length,
   };
 }
 
@@ -871,9 +1721,37 @@ function isCodingReadinessIntent(userMessage: string): boolean {
 }
 
 function isCodingTaskIntent(userMessageLower: string): boolean {
-  return /\b(code|coding|write code|debug|refactor|implement|function|script|typescript|javascript|python|golang|rust|fastapi|flask|pytest|unittest|api|endpoint|middleware|sqlalchemy|crud|regex)\b/.test(
+  if (isFrontierBenchmarkCodingPrompt(userMessageLower)) {
+    return true;
+  }
+  const codingSignal = /\b(code|coding|write code|debug|refactor|implement|function|script|typescript|javascript|python|golang|rust|fastapi|flask|pytest|unittest|api|endpoint|middleware|sqlalchemy|crud|regex)\b/.test(
     userMessageLower,
   );
+  if (!codingSignal) {
+    return false;
+  }
+
+  const mixedHumanSignals = [
+    /\b(angry|mad|sad|bro|brodie|girlfriend|gf|wife|husband|friend|crash out|patience|emotion|feeling)\b/,
+    /\b(math|formula|derivation|calc|class|study|homework)\b/,
+    /\b(apology|relationship|reality check|what do you think|what u think|keep me solid)\b/,
+    /\b(plan|roadmap|most important thing first|without losing any piece)\b/,
+  ];
+  const mixedDomainPrompt = mixedHumanSignals.some((pattern) => pattern.test(userMessageLower));
+
+  // Mixed human / multi-domain prompts should stay in branch formation.
+  // Coding ability gating is reserved for coding-dominant turns.
+  if (mixedDomainPrompt) {
+    return false;
+  }
+
+  return true;
+}
+
+function isFrontierBenchmarkCodingPrompt(userMessageLower: string): boolean {
+  return /\bswe-bench(?:\s+pro)?\b/.test(userMessageLower)
+    && /\brepository:/.test(userMessageLower)
+    && /\binstance id:/.test(userMessageLower);
 }
 
 export function return_trace(
@@ -883,7 +1761,41 @@ export function return_trace(
   intelligence: Intelligence49Report,
   context: LmlChatResult["context"],
   novelty: LmlChatResult["novelty"],
+  quantumBlanket: LmlChatResult["quantum_blanket"],
+  metaCritical: LmlChatResult["meta_critical"],
+  failureLearning: LmlChatResult["failure_learning"],
   orchestratorTrace?: OrchestratorTrace,
+  nocrFunnelState?: NocrFunnelState,
+  quantumCollapse?: QuantumCollapseResult,
+  rootRegistry?: ReturnType<typeof buildRootRegistry>,
+  nocrParity?: {
+    ok: boolean;
+    fail_closed: boolean;
+    missingLawIds: string[];
+    extraLawIds: string[];
+  },
+  chatSeedLane?: {
+    exactSeedCount: number;
+    seeds: Array<{
+      id: string;
+      origin: string;
+    }>;
+    qeCandidateCount?: number;
+    qeSeedCount?: number;
+    qeSeeds?: Array<{
+      id: string;
+      origin: string;
+    }>;
+  },
+  chatBranch?: {
+    action: "new_tree" | "extend" | "fork" | "sibling" | "merge" | "none";
+    governanceReason?: string;
+    activeBranchId: string | null;
+    activeTreeId: string | null;
+    branchTurnCount: number;
+    branchSeedCount: number;
+    branchParentCount: number;
+  },
 ): LmlChatResult {
   const code = extractCodeBlocks(generated.text);
   return {
@@ -896,7 +1808,11 @@ export function return_trace(
     intelligence,
     context,
     novelty,
+    quantum_blanket: quantumBlanket,
+    meta_critical: metaCritical,
+    failure_learning: failureLearning,
     model: generated.model,
+    benchmark_debug: generated.benchmark_debug,
     trace: {
       base_laws: ontology.base_laws_applied,
       system_laws: ontology.system_laws_applied,
@@ -921,6 +1837,116 @@ export function return_trace(
           })),
         }
         : undefined,
+      nocr_funnel: nocrFunnelState
+        ? {
+          seed_tag: nocrFunnelState.taggedSeed.seedTag,
+          root_space_size: nocrFunnelState.taggedRoots.length,
+          ledger_state: nocrFunnelState.ledgerState,
+          reason: nocrFunnelState.taggedSeed.funnelReason,
+        }
+        : undefined,
+      nocr_input: nocrFunnelState
+        ? {
+          root_count: nocrFunnelState.taggedRoots.length,
+          chat_exact_seed_count: nocrFunnelState.exactChatSeeds.length,
+          chat_qe_seed_count: nocrFunnelState.qeChatSeeds.length,
+        }
+        : undefined,
+      quantum_collapse: quantumCollapse
+        ? {
+          seed_tag: quantumCollapse.taggedSeed.seedTag,
+          root_tag: quantumCollapse.matchedRoot?.rootTag ?? null,
+          root_id: quantumCollapse.matchedRoot?.root.id ?? null,
+          branch_id: quantumCollapse.branch?.id ?? null,
+          tree_id: quantumCollapse.tree?.id ?? null,
+          state_change_id: quantumCollapse.stateChange?.id ?? null,
+          domain: quantumCollapse.matchedRoot?.root.domain ?? null,
+          reason: quantumCollapse.reason,
+          collapse_moment: quantumCollapse.collapseMoment,
+          lock_state: quantumCollapse.lockState,
+          lock_reason_class: quantumCollapse.lockReasonClass,
+          match_score: quantumCollapse.matchScore,
+          qe_generated_root_count: quantumCollapse.qeGeneratedRootCount,
+          qe_checked_root_count: quantumCollapse.qeCheckedRootCount,
+          snap_match_count: quantumCollapse.snapMatches.length,
+          snap_matches: quantumCollapse.snapMatches.map((match) => ({
+            seed_id: match.seedId,
+            root_id: match.rootId,
+            domain: match.domain,
+            reason_class: match.reasonClass,
+            score: match.score,
+          })),
+        }
+        : undefined,
+      chat_seed_lane: chatSeedLane
+        ? {
+          exact_seed_count: chatSeedLane.exactSeedCount,
+          primary_seed_id: chatSeedLane.seeds[0]?.id ?? null,
+          primary_seed_origin: chatSeedLane.seeds[0]?.origin ?? null,
+          qe_candidate_count: chatSeedLane.qeCandidateCount ?? 0,
+          qe_seed_count: chatSeedLane.qeSeedCount ?? 0,
+          primary_qe_seed_id: chatSeedLane.qeSeeds?.[0]?.id ?? null,
+          primary_qe_seed_origin: chatSeedLane.qeSeeds?.[0]?.origin ?? null,
+        }
+        : undefined,
+      chat_branch: chatBranch
+        ? {
+          action: chatBranch.action,
+          governance_reason: chatBranch.governanceReason ?? "none",
+          active_branch_id: chatBranch.activeBranchId,
+          active_tree_id: chatBranch.activeTreeId,
+          branch_turn_count: chatBranch.branchTurnCount,
+          branch_seed_count: chatBranch.branchSeedCount,
+          branch_parent_count: chatBranch.branchParentCount,
+        }
+        : undefined,
+      root_registry: rootRegistry
+        ? {
+          static_count: rootRegistry.staticRoots.length,
+          extracted_count: rootRegistry.extractedRoots.length,
+          total_count: rootRegistry.allRoots.length,
+          source_units: rootRegistry.extraction.sourceUnitCount,
+          extracted_root_count: rootRegistry.extraction.extractedRootCount,
+          expansion_delta: rootRegistry.extraction.expansionDelta,
+          under_enumerated: rootRegistry.extraction.underEnumerated,
+          identity_kernel_count: rootRegistry.extraction.identityKernelCount,
+          legality_region_count: rootRegistry.extraction.legalityRegionCount,
+          directive_count: rootRegistry.extraction.directiveCount,
+          code_unit_count: rootRegistry.extraction.codeUnitCount,
+          math_unit_count: rootRegistry.extraction.mathUnitCount,
+          sentence_count: rootRegistry.extraction.sentenceCount,
+          artifact_root_count: rootRegistry.extraction.artifactRootCount,
+          user_law_root_count: rootRegistry.extraction.userLawRootCount,
+        }
+        : undefined,
+      nocr_parity: nocrParity
+        ? {
+          ok: nocrParity.ok,
+          fail_closed: nocrParity.fail_closed,
+          missing_law_ids: nocrParity.missingLawIds,
+          extra_law_ids: nocrParity.extraLawIds,
+        }
+        : undefined,
+      meta_critical: metaCritical.fired && metaCritical.mode
+        ? {
+          fired: true,
+          mode: metaCritical.mode,
+          reason: metaCritical.reason ?? "meta_critical",
+          preserve_expression: metaCritical.preserveExpression,
+        }
+        : undefined,
+      failure_learning: {
+        proposed_law_count: failureLearning.proposedLawCount,
+        signature: failureLearning.signature,
+        sources: failureLearning.sources,
+      },
+      generation: {
+        status: generated.model.generationStatus ?? "generated",
+        failure_class: generated.model.generationFailureClass && generated.model.generationFailureClass !== "none"
+          ? generated.model.generationFailureClass
+          : null,
+        detail: generated.model.generationDetail ?? null,
+      },
       ...buildWitnessTrace(ontology, guarded, generated),
     },
   };
@@ -928,6 +1954,19 @@ export function return_trace(
 
 function unique(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function inferSeedSourceFromAbilityRoute(abilityRoute: string): "chat" | "coding" | "web_search" | "refusal" {
+  if (abilityRoute.startsWith("coding.")) {
+    return "coding";
+  }
+  if (abilityRoute.startsWith("web_search.")) {
+    return "web_search";
+  }
+  if (abilityRoute === "guard.refusal") {
+    return "refusal";
+  }
+  return "chat";
 }
 
 function resolveRequiredMetaLaws(lawWeb: LawWeb): string[] {
@@ -972,6 +2011,117 @@ function buildWitnessForChat(runId: string, finalAction: "success" | "refusal", 
   };
 }
 
+async function buildMetaCriticalResponse(
+  runId: string,
+  userMessage: string,
+  documentText: string,
+  userLaws: string[],
+  witness: Witness,
+  metaCritical: MetaCriticalSignal,
+): Promise<GeneratedOutput> {
+  const insights = extractDocumentInsights(documentText);
+  const guidance = buildMetaCriticalGuidance({
+    userMessage,
+    userLaws,
+    mode: metaCritical.mode,
+    reason: metaCritical.reason,
+    documentInsights: insights,
+  });
+  const text = composeLawGovernedSpeech({
+    userMessage,
+    lane: "meta_critical",
+    payload: guidance,
+    context: {
+      branchId: null,
+      treeId: null,
+      matchedSeedTexts: [],
+      matchedRootIds: [],
+      matchedRootLabels: [],
+      snapMatchCount: 0,
+    },
+  });
+  return {
+    text,
+    final_action: metaCritical.mode === "system_integrity" ? "refusal" : "success",
+    reason: metaCritical.reason,
+    model: buildDeterministicRuntimeModel(runId, `meta-critical-${metaCritical.mode}`),
+  };
+}
+
+async function readNocrParity(): Promise<{
+  ok: boolean;
+  missingLawIds: string[];
+  extraLawIds: string[];
+}> {
+  const [records, laws] = await Promise.all([
+    readAllNocrLedgerRecords(),
+    readAllNocrPlanetRootLaws(),
+  ]);
+  const syncedLaws = await syncNocrPlanetFromLedger(records);
+  return verifyNocrLedgerPlanetParity(records, syncedLaws.length > 0 ? syncedLaws : laws);
+}
+
+function buildNocrParityFailClosedRefusal(
+  runId: string,
+  parity: {
+    missingLawIds: string[];
+    extraLawIds: string[];
+  },
+): RepairedOutput {
+  return {
+    text: "LML refused this turn because NOCR ledger and NOCR planet parity failed. Repair the mirror before continuing.",
+    final_action: "refusal",
+    reason: `nocr_ledger_planet_parity_failed:missing=${parity.missingLawIds.length};extra=${parity.extraLawIds.length}`,
+    model: buildDeterministicRuntimeModel(runId, "nocr-parity-fail-closed"),
+    failureClasses: ["NOCR_LEDGER_PLANET_PARITY_FAILED"],
+    triggeredRepairs: [],
+  };
+}
+
+function buildCollapsedNullRefusal(runId: string, reason: string): RepairedOutput {
+  return {
+    text: "LML refused this turn because the seed did not lock to a lawful parent/root. The branch clipped to NULL before admissible output formation.",
+    final_action: "refusal",
+    reason: `nocr_parent_lock_miss:${reason}`,
+    model: buildDeterministicRuntimeModel(runId, "nocr-parent-lock-miss"),
+    failureClasses: ["NOCR_PARENT_LOCK_MISS"],
+    triggeredRepairs: [],
+  };
+}
+
+function inferCollapseDomainFromFunnel(reason: string): "sun" | "ability" | "meta" | "human" | "quantum" {
+  const match = reason.match(/requested_domain=([a-z_]+)/);
+  const domain = match?.[1];
+  if (domain === "ability" || domain === "meta" || domain === "human" || domain === "quantum" || domain === "sun") {
+    return domain;
+  }
+  return "sun";
+}
+
+function resolveNslLedgerEventType(repaired: RepairedOutput): "REPAIR_PASSTHROUGH" | "REPAIR_ADMITTED" | "REPAIR_NULL" {
+  if (repaired.final_action === "refusal") {
+    return "REPAIR_NULL";
+  }
+  if (repaired.triggeredRepairs.length > 0 || repaired.failureClasses.length > 0) {
+    return "REPAIR_ADMITTED";
+  }
+  return "REPAIR_PASSTHROUGH";
+}
+
+function buildRootCoverageFailClosedRefusal(
+  runId: string,
+  rootRegistry: ReturnType<typeof buildRootRegistry>,
+): RepairedOutput {
+  return {
+    text: "LML refused this turn because law-side root extraction under-enumerated the incoming root/parent structure. Repair root coverage before continuing.",
+    final_action: "refusal",
+    reason: `root_extraction_under_enumerated:source_units=${rootRegistry.extraction.sourceUnitCount};extracted_roots=${rootRegistry.extraction.extractedRootCount}`,
+    model: buildDeterministicRuntimeModel(runId, "root-coverage-fail-closed"),
+    failureClasses: ["ROOT_EXTRACTION_UNDER_ENUMERATED"],
+    triggeredRepairs: [],
+  };
+}
+
 function buildBaseCoreResponse(userMessage: string, insights: string[], state: InfiniteContextState): string {
   const q = userMessage.trim();
   const lower = q.toLowerCase();
@@ -1013,6 +2163,13 @@ function runNslRepairCycle(
   generated: GeneratedOutput,
   inputs: RepairInputs,
 ): RepairedOutput {
+  if (isMetaCriticalReason(generated.reason)) {
+    return {
+      ...generated,
+      failureClasses: [],
+      triggeredRepairs: [],
+    };
+  }
   if (generated.reason.startsWith("deterministic_")) {
     return {
       ...generated,
@@ -1020,24 +2177,39 @@ function runNslRepairCycle(
       triggeredRepairs: [],
     };
   }
-  if (
-    generated.reason.startsWith("coding_projection_failed:") &&
-    /\bpython\b/i.test(inputs.userMessage) &&
-    /\b(email|e-mail|emails)\b/i.test(inputs.userMessage) &&
-    /\b(pytest|test|tests)\b/i.test(inputs.userMessage)
-  ) {
+  const deterministicCodingRepair = resolveDeterministicCodingRepair(inputs.userMessage, generated.reason);
+  if (deterministicCodingRepair) {
     return {
       ...generated,
-      text: buildDeterministicPythonEmailRepair(),
+      text: deterministicCodingRepair.text,
       final_action: "success",
-      reason: "NSL deterministic repair admitted for coding_projection_failed",
+      reason: deterministicCodingRepair.reason,
       failureClasses: ["F_UNCERTAIN"],
       triggeredRepairs: ["R1", "R3"],
     };
   }
 
-  const relevance = evaluateResponseRelevance(inputs.userMessage, generated.text, inputs.state);
-  const failureClasses = inferFailureClasses(inputs.constrained, inputs.guarded, relevance);
+  const relevance = evaluateResponseRelevance(
+    inputs.userMessage,
+    generated.text,
+    inputs.state,
+    inputs.branchRendererContext,
+  );
+  const rendererIntegrity = evaluateRendererIntegrity(
+    inputs.userMessage,
+    generated.text,
+    inputs.branchRendererContext,
+  );
+  const humanMirrorProfile = compileHumanMirrorProfile({
+    question: inputs.userMessage,
+    policy: parseExpressionPolicy(inputs.userLawTexts.join("\n")),
+    documentInsights: extractDocumentInsights(inputs.state.docs.map((doc) => doc.text).join("\n\n")),
+  });
+  const humanAdmissibility = classifyHumanOutputAdmissibility(inputs.userMessage, generated.text, humanMirrorProfile);
+  const failureClasses = unique([
+    ...inferFailureClasses(inputs.constrained, inputs.guarded, relevance, rendererIntegrity),
+    ...humanAdmissibility.failureClasses,
+  ]);
   const hasMeasurementClaims = /\bmeasure|metric|score|classif|confidence|evaluate|detect\b/i.test(
     inputs.userLawTexts.join("\n"),
   );
@@ -1057,7 +2229,11 @@ function runNslRepairCycle(
   }
 
   const forcedNull =
-    generated.final_action === "refusal" || inputs.constrained.triggered_constraints.length > 0 || !relevance.ok;
+    generated.final_action === "refusal"
+    || inputs.constrained.triggered_constraints.length > 0
+    || !relevance.ok
+    || !rendererIntegrity.ok
+    || !humanAdmissibility.ok;
   if (!forcedNull) {
     registerProjectionHardeningLaws(inputs, generated, failureClasses);
     return {
@@ -1070,6 +2246,7 @@ function runNslRepairCycle(
   // NSL conversational repair: allow micro-intent turns to pass without forcing NULL.
   if (
     !relevance.ok &&
+    humanAdmissibility.ok &&
     generated.final_action === "success" &&
     inputs.constrained.triggered_constraints.length === 0 &&
     isConversationalMicroIntent(inputs.userMessage)
@@ -1088,13 +2265,41 @@ function runNslRepairCycle(
     ...generated,
     text: !relevance.ok
       ? buildIrrelevanceRepairText(inputs.userMessage, relevance.reason)
-      : buildRepairedSafeText(generated.reason, inputs.constrained.triggered_constraints, triggeredRepairs),
+      : !rendererIntegrity.ok
+        ? buildRendererIntegrityRepairText(inputs.userMessage, rendererIntegrity.reason)
+      : !humanAdmissibility.ok
+        ? buildHumanMirrorRepairText(inputs.userMessage, humanAdmissibility.reason, humanMirrorProfile)
+        : buildRepairedSafeText(generated.reason, inputs.constrained.triggered_constraints, triggeredRepairs),
     final_action: "refusal",
     reason: !relevance.ok
       ? `NSL relevance gate forced NULL: ${relevance.reason}`
-      : "NSL repair forced NULL due to active ontology/gate violations",
+      : !rendererIntegrity.ok
+        ? `NSL renderer integrity gate forced NULL: ${rendererIntegrity.reason}`
+      : !humanAdmissibility.ok
+        ? `NSL human mirror gate forced NULL: ${humanAdmissibility.reason}`
+        : "NSL repair forced NULL due to active ontology/gate violations",
     failureClasses,
     triggeredRepairs,
+  };
+}
+
+function resolveDeterministicCodingRepair(
+  userMessage: string,
+  reason: string,
+): { text: string; reason: string } | null {
+  if (!reason.startsWith("coding_projection_failed:")) {
+    return null;
+  }
+  const deterministic = resolveDeterministicCodingLawPath(userMessage);
+  if (!deterministic) {
+    return null;
+  }
+  if (!validateDeterministicCodingLawOutput(deterministic.text)) {
+    return null;
+  }
+  return {
+    text: deterministic.text,
+    reason: `NSL deterministic repair admitted for ${deterministic.reason}`,
   };
 }
 
@@ -1123,6 +2328,177 @@ function buildDeterministicPythonEmailRepair(): string {
     "    assert is_valid_email(\"alice.example.com\") is False",
     "```",
   ].join("\n");
+}
+
+function buildDeterministicReverseStringPytestRepair(): string {
+  return [
+    "```python",
+    "# app.py",
+    "def reverse_string(value: str) -> str:",
+    "    if not isinstance(value, str):",
+    "        raise TypeError(\"value must be a string\")",
+    "    return value[::-1]",
+    "```",
+    "",
+    "```python",
+    "# test_app.py",
+    "import pytest",
+    "",
+    "from app import reverse_string",
+    "",
+    "def test_reverse_string_basic() -> None:",
+    "    assert reverse_string(\"hello\") == \"olleh\"",
+    "",
+    "def test_reverse_string_empty() -> None:",
+    "    assert reverse_string(\"\") == \"\"",
+    "",
+    "def test_reverse_string_type_error() -> None:",
+    "    with pytest.raises(TypeError):",
+    "        reverse_string(123)  # type: ignore[arg-type]",
+    "```",
+  ].join("\n");
+}
+
+function buildDeterministicPalindromePytestRepair(): string {
+  return [
+    "```python",
+    "# app.py",
+    "def is_palindrome(value: str) -> bool:",
+    "    if not isinstance(value, str):",
+    "        raise TypeError(\"value must be a string\")",
+    "    normalized = \"\".join(ch.lower() for ch in value if ch.isalnum())",
+    "    return normalized == normalized[::-1]",
+    "```",
+    "",
+    "```python",
+    "# test_app.py",
+    "import pytest",
+    "",
+    "from app import is_palindrome",
+    "",
+    "def test_palindrome_phrase() -> None:",
+    "    assert is_palindrome(\"Never odd or even\") is True",
+    "",
+    "def test_non_palindrome() -> None:",
+    "    assert is_palindrome(\"python\") is False",
+    "",
+    "def test_palindrome_type_error() -> None:",
+    "    with pytest.raises(TypeError):",
+    "        is_palindrome(123)  # type: ignore[arg-type]",
+    "```",
+  ].join("\n");
+}
+
+function buildDeterministicWordCountPytestRepair(): string {
+  return [
+    "```python",
+    "# app.py",
+    "def word_count(value: str) -> int:",
+    "    if not isinstance(value, str):",
+    "        raise TypeError(\"value must be a string\")",
+    "    words = [part for part in value.strip().split() if part]",
+    "    return len(words)",
+    "```",
+    "",
+    "```python",
+    "# test_app.py",
+    "import pytest",
+    "",
+    "from app import word_count",
+    "",
+    "def test_word_count_basic() -> None:",
+    "    assert word_count(\"one two three\") == 3",
+    "",
+    "def test_word_count_extra_spaces() -> None:",
+    "    assert word_count(\"  alpha   beta  \") == 2",
+    "",
+    "def test_word_count_type_error() -> None:",
+    "    with pytest.raises(TypeError):",
+    "        word_count(None)  # type: ignore[arg-type]",
+    "```",
+  ].join("\n");
+}
+
+function buildDeterministicFizzBuzzPytestRepair(): string {
+  return [
+    "```python",
+    "# app.py",
+    "def fizzbuzz(limit: int) -> list[str]:",
+    "    if not isinstance(limit, int):",
+    "        raise TypeError(\"limit must be an int\")",
+    "    if limit < 1:",
+    "        return []",
+    "    output: list[str] = []",
+    "    for value in range(1, limit + 1):",
+    "        token = \"\"",
+    "        if value % 3 == 0:",
+    "            token += \"Fizz\"",
+    "        if value % 5 == 0:",
+    "            token += \"Buzz\"",
+    "        output.append(token or str(value))",
+    "    return output",
+    "```",
+    "",
+    "```python",
+    "# test_app.py",
+    "import pytest",
+    "",
+    "from app import fizzbuzz",
+    "",
+    "def test_fizzbuzz_up_to_5() -> None:",
+    "    assert fizzbuzz(5) == [\"1\", \"2\", \"Fizz\", \"4\", \"Buzz\"]",
+    "",
+    "def test_fizzbuzz_up_to_15() -> None:",
+    "    assert fizzbuzz(15)[-1] == \"FizzBuzz\"",
+    "",
+    "def test_fizzbuzz_type_error() -> None:",
+    "    with pytest.raises(TypeError):",
+    "        fizzbuzz(\"15\")  # type: ignore[arg-type]",
+    "```",
+  ].join("\n");
+}
+
+function buildDeterministicDedupeListPytestRepair(): string {
+  return [
+    "```python",
+    "# app.py",
+    "def dedupe_preserve_order(values: list[str]) -> list[str]:",
+    "    if not isinstance(values, list):",
+    "        raise TypeError(\"values must be a list\")",
+    "    seen: set[str] = set()",
+    "    output: list[str] = []",
+    "    for value in values:",
+    "        if not isinstance(value, str):",
+    "            raise TypeError(\"all values must be strings\")",
+    "        if value not in seen:",
+    "            seen.add(value)",
+    "            output.append(value)",
+    "    return output",
+    "```",
+    "",
+    "```python",
+    "# test_app.py",
+    "import pytest",
+    "",
+    "from app import dedupe_preserve_order",
+    "",
+    "def test_dedupe_preserve_order() -> None:",
+    "    assert dedupe_preserve_order([\"a\", \"b\", \"a\", \"c\", \"b\"]) == [\"a\", \"b\", \"c\"]",
+    "",
+    "def test_dedupe_empty() -> None:",
+    "    assert dedupe_preserve_order([]) == []",
+    "",
+    "def test_dedupe_type_error() -> None:",
+    "    with pytest.raises(TypeError):",
+    "        dedupe_preserve_order([\"a\", 2])  # type: ignore[list-item]",
+    "```",
+  ].join("\n");
+}
+
+function isMetaCriticalReason(reason: string): boolean {
+  return reason === "life_preservation_crisis_signal"
+    || reason === "life_preservation_distress_signal"
+    || reason === "system_integrity_violation_signal";
 }
 
 function buildDeterministicFastApiEmailRepair(): string {
@@ -1465,6 +2841,9 @@ function resolveDeterministicCodingLawPath(
   userMessage: string,
 ): { text: string; reason: string; callId: string } | null {
   const lower = userMessage.toLowerCase();
+  if (isFrontierBenchmarkCodingPrompt(lower)) {
+    return null;
+  }
 
   if (isFastApiEmailPytestIntent(userMessage)) {
     return {
@@ -1522,6 +2901,41 @@ function resolveDeterministicCodingLawPath(
       callId: "deterministic-coding-email-validator-pytest",
     };
   }
+  if (/\breverse( a)? string|string reverse|reverse_string\b/.test(lower) && /\bpython\b/.test(lower) && /\b(pytest|test|tests)\b/.test(lower)) {
+    return {
+      text: buildDeterministicReverseStringPytestRepair(),
+      reason: "deterministic_coding_reverse_string_pytest_law_path",
+      callId: "deterministic-coding-reverse-string-pytest",
+    };
+  }
+  if (/\bpalindrome\b/.test(lower) && /\bpython\b/.test(lower) && /\b(pytest|test|tests)\b/.test(lower)) {
+    return {
+      text: buildDeterministicPalindromePytestRepair(),
+      reason: "deterministic_coding_palindrome_pytest_law_path",
+      callId: "deterministic-coding-palindrome-pytest",
+    };
+  }
+  if (/\b(word count|count words|word_count)\b/.test(lower) && /\bpython\b/.test(lower) && /\b(pytest|test|tests)\b/.test(lower)) {
+    return {
+      text: buildDeterministicWordCountPytestRepair(),
+      reason: "deterministic_coding_word_count_pytest_law_path",
+      callId: "deterministic-coding-word-count-pytest",
+    };
+  }
+  if (/\bfizz ?buzz\b/.test(lower) && /\bpython\b/.test(lower) && /\b(pytest|test|tests)\b/.test(lower)) {
+    return {
+      text: buildDeterministicFizzBuzzPytestRepair(),
+      reason: "deterministic_coding_fizzbuzz_pytest_law_path",
+      callId: "deterministic-coding-fizzbuzz-pytest",
+    };
+  }
+  if (/\b(dedupe|deduplicate|remove duplicates)\b/.test(lower) && /\b(list|array)\b/.test(lower) && /\bpython\b/.test(lower) && /\b(pytest|test|tests)\b/.test(lower)) {
+    return {
+      text: buildDeterministicDedupeListPytestRepair(),
+      reason: "deterministic_coding_dedupe_list_pytest_law_path",
+      callId: "deterministic-coding-dedupe-list-pytest",
+    };
+  }
 
   return null;
 }
@@ -1561,6 +2975,7 @@ function registerProjectionHardeningLaws(
     /generation unstable/.test(lower) ||
     /can’t produce stable full code/.test(lower) ||
     /can't produce stable full code/.test(lower) ||
+    /missing_code_blocks/.test(generated.reason.toLowerCase()) ||
     /output_does_not_look_like_code/.test(generated.reason.toLowerCase()) ||
     /python_syntax_invalid/.test(lower) ||
     /python_runtime_invalid/.test(lower) ||
@@ -1594,6 +3009,12 @@ function registerProjectionHardeningLaws(
       source: "meta_projection_loop",
     },
     {
+      text: "must treat missing_code_blocks as a first-class coding substrate failure; if the model does not emit fenced code, collapse to NULL and keep the model confined to generator-only work.",
+      scope,
+      enforcement: "meta_hardening_code_substrate_gate",
+      source: "ai_model_planet_hardening",
+    },
+    {
       text: `must map projection failure classes to repair route: ${failureClasses.join("|") || "F_UNCERTAIN"}`,
       scope,
       enforcement: "meta_hardening_repair_binding",
@@ -1607,14 +3028,156 @@ function registerProjectionHardeningLaws(
   ]);
 }
 
-function uniquePendingProposals(
-  items: Array<{ text: string; scope: string; enforcement: string; source: string }>,
-): Array<{ text: string; scope: string; enforcement: string; source: string }> {
-  const byKey = new Map<string, { text: string; scope: string; enforcement: string; source: string }>();
-  for (const item of items) {
-    byKey.set(`${item.text.toLowerCase()}|${item.scope}|${item.enforcement}`, item);
+function registerGenerationHardeningLaws(
+  state: InfiniteContextState,
+  args: {
+    userMessage: string;
+    abilityRoute: string;
+    output: RepairedOutput;
+  },
+): PendingLawProposal[] {
+  const generationStatus = args.output.model.generationStatus ?? "deterministic";
+  const generationFailureClass = args.output.model.generationFailureClass ?? "none";
+  const generationDetail = args.output.model.generationDetail ?? "";
+  const lowerReason = args.output.reason.toLowerCase();
+  const signature = buildFailureSignature(args.userMessage);
+  const scope = args.abilityRoute.startsWith("coding.") ? "coding" : "chat";
+  const proposals: PendingLawProposal[] = [];
+
+  const targetMissed =
+    lowerReason.includes("low_query_response_relevance") ||
+    lowerReason.includes("relevance gate forced null") ||
+    lowerReason.includes("greeting_misaligned_response") ||
+    lowerReason.includes("style_directive_misaligned") ||
+    lowerReason.includes("coding_task_misaligned");
+
+  if (generationStatus === "generated" || generationFailureClass !== "none" || targetMissed) {
+    proposals.push({
+      text: `must anchor governed generation signature ${signature} to exact chat seeds, extracted parent roots, and admitted route ${args.abilityRoute} before output release`,
+      scope,
+      enforcement: "meta_hardening_generation_anchor",
+      source: "ai_model_planet_hardening",
+    });
   }
-  return Array.from(byKey.values());
+
+  if (targetMissed) {
+    proposals.push({
+      text: "must treat off-target local gpt2 conversational generations as inadmissible and route them to null or repair until wording reflects the locked parent root",
+      scope,
+      enforcement: "meta_hardening_generation_target_gate",
+      source: "ai_model_planet_hardening",
+    });
+    proposals.push({
+      text: "must keep local gpt2 subordinate to law and escalate to stronger model-agnostic routing or deterministic refusal when conversational target fidelity remains weak",
+      scope,
+      enforcement: "meta_hardening_generation_model_subordination",
+      source: "ai_model_planet_hardening",
+    });
+  }
+
+  if (generationFailureClass === "timeout") {
+    proposals.push({
+      text: "must classify governed generation timeout distinctly, tune runtime budgets, and route timeout to null or repair instead of service-unavailable fallback wording",
+      scope,
+      enforcement: "meta_hardening_generation_timeout_gate",
+      source: "ai_model_planet_hardening",
+    });
+  }
+
+  if (["service_unreachable", "http_error", "invalid_response", "empty_generation"].includes(generationFailureClass)) {
+    proposals.push({
+      text: `must ledger local generation failure class ${generationFailureClass} as a first-class admissibility fault and bind it to repair or model-agnostic escalation without false availability claims`,
+      scope,
+      enforcement: "meta_hardening_generation_failure_class",
+      source: "ai_model_planet_hardening",
+    });
+  }
+
+  if (lowerReason.includes("missing_code_blocks")) {
+    proposals.push({
+      text: "must keep coding models in generator-only mode and reject any coding path that returns prose or unfenced content instead of admissible code substrate",
+      scope,
+      enforcement: "meta_hardening_coding_generator_only",
+      source: "ai_model_planet_hardening",
+    });
+    proposals.push({
+      text: "must expand deterministic coding law routes for repeated simple utility-plus-test signatures so trivial coding asks do not keep falling back to unstable generation",
+      scope,
+      enforcement: "meta_hardening_coding_deterministic_expansion",
+      source: "ai_model_planet_hardening",
+    });
+  }
+
+  if (generationFailureClass !== "none" || targetMissed || /model_generation_ok:length=\d+/.test(generationDetail)) {
+    proposals.push({
+      text: "must keep generation control laws stronger than raw local model behavior so prompt drift, policy echo, and irrelevant continuations cannot emit as final output",
+      scope,
+      enforcement: "meta_hardening_generation_control_gate",
+      source: "ai_model_planet_hardening",
+    });
+  }
+
+  const novel = queueNovelMetaProposals(state, proposals);
+  return novel;
+}
+
+function registerHumanGenerationHardeningLaws(
+  state: InfiniteContextState,
+  args: {
+    userMessage: string;
+    abilityRoute: string;
+    output: RepairedOutput;
+  },
+): PendingLawProposal[] {
+  const failureClasses = new Set(args.output.failureClasses);
+  if (![...failureClasses].some((failure) => failure.startsWith("F_HUMAN_"))) {
+    return [];
+  }
+  const scope = args.abilityRoute.startsWith("coding.") ? "coding" : "chat";
+  const signature = buildFailureSignature(args.userMessage);
+  const proposals: PendingLawProposal[] = [
+    {
+      text: `must compile human mouth guidance from convo mirror pt1-8 signature ${signature} before ordinary chat output release`,
+      scope,
+      enforcement: "meta_hardening_human_mirror_compiler",
+      source: "ai_model_planet_hardening",
+    },
+  ];
+
+  if (failureClasses.has("F_HUMAN_WRONG_REGISTER") || failureClasses.has("F_HUMAN_WRONG_DISTANCE")) {
+    proposals.push({
+      text: "must reject overformal, admin-policy, and wrong-distance outputs when the user enters a near human channel",
+      scope,
+      enforcement: "meta_hardening_human_register_gate",
+      source: "ai_model_planet_hardening",
+    });
+  }
+  if (failureClasses.has("F_HUMAN_POLICY_ECHO")) {
+    proposals.push({
+      text: "must block internal runtime, ontology, ledger, and policy echo leakage from ordinary human-facing output unless the user explicitly asked for system explanation",
+      scope,
+      enforcement: "meta_hardening_human_policy_echo_gate",
+      source: "ai_model_planet_hardening",
+    });
+  }
+  if (failureClasses.has("F_HUMAN_PARODY")) {
+    proposals.push({
+      text: "must reject parody, exaggerated slang, and overaccommodation when mirroring the user's register",
+      scope,
+      enforcement: "meta_hardening_human_antiparody_gate",
+      source: "ai_model_planet_hardening",
+    });
+  }
+  if (failureClasses.has("F_HUMAN_NON_ATTUNED")) {
+    proposals.push({
+      text: "must require attuned, validating, non-polluting guidance when distress signals appear and block cold or mismatched mouth behavior",
+      scope,
+      enforcement: "meta_hardening_human_attunement_gate",
+      source: "ai_model_planet_hardening",
+    });
+  }
+
+  return queueNovelMetaProposals(state, proposals);
 }
 
 function buildFailureSignature(input: string): string {
@@ -1626,6 +3189,85 @@ function buildFailureSignature(input: string): string {
     .slice(0, 8)
     .join("_");
   return normalized || "unknown_signature";
+}
+
+function registerFailureLearningLaws(
+  state: InfiniteContextState,
+  args: {
+    userMessage: string;
+    abilityRoute: string;
+    finalAction: "success" | "refusal";
+    reason: string;
+    failureClasses: string[];
+    triggeredRepairs: string[];
+  },
+): FailureLearningResult {
+  const learning = deriveFailureLearningProposals({
+    ...args,
+    state,
+  });
+  if (learning.proposedLaws.length > 0) {
+    state.pendingLawProposals = uniquePendingProposals([
+      ...state.pendingLawProposals,
+      ...learning.proposedLaws,
+    ]);
+  }
+  return learning;
+}
+
+function queueNovelMetaProposals(
+  state: InfiniteContextState,
+  proposals: PendingLawProposal[],
+): PendingLawProposal[] {
+  if (proposals.length === 0) {
+    return [];
+  }
+  const existing = new Set<string>([
+    ...state.pendingLawProposals.map((proposal) => proposalKey(proposal)),
+    ...state.activeAutoLaws.map((law) => proposalKey(law)),
+  ]);
+  const novel = uniquePendingProposals(proposals).filter((proposal) => !existing.has(proposalKey(proposal)));
+  if (novel.length > 0) {
+    state.pendingLawProposals = uniquePendingProposals([
+      ...state.pendingLawProposals,
+      ...novel,
+    ]);
+  }
+  return novel;
+}
+
+function buildHumanMirrorRepairText(
+  userMessage: string,
+  reason: string,
+  profile: ReturnType<typeof compileHumanMirrorProfile>,
+): string {
+  return [
+    "LML human mirror repair guidance. Do not output this header.",
+    `User message: "${trim(userMessage, 180)}"`,
+    `Human mirror failure: ${reason}`,
+    `Relation mode: ${profile.relationMode}`,
+    `Register target: ${profile.registerTarget}`,
+    `Rhythm target: ${profile.rhythmTarget}`,
+    `Affect target: ${profile.affectTarget}`,
+    "Respond again with human fit, no policy echo, no parody, and one clean next move when needed.",
+  ].join("\n");
+}
+
+function buildHumanCompiledPrompt(
+  profile: ReturnType<typeof compileHumanMirrorProfile>,
+  question: string,
+  payload: string,
+  lane: "life_preservation" | "style_directive" | "context_anchor" | "learning" | "base_chat",
+): string {
+  return [
+    buildHumanMirrorGuidance(profile, {
+      question,
+      documentInsights: [],
+    }),
+    `Human mirror lane: ${lane}`,
+    "Specialized payload follows.",
+    payload,
+  ].join("\n\n");
 }
 
 function buildEmergencyRefusal(runId: string, reason: string): RepairedOutput {
@@ -1734,6 +3376,7 @@ function inferFailureClasses(
   constrained: ReturnType<typeof apply_constraints>,
   guarded: ReturnType<typeof guard_abilities>,
   relevance: { ok: boolean; reason: string },
+  rendererIntegrity?: { ok: boolean; reason: string },
 ): string[] {
   const failures = new Set<string>();
   const reason = `${guarded.reason} ${constrained.refusal_reason ?? ""}`.toLowerCase();
@@ -1754,6 +3397,10 @@ function inferFailureClasses(
   }
   if (!relevance.ok) {
     failures.add("F_CONTEXT_BREAK");
+    failures.add("F_UNCERTAIN");
+  }
+  if (rendererIntegrity && !rendererIntegrity.ok) {
+    failures.add("F_RENDERER_TARGET_DRIFT");
     failures.add("F_UNCERTAIN");
   }
 
@@ -1964,11 +3611,23 @@ function evaluateResponseRelevance(
   userMessage: string,
   assistantText: string,
   state: InfiniteContextState,
+  branchRendererContext: BranchRendererContext,
 ): { ok: boolean; reason: string } {
   const q = userMessage.trim().toLowerCase();
   const a = assistantText.trim().toLowerCase();
   if (!q || !a) {
     return { ok: false, reason: "empty_turn_content" };
+  }
+
+  const frontierBenchmarkPrompt = isFrontierBenchmarkCodingPrompt(q);
+  if (frontierBenchmarkPrompt) {
+    const diffAligned =
+      /diff --git/.test(assistantText) ||
+      (/^---\s/m.test(assistantText) && /^\+\+\+\s/m.test(assistantText)) ||
+      /@\@/.test(assistantText);
+    return diffAligned
+      ? { ok: true, reason: "frontier_benchmark_patch_aligned" }
+      : { ok: false, reason: "frontier_benchmark_patch_misaligned" };
   }
 
   const styleDirective = isStyleDirective(q);
@@ -1991,16 +3650,18 @@ function evaluateResponseRelevance(
     /\b(code|coding|write|build|implement|create|debug|refactor|function|endpoint|api|script|fastapi|pytest|python|typescript|javascript|golang|rust)\b/.test(
       q,
     );
-  if (codingTask) {
+  const mixedPrompt = isMixedMultiDomainPrompt(q);
+  if (codingTask && !mixedPrompt) {
+    const branchAligned = branchContextSupportsAnswer(a, branchRendererContext);
     const codingAligned =
       /```/.test(assistantText) ||
       /\b(code|coding|python|typescript|javascript|function|endpoint|api|pytest|implementation|build target)\b/.test(a);
-    return codingAligned
+    return (codingAligned || branchAligned)
       ? { ok: true, reason: "coding_task_aligned" }
       : { ok: false, reason: "coding_task_misaligned" };
   }
 
-  const greeting = /\b(hello|hi|hey|yo|sup|what up|what's up)\b/.test(q);
+  const greeting = isConversationalMicroIntent(q) && /\b(hello|hi|hey|yo|sup|what up|what's up)\b/.test(q);
   if (greeting) {
     const greetingAligned = /\b(hello|hi|hey|yo|sup|what's good|what can|how can|what are we|what's on your mind)\b/.test(a);
     return greetingAligned
@@ -2020,6 +3681,10 @@ function evaluateResponseRelevance(
     return { ok: true, reason: "token_overlap_pass" };
   }
 
+  if (branchContextSupportsAnswer(a, branchRendererContext)) {
+    return { ok: true, reason: "branch_context_overlap_pass" };
+  }
+
   const referencesRecent = state.ltm.L0
     .slice(-3)
     .some((turn) => keywordTokens(turn.user).some((token) => aTokens.includes(token)));
@@ -2028,6 +3693,75 @@ function evaluateResponseRelevance(
   }
 
   return { ok: false, reason: "low_query_response_relevance" };
+}
+
+function evaluateRendererIntegrity(
+  userMessage: string,
+  assistantText: string,
+  branchRendererContext: BranchRendererContext,
+): { ok: boolean; reason: string } {
+  const a = assistantText.trim().toLowerCase();
+  if (!a) {
+    return { ok: false, reason: "empty_generation" };
+  }
+  if (branchContextSupportsAnswer(a, branchRendererContext)) {
+    return { ok: true, reason: "branch_integrity_pass" };
+  }
+
+  const requestedShellGit = /\b(git|shell|bash|command|checkout|commit|chmod|terminal)\b/.test(userMessage.toLowerCase());
+  const shellGitHeavy = /\b(git|checkout|commit|merge|branch|master|chmod|bin\/|~\/)\b/.test(a);
+  if (shellGitHeavy && !requestedShellGit) {
+    return { ok: false, reason: "renderer_garbage_unrelated_shell_or_git" };
+  }
+
+  const configSpam = /#\w+|-\w{2,}|\bavailable channel\b|\bautomatically set these\b/.test(a);
+  if (configSpam && !branchContextSupportsAnswer(a, branchRendererContext)) {
+    return { ok: false, reason: "renderer_config_spam_drift" };
+  }
+
+  const unrelatedCodeHeavy = (/```/.test(assistantText) || /\b(def |class |import |return )/.test(assistantText))
+    && !/\b(code|coding|python|typescript|javascript|api|endpoint|script|fastapi|pytest|function|parser|compiler)\b/.test(userMessage.toLowerCase());
+  if (unrelatedCodeHeavy && !branchContextSupportsAnswer(a, branchRendererContext)) {
+    return { ok: false, reason: "renderer_unrelated_code_drift" };
+  }
+
+  return { ok: true, reason: "renderer_integrity_pass" };
+}
+
+function branchContextSupportsAnswer(
+  assistantTextLower: string,
+  branchRendererContext: BranchRendererContext,
+): boolean {
+  const branchTokens = keywordTokens([
+    ...branchRendererContext.matchedSeedTexts,
+    ...branchRendererContext.matchedRootLabels,
+  ].join(" "));
+  if (branchTokens.length === 0) {
+    return false;
+  }
+
+  const answerTokens = keywordTokens(assistantTextLower);
+  const overlap = branchTokens.filter((token) => answerTokens.includes(token)).length;
+  const overlapRatio = overlap / Math.max(1, Math.min(branchTokens.length, 8));
+  if (overlapRatio >= 0.15) {
+    return true;
+  }
+
+  const humanLikeBranch = /\b(human|guidance|trust|alliance|identity|emotion|thought|intention|priority|prioritize|next move)\b/.test(
+    branchRendererContext.matchedRootLabels.join(" ").toLowerCase(),
+  );
+  if (!humanLikeBranch) {
+    return false;
+  }
+
+  return /\b(first|start|focus|breathe|solid|plan|next|okay|alright|look|here's what|do this)\b/.test(assistantTextLower);
+}
+
+function isMixedMultiDomainPrompt(userMessageLower: string): boolean {
+  const humanSignal = /\b(bro|brodie|girlfriend|gf|wife|husband|friend|angry|mad|sad|crash out|patience|relationship|apology|reality check|dont talk down|keep me solid)\b/.test(userMessageLower);
+  const mathSignal = /\b(math|formula|derivation|calc|class|study|homework)\b/.test(userMessageLower);
+  const planningSignal = /\b(plan|roadmap|most important thing first|without losing any piece|make sense of it)\b/.test(userMessageLower);
+  return humanSignal || mathSignal || planningSignal;
 }
 
 function keywordTokens(text: string): string[] {
@@ -2049,6 +3783,16 @@ function buildIrrelevanceRepairText(userMessage: string, reason: string): string
     `User message: "${q}"`,
     `Relevance failure: ${reason}`,
     "Respond naturally, acknowledge the intent, and ask one precise clarification question to continue.",
+  ].join("\n");
+}
+
+function buildRendererIntegrityRepairText(userMessage: string, reason: string): string {
+  const q = trim(userMessage, 120);
+  return [
+    "LML renderer-integrity guidance. Do not output this header.",
+    `User message: "${q}"`,
+    `Renderer integrity failure: ${reason}`,
+    "Respond again from the admitted branch only. No unrelated shell, git, policy, or runtime text. Give one direct useful answer.",
   ].join("\n");
 }
 
@@ -2207,14 +3951,7 @@ async function buildWebSearchResponse(
     text: gpt2.text,
     final_action: "success",
     reason,
-    model: {
-      provider: gpt2.receipt.provider,
-      model: gpt2.receipt.model,
-      runId,
-      callId: gpt2.receipt.callId,
-      at: gpt2.receipt.at,
-      inputDigest: gpt2.receipt.inputDigest,
-    },
+    model: buildRuntimeModelFromReceipt(runId, gpt2.receipt),
   };
 }
 
@@ -2258,15 +3995,11 @@ function buildGovernedCodingResponse(
   const noRecursion = /\b(no recursion|avoid recursion|must not use recursion)\b/.test(lowerLaws);
   const readabilityFirst = /\b(readability|readable|clarity)\b/.test(lowerLaws);
   const strictErrorHandling = /\b(error handling|safe|safety|guard)\b/.test(lowerLaws);
-  const language = /\bpython\b/i.test(question) || /\bpython\b/.test(lowerLaws)
-    ? "python"
-    : /\btypescript|ts\b/i.test(question) || /\btypescript|ts\b/.test(lowerLaws)
-      ? "typescript"
-      : /\bjavascript|js\b/i.test(question) || /\bjavascript|js\b/.test(lowerLaws)
-        ? "javascript"
-        : "typescript";
-  const wantsTests = /\btest|tests|pytest|unittest|jest|vitest\b/.test(qLower);
-  const wantsApi = /\bapi|endpoint|fastapi|flask|express|route|http\b/.test(qLower);
+  const contract = deriveCodingSkeletonContract({ question, userLaws, insights });
+  const intentSpec = deriveCodingIntentSpec({ question, contract });
+  const language = contract.language;
+  const wantsTests = contract.wantsTests;
+  const wantsApi = contract.wantsApi;
   const continuityRequest = state.wm.bindings.coding_last_request ?? "none";
   const continuityFailure = state.wm.bindings.coding_last_failure_reason ?? "none";
   const continuityCode = state.wm.bindings.coding_last_code ?? "";
@@ -2279,7 +4012,7 @@ function buildGovernedCodingResponse(
   ];
 
   return [
-    "LML coding generation policy. Do not output this header.",
+    "LML coding generator-only policy. Do not output this header.",
     `User request: "${trim(question, 220)}"`,
     "Route: coding.governed",
     `Style profile: ${stylePolicy.styleProfile ?? "unspecified"}`,
@@ -2287,6 +4020,14 @@ function buildGovernedCodingResponse(
     `Address as: ${stylePolicy.addressAs ?? "none"}`,
     `Style directives: ${stylePolicy.styleDirectives.slice(0, 4).join(" | ") || "none"}`,
     `Preferred language: ${language}`,
+    `Coding family: ${contract.family}`,
+    `Spec artifact: ${intentSpec.identity.artifactType}`,
+    `Spec domain: ${intentSpec.identity.domain}`,
+    `Spec outcome: ${intentSpec.outcome.summary}`,
+    `Spec constraints: ${intentSpec.constraints.join(" | ") || "none"}`,
+    `Spec examples: ${intentSpec.examples.join(" | ") || "none"}`,
+    `Expected output shape: ${contract.expectedOutputShape}`,
+    `Witnesses: ${contract.witnessSet.join(" | ") || "fenced_code"}`,
     `Applied constraints: ${constraints.join(" | ")}`,
     `Signals: readiness=${codingReadiness ? "yes" : "no"}, wants_tests=${wantsTests ? "yes" : "no"}, wants_api=${wantsApi ? "yes" : "no"}`,
     `Doc signals: ${insights.length > 0 ? trim(insights.slice(0, 2).join(" | "), 200) : "none"}`,
@@ -2295,13 +4036,391 @@ function buildGovernedCodingResponse(
     continuityCode
       ? `Continuity code scaffold (resume from this if relevant): ${trim(continuityCode, 600)}`
       : "Continuity code scaffold (resume from this if relevant): none",
-    "Response rules:",
-    "1) Natural voice, no robotic template text.",
-    "2) If request lacks a concrete target, ask one concise clarification question.",
-    `3) If target is concrete, produce working ${language} code in fenced block (\`\`\`${language}).`,
-    "4) If tests are requested, include a separate fenced test block.",
-    "5) Keep explanations brief (max 2 short lines).",
+    "Generator rules:",
+    "1) Output code blocks only. No prose, no explanation, no headers.",
+    `2) Produce working ${language} code in fenced block (\`\`\`${language}).`,
+    "3) If tests are requested, include a separate fenced test block.",
+    "4) Never output policy, runtime, law, or channel language.",
+    `5) Keep the code minimal, copyable, and directly aligned to the ${contract.family} skeleton.`,
+    "6) Satisfy the witness set before emit; if the witness set cannot be met, emit nothing.",
   ].join("\n");
+}
+
+function codingNeedsClarification(question: string, contract?: CodingSkeletonContract, intentSpec?: CodingIntentSpec): boolean {
+  const lower = question.toLowerCase();
+  if (isFrontierBenchmarkCodingPrompt(lower)) {
+    return false;
+  }
+  const implementationSignal =
+    /\b(build|make|write|implement|create|debug|refactor|function|script|class|endpoint|api|fastapi|flask|express|compiler|parser|game|doom|validator|model|crud)\b/.test(lower);
+  const languageSignal = /\b(python|typescript|javascript|js|ts|go|golang|rust|java|c\+\+|cpp)\b/.test(lower);
+  const targetSignal = /\b(for|that|which|using|with|from|into)\b/.test(lower) || lower.length >= 32;
+  const familyKnown = contract ? contract.family !== "unknown" : false;
+  const intentStrongEnough = intentSpec ? intentSpec.completeness.score >= 2 : false;
+  return !(implementationSignal && (languageSignal || targetSignal || familyKnown || intentStrongEnough));
+}
+
+function extractUnifiedDiff(text: string): string {
+  const trimmed = text.trim();
+  const diffIndex = trimmed.indexOf("diff --git ");
+  if (diffIndex >= 0) {
+    return trimmed.slice(diffIndex).trim();
+  }
+  if ((/^---\s/m.test(trimmed) && /^\+\+\+\s/m.test(trimmed)) || /@\@/.test(trimmed)) {
+    return trimmed;
+  }
+  return "";
+}
+
+function normalizeFrontierBenchmarkPatchCandidate(text: string): {
+  normalized: string;
+  reason: string;
+} {
+  const trimmed = text.trim();
+  const direct = extractUnifiedDiff(trimmed);
+  if (direct) {
+    return { normalized: direct, reason: "direct_unified_diff" };
+  }
+
+  const unfenced = trimmed
+    .replace(/^```(?:diff|patch)?\s*/i, "")
+    .replace(/```$/i, "")
+    .trim();
+  const unfencedDiff = extractUnifiedDiff(unfenced);
+  if (unfencedDiff) {
+    return { normalized: unfencedDiff, reason: "unfenced_unified_diff" };
+  }
+
+  const lines = unfenced.split(/\r?\n/);
+  const headerStart = lines.findIndex((line) => /^---\s/.test(line));
+  if (headerStart >= 0) {
+    const candidate = lines.slice(headerStart).join("\n").trim();
+    if ((/^---\s/m.test(candidate) && /^\+\+\+\s/m.test(candidate)) || /@@/.test(candidate)) {
+      return { normalized: candidate, reason: "header_pair_diff" };
+    }
+  }
+
+  return { normalized: "", reason: "missing_unified_diff" };
+}
+
+function compactFrontierBenchmarkUserMessage(userMessage: string): string {
+  const lines = userMessage
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const keep: string[] = [];
+  for (const line of lines) {
+    if (
+      /^repository:/i.test(line) ||
+      /^instance id:/i.test(line) ||
+      /^problem statement:/i.test(line) ||
+      /^hints:/i.test(line) ||
+      /^requirements:/i.test(line) ||
+      /^expected behavior/i.test(line) ||
+      /^current behavior/i.test(line) ||
+      /^what is expected/i.test(line) ||
+      /^what happened instead/i.test(line) ||
+      /^issue description/i.test(line) ||
+      /^description/i.test(line) ||
+      /^title/i.test(line) ||
+      /^[-*]/.test(line) ||
+      /^\d+\./.test(line)
+    ) {
+      keep.push(line);
+    }
+    if (keep.length >= 16) {
+      break;
+    }
+  }
+
+  const compact = keep.join("\n").trim();
+  return compact.length > 1200 ? `${compact.slice(0, 1200)}...` : compact;
+}
+
+function extractFrontierBenchmarkRepo(userMessage: string): string {
+  const match = userMessage.match(/^repository:\s*(.+)$/im);
+  return match?.[1]?.trim() ?? "unknown";
+}
+
+function extractFrontierBenchmarkLikelyPaths(userMessage: string): string[] {
+  const lines = userMessage.replace(/\r/g, "").split("\n");
+  const start = lines.findIndex((line) => /^likely touched paths:/i.test(line.trim()));
+  if (start < 0) {
+    return [];
+  }
+  const paths: string[] = [];
+  for (const rawLine of lines.slice(start + 1)) {
+    const line = rawLine.trim();
+    if (!line) {
+      break;
+    }
+    if (!/^-\s+/.test(line)) {
+      break;
+    }
+    const value = line.replace(/^-\s+/, "").trim();
+    if (value) {
+      paths.push(value);
+    }
+  }
+  return paths;
+}
+
+function buildFrontierBenchmarkDiffSkeleton(targetPath: string): string {
+  const pathValue = targetPath.trim() || "README.md";
+  const ext = pathValue.split(".").pop()?.toLowerCase() ?? "";
+  const oldLine =
+    ext === "py" ? "old_value = False"
+    : ext === "js" || ext === "ts" || ext === "tsx" || ext === "jsx" ? "const oldValue = false;"
+    : "old_value";
+  const newLine =
+    ext === "py" ? "old_value = True"
+    : ext === "js" || ext === "ts" || ext === "tsx" || ext === "jsx" ? "const oldValue = true;"
+    : "new_value";
+  return [
+    `diff --git a/${pathValue} b/${pathValue}`,
+    `--- a/${pathValue}`,
+    `+++ b/${pathValue}`,
+    "@@",
+    `-${oldLine}`,
+    `+${newLine}`,
+  ].join("\n");
+}
+
+function buildFrontierBenchmarkPatchPrompts(userMessage: string): Array<{
+  prompt: string;
+  options: {
+    maxNewTokens: number;
+    minNewTokens: number;
+    temperature: number;
+    topP: number;
+    doSample: boolean;
+    repetitionPenalty: number;
+    noRepeatNgramSize: number;
+  };
+}> {
+  const compact = compactFrontierBenchmarkUserMessage(userMessage);
+  const repo = extractFrontierBenchmarkRepo(userMessage);
+  const likelyPaths = extractFrontierBenchmarkLikelyPaths(userMessage);
+  const primaryPath = likelyPaths[0] ?? "README.md";
+  const prompts: Array<{
+    prompt: string;
+    options: {
+      maxNewTokens: number;
+      minNewTokens: number;
+      temperature: number;
+      topP: number;
+      doSample: boolean;
+      repetitionPenalty: number;
+      noRepeatNgramSize: number;
+    };
+  }> = [];
+
+  for (const targetPath of likelyPaths.slice(0, 3)) {
+    prompts.push({
+      prompt: [
+        `Repository: ${repo}`,
+        "SWE-bench Pro benchmark patch generation.",
+        "Return only a unified git diff patch.",
+        "Start exactly with: diff --git",
+        "Patch this likely file path first.",
+        "Output only patch lines.",
+        "Do not explain.",
+        "Do not use markdown fences.",
+        "Follow this shape exactly:",
+        buildFrontierBenchmarkDiffSkeleton(targetPath),
+        "",
+        compact,
+      ].join("\n"),
+      options: {
+        maxNewTokens: 220,
+        minNewTokens: 40,
+        temperature: 0.0,
+        topP: 1.0,
+        doSample: false,
+        repetitionPenalty: 1.08,
+        noRepeatNgramSize: 4,
+      },
+    });
+  }
+
+  prompts.push(
+    {
+      prompt: [
+        `Repository: ${repo}`,
+        "SWE-bench Pro benchmark patch generation.",
+        "Return only a unified git diff patch.",
+        "Start exactly with: diff --git",
+        "Output only patch lines.",
+        "Do not explain.",
+        "Do not use markdown fences.",
+        "Follow this shape exactly:",
+        buildFrontierBenchmarkDiffSkeleton(primaryPath),
+        "",
+        compact,
+      ].join("\n"),
+      options: {
+        maxNewTokens: 220,
+        minNewTokens: 40,
+        temperature: 0.0,
+        topP: 1.0,
+        doSample: false,
+        repetitionPenalty: 1.08,
+        noRepeatNgramSize: 4,
+      },
+    },
+    {
+      prompt: [
+        `Repository: ${repo}`,
+        "SWE-bench Pro benchmark patch generation.",
+        "Emit a single-file unified diff patch only.",
+        `Use one of these paths first: ${likelyPaths.slice(0, 3).join(", ") || primaryPath}`,
+        "First token sequence must be: diff --git",
+        "No prose.",
+        "",
+        compact,
+      ].join("\n"),
+      options: {
+        maxNewTokens: 180,
+        minNewTokens: 32,
+        temperature: 0.0,
+        topP: 1.0,
+        doSample: false,
+        repetitionPenalty: 1.05,
+        noRepeatNgramSize: 3,
+      },
+    },
+    {
+      prompt: [
+        `Repository: ${repo}`,
+        "Patch only.",
+        `Likely path: ${primaryPath}`,
+        "Unified diff only.",
+        "Start with diff --git.",
+        compact,
+      ].join("\n"),
+      options: {
+        maxNewTokens: 140,
+        minNewTokens: 24,
+        temperature: 0.0,
+        topP: 1.0,
+        doSample: false,
+        repetitionPenalty: 1.02,
+        noRepeatNgramSize: 3,
+      },
+    },
+  );
+
+  return prompts;
+}
+
+async function runFrontierBenchmarkPatchPath(args: {
+  runId: string;
+  userMessage: string;
+}): Promise<GeneratedOutput> {
+  const attempts = buildFrontierBenchmarkPatchPrompts(args.userMessage);
+  let lastReceipt = null as ReturnType<typeof buildRuntimeModelFromReceipt> | null;
+  let lastFailureClass = "unknown";
+  let bestRawCandidate = "";
+  let bestNormalizationReason = "missing_unified_diff";
+
+  for (const attempt of attempts) {
+    const generated = await runGpt2GeneratorOnly({
+      prompt: attempt.prompt,
+      options: attempt.options,
+    });
+    const model = buildRuntimeModelFromReceipt(args.runId, generated.receipt);
+    lastReceipt = model;
+    lastFailureClass = generated.receipt.generationFailureClass ?? "unknown";
+    if (!generated.ok) {
+      continue;
+    }
+
+    if (!bestRawCandidate && generated.text.trim()) {
+      bestRawCandidate = generated.text;
+    }
+
+    const normalized = normalizeFrontierBenchmarkPatchCandidate(generated.text);
+    if (!bestNormalizationReason || bestNormalizationReason === "missing_unified_diff") {
+      bestNormalizationReason = normalized.reason;
+    }
+    if (!normalized.normalized) {
+      continue;
+    }
+
+    return {
+      text: normalized.normalized,
+      final_action: "success",
+      reason: "coding_collapse_survivor:frontier_benchmark_unified_diff",
+      model,
+      benchmark_debug: {
+        raw_candidate_text: generated.text,
+        normalized_candidate_text: normalized.normalized,
+        normalization_reason: normalized.reason,
+      },
+    };
+  }
+
+  const fallbackModel = lastReceipt ?? buildRuntimeModelFromReceipt(args.runId, {
+    provider: "gpt2-runtime",
+    model: "gpt2",
+    callId: randomUUID(),
+    at: new Date().toISOString(),
+    inputDigest: "frontier_benchmark_fallback",
+    generationStatus: "fallback",
+    generationFailureClass: "empty_generation",
+    generationDetail: "frontier_benchmark_no_candidate",
+  });
+  if (!bestRawCandidate) {
+    return {
+      text: `NULL: coding projection failed (algorithm:G0_HALTING_COLLAPSE:${lastFailureClass}).`,
+      final_action: "refusal",
+      reason: `coding_projection_failed:algorithm:G0_HALTING_COLLAPSE:${lastFailureClass}`,
+      model: fallbackModel,
+      benchmark_debug: {
+        raw_candidate_text: null,
+        normalized_candidate_text: null,
+        normalization_reason: lastFailureClass,
+      },
+    };
+  }
+
+  return {
+    text: "NULL: coding projection failed (integration:I2_FRONTIER_BENCHMARK_PATCH:missing_unified_diff).",
+    final_action: "refusal",
+    reason: "coding_projection_failed:integration:I2_FRONTIER_BENCHMARK_PATCH:missing_unified_diff",
+    model: fallbackModel,
+    benchmark_debug: {
+      raw_candidate_text: bestRawCandidate,
+      normalized_candidate_text: null,
+      normalization_reason: bestNormalizationReason,
+    },
+  };
+}
+
+function buildDeterministicCodingClarification(
+  question: string,
+  contract: CodingSkeletonContract,
+  intentSpec: CodingIntentSpec,
+  repoContext?: CodingRepoContext | null,
+): string {
+  const repoLine = repoContext
+    ? ` Repo context I can already see: ${repoContext.summary.slice(0, 4).join(", ")}.`
+    : "";
+  return `Give me the exact coding target, ${contract.language}, and the ${contract.family === "unknown" ? "task family" : contract.family} skeleton you want first. I need the end result, required witnesses (${contract.witnessSet.join(", ") || "fenced_code"}), and any key examples. Right now your spec score is ${intentSpec.completeness.score}/3.${repoLine}`;
+}
+
+function buildLawGovernedCodingEmit(userMessage: string, generatedText: string, contract?: CodingSkeletonContract): string {
+  const blocks = extractCodeBlocks(generatedText);
+  const lower = userMessage.toLowerCase();
+  const wantsTests = /\btest|tests|pytest|unittest|jest|vitest\b/.test(lower);
+  const familyLine = contract ? `Skeleton: ${contract.family} / witnesses=${contract.witnessSet.join(", ") || "fenced_code"}.` : null;
+  const intro = wantsTests
+    ? "Here’s the code and the test block."
+    : "Here’s the code.";
+  const normalizedBlocks = blocks.map((block) => `\`\`\`${block.language}\n${block.code}\n\`\`\``);
+  return [intro, familyLine, "", ...normalizedBlocks].filter(Boolean).join("\n");
 }
 
 function simplifyLawForDemo(value: string): string {
@@ -2504,6 +4623,14 @@ function renderDeterministicAbilityCommandResponse(
   return `${abilityLabel.charAt(0).toUpperCase()}${abilityLabel.slice(1)} is inactive.`;
 }
 
+function resolveAutoApplySources(state: InfiniteContextState): string[] {
+  const base = ["meta_projection_loop", "ai_model_planet_hardening", "novelty_cycle"];
+  if (state.automation.metaLoopMode === "automate") {
+    return [...base, "quantum_blanket_seed"];
+  }
+  return base;
+}
+
 function renderDeterministicLawRefusal(reason: string, triggeredConstraints: string[]): string {
   const lower = reason.toLowerCase();
   if (/coding_projection_failed:/.test(lower)) {
@@ -2524,7 +4651,7 @@ function renderDeterministicLawRefusal(reason: string, triggeredConstraints: str
   return "Request refused under current active laws. Provide one lawful next action.";
 }
 
-function classifyCodingProjection(text: string): { ok: boolean; reason: string } {
+function classifyCodingProjection(text: string, contract?: CodingSkeletonContract): { ok: boolean; reason: string } {
   const lower = text.toLowerCase();
   if (/python_syntax_invalid|python_runtime_invalid|empty_generation/.test(lower)) {
     const reason = /python_syntax_invalid/.test(lower)
@@ -2534,8 +4661,26 @@ function classifyCodingProjection(text: string): { ok: boolean; reason: string }
         : "empty_generation";
     return { ok: false, reason };
   }
+  const blocks = extractCodeBlocks(text);
+  if (blocks.length === 0) {
+    return { ok: false, reason: "missing_code_blocks" };
+  }
   if (/can’t produce stable full code|can't produce stable full code|generation unstable/.test(lower)) {
     return { ok: false, reason: "unstable_generation" };
+  }
+  if (contract) {
+    const witness = validateCodingWitnessSet({ contract, text, blocks });
+    if (!witness.ok) {
+      return { ok: false, reason: witness.reason };
+    }
+    const architecture = validateCodingArchitecture({ contract, blocks });
+    if (!architecture.ok) {
+      return { ok: false, reason: architecture.reason };
+    }
+    const floor = validateCodingFloor({ contract, text });
+    if (!floor.ok) {
+      return { ok: false, reason: floor.reason };
+    }
   }
   return { ok: true, reason: "ok" };
 }

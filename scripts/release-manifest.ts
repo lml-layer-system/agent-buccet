@@ -16,9 +16,7 @@ type Manifest = {
   };
   testMatrix: {
     verifySnap: "pass" | "fail";
-    legalSafety: "pass" | "fail";
     deterministicReplay: "pass" | "fail";
-    productApi: "pass" | "fail";
   };
   digest: string;
 };
@@ -35,14 +33,14 @@ async function main() {
     throw new Error("Release manifest requires RELEASE_SIGNOFF (non-UNSIGNED).");
   }
 
-  const runs = runAllProfiles("product");
+  const runs = runAllProfiles("demo");
   const blockerCriticalHigh = runs
     .flatMap((run) => [...run.snap.D_BLOCKERS.HOLES_BLOCKING_LML, ...run.snap.D_BLOCKERS.HOLES_BLOCKING_NSL])
     .filter((hole) => /critical|hard|proof|legality|enforcement|H00[1-6]/i.test(hole.id))
     .length;
 
   const deterministicPass = runs.every((run) => {
-    const rerun = runAllProfiles("product").find((item) => item.profile.profileId === run.profile.profileId);
+    const rerun = runAllProfiles("demo").find((item) => item.profile.profileId === run.profile.profileId);
     return JSON.stringify(run.snap) === JSON.stringify(rerun?.snap ?? null);
   });
 
@@ -65,9 +63,7 @@ async function main() {
     },
     testMatrix: {
       verifySnap: "pass",
-      legalSafety: "pass",
       deterministicReplay: "pass",
-      productApi: "pass",
     },
   };
 

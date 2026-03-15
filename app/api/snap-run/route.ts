@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { runUIC, runUUIS, runSnapToEngine } from "@/lib/snap";
+import { runUIC, runSnapToEngine } from "@/lib/snap";
 import { buildProfileAdapter } from "@/lib/snap/profiles";
 import { assertPinnedProfile, getProfileOrThrow } from "@/lib/profiles";
 import { enforceState } from "@/lib/engine/enforcement";
@@ -8,7 +8,9 @@ import { assertApiLawReadiness } from "@/lib/engine/readiness";
 import { loadLawWeb } from "@/lib/engine/store";
 import { createCitationProvider, extractCitationCandidates, runCitationWorkflow } from "@/lib/providers/citation";
 import { appendSnapRunLedger } from "@/lib/ledger";
+import { extractSeedChildrenFromArtifact } from "@/lib/nocr";
 import type { RunMode } from "@/lib/profiles";
+import { encodeUuisEnvelope, extractRootParentsFromArtifact } from "@/lib/uuis";
 
 type SnapRunBody = {
   artifact?: string;
@@ -46,7 +48,34 @@ export async function POST(request: Request) {
     const adapter = buildProfileAdapter(profileId, runMode, `${profileId}:${runMode}`, body.providedProofLawIds ?? []);
 
     const per = runUIC(artifact, profile, runMode);
-    const uuis = runUUIS(per, profile);
+    const uuis = encodeUuisEnvelope(per, profile);
+    const rootExtraction = extractRootParentsFromArtifact(artifact);
+    const seedExtraction = extractSeedChildrenFromArtifact(artifact);
+    if (rootExtraction.coverage.underEnumerated) {
+      return NextResponse.json({
+        error: "Law-side root extraction under-enumerated incoming root/parent structure.",
+        root_extraction: {
+          count: rootExtraction.roots.length,
+          source_units: rootExtraction.sourceUnitCount,
+          extracted_root_count: rootExtraction.coverage.extractedRootCount,
+          expansion_delta: rootExtraction.coverage.expansionDelta,
+          under_enumerated: rootExtraction.coverage.underEnumerated,
+          identity_kernel_count: rootExtraction.identityKernelCount,
+          legality_region_count: rootExtraction.legalityRegionCount,
+          meta_loop_count: rootExtraction.metaLoopCount,
+          directive_count: rootExtraction.directiveCount,
+          code_unit_count: rootExtraction.codeUnitCount,
+          math_unit_count: rootExtraction.mathUnitCount,
+          sentence_count: rootExtraction.sentenceCount,
+          roots: rootExtraction.roots,
+        },
+        seed_extraction: {
+          quantum_spark_candidates: seedExtraction.quantumSparkCandidateCount,
+          finite_seed_count: seedExtraction.finiteSeedCount,
+          seeds: seedExtraction.seeds,
+        },
+      }, { status: 422 });
+    }
     const output = runSnapToEngine(per, uuis, adapter.integration);
     const hardGateFailures: string[] = [];
 
@@ -173,6 +202,26 @@ export async function POST(request: Request) {
         index: ledgerRecord.index,
         digest: ledgerRecord.digest,
         prevDigest: ledgerRecord.prevDigest,
+      },
+      root_extraction: {
+        count: rootExtraction.roots.length,
+        source_units: rootExtraction.sourceUnitCount,
+        extracted_root_count: rootExtraction.coverage.extractedRootCount,
+        expansion_delta: rootExtraction.coverage.expansionDelta,
+        under_enumerated: rootExtraction.coverage.underEnumerated,
+        identity_kernel_count: rootExtraction.identityKernelCount,
+        legality_region_count: rootExtraction.legalityRegionCount,
+        meta_loop_count: rootExtraction.metaLoopCount,
+        directive_count: rootExtraction.directiveCount,
+        code_unit_count: rootExtraction.codeUnitCount,
+        math_unit_count: rootExtraction.mathUnitCount,
+        sentence_count: rootExtraction.sentenceCount,
+        roots: rootExtraction.roots,
+      },
+      seed_extraction: {
+        quantum_spark_candidates: seedExtraction.quantumSparkCandidateCount,
+        finite_seed_count: seedExtraction.finiteSeedCount,
+        seeds: seedExtraction.seeds,
       },
       A_PER: per,
       B_UUIS: uuis,

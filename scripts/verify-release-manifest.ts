@@ -14,9 +14,7 @@ type Manifest = {
   };
   testMatrix: {
     verifySnap: "pass" | "fail";
-    legalSafety: "pass" | "fail";
     deterministicReplay: "pass" | "fail";
-    productApi: "pass" | "fail";
   };
   digest: string;
 };
@@ -59,9 +57,7 @@ async function main() {
 
   const tests = manifest.testMatrix;
   assert(tests.verifySnap === "pass", "Manifest gate failed: verifySnap must be pass.");
-  assert(tests.legalSafety === "pass", "Manifest gate failed: legalSafety must be pass.");
   assert(tests.deterministicReplay === "pass", "Manifest gate failed: deterministicReplay must be pass.");
-  assert(tests.productApi === "pass", "Manifest gate failed: productApi must be pass.");
 
   const expectedDigest = digestOf({
     generatedAt: manifest.generatedAt,

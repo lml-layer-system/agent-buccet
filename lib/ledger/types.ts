@@ -1,4 +1,4 @@
-export type LedgerEventType = "SNAP_RUN" | "PRODUCT_MUTATION" | "DEMO_MODEL_CALL";
+export type LedgerEventType = "SNAP_RUN" | "DEMO_MODEL_CALL";
 
 export type LedgerPayload = {
   runId: string;
@@ -17,24 +17,9 @@ export type LedgerPayload = {
 export type LedgerRecord = {
   index: number;
   eventType: LedgerEventType;
-  payload: LedgerPayload | ProductMutationPayload | DemoModelCallPayload;
+  payload: LedgerPayload | DemoModelCallPayload;
   prevDigest: string | null;
   digest: string;
-};
-
-export type ProductMutationPayload = {
-  mutationId: string;
-  mutationType:
-    | "CASE_CREATED"
-    | "CASE_UPDATED"
-    | "QUESTION_SUBMITTED"
-    | "QUESTION_REPLIED"
-    | "ARTIFACT_ATTACHED";
-  caseId: string;
-  actorId: string;
-  role: "lawyer" | "staff" | "client";
-  details: Record<string, string | number | boolean | null>;
-  createdAt: string;
 };
 
 export type ReplayProof = {

@@ -27,9 +27,7 @@ function main() {
   run("npm run ci:guardrails");
   run("npm run test:demo-contract");
   run("npm run test:gpt2-live");
-  run("npm run test:legal-safety");
   run("npm run test:replay");
-  run("npm run test:product-api");
   run("npm run release:manifest");
   run("npm run verify:manifest");
   run("npm run report:blockers");

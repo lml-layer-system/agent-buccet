@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import type { DemoModelCallPayload, LedgerPayload, LedgerRecord, ProductMutationPayload, ReplayProof } from "./types.ts";
+import type { DemoModelCallPayload, LedgerPayload, LedgerRecord, ReplayProof } from "./types.ts";
 
 const LEDGER_DIR = path.join(process.cwd(), "data", "ledger");
 const LEDGER_FILE = path.join(LEDGER_DIR, "snap-ledger.jsonl");
@@ -18,27 +18,6 @@ export async function appendSnapRunLedger(payload: LedgerPayload): Promise<Ledge
   const record: LedgerRecord = {
     index,
     eventType: "SNAP_RUN",
-    payload,
-    prevDigest,
-    digest,
-  };
-
-  await fs.appendFile(LEDGER_FILE, `${JSON.stringify(record)}\n`, "utf8");
-  return record;
-}
-
-export async function appendProductMutationLedger(payload: ProductMutationPayload): Promise<LedgerRecord> {
-  await fs.mkdir(LEDGER_DIR, { recursive: true });
-  const records = await readAllLedgerRecords();
-
-  const last = records.length > 0 ? records[records.length - 1] : null;
-  const index = records.length;
-  const prevDigest = last?.digest ?? null;
-  const digest = computeDigest(index, payload, prevDigest);
-
-  const record: LedgerRecord = {
-    index,
-    eventType: "PRODUCT_MUTATION",
     payload,
     prevDigest,
     digest,
@@ -128,7 +107,7 @@ export function verifyLedgerChain(records: LedgerRecord[]): string[] {
 
 function computeDigest(
   index: number,
-  payload: LedgerPayload | ProductMutationPayload | DemoModelCallPayload,
+  payload: LedgerPayload | DemoModelCallPayload,
   prevDigest: string | null,
 ): string {
   const canonical = JSON.stringify({ index, payload, prevDigest });

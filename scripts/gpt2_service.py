@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from contextlib import suppress
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List
 
@@ -25,6 +26,7 @@ model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
 model.to(DEVICE)
 model.eval()
 print("[gpt2-service] model ready", flush=True)
+MAX_CONTEXT_TOKENS = int(getattr(model.config, "n_positions", 1024) or 1024)
 
 
 def _cut_at_stops(text: str, stops: List[str]) -> str:
@@ -62,20 +64,35 @@ def generate(payload: Dict[str, Any]) -> Dict[str, Any]:
     if attention_mask is not None:
         attention_mask = attention_mask.to(DEVICE)
 
+    max_input_tokens = max(1, MAX_CONTEXT_TOKENS - max_new_tokens)
+    if input_ids.shape[1] > max_input_tokens:
+        keep_head = min(256, max_input_tokens // 3)
+        keep_tail = max_input_tokens - keep_head
+        head_ids = input_ids[:, :keep_head]
+        tail_ids = input_ids[:, -keep_tail:]
+        input_ids = torch.cat([head_ids, tail_ids], dim=1)
+        if attention_mask is not None:
+            head_mask = attention_mask[:, :keep_head]
+            tail_mask = attention_mask[:, -keep_tail:]
+            attention_mask = torch.cat([head_mask, tail_mask], dim=1)
+
+    generate_kwargs = {
+        "input_ids": input_ids,
+        "attention_mask": attention_mask,
+        "max_new_tokens": max_new_tokens,
+        "min_new_tokens": min_new_tokens,
+        "do_sample": do_sample,
+        "repetition_penalty": repetition_penalty,
+        "no_repeat_ngram_size": no_repeat_ngram_size,
+        "pad_token_id": tokenizer.pad_token_id,
+        "eos_token_id": tokenizer.eos_token_id,
+    }
+    if do_sample:
+        generate_kwargs["temperature"] = temperature
+        generate_kwargs["top_p"] = top_p
+
     with torch.no_grad():
-        output_ids = model.generate(
-            input_ids=input_ids,
-            attention_mask=attention_mask,
-            max_new_tokens=max_new_tokens,
-            min_new_tokens=min_new_tokens,
-            do_sample=do_sample,
-            temperature=temperature,
-            top_p=top_p,
-            repetition_penalty=repetition_penalty,
-            no_repeat_ngram_size=no_repeat_ngram_size,
-            pad_token_id=tokenizer.pad_token_id,
-            eos_token_id=tokenizer.eos_token_id,
-        )
+        output_ids = model.generate(**generate_kwargs)
 
     generated_ids = output_ids[0][input_ids.shape[1]:]
     text = tokenizer.decode(generated_ids, skip_special_tokens=True).strip()
@@ -139,11 +156,12 @@ def validate_python_runtime(payload: Dict[str, Any]) -> Dict[str, Any]:
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: Dict[str, Any]) -> None:
         data = json.dumps(body).encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+        with suppress(BrokenPipeError, ConnectionResetError):
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
 
     def do_GET(self) -> None:  # noqa: N802
         if self.path == "/health":

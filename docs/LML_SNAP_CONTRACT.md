@@ -8,7 +8,7 @@ This document is the canonical contract for SNAP execution in this repository.
 Any change to required output schema, stage semantics, admissibility behavior, or profile identity requires a version bump.
 
 ## 1.1 Universe Ontology Terminology
-- `Sun` = the base/core law body
+- `Sun` = the sun law body
 - `Ability planet` = the planet that holds ability laws
 - `Meta planet` = the planet that holds meta laws
 - `Universe` = the full loaded system

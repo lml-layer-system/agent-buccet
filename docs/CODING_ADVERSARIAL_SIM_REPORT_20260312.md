@@ -1,0 +1,326 @@
+# Coding Adversarial Simulation Report
+
+## Summary
+- scenarios: 9
+- visited probe-field nodes: 443
+- survivors: 9
+- raw pruned: 345
+- structural pruned: 73
+- root pruned: 10
+- meta-root pruned: 4
+- uncovered meta-roots: 0
+
+## Failure Dimensions
+- logic: 29
+- integration: 14
+- syntax: 10
+- architecture: 10
+- safety: 8
+- algorithm: 2
+
+## Failure Trunks
+- LOGIC_STATE_INTEGRITY: 11
+- LOGIC_TEST_SURFACE: 10
+- SYNTAX_SUBSTRATE: 10
+- ARCH_PROJECT_GRAPH: 10
+- SAFETY_GUARD: 8
+- LOGIC_CONTROL_FLOW: 8
+- INTEGRATION_FRAMEWORK_BINDING: 7
+- INTEGRATION_DEPENDENCY_UNIVERSE: 6
+- ALGO_HALTING: 2
+- INTEGRATION_PROJECT_BINDING: 1
+
+## Failure Roots
+- ROOT_CONTROL_FLOW_UNSAFE: 1
+- ROOT_DEPENDENCY_UNIVERSE_BROKEN: 1
+- ROOT_FRAMEWORK_ENTRY_MISSING: 1
+- ROOT_SAFETY_GUARD_MISSING: 1
+- ROOT_STATE_LIFECYCLE_MISSING: 1
+- ROOT_SYNTAX_SUBSTRATE_ILLEGAL: 1
+- ROOT_TEST_ARTIFACT_MISSING: 1
+- ROOT_ARCH_GRAPH_ILLEGAL: 1
+- ROOT_PROJECT_BINDING_BROKEN: 1
+- ROOT_HALTING_PATH_ILLEGAL: 1
+
+## Failure Meta-Roots
+- META_ROOT_COMPOSITION_BOUNDARY_ILLEGAL: 1
+- META_ROOT_EXECUTION_SURFACE_MISSING: 1
+- META_ROOT_RUNTIME_SAFETY_BOUNDARY_MISSING: 1
+- META_ROOT_STATEFUL_CORRECTNESS_MISSING: 1
+
+## Meta-Root Coverage
+- META_ROOT_COMPOSITION_BOUNDARY_ILLEGAL: lawed
+- META_ROOT_EXECUTION_SURFACE_MISSING: lawed
+- META_ROOT_RUNTIME_SAFETY_BOUNDARY_MISSING: lawed
+- META_ROOT_STATEFUL_CORRECTNESS_MISSING: lawed
+
+## Trunk Law Coverage
+- LOGIC_STATE_INTEGRITY: lawed
+- LOGIC_TEST_SURFACE: lawed
+- SYNTAX_SUBSTRATE: lawed
+- ARCH_PROJECT_GRAPH: lawed
+- SAFETY_GUARD: lawed
+- LOGIC_CONTROL_FLOW: lawed
+- INTEGRATION_FRAMEWORK_BINDING: lawed
+- INTEGRATION_DEPENDENCY_UNIVERSE: lawed
+- ALGO_HALTING: lawed
+- INTEGRATION_PROJECT_BINDING: lawed
+
+## Coverage
+- covered_families: api, app, auth, compiler, game, orm, parser, refactor, utility
+- missing_families: none
+
+## Failure Dimensions By Family
+- api: integration=5, logic=4, safety=3, syntax=1
+- app: logic=7, architecture=5, integration=4, safety=2, syntax=1
+- auth: safety=2, integration=2, logic=1, syntax=1
+- compiler: logic=3, syntax=1
+- game: logic=2, integration=1, syntax=1
+- orm: logic=3, syntax=2
+- parser: integration=1, logic=1, syntax=1
+- refactor: architecture=5, logic=3, integration=1, syntax=1
+- utility: logic=5, algorithm=2, safety=1, syntax=1
+
+## Survivors
+- S01/lawful_baseline: family=utility lineage=lawful_seed
+- S02/lawful_baseline: family=auth lineage=lawful_seed
+- S03/lawful_baseline: family=parser lineage=lawful_seed
+- S04/lawful_baseline: family=compiler lineage=lawful_seed
+- S05/lawful_baseline: family=app lineage=lawful_seed
+- S06/lawful_baseline: family=game lineage=lawful_seed
+- S07/lawful_baseline: family=refactor lineage=lawful_seed
+- S08/lawful_baseline: family=orm lineage=lawful_seed
+- S09/lawful_baseline: family=api lineage=lawful_seed
+
+## Pruned Variants
+- S09/safety_hardcoded_credentials: safety:F1_DIRECT_SECURITY:security_failed:hardcoded_credentials
+  - lineage: lawful_seed -> safety_hardcoded_credentials
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=security_failed:hardcoded_credentials
+- S09/safety_sql_injection: safety:F1_DIRECT_SECURITY:security_failed:sql_injection
+  - lineage: lawful_seed -> safety_sql_injection
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=security_failed:sql_injection
+- S09/safety_xss_vulnerability: safety:F1_DIRECT_SECURITY:security_failed:xss_vulnerability
+  - lineage: lawful_seed -> safety_xss_vulnerability
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=security_failed:xss_vulnerability
+- S09/dependency_version_mismatch: integration:I1.1_VERSION_MISMATCH:dependency_failed:I1.1_VERSION_MISMATCH
+  - lineage: lawful_seed -> dependency_version_mismatch
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=dependency_failed:I1.1_VERSION_MISMATCH
+- S09/dependency_missing_dependency: integration:I1.2_MISSING_DEPENDENCY:dependency_failed:I1.2_MISSING_DEPENDENCY
+  - lineage: lawful_seed -> dependency_missing_dependency
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=dependency_failed:I1.2_MISSING_DEPENDENCY
+- S09/dependency_transitive_conflict: integration:I1.3_TRANSITIVE_DEPENDENCY_CONFLICT:dependency_failed:I1.3_TRANSITIVE_DEPENDENCY_CONFLICT
+  - lineage: lawful_seed -> dependency_transitive_conflict
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=dependency_failed:I1.3_TRANSITIVE_DEPENDENCY_CONFLICT
+- S09/api_missing_route_shape: integration:I2.1_API_FRAMEWORK_SURFACE:integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_app_constructor
+  - lineage: lawful_seed -> api_missing_route_shape
+  - probes: shape=pass | language_surface=pass | witness=integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_app_constructor
+- S09/integration_wrong_framework: integration:I2.1_API_FRAMEWORK_SURFACE:integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_framework_import
+  - lineage: lawful_seed -> integration_wrong_framework
+  - probes: shape=pass | language_surface=pass | witness=integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_framework_import
+- S09/logic_wrong_return_type: logic:L3.2_WRONG_RETURN_TYPE:logic_failed:L3.2_WRONG_RETURN_TYPE:list_return_for_dict_contract
+  - lineage: lawful_seed -> logic_wrong_return_type
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L3.2_WRONG_RETURN_TYPE:list_return_for_dict_contract
+- S09/logic_null_deref: logic:L4.2_NULL_NONE_DEREFERENCE:logic_failed:L4.2_NULL_NONE_DEREFERENCE:none_method_call
+  - lineage: lawful_seed -> logic_null_deref
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L4.2_NULL_NONE_DEREFERENCE:none_method_call
+- S09/state_inconsistency: logic:L7.4_STATE_INCONSISTENCY:state_failed:L7.4_STATE_INCONSISTENCY:status_mutated_without_version
+  - lineage: lawful_seed -> state_inconsistency
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.4_STATE_INCONSISTENCY:status_mutated_without_version
+- S09/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S09/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S05/design_tight_coupling: architecture:A1.1_TIGHT_COUPLING:design_failed:A1.1_TIGHT_COUPLING
+  - lineage: lawful_seed -> design_tight_coupling
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.1_TIGHT_COUPLING
+- S05/design_god_object: architecture:A1.2_GOD_OBJECT:design_failed:A1.2_GOD_OBJECT
+  - lineage: lawful_seed -> project_graph_missing_service -> design_god_object
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.2_GOD_OBJECT
+- S05/design_inappropriate_intimacy: architecture:A1.5_INAPPROPRIATE_INTIMACY:design_failed:A1.5_INAPPROPRIATE_INTIMACY
+  - lineage: lawful_seed -> design_inappropriate_intimacy
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.5_INAPPROPRIATE_INTIMACY
+- S05/design_message_chain: architecture:A1.6_MESSAGE_CHAIN:design_failed:A1.6_MESSAGE_CHAIN
+  - lineage: lawful_seed -> design_message_chain
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.6_MESSAGE_CHAIN
+- S05/design_middle_man: architecture:A1.7_MIDDLE_MAN:design_failed:A1.7_MIDDLE_MAN
+  - lineage: lawful_seed -> design_middle_man
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.7_MIDDLE_MAN
+- S05/safety_hardcoded_credentials: safety:F1_DIRECT_SECURITY:security_failed:hardcoded_credentials
+  - lineage: lawful_seed -> safety_hardcoded_credentials
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=security_failed:hardcoded_credentials
+- S05/safety_xss_vulnerability: safety:F1_DIRECT_SECURITY:security_failed:xss_vulnerability
+  - lineage: lawful_seed -> safety_xss_vulnerability
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=security_failed:xss_vulnerability
+- S05/dependency_version_mismatch: integration:I1.1_VERSION_MISMATCH:dependency_failed:I1.1_VERSION_MISMATCH
+  - lineage: lawful_seed -> dependency_version_mismatch
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=dependency_failed:I1.1_VERSION_MISMATCH
+- S05/dependency_transitive_conflict: integration:I1.3_TRANSITIVE_DEPENDENCY_CONFLICT:dependency_failed:I1.3_TRANSITIVE_DEPENDENCY_CONFLICT
+  - lineage: lawful_seed -> dependency_transitive_conflict
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=dependency_failed:I1.3_TRANSITIVE_DEPENDENCY_CONFLICT
+- S05/integration_wrong_framework: integration:I2.1_API_FRAMEWORK_SURFACE:integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_framework_import
+  - lineage: lawful_seed -> integration_wrong_framework
+  - probes: shape=pass | language_surface=pass | witness=integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_framework_import
+- S05/app_drop_testclient: integration:I2.5_APP_TEST_SURFACE:integration_failed:I2.5_APP_TEST_SURFACE
+  - lineage: lawful_seed -> app_drop_testclient
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=integration_failed:I2.5_APP_TEST_SURFACE
+- S05/logic_null_deref: logic:L4.2_NULL_NONE_DEREFERENCE:logic_failed:L4.2_NULL_NONE_DEREFERENCE:none_method_call
+  - lineage: lawful_seed -> logic_null_deref
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L4.2_NULL_NONE_DEREFERENCE:none_method_call
+- S05/state_race_condition: logic:L7.2_RACE_CONDITION:state_failed:L7.2_RACE_CONDITION:shared_mutation_without_lock
+  - lineage: lawful_seed -> state_race_condition
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.2_RACE_CONDITION:shared_mutation_without_lock
+- S05/state_deadlock: logic:L7.3_DEADLOCK:state_failed:L7.3_DEADLOCK:reentrant_lock_acquire
+  - lineage: lawful_seed -> state_deadlock
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.3_DEADLOCK:reentrant_lock_acquire
+- S05/state_inconsistency: logic:L7.4_STATE_INCONSISTENCY:state_failed:L7.4_STATE_INCONSISTENCY:status_mutated_without_version
+  - lineage: lawful_seed -> state_inconsistency
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.4_STATE_INCONSISTENCY:status_mutated_without_version
+- S05/state_global_pollution: logic:L7.5_GLOBAL_STATE_POLLUTION:state_failed:L7.5_GLOBAL_STATE_POLLUTION:global_mutation
+  - lineage: lawful_seed -> state_global_pollution
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.5_GLOBAL_STATE_POLLUTION:global_mutation
+- S05/state_stale_cache: logic:L7.6_STALE_STATE:state_failed:L7.6_STALE_STATE:no_invalidation_path
+  - lineage: lawful_seed -> state_stale_cache
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.6_STALE_STATE:no_invalidation_path
+- S05/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S05/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S02/safety_no_auth_guard: safety:F0_SAFETY_GUARD:witness_failed:auth_guard
+  - lineage: lawful_seed -> safety_no_auth_guard
+  - probes: shape=pass | language_surface=pass | witness=witness_failed:auth_guard
+- S02/safety_hardcoded_credentials: safety:F1_DIRECT_SECURITY:security_failed:hardcoded_credentials
+  - lineage: lawful_seed -> safety_hardcoded_credentials
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=security_failed:hardcoded_credentials
+- S02/dependency_missing_dependency: integration:I1.2_MISSING_DEPENDENCY:dependency_failed:I1.2_MISSING_DEPENDENCY
+  - lineage: lawful_seed -> dependency_missing_dependency
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=dependency_failed:I1.2_MISSING_DEPENDENCY
+- S02/integration_wrong_framework: integration:I2.1_API_FRAMEWORK_SURFACE:integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_framework_import
+  - lineage: lawful_seed -> integration_wrong_framework
+  - probes: shape=pass | language_surface=pass | witness=integration_failed:I2.1_API_FRAMEWORK_SURFACE:no_framework_import
+- S02/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S02/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S04/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S04/architecture_cycle: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_function
+  - lineage: lawful_seed -> architecture_cycle
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_function
+- S04/architecture_missing_export: logic:L8.3_MISSING_BEHAVIOR_ASSERTION:logic_failed:L8.3_MISSING_BEHAVIOR_ASSERTION:no_behavior_assert
+  - lineage: lawful_seed -> architecture_missing_export
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.3_MISSING_BEHAVIOR_ASSERTION:no_behavior_assert
+- S04/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S06/integration_wrong_dependency_surface: integration:I2.8_GAME_RUNTIME_DEPENDENCY_SURFACE:integration_failed:I2.8_GAME_RUNTIME_DEPENDENCY_SURFACE
+  - lineage: lawful_seed -> integration_wrong_dependency_surface
+  - probes: shape=pass | language_surface=pass | witness=integration_failed:I2.8_GAME_RUNTIME_DEPENDENCY_SURFACE
+- S06/state_race_condition: logic:L7.2_RACE_CONDITION:state_failed:L7.2_RACE_CONDITION:shared_mutation_without_lock
+  - lineage: lawful_seed -> state_race_condition
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.2_RACE_CONDITION:shared_mutation_without_lock
+- S06/state_deadlock: logic:L7.3_DEADLOCK:state_failed:L7.3_DEADLOCK:reentrant_lock_acquire
+  - lineage: lawful_seed -> state_deadlock
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.3_DEADLOCK:reentrant_lock_acquire
+- S06/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S08/scale_wrong_complexity: logic:L5.3_MUTATION_DURING_ITERATION:logic_failed:L5.3_MUTATION_DURING_ITERATION:append_inside_iteration
+  - lineage: lawful_seed -> scale_wrong_complexity
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L5.3_MUTATION_DURING_ITERATION:append_inside_iteration
+- S08/state_stale_cache: logic:L7.6_STALE_STATE:state_failed:L7.6_STALE_STATE:no_invalidation_path
+  - lineage: lawful_seed -> state_stale_cache
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.6_STALE_STATE:no_invalidation_path
+- S08/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S08/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S08/orm_wrong_dependency_surface: syntax:S1_LANGUAGE_SURFACE:surface_failed:integration_failed:I2.7_ORM_SINGLE_DEPENDENCY_UNIVERSE
+  - lineage: lawful_seed -> orm_wrong_dependency_surface
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=surface_failed:integration_failed:I2.7_ORM_SINGLE_DEPENDENCY_UNIVERSE
+- S03/context_wrong_family: integration:I0_SURFACE_BINDING:witness_failed:parse_shape
+  - lineage: lawful_seed -> context_wrong_family
+  - probes: shape=pass | language_surface=pass | witness=witness_failed:parse_shape
+- S03/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S03/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S07/refactor_wrong_import_binding: architecture:A0_PROJECT_GRAPH:missing_export:app->auth_service.login_user
+  - lineage: lawful_seed -> refactor_wrong_import_binding
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=missing_export:app->auth_service.login_user
+- S07/design_tight_coupling: architecture:A1.1_TIGHT_COUPLING:design_failed:A1.1_TIGHT_COUPLING
+  - lineage: lawful_seed -> design_tight_coupling
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.1_TIGHT_COUPLING
+- S07/design_god_object: architecture:A1.2_GOD_OBJECT:design_failed:A1.2_GOD_OBJECT
+  - lineage: lawful_seed -> design_god_object
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.2_GOD_OBJECT
+- S07/design_inappropriate_intimacy: architecture:A1.5_INAPPROPRIATE_INTIMACY:design_failed:A1.5_INAPPROPRIATE_INTIMACY
+  - lineage: lawful_seed -> design_inappropriate_intimacy
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.5_INAPPROPRIATE_INTIMACY
+- S07/design_middle_man: architecture:A1.7_MIDDLE_MAN:design_failed:A1.7_MIDDLE_MAN
+  - lineage: lawful_seed -> design_middle_man
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=design_failed:A1.7_MIDDLE_MAN
+- S07/integration_wrong_framework: integration:I2.9_REFACTOR_IMPORT_CONTINUITY:integration_failed:I2.9_REFACTOR_IMPORT_CONTINUITY
+  - lineage: lawful_seed -> integration_wrong_framework
+  - probes: shape=pass | language_surface=pass | witness=integration_failed:I2.9_REFACTOR_IMPORT_CONTINUITY
+- S07/context_wrong_family: logic:L1_SEMANTIC_CONTRACT:semantic_failed:refactor_import_binding
+  - lineage: lawful_seed -> context_wrong_family
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=semantic_failed:refactor_import_binding
+- S07/logic_exception_swallowing: logic:L6.4_EXCEPTION_SWALLOWING:logic_failed:L6.4_EXCEPTION_SWALLOWING:pass_in_except
+  - lineage: lawful_seed -> logic_exception_swallowing
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L6.4_EXCEPTION_SWALLOWING:pass_in_except
+- S07/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S07/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+- S01/safety_bare_except: safety:F0_SAFETY_GUARD:floor_failed:u5_explicit_failure
+  - lineage: lawful_seed -> safety_bare_except
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=floor_failed:u5_explicit_failure
+- S01/algorithm_non_halting: algorithm:G0_HALTING_COLLAPSE:timeout
+  - lineage: lawful_seed -> algorithm_non_halting
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=pass | dependencies=pass | integration=pass | halting=timeout
+- S01/scale_exponential: algorithm:G1.2_EXPONENTIAL_WHEN_POLYNOMIAL_EXISTS:scale_failed:G1.2_EXPONENTIAL_WHEN_POLYNOMIAL_EXISTS
+  - lineage: lawful_seed -> scale_exponential
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=pass | surface=pass | design=pass | scale=scale_failed:G1.2_EXPONENTIAL_WHEN_POLYNOMIAL_EXISTS
+- S01/scale_wrong_complexity: logic:L5.3_MUTATION_DURING_ITERATION:logic_failed:L5.3_MUTATION_DURING_ITERATION:append_inside_iteration
+  - lineage: lawful_seed -> scale_wrong_complexity
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L5.3_MUTATION_DURING_ITERATION:append_inside_iteration
+- S01/logic_exception_swallowing: logic:L6.4_EXCEPTION_SWALLOWING:logic_failed:L6.4_EXCEPTION_SWALLOWING:pass_in_except
+  - lineage: lawful_seed -> logic_exception_swallowing
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=logic_failed:L6.4_EXCEPTION_SWALLOWING:pass_in_except
+- S01/state_uninitialized_variable: logic:L7.1_UNINITIALIZED_VARIABLE:state_failed:L7.1_UNINITIALIZED_VARIABLE:return_undefined_result
+  - lineage: lawful_seed -> state_uninitialized_variable
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.1_UNINITIALIZED_VARIABLE:return_undefined_result
+- S01/state_global_pollution: logic:L7.5_GLOBAL_STATE_POLLUTION:state_failed:L7.5_GLOBAL_STATE_POLLUTION:global_mutation
+  - lineage: lawful_seed -> state_global_pollution
+  - probes: shape=pass | language_surface=pass | witness=pass | architecture=pass | floor=pass | semantics=pass | logic=pass | security=pass | state=state_failed:L7.5_GLOBAL_STATE_POLLUTION:global_mutation
+- S01/logic_drop_tests: logic:L8.1_MISSING_TEST_BLOCK:logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+  - lineage: lawful_seed -> logic_drop_tests
+  - probes: shape=pass | language_surface=pass | witness=logic_failed:L8.1_MISSING_TEST_BLOCK:no_test_block
+- S01/syntax_missing_fence: syntax:S0_SUBSTRATE_SHAPE:missing_code_blocks
+  - lineage: lawful_seed -> syntax_missing_fence
+  - probes: shape=missing_code_blocks
+
+## Dominant Next Law Targets
+- logic: harden witness correctness and missing-case laws.
+- integration: harden framework/ecosystem binding laws.
+- syntax: harden substrate shape and language-surface laws.
+- architecture: harden project graph and module boundary laws.
+
+## Read
+- This sim is bounded QE/EFUE, not brute-force enumeration.
+- Adversarial variants are expanded lazily by mutation operators.
+- EFUE pruning happens probe-by-probe as soon as a node violates the current law stack.
+- This keeps the sim closed-loop and local while still pressuring a wider possibility field.
