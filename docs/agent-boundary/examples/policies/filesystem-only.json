@@ -1,0 +1,32 @@
+{
+  "approvalRequiredFor": [
+    "fs.delete"
+  ],
+  "grants": [
+    {
+      "resourceKind": "path",
+      "resourceValue": "/workspace/project",
+      "grantedActions": [
+        "fs.read",
+        "fs.write",
+        "fs.append",
+        "fs.mkdir",
+        "fs.move"
+      ],
+      "metadata": {
+        "profile": "filesystem-only"
+      }
+    }
+  ],
+  "laws": [
+    "META.TRUST.01",
+    "META.AUTHORITY.01",
+    "META.SCOPE.01",
+    "META.LAW.01",
+    "META.SESSION.01",
+    "META.LEDGER.01",
+    "BOUNDARY.DELETE.01",
+    "BOUNDARY.EXEC.01",
+    "BOUNDARY.NETWORK.01"
+  ]
+}

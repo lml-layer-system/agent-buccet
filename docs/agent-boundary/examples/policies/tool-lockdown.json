@@ -1,0 +1,76 @@
+{
+  "approvalRequiredFor": [
+    "tool.exec",
+    "fs.delete",
+    "network.send",
+    "comm.send"
+  ],
+  "grants": [
+    {
+      "resourceKind": "tool",
+      "resourceValue": "git",
+      "grantedActions": [
+        "tool.exec"
+      ],
+      "metadata": {
+        "profile": "tool-lockdown"
+      }
+    },
+    {
+      "resourceKind": "path",
+      "resourceValue": "/workspace/project",
+      "grantedActions": [
+        "fs.read"
+      ],
+      "metadata": {
+        "profile": "tool-lockdown"
+      }
+    }
+  ],
+  "laws": [
+    "META.TRUST.01",
+    "META.AUTHORITY.01",
+    "META.SCOPE.01",
+    "META.LAW.01",
+    "META.SESSION.01",
+    "META.LEDGER.01",
+    "BOUNDARY.DELETE.01",
+    "BOUNDARY.EXEC.01",
+    "BOUNDARY.NETWORK.01",
+    "BOUNDARY.COMM.01"
+  ],
+  "process": {
+    "allowedCommands": [
+      "git",
+      "npm",
+      "node",
+      "python",
+      "python3"
+    ],
+    "blockedCommands": [
+      "rm",
+      "sudo"
+    ],
+    "allowedEnvPrefixes": [
+      "AGENT_BUCCET_",
+      "PATH",
+      "HOME",
+      "TMP",
+      "TMPDIR",
+      "TEMP",
+      "TERM",
+      "LANG",
+      "LC_",
+      "NODE_",
+      "npm_"
+    ],
+    "blockedEnvVars": [
+      "AWS_SECRET_ACCESS_KEY",
+      "OPENAI_API_KEY",
+      "ANTHROPIC_API_KEY",
+      "SSH_AUTH_SOCK"
+    ],
+    "inheritParentEnv": true,
+    "enforceScopedCwd": true
+  }
+}

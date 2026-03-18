@@ -1,0 +1,72 @@
+# Agent Buccet Launch Boundary
+
+## What Works Out Of The Box
+
+Agent Buccet is launchable today as an add-on containment layer.
+
+Out of the box, the public slice already gives you:
+- persistent sessions
+- explicit scope and grants
+- deny / allow / require approval enforcement
+- append-only ledger with canonical entry structure
+- ledger query, verify, rollup, and repair commands
+- defensive meta-law enforcement
+- thin user-space `buccet` command shell
+- wrapper CLI for process-level attachment
+- integration surfaces for existing agent stacks
+- intercept daemon and intercept server transports
+- system-intercept seam for future low-level hooks
+- gravity on the action path
+- supervisor for restart and daemon health
+
+Current local install shell:
+- `sh scripts/install-agent-buccet.sh`
+- `buccet init`
+- `buccet status`
+- `buccet scope add <path>`
+- `buccet run -- <command>`
+- `buccet logs`
+- `buccet uninstall`
+
+## What We Can Claim Now
+
+We can claim:
+- Agent Buccet adds hard boundaries to existing agent stacks
+- dangerous or out-of-scope actions are blocked or routed to approval
+- prompt content does not become authority
+- opened scope becomes lawful scope for the session
+- the bodyguard persists across restart until the user ends the session
+- the ledger is part of the trust boundary, not optional logging
+- developers can use the wrapper and intercept surfaces today without waiting for deep OS integration
+
+## What We Should Not Claim Yet
+
+We should not claim:
+- full OS/kernel interception is complete
+- all possible process/syscall paths are already mediated
+- the ledger has full remote witness/signing/checkpoint infrastructure
+- the public slice is the entire private LML system
+
+## In Progress
+
+The main in-progress item is deep OS-level interception.
+
+That means:
+- kernel hooks
+- low-level syscall interception
+- platform-specific transport from OS events into Agent Buccet
+
+The important point is that the seam already exists.
+The current system-intercept bridge and intercept server are the stable handoff points for that deeper work.
+
+## Recommended Launch Wording
+
+Use:
+- Bring your own agent. Add Buccet for containment.
+- Works today with wrapper and boundary transports.
+- Deep OS-level interception is in active development.
+
+Avoid:
+- claiming total kernel mediation today
+- implying every process path is already impossible to bypass
+- blurring current wrapper/intercept transport with final low-level interception depth

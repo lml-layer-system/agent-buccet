@@ -1,0 +1,426 @@
+# Agent Buccet
+
+Building Ultimate Containment Constraints Every Time.
+
+Agent Buccet is a persistent, CPU-friendly law and scope enforcement layer for AI agents.
+
+It is not a new agent framework.
+It is the law layer you add to the agent stack you already run.
+
+## Install Shell
+
+Current local install path:
+
+```bash
+sh scripts/install-agent-buccet.sh
+```
+
+That installs a thin user-space shell under:
+- `~/.buccet`
+- `~/.local/bin/buccet`
+
+Then use:
+
+```bash
+buccet init
+buccet status
+buccet scope add ~/projects/my-app
+buccet run -- python my_agent.py
+buccet logs
+buccet uninstall
+```
+
+Current launch boundary:
+- local install shell works now
+- hosted `curl ... | sh` install is packaging work, not runtime work
+
+## What It Does
+
+Agent Buccet prevents structurally unauthorized actions by default.
+
+It controls:
+- law
+- scope
+- reachability
+- approval
+- audit
+
+It returns only:
+- `ALLOW`
+- `DENY`
+- `REQUIRE_APPROVAL`
+
+## Core Doctrine
+
+- Agents can propose. They cannot authorize.
+- No ambient authority for agents.
+- No out-of-scope actions.
+- No silent destructive tool use.
+- If the path was not issued, the action cannot happen.
+- Opened paths become lawful session scope.
+- Session law persists until the user ends it.
+- Grants can be revoked and expire.
+- Untrusted content is proposal, not authority.
+- Ledger is law.
+- Incomplete ledger traces are non-authoritative.
+
+## Why It Exists
+
+Most damaging agent failures are operational:
+- deleting the wrong files
+- writing outside the intended workspace
+- acting in the wrong environment
+- sending to the wrong recipient
+- mutating the wrong database
+- reading or changing the wrong system/config target
+- taking destructive actions from ambiguous remote instructions
+- treating prompt content like authority
+
+Agent Buccet exists to stop those failures structurally.
+
+## What It Is Not
+
+It is not:
+- a replacement for NeMo / OpenAI Agents / LangGraph
+- a prompt-only safety layer
+- a conversational guardrail system only
+- the whole LML universe
+
+It is the public defensive slice:
+- containment
+- enforcement
+- approval
+- audit
+- defensive meta laws
+
+## Architecture
+
+Bottom:
+- Agent Buccet
+  - laws
+  - scope
+  - path orchestration
+  - allow / deny / require approval
+  - ledger
+
+Middle:
+- your agent / action layer
+  - interprets request
+  - proposes tool/action
+
+Top:
+- Telegram / Discord / Slack / CLI / web UI
+  - control surface only
+
+The chat interface is not the safety layer.
+It is only the entry point.
+
+## Integration Position
+
+Bring your own agent.
+Add Buccet for containment.
+
+Current first-party integration surfaces are inside this repo for:
+- NeMo
+- OpenAI Agents
+- LangGraph
+- Telegram-style remote control
+
+To keep the boundary attached across surfaces, use the shared runtime/bodyguard layer:
+- `createBoundaryRuntimeStore(...)`
+- `createPersistentBoundaryRuntimeStore(...)`
+- `restoreBoundaryRuntimeStore(...)`
+- `createBoundaryBodyguard(...)`
+
+One live store.
+Many interfaces.
+Same bucket.
+
+See:
+- [INTEGRATIONS.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATIONS.md)
+- [INTEGRATION_SURFACE.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATION_SURFACE.md)
+- [LAUNCH_BOUNDARY.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_BOUNDARY.md)
+- [Examples](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
+
+## Runtime Guarantees
+
+The public slice now includes:
+- persistent sessions
+- crash-safe restore
+- opened-path-becomes-law
+- generic grants
+- revocation and expiry
+- filesystem containment
+- recipient/domain/tool containment
+- database/system containment
+- defensive meta laws
+- remote prompt hardening
+- ledger completeness auditing
+- executor-integrated gravity enforcement
+- null -> NSL open-as-law recovery
+- wrapper process policy
+- process lifecycle ledgering
+
+## Runnable Example
+
+Run the CLI contract harness with:
+
+```bash
+npm run test:agent-buccet:cli
+```
+
+Run the install contract harness with:
+
+```bash
+npm run test:agent-buccet:install
+```
+
+Run the end-to-end example with:
+
+```bash
+npm run demo:agent-buccet
+```
+
+It exercises:
+- allowed in-scope write
+- out-of-scope write -> NSL open-as-law offer
+- approval-gated delete
+- persistent restore
+- post-end-session denial
+- session and request ledger audits
+
+Run the executor-integrated gravity example with:
+
+```bash
+npm run demo:agent-buccet:gravity
+```
+
+It proves:
+- gravity admits lawful motion
+- gravity collapses unlawful motion to `null`
+- session audit remains authoritative
+- recovery stays outside active motion until the user re-enters lawfully
+
+Run the gravity contract harness with:
+
+```bash
+npm run test:agent-buccet:gravity-contract
+```
+
+It proves:
+- out-of-scope -> `nsl_grant_offer`
+- authority claim -> `deny`
+- incomplete ledger session -> `deny`
+
+Run the ledger contract harness with:
+
+```bash
+npm run test:agent-buccet:ledger-contract
+```
+
+It proves:
+- every new ledger entry uses the canonical `META / INPUT / DECISION / PATH / NEXT / OPTIONS` structure
+- sequential entry IDs are preserved
+- hash chaining links each new entry to the previous one
+- query surfaces can read the canonical ledger shape directly
+
+Run the ledger rollup contract harness with:
+
+```bash
+npm run test:agent-buccet:ledger-rollup
+```
+
+It proves:
+- ledger rollups can be generated without mutating the live append path
+- archive-style summaries can be written under the ledger rollup directory
+
+Run the ledger writer contract harness with:
+
+```bash
+npm run test:agent-buccet:ledger-writer
+```
+
+It proves:
+- an isolated append-only ledger writer can run as a sidecar
+- the writer can accept append requests over a local socket
+- the main runtime can keep the direct append path as fallback
+
+Run the ledger CLI with:
+
+```bash
+npm run agent-buccet:ledger -- verify --format json
+npm run agent-buccet:ledger -- stats --format json
+npm run agent-buccet:ledger -- rollup --period today --write --format json
+```
+
+Repair path:
+
+```bash
+npm run agent-buccet:ledger -- repair --format json
+```
+
+Repair is explicit and backed up.
+It rewrites the live ledger into a clean sequential hash chain and writes a timestamped backup first.
+
+Run the action-classes contract harness with:
+
+```bash
+npm run test:agent-buccet:action-classes
+```
+
+It proves:
+- database scope is first-class
+- system scope is first-class
+- out-of-scope database/system requests become open-as-law offers
+- system writes stay fail-closed by default law
+
+Run the wrapper CLI with:
+
+```bash
+npm run agent-buccet:run -- --scope /tmp -- /bin/echo wrapped-ok
+```
+
+Current wrapper meaning:
+- authorizes the launched command at the action boundary
+- enforces command allow/block policy
+- enforces scoped working directory
+- filters process environment by policy
+- opens scoped runtime state and ledger attachment
+- records process launch/spawn/exit in the ledger
+- carries Agent Buccet session metadata into the child process
+
+Run the wrapper contract harness with:
+
+```bash
+npm run test:agent-buccet:wrapper-contract
+```
+
+It proves:
+- blocked command policy
+- scoped cwd enforcement
+- process env filtering
+- successful wrapped launch under policy
+
+Run the gravity supervisor contract harness with:
+
+```bash
+npm run test:agent-buccet:gravity-supervisor
+```
+
+It proves:
+- public supervisor starts cleanly
+- event-driven supervision is live
+- gravity restarts are tracked through one supervisor surface
+
+Supervisor split:
+- meta laws decide lawful vs unlawful motion
+- supervisor handles restart, event-driven heartbeat tracking, and daemon health
+- supervisor does not reinterpret law
+
+Run the gravity daemon with:
+
+```bash
+npm run agent-buccet:gravity-daemon -- --session-id my-session
+```
+
+Manual restart command for the daemon:
+- send `SIGHUP` to the daemon process
+- the supervisor will restart the gravity attachment and record the restart reason
+
+Run the intercept daemon with:
+
+```bash
+npm run agent-buccet:intercept-daemon -- --session-id my-session
+```
+
+Run the intercept daemon contract harness with:
+
+```bash
+npm run test:agent-buccet:intercept-daemon
+```
+
+It proves:
+- status command works
+- finite action-boundary decisions work over daemon transport
+- restart command works
+- shutdown command works
+
+Run the intercept server with:
+
+```bash
+npm run agent-buccet:intercept-server -- --session-id my-session --port 7788
+```
+
+Run the intercept server contract harness with:
+
+```bash
+npm run test:agent-buccet:intercept-server
+```
+
+It proves:
+- external clients can connect over a local transport
+- status command works over socket transport
+- finite action-boundary decisions work over socket transport
+- restart command works
+- shutdown command works
+
+Run the Method 1 bridge with:
+
+```bash
+npm run agent-buccet:system-intercept-bridge -- --socket /tmp/agent-buccet.sock
+```
+
+Run the Method 1 system-intercept contract harness with:
+
+```bash
+npm run test:agent-buccet:system-intercept
+```
+
+It proves:
+- a future OS-level hook can classify low-level events and send them into the same bucket
+- file/process/network/database/system events map into finite Agent Buccet action classes
+- the intercept server stays the stable handoff seam instead of introducing a second policy runtime
+
+It does **not** yet do system-level syscall interception.
+That remains the deeper wrapper/process-intercept phase.
+
+## Standalone Package Prep
+
+Prepare a standalone export folder with:
+
+```bash
+npm run package:agent-buccet
+```
+
+This assembles:
+- `dist/agent-buccet/src`
+- `dist/agent-buccet/docs`
+- `dist/agent-buccet/examples`
+- standalone `package.json`
+- standalone `tsconfig.json`
+- extraction manifest
+
+See:
+- [PACKAGING_PLAN.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/PACKAGING_PLAN.md)
+
+## Important Rule
+
+If a request or session is not properly ledgered, it should not be trusted.
+
+That means:
+- missing trace -> non-authoritative
+- incomplete trace -> non-authoritative
+- lawful recovery should go through NSL / approval / re-issuance
+
+## Read Next
+
+- [QUICKSTART.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/QUICKSTART.md)
+- [LAW_CATALOG.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
+- [Integration Examples](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATIONS.md)
+- [Examples Index](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
+- [Approval Flow Example](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/approval-flow.md)
+- [Ledger Audit Example](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/ledger-audit.md)
+- [PUBLIC_PRIVATE_BOUNDARY.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/PUBLIC_PRIVATE_BOUNDARY.md)
+- [PACKAGING_PLAN.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/PACKAGING_PLAN.md)
+- [GRAVITY_LANDING_PLAN.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/GRAVITY_LANDING_PLAN.md)
+- [AGENT_BOUNDARY_REPORT_20260317.md](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/AGENT_BOUNDARY_REPORT_20260317.md)

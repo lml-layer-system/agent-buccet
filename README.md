@@ -2,6 +2,117 @@
 
 Next.js TypeScript single-page demo with a backend API route for LML law/spec retrieval.
 
+## Agent Buccet
+
+This repo now contains `Agent Buccet`, the public defensive boundary slice of the LML universe.
+
+Agent Buccet means:
+- Building Ultimate Containment Constraints Every Time
+- a persistent, CPU-friendly law and scope enforcement layer for AI agents
+
+Core lines:
+- Agents can propose. They cannot authorize.
+- No ambient authority.
+- No out-of-scope actions.
+- No silent destructive tool use.
+
+It is not a replacement framework.
+It is the containment layer you add to the stack you already run.
+
+Entry points:
+- [Agent Buccet README](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/README.md)
+- [Quickstart](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/QUICKSTART.md)
+- [Integrations](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATIONS.md)
+- [Launch Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_BOUNDARY.md)
+- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
+- [Examples](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
+
+Thin shell install from this repo:
+
+```bash
+sh scripts/install-agent-buccet.sh
+buccet init
+buccet status
+buccet run -- /bin/echo protected
+buccet uninstall
+```
+
+Runnable example:
+
+```bash
+npm run demo:agent-buccet
+```
+
+Gravity contract:
+
+```bash
+npm run test:agent-buccet:gravity-contract
+```
+
+Ledger contract:
+
+```bash
+npm run test:agent-buccet:ledger-contract
+```
+
+Ledger writer and rollup:
+
+```bash
+npm run test:agent-buccet:ledger-writer
+npm run test:agent-buccet:ledger-rollup
+npm run agent-buccet:ledger -- verify --format json
+npm run test:agent-buccet:cli
+npm run test:agent-buccet:install
+```
+
+Action classes contract:
+
+```bash
+npm run test:agent-buccet:action-classes
+```
+
+Gravity supervisor contract:
+
+```bash
+npm run test:agent-buccet:gravity-supervisor
+```
+
+Wrapper contract:
+
+```bash
+npm run test:agent-buccet:wrapper-contract
+```
+
+Gravity daemon:
+
+```bash
+npm run agent-buccet:gravity-daemon -- --session-id my-session
+```
+
+Intercept daemon:
+
+```bash
+npm run agent-buccet:intercept-daemon -- --session-id my-session
+```
+
+Intercept server:
+
+```bash
+npm run agent-buccet:intercept-server -- --session-id my-session --port 7788
+```
+
+System-intercept seam:
+
+```bash
+npm run test:agent-buccet:system-intercept
+```
+
+Standalone export prep:
+
+```bash
+npm run package:agent-buccet
+```
+
 ## Universe Ontology
 
 This repository now describes the system with a universe metaphor:

@@ -1,6 +1,7 @@
 node_modules/
 .next/
 out/
+dist/
 coverage/
 .env*
 .DS_Store
@@ -10,3 +11,5 @@ handoff/*
 !handoff/README.md
 data/generated_backups/
 data/lml-context/
+data/agent-boundary/
+data/ledger/
