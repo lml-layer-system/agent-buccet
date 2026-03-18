@@ -1,6 +1,6 @@
-# lml_demo
+# Agent Buccet
 
-Next.js TypeScript single-page demo with a backend API route for LML law/spec retrieval.
+Persistent, CPU-friendly law and scope enforcement for AI agents.
 
 ## Agent Buccet
 
@@ -184,18 +184,6 @@ npm run dev
 ```
 
 Open `http://localhost:3000`.
-
-## Run With Colima (Container)
-
-```bash
-npm run demo:up:colima
-```
-
-Stop with:
-
-```bash
-npm run demo:down:colima
-```
 
 ## API
 

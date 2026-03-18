@@ -1,5 +1,5 @@
 {
-  "name": "lml_demo",
+  "name": "agent-buccet",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -41,10 +41,6 @@
     "install:agent-buccet": "sh scripts/install-agent-buccet.sh",
     "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts",
     "demo:up:local": "npm run demo:check && npm run dev",
-    "demo:up": "docker compose -f docker-compose.demo.yml up --build",
-    "demo:down": "docker compose -f docker-compose.demo.yml down --remove-orphans",
-    "demo:up:colima": "docker --context colima compose -f docker-compose.demo.yml up --build",
-    "demo:down:colima": "docker --context colima compose -f docker-compose.demo.yml down --remove-orphans",
     "test:replay": "node tests/replay/deterministic-replay.ts",
     "test:demo-contract": "node tests/demo/public-contract.ts",
     "test:gpt2-live": "node tests/demo/gpt2-live-path.ts",
