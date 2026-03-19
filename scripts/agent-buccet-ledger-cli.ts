@@ -1,8 +1,11 @@
+import path from "node:path";
 import {
   buildBoundaryLedgerCheckpoint,
   buildBoundaryLedgerRollup,
   createFileBoundaryLedgerWitness,
+  createHttpBoundaryLedgerWitness,
   publishBoundaryLedgerCheckpoint,
+  publishBoundaryReleaseWitness,
   queryBoundaryLedger,
   readBoundaryLedgerCheckpoints,
   readBoundaryLedgerSigningIdentity,
@@ -15,7 +18,18 @@ import {
 } from "../lib/lml/agent-boundary/index.ts";
 
 type ParsedArgs = {
-  command: "query" | "stats" | "verify" | "rollup" | "repair" | "seal" | "checkpoint" | "key" | "witness-file";
+  command:
+    | "query"
+    | "stats"
+    | "verify"
+    | "rollup"
+    | "repair"
+    | "seal"
+    | "checkpoint"
+    | "key"
+    | "witness-file"
+    | "witness-http"
+    | "witness-release";
   from?: string;
   to?: string;
   source?: string;
@@ -27,6 +41,9 @@ type ParsedArgs = {
   period?: string;
   write?: boolean;
   path?: string;
+  url?: string;
+  timeoutMs?: number;
+  releaseDir?: string;
 };
 
 function usage(): never {
@@ -42,6 +59,8 @@ function usage(): never {
       "  node scripts/agent-buccet-ledger-cli.ts checkpoint [--write] [--format json|text]",
       "  node scripts/agent-buccet-ledger-cli.ts key [--format json|text]",
       "  node scripts/agent-buccet-ledger-cli.ts witness-file --path <file> [--format json|text]",
+      "  node scripts/agent-buccet-ledger-cli.ts witness-http --url <endpoint> [--timeout-ms <n>] [--format json|text]",
+      "  node scripts/agent-buccet-ledger-cli.ts witness-release [--release-dir <path>] [--format json|text]",
     ].join("\n"),
   );
   process.exit(1);
@@ -49,7 +68,22 @@ function usage(): never {
 
 function parseArgs(argv: string[]): ParsedArgs {
   const command = argv[0] as ParsedArgs["command"] | undefined;
-  if (!command || !["query", "stats", "verify", "rollup", "repair", "seal", "checkpoint", "key", "witness-file"].includes(command)) {
+  if (
+    !command ||
+    ![
+      "query",
+      "stats",
+      "verify",
+      "rollup",
+      "repair",
+      "seal",
+      "checkpoint",
+      "key",
+      "witness-file",
+      "witness-http",
+      "witness-release",
+    ].includes(command)
+  ) {
     usage();
   }
 
@@ -111,6 +145,21 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
     if (token === "--path") {
       parsed.path = argv[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--url") {
+      parsed.url = argv[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--timeout-ms") {
+      parsed.timeoutMs = Number(argv[index + 1] ?? usage());
+      index += 1;
+      continue;
+    }
+    if (token === "--release-dir") {
+      parsed.releaseDir = argv[index + 1] ?? usage();
       index += 1;
       continue;
     }
@@ -202,6 +251,20 @@ async function main() {
     }
     const published = await publishBoundaryLedgerCheckpoint({
       adapter: createFileBoundaryLedgerWitness(args.path),
+    });
+    print(published, args.format);
+    return;
+  }
+
+  if (args.command === "witness-http") {
+    if (!args.url) {
+      usage();
+    }
+    const published = await publishBoundaryLedgerCheckpoint({
+      adapter: createHttpBoundaryLedgerWitness({
+        targetUrl: args.url,
+        timeoutMs: args.timeoutMs,
+      }),
     });
     print(published, args.format);
     return;

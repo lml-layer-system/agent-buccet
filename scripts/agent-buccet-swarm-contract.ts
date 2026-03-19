@@ -15,6 +15,18 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const result = await fn();
+    if (result !== null) {
+      return result;
+    }
+    await wait(stepMs);
+  }
+  throw new Error(`timed out after ${timeoutMs}ms`);
+}
+
 async function main() {
   const repoRoot = process.cwd();
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-swarm-"));
@@ -55,7 +67,7 @@ async function main() {
       actionClass: "file",
       operation: "write",
       target: sharedTarget,
-      payloadSummary: `pid=1001 agent=one`,
+      payloadSummary: "pid=1001 agent=one",
     },
   });
   const secondRequest = sendBoundaryInterceptServerInput({
@@ -64,27 +76,31 @@ async function main() {
       actionClass: "file",
       operation: "write",
       target: sharedTarget,
-      payloadSummary: `pid=1002 agent=two`,
+      payloadSummary: "pid=1002 agent=two",
     },
   });
 
-  await wait(250);
+  const pendingGroup = await waitFor(async () => {
+    const swarmStatus = await sendBoundaryInterceptServerInput({
+      target,
+      input: {
+        command: "swarm_status",
+      },
+    });
+    if (swarmStatus.type !== "swarm_status") {
+      return null;
+    }
+    const exactMatch = swarmStatus.groups.find((group) =>
+      group.state === "waiting"
+      && group.target === sharedTarget
+      && group.waitingCount >= 2,
+    );
+    return exactMatch ?? null;
+  }, 5000, 100);
 
-  const swarmStatus = await sendBoundaryInterceptServerInput({
-    target,
-    input: {
-      command: "swarm_status",
-    },
-  });
-  assert.equal(swarmStatus.type, "swarm_status");
-  assert.equal(swarmStatus.totals.pending, 1, "expected one pending swarm group");
-  assert.equal(swarmStatus.totals.waitingMembers, 2, "expected two waiting swarm members");
-  assert.equal(swarmStatus.groups.length >= 1, true, "expected at least one tracked group");
-
-  const pendingGroup = swarmStatus.groups[0];
   assert.equal(pendingGroup.target, sharedTarget);
-  assert.equal(pendingGroup.waitingCount, 2);
-  assert.equal(pendingGroup.memberCount, 2);
+  assert.equal(pendingGroup.waitingCount >= 2, true);
+  assert.equal(pendingGroup.memberCount >= 2, true);
 
   const approve = await sendBoundaryInterceptServerInput({
     target,

@@ -16,6 +16,12 @@ export type BoundaryLedgerWitnessReceipt = {
 export type BoundaryLedgerWitnessAdapter = (checkpoint: BoundaryLedgerCheckpoint) =>
   Promise<BoundaryLedgerWitnessReceipt>;
 
+export type BoundaryHttpLedgerWitnessOptions = {
+  targetUrl: string;
+  timeoutMs?: number;
+  headers?: Record<string, string>;
+};
+
 export function createFileBoundaryLedgerWitness(targetPath: string): BoundaryLedgerWitnessAdapter {
   return async (checkpoint) => {
     await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -27,6 +33,39 @@ export function createFileBoundaryLedgerWitness(targetPath: string): BoundaryLed
       checkpoint_id: checkpoint.checkpoint_id,
       signer_id: checkpoint.signer_id,
     };
+  };
+}
+
+export function createHttpBoundaryLedgerWitness(
+  options: BoundaryHttpLedgerWitnessOptions,
+): BoundaryLedgerWitnessAdapter {
+  return async (checkpoint) => {
+    const controller = new AbortController();
+    const timeoutMs = options.timeoutMs ?? 5000;
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(options.targetUrl, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          ...(options.headers ?? {}),
+        },
+        body: JSON.stringify(checkpoint),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error(`witness endpoint returned ${response.status}`);
+      }
+      return {
+        witness_id: `http:${options.targetUrl}`,
+        published_at: new Date().toISOString(),
+        target: options.targetUrl,
+        checkpoint_id: checkpoint.checkpoint_id,
+        signer_id: checkpoint.signer_id,
+      };
+    } finally {
+      clearTimeout(timer);
+    }
   };
 }
 

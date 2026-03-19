@@ -34,9 +34,9 @@ The standalone Agent Buccet package should contain:
 
 Current canonical sources are:
 
-- [lib/lml/agent-boundary](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary)
-- [docs/agent-boundary](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary)
-- [agent-buccet-e2e.ts](/Users/ryangatoloai-faupula/lml_demo/scripts/agent-buccet-e2e.ts)
+- [lib/lml/agent-boundary](/lib/lml/agent-boundary)
+- [docs/agent-boundary](/docs/agent-boundary)
+- [agent-buccet-e2e.ts](/scripts/agent-buccet-e2e.ts)
 
 The export step should package those sources without rewriting the architecture.
 

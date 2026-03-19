@@ -5,6 +5,8 @@ dist/
 coverage/
 .env*
 .DS_Store
+._*
+**/._*
 *.log
 .tmp/
 handoff/*
@@ -13,3 +15,4 @@ data/generated_backups/
 data/lml-context/
 data/agent-boundary/
 data/ledger/
+artifacts/

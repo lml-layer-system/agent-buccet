@@ -2,6 +2,7 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
+import { publishBoundaryReleaseWitness, type BoundaryReleaseWitnessStatus } from "../lib/lml/agent-boundary/index.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
@@ -27,6 +28,7 @@ const sourceWrapperContract = path.join(repoRoot, "scripts", "agent-buccet-wrapp
 const sourceCliContract = path.join(repoRoot, "scripts", "agent-buccet-cli-contract.ts");
 const sourceInstallContract = path.join(repoRoot, "scripts", "agent-buccet-install-contract.ts");
 const sourceHostedInstallContract = path.join(repoRoot, "scripts", "agent-buccet-hosted-install-contract.ts");
+const sourceReleaseWitnessContract = path.join(repoRoot, "scripts", "agent-buccet-release-witness-contract.ts");
 const sourceWrapperScript = path.join(repoRoot, "scripts", "agent-buccet-run.ts");
 const sourceCliScript = path.join(repoRoot, "scripts", "buccet.ts");
 const sourceGravityDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-gravity-daemon.ts");
@@ -91,6 +93,9 @@ async function copyDir(src: string, dest: string): Promise<void> {
   await mkdirp(dest);
   const entries = await fs.readdir(src, { withFileTypes: true });
   for (const entry of entries) {
+    if (entry.name === ".DS_Store" || entry.name.startsWith("._")) {
+      continue;
+    }
     const srcPath = path.join(src, entry.name);
     const destPath = path.join(dest, entry.name);
     if (entry.isDirectory()) {
@@ -133,6 +138,7 @@ async function writeStandalonePackageJson() {
       "test:agent-buccet:cli": "node examples/agent-buccet-cli-contract.ts",
       "test:agent-buccet:install": "node examples/agent-buccet-install-contract.ts",
       "test:agent-buccet:hosted-install": "node examples/agent-buccet-hosted-install-contract.ts",
+      "test:agent-buccet:release-witness": "node examples/agent-buccet-release-witness-contract.ts",
       "agent-buccet:gravity-daemon": "node bin/agent-buccet-gravity-daemon.ts",
       "agent-buccet:intercept-daemon": "node bin/agent-buccet-intercept-daemon.ts",
       "agent-buccet:intercept-server": "node bin/agent-buccet-intercept-server.ts",
@@ -197,6 +203,7 @@ async function writeExtractionManifest() {
     sourceCliContract: "scripts/agent-buccet-cli-contract.ts",
     sourceInstallContract: "scripts/agent-buccet-install-contract.ts",
     sourceHostedInstallContract: "scripts/agent-buccet-hosted-install-contract.ts",
+    sourceReleaseWitnessContract: "scripts/agent-buccet-release-witness-contract.ts",
     sourceWrapperScript: "scripts/agent-buccet-run.ts",
     sourceCliScript: "scripts/buccet.ts",
     sourceGravityDaemonScript: "scripts/agent-buccet-gravity-daemon.ts",
@@ -234,6 +241,7 @@ async function writeExtractionManifest() {
       "examples/agent-buccet-cli-contract.ts",
       "examples/agent-buccet-install-contract.ts",
       "examples/agent-buccet-hosted-install-contract.ts",
+      "examples/agent-buccet-release-witness-contract.ts",
       "bin/agent-buccet-gravity-daemon.ts",
       "bin/agent-buccet-intercept-daemon.ts",
       "bin/agent-buccet-intercept-server.ts",
@@ -352,6 +360,7 @@ async function writeStandaloneExample() {
   );
   const rewrittenInstallContract = await fs.readFile(sourceInstallContract, "utf8");
   const rewrittenHostedInstallContract = await fs.readFile(sourceHostedInstallContract, "utf8");
+  const rewrittenReleaseWitnessContract = await fs.readFile(sourceReleaseWitnessContract, "utf8");
   const examplesDir = path.join(outDir, "examples");
   await mkdirp(examplesDir);
   await fs.writeFile(path.join(examplesDir, "agent-buccet-e2e.ts"), rewritten, "utf8");
@@ -373,6 +382,7 @@ async function writeStandaloneExample() {
   await fs.writeFile(path.join(examplesDir, "agent-buccet-cli-contract.ts"), rewrittenCliContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-install-contract.ts"), rewrittenInstallContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-hosted-install-contract.ts"), rewrittenHostedInstallContract, "utf8");
+  await fs.writeFile(path.join(examplesDir, "agent-buccet-release-witness-contract.ts"), rewrittenReleaseWitnessContract, "utf8");
 }
 
 async function writeStandaloneWrapper() {
@@ -460,7 +470,7 @@ async function writeHostedInstaller() {
   await fs.chmod(path.join(releaseDir, "install.sh"), 0o755);
 }
 
-async function writeReleaseArtifacts(version: string) {
+async function writeReleaseArtifacts(version: string, witness: BoundaryReleaseWitnessStatus) {
   await mkdirp(releaseDir);
   const packagedReleaseDir = path.join(outDir, "releases");
   await mkdirp(packagedReleaseDir);
@@ -479,6 +489,7 @@ async function writeReleaseArtifacts(version: string) {
     generatedAt: new Date().toISOString(),
     archive: archiveFileName,
     sha256,
+    witness,
   };
 
   await fs.writeFile(
@@ -506,6 +517,11 @@ async function writeReleaseArtifacts(version: string) {
 }
 
 async function main() {
+  await runCommand("npm", ["run", "test:agent-buccet:doc-links"], repoRoot);
+  await runCommand("npm", ["run", "test:agent-buccet:artifact-hygiene"], repoRoot);
+  await runCommand("npm", ["run", "check:agent-buccet:contracts-stable"], repoRoot);
+  await runCommand("npm", ["run", "test:agent-buccet:release-witness"], repoRoot);
+
   const version = await readPackageVersion();
   await rmrf(outDir);
   await rmrf(releaseDir);
@@ -520,7 +536,8 @@ async function main() {
   await writeStandaloneReadme();
   await writeExtractionManifest();
   await writeHostedInstaller();
-  await writeReleaseArtifacts(version);
+  const witness = await publishBoundaryReleaseWitness({ releaseDir, env: process.env });
+  await writeReleaseArtifacts(version, witness);
   console.log(`Prepared Agent Buccet standalone package at ${outDir}`);
   console.log(`Prepared Agent Buccet release artifacts at ${releaseDir}`);
 }

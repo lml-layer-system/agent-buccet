@@ -2,26 +2,82 @@
 
 Use this before flipping the repo public.
 
-## Core Verification
+## CI Gate
+
+These are the checks the current CI gate actually runs.
+
+Blocking lane:
+
+```bash
+npm run typecheck
+npm run check:agent-buccet:p0
+npm run check:agent-buccet:contracts-stable
+```
+
+Confirm:
+- the blocking lane passes deterministically
+- `check:agent-buccet:contracts-stable` covers:
+  - `test:agent-buccet:gravity-contract`
+  - `test:agent-buccet:ledger-contract`
+  - `test:agent-buccet:wrapper-contract`
+  - `test:agent-buccet:intercept-daemon`
+  - `test:agent-buccet:release-witness`
+
+Observed lane:
+
+```bash
+npm run check:agent-buccet:contracts-observed
+```
+
+Confirm:
+- observed report is written to `artifacts/observed-contracts/report.json`
+- swarm and intercept-server pass-rate metrics are visible
+- logs are written under `artifacts/observed-contracts/`
+- promotion threshold remains `>= 0.99` across rolling runs before moving either test into the blocking lane
+
+Observed is non-blocking initially.
+It is still required operationally: failures must stay visible and tracked until promoted or fixed.
+
+## Release Packaging Verification
 
 Run:
 
 ```bash
-npm run lint
 npm run build
 npm run test:agent-buccet:cli
 npm run test:agent-buccet:install
 npm run test:agent-buccet:hosted-install
-npm run test:agent-buccet:gravity-contract
-npm run test:agent-buccet:ledger-contract
 npm run test:agent-buccet:hook-runtime
-npm run test:agent-buccet:swarm
 ```
 
 Confirm:
-- all commands pass
 - `dist/agent-buccet/` is generated
 - `dist/releases/` is generated
+- `dist/releases/latest.json` includes a `witness` block
+- `dist/releases/witness/status.json` exists
+- install and hosted-install flows still work end to end
+
+## Witness Posture
+
+Release witness publication is default-on.
+
+Default release flow:
+- publish a signed checkpoint witness during packaging
+- write audit state under `dist/releases/witness/`
+- include witness metadata in `dist/releases/latest.json`
+
+Break-glass path:
+
+```bash
+AGENT_BUCCET_WITNESS_REQUIRED=false \
+AGENT_BUCCET_WITNESS_OPT_OUT_REASON="<why>" \
+npm run build
+```
+
+Confirm:
+- witness publication is present by default
+- skipping witness requires explicit opt-out
+- opt-out leaves a breadcrumb in `dist/releases/witness/status.json`
 
 ## Public Surface Check
 
@@ -37,6 +93,7 @@ Confirm these docs are present and current:
 - `docs/agent-boundary/LAUNCH_BOUNDARY.md`
 - `docs/agent-boundary/LAUNCH_PROOF.md`
 - `docs/agent-boundary/SECURITY_MODEL.md`
+- `docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md`
 - `docs/agent-boundary/CURRENT_LIMITS.md`
 
 ## Claim Discipline
@@ -47,7 +104,7 @@ Safe claims:
 - freeze-and-forward hook path
 - signed inspectable ledger
 - swarm support through one decision core
-- optional witness support
+- default-on release witness publication with explicit break-glass opt-out
 
 Do not claim:
 - full kernel mediation on every OS path

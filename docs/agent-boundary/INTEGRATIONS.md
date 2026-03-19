@@ -8,8 +8,8 @@ They are explicit boundary entrypoints that make the compatibility claim concret
 ## Included
 
 ### NeMo Guardrails
-- [nemo.ts](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary/integrations/nemo.ts)
-- [Example](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/nemo.md)
+- [nemo.ts](/lib/lml/agent-boundary/integrations/nemo.ts)
+- [Example](/docs/agent-boundary/examples/nemo.md)
 
 Exports:
 - `enforceNemoProposal(...)`
@@ -22,8 +22,8 @@ Use this when a NeMo workflow/tool wants to propose a real-world action and Bucc
 - `REQUIRE_APPROVAL`
 
 ### OpenAI Agents
-- [openai-agents.ts](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary/integrations/openai-agents.ts)
-- [Example](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/openai-agents.md)
+- [openai-agents.ts](/lib/lml/agent-boundary/integrations/openai-agents.ts)
+- [Example](/docs/agent-boundary/examples/openai-agents.md)
 
 Exports:
 - `enforceOpenAIAgentProposal(...)`
@@ -31,8 +31,8 @@ Exports:
 - `createOpenAIAgentsBoundaryGuard(...)`
 
 ### LangGraph / LangChain-style graphs
-- [langgraph.ts](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary/integrations/langgraph.ts)
-- [Example](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/langgraph.md)
+- [langgraph.ts](/lib/lml/agent-boundary/integrations/langgraph.ts)
+- [Example](/docs/agent-boundary/examples/langgraph.md)
 
 Exports:
 - `enforceLangGraphProposal(...)`
@@ -40,8 +40,8 @@ Exports:
 - `createLangGraphBoundaryGuard(...)`
 
 ### Telegram / remote async control
-- [telegram.ts](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary/integrations/telegram.ts)
-- [Example](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/telegram.md)
+- [telegram.ts](/lib/lml/agent-boundary/integrations/telegram.ts)
+- [Example](/docs/agent-boundary/examples/telegram.md)
 
 Exports:
 - `buildTelegramBoundaryProposal(...)`
@@ -55,12 +55,12 @@ This bridge includes:
 
 ## Supporting Examples
 
-- [Examples Index](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
-- [Approval Flow](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/approval-flow.md)
-- [Ledger Audit](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/ledger-audit.md)
-- [Filesystem Policy](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/policies/filesystem-only.json)
-- [Remote Recipient Policy](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/policies/remote-recipient.json)
-- [Tool Lockdown Policy](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/policies/tool-lockdown.json)
+- [Examples Index](/docs/agent-boundary/examples/README.md)
+- [Approval Flow](/docs/agent-boundary/examples/approval-flow.md)
+- [Ledger Audit](/docs/agent-boundary/examples/ledger-audit.md)
+- [Filesystem Policy](/docs/agent-boundary/examples/policies/filesystem-only.json)
+- [Remote Recipient Policy](/docs/agent-boundary/examples/policies/remote-recipient.json)
+- [Tool Lockdown Policy](/docs/agent-boundary/examples/policies/tool-lockdown.json)
 
 ## Shared Attachment Layer
 

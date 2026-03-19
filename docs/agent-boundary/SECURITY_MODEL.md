@@ -106,6 +106,7 @@ The ledger now provides:
 - signed checkpoints
 
 Optional witness publication can publish checkpoints outside the local runtime.
+Release flows publish witness checkpoints by default and require explicit break-glass opt-out to skip that step.
 
 ## What Agent Buccet Guarantees
 
@@ -114,6 +115,7 @@ Optional witness publication can publish checkpoints outside the local runtime.
 - prompt content does not become authority
 - ledger bypass is denied
 - hook does not become a second brain
+- release artifacts carry a witness decision trail by default
 
 ## What Agent Buccet Does Not Yet Guarantee
 

@@ -17,24 +17,25 @@ Core lines:
 
 ## Start Here
 
-- [Agent Buccet README](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/README.md)
-- [Quickstart](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/QUICKSTART.md)
-- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
-- [Law Reference](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_REFERENCE.md)
-- [Integrations](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATIONS.md)
-- [Launch Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_BOUNDARY.md)
-- [Launch Proof](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_PROOF.md)
-- [Release Checklist](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/RELEASE_CHECKLIST.md)
-- [Security Model](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/SECURITY_MODEL.md)
-- [Current Limits](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/CURRENT_LIMITS.md)
-- [Examples](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
-- [Repo Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/REPO_BOUNDARY.md)
+- [Agent Buccet README](/docs/agent-boundary/README.md)
+- [Quickstart](/docs/agent-boundary/QUICKSTART.md)
+- [Law Catalog](/docs/agent-boundary/LAW_CATALOG.md)
+- [Law Reference](/docs/agent-boundary/LAW_REFERENCE.md)
+- [Integrations](/docs/agent-boundary/INTEGRATIONS.md)
+- [Launch Boundary](/docs/agent-boundary/LAUNCH_BOUNDARY.md)
+- [Launch Proof](/docs/agent-boundary/LAUNCH_PROOF.md)
+- [Release Checklist](/docs/agent-boundary/RELEASE_CHECKLIST.md)
+- [Security Model](/docs/agent-boundary/SECURITY_MODEL.md)
+- [Threat Model Traceability](/docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
+- [Current Limits](/docs/agent-boundary/CURRENT_LIMITS.md)
+- [Examples](/docs/agent-boundary/examples/README.md)
+- [Repo Boundary](/docs/REPO_BOUNDARY.md)
 
 ## Public Laws
 
 The public law body is documented here:
-- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
-- [Law Reference](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_REFERENCE.md)
+- [Law Catalog](/docs/agent-boundary/LAW_CATALOG.md)
+- [Law Reference](/docs/agent-boundary/LAW_REFERENCE.md)
 
 That catalog covers:
 - Buccet base laws
@@ -93,6 +94,8 @@ npm run agent-buccet:ledger -- verify --format json
 npm run agent-buccet:ledger -- key --format json
 npm run agent-buccet:ledger -- seal --format json
 npm run agent-buccet:ledger -- checkpoint --write --format json
+npm run agent-buccet:ledger -- witness-file --path ./ledger-witness.jsonl --format json
+npm run agent-buccet:ledger -- witness-http --url http://127.0.0.1:8080/witness --format json
 ```
 
 CLI and install contracts:
