@@ -12,6 +12,7 @@ The intended public surface is:
 - `scripts/install-agent-buccet.sh`
 - `scripts/install-agent-buccet-hosted.sh`
 - `scripts/prepare-agent-buccet-package.ts`
+- `native/`
 
 This is the boundary runtime, install shell, packaging layer, and contract surface.
 

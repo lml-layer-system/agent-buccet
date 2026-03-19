@@ -16,6 +16,8 @@ Out of the box, the public slice already gives you:
 - integration surfaces for existing agent stacks
 - intercept daemon and intercept server transports
 - system-intercept seam for future low-level hooks
+- gravity bridge front-layer for socket-fed deep intercept sensors
+- hook daemon and native preload path for freeze-and-forward OS interception
 - gravity on the action path
 - supervisor for restart and daemon health
 - hosted-ready release artifacts under `dist/releases/`
@@ -25,6 +27,9 @@ Current install shell:
 - `buccet status`
 - `buccet scope add <path>`
 - `buccet run -- <command>`
+- `buccet hook build`
+- `buccet hook start`
+- `buccet hook run -- <command>`
 - `buccet logs`
 - `buccet uninstall`
 
@@ -38,6 +43,7 @@ We can claim:
 - the bodyguard persists across restart until the user ends the session
 - the ledger is part of the trust boundary, not optional logging
 - developers can use the wrapper and intercept surfaces today without waiting for deep OS integration
+- the native hook waits indefinitely for the Buccet brain unless the hook supervisor explicitly marks the brain dead
 - hosted install can be served as a single `curl ... | sh` entrypoint once release artifacts are published
 
 ## What We Should Not Claim Yet

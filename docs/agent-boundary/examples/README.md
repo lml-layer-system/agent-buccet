@@ -157,6 +157,23 @@ It proves:
 - event-driven heartbeats flow when motion enters the system
 - audit-driven gravity daemon loop is alive
 
+## Hook runtime contract harness
+
+Run:
+
+```bash
+npm run test:agent-buccet:hook-runtime
+```
+
+That script lives at:
+- [scripts/agent-buccet-hook-runtime-contract.ts](/Users/ryangatoloai-faupula/lml_demo/scripts/agent-buccet-hook-runtime-contract.ts)
+
+It proves:
+- native hook build path works from source and installed layouts
+- hook daemon starts and writes brain status
+- hook env exposes the bridge socket and brain-status path
+- hook daemon stops cleanly
+
 ## Standalone export
 
 To assemble a standalone Agent Buccet package:
@@ -188,6 +205,18 @@ Run:
 
 ```bash
 npm run agent-buccet:run -- --scope /tmp -- /bin/echo wrapped-ok
+```
+
+## Native hook path
+
+Run:
+
+```bash
+buccet hook build
+buccet hook start
+buccet hook status
+buccet hook env
+buccet hook run -- /bin/echo protected
 ```
 
 ## Gravity daemon
@@ -224,6 +253,20 @@ Contract:
 
 ```bash
 npm run test:agent-buccet:intercept-server
+```
+
+## Gravity bridge
+
+Run:
+
+```bash
+npm run agent-buccet:gravity-bridge -- --listen-socket /tmp/buccet.sock --upstream-socket /tmp/agent-buccet-intercept.sock
+```
+
+Contract:
+
+```bash
+npm run test:agent-buccet:gravity-bridge
 ```
 
 ## Method 1 system-intercept seam

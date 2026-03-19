@@ -19,6 +19,8 @@ const sourceActionClassesContract = path.join(repoRoot, "scripts", "agent-buccet
 const sourceInterceptDaemonContract = path.join(repoRoot, "scripts", "agent-buccet-intercept-daemon-contract.ts");
 const sourceInterceptServerContract = path.join(repoRoot, "scripts", "agent-buccet-intercept-server-contract.ts");
 const sourceSystemInterceptContract = path.join(repoRoot, "scripts", "agent-buccet-system-intercept-contract.ts");
+const sourceGravityBridgeContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-bridge-contract.ts");
+const sourceHookRuntimeContract = path.join(repoRoot, "scripts", "agent-buccet-hook-runtime-contract.ts");
 const sourceWrapperContract = path.join(repoRoot, "scripts", "agent-buccet-wrapper-contract.ts");
 const sourceCliContract = path.join(repoRoot, "scripts", "agent-buccet-cli-contract.ts");
 const sourceInstallContract = path.join(repoRoot, "scripts", "agent-buccet-install-contract.ts");
@@ -28,11 +30,14 @@ const sourceCliScript = path.join(repoRoot, "scripts", "buccet.ts");
 const sourceGravityDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-gravity-daemon.ts");
 const sourceInterceptDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-intercept-daemon.ts");
 const sourceInterceptServerScript = path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts");
+const sourceGravityBridgeScript = path.join(repoRoot, "scripts", "agent-buccet-gravity-bridge.ts");
+const sourceHookDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-hook-daemon.ts");
 const sourceSystemInterceptBridgeScript = path.join(repoRoot, "scripts", "agent-buccet-system-intercept-bridge.ts");
 const sourceLedgerWriterScript = path.join(repoRoot, "scripts", "agent-buccet-ledger-writer.ts");
 const sourceLedgerCliScript = path.join(repoRoot, "scripts", "agent-buccet-ledger-cli.ts");
 const sourceInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet.sh");
 const sourceHostedInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet-hosted.sh");
+const sourceNativeDir = path.join(repoRoot, "native");
 
 async function rmrf(targetPath: string) {
   await fs.rm(targetPath, { recursive: true, force: true });
@@ -119,12 +124,16 @@ async function writeStandalonePackageJson() {
       "test:agent-buccet:intercept-daemon": "node examples/agent-buccet-intercept-daemon-contract.ts",
       "test:agent-buccet:intercept-server": "node examples/agent-buccet-intercept-server-contract.ts",
       "test:agent-buccet:system-intercept": "node examples/agent-buccet-system-intercept-contract.ts",
+      "test:agent-buccet:gravity-bridge": "node examples/agent-buccet-gravity-bridge-contract.ts",
+      "test:agent-buccet:hook-runtime": "node examples/agent-buccet-hook-runtime-contract.ts",
       "test:agent-buccet:cli": "node examples/agent-buccet-cli-contract.ts",
       "test:agent-buccet:install": "node examples/agent-buccet-install-contract.ts",
       "test:agent-buccet:hosted-install": "node examples/agent-buccet-hosted-install-contract.ts",
       "agent-buccet:gravity-daemon": "node bin/agent-buccet-gravity-daemon.ts",
       "agent-buccet:intercept-daemon": "node bin/agent-buccet-intercept-daemon.ts",
       "agent-buccet:intercept-server": "node bin/agent-buccet-intercept-server.ts",
+      "agent-buccet:gravity-bridge": "node bin/agent-buccet-gravity-bridge.ts",
+      "agent-buccet:hook-daemon": "node bin/agent-buccet-hook-daemon.ts",
       "agent-buccet:system-intercept-bridge": "node bin/agent-buccet-system-intercept-bridge.ts",
       "agent-buccet:ledger-writer": "node bin/agent-buccet-ledger-writer.ts",
       "agent-buccet:ledger": "node bin/agent-buccet-ledger-cli.ts",
@@ -176,6 +185,8 @@ async function writeExtractionManifest() {
     sourceInterceptDaemonContract: "scripts/agent-buccet-intercept-daemon-contract.ts",
     sourceInterceptServerContract: "scripts/agent-buccet-intercept-server-contract.ts",
     sourceSystemInterceptContract: "scripts/agent-buccet-system-intercept-contract.ts",
+    sourceGravityBridgeContract: "scripts/agent-buccet-gravity-bridge-contract.ts",
+    sourceHookRuntimeContract: "scripts/agent-buccet-hook-runtime-contract.ts",
     sourceWrapperContract: "scripts/agent-buccet-wrapper-contract.ts",
     sourceCliContract: "scripts/agent-buccet-cli-contract.ts",
     sourceInstallContract: "scripts/agent-buccet-install-contract.ts",
@@ -185,11 +196,14 @@ async function writeExtractionManifest() {
     sourceGravityDaemonScript: "scripts/agent-buccet-gravity-daemon.ts",
     sourceInterceptDaemonScript: "scripts/agent-buccet-intercept-daemon.ts",
     sourceInterceptServerScript: "scripts/agent-buccet-intercept-server.ts",
+    sourceGravityBridgeScript: "scripts/agent-buccet-gravity-bridge.ts",
+    sourceHookDaemonScript: "scripts/agent-buccet-hook-daemon.ts",
     sourceSystemInterceptBridgeScript: "scripts/agent-buccet-system-intercept-bridge.ts",
     sourceLedgerWriterScript: "scripts/agent-buccet-ledger-writer.ts",
     sourceLedgerCliScript: "scripts/agent-buccet-ledger-cli.ts",
     sourceInstallScript: "scripts/install-agent-buccet.sh",
     sourceHostedInstallScript: "scripts/install-agent-buccet-hosted.sh",
+    sourceNativeDir: "native",
     outputDir: "dist/agent-buccet",
     releaseDir: "dist/releases",
     includes: [
@@ -206,6 +220,8 @@ async function writeExtractionManifest() {
       "examples/agent-buccet-intercept-daemon-contract.ts",
       "examples/agent-buccet-intercept-server-contract.ts",
       "examples/agent-buccet-system-intercept-contract.ts",
+      "examples/agent-buccet-gravity-bridge-contract.ts",
+      "examples/agent-buccet-hook-runtime-contract.ts",
       "examples/agent-buccet-wrapper-contract.ts",
       "examples/agent-buccet-cli-contract.ts",
       "examples/agent-buccet-install-contract.ts",
@@ -213,6 +229,8 @@ async function writeExtractionManifest() {
       "bin/agent-buccet-gravity-daemon.ts",
       "bin/agent-buccet-intercept-daemon.ts",
       "bin/agent-buccet-intercept-server.ts",
+      "bin/agent-buccet-gravity-bridge.ts",
+      "bin/agent-buccet-hook-daemon.ts",
       "bin/agent-buccet-system-intercept-bridge.ts",
       "bin/agent-buccet-ledger-writer.ts",
       "bin/agent-buccet-ledger-cli.ts",
@@ -222,6 +240,7 @@ async function writeExtractionManifest() {
       "README.md",
       "package.json",
       "tsconfig.json",
+      "native/**/*",
       "../releases/install.sh",
       "../releases/latest.json",
       "releases/install.sh",
@@ -297,6 +316,12 @@ async function writeStandaloneExample() {
     "../lib/lml/agent-boundary/",
     "../src/",
   );
+  const rawGravityBridgeContract = await fs.readFile(sourceGravityBridgeContract, "utf8");
+  const rewrittenGravityBridgeContract = rawGravityBridgeContract.replaceAll(
+    "../lib/lml/agent-boundary/",
+    "../src/",
+  );
+  const rewrittenHookRuntimeContract = await fs.readFile(sourceHookRuntimeContract, "utf8");
   const rawWrapperContract = await fs.readFile(sourceWrapperContract, "utf8");
   const rewrittenWrapperContract = rawWrapperContract.replaceAll(
     "../lib/lml/agent-boundary/",
@@ -322,6 +347,8 @@ async function writeStandaloneExample() {
   await fs.writeFile(path.join(examplesDir, "agent-buccet-intercept-daemon-contract.ts"), rewrittenInterceptDaemonContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-intercept-server-contract.ts"), rewrittenInterceptServerContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-system-intercept-contract.ts"), rewrittenSystemInterceptContract, "utf8");
+  await fs.writeFile(path.join(examplesDir, "agent-buccet-gravity-bridge-contract.ts"), rewrittenGravityBridgeContract, "utf8");
+  await fs.writeFile(path.join(examplesDir, "agent-buccet-hook-runtime-contract.ts"), rewrittenHookRuntimeContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-wrapper-contract.ts"), rewrittenWrapperContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-cli-contract.ts"), rewrittenCliContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-install-contract.ts"), rewrittenInstallContract, "utf8");
@@ -358,6 +385,16 @@ async function writeStandaloneWrapper() {
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-intercept-server.ts"), rewrittenInterceptServer, "utf8");
+
+  const rawGravityBridge = await fs.readFile(sourceGravityBridgeScript, "utf8");
+  const rewrittenGravityBridge = rawGravityBridge.replaceAll(
+    "../lib/lml/agent-boundary/",
+    "../src/",
+  );
+  await fs.writeFile(path.join(binDir, "agent-buccet-gravity-bridge.ts"), rewrittenGravityBridge, "utf8");
+
+  const rawHookDaemon = await fs.readFile(sourceHookDaemonScript, "utf8");
+  await fs.writeFile(path.join(binDir, "agent-buccet-hook-daemon.ts"), rawHookDaemon, "utf8");
 
   const rawSystemInterceptBridge = await fs.readFile(sourceSystemInterceptBridgeScript, "utf8");
   const rewrittenSystemInterceptBridge = rawSystemInterceptBridge.replaceAll(
@@ -455,6 +492,7 @@ async function main() {
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
+  await copyDir(sourceNativeDir, path.join(outDir, "native"));
   await writeStandaloneExample();
   await writeStandaloneWrapper();
   await writeStandalonePackageJson();

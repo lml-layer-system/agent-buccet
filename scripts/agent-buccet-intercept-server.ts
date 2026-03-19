@@ -15,6 +15,7 @@ import {
 type ParsedArgs = {
   sessionId: string;
   actorId: string;
+  sessionsDir?: string;
   heartbeatIntervalMs: number;
   heartbeatTimeoutMs: number;
   host: string;
@@ -31,6 +32,7 @@ function usage(): never {
       "Options:",
       "  --session-id <id>",
       "  --actor-id <id>",
+      "  --sessions-dir <path>",
       "  --heartbeat-ms <ms>",
       "  --heartbeat-timeout-ms <ms>",
       "  --host <host>",
@@ -44,6 +46,7 @@ function usage(): never {
 function parseArgs(argv: string[]): ParsedArgs {
   let sessionId = `agent-buccet-intercept-server-${randomUUID()}`;
   let actorId = "system:agent-buccet-intercept-server";
+  let sessionsDir: string | undefined;
   let heartbeatIntervalMs = 5_000;
   let heartbeatTimeoutMs = 15_000;
   let host = "127.0.0.1";
@@ -59,6 +62,11 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
     if (token === "--actor-id") {
       actorId = argv[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--sessions-dir") {
+      sessionsDir = argv[index + 1] ?? usage();
       index += 1;
       continue;
     }
@@ -94,6 +102,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   return {
     sessionId,
     actorId,
+    sessionsDir,
     heartbeatIntervalMs,
     heartbeatTimeoutMs,
     host,
@@ -110,10 +119,12 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   const restored = await restoreBoundaryRuntimeStore({
     sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
   });
   const store = restored ?? await createPersistentBoundaryRuntimeStore({
     sessionId: args.sessionId,
     actorId: args.actorId,
+    sessionsDir: args.sessionsDir,
   });
 
   const supervisor = createBoundaryGravitySupervisor({

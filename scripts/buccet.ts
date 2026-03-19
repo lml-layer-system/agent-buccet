@@ -2,6 +2,9 @@
 import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
 import type { BoundaryActionKind } from "../lib/lml/agent-boundary/index.ts";
 
 type BuccetConfig = {
@@ -37,9 +40,24 @@ function usage(): never {
     "  buccet logs [--limit <n>] [--json]",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
+    "  buccet hook build",
+    "  buccet hook start",
+    "  buccet hook status [--json]",
+    "  buccet hook env [--json]",
+    "  buccet hook run -- <command> [args...]",
+    "  buccet hook stop",
     "  buccet uninstall",
   ].join("\n"));
   process.exit(1);
+}
+
+function currentScriptDir(): string {
+  return path.dirname(fileURLToPath(import.meta.url));
+}
+
+function shortSocketPath(homePath: string, label: string): string {
+  const digest = createHash("sha256").update(`${homePath}:${label}`).digest("hex").slice(0, 12);
+  return path.join(os.tmpdir(), `buccet-${label}-${digest}.sock`);
 }
 
 function parseGlobal(argv: string[]): ParsedGlobal {
@@ -123,12 +141,84 @@ function baseConfig(args: {
 }
 
 function resolveHomePaths(homePath: string) {
+  const runDir = path.join(homePath, "run");
+  const nativeDir = path.join(homePath, "native");
+  const installedNativeSourceDir = path.join(homePath, "current", "native", "deep-intercept");
+  const repoNativeSourceDir = path.resolve(currentScriptDir(), "..", "native", "deep-intercept");
+  const nativeBuildDir = path.join(nativeDir, "build");
+  const isMac = process.platform === "darwin";
+  const nativeLibraryName = isMac ? "libbuccet-hook.dylib" : "libbuccet-hook.so";
   return {
     homePath,
     configPath: path.join(homePath, "config.json"),
     sessionsDir: path.join(homePath, "data", "agent-boundary", "sessions"),
     launcherPath: process.env.AGENT_BUCCET_LAUNCHER_PATH ?? path.join(os.homedir(), ".local", "bin", "buccet"),
+    runDir,
+    interceptSocketPath: shortSocketPath(homePath, "intercept"),
+    gravityBridgeSocketPath: shortSocketPath(homePath, "bridge"),
+    brainStatusPath: path.join(runDir, "brain-status.json"),
+    hookPidPath: path.join(runDir, "hook-daemon.pid"),
+    installedNativeSourceDir,
+    repoNativeSourceDir,
+    nativeBuildDir,
+    nativeLibraryPath: path.join(nativeBuildDir, nativeLibraryName),
   };
+}
+
+async function runSubprocess(args: {
+  command: string;
+  args: string[];
+  cwd?: string;
+  env?: NodeJS.ProcessEnv;
+}): Promise<{ code: number; stdout: string; stderr: string }> {
+  return await new Promise((resolve, reject) => {
+    const child = spawn(args.command, args.args, {
+      cwd: args.cwd,
+      env: args.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
+
+async function readJsonIfExists<T>(targetPath: string): Promise<T | null> {
+  try {
+    const raw = await fs.readFile(targetPath, "utf8");
+    return JSON.parse(raw) as T;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveNativeSourceDir(home: ReturnType<typeof resolveHomePaths>): Promise<string> {
+  if (await pathExists(path.join(home.installedNativeSourceDir, "gravity.c"))) {
+    return home.installedNativeSourceDir;
+  }
+  return home.repoNativeSourceDir;
+}
+
+async function pidAlive(pid: number): Promise<boolean> {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function importBoundary(homePath: string) {
@@ -553,6 +643,248 @@ async function handleUninstall() {
   }
 }
 
+type HookStatusPayload = {
+  initialized: boolean;
+  running: boolean;
+  pid?: number;
+  state?: string;
+  sessionId?: string;
+  actorId?: string;
+  interceptSocketPath?: string;
+  gravityBridgeSocketPath?: string;
+  brainStatusPath?: string;
+  nativeLibraryPath?: string;
+  restarts?: number;
+  lastError?: string;
+};
+
+async function handleHook(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+  const subcommand = rest[0];
+  if (!subcommand) {
+    usage();
+  }
+
+  const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+
+  if (subcommand === "build") {
+    await ensureDir(home.nativeBuildDir);
+    await ensureDir(home.runDir);
+    const nativeSourceDir = await resolveNativeSourceDir(home);
+    const compileArgs = process.platform === "darwin"
+      ? [
+          "-dynamiclib",
+          "-fPIC",
+          "-o",
+          home.nativeLibraryPath,
+          path.join(nativeSourceDir, "gravity.c"),
+          "-ldl",
+        ]
+      : [
+          "-shared",
+          "-fPIC",
+          "-o",
+          home.nativeLibraryPath,
+          path.join(nativeSourceDir, "gravity.c"),
+          "-ldl",
+        ];
+    const result = await runSubprocess({
+      command: process.env.CC ?? "cc",
+      args: compileArgs,
+      cwd: home.homePath,
+    });
+    if (result.code !== 0) {
+      throw new Error(result.stderr || `native hook build failed with code ${result.code}`);
+    }
+    console.log(`built native hook: ${home.nativeLibraryPath}`);
+    return;
+  }
+
+  if (subcommand === "start") {
+    if (!config) {
+      throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+    }
+    await ensureDir(home.runDir);
+    const existingPid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+    if (existingPid && await pidAlive(existingPid)) {
+      console.log(`hook daemon already running: ${existingPid}`);
+      return;
+    }
+    const child = spawn(process.execPath, [
+      daemonScriptPath,
+      "--session-id",
+      config.sessionId,
+      "--actor-id",
+      config.actorId,
+      "--sessions-dir",
+      home.sessionsDir,
+      "--intercept-socket",
+      home.interceptSocketPath,
+      "--bridge-socket",
+      home.gravityBridgeSocketPath,
+      "--brain-status-file",
+      home.brainStatusPath,
+      "--pid-file",
+      home.hookPidPath,
+    ], {
+      cwd: home.homePath,
+      detached: true,
+      stdio: "ignore",
+      env: {
+        ...process.env,
+        AGENT_BUCCET_HOME: home.homePath,
+      },
+    });
+    child.unref();
+    console.log(`hook daemon started`);
+    console.log(`bridge socket: ${home.gravityBridgeSocketPath}`);
+    return;
+  }
+
+  if (subcommand === "status") {
+    const asJson = rest.includes("--json");
+    const hookState = await readJsonIfExists<{
+      state?: string;
+      sessionId?: string;
+      actorId?: string;
+      interceptSocketPath?: string;
+      gravityBridgeSocketPath?: string;
+      brainStatusPath?: string;
+      restartCount?: number;
+      lastError?: string;
+      pid?: number;
+    }>(home.brainStatusPath);
+    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+    const running = pid ? await pidAlive(pid) : false;
+    const payload: HookStatusPayload = {
+      initialized: Boolean(config),
+      running,
+      pid: pid || undefined,
+      state: hookState?.state,
+      sessionId: hookState?.sessionId ?? config?.sessionId,
+      actorId: hookState?.actorId ?? config?.actorId,
+      interceptSocketPath: hookState?.interceptSocketPath ?? home.interceptSocketPath,
+      gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? home.gravityBridgeSocketPath,
+      brainStatusPath: hookState?.brainStatusPath ?? home.brainStatusPath,
+      nativeLibraryPath: home.nativeLibraryPath,
+      restarts: hookState?.restartCount,
+      lastError: hookState?.lastError,
+    };
+    if (asJson) {
+      printJson(payload);
+      return;
+    }
+    console.log(`Agent Buccet hook status`);
+    console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
+    console.log(`running: ${payload.running ? "yes" : "no"}`);
+    console.log(`state: ${payload.state ?? "missing"}`);
+    console.log(`pid: ${payload.pid ?? "-"}`);
+    console.log(`bridge socket: ${payload.gravityBridgeSocketPath}`);
+    console.log(`brain status: ${payload.brainStatusPath}`);
+    console.log(`native library: ${payload.nativeLibraryPath}`);
+    return;
+  }
+
+  if (subcommand === "env") {
+    const asJson = rest.includes("--json");
+    const isMac = process.platform === "darwin";
+    const payload = {
+      BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+      BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
+      ...(isMac
+        ? {
+            DYLD_INSERT_LIBRARIES: home.nativeLibraryPath,
+            DYLD_FORCE_FLAT_NAMESPACE: "1",
+          }
+        : {
+            LD_PRELOAD: home.nativeLibraryPath,
+          }),
+    };
+    if (asJson) {
+      printJson(payload);
+      return;
+    }
+    for (const [key, value] of Object.entries(payload)) {
+      console.log(`${key}=${value}`);
+    }
+    return;
+  }
+
+  if (subcommand === "run") {
+    if (!config) {
+      throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+    }
+    const separatorIndex = rest.indexOf("--");
+    if (separatorIndex === -1) {
+      usage();
+    }
+    const commandArgs = rest.slice(separatorIndex + 1);
+    const command = commandArgs[0];
+    if (!command) {
+      usage();
+    }
+    if (!(await pathExists(home.nativeLibraryPath))) {
+      await handleHook(["build"]);
+    }
+    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+    if (!(pid && await pidAlive(pid))) {
+      await handleHook(["start"]);
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const status = await readJsonIfExists<{ state?: string }>(home.brainStatusPath);
+        if (status?.state === "alive") {
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
+    const env = {
+      ...process.env,
+      AGENT_BUCCET_HOME: home.homePath,
+      BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+      BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
+      ...(process.platform === "darwin"
+        ? {
+            DYLD_INSERT_LIBRARIES: home.nativeLibraryPath,
+            DYLD_FORCE_FLAT_NAMESPACE: "1",
+          }
+        : {
+            LD_PRELOAD: home.nativeLibraryPath,
+          }),
+    };
+    const child = spawn(command, commandArgs.slice(1), {
+      cwd: resolveCallerCwd(),
+      env,
+      stdio: "inherit",
+    });
+    const exitCode = await new Promise<number>((resolve, reject) => {
+      child.on("error", reject);
+      child.on("close", (code) => resolve(code ?? 1));
+    });
+    process.exitCode = exitCode;
+    return;
+  }
+
+  if (subcommand === "stop") {
+    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+    if (!pid) {
+      console.log("hook daemon not running");
+      return;
+    }
+    try {
+      process.kill(pid, "SIGTERM");
+    } catch {
+      console.log("hook daemon not running");
+      return;
+    }
+    console.log(`hook daemon stopped: ${pid}`);
+    return;
+  }
+
+  usage();
+}
+
 async function main() {
   const parsed = parseGlobal(process.argv.slice(2));
 
@@ -574,6 +906,10 @@ async function main() {
   }
   if (parsed.command === "run") {
     await handleRun(parsed.rest);
+    return;
+  }
+  if (parsed.command === "hook") {
+    await handleHook(parsed.rest);
     return;
   }
   if (parsed.command === "uninstall") {

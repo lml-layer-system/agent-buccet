@@ -44,6 +44,10 @@ buccet init
 buccet status
 buccet scope add ~/projects/my-app
 buccet run -- python my_agent.py
+buccet hook build
+buccet hook start
+buccet hook status
+buccet hook run -- python my_agent.py
 buccet logs
 buccet uninstall
 ```
@@ -51,6 +55,9 @@ buccet uninstall
 Current launch boundary:
 - hosted-ready install shell is generated now
 - public hosting of that shell and release artifacts is distribution work, not runtime work
+- deep intercept front-layer assets are in `native/deep-intercept/` and route through the existing intercept server
+- even already-open scope still goes through the same runtime decision path; the front-layer never short-circuits authority
+- the hook freezes and waits by default; it only fails closed immediately when the hook supervisor marks the brain dead
 
 ## What It Does
 
@@ -197,6 +204,12 @@ Run the hosted install contract harness with:
 
 ```bash
 npm run test:agent-buccet:hosted-install
+```
+
+Run the gravity bridge contract harness with:
+
+```bash
+npm run test:agent-buccet:gravity-bridge
 ```
 
 Run the end-to-end example with:

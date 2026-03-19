@@ -84,6 +84,7 @@ npm run test:agent-buccet:wrapper-contract
 npm run test:agent-buccet:intercept-daemon
 npm run test:agent-buccet:intercept-server
 npm run test:agent-buccet:system-intercept
+npm run test:agent-buccet:hook-runtime
 ```
 
 Runtime entrypoints:
@@ -92,6 +93,11 @@ Runtime entrypoints:
 npm run agent-buccet:gravity-daemon -- --session-id my-session
 npm run agent-buccet:intercept-daemon -- --session-id my-session
 npm run agent-buccet:intercept-server -- --session-id my-session --port 7788
+npm run agent-buccet:gravity-bridge -- --listen-socket /tmp/buccet.sock --upstream-socket /tmp/agent-buccet-intercept.sock
+buccet hook build
+buccet hook start
+buccet hook status
+buccet hook run -- /bin/echo protected
 ```
 
 Standalone export:
@@ -110,3 +116,4 @@ What is first-class here:
 - `scripts/install-agent-buccet.sh`
 - `scripts/install-agent-buccet-hosted.sh`
 - `scripts/prepare-agent-buccet-package.ts`
+- `native/`
