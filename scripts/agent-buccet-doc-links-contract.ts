@@ -2,7 +2,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 const repoRoot = process.cwd();
-const localPrefix = "/Users/ryangatoloai-faupula/lml_demo";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -60,31 +59,30 @@ function normalizeLinkTarget(link: string): string | null {
 }
 
 async function main() {
-  const markdownFiles = await walkMarkdownFiles(path.join(repoRoot, "docs"));
-  markdownFiles.push(path.join(repoRoot, "README.md"));
+  const markdownFiles = await walkMarkdownFiles(repoRoot);
 
   const errors: string[] = [];
   const linkPattern = /\[[^\]]+\]\(([^)]+)\)/g;
 
   for (const filePath of markdownFiles) {
     const raw = await fs.readFile(filePath, "utf8");
-    if (raw.includes(localPrefix)) {
-      errors.push(`${path.relative(repoRoot, filePath)} contains local absolute path prefix`);
-    }
 
     for (const match of raw.matchAll(linkPattern)) {
       const target = normalizeLinkTarget(match[1] ?? "");
       if (!target) {
         continue;
       }
-      if (target.startsWith(localPrefix)) {
-        errors.push(`${path.relative(repoRoot, filePath)} contains forbidden local link: ${target}`);
+
+      // GitHub interprets `/docs/...` and `/lib/...` as domain-root paths, not repo-root.
+      // Enforce repo-relative links so public docs don't break.
+      if (target.startsWith("/")) {
+        errors.push(
+          `${path.relative(repoRoot, filePath)} uses forbidden absolute local link target: ${target}`,
+        );
         continue;
       }
 
-      const resolved = target.startsWith("/")
-        ? path.join(repoRoot, target)
-        : path.resolve(path.dirname(filePath), target);
+      const resolved = path.resolve(path.dirname(filePath), target);
 
       const exists = await fs.access(resolved).then(() => true).catch(() => false);
       if (!exists) {

@@ -19,21 +19,21 @@ Use these when you want:
 
 ## Integration examples
 
-- [NeMo](/docs/agent-boundary/examples/nemo.md)
-- [OpenAI Agents](/docs/agent-boundary/examples/openai-agents.md)
-- [LangGraph](/docs/agent-boundary/examples/langgraph.md)
-- [Telegram / remote control](/docs/agent-boundary/examples/telegram.md)
+- [NeMo](nemo.md)
+- [OpenAI Agents](openai-agents.md)
+- [LangGraph](langgraph.md)
+- [Telegram / remote control](telegram.md)
 
 ## Flow examples
 
-- [Approval flow](/docs/agent-boundary/examples/approval-flow.md)
-- [Ledger audit](/docs/agent-boundary/examples/ledger-audit.md)
+- [Approval flow](approval-flow.md)
+- [Ledger audit](ledger-audit.md)
 
 ## Policy examples
 
-- [Filesystem-only policy](/docs/agent-boundary/examples/policies/filesystem-only.json)
-- [Remote recipient policy](/docs/agent-boundary/examples/policies/remote-recipient.json)
-- [Tool lockdown policy](/docs/agent-boundary/examples/policies/tool-lockdown.json)
+- [Filesystem-only policy](policies/filesystem-only.json)
+- [Remote recipient policy](policies/remote-recipient.json)
+- [Tool lockdown policy](policies/tool-lockdown.json)
 
 ## Purpose
 
@@ -54,7 +54,7 @@ npm run demo:agent-buccet
 ```
 
 That script lives at:
-- [scripts/agent-buccet-e2e.ts](/scripts/agent-buccet-e2e.ts)
+- [scripts/agent-buccet-e2e.ts](../../../scripts/agent-buccet-e2e.ts)
 
 ## Gravity contract harness
 
@@ -65,7 +65,7 @@ npm run test:agent-buccet:gravity-contract
 ```
 
 That script lives at:
-- [scripts/agent-buccet-gravity-contract.ts](/scripts/agent-buccet-gravity-contract.ts)
+- [scripts/agent-buccet-gravity-contract.ts](../../../scripts/agent-buccet-gravity-contract.ts)
 
 It proves:
 - out-of-scope -> `nsl_grant_offer`
@@ -135,7 +135,7 @@ npm run test:agent-buccet:wrapper-contract
 ```
 
 That script lives at:
-- [scripts/agent-buccet-wrapper-contract.ts](/scripts/agent-buccet-wrapper-contract.ts)
+- [scripts/agent-buccet-wrapper-contract.ts](../../../scripts/agent-buccet-wrapper-contract.ts)
 
 It proves:
 - blocked command policy
@@ -152,7 +152,7 @@ npm run test:agent-buccet:action-classes
 ```
 
 That script lives at:
-- [scripts/agent-buccet-action-classes-contract.ts](/scripts/agent-buccet-action-classes-contract.ts)
+- [scripts/agent-buccet-action-classes-contract.ts](../../../scripts/agent-buccet-action-classes-contract.ts)
 
 It proves:
 - database scope is first-class
@@ -169,7 +169,7 @@ npm run test:agent-buccet:gravity-supervisor
 ```
 
 That script lives at:
-- [scripts/agent-buccet-gravity-supervisor-contract.ts](/scripts/agent-buccet-gravity-supervisor-contract.ts)
+- [scripts/agent-buccet-gravity-supervisor-contract.ts](../../../scripts/agent-buccet-gravity-supervisor-contract.ts)
 
 It proves:
 - public supervisor starts
@@ -185,7 +185,7 @@ npm run test:agent-buccet:hook-runtime
 ```
 
 That script lives at:
-- [scripts/agent-buccet-hook-runtime-contract.ts](/scripts/agent-buccet-hook-runtime-contract.ts)
+- [scripts/agent-buccet-hook-runtime-contract.ts](../../../scripts/agent-buccet-hook-runtime-contract.ts)
 
 It proves:
 - native hook build path works from source and installed layouts
@@ -216,7 +216,7 @@ npm run demo:agent-buccet:gravity
 ```
 
 That script lives at:
-- [scripts/agent-buccet-gravity-e2e.ts](/scripts/agent-buccet-gravity-e2e.ts)
+- [scripts/agent-buccet-gravity-e2e.ts](../../../scripts/agent-buccet-gravity-e2e.ts)
 
 ## Wrapper CLI
 

@@ -367,12 +367,12 @@ Use that export when you want to split Agent Buccet into its own repo without ta
 
 ## Relevant docs
 
-- [README.md](/docs/agent-boundary/README.md)
-- [INTEGRATIONS.md](/docs/agent-boundary/INTEGRATIONS.md)
-- [INTEGRATION_SURFACE.md](/docs/agent-boundary/INTEGRATION_SURFACE.md)
-- [Examples Index](/docs/agent-boundary/examples/README.md)
-- [Filesystem Policy Example](/docs/agent-boundary/examples/policies/filesystem-only.json)
-- [Remote Recipient Policy Example](/docs/agent-boundary/examples/policies/remote-recipient.json)
-- [Tool Lockdown Policy Example](/docs/agent-boundary/examples/policies/tool-lockdown.json)
-- [Approval Flow Example](/docs/agent-boundary/examples/approval-flow.md)
-- [Ledger Audit Example](/docs/agent-boundary/examples/ledger-audit.md)
+- [README.md](README.md)
+- [INTEGRATIONS.md](INTEGRATIONS.md)
+- [INTEGRATION_SURFACE.md](INTEGRATION_SURFACE.md)
+- [Examples Index](examples/README.md)
+- [Filesystem Policy Example](examples/policies/filesystem-only.json)
+- [Remote Recipient Policy Example](examples/policies/remote-recipient.json)
+- [Tool Lockdown Policy Example](examples/policies/tool-lockdown.json)
+- [Approval Flow Example](examples/approval-flow.md)
+- [Ledger Audit Example](examples/ledger-audit.md)

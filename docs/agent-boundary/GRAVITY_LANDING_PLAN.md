@@ -59,16 +59,16 @@ Gravity strengthens the lawful field under them.
 ## Landed Shape
 
 The public defensive gravity core is now vendored under:
-- [gravity-core](/lib/lml/agent-boundary/gravity-core)
+- [gravity-core](../../lib/lml/agent-boundary/gravity-core)
 
 The Agent Buccet adapter layer now lives under:
-- [gravity-adapter](/lib/lml/agent-boundary/gravity-adapter)
+- [gravity-adapter](../../lib/lml/agent-boundary/gravity-adapter)
 
 The shared executor now consults gravity before side effects:
-- [executor.ts](/lib/lml/agent-boundary/executor.ts)
+- [executor.ts](../../lib/lml/agent-boundary/executor.ts)
 
 The shared bodyguard attaches one gravity service to the shared store:
-- [bodyguard.ts](/lib/lml/agent-boundary/bodyguard.ts)
+- [bodyguard.ts](../../lib/lml/agent-boundary/bodyguard.ts)
 
 ## Required Mappings
 
@@ -141,8 +141,8 @@ Gravity is correctly landed when:
 ## Current Public Contract
 
 Current public proof surfaces are:
-- [agent-buccet-gravity-e2e.ts](/scripts/agent-buccet-gravity-e2e.ts)
-- [agent-buccet-gravity-contract.ts](/scripts/agent-buccet-gravity-contract.ts)
+- [agent-buccet-gravity-e2e.ts](../../scripts/agent-buccet-gravity-e2e.ts)
+- [agent-buccet-gravity-contract.ts](../../scripts/agent-buccet-gravity-contract.ts)
 
 Contract command:
 

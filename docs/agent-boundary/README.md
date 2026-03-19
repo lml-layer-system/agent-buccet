@@ -8,13 +8,13 @@ It is not a new agent framework.
 It is the law layer you add to the agent stack you already run.
 
 Core docs:
-- [Launch Proof](/docs/agent-boundary/LAUNCH_PROOF.md)
-- [Release Checklist](/docs/agent-boundary/RELEASE_CHECKLIST.md)
-- [Security Model](/docs/agent-boundary/SECURITY_MODEL.md)
-- [Threat Model Traceability](/docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
-- [Current Limits](/docs/agent-boundary/CURRENT_LIMITS.md)
-- [Law Catalog](/docs/agent-boundary/LAW_CATALOG.md)
-- [Law Reference](/docs/agent-boundary/LAW_REFERENCE.md)
+- [Launch Proof](LAUNCH_PROOF.md)
+- [Release Checklist](RELEASE_CHECKLIST.md)
+- [Security Model](SECURITY_MODEL.md)
+- [Threat Model Traceability](THREAT_MODEL_TRACEABILITY.md)
+- [Current Limits](CURRENT_LIMITS.md)
+- [Law Catalog](LAW_CATALOG.md)
+- [Law Reference](LAW_REFERENCE.md)
 
 ## Install Shell
 
@@ -95,8 +95,8 @@ It returns only:
 ## Public Law Body
 
 The full public defensive law body is here:
-- [Law Catalog](/docs/agent-boundary/LAW_CATALOG.md)
-- [Law Reference](/docs/agent-boundary/LAW_REFERENCE.md)
+- [Law Catalog](LAW_CATALOG.md)
+- [Law Reference](LAW_REFERENCE.md)
 
 It includes:
 - Buccet base laws
@@ -195,10 +195,10 @@ Many interfaces.
 Same bucket.
 
 See:
-- [INTEGRATIONS.md](/docs/agent-boundary/INTEGRATIONS.md)
-- [INTEGRATION_SURFACE.md](/docs/agent-boundary/INTEGRATION_SURFACE.md)
-- [LAUNCH_BOUNDARY.md](/docs/agent-boundary/LAUNCH_BOUNDARY.md)
-- [Examples](/docs/agent-boundary/examples/README.md)
+- [INTEGRATIONS.md](INTEGRATIONS.md)
+- [INTEGRATION_SURFACE.md](INTEGRATION_SURFACE.md)
+- [LAUNCH_BOUNDARY.md](LAUNCH_BOUNDARY.md)
+- [Examples](examples/README.md)
 
 ## Runtime Guarantees
 
@@ -486,7 +486,7 @@ This assembles:
 - extraction manifest
 
 See:
-- [PACKAGING_PLAN.md](/docs/agent-boundary/PACKAGING_PLAN.md)
+- [PACKAGING_PLAN.md](PACKAGING_PLAN.md)
 
 ## Important Rule
 
@@ -499,13 +499,13 @@ That means:
 
 ## Read Next
 
-- [QUICKSTART.md](/docs/agent-boundary/QUICKSTART.md)
-- [LAW_CATALOG.md](/docs/agent-boundary/LAW_CATALOG.md)
-- [Integration Examples](/docs/agent-boundary/INTEGRATIONS.md)
-- [Examples Index](/docs/agent-boundary/examples/README.md)
-- [Approval Flow Example](/docs/agent-boundary/examples/approval-flow.md)
-- [Ledger Audit Example](/docs/agent-boundary/examples/ledger-audit.md)
-- [PUBLIC_PRIVATE_BOUNDARY.md](/docs/agent-boundary/PUBLIC_PRIVATE_BOUNDARY.md)
-- [PACKAGING_PLAN.md](/docs/agent-boundary/PACKAGING_PLAN.md)
-- [GRAVITY_LANDING_PLAN.md](/docs/agent-boundary/GRAVITY_LANDING_PLAN.md)
-- [AGENT_BOUNDARY_REPORT_20260317.md](/docs/agent-boundary/AGENT_BOUNDARY_REPORT_20260317.md)
+- [QUICKSTART.md](QUICKSTART.md)
+- [LAW_CATALOG.md](LAW_CATALOG.md)
+- [Integration Examples](INTEGRATIONS.md)
+- [Examples Index](examples/README.md)
+- [Approval Flow Example](examples/approval-flow.md)
+- [Ledger Audit Example](examples/ledger-audit.md)
+- [PUBLIC_PRIVATE_BOUNDARY.md](PUBLIC_PRIVATE_BOUNDARY.md)
+- [PACKAGING_PLAN.md](PACKAGING_PLAN.md)
+- [GRAVITY_LANDING_PLAN.md](GRAVITY_LANDING_PLAN.md)
+- [AGENT_BOUNDARY_REPORT_20260317.md](AGENT_BOUNDARY_REPORT_20260317.md)
