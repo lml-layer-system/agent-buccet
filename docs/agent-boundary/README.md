@@ -65,6 +65,7 @@ Current launch boundary:
 - the hook freezes and waits by default; it only fails closed immediately when the hook supervisor marks the brain dead
 - many protected processes can freeze and forward into the same Buccet brain at once
 - shared pending swarm groups let one lawful approval resolve many matching frozen requests
+- optional deeper kernel-level nets can sit in front of the same Buccet brain for private or high-assurance deployments
 
 ## What It Does
 

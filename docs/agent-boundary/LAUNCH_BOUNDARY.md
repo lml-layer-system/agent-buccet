@@ -55,9 +55,9 @@ We should not claim:
 - the ledger has full remote witness/signing/checkpoint infrastructure
 - the public slice is the entire private LML system
 
-## In Progress
+## Advanced Depth
 
-The main in-progress item is deep OS-level interception.
+The main optional advanced layer is deeper OS-level interception.
 
 That means:
 - kernel hooks
@@ -67,12 +67,15 @@ That means:
 The important point is that the seam already exists.
 The current system-intercept bridge and intercept server are the stable handoff points for that deeper work.
 
+That deeper layer is not required to validate the public containment model.
+It is an optional higher-assurance deployment choice for personal, swarm, or private environments that want an earlier catch net.
+
 ## Recommended Launch Wording
 
 Use:
 - Bring your own agent. Add Buccet for containment.
 - Works today with wrapper and boundary transports.
-- Deep OS-level interception is in active development.
+- Optional deeper OS-level interception can be added on top of the same Buccet brain.
 
 Avoid:
 - claiming total kernel mediation today

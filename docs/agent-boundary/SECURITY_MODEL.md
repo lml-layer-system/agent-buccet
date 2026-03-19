@@ -68,6 +68,17 @@ When many protected processes hit the same unresolved target:
 That means swarm support does not introduce a second control system.
 It is still one brain, one law body, one ledger, and one scope truth.
 
+## Optional Deeper Nets
+
+Agent Buccet can also accept deeper deployment nets in front of the same brain:
+- preload-style hooks
+- process wrappers
+- transport bridges
+- optional kernel-level nets in private or high-assurance deployments
+
+Those do not become the authority system.
+They remain catch, freeze, and pass layers in front of the same Buccet brain.
+
 ## Failure Model
 
 ### Brain alive but not yet answered

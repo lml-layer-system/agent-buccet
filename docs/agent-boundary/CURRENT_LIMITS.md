@@ -8,9 +8,17 @@ Current hook depth is:
 - preload / injected front-layer interception
 - bridge-fed into the existing Buccet runtime
 
-It is not yet:
+The public release is intentionally centered on:
+- the shared Buccet brain
+- the shared law body
+- the shared scope truth
+- the shared ledger
+
+Optional deeper deployment layers can still be added for higher-assurance environments:
 - kernel-level mediation
-- full platform-wide syscall coverage
+- platform-specific low-level catch nets
+
+Those are advanced extensions, not the core definition of the public containment model.
 
 ## Coverage
 

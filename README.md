@@ -6,6 +6,9 @@ Persistent, CPU-friendly law and scope enforcement for AI agents.
 
 Agent Buccet is the containment layer you add to the agent stack you already run.
 
+The public repo is centered on the shared Buccet brain.
+Optional deeper kernel-level nets can be added later for private or high-assurance deployments without changing that core model.
+
 Core lines:
 - Agents can propose. They cannot authorize.
 - No ambient authority.
