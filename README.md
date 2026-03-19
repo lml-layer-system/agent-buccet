@@ -87,6 +87,7 @@ Other core contracts:
 npm run test:agent-buccet:action-classes
 npm run test:agent-buccet:gravity-supervisor
 npm run test:agent-buccet:wrapper-contract
+npm run test:agent-buccet:swarm
 npm run test:agent-buccet:intercept-daemon
 npm run test:agent-buccet:intercept-server
 npm run test:agent-buccet:system-intercept

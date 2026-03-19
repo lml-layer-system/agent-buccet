@@ -52,9 +52,21 @@ The main Agent Buccet runtime owns:
    - scope
    - gravity
    - NSL if needed
+   - swarm coordination if many matching requests are waiting
    - ledger
 5. verdict returns
 6. hook applies that verdict
+
+## Swarm Mode
+
+When many protected processes hit the same unresolved target:
+- hooks still only catch, freeze, and pass
+- the Buccet brain groups matching waiting requests into one shared pending group
+- one lawful approval or denial resolves that whole group
+- ledger records the shared swarm decision path
+
+That means swarm support does not introduce a second control system.
+It is still one brain, one law body, one ledger, and one scope truth.
 
 ## Failure Model
 

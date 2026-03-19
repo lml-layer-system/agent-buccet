@@ -26,6 +26,7 @@ export * from "./gravity-adapter/nsl-open-as-law.ts";
 export * from "./gravity-supervisor.ts";
 export * from "./intercept.ts";
 export * from "./system-intercept.ts";
+export * from "./swarm.ts";
 export * from "./process.ts";
 export * from "./wrapper.ts";
 export * from "./integrations/index.ts";

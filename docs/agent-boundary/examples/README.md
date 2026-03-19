@@ -72,6 +72,19 @@ It proves:
 - authority claim -> `deny`
 - incomplete ledger session -> `deny`
 
+## Swarm contract harness
+
+Run:
+
+```bash
+npm run test:agent-buccet:swarm
+```
+
+That script proves:
+- two concurrent frozen requests can join one shared swarm group
+- one approval can release both through the same Buccet brain
+- the ledger records the shared swarm approval path
+
 ## Ledger contract harness
 
 Run:

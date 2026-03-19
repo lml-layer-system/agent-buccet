@@ -46,6 +46,9 @@ function usage(): never {
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
+    "  buccet swarm list [--json]",
+    "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
+    "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
     "  buccet uninstall",
   ].join("\n"));
   process.exit(1);
@@ -658,6 +661,121 @@ type HookStatusPayload = {
   lastError?: string;
 };
 
+async function handleSwarm(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  const boundary = await importBoundary(homePath);
+  const subcommand = rest[0];
+  const asJson = rest.includes("--json");
+  if (!subcommand) {
+    usage();
+  }
+
+  const target = { socketPath: home.interceptSocketPath };
+
+  if (subcommand === "list") {
+    const output = await boundary.sendBoundaryInterceptServerInput({
+      target,
+      input: {
+        command: "swarm_status",
+      },
+    });
+    if (output.type !== "swarm_status") {
+      throw new Error(`unexpected swarm response: ${output.type}`);
+    }
+    if (asJson) {
+      printJson(output);
+      return;
+    }
+    console.log(`Agent Buccet swarm groups`);
+    console.log(`pending: ${output.totals.pending}`);
+    console.log(`waiting members: ${output.totals.waitingMembers}`);
+    for (const group of output.groups) {
+      console.log(
+        `${group.state} | ${group.groupId} | ${group.actionClass}.${group.operation} | ${group.target} | members=${group.memberCount} waiting=${group.waitingCount}`,
+      );
+    }
+    return;
+  }
+
+  const groupId = rest[1] ?? usage();
+  let issuedBy = config.actorId;
+  let deniedBy = config.actorId;
+  let reason: string | undefined;
+
+  for (let index = 2; index < rest.length; index += 1) {
+    const token = rest[index];
+    if (token === "--issued-by") {
+      issuedBy = rest[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--denied-by") {
+      deniedBy = rest[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--reason") {
+      reason = rest[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--json") {
+      continue;
+    }
+    usage();
+  }
+
+  if (subcommand === "approve") {
+    const output = await boundary.sendBoundaryInterceptServerInput({
+      target,
+      input: {
+        command: "swarm_approve",
+        groupId,
+        issuedBy,
+        reason,
+      },
+    });
+    if (output.type !== "ack") {
+      throw new Error(`unexpected swarm response: ${output.type}`);
+    }
+    if (asJson) {
+      printJson(output);
+      return;
+    }
+    console.log(`approved swarm group: ${groupId}`);
+    return;
+  }
+
+  if (subcommand === "deny") {
+    const output = await boundary.sendBoundaryInterceptServerInput({
+      target,
+      input: {
+        command: "swarm_deny",
+        groupId,
+        deniedBy,
+        reason,
+      },
+    });
+    if (output.type !== "ack") {
+      throw new Error(`unexpected swarm response: ${output.type}`);
+    }
+    if (asJson) {
+      printJson(output);
+      return;
+    }
+    console.log(`denied swarm group: ${groupId}`);
+    return;
+  }
+
+  usage();
+}
+
 async function handleHook(rest: string[]) {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
@@ -910,6 +1028,10 @@ async function main() {
   }
   if (parsed.command === "hook") {
     await handleHook(parsed.rest);
+    return;
+  }
+  if (parsed.command === "swarm") {
+    await handleSwarm(parsed.rest);
     return;
   }
   if (parsed.command === "uninstall") {

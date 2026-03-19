@@ -63,6 +63,8 @@ Current launch boundary:
 - deep intercept front-layer assets are in `native/deep-intercept/` and route through the existing intercept server
 - even already-open scope still goes through the same runtime decision path; the front-layer never short-circuits authority
 - the hook freezes and waits by default; it only fails closed immediately when the hook supervisor marks the brain dead
+- many protected processes can freeze and forward into the same Buccet brain at once
+- shared pending swarm groups let one lawful approval resolve many matching frozen requests
 
 ## What It Does
 
@@ -190,6 +192,7 @@ The public slice now includes:
 - null -> NSL open-as-law recovery
 - wrapper process policy
 - process lifecycle ledgering
+- one-brain swarm coordination for matching frozen requests
 
 ## Runnable Example
 
@@ -215,6 +218,12 @@ Run the gravity bridge contract harness with:
 
 ```bash
 npm run test:agent-buccet:gravity-bridge
+```
+
+Run the swarm contract harness with:
+
+```bash
+npm run test:agent-buccet:swarm
 ```
 
 Run the end-to-end example with:

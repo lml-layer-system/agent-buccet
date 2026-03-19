@@ -5,8 +5,8 @@ import readline from "node:readline";
 import {
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
+  createBoundarySwarmCoordinator,
   daemonRequestId,
-  evaluateBoundaryIntercept,
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
@@ -135,6 +135,7 @@ async function main() {
       console.error("[intercept-server-panic]", error);
     },
   });
+  const swarm = createBoundarySwarmCoordinator(store);
 
   await supervisor.start();
 
@@ -173,10 +174,22 @@ async function main() {
           if ("command" in parsed) {
             if (parsed.command === "status") {
               const status = supervisor.getStatus();
+              const swarmStatus = swarm.listGroups();
               writeOutput(socket, {
                 type: "status",
                 requestId,
                 ...status,
+                swarm: swarmStatus.totals,
+              });
+              continue;
+            }
+            if (parsed.command === "swarm_status") {
+              const swarmStatus = swarm.listGroups();
+              writeOutput(socket, {
+                type: "swarm_status",
+                requestId,
+                groups: swarmStatus.groups,
+                totals: swarmStatus.totals,
               });
               continue;
             }
@@ -192,6 +205,52 @@ async function main() {
               });
               continue;
             }
+            if (parsed.command === "swarm_approve") {
+              const approved = await swarm.approveGroup({
+                groupId: parsed.groupId,
+                issuedBy: parsed.issuedBy ?? store.getConfig().session.actorId,
+                reason: parsed.reason,
+              });
+              if (!approved) {
+                writeOutput(socket, {
+                  type: "error",
+                  requestId,
+                  error: `unknown swarm group: ${parsed.groupId}`,
+                });
+                continue;
+              }
+              writeOutput(socket, {
+                type: "ack",
+                requestId,
+                command: "swarm_approve",
+                groupId: approved.groupId,
+                reason: parsed.reason ?? "swarm approval granted",
+              });
+              continue;
+            }
+            if (parsed.command === "swarm_deny") {
+              const denied = await swarm.denyGroup({
+                groupId: parsed.groupId,
+                deniedBy: parsed.deniedBy ?? store.getConfig().session.actorId,
+                reason: parsed.reason,
+              });
+              if (!denied) {
+                writeOutput(socket, {
+                  type: "error",
+                  requestId,
+                  error: `unknown swarm group: ${parsed.groupId}`,
+                });
+                continue;
+              }
+              writeOutput(socket, {
+                type: "ack",
+                requestId,
+                command: "swarm_deny",
+                groupId: denied.groupId,
+                reason: parsed.reason ?? "swarm approval denied",
+              });
+              continue;
+            }
             await supervisor.stop();
             writeOutput(socket, {
               type: "ack",
@@ -202,12 +261,7 @@ async function main() {
             return;
           }
 
-          const result = await evaluateBoundaryIntercept({
-            config: {
-              ...store.getConfig(),
-            },
-            request: parsed,
-          });
+          const result = await swarm.evaluateOrWait(parsed);
 
           writeOutput(socket, {
             type: "decision",

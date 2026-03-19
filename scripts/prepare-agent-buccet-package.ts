@@ -21,6 +21,7 @@ const sourceInterceptDaemonContract = path.join(repoRoot, "scripts", "agent-bucc
 const sourceInterceptServerContract = path.join(repoRoot, "scripts", "agent-buccet-intercept-server-contract.ts");
 const sourceSystemInterceptContract = path.join(repoRoot, "scripts", "agent-buccet-system-intercept-contract.ts");
 const sourceGravityBridgeContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-bridge-contract.ts");
+const sourceSwarmContract = path.join(repoRoot, "scripts", "agent-buccet-swarm-contract.ts");
 const sourceHookRuntimeContract = path.join(repoRoot, "scripts", "agent-buccet-hook-runtime-contract.ts");
 const sourceWrapperContract = path.join(repoRoot, "scripts", "agent-buccet-wrapper-contract.ts");
 const sourceCliContract = path.join(repoRoot, "scripts", "agent-buccet-cli-contract.ts");
@@ -127,6 +128,7 @@ async function writeStandalonePackageJson() {
       "test:agent-buccet:intercept-server": "node examples/agent-buccet-intercept-server-contract.ts",
       "test:agent-buccet:system-intercept": "node examples/agent-buccet-system-intercept-contract.ts",
       "test:agent-buccet:gravity-bridge": "node examples/agent-buccet-gravity-bridge-contract.ts",
+      "test:agent-buccet:swarm": "node examples/agent-buccet-swarm-contract.ts",
       "test:agent-buccet:hook-runtime": "node examples/agent-buccet-hook-runtime-contract.ts",
       "test:agent-buccet:cli": "node examples/agent-buccet-cli-contract.ts",
       "test:agent-buccet:install": "node examples/agent-buccet-install-contract.ts",
@@ -189,6 +191,7 @@ async function writeExtractionManifest() {
     sourceInterceptServerContract: "scripts/agent-buccet-intercept-server-contract.ts",
     sourceSystemInterceptContract: "scripts/agent-buccet-system-intercept-contract.ts",
     sourceGravityBridgeContract: "scripts/agent-buccet-gravity-bridge-contract.ts",
+    sourceSwarmContract: "scripts/agent-buccet-swarm-contract.ts",
     sourceHookRuntimeContract: "scripts/agent-buccet-hook-runtime-contract.ts",
     sourceWrapperContract: "scripts/agent-buccet-wrapper-contract.ts",
     sourceCliContract: "scripts/agent-buccet-cli-contract.ts",
@@ -225,6 +228,7 @@ async function writeExtractionManifest() {
       "examples/agent-buccet-intercept-server-contract.ts",
       "examples/agent-buccet-system-intercept-contract.ts",
       "examples/agent-buccet-gravity-bridge-contract.ts",
+      "examples/agent-buccet-swarm-contract.ts",
       "examples/agent-buccet-hook-runtime-contract.ts",
       "examples/agent-buccet-wrapper-contract.ts",
       "examples/agent-buccet-cli-contract.ts",
@@ -330,6 +334,11 @@ async function writeStandaloneExample() {
     "../lib/lml/agent-boundary/",
     "../src/",
   );
+  const rawSwarmContract = await fs.readFile(sourceSwarmContract, "utf8");
+  const rewrittenSwarmContract = rawSwarmContract.replaceAll(
+    "../lib/lml/agent-boundary/",
+    "../src/",
+  );
   const rewrittenHookRuntimeContract = await fs.readFile(sourceHookRuntimeContract, "utf8");
   const rawWrapperContract = await fs.readFile(sourceWrapperContract, "utf8");
   const rewrittenWrapperContract = rawWrapperContract.replaceAll(
@@ -358,6 +367,7 @@ async function writeStandaloneExample() {
   await fs.writeFile(path.join(examplesDir, "agent-buccet-intercept-server-contract.ts"), rewrittenInterceptServerContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-system-intercept-contract.ts"), rewrittenSystemInterceptContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-gravity-bridge-contract.ts"), rewrittenGravityBridgeContract, "utf8");
+  await fs.writeFile(path.join(examplesDir, "agent-buccet-swarm-contract.ts"), rewrittenSwarmContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-hook-runtime-contract.ts"), rewrittenHookRuntimeContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-wrapper-contract.ts"), rewrittenWrapperContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-cli-contract.ts"), rewrittenCliContract, "utf8");

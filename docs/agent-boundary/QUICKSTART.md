@@ -94,6 +94,7 @@ For one bodyguard that follows the agent everywhere:
 - create one shared runtime store
 - attach one bodyguard to that store
 - route NeMo / OpenAI / LangGraph / Telegram through that same bodyguard
+- route many protected processes through that same Buccet brain when swarm mode is needed
 
 ## 4. Approval
 
@@ -192,6 +193,19 @@ This asserts the deeper gravity contract:
 - out-of-scope -> `nsl_grant_offer`
 - authority claim -> `deny`
 - incomplete ledger session -> `deny`
+
+## 10.4 Run the swarm contract harness
+
+From the repo root:
+
+```bash
+npm run test:agent-buccet:swarm
+```
+
+This asserts:
+- many concurrent frozen requests can hit the same Buccet brain
+- matching unresolved requests collapse into one shared swarm group
+- one approval can release all waiting matching requests
 
 ## 10.5 Run the ledger contract harness
 

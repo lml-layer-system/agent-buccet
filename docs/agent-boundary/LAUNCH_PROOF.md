@@ -78,6 +78,24 @@ Expected:
 - `key` shows the active public signing identity
 - `checkpoint` writes a signed checkpoint
 
+### 5.5 Inspect swarm groups if many processes are waiting
+
+```bash
+buccet swarm list
+```
+
+If matching requests are waiting on the same unresolved target, this shows:
+- one shared pending group
+- how many frozen members are waiting inside it
+
+Resolve it with:
+
+```bash
+buccet swarm approve <group-id>
+# or
+buccet swarm deny <group-id>
+```
+
 ### 6. Uninstall
 
 ```bash
@@ -93,6 +111,7 @@ Expected:
 
 - Agent Buccet installs and runs as a local-first containment layer
 - the hook path feeds the existing Buccet brain
+- many protected processes can feed the same Buccet brain concurrently
 - laws and ledger stay in the main runtime
 - the ledger is inspectable, signed, and checkpointable
 - uninstall is clean

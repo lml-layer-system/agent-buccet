@@ -36,6 +36,24 @@ export type BoundaryInterceptRequest = {
 
 export type BoundaryInterceptDecision = "allow" | "deny" | "require_approval";
 
+export type BoundaryInterceptSwarmGroupState = "waiting" | "approved" | "denied";
+
+export type BoundaryInterceptSwarmGroup = {
+  groupId: string;
+  key: string;
+  state: BoundaryInterceptSwarmGroupState;
+  createdAt: string;
+  updatedAt: string;
+  actionClass: BoundaryInterceptRequest["actionClass"];
+  operation: string;
+  target: string;
+  reason: string;
+  lawIds: string[];
+  memberCount: number;
+  waitingCount: number;
+  requestIds: string[];
+};
+
 export type BoundaryInterceptResult = {
   decision: BoundaryInterceptDecision;
   reason: string;
@@ -193,7 +211,10 @@ export async function evaluateBoundaryIntercept(args: {
 export type BoundaryInterceptDaemonCommand =
   | { command: "status"; requestId?: string }
   | { command: "restart"; requestId?: string; reason?: string }
-  | { command: "shutdown"; requestId?: string };
+  | { command: "shutdown"; requestId?: string }
+  | { command: "swarm_status"; requestId?: string }
+  | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string }
+  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string };
 
 export type BoundaryInterceptDaemonInput =
   | ({ requestId?: string } & BoundaryInterceptRequest)
@@ -214,13 +235,29 @@ export type BoundaryInterceptDaemonOutput =
       lastDecision?: "allow" | "null";
       lastError?: string;
       lastRestartReason?: string;
+      swarm?: {
+        pending: number;
+        waitingMembers: number;
+        tracked: number;
+      };
+    }
+  | {
+      type: "swarm_status";
+      requestId: string;
+      groups: BoundaryInterceptSwarmGroup[];
+      totals: {
+        pending: number;
+        waitingMembers: number;
+        tracked: number;
+      };
     }
   | {
       type: "ack";
       requestId: string;
-      command: "restart" | "shutdown";
+      command: "restart" | "shutdown" | "swarm_approve" | "swarm_deny";
       restartCount?: number;
       reason?: string;
+      groupId?: string;
     }
   | {
       type: "error";
