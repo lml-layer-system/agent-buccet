@@ -9,6 +9,7 @@ It is the law layer you add to the agent stack you already run.
 
 Core docs:
 - [Launch Proof](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_PROOF.md)
+- [Release Checklist](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/SECURITY_MODEL.md)
 - [Current Limits](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/CURRENT_LIMITS.md)
 
@@ -45,7 +46,6 @@ That installs a thin user-space shell under:
 Then use:
 
 ```bash
-buccet init
 buccet status
 buccet scope add ~/projects/my-app
 buccet run -- python my_agent.py
@@ -55,6 +55,12 @@ buccet hook status
 buccet hook run -- python my_agent.py
 buccet logs
 buccet uninstall
+```
+
+If you installed from the local repo shell instead of the hosted installer, initialize first:
+
+```bash
+buccet init
 ```
 
 Current launch boundary:

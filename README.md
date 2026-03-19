@@ -22,6 +22,7 @@ Core lines:
 - [Integrations](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATIONS.md)
 - [Launch Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_BOUNDARY.md)
 - [Launch Proof](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_PROOF.md)
+- [Release Checklist](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/SECURITY_MODEL.md)
 - [Current Limits](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/CURRENT_LIMITS.md)
 - [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
@@ -37,6 +38,7 @@ Example hosted flow:
 ```bash
 sh dist/releases/install.sh
 buccet status
+buccet scope add .
 buccet run -- /bin/echo protected
 buccet logs
 buccet uninstall
