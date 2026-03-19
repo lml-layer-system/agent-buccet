@@ -18,10 +18,10 @@ Out of the box, the public slice already gives you:
 - system-intercept seam for future low-level hooks
 - gravity on the action path
 - supervisor for restart and daemon health
+- hosted-ready release artifacts under `dist/releases/`
 
-Current local install shell:
-- `sh scripts/install-agent-buccet.sh`
-- `buccet init`
+Current install shell:
+- `sh dist/releases/install.sh`
 - `buccet status`
 - `buccet scope add <path>`
 - `buccet run -- <command>`
@@ -38,6 +38,7 @@ We can claim:
 - the bodyguard persists across restart until the user ends the session
 - the ledger is part of the trust boundary, not optional logging
 - developers can use the wrapper and intercept surfaces today without waiting for deep OS integration
+- hosted install can be served as a single `curl ... | sh` entrypoint once release artifacts are published
 
 ## What We Should Not Claim Yet
 

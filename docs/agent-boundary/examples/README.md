@@ -8,6 +8,7 @@ Thin shell install and CLI contracts:
 sh scripts/install-agent-buccet.sh
 npm run test:agent-buccet:cli
 npm run test:agent-buccet:install
+npm run test:agent-buccet:hosted-install
 ```
 
 Use these when you want:
@@ -166,6 +167,9 @@ npm run package:agent-buccet
 
 The generated export appears at:
 - `dist/agent-buccet/`
+
+Hosted release assets appear at:
+- `dist/releases/`
 
 ## Public gravity demo
 

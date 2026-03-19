@@ -1,10 +1,10 @@
 # Agent Buccet Packaging Plan
 
-This document defines how Agent Buccet should be split cleanly out of `lml_demo` into its own standalone public repo or package.
+This document defines how Agent Buccet is packaged as a standalone public repo/package surface.
 
 ## Objective
 
-Make Agent Buccet exportable without dragging the rest of the LML universe with it.
+Make Agent Buccet exportable and hostable without dragging unrelated code with it.
 
 This is extraction prep around an already landed public gravity surface.
 
@@ -23,6 +23,9 @@ The standalone Agent Buccet package should contain:
   - the wrapper CLI entrypoint
   - the thin-shell `buccet` entrypoint
 - `install.sh`
+- `../releases/install.sh`
+- `../releases/latest.json`
+- `../releases/agent-buccet-<version>.tar.gz`
 - `package.json`
 - `tsconfig.json`
 - `README.md`
@@ -84,6 +87,7 @@ Move:
 - `scripts/agent-buccet-run.ts`
 - `scripts/buccet.ts`
 - `scripts/install-agent-buccet.sh`
+- `scripts/install-agent-buccet-hosted.sh`
 
 But in the standalone export, it should live under:
 - `examples/agent-buccet-e2e.ts`
@@ -109,6 +113,9 @@ But in the standalone export, it should live under:
 - `bin/agent-buccet-run.ts`
 - `bin/buccet.ts`
 - `install.sh`
+- `../releases/install.sh`
+- `../releases/latest.json`
+- `../releases/agent-buccet-<version>.tar.gz`
 
 with imports rewritten to target the local standalone `src/index.ts`.
 
@@ -144,8 +151,9 @@ Minimal standalone package metadata:
   - `test:agent-buccet:intercept-server`
   - `test:agent-buccet:system-intercept`
   - `test:agent-buccet:wrapper-contract`
-  - `test:agent-buccet:cli`
-  - `test:agent-buccet:install`
+- `test:agent-buccet:cli`
+- `test:agent-buccet:install`
+- `test:agent-buccet:hosted-install`
   - `agent-buccet:gravity-daemon`
   - `agent-buccet:intercept-daemon`
   - `agent-buccet:intercept-server`
@@ -160,9 +168,10 @@ The standalone package does not need the full Next.js app dependency surface.
 
 ## Export Artifact
 
-Inside `lml_demo`, the extraction-prep artifact should be assembled into:
+Build output should be assembled into:
 
 - `dist/agent-buccet/`
+- `dist/releases/`
 
 That folder should be treated as:
 - disposable
@@ -194,6 +203,7 @@ Extraction prep is complete when:
 - a single command assembles `dist/agent-buccet`
 - the assembled folder contains runtime + docs + examples + wrapper CLI
 - the assembled folder contains the thin install shell
+- the release folder contains a tarball, checksum material, and hosted installer shell
 - the standalone examples point to local standalone source
-- the assembled package boundary excludes unrelated `lml_demo` code
+- the assembled package boundary excludes unrelated code
 - gravity core and gravity adapters are present without redefining the package seam

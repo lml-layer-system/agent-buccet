@@ -21,6 +21,7 @@
     "test:agent-buccet:system-intercept": "node scripts/agent-buccet-system-intercept-contract.ts",
     "test:agent-buccet:cli": "node scripts/agent-buccet-cli-contract.ts",
     "test:agent-buccet:install": "node scripts/agent-buccet-install-contract.ts",
+    "test:agent-buccet:hosted-install": "npm run build && node scripts/agent-buccet-hosted-install-contract.ts",
     "agent-buccet:gravity-daemon": "node scripts/agent-buccet-gravity-daemon.ts",
     "agent-buccet:intercept-daemon": "node scripts/agent-buccet-intercept-daemon.ts",
     "agent-buccet:intercept-server": "node scripts/agent-buccet-intercept-server.ts",

@@ -10,6 +10,7 @@ The intended public surface is:
 - `scripts/agent-buccet-*`
 - `scripts/buccet.ts`
 - `scripts/install-agent-buccet.sh`
+- `scripts/install-agent-buccet-hosted.sh`
 - `scripts/prepare-agent-buccet-package.ts`
 
 This is the boundary runtime, install shell, packaging layer, and contract surface.
@@ -24,5 +25,5 @@ When changing this repo:
 ## Current In-Progress Boundary
 
 Still in progress for public release:
-- hosted install path
 - deepest OS/kernel interception layer
+- public hosting of the generated release assets

@@ -22,18 +22,26 @@ Core lines:
 - [Examples](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
 - [Repo Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/REPO_BOUNDARY.md)
 
-## Thin Shell Install
+## Hosted Install
 
-From this repo:
+Hosted-ready release assets are generated under `dist/releases/`.
+
+Example hosted flow:
+
+```bash
+sh dist/releases/install.sh
+buccet status
+buccet run -- /bin/echo protected
+buccet logs
+buccet uninstall
+```
+
+Local repo install remains available:
 
 ```bash
 sh scripts/install-agent-buccet.sh
 buccet init
-buccet status
 buccet scope add .
-buccet run -- /bin/echo protected
-buccet logs
-buccet uninstall
 ```
 
 ## Proof Commands
@@ -64,6 +72,7 @@ CLI and install contracts:
 ```bash
 npm run test:agent-buccet:cli
 npm run test:agent-buccet:install
+npm run test:agent-buccet:hosted-install
 ```
 
 Other core contracts:
@@ -93,19 +102,11 @@ npm run package:agent-buccet
 
 ## Repo Boundary
 
-This repo is now Buccet-first.
-
 What is first-class here:
 - `docs/agent-boundary/`
 - `lib/lml/agent-boundary/`
 - `scripts/agent-buccet-*`
 - `scripts/buccet.ts`
 - `scripts/install-agent-buccet.sh`
-
-Retained legacy/internal staging surfaces still exist under:
-- `app/`
-- broader `lib/lml/`
-- `tests/`
-- older `docs/`
-
-Those retained surfaces are not the primary public Agent Buccet product surface.
+- `scripts/install-agent-buccet-hosted.sh`
+- `scripts/prepare-agent-buccet-package.ts`

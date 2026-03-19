@@ -8,9 +8,15 @@ Goal:
 - run one guarded action
 - understand where approval and ledger fit
 
-## 0. Install the thin shell
+## 0. Install the shell
 
-From the repo root:
+Hosted-ready release install:
+
+```bash
+sh dist/releases/install.sh
+```
+
+If you are working directly from the repo root:
 
 ```bash
 sh scripts/install-agent-buccet.sh
@@ -19,11 +25,17 @@ sh scripts/install-agent-buccet.sh
 Then:
 
 ```bash
-buccet init
 buccet status
 buccet scope add .
 buccet run -- /bin/echo protected
 buccet logs
+```
+
+The hosted installer auto-initializes the runtime without opening default scope.
+The local repo installer leaves initialization explicit:
+
+```bash
+buccet init
 ```
 
 To remove it cleanly:

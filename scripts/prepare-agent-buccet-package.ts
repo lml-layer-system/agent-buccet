@@ -1,8 +1,11 @@
 import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
+import { spawn } from "node:child_process";
 import path from "node:path";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
+const releaseDir = path.join(repoRoot, "dist", "releases");
 const sourceRuntimeDir = path.join(repoRoot, "lib", "lml", "agent-boundary");
 const sourceDocsDir = path.join(repoRoot, "docs", "agent-boundary");
 const sourceExample = path.join(repoRoot, "scripts", "agent-buccet-e2e.ts");
@@ -19,6 +22,7 @@ const sourceSystemInterceptContract = path.join(repoRoot, "scripts", "agent-bucc
 const sourceWrapperContract = path.join(repoRoot, "scripts", "agent-buccet-wrapper-contract.ts");
 const sourceCliContract = path.join(repoRoot, "scripts", "agent-buccet-cli-contract.ts");
 const sourceInstallContract = path.join(repoRoot, "scripts", "agent-buccet-install-contract.ts");
+const sourceHostedInstallContract = path.join(repoRoot, "scripts", "agent-buccet-hosted-install-contract.ts");
 const sourceWrapperScript = path.join(repoRoot, "scripts", "agent-buccet-run.ts");
 const sourceCliScript = path.join(repoRoot, "scripts", "buccet.ts");
 const sourceGravityDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-gravity-daemon.ts");
@@ -28,6 +32,7 @@ const sourceSystemInterceptBridgeScript = path.join(repoRoot, "scripts", "agent-
 const sourceLedgerWriterScript = path.join(repoRoot, "scripts", "agent-buccet-ledger-writer.ts");
 const sourceLedgerCliScript = path.join(repoRoot, "scripts", "agent-buccet-ledger-cli.ts");
 const sourceInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet.sh");
+const sourceHostedInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet-hosted.sh");
 
 async function rmrf(targetPath: string) {
   await fs.rm(targetPath, { recursive: true, force: true });
@@ -35,6 +40,44 @@ async function rmrf(targetPath: string) {
 
 async function mkdirp(targetPath: string) {
   await fs.mkdir(targetPath, { recursive: true });
+}
+
+async function runCommand(command: string, args: string[], cwd: string): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd,
+      env: {
+        ...process.env,
+        LC_ALL: process.env.LC_ALL ?? "C",
+        LANG: process.env.LANG ?? "C",
+        LC_CTYPE: process.env.LC_CTYPE ?? "C",
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      process.stdout.write(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      const filteredStderr = stderr
+        .split("\n")
+        .filter((line) => line.trim() !== "tar: Failed to set default locale")
+        .join("\n")
+        .trim();
+      if (filteredStderr) {
+        process.stderr.write(`${filteredStderr}\n`);
+      }
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      reject(new Error(`${command} ${args.join(" ")} exited with code ${code ?? "unknown"}`));
+    });
+  });
 }
 
 async function copyDir(src: string, dest: string): Promise<void> {
@@ -49,6 +92,12 @@ async function copyDir(src: string, dest: string): Promise<void> {
     }
     await fs.copyFile(srcPath, destPath);
   }
+}
+
+async function readPackageVersion(): Promise<string> {
+  const raw = await fs.readFile(path.join(repoRoot, "package.json"), "utf8");
+  const pkg = JSON.parse(raw) as { version?: string };
+  return pkg.version ?? "0.1.0";
 }
 
 async function writeStandalonePackageJson() {
@@ -72,6 +121,7 @@ async function writeStandalonePackageJson() {
       "test:agent-buccet:system-intercept": "node examples/agent-buccet-system-intercept-contract.ts",
       "test:agent-buccet:cli": "node examples/agent-buccet-cli-contract.ts",
       "test:agent-buccet:install": "node examples/agent-buccet-install-contract.ts",
+      "test:agent-buccet:hosted-install": "node examples/agent-buccet-hosted-install-contract.ts",
       "agent-buccet:gravity-daemon": "node bin/agent-buccet-gravity-daemon.ts",
       "agent-buccet:intercept-daemon": "node bin/agent-buccet-intercept-daemon.ts",
       "agent-buccet:intercept-server": "node bin/agent-buccet-intercept-server.ts",
@@ -129,6 +179,7 @@ async function writeExtractionManifest() {
     sourceWrapperContract: "scripts/agent-buccet-wrapper-contract.ts",
     sourceCliContract: "scripts/agent-buccet-cli-contract.ts",
     sourceInstallContract: "scripts/agent-buccet-install-contract.ts",
+    sourceHostedInstallContract: "scripts/agent-buccet-hosted-install-contract.ts",
     sourceWrapperScript: "scripts/agent-buccet-run.ts",
     sourceCliScript: "scripts/buccet.ts",
     sourceGravityDaemonScript: "scripts/agent-buccet-gravity-daemon.ts",
@@ -138,7 +189,9 @@ async function writeExtractionManifest() {
     sourceLedgerWriterScript: "scripts/agent-buccet-ledger-writer.ts",
     sourceLedgerCliScript: "scripts/agent-buccet-ledger-cli.ts",
     sourceInstallScript: "scripts/install-agent-buccet.sh",
+    sourceHostedInstallScript: "scripts/install-agent-buccet-hosted.sh",
     outputDir: "dist/agent-buccet",
+    releaseDir: "dist/releases",
     includes: [
       "src/**/*",
       "docs/**/*",
@@ -156,6 +209,7 @@ async function writeExtractionManifest() {
       "examples/agent-buccet-wrapper-contract.ts",
       "examples/agent-buccet-cli-contract.ts",
       "examples/agent-buccet-install-contract.ts",
+      "examples/agent-buccet-hosted-install-contract.ts",
       "bin/agent-buccet-gravity-daemon.ts",
       "bin/agent-buccet-intercept-daemon.ts",
       "bin/agent-buccet-intercept-server.ts",
@@ -168,6 +222,11 @@ async function writeExtractionManifest() {
       "README.md",
       "package.json",
       "tsconfig.json",
+      "../releases/install.sh",
+      "../releases/latest.json",
+      "releases/install.sh",
+      "releases/latest.json",
+      "releases/agent-buccet-<version>.tar.gz",
     ],
   };
   await fs.writeFile(
@@ -249,6 +308,7 @@ async function writeStandaloneExample() {
     "../src/",
   );
   const rewrittenInstallContract = await fs.readFile(sourceInstallContract, "utf8");
+  const rewrittenHostedInstallContract = await fs.readFile(sourceHostedInstallContract, "utf8");
   const examplesDir = path.join(outDir, "examples");
   await mkdirp(examplesDir);
   await fs.writeFile(path.join(examplesDir, "agent-buccet-e2e.ts"), rewritten, "utf8");
@@ -265,6 +325,7 @@ async function writeStandaloneExample() {
   await fs.writeFile(path.join(examplesDir, "agent-buccet-wrapper-contract.ts"), rewrittenWrapperContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-cli-contract.ts"), rewrittenCliContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-install-contract.ts"), rewrittenInstallContract, "utf8");
+  await fs.writeFile(path.join(examplesDir, "agent-buccet-hosted-install-contract.ts"), rewrittenHostedInstallContract, "utf8");
 }
 
 async function writeStandaloneWrapper() {
@@ -335,8 +396,62 @@ async function writeStandaloneWrapper() {
   await fs.chmod(path.join(outDir, "install.sh"), 0o755);
 }
 
+async function writeHostedInstaller() {
+  await mkdirp(releaseDir);
+  const raw = await fs.readFile(sourceHostedInstallScript, "utf8");
+  await fs.writeFile(path.join(releaseDir, "install.sh"), raw, "utf8");
+  await fs.chmod(path.join(releaseDir, "install.sh"), 0o755);
+}
+
+async function writeReleaseArtifacts(version: string) {
+  await mkdirp(releaseDir);
+  const packagedReleaseDir = path.join(outDir, "releases");
+  await mkdirp(packagedReleaseDir);
+  const archiveBaseName = `agent-buccet-${version}`;
+  const archiveFileName = `${archiveBaseName}.tar.gz`;
+  const archivePath = path.join(releaseDir, archiveFileName);
+
+  await runCommand("tar", ["-czf", archivePath, "-C", path.dirname(outDir), path.basename(outDir)], repoRoot);
+
+  const archiveBuffer = await fs.readFile(archivePath);
+  const sha256 = createHash("sha256").update(archiveBuffer).digest("hex");
+
+  const manifest = {
+    project: "agent-buccet",
+    version,
+    generatedAt: new Date().toISOString(),
+    archive: archiveFileName,
+    sha256,
+  };
+
+  await fs.writeFile(
+    path.join(releaseDir, `${version}.json`),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(releaseDir, "latest.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(path.join(releaseDir, `${archiveFileName}.sha256`), `${sha256}  ${archiveFileName}\n`, "utf8");
+
+  const hostedInstallerPath = path.join(releaseDir, "install.sh");
+  const versionManifestPath = path.join(releaseDir, `${version}.json`);
+  const latestManifestPath = path.join(releaseDir, "latest.json");
+  const checksumPath = path.join(releaseDir, `${archiveFileName}.sha256`);
+
+  await fs.copyFile(hostedInstallerPath, path.join(packagedReleaseDir, "install.sh"));
+  await fs.copyFile(versionManifestPath, path.join(packagedReleaseDir, `${version}.json`));
+  await fs.copyFile(latestManifestPath, path.join(packagedReleaseDir, "latest.json"));
+  await fs.copyFile(archivePath, path.join(packagedReleaseDir, archiveFileName));
+  await fs.copyFile(checksumPath, path.join(packagedReleaseDir, `${archiveFileName}.sha256`));
+}
+
 async function main() {
+  const version = await readPackageVersion();
   await rmrf(outDir);
+  await rmrf(releaseDir);
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
@@ -346,7 +461,10 @@ async function main() {
   await writeStandaloneTsconfig();
   await writeStandaloneReadme();
   await writeExtractionManifest();
+  await writeHostedInstaller();
+  await writeReleaseArtifacts(version);
   console.log(`Prepared Agent Buccet standalone package at ${outDir}`);
+  console.log(`Prepared Agent Buccet release artifacts at ${releaseDir}`);
 }
 
 main().catch((error) => {
