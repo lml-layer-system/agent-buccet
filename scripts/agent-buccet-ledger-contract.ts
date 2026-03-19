@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import {
   appendBoundaryLedger,
+  buildBoundaryLedgerCheckpoint,
   queryBoundaryLedger,
+  readBoundaryLedgerSigningIdentity,
   readBoundaryLedgerBySession,
+  verifyBoundaryLedgerRecordSignature,
 } from "../lib/lml/agent-boundary/index.ts";
 
 async function main() {
@@ -55,6 +58,19 @@ async function main() {
   assert.equal(Array.isArray(tail[1].PATH.path_through_system), true);
   assert.equal(typeof tail[1].NEXT.outcome, "string");
   assert.equal(Array.isArray(tail[1].OPTIONS.user_discretion), true);
+  assert.equal(tail[0].META.signature_algo, "ed25519");
+  assert.equal(typeof tail[0].META.signature, "string");
+  assert.equal(typeof tail[0].META.signer_id, "string");
+
+  const signatureCheck = await verifyBoundaryLedgerRecordSignature(tail[1]);
+  assert.equal(signatureCheck.ok, true);
+
+  const signingIdentity = await readBoundaryLedgerSigningIdentity();
+  assert.equal(tail[1].META.signer_id, signingIdentity.signer_id);
+
+  const checkpoint = await buildBoundaryLedgerCheckpoint();
+  assert.equal(typeof checkpoint.signature, "string");
+  assert.equal(checkpoint.signer_id, signingIdentity.signer_id);
 
   const allowResults = await queryBoundaryLedger({
     source: actorId,
@@ -68,6 +84,8 @@ async function main() {
   console.log(`second id: ${second.META.id}`);
   console.log(`chain link ok: ${second.META.prev_hash === first.META.hash}`);
   console.log(`decision verdict: ${second.DECISION.verdict}`);
+  console.log(`signed by: ${signingIdentity.signer_id}`);
+  console.log(`checkpoint: ${checkpoint.checkpoint_id}`);
 }
 
 main().catch((error) => {

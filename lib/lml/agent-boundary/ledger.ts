@@ -1,9 +1,17 @@
-import { createHash } from "node:crypto";
+import {
+  createHash,
+  createPrivateKey,
+  createPublicKey,
+  generateKeyPairSync,
+  sign as cryptoSign,
+  verify as cryptoVerify,
+} from "node:crypto";
 import { promises as fs } from "node:fs";
 import net from "node:net";
 import { once } from "node:events";
 import path from "node:path";
 import type {
+  BoundaryLedgerCheckpoint,
   BoundaryDecision,
   BoundaryLedgerDecisionBlock,
   BoundaryLedgerDecisionVerdict,
@@ -23,6 +31,10 @@ const BOUNDARY_LEDGER_WAL_FILE = path.join(LEDGER_DIR, "agent-boundary-ledger.wa
 const INDEX_DIR = path.join(LEDGER_DIR, "indexes");
 const ROLLUP_DIR = path.join(LEDGER_DIR, "rollups");
 const LOCK_FILE = path.join(LEDGER_DIR, "agent-boundary-ledger.lock");
+const KEYS_DIR = path.join(LEDGER_DIR, "keys");
+const CHECKPOINT_DIR = path.join(LEDGER_DIR, "checkpoints");
+const SIGNING_PRIVATE_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-private.pem");
+const SIGNING_PUBLIC_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-public.pem");
 
 export type BoundaryLedgerWriterTarget =
   | { socketPath: string }
@@ -272,7 +284,13 @@ function normalizeBoundaryLedgerRecord(record: Partial<BoundaryLedgerRecord>): B
     index,
     eventType,
     payload,
-    META,
+    META: {
+      ...META,
+      signature_algo: META.signature_algo,
+      signer_id: META.signer_id,
+      signature: META.signature,
+      signed_at: META.signed_at,
+    },
     INPUT,
     DECISION,
     PATH,
@@ -285,6 +303,69 @@ async function ensureLedgerDir() {
   await fs.mkdir(LEDGER_DIR, { recursive: true });
   await fs.mkdir(INDEX_DIR, { recursive: true });
   await fs.mkdir(ROLLUP_DIR, { recursive: true });
+  await fs.mkdir(KEYS_DIR, { recursive: true });
+  await fs.mkdir(CHECKPOINT_DIR, { recursive: true });
+}
+
+function signerIdFromPublicKeyPem(publicKeyPem: string): string {
+  const der = createPublicKey(publicKeyPem).export({ format: "der", type: "spki" }) as Buffer;
+  return `ed25519:${createHash("sha256").update(der).digest("hex")}`;
+}
+
+async function ensureBoundaryLedgerSigningIdentity(): Promise<{
+  privateKeyPem: string;
+  publicKeyPem: string;
+  signerId: string;
+}> {
+  await ensureLedgerDir();
+  const [privateKeyPem, publicKeyPem] = await Promise.all([
+    fs.readFile(SIGNING_PRIVATE_KEY_FILE, "utf8").catch(() => ""),
+    fs.readFile(SIGNING_PUBLIC_KEY_FILE, "utf8").catch(() => ""),
+  ]);
+
+  if (privateKeyPem && publicKeyPem) {
+    return {
+      privateKeyPem,
+      publicKeyPem,
+      signerId: signerIdFromPublicKeyPem(publicKeyPem),
+    };
+  }
+
+  const generated = generateKeyPairSync("ed25519");
+  const nextPrivateKeyPem = generated.privateKey.export({ format: "pem", type: "pkcs8" }).toString();
+  const nextPublicKeyPem = generated.publicKey.export({ format: "pem", type: "spki" }).toString();
+  await fs.writeFile(SIGNING_PRIVATE_KEY_FILE, nextPrivateKeyPem, { mode: 0o600 });
+  await fs.writeFile(SIGNING_PUBLIC_KEY_FILE, nextPublicKeyPem, { mode: 0o644 });
+  return {
+    privateKeyPem: nextPrivateKeyPem,
+    publicKeyPem: nextPublicKeyPem,
+    signerId: signerIdFromPublicKeyPem(nextPublicKeyPem),
+  };
+}
+
+function signBoundaryLedgerHash(hash: string, privateKeyPem: string): string {
+  return cryptoSign(
+    null,
+    Buffer.from(hash, "utf8"),
+    createPrivateKey(privateKeyPem),
+  ).toString("base64");
+}
+
+function verifyBoundaryLedgerHashSignature(args: {
+  hash: string;
+  signature: string;
+  publicKeyPem: string;
+}): boolean {
+  try {
+    return cryptoVerify(
+      null,
+      Buffer.from(args.hash, "utf8"),
+      createPublicKey(args.publicKeyPem),
+      Buffer.from(args.signature, "base64"),
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function readLedgerFile(targetPath: string): Promise<BoundaryLedgerRecord[]> {
@@ -396,6 +477,10 @@ function buildBoundaryLedgerRecord(args: {
   prevHash: string;
   eventType: BoundaryLedgerEventType;
   payload: BoundaryLedgerPayload;
+  signer?: {
+    privateKeyPem: string;
+    signerId: string;
+  };
 }): BoundaryLedgerRecord {
   const INPUT = buildLedgerInput(args.eventType, args.payload);
   const DECISION = buildLedgerDecision(args.eventType, args.payload);
@@ -422,6 +507,9 @@ function buildBoundaryLedgerRecord(args: {
     OPTIONS,
     META: METAWithoutHash,
   });
+  const signature = args.signer
+    ? signBoundaryLedgerHash(hash, args.signer.privateKeyPem)
+    : undefined;
 
   return {
     index: args.index,
@@ -430,6 +518,10 @@ function buildBoundaryLedgerRecord(args: {
     META: {
       ...METAWithoutHash,
       hash,
+      signature_algo: signature ? "ed25519" : undefined,
+      signer_id: signature ? args.signer?.signerId : undefined,
+      signature,
+      signed_at: signature ? args.payload.createdAt : undefined,
     },
     INPUT,
     DECISION,
@@ -454,6 +546,7 @@ async function appendBoundaryLedgerLocal(
   try {
     await ensureLedgerDir();
     await replayLedgerWal();
+    const signer = await ensureBoundaryLedgerSigningIdentity();
     const existing = await readLedgerFile(BOUNDARY_LEDGER_FILE);
     const latest = existing.at(-1);
     const nextIndex = (latest?.index ?? -1) + 1;
@@ -463,6 +556,7 @@ async function appendBoundaryLedgerLocal(
       prevHash,
       eventType,
       payload,
+      signer,
     });
 
     await appendLineAtomic(BOUNDARY_LEDGER_WAL_FILE, `${JSON.stringify(record)}\n`);
@@ -616,11 +710,57 @@ export async function readBoundaryLedgerStats(args: { from?: string; to?: string
   };
 }
 
+export async function readBoundaryLedgerSigningIdentity(): Promise<{
+  signer_id: string;
+  public_key_pem: string;
+  public_key_path: string;
+}> {
+  const { publicKeyPem, signerId } = await ensureBoundaryLedgerSigningIdentity();
+  return {
+    signer_id: signerId,
+    public_key_pem: publicKeyPem,
+    public_key_path: SIGNING_PUBLIC_KEY_FILE,
+  };
+}
+
+export async function verifyBoundaryLedgerRecordSignature(record: BoundaryLedgerRecord): Promise<{
+  ok: boolean;
+  reason?: string;
+}> {
+  if (!record.META.signature || !record.META.signer_id || !record.META.signature_algo) {
+    return {
+      ok: false,
+      reason: "record is unsigned",
+    };
+  }
+
+  const { publicKeyPem, signerId } = await ensureBoundaryLedgerSigningIdentity();
+  if (record.META.signer_id !== signerId) {
+    return {
+      ok: false,
+      reason: "signer id does not match local ledger public key",
+    };
+  }
+
+  return {
+    ok: verifyBoundaryLedgerHashSignature({
+      hash: record.META.hash,
+      signature: record.META.signature,
+      publicKeyPem,
+    }),
+    reason: "signature verification failed",
+  };
+}
+
 export async function verifyBoundaryLedgerChain(): Promise<{
   ok: boolean;
   brokenAt?: string;
   reason?: string;
   checkedFrom?: string;
+  cryptographic_ok?: boolean;
+  signed_records?: number;
+  unsigned_records?: number;
+  signer_ids?: string[];
 }> {
   const records = await readAllBoundaryLedgerRecords();
   const firstCanonicalIndex = records.findIndex((record) => record.META.hash !== "sha256:legacy");
@@ -629,11 +769,18 @@ export async function verifyBoundaryLedgerChain(): Promise<{
     return {
       ok: true,
       reason: "ledger contains only legacy pre-EFUE entries; no canonical hash chain to verify yet",
+      cryptographic_ok: false,
+      signed_records: 0,
+      unsigned_records: 0,
+      signer_ids: [],
     };
   }
 
   let prevHash = records[firstCanonicalIndex - 1]?.META.hash ?? "sha256:genesis";
   let expectedIndex = records[firstCanonicalIndex].index;
+  let signedRecords = 0;
+  let unsignedRecords = 0;
+  const signerIds = new Set<string>();
 
   for (let index = firstCanonicalIndex; index < records.length; index += 1) {
     const record = records[index];
@@ -657,11 +804,35 @@ export async function verifyBoundaryLedgerChain(): Promise<{
 
     prevHash = record.META.hash;
     expectedIndex += 1;
+
+    if (record.META.signature && record.META.signer_id) {
+      signedRecords += 1;
+      signerIds.add(record.META.signer_id);
+      const verified = await verifyBoundaryLedgerRecordSignature(record);
+      if (!verified.ok) {
+        return {
+          ok: true,
+          cryptographic_ok: false,
+          brokenAt: record.META.id,
+          reason: verified.reason,
+          checkedFrom: records[firstCanonicalIndex].META.id,
+          signed_records: signedRecords,
+          unsigned_records: unsignedRecords,
+          signer_ids: [...signerIds],
+        };
+      }
+    } else {
+      unsignedRecords += 1;
+    }
   }
   return {
     ok: true,
-    reason: firstCanonicalIndex > 0 ? "legacy prefix skipped; canonical EFUE chain verified" : undefined,
+    reason: firstCanonicalIndex > 0 ? "legacy prefix skipped; canonical chain verified" : undefined,
     checkedFrom: records[firstCanonicalIndex].META.id,
+    cryptographic_ok: unsignedRecords === 0 && signedRecords > 0,
+    signed_records: signedRecords,
+    unsigned_records: unsignedRecords,
+    signer_ids: [...signerIds],
   };
 }
 
@@ -754,6 +925,120 @@ export async function readBoundaryLedgerRollups(): Promise<BoundaryLedgerRollup[
   return rollups.sort((left, right) => left.period.localeCompare(right.period));
 }
 
+export async function sealBoundaryLedgerSignatures(): Promise<{
+  sealed: boolean;
+  backupPath: string;
+  signedRecords: number;
+}> {
+  await ensureLedgerDir();
+  const records = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+  if (records.length === 0) {
+    return {
+      sealed: false,
+      backupPath: "",
+      signedRecords: 0,
+    };
+  }
+
+  const signer = await ensureBoundaryLedgerSigningIdentity();
+  const backupPath = `${BOUNDARY_LEDGER_FILE}.seal.bak.${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
+  const sealedRecords = records.map((record) => {
+    if (record.META.signature && record.META.signer_id && record.META.signature_algo) {
+      return record;
+    }
+    return {
+      ...record,
+      META: {
+        ...record.META,
+        signature_algo: "ed25519" as const,
+        signer_id: signer.signerId,
+        signature: signBoundaryLedgerHash(record.META.hash, signer.privateKeyPem),
+        signed_at: record.META.timestamp,
+      },
+    };
+  });
+  const signedRecords = sealedRecords.filter((record, index) =>
+    !(records[index]?.META.signature && records[index]?.META.signer_id && records[index]?.META.signature_algo)
+  ).length;
+
+  if (signedRecords === 0) {
+    return {
+      sealed: false,
+      backupPath: "",
+      signedRecords: 0,
+    };
+  }
+
+  await fs.copyFile(BOUNDARY_LEDGER_FILE, backupPath);
+  await writeAtomic(
+    BOUNDARY_LEDGER_FILE,
+    sealedRecords.map((record) => JSON.stringify(record)).join("\n").concat("\n"),
+  );
+
+  return {
+    sealed: true,
+    backupPath,
+    signedRecords,
+  };
+}
+
+export async function buildBoundaryLedgerCheckpoint(): Promise<BoundaryLedgerCheckpoint> {
+  await ensureLedgerDir();
+  const records = await readAllBoundaryLedgerRecords();
+  const verify = await verifyBoundaryLedgerChain();
+  const latest = records.at(-1);
+  const signer = await ensureBoundaryLedgerSigningIdentity();
+  const generatedAt = new Date().toISOString();
+  const body = stableStringify({
+    generated_at: generatedAt,
+    signer_id: signer.signerId,
+    total_records: records.length,
+    latest_record_id: latest?.META.id,
+    latest_record_hash: latest?.META.hash,
+    chain_ok: verify.ok,
+    cryptographic_ok: verify.cryptographic_ok ?? false,
+  });
+  const checkpointId = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+  return {
+    checkpoint_id: checkpointId,
+    generated_at: generatedAt,
+    signer_id: signer.signerId,
+    signature_algo: "ed25519",
+    total_records: records.length,
+    latest_record_id: latest?.META.id,
+    latest_record_hash: latest?.META.hash,
+    chain_ok: verify.ok,
+    cryptographic_ok: verify.cryptographic_ok ?? false,
+    signature: signBoundaryLedgerHash(checkpointId, signer.privateKeyPem),
+  };
+}
+
+export async function writeBoundaryLedgerCheckpoint(): Promise<BoundaryLedgerCheckpoint> {
+  await ensureLedgerDir();
+  const checkpoint = await buildBoundaryLedgerCheckpoint();
+  const fileName = `${checkpoint.generated_at.replaceAll(/[:.]/g, "-")}.checkpoint.json`;
+  await writeAtomic(path.join(CHECKPOINT_DIR, fileName), `${JSON.stringify(checkpoint, null, 2)}\n`);
+  return checkpoint;
+}
+
+export async function readBoundaryLedgerCheckpoints(): Promise<BoundaryLedgerCheckpoint[]> {
+  await ensureLedgerDir();
+  const entries = await fs.readdir(CHECKPOINT_DIR, { withFileTypes: true }).catch(() => []);
+  const checkpoints: BoundaryLedgerCheckpoint[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith(".json")) {
+      continue;
+    }
+    try {
+      const raw = await fs.readFile(path.join(CHECKPOINT_DIR, entry.name), "utf8");
+      checkpoints.push(JSON.parse(raw) as BoundaryLedgerCheckpoint);
+    } catch {
+      continue;
+    }
+  }
+  return checkpoints.sort((left, right) => left.generated_at.localeCompare(right.generated_at));
+}
+
 export async function repairBoundaryLedgerChain(): Promise<{
   repaired: boolean;
   backupPath: string;
@@ -773,6 +1058,7 @@ export async function repairBoundaryLedgerChain(): Promise<{
   await fs.copyFile(BOUNDARY_LEDGER_FILE, backupPath);
 
   let prevHash = "sha256:genesis";
+  const signer = await ensureBoundaryLedgerSigningIdentity();
   const repaired = records.map((record, index) => {
     const next = buildBoundaryLedgerRecord({
       index,
@@ -782,6 +1068,7 @@ export async function repairBoundaryLedgerChain(): Promise<{
         ...record.payload,
         createdAt: record.META.timestamp,
       },
+      signer,
     });
     prevHash = next.META.hash;
     return next;

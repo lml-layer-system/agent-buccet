@@ -204,6 +204,10 @@ export type BoundaryLedgerMeta = {
   session_id: string;
   depth: number;
   event_type: BoundaryLedgerEventType;
+  signature_algo?: "ed25519";
+  signer_id?: string;
+  signature?: string;
+  signed_at?: string;
 };
 
 export type BoundaryLedgerInput = {
@@ -278,6 +282,19 @@ export type BoundaryLedgerRecord = {
   PATH: BoundaryLedgerPathBlock;
   NEXT: BoundaryLedgerNextBlock;
   OPTIONS: BoundaryLedgerOptionsBlock;
+};
+
+export type BoundaryLedgerCheckpoint = {
+  checkpoint_id: string;
+  generated_at: string;
+  signer_id: string;
+  signature_algo: "ed25519";
+  total_records: number;
+  latest_record_id?: string;
+  latest_record_hash?: string;
+  chain_ok: boolean;
+  cryptographic_ok: boolean;
+  signature: string;
 };
 
 export type BoundaryRuntimeConfig = {

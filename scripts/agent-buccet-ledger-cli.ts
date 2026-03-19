@@ -1,14 +1,19 @@
 import {
+  buildBoundaryLedgerCheckpoint,
   buildBoundaryLedgerRollup,
   queryBoundaryLedger,
+  readBoundaryLedgerCheckpoints,
+  readBoundaryLedgerSigningIdentity,
   repairBoundaryLedgerChain,
   readBoundaryLedgerStats,
+  sealBoundaryLedgerSignatures,
   verifyBoundaryLedgerChain,
+  writeBoundaryLedgerCheckpoint,
   writeBoundaryLedgerRollup,
 } from "../lib/lml/agent-boundary/index.ts";
 
 type ParsedArgs = {
-  command: "query" | "stats" | "verify" | "rollup" | "repair";
+  command: "query" | "stats" | "verify" | "rollup" | "repair" | "seal" | "checkpoint" | "key";
   from?: string;
   to?: string;
   source?: string;
@@ -30,6 +35,9 @@ function usage(): never {
       "  node scripts/agent-buccet-ledger-cli.ts verify [--format json|text]",
       "  node scripts/agent-buccet-ledger-cli.ts rollup --period <label> [--from <iso>] [--to <iso>] [--write] [--format json|text]",
       "  node scripts/agent-buccet-ledger-cli.ts repair [--format json|text]",
+      "  node scripts/agent-buccet-ledger-cli.ts seal [--format json|text]",
+      "  node scripts/agent-buccet-ledger-cli.ts checkpoint [--write] [--format json|text]",
+      "  node scripts/agent-buccet-ledger-cli.ts key [--format json|text]",
     ].join("\n"),
   );
   process.exit(1);
@@ -37,7 +45,7 @@ function usage(): never {
 
 function parseArgs(argv: string[]): ParsedArgs {
   const command = argv[0] as ParsedArgs["command"] | undefined;
-  if (!command || !["query", "stats", "verify", "rollup", "repair"].includes(command)) {
+  if (!command || !["query", "stats", "verify", "rollup", "repair", "seal", "checkpoint", "key"].includes(command)) {
     usage();
   }
 
@@ -152,6 +160,30 @@ async function main() {
   if (args.command === "repair") {
     const repaired = await repairBoundaryLedgerChain();
     print(repaired, args.format);
+    return;
+  }
+
+  if (args.command === "seal") {
+    const sealed = await sealBoundaryLedgerSignatures();
+    print(sealed, args.format);
+    return;
+  }
+
+  if (args.command === "checkpoint") {
+    const checkpoint = args.write
+      ? await writeBoundaryLedgerCheckpoint()
+      : await buildBoundaryLedgerCheckpoint();
+    const stored = await readBoundaryLedgerCheckpoints();
+    print({
+      checkpoint,
+      stored_checkpoints: stored.length,
+    }, args.format);
+    return;
+  }
+
+  if (args.command === "key") {
+    const identity = await readBoundaryLedgerSigningIdentity();
+    print(identity, args.format);
     return;
   }
 

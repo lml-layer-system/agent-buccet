@@ -65,6 +65,9 @@ npm run test:agent-buccet:ledger-contract
 npm run test:agent-buccet:ledger-rollup
 npm run test:agent-buccet:ledger-writer
 npm run agent-buccet:ledger -- verify --format json
+npm run agent-buccet:ledger -- key --format json
+npm run agent-buccet:ledger -- seal --format json
+npm run agent-buccet:ledger -- checkpoint --write --format json
 ```
 
 CLI and install contracts:

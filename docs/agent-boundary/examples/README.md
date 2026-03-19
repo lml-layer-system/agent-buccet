@@ -103,6 +103,9 @@ Run:
 
 ```bash
 npm run agent-buccet:ledger -- verify --format json
+npm run agent-buccet:ledger -- key --format json
+npm run agent-buccet:ledger -- seal --format json
+npm run agent-buccet:ledger -- checkpoint --write --format json
 npm run agent-buccet:ledger -- stats --format json
 npm run agent-buccet:ledger -- rollup --period today --write --format json
 ```

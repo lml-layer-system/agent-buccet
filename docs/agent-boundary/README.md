@@ -259,6 +259,9 @@ It proves:
 - every new ledger entry uses the canonical `META / INPUT / DECISION / PATH / NEXT / OPTIONS` structure
 - sequential entry IDs are preserved
 - hash chaining links each new entry to the previous one
+- new entries are signed with the active ledger key
+- the active public signing identity is inspectable
+- signed checkpoints can be generated
 - query surfaces can read the canonical ledger shape directly
 
 Run the ledger rollup contract harness with:
@@ -286,6 +289,9 @@ Run the ledger CLI with:
 
 ```bash
 npm run agent-buccet:ledger -- verify --format json
+npm run agent-buccet:ledger -- key --format json
+npm run agent-buccet:ledger -- seal --format json
+npm run agent-buccet:ledger -- checkpoint --write --format json
 npm run agent-buccet:ledger -- stats --format json
 npm run agent-buccet:ledger -- rollup --period today --write --format json
 ```
