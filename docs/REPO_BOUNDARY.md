@@ -1,10 +1,10 @@
 # Repo Boundary
 
-This repository is now staged as an `Agent Buccet` repo.
+This repository is an `Agent Buccet` repo.
 
-## First-Class Public Surface
+## First-Class Surface
 
-The intended public Agent Buccet surface is:
+The intended public surface is:
 - `docs/agent-boundary/`
 - `lib/lml/agent-boundary/`
 - `scripts/agent-buccet-*`
@@ -12,30 +12,17 @@ The intended public Agent Buccet surface is:
 - `scripts/install-agent-buccet.sh`
 - `scripts/prepare-agent-buccet-package.ts`
 
-This is the boundary/runtime/install shell that should define the repo publicly.
-
-## Retained Internal Staging Surface
-
-The repo still contains older LML and app staging material under:
-- `app/`
-- broader `lib/lml/`
-- `tests/`
-- older root `docs/`
-- `data/generated/`
-
-These are retained for current development continuity.
-They are not the primary public Agent Buccet surface.
+This is the boundary runtime, install shell, packaging layer, and contract surface.
 
 ## Working Rule
 
-When cleaning or publishing this repo:
+When changing this repo:
 - keep the Agent Buccet surface first-class
-- avoid expanding the public story with unrelated retained staging material
-- treat retained staging surfaces as secondary unless explicitly promoted
+- do not reintroduce unrelated framework, app, or universe baggage
+- treat this repo as the future public Agent Buccet repo, not a staging area for broader LML work
 
 ## Current In-Progress Boundary
 
 Still in progress for public release:
 - hosted install path
 - deepest OS/kernel interception layer
-- final trimming of retained staging surfaces if needed

@@ -4,18 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint . --max-warnings=0",
-    "ingest": "node scripts/ingest-laws.mjs",
-    "validate": "node scripts/validate-laws.mjs",
-    "compile:web": "node scripts/compile-law-web.ts",
-    "test:determinism": "node scripts/test-determinism.ts",
-    "verify:web": "node scripts/verify-law-web.ts",
-    "verify:freeze": "node scripts/verify-freeze.ts",
-    "verify:snap": "node scripts/verify-snap.ts",
-    "demo:check": "node scripts/demo-preflight.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "npm run typecheck",
+    "build": "npm run typecheck && node scripts/prepare-agent-buccet-package.ts",
     "demo:agent-buccet": "node scripts/agent-buccet-e2e.ts",
     "demo:agent-buccet:gravity": "node scripts/agent-buccet-gravity-e2e.ts",
     "test:agent-buccet:gravity-contract": "node scripts/agent-buccet-gravity-contract.ts",
@@ -39,32 +30,10 @@
     "agent-buccet:run": "node scripts/agent-buccet-run.ts",
     "agent-buccet:cli": "node scripts/buccet.ts",
     "install:agent-buccet": "sh scripts/install-agent-buccet.sh",
-    "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts",
-    "demo:up:local": "npm run demo:check && npm run dev",
-    "test:replay": "node tests/replay/deterministic-replay.ts",
-    "test:demo-contract": "node tests/demo/public-contract.ts",
-    "test:gpt2-live": "node tests/demo/gpt2-live-path.ts",
-    "gpt2:serve": "python3 scripts/gpt2_service.py",
-    "meta:worker": "node scripts/meta_loop_worker.ts",
-    "gpt2:deps": "python3 -m pip install -r scripts/requirements-gpt2.txt",
-    "release:manifest": "node scripts/release-manifest.ts",
-    "verify:manifest": "node scripts/verify-release-manifest.ts",
-    "release:all-gates": "node scripts/release-all-gates.ts",
-    "report:coverage": "node scripts/report-coverage.ts",
-    "report:blockers": "node scripts/report-blockers.ts",
-    "ci:guardrails": "npm run verify:freeze && npm run verify:snap && node scripts/check-release-guardrails.ts"
-  },
-  "dependencies": {
-    "next": "^16.1.6",
-    "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts"
   },
   "devDependencies": {
     "@types/node": "^24.7.2",
-    "@types/react": "^19.2.2",
-    "@types/react-dom": "^19.2.2",
-    "eslint": "^9.37.0",
-    "eslint-config-next": "^16.1.6",
     "typescript": "^5.9.3"
   }
 }
