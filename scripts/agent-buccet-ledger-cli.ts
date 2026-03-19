@@ -1,6 +1,8 @@
 import {
   buildBoundaryLedgerCheckpoint,
   buildBoundaryLedgerRollup,
+  createFileBoundaryLedgerWitness,
+  publishBoundaryLedgerCheckpoint,
   queryBoundaryLedger,
   readBoundaryLedgerCheckpoints,
   readBoundaryLedgerSigningIdentity,
@@ -13,7 +15,7 @@ import {
 } from "../lib/lml/agent-boundary/index.ts";
 
 type ParsedArgs = {
-  command: "query" | "stats" | "verify" | "rollup" | "repair" | "seal" | "checkpoint" | "key";
+  command: "query" | "stats" | "verify" | "rollup" | "repair" | "seal" | "checkpoint" | "key" | "witness-file";
   from?: string;
   to?: string;
   source?: string;
@@ -24,6 +26,7 @@ type ParsedArgs = {
   format: "json" | "text";
   period?: string;
   write?: boolean;
+  path?: string;
 };
 
 function usage(): never {
@@ -38,6 +41,7 @@ function usage(): never {
       "  node scripts/agent-buccet-ledger-cli.ts seal [--format json|text]",
       "  node scripts/agent-buccet-ledger-cli.ts checkpoint [--write] [--format json|text]",
       "  node scripts/agent-buccet-ledger-cli.ts key [--format json|text]",
+      "  node scripts/agent-buccet-ledger-cli.ts witness-file --path <file> [--format json|text]",
     ].join("\n"),
   );
   process.exit(1);
@@ -45,7 +49,7 @@ function usage(): never {
 
 function parseArgs(argv: string[]): ParsedArgs {
   const command = argv[0] as ParsedArgs["command"] | undefined;
-  if (!command || !["query", "stats", "verify", "rollup", "repair", "seal", "checkpoint", "key"].includes(command)) {
+  if (!command || !["query", "stats", "verify", "rollup", "repair", "seal", "checkpoint", "key", "witness-file"].includes(command)) {
     usage();
   }
 
@@ -103,6 +107,11 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
     if (token === "--write") {
       parsed.write = true;
+      continue;
+    }
+    if (token === "--path") {
+      parsed.path = argv[index + 1] ?? usage();
+      index += 1;
       continue;
     }
     usage();
@@ -184,6 +193,17 @@ async function main() {
   if (args.command === "key") {
     const identity = await readBoundaryLedgerSigningIdentity();
     print(identity, args.format);
+    return;
+  }
+
+  if (args.command === "witness-file") {
+    if (!args.path) {
+      usage();
+    }
+    const published = await publishBoundaryLedgerCheckpoint({
+      adapter: createFileBoundaryLedgerWitness(args.path),
+    });
+    print(published, args.format);
     return;
   }
 

@@ -13,6 +13,7 @@
     "test:agent-buccet:ledger-contract": "node scripts/agent-buccet-ledger-contract.ts",
     "test:agent-buccet:ledger-rollup": "node scripts/agent-buccet-ledger-rollup-contract.ts",
     "test:agent-buccet:ledger-writer": "node scripts/agent-buccet-ledger-writer-contract.ts",
+    "test:agent-buccet:ledger-witness": "node scripts/agent-buccet-ledger-witness-contract.ts",
     "test:agent-buccet:gravity-supervisor": "node scripts/agent-buccet-gravity-supervisor-contract.ts",
     "test:agent-buccet:wrapper-contract": "node scripts/agent-buccet-wrapper-contract.ts",
     "test:agent-buccet:action-classes": "node scripts/agent-buccet-action-classes-contract.ts",

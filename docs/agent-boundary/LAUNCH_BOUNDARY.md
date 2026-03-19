@@ -21,6 +21,7 @@ Out of the box, the public slice already gives you:
 - gravity on the action path
 - supervisor for restart and daemon health
 - hosted-ready release artifacts under `dist/releases/`
+- optional checkpoint witness publishing for stronger external attestation
 
 Current install shell:
 - `sh dist/releases/install.sh`

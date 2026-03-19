@@ -14,6 +14,7 @@ const sourceGravityContract = path.join(repoRoot, "scripts", "agent-buccet-gravi
 const sourceLedgerContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-contract.ts");
 const sourceLedgerRollupContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-rollup-contract.ts");
 const sourceLedgerWriterContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-writer-contract.ts");
+const sourceLedgerWitnessContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-witness-contract.ts");
 const sourceGravitySupervisorContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-supervisor-contract.ts");
 const sourceActionClassesContract = path.join(repoRoot, "scripts", "agent-buccet-action-classes-contract.ts");
 const sourceInterceptDaemonContract = path.join(repoRoot, "scripts", "agent-buccet-intercept-daemon-contract.ts");
@@ -118,6 +119,7 @@ async function writeStandalonePackageJson() {
       "test:agent-buccet:ledger-contract": "node examples/agent-buccet-ledger-contract.ts",
       "test:agent-buccet:ledger-rollup": "node examples/agent-buccet-ledger-rollup-contract.ts",
       "test:agent-buccet:ledger-writer": "node examples/agent-buccet-ledger-writer-contract.ts",
+      "test:agent-buccet:ledger-witness": "node examples/agent-buccet-ledger-witness-contract.ts",
       "test:agent-buccet:gravity-supervisor": "node examples/agent-buccet-gravity-supervisor-contract.ts",
       "test:agent-buccet:wrapper-contract": "node examples/agent-buccet-wrapper-contract.ts",
       "test:agent-buccet:action-classes": "node examples/agent-buccet-action-classes-contract.ts",
@@ -180,6 +182,7 @@ async function writeExtractionManifest() {
     sourceLedgerContract: "scripts/agent-buccet-ledger-contract.ts",
     sourceLedgerRollupContract: "scripts/agent-buccet-ledger-rollup-contract.ts",
     sourceLedgerWriterContract: "scripts/agent-buccet-ledger-writer-contract.ts",
+    sourceLedgerWitnessContract: "scripts/agent-buccet-ledger-witness-contract.ts",
     sourceGravitySupervisorContract: "scripts/agent-buccet-gravity-supervisor-contract.ts",
     sourceActionClassesContract: "scripts/agent-buccet-action-classes-contract.ts",
     sourceInterceptDaemonContract: "scripts/agent-buccet-intercept-daemon-contract.ts",
@@ -215,6 +218,7 @@ async function writeExtractionManifest() {
       "examples/agent-buccet-ledger-contract.ts",
       "examples/agent-buccet-ledger-rollup-contract.ts",
       "examples/agent-buccet-ledger-writer-contract.ts",
+      "examples/agent-buccet-ledger-witness-contract.ts",
       "examples/agent-buccet-gravity-supervisor-contract.ts",
       "examples/agent-buccet-action-classes-contract.ts",
       "examples/agent-buccet-intercept-daemon-contract.ts",
@@ -291,6 +295,11 @@ async function writeStandaloneExample() {
     "../lib/lml/agent-boundary/",
     "../src/",
   );
+  const rawLedgerWitnessContract = await fs.readFile(sourceLedgerWitnessContract, "utf8");
+  const rewrittenLedgerWitnessContract = rawLedgerWitnessContract.replaceAll(
+    "../lib/lml/agent-boundary/",
+    "../src/",
+  );
   const rawGravitySupervisorContract = await fs.readFile(sourceGravitySupervisorContract, "utf8");
   const rewrittenGravitySupervisorContract = rawGravitySupervisorContract.replaceAll(
     "../lib/lml/agent-boundary/",
@@ -342,6 +351,7 @@ async function writeStandaloneExample() {
   await fs.writeFile(path.join(examplesDir, "agent-buccet-ledger-contract.ts"), rewrittenLedgerContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-ledger-rollup-contract.ts"), rewrittenLedgerRollupContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-ledger-writer-contract.ts"), rewrittenLedgerWriterContract, "utf8");
+  await fs.writeFile(path.join(examplesDir, "agent-buccet-ledger-witness-contract.ts"), rewrittenLedgerWitnessContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-gravity-supervisor-contract.ts"), rewrittenGravitySupervisorContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-action-classes-contract.ts"), rewrittenActionClassesContract, "utf8");
   await fs.writeFile(path.join(examplesDir, "agent-buccet-intercept-daemon-contract.ts"), rewrittenInterceptDaemonContract, "utf8");
