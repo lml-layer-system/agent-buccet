@@ -1,4 +1,6 @@
 # Agent Buccet
+Building Ultimate Containment Constraints Every Time
+![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
 Persistent, CPU-friendly law and scope enforcement for AI agents.
 
