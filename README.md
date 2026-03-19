@@ -19,15 +19,32 @@ Core lines:
 
 - [Agent Buccet README](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/README.md)
 - [Quickstart](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/QUICKSTART.md)
+- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
+- [Law Reference](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_REFERENCE.md)
 - [Integrations](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/INTEGRATIONS.md)
 - [Launch Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_BOUNDARY.md)
 - [Launch Proof](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAUNCH_PROOF.md)
 - [Release Checklist](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/SECURITY_MODEL.md)
 - [Current Limits](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/CURRENT_LIMITS.md)
-- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
 - [Examples](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/examples/README.md)
 - [Repo Boundary](/Users/ryangatoloai-faupula/lml_demo/docs/REPO_BOUNDARY.md)
+
+## Public Laws
+
+The public law body is documented here:
+- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
+- [Law Reference](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_REFERENCE.md)
+
+That catalog covers:
+- Buccet base laws
+- defensive meta laws
+- action boundary laws
+- session and grant lifecycle laws
+- ledger laws
+
+If someone asks what Buccet is actually enforcing, that is the document to point them to.
+Use `LAW_REFERENCE.md` when they want the exact public law body and runtime source mapping.
 
 ## Hosted Install
 

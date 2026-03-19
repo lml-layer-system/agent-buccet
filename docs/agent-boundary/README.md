@@ -12,6 +12,8 @@ Core docs:
 - [Release Checklist](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/SECURITY_MODEL.md)
 - [Current Limits](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/CURRENT_LIMITS.md)
+- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
+- [Law Reference](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_REFERENCE.md)
 
 ## Install Shell
 
@@ -88,6 +90,22 @@ It returns only:
 - `ALLOW`
 - `DENY`
 - `REQUIRE_APPROVAL`
+
+## Public Law Body
+
+The full public defensive law body is here:
+- [Law Catalog](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_CATALOG.md)
+- [Law Reference](/Users/ryangatoloai-faupula/lml_demo/docs/agent-boundary/LAW_REFERENCE.md)
+
+It includes:
+- Buccet base laws
+- defensive meta laws
+- action boundary laws
+- session and grant lifecycle laws
+- ledger laws
+
+That is the reference document for what Agent Buccet is enforcing publicly.
+`LAW_REFERENCE.md` also makes the root-invariant layer explicit for readers who know the internal LML vocabulary and want to see how it appears in the public repo.
 
 ## Core Doctrine
 
