@@ -2,7 +2,7 @@
 
 ## Mission
 
-Ship a minimal hard-boundary runtime for AI agents that makes unauthorized actions structurally impossible by default.
+Ship a minimal hard-boundary runtime for AI agents that fails closed on unauthorized actions by default at the action boundary.
 
 Core doctrine:
 - Agents can propose. They cannot authorize.
@@ -207,8 +207,8 @@ Not in V1:
 
 V1 is ready when:
 - install is under 10 minutes
-- unauthorized delete is impossible by default
-- unauthorized out-of-scope write is impossible by default
+- unauthorized delete fails closed by default
+- unauthorized out-of-scope write fails closed by default
 - opened scope survives process restart and laptop shutdown until the user explicitly ends the session
 - corrupted or missing session snapshots do not shake lawful scope loose if the ledger is intact
 - approval flow is visible and understandable

@@ -12,11 +12,11 @@ It covers:
 This is **not** the whole private LML law body.
 It is the public defensive slice.
 
-## Sun Laws
+## Base Laws
 
 These are the root invariants.
 
-### `SUN.BOUNDARY.01` No Ambient Authority
+### `BUCCET.BASE.01` No Ambient Authority
 
 Meaning:
 - agent capability is never implicit authorization
@@ -31,7 +31,7 @@ Lawful recovery:
 - open lawful scope
 - route through approval when required
 
-### `SUN.BOUNDARY.02` Deny By Default
+### `BUCCET.BASE.02` Deny By Default
 
 Meaning:
 - if a requested action is not explicitly lawful, it does not happen
@@ -45,7 +45,7 @@ Lawful recovery:
 - explicit law
 - explicit approval
 
-### `SUN.BOUNDARY.03` Capability Is Not Authorization
+### `BUCCET.BASE.03` Capability Is Not Authorization
 
 Meaning:
 - the model, tool, or framework may know how to do something
@@ -58,7 +58,7 @@ Prevents:
 Lawful recovery:
 - boundary executor decides
 
-### `SUN.BOUNDARY.04` Opened Paths Become Law
+### `BUCCET.BASE.04` Opened Paths Become Law
 
 Meaning:
 - opened scope is not loose memory
@@ -72,7 +72,7 @@ Lawful recovery:
 - use `openBoundaryPath(...)`
 - ledger records `PATH_OPENED` and `PATH_LAW_INSTANTIATED`
 
-### `SUN.BOUNDARY.05` Session Law Persists Until Explicit End
+### `BUCCET.BASE.05` Session Law Persists Until Explicit End
 
 Meaning:
 - lawful scope should survive restart/crash until the user ends the session
@@ -85,7 +85,7 @@ Lawful recovery:
 - restore from snapshot or ledger
 - end session explicitly when done
 
-### `SUN.BOUNDARY.06` Ledger Is Law
+### `BUCCET.BASE.06` Ledger Is Law
 
 Meaning:
 - meaningful actions must be represented in the audit chain

@@ -93,7 +93,7 @@ Private if it increases offensive capability.
 
 ## Public Claim
 
-We built a runtime that makes structurally unauthorized agent actions impossible by default.
+We built a runtime that is designed to make unauthorized agent actions fail closed by default at the action boundary.
 Opened paths become law, and the ledger proves when that law came into existence.
 Persistent sessions keep that law attached to the bucket until the user closes it.
 

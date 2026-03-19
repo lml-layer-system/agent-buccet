@@ -32,7 +32,7 @@ Current agent systems fail in the same costly ways:
 This repo exists to stop that structurally.
 
 The point is not polite warning text.
-The point is to make unauthorized actions impossible by default.
+The point is to make unauthorized actions fail closed by default at the action boundary.
 
 ## Core Public Doctrine
 
