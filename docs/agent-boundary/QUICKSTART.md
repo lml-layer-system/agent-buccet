@@ -161,9 +161,14 @@ Before anything becomes real:
 - Buccet decides:
   - `ALLOW`
   - `DENY`
+  - after `DENY`, Buccet can ask one more question:
+    - make this denial a law?
+    - or keep it as a regular deny?
   - `REQUIRE_APPROVAL`
 
 That is the whole point.
+
+If the user makes that denial a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
 ## 9. Run the end-to-end example
 

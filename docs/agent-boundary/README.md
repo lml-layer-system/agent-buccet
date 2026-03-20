@@ -7,6 +7,22 @@ Agent Buccet is a persistent, CPU-friendly law and scope enforcement layer for A
 It is not a new agent framework.
 It is the law layer you add to the agent stack you already run.
 
+It is designed to work wherever agent motion crosses the same real action boundary:
+- filesystem
+- process execution
+- network and recipient sends
+- database actions
+- system and credential access
+
+That is why the same Agent Buccet Interceptor and Agent Buccet Gravity path can contain:
+- Claude CoWork
+- Claude Dispatch
+- OpenClaw
+- NeMo
+- OpenAI Agents
+- LangGraph
+- similar tool-using agent systems
+
 Core docs:
 - [Launch Proof](LAUNCH_PROOF.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
@@ -183,6 +199,9 @@ Current first-party integration surfaces are inside this repo for:
 - OpenAI Agents
 - LangGraph
 - Telegram-style remote control
+
+That is not the limit of the containment model.
+Any system that ultimately proposes the same real-world actions can be contained through the same Agent Buccet runtime path.
 
 To keep the boundary attached across surfaces, use the shared runtime/bodyguard layer:
 - `createBoundaryRuntimeStore(...)`

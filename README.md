@@ -9,6 +9,25 @@ Agent Buccet is the containment layer you add to the agent stack you already run
 The public repo is centered on the shared Buccet brain.
 Additional deployment-depth nets can be added later for high-assurance environments without changing that core model.
 
+It works across agent stacks because the protected boundary is the same:
+- filesystem changes
+- process execution
+- network and recipient sends
+- database mutations
+- system and credential access
+
+That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can sit under:
+- Claude CoWork
+- Claude Dispatch
+- OpenClaw
+- NeMo
+- OpenAI Agents
+- LangGraph
+- other tool-using agent runtimes
+
+The framework can change.
+The action boundary does not.
+
 Core lines:
 - Agents can propose. They cannot authorize.
 - No ambient authority.

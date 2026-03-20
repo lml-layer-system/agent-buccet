@@ -53,6 +53,22 @@ This bridge includes:
 - approval queue adapter
 - provenance-aware enforcement
 
+## Same Boundary, More Runtimes
+
+These first-party wrappers are examples, not the limit.
+
+Agent Buccet also fits runtimes like:
+- Claude CoWork
+- Claude Dispatch
+- OpenClaw
+- other agent shells that can read, write, execute, send, or mutate state
+
+Why this works:
+- the outer framework can vary
+- the effect boundary does not
+- Agent Buccet Interceptor and Agent Buccet Gravity attach at that effect boundary
+- once motion reaches filesystem, process, network, database, or system surfaces, Buccet sees the same class of action regardless of which agent shell proposed it
+
 ## Supporting Examples
 
 - [Examples Index](examples/README.md)

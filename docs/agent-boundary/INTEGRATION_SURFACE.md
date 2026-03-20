@@ -16,6 +16,8 @@ It sits at the action boundary and decides:
 - `DENY`
 - `REQUIRE_APPROVAL`
 
+After a `DENY`, the user can also choose to make that denial a law so the same class of motion is denied on contact in later requests.
+
 With executor-integrated gravity enabled, unlawful motion can also collapse to:
 - `null`
 - followed by NSL open-as-law recovery outside the active execution path
