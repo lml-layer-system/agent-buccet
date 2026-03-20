@@ -1,6 +1,6 @@
 # Agent Buccet Examples
 
-This directory holds the smallest concrete reference examples for the Agent Buccet public slice.
+This directory holds the smallest concrete reference examples for the Agent Buccet runtime.
 
 Thin shell install and CLI contracts:
 

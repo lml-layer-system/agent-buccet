@@ -99,5 +99,5 @@ Persistent sessions keep that law attached to the bucket until the user closes i
 
 ## Public Non-Claim
 
-We are not open-sourcing the whole LML universe.
-We are open-sourcing the hard-boundary defensive slice.
+We are not claiming that every possible future private deployment layer is present here.
+We are shipping Agent Buccet as the hard-boundary defensive runtime.

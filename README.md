@@ -31,9 +31,9 @@ Core lines:
 - [Examples](docs/agent-boundary/examples/README.md)
 - [Repo Boundary](docs/REPO_BOUNDARY.md)
 
-## Public Laws
+## Agent Buccet Laws
 
-The public law body is documented here:
+The active Agent Buccet law body in this repo is documented here:
 - [Law Catalog](docs/agent-boundary/LAW_CATALOG.md)
 - [Law Reference](docs/agent-boundary/LAW_REFERENCE.md)
 
@@ -45,7 +45,7 @@ That catalog covers:
 - ledger laws
 
 If someone asks what Buccet is actually enforcing, that is the document to point them to.
-Use `LAW_REFERENCE.md` when they want the exact public law body and runtime source mapping.
+Use `LAW_REFERENCE.md` when they want the exact active law body and runtime source mapping.
 
 ## Hosted Install
 

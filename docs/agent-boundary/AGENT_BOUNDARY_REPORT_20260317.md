@@ -2,7 +2,7 @@
 
 ## What This Is
 
-Agent Buccet is the public defensive slice of the LML universe.
+Agent Buccet is a defensive containment runtime for AI agents.
 
 It is Agent Buccet:
 
@@ -113,7 +113,7 @@ The ledger also supports:
 
 ## Why This Repo Should Exist Openly
 
-This is the right public slice because it proves something real without exposing the private offensive side of the LML universe.
+This is the right public release because it proves something real without exposing private offensive capability.
 
 Public:
 - containment

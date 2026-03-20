@@ -4,7 +4,7 @@
 
 Agent Buccet is launchable today as an add-on containment layer.
 
-Out of the box, the public slice already gives you:
+Out of the box, Agent Buccet already gives you:
 - persistent sessions
 - explicit scope and grants
 - deny / allow / require approval enforcement
@@ -53,7 +53,7 @@ We should not claim:
 - full OS/kernel interception is complete
 - all possible process/syscall paths are already mediated
 - the ledger has full remote witness/signing/checkpoint infrastructure
-- the public slice is the entire private LML system
+- Agent Buccet already includes every possible future private deployment layer
 
 ## Advanced Depth
 

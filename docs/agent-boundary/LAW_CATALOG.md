@@ -1,6 +1,6 @@
 # Agent Buccet Law Catalog
 
-This is the public defensive law body for Agent Buccet.
+This is the defensive law body for Agent Buccet.
 
 It covers:
 - root containment invariants
@@ -9,8 +9,8 @@ It covers:
 - ledger laws
 - defensive meta laws
 
-This is **not** the whole private LML law body.
-It is the public defensive slice.
+This is the active law catalog for the Agent Buccet runtime.
+The larger carried base-law foundation is also present in the repo and loaded through the normal Buccet runtime path.
 
 ## Base Laws
 
@@ -426,6 +426,6 @@ Lawful recovery:
 
 ## Notes
 
-- The public slice is defensive only.
+- The Agent Buccet runtime is defensive only.
 - Gravity lands later on top of this as continuous no-leak enforcement.
 - Private offensive/meta-intelligence laws are intentionally excluded here.

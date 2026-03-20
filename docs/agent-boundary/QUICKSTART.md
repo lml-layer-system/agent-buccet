@@ -1,6 +1,6 @@
 # Quickstart
 
-This quickstart is for the Agent Buccet public slice only.
+This quickstart is for the Agent Buccet runtime.
 
 Goal:
 - start a persistent boundary session

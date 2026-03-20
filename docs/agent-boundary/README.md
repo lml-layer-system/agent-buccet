@@ -92,9 +92,9 @@ It returns only:
 - `DENY`
 - `REQUIRE_APPROVAL`
 
-## Public Law Body
+## Agent Buccet Law Body
 
-The full public defensive law body is here:
+The active Agent Buccet law body in this repo is here:
 - [Law Catalog](LAW_CATALOG.md)
 - [Law Reference](LAW_REFERENCE.md)
 
@@ -105,8 +105,8 @@ It includes:
 - session and grant lifecycle laws
 - ledger laws
 
-That is the reference document for what Agent Buccet is enforcing publicly.
-`LAW_REFERENCE.md` also makes the root-invariant layer explicit for readers who know the internal LML vocabulary and want to see how it appears in the public repo.
+That is the reference document for what Agent Buccet is enforcing.
+The carried base-law foundation is also present in the repo and loaded into the runtime law identity path.
 
 ## Core Doctrine
 
@@ -142,9 +142,9 @@ It is not:
 - a replacement for NeMo / OpenAI Agents / LangGraph
 - a prompt-only safety layer
 - a conversational guardrail system only
-- the whole LML universe
+- a separate intelligence framework
 
-It is the public defensive slice:
+It is Agent Buccet:
 - containment
 - enforcement
 - approval
@@ -202,7 +202,7 @@ See:
 
 ## Runtime Guarantees
 
-The public slice now includes:
+The runtime now includes:
 - persistent sessions
 - crash-safe restore
 - opened-path-becomes-law
@@ -214,7 +214,7 @@ The public slice now includes:
 - defensive meta laws
 - remote prompt hardening
 - ledger completeness auditing
-- executor-integrated gravity enforcement
+- Agent Buccet Gravity enforcement
 - null -> NSL open-as-law recovery
 - wrapper process policy
 - process lifecycle ledgering
@@ -449,7 +449,7 @@ It proves:
 - restart command works
 - shutdown command works
 
-Run the Method 1 bridge with:
+Run the Agent Buccet Gravity bridge with:
 
 ```bash
 npm run agent-buccet:system-intercept-bridge -- --socket /tmp/agent-buccet.sock
@@ -462,12 +462,12 @@ npm run test:agent-buccet:system-intercept
 ```
 
 It proves:
-- a future OS-level hook can classify low-level events and send them into the same bucket
+- Agent Buccet Interceptor can classify low-level events and send them into the same bucket
 - file/process/network/database/system events map into finite Agent Buccet action classes
 - the intercept server stays the stable handoff seam instead of introducing a second policy runtime
 
-It does **not** yet do system-level syscall interception.
-That remains the deeper wrapper/process-intercept phase.
+It does **not** yet do full system-level syscall interception.
+That remains an optional deeper Agent Buccet Interceptor phase.
 
 ## Standalone Package Prep
 

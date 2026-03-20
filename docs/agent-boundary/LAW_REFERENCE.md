@@ -1,30 +1,22 @@
 # Agent Buccet Law Reference
 
-This is the full inspectable reference for the public Agent Buccet law body.
+This is the inspectable reference for the current Agent Buccet law body.
 
 Use this when you want:
-- the exact public law families in one place
-- the exact public law IDs
+- the exact Agent Buccet law families in one place
+- the exact Agent Buccet law IDs
 - the runtime source files where those laws are enforced
 
-## Important Naming Note
-
-If you know the internal LML language, the root invariant layer is still present here.
-
-Publicly, it is presented as:
-- Buccet base laws
-- defensive meta laws
-- boundary laws
-- session/grant laws
-- ledger laws
-
-The public repo does not use internal `sun` naming, but the root-invariant role is still inside the repo.
+This document has two layers:
+- `Runtime Sources`: where the Agent Buccet law body is enforced in code
+- the sections below that: the active Agent Buccet law families and IDs
 
 ## Runtime Sources
 
-Main public law sources:
+Main Agent Buccet law sources:
 - [laws.ts](../../lib/lml/agent-boundary/laws.ts)
 - [meta.ts](../../lib/lml/agent-boundary/meta.ts)
+- [foundation.ts](../../lib/lml/agent-boundary/foundation.ts)
 - [runtime.ts](../../lib/lml/agent-boundary/runtime.ts)
 - [executor.ts](../../lib/lml/agent-boundary/executor.ts)
 - [intercept.ts](../../lib/lml/agent-boundary/intercept.ts)
@@ -33,9 +25,17 @@ Main public law sources:
 Catalog overview:
 - [LAW_CATALOG.md](LAW_CATALOG.md)
 
+If you are looking for the active laws in this repo, continue below:
+- `Base Laws`
+- `Defensive Meta Laws`
+- `Action Boundary Laws`
+- `Scope and Gravity Laws`
+- `Session and Grant Lifecycle Laws`
+- `Ledger and Audit Laws`
+
 ## Base Laws
 
-These are the public root invariants of Agent Buccet.
+These are the active root invariants of Agent Buccet.
 
 | Law ID | Meaning |
 | --- | --- |
@@ -51,7 +51,7 @@ Source of public statement:
 
 ## Defensive Meta Laws
 
-These are the public anti-authority-drift and anti-injection laws.
+These are the active anti-authority-drift and anti-injection laws.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
@@ -61,11 +61,12 @@ These are the public anti-authority-drift and anti-injection laws.
 | `META.LAW.01` | [meta.ts](../../lib/lml/agent-boundary/meta.ts), [skills.ts](../../lib/lml/agent-boundary/gravity-core/skills.ts) | Prompt content cannot mutate or disable law |
 | `META.SESSION.01` | [meta.ts](../../lib/lml/agent-boundary/meta.ts), [skills.ts](../../lib/lml/agent-boundary/gravity-core/skills.ts) | Prompt content cannot revive ended sessions |
 | `META.LEDGER.01` | [meta.ts](../../lib/lml/agent-boundary/meta.ts), [skills.ts](../../lib/lml/agent-boundary/gravity-core/skills.ts) | Prompt content cannot bypass, suppress, or rewrite the ledger |
+| `META.NOVELTY.01` | [meta.ts](../../lib/lml/agent-boundary/meta.ts) | Claims of complete safety or complete coverage are non-authoritative and require review |
 | `META.LEDGER.02` | [executor.ts](../../lib/lml/agent-boundary/executor.ts), [intercept.ts](../../lib/lml/agent-boundary/intercept.ts), [skills.ts](../../lib/lml/agent-boundary/gravity-core/skills.ts) | Incomplete ledger traces are non-authoritative at execution time |
 
 ## Action Boundary Laws
 
-These govern the public action classes.
+These govern Agent Buccet action classes.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
@@ -86,13 +87,13 @@ These govern the public action classes.
 
 ## Scope and Gravity Laws
 
-These are the public no-leak scope laws used in the gravity path.
+These are the no-leak scope laws used in Agent Buccet Gravity.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
 | `SCOPE.GRANT.CLOSED` | [skills.ts](../../lib/lml/agent-boundary/gravity-core/skills.ts) | Path, recipient, domain, tool, database, or system target is outside current law and must be opened explicitly |
 
-This skill produces the public out-of-scope codes:
+This skill produces the active out-of-scope codes:
 - `PATH_OUT_OF_SCOPE`
 - `RECIPIENT_OUT_OF_SCOPE`
 - `DOMAIN_OUT_OF_SCOPE`
@@ -102,7 +103,7 @@ This skill produces the public out-of-scope codes:
 
 ## Session and Grant Lifecycle Laws
 
-These are public lifecycle enforcement rules.
+These are active lifecycle enforcement rules.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
@@ -112,7 +113,7 @@ These are public lifecycle enforcement rules.
 
 ## Ledger and Audit Laws
 
-These are public trust-boundary laws for audit state.
+These are Agent Buccet trust-boundary laws for audit state.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
@@ -121,7 +122,7 @@ These are public trust-boundary laws for audit state.
 
 ## What This Means
 
-The public repo does contain the root law layer.
+The repo does contain Agent Buccet's root law layer.
 
 Publicly, that layer is expressed as:
 - Buccet base laws
@@ -133,4 +134,5 @@ Publicly, that layer is expressed as:
 So the answer is:
 - no, the root invariant layer is not missing
 - yes, it is inside the repo
-- it is just presented as Agent Buccet’s public law body rather than internal `sun` naming
+- it is Agent Buccet's active law body
+- the larger carried base-law corpus is also present in the repo and loaded into runtime law identity through [foundation.ts](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary/foundation.ts)

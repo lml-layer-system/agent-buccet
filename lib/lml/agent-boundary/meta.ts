@@ -36,7 +36,7 @@ export type AgentBuccetMetaLawReference = {
 
 export const AGENT_BUCCET_META_LAW_POSTURE = {
   mode: "defensive",
-  note: "This carried law pack is active inside Agent Buccet in defensive posture. It blocks novelty drift and protects law-pack integrity, but it does not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
+  note: "These are Agent Buccet meta laws in defensive posture. They block novelty drift and protect law-pack integrity, but they do not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
   runtimeAuthority: "DEFENSIVE_META_LAWS",
   carriedRuntimePack: "AGENT_BUCCET_META_LAW_REFERENCES",
 } as const;
