@@ -32,5 +32,5 @@ Important:
 - this folder is part of Agent Buccet's carried law foundation
 - `laws.json` is used to load the active runtime law identity
 - `law-web.json` remains the inspectable full corpus export
-- active development still happens in `/Users/ryangatoloai-faupula/lml_demo`
+- active development for this foundation is tracked through the Agent Buccet repo history
 - the historical archive remains provenance, not the public runtime identity

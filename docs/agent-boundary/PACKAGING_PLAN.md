@@ -30,7 +30,7 @@ The standalone Agent Buccet package should contain:
 - `tsconfig.json`
 - `README.md`
 
-## Source of Truth Inside `lml_demo`
+## Source of Truth Inside Agent Buccet Repo
 
 Current canonical sources are:
 

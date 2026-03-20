@@ -363,7 +363,7 @@ This asserts:
 - those events map into the same finite action classes already enforced by the runtime
 - the current server seam is enough to support deeper intercept layers later without changing the core
 
-Use that export when you want to split Agent Buccet into its own repo without taking the rest of `lml_demo` with it.
+Use that export when you want to split Agent Buccet into its own repo without taking unrelated workspace code with it.
 
 ## Relevant docs
 

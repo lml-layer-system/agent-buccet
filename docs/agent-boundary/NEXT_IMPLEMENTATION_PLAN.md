@@ -152,7 +152,7 @@ Success condition:
 ## 7. Repo Packaging Boundary
 
 Problem:
-- Agent Buccet still lives inside the broader `lml_demo` repo layout
+- Agent Buccet still lives inside a broader workspace repo layout
 - the public package surface is coherent, but not yet extracted cleanly as an independent package/repo boundary
 
 Deliverables:

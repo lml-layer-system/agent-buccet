@@ -135,4 +135,4 @@ So the answer is:
 - no, the root invariant layer is not missing
 - yes, it is inside the repo
 - it is Agent Buccet's active law body
-- the larger carried base-law corpus is also present in the repo and loaded into runtime law identity through [foundation.ts](/Users/ryangatoloai-faupula/lml_demo/lib/lml/agent-boundary/foundation.ts)
+- the larger carried base-law corpus is also present in the repo and loaded into runtime law identity through [foundation.ts](../../lib/lml/agent-boundary/foundation.ts)
