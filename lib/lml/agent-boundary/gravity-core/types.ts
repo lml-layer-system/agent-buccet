@@ -4,7 +4,7 @@
 export type GravitySessionId = string;
 
 /**
- * Core identity for the protected LML entity.
+ * Core identity for the protected Agent Buccet entity.
  */
 export interface GravityIdentity {
   /**
@@ -101,7 +101,7 @@ export function allViolationsGrantable(violations: LawViolation[]): boolean {
 }
 
 /**
- * Static laws are the non-editable \"sun\" of the system.
+ * Static laws are the non-editable base laws of the system.
  * They cannot be modified by prompts or dynamic state.
  */
 export interface StaticLawDescriptor {

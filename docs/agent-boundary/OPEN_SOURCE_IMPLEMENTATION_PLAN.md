@@ -44,7 +44,7 @@ Keep private:
 - offensive learning/intelligence improvements
 - gravity internals unless later needed for public enforcement
 - higher-order private internals not required for defensive runtime behavior
-- deeper universe orchestration that increases model power rather than containment
+- deeper orchestration that increases model power rather than containment
 
 ## V1 Proof Target
 

@@ -18,7 +18,7 @@ It now reinforces them as a no-leak field on the executor path.
 
 ## What Gravity Is
 
-Gravity is the continuous LML enforcement field.
+Gravity is the continuous Agent Buccet enforcement field.
 
 Its job is:
 - detect unlawful motion

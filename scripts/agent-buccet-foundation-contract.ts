@@ -24,8 +24,8 @@ async function main() {
   const activeLawIds = config.userLawIds ?? [];
 
   assert.ok(activeLawIds.includes("BUCCET.BASE.01"), "expected base law ids to load into active runtime law identity");
-  assert.ok(activeLawIds.includes("LAW-0000001"), "expected carried sun corpus ids to load into active runtime law identity");
-  assert.ok(activeLawIds.includes("LAW-0068277"), "expected carried sun corpus tail ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("LAW-0000001"), "expected carried base-law corpus ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("LAW-0068277"), "expected carried base-law corpus tail ids to load into active runtime law identity");
   assert.ok(activeLawIds.includes("BUCCET.META.0001"), "expected carried defensive meta ids to load into active runtime law identity");
   assert.ok(activeLawIds.includes("META.AUTHORITY.01"), "expected live runtime meta ids to remain active");
 
@@ -45,7 +45,7 @@ async function main() {
 
   console.log(`active law ids: ${activeLawIds.length}`);
   console.log(`base law present: ${activeLawIds.includes("BUCCET.BASE.01")}`);
-  console.log(`carried sun tail present: ${activeLawIds.includes("LAW-0068277")}`);
+  console.log(`carried base-law tail present: ${activeLawIds.includes("LAW-0068277")}`);
 }
 
 main().catch((error) => {

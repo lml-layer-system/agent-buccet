@@ -20,8 +20,8 @@ This is the boundary runtime, install shell, packaging layer, and contract surfa
 
 When changing this repo:
 - keep the Agent Buccet surface first-class
-- do not reintroduce unrelated framework, app, or universe baggage
-- treat this repo as the future public Agent Buccet repo, not a staging area for broader LML work
+- do not reintroduce unrelated framework, app, or extra-system baggage
+- treat this repo as the Agent Buccet repo, not a staging area for outside work
 
 ## Current In-Progress Boundary
 

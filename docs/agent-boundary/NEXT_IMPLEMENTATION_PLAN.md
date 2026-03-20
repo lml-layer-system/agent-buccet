@@ -35,7 +35,7 @@ Already in place:
 ### 1. Root-Level Surfacing
 
 Problem:
-- the boundary slice is strong internally, but the top of the repo does not yet clearly surface Agent Buccet as a first-class public slice
+- the boundary runtime is strong internally, but the top of the repo does not yet clearly surface Agent Buccet as the first-class public system
 
 Deliverables:
 - add a root README section for Agent Buccet
@@ -54,7 +54,7 @@ Deliverables:
 - `docs/agent-boundary/LAW_CATALOG.md`
 
 Scope:
-- `sun` invariants
+- base-law invariants
 - boundary laws
 - scope laws
 - session laws
@@ -153,7 +153,7 @@ Success condition:
 
 Problem:
 - Agent Buccet still lives inside the broader `lml_demo` repo layout
-- the public slice is coherent, but not yet extracted cleanly as an independent package/repo boundary
+- the public package surface is coherent, but not yet extracted cleanly as an independent package/repo boundary
 
 Deliverables:
 - packaging assessment doc:
@@ -161,12 +161,12 @@ Deliverables:
 
 Decide:
 - what files would ship in a standalone public repo
-- what stays behind in the broader universe
+- what stays behind outside the public Agent Buccet package
 - what needs path/import cleanup for extraction
 - what data/docs/examples should move with it
 
 Success condition:
-- we know exactly how to split the public slice cleanly when ready
+- we know exactly how to split the public package cleanly when ready
 
 ## 8. Naming Consistency Pass
 
