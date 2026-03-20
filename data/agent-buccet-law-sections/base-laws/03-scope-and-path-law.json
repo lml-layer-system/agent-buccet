@@ -1,0 +1,93 @@
+{
+  "sectionId": "03-scope-and-path-law",
+  "title": "Scope And Path Law",
+  "lawIds": [
+    "BUCCET.BASE.04"
+  ],
+  "laws": [
+    {
+      "lawId": "BUCCET.BASE.04",
+      "title": "Opened paths become law",
+      "meaning": "Opened scope becomes the active lawful path. Scope must stay bounded, and active openings remain constrained by that scope boundary.",
+      "rationale": "The source corpus ties active document or conversation openings to active law while enforcing scope boundaries and explicit correction for scope violations.",
+      "sourceRecords": [
+        {
+          "id": "AS-61147",
+          "sourceLawId": "LAW-0061135",
+          "family": "STATE",
+          "sourceFile": "S3_059__A85C098D-3B2C-401D-965F-2B5E9868719D.docx",
+          "section": "DOC_LAW_SYSTEM = {",
+          "text": "Upload doc → Becomes law while active",
+          "level": null,
+          "dimension": null,
+          "tags": [
+            "ANCHOR"
+          ],
+          "normative": false,
+          "pool": "state"
+        },
+        {
+          "id": "AS-60970",
+          "sourceLawId": "LAW-0060958",
+          "family": "STATE",
+          "sourceFile": "S3_059__A85C098D-3B2C-401D-965F-2B5E9868719D.docx",
+          "section": "LAW DOC.2: SCOPE ENFORCEMENT",
+          "text": "DOCUMENT RULES MUST ONLY be applied within their scope boundary (D2.x).",
+          "level": null,
+          "dimension": null,
+          "tags": [
+            "MUST",
+            "ANCHOR"
+          ],
+          "normative": true,
+          "pool": "state"
+        },
+        {
+          "id": "AS-60975",
+          "sourceLawId": "LAW-0060963",
+          "family": "STATE",
+          "sourceFile": "S3_059__A85C098D-3B2C-401D-965F-2B5E9868719D.docx",
+          "section": "LAW DOC.2: SCOPE ENFORCEMENT",
+          "text": "Enforcement: Scope boundary detector Violation: → NSL.DOC.SCOPE_CORRECTION",
+          "level": null,
+          "dimension": null,
+          "tags": [
+            "SUPPORT"
+          ],
+          "normative": false,
+          "pool": "state"
+        },
+        {
+          "id": "AS-48903",
+          "sourceLawId": "LAW-0048716",
+          "family": "STATE",
+          "sourceFile": "S3_043__18D5F666-F512-461A-8824-A3254F00C282.docx",
+          "section": "UIC: UNIVERSAL IDENTITY COMPILER",
+          "text": "Scope creep: Fact applied beyond valid scope",
+          "level": null,
+          "dimension": null,
+          "tags": [
+            "SUPPORT"
+          ],
+          "normative": false,
+          "pool": "state"
+        },
+        {
+          "id": "AS-49050",
+          "sourceLawId": "LAW-0048867",
+          "family": "STATE",
+          "sourceFile": "S3_043__18D5F666-F512-461A-8824-A3254F00C282.docx",
+          "section": "KNOWLEDGE REPAIR MOVES:",
+          "text": "IF fact applied beyond valid scope THEN:",
+          "level": null,
+          "dimension": null,
+          "tags": [
+            "SUPPORT"
+          ],
+          "normative": false,
+          "pool": "state"
+        }
+      ]
+    }
+  ]
+}
