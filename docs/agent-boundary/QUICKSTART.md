@@ -53,7 +53,7 @@ Or for a live shared attachment layer:
 - `createPersistentBoundaryRuntimeStore(...)`
 - `createBoundaryBodyguard(...)`
 
-This creates a bucket that survives restart until the user ends it.
+This creates a buccet that survives restart until the user ends it.
 
 ## 2. Open lawful scope
 
@@ -352,7 +352,7 @@ npm run test:agent-buccet:intercept-server
 This asserts:
 - a local client can connect to Agent Buccet over socket transport
 - status works over that transport
-- finite action-boundary decisions flow through the same bucket
+- finite action-boundary decisions flow through the same buccet
 - restart and shutdown work without changing the runtime core
 
 ## 18. Run the Method 1 system-intercept contract harness
