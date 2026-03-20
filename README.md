@@ -6,8 +6,11 @@ Persistent, CPU-friendly law and scope enforcement for AI agents.
 
 Agent Buccet is the containment layer you add to the agent stack you already run.
 
-The public repo is centered on the shared Buccet brain.
-Additional deployment-depth nets can be added later for high-assurance environments without changing that core model.
+Core of Agent Buccet:
+- Agents can propose. They cannot authorize.
+- No ambient authority.
+- No out-of-scope actions.
+- No silent destructive tool use.
 
 It works across agent stacks because the protected boundary is the same:
 - filesystem changes
@@ -28,11 +31,9 @@ That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can s
 The framework can change.
 The action boundary does not.
 
-Core lines:
-- Agents can propose. They cannot authorize.
-- No ambient authority.
-- No out-of-scope actions.
-- No silent destructive tool use.
+The public repo is centered on the shared Buccet brain.
+Additional deep kernal os intercept can be added later for private environments without changing that core model.
+
 
 ## Start Here
 
@@ -58,10 +59,10 @@ The active Agent Buccet law body in this repo is documented here:
 
 That catalog covers:
 - Buccet base laws
-- defensive meta laws
-- action boundary laws
-- session and grant lifecycle laws
-- ledger laws
+- Buccet meta laws
+- Agent action boundary laws
+- Agent Buccet session and grant lifecycle laws
+- Buccet ledger laws
 
 If someone asks what Buccet is actually enforcing, that is the document to point them to.
 Use `LAW_REFERENCE.md` when they want the exact active law body and runtime source mapping.
