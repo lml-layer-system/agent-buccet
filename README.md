@@ -27,9 +27,9 @@ That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can s
 - OpenAI Agents
 - LangGraph
 - xAI API
-- other tools and future clients that still cross a real action boundary
+- other tools and future agents that still cross a real action boundary
 
-The framework can change. 
+The agent stack can change.
 Agents can evolve.
 The action boundary does not.
 Agent Buccet is built to attach there.
@@ -67,8 +67,7 @@ That catalog covers:
 - Agent Buccet session and grant lifecycle laws
 - Buccet ledger laws
 
-What is Agent Buccet is actually enforcing? 
-Use `LAW_REFERENCE.md` to see in detail.
+To see exactly what Agent Buccet is enforcing, use `\LAW_REFERENCE.md.`
 
 ## Hosted Install
 
