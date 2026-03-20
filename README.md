@@ -17,10 +17,10 @@ It works across agent stacks because the protected boundary is the same:
 - system and credential access
 
 That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can sit under:
-- Claude CoWork
+- Claude Cowork
 - Claude Dispatch
 - OpenClaw
-- NeMo
+- NemoClaw
 - OpenAI Agents
 - LangGraph
 - other tool-using agent runtimes
