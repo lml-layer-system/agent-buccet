@@ -26,13 +26,16 @@ That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can s
 - NemoClaw
 - OpenAI Agents
 - LangGraph
-- other tool-using agent runtimes
+- xAI API
+- other tools and future clients that still cross a real action boundary
 
-The framework can change.
+The framework can change. 
+Agents can evolve.
 The action boundary does not.
+Agent Buccet is built to attach there.
 
 The public repo is centered on the shared Buccet brain.
-Additional deep kernal os intercept can be added later for private environments without changing that core model.
+Additional deep kernel OS-level Agent Buccet interception can be added later for private environments without changing that core model.
 
 
 ## Start Here
@@ -64,8 +67,8 @@ That catalog covers:
 - Agent Buccet session and grant lifecycle laws
 - Buccet ledger laws
 
-If someone asks what Buccet is actually enforcing, that is the document to point them to.
-Use `LAW_REFERENCE.md` when they want the exact active law body and runtime source mapping.
+What is Agent Buccet is actually enforcing? 
+Use `LAW_REFERENCE.md` to see in detail.
 
 ## Hosted Install
 
