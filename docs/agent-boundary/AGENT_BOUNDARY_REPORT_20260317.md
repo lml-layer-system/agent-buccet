@@ -95,7 +95,7 @@ If untrusted content asks to widen scope, mutate law, self-approve, bypass the l
 
 ## Why The Ledger Is Central
 
-The ledger is not optional logging.
+The ledger is not secondary logging.
 
 It is law.
 
@@ -113,7 +113,7 @@ The ledger also supports:
 
 ## Why This Repo Should Exist Openly
 
-This is the right public release because it proves something real without exposing private offensive capability.
+This is the right public release because it proves something real while keeping the runtime focused on containment capability.
 
 Public:
 - containment
@@ -123,11 +123,11 @@ Public:
 - ledger
 - defensive meta laws
 
-Private:
+Outside current runtime core:
 - intelligence amplification
 - meta loops
 - law-of-law systems
-- offensive private gravity/intelligence internals
+- gravity/intelligence internals outside containment scope
 
 That split is strategically correct.
 

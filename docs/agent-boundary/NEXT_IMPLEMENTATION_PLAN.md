@@ -201,7 +201,7 @@ Must define:
 - where `GravityState` maps onto current boundary/session/ledger state
 - where event production comes from
 - where no-leak null-collapse happens
-- what stays public defensive vs private stronger runtime
+- what stays in the current defensive runtime vs deeper stronger runtime
 
 Success condition:
 - gravity can land last without destabilizing the finished boundary slice

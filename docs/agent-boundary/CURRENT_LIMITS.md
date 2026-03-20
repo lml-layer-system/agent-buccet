@@ -40,7 +40,7 @@ Current ledger guarantees:
 - chain verification
 - public-key inspection
 - signed checkpoints
-- optional witness publishing
+- witness publishing
 
 Current ledger does not yet guarantee:
 - mandatory external witness by default

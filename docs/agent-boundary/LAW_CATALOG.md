@@ -428,4 +428,4 @@ Lawful recovery:
 
 - The Agent Buccet runtime is defensive only.
 - Gravity lands later on top of this as continuous no-leak enforcement.
-- Private offensive/meta-intelligence laws are intentionally excluded here.
+- Additional non-containment/meta-intelligence laws are intentionally excluded here.

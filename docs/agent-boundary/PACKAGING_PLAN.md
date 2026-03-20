@@ -125,8 +125,8 @@ Do not export:
 - the rest of `lib/lml`
 - Next.js app code
 - law-web/product/demo surfaces unrelated to Buccet
-- private gravity internals
-- offensive LML internals
+- gravity internals not required for this package surface
+- non-Buccet internals
 - unrelated benchmark/coding runtime code
 
 That keeps Agent Buccet as the public defensive slice only.
@@ -137,7 +137,7 @@ Minimal standalone package metadata:
 
 - name: `agent-buccet`
 - type: `module`
-- private: true until public repo split
+- publish-ready package metadata
 - script:
   - `demo:agent-buccet`
   - `demo:agent-buccet:gravity`

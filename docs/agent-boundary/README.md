@@ -74,7 +74,7 @@ Current launch boundary:
 - the hook freezes and waits by default; it only fails closed immediately when the hook supervisor marks the brain dead
 - many protected processes can freeze and forward into the same Buccet brain at once
 - shared pending swarm groups let one lawful approval resolve many matching frozen requests
-- optional deeper kernel-level nets can sit in front of the same Buccet brain for private or high-assurance deployments
+- additional kernel-level nets can sit in front of the same Buccet brain for high-assurance deployments
 
 ## What It Does
 
@@ -467,7 +467,7 @@ It proves:
 - the intercept server stays the stable handoff seam instead of introducing a second policy runtime
 
 It does **not** yet do full system-level syscall interception.
-That remains an optional deeper Agent Buccet Interceptor phase.
+That remains a deeper Agent Buccet Interceptor phase.
 
 ## Standalone Package Prep
 

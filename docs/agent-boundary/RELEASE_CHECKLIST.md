@@ -84,7 +84,7 @@ Confirm:
 Confirm the top-level repo still reads as:
 - Agent Buccet first
 - one shared Buccet brain
-- optional deeper kernel-level nets, not the public core
+- deeper kernel-level nets are deployment depth, not the public core
 
 Confirm these docs are present and current:
 - `README.md`
@@ -134,12 +134,12 @@ Confirm:
 Confirm:
 - `git status --short` is clean
 - no local runtime debris is staged
-- no unrelated private material is present
+- no unrelated non-Buccet material is present
 
 ## Flip Public
 
 When the checks above are green:
-- push the final private commit
+- push the final release candidate commit
 - make the repo public
 - publish the hosted release assets
 - keep the first public announcement inside the documented claim boundary

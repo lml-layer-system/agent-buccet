@@ -72,24 +72,24 @@ Responsible for:
 - execution trace
 - NSL trace
 
-The ledger is part of the proof, not optional observability.
+The ledger is part of the proof, not secondary observability.
 It is also part of the containment guarantee because it can rebuild lawful scope after crash damage.
 If an action or session is not properly ledgered, it should be treated as incomplete and non-authoritative.
 
-## Private Components
+## Deeper Components
 
-Keep private:
+Keep outside the current runtime core:
 - meta loops
 - law-of-law proposal systems
-- offensive learning/intelligence mechanisms
-- higher-order private internals not required for boundary enforcement
+- learning/intelligence mechanisms outside containment scope
+- higher-order internals not required for boundary enforcement
 - gravity internals that materially increase intelligence rather than containment
-- private orchestration beyond defensive runtime control
+- orchestration beyond defensive runtime control
 
 ## Rule For Exposure
 
-Public if it increases containment.
-Private if it increases offensive capability.
+Inside runtime if it increases containment.
+Outside runtime core if it increases non-containment capability.
 
 ## Public Claim
 
@@ -99,5 +99,5 @@ Persistent sessions keep that law attached to the bucket until the user closes i
 
 ## Public Non-Claim
 
-We are not claiming that every possible future private deployment layer is present here.
+We are not claiming that every possible future deployment-depth layer is present here.
 We are shipping Agent Buccet as the hard-boundary defensive runtime.

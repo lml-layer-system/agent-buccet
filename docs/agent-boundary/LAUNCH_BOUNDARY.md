@@ -21,7 +21,7 @@ Out of the box, Agent Buccet already gives you:
 - gravity on the action path
 - supervisor for restart and daemon health
 - hosted-ready release artifacts under `dist/releases/`
-- optional checkpoint witness publishing for stronger external attestation
+- checkpoint witness publishing for stronger external attestation
 
 Current install shell:
 - `sh dist/releases/install.sh`
@@ -42,7 +42,7 @@ We can claim:
 - prompt content does not become authority
 - opened scope becomes lawful scope for the session
 - the bodyguard persists across restart until the user ends the session
-- the ledger is part of the trust boundary, not optional logging
+- the ledger is part of the trust boundary, not secondary logging
 - developers can use the wrapper and intercept surfaces today without waiting for deep OS integration
 - the native hook waits indefinitely for the Buccet brain unless the hook supervisor explicitly marks the brain dead
 - hosted install can be served as a single `curl ... | sh` entrypoint once release artifacts are published
@@ -53,11 +53,11 @@ We should not claim:
 - full OS/kernel interception is complete
 - all possible process/syscall paths are already mediated
 - the ledger has full remote witness/signing/checkpoint infrastructure
-- Agent Buccet already includes every possible future private deployment layer
+- Agent Buccet already includes every possible future deployment-depth layer
 
 ## Advanced Depth
 
-The main optional advanced layer is deeper OS-level interception.
+The main advanced layer is deeper OS-level interception.
 
 That means:
 - kernel hooks
@@ -68,7 +68,7 @@ The important point is that the seam already exists.
 The current system-intercept bridge and intercept server are the stable handoff points for that deeper work.
 
 That deeper layer is not required to validate the public containment model.
-It is an optional higher-assurance deployment choice for personal, swarm, or private environments that want an earlier catch net.
+It is a higher-assurance deployment choice for personal or swarm environments that want an earlier catch net.
 
 ## Recommended Launch Wording
 

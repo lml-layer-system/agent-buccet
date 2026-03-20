@@ -1,6 +1,6 @@
 # Agent Buccet Gravity Landing Plan
 
-This document now records the landed gravity shape and the remaining private-side work.
+This document now records the landed gravity shape and the remaining deeper integration work.
 
 ## Principle
 
@@ -113,9 +113,9 @@ Instead:
 
 That is the defining behavior.
 
-## Public vs Private Split
+## Runtime Surface Split
 
-Public Agent Buccet:
+Current Agent Buccet runtime surface:
 - defensive meta laws
 - ledger law
 - session law
@@ -123,11 +123,11 @@ Public Agent Buccet:
 - approval law
 - boundary enforcement
 
-Private gravity internals:
+Deeper gravity layers:
 - stronger corrective/nulling behavior
 - higher-order reconciliation machinery
-- supervisor/restart strategy beyond public seam
-- any offensive intelligence side
+- supervisor/restart strategy beyond the current seam
+- additional containment extensions beyond current runtime scope
 
 ## Completion Criteria
 
@@ -155,15 +155,15 @@ This proves:
 - authority claim -> `deny`
 - incomplete ledger session -> `deny`
 
-## What Still Remains Private / Deeper
+## What Still Remains Deeper
 
 The remaining deeper gravity work is:
 - stronger corrective state reconciliation beyond current public normalization
 - richer per-request ledger completeness semantics
 - daemon/supervisor orchestration beyond the current public seam
-- any offensive or intelligence-amplifying gravity internals
+- additional containment internals beyond current runtime scope
 
-That is the remaining private side. The public executor-integrated no-leak gravity path is now in place.
+That is the remaining deeper side. The executor-integrated no-leak gravity path is now in place.
 
 Public supervisor note:
 - restart/heartbeat are handled by the supervisor layer

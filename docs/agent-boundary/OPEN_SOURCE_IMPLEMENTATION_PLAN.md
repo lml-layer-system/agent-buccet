@@ -36,14 +36,14 @@ Public guarantees:
 - all meaningful actions are logged
 - blocked actions return lawful next moves instead of silent failure
 
-## Private Scope
+## Current Runtime Scope Exclusions
 
-Keep private:
+Keep outside the current runtime scope:
 - meta loops
 - law-of-law proposal systems
-- offensive learning/intelligence improvements
+- learning/intelligence improvements beyond containment
 - gravity internals unless later needed for public enforcement
-- higher-order private internals not required for defensive runtime behavior
+- higher-order internals not required for defensive runtime behavior
 - deeper orchestration that increases model power rather than containment
 
 ## V1 Proof Target
@@ -121,7 +121,7 @@ Execution flow:
 
 ### Phase 1: Spec Lock
 Deliver:
-- public/private boundary doc
+- runtime boundary doc
 - core doctrine doc
 - action model
 - grant model
@@ -201,7 +201,7 @@ Not in V1:
 - adaptive policy intelligence
 - product packaging
 - general chat features
-- offensive intelligence features
+- non-containment intelligence features
 
 ## Success Criteria
 
