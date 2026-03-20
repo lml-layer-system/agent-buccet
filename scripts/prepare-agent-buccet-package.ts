@@ -2,14 +2,14 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { publishBoundaryReleaseWitness, type BoundaryReleaseWitnessStatus } from "../lib/lml/agent-boundary/index.ts";
+import { publishBoundaryReleaseWitness, type BoundaryReleaseWitnessStatus } from "../lib/agent-buccet/index.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
 const releaseDir = path.join(repoRoot, "dist", "releases");
-const sourceRuntimeDir = path.join(repoRoot, "lib", "lml", "agent-boundary");
+const sourceRuntimeDir = path.join(repoRoot, "lib", "agent-buccet");
 const sourceDocsDir = path.join(repoRoot, "docs", "agent-boundary");
-const sourceLawFoundationDir = path.join(repoRoot, "data", "lml-law-foundation");
+const sourceLawFoundationDir = path.join(repoRoot, "data", "agent-buccet-law-foundation");
 const sourceExample = path.join(repoRoot, "scripts", "agent-buccet-e2e.ts");
 const sourceGravityExample = path.join(repoRoot, "scripts", "agent-buccet-gravity-e2e.ts");
 const sourceGravityContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-contract.ts");
@@ -183,9 +183,9 @@ async function writeStandaloneTsconfig() {
 async function writeExtractionManifest() {
   const manifest = {
     generatedAt: new Date().toISOString(),
-    sourceRuntimeDir: "lib/lml/agent-boundary",
+    sourceRuntimeDir: "lib/agent-buccet",
     sourceDocsDir: "docs/agent-boundary",
-    sourceLawFoundationDir: "data/lml-law-foundation",
+    sourceLawFoundationDir: "data/agent-buccet-law-foundation",
     sourceExample: "scripts/agent-buccet-e2e.ts",
     sourceGravityExample: "scripts/agent-buccet-gravity-e2e.ts",
     sourceGravityContract: "scripts/agent-buccet-gravity-contract.ts",
@@ -224,7 +224,7 @@ async function writeExtractionManifest() {
     includes: [
       "src/**/*",
       "docs/**/*",
-      "data/lml-law-foundation/**/*",
+      "data/agent-buccet-law-foundation/**/*",
       "examples/agent-buccet-e2e.ts",
       "examples/agent-buccet-gravity-e2e.ts",
       "examples/agent-buccet-gravity-contract.ts",
@@ -282,83 +282,83 @@ async function writeStandaloneReadme() {
 async function writeStandaloneExample() {
   const raw = await fs.readFile(sourceExample, "utf8");
   const rewritten = raw.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawGravity = await fs.readFile(sourceGravityExample, "utf8");
   const rewrittenGravity = rawGravity.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawGravityContract = await fs.readFile(sourceGravityContract, "utf8");
   const rewrittenGravityContract = rawGravityContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawLedgerContract = await fs.readFile(sourceLedgerContract, "utf8");
   const rewrittenLedgerContract = rawLedgerContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawLedgerRollupContract = await fs.readFile(sourceLedgerRollupContract, "utf8");
   const rewrittenLedgerRollupContract = rawLedgerRollupContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawLedgerWriterContract = await fs.readFile(sourceLedgerWriterContract, "utf8");
   const rewrittenLedgerWriterContract = rawLedgerWriterContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawLedgerWitnessContract = await fs.readFile(sourceLedgerWitnessContract, "utf8");
   const rewrittenLedgerWitnessContract = rawLedgerWitnessContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawGravitySupervisorContract = await fs.readFile(sourceGravitySupervisorContract, "utf8");
   const rewrittenGravitySupervisorContract = rawGravitySupervisorContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawActionClassesContract = await fs.readFile(sourceActionClassesContract, "utf8");
   const rewrittenActionClassesContract = rawActionClassesContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawInterceptDaemonContract = await fs.readFile(sourceInterceptDaemonContract, "utf8");
   const rewrittenInterceptDaemonContract = rawInterceptDaemonContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawInterceptServerContract = await fs.readFile(sourceInterceptServerContract, "utf8");
   const rewrittenInterceptServerContract = rawInterceptServerContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawSystemInterceptContract = await fs.readFile(sourceSystemInterceptContract, "utf8");
   const rewrittenSystemInterceptContract = rawSystemInterceptContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawGravityBridgeContract = await fs.readFile(sourceGravityBridgeContract, "utf8");
   const rewrittenGravityBridgeContract = rawGravityBridgeContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawSwarmContract = await fs.readFile(sourceSwarmContract, "utf8");
   const rewrittenSwarmContract = rawSwarmContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rewrittenHookRuntimeContract = await fs.readFile(sourceHookRuntimeContract, "utf8");
   const rawWrapperContract = await fs.readFile(sourceWrapperContract, "utf8");
   const rewrittenWrapperContract = rawWrapperContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rawCliContract = await fs.readFile(sourceCliContract, "utf8");
   const rewrittenCliContract = rawCliContract.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const rewrittenInstallContract = await fs.readFile(sourceInstallContract, "utf8");
@@ -391,7 +391,7 @@ async function writeStandaloneExample() {
 async function writeStandaloneWrapper() {
   const raw = await fs.readFile(sourceWrapperScript, "utf8");
   const rewritten = raw.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   const binDir = path.join(outDir, "bin");
@@ -400,28 +400,28 @@ async function writeStandaloneWrapper() {
 
   const rawGravityDaemon = await fs.readFile(sourceGravityDaemonScript, "utf8");
   const rewrittenGravityDaemon = rawGravityDaemon.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-gravity-daemon.ts"), rewrittenGravityDaemon, "utf8");
 
   const rawInterceptDaemon = await fs.readFile(sourceInterceptDaemonScript, "utf8");
   const rewrittenInterceptDaemon = rawInterceptDaemon.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-intercept-daemon.ts"), rewrittenInterceptDaemon, "utf8");
 
   const rawInterceptServer = await fs.readFile(sourceInterceptServerScript, "utf8");
   const rewrittenInterceptServer = rawInterceptServer.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-intercept-server.ts"), rewrittenInterceptServer, "utf8");
 
   const rawGravityBridge = await fs.readFile(sourceGravityBridgeScript, "utf8");
   const rewrittenGravityBridge = rawGravityBridge.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-gravity-bridge.ts"), rewrittenGravityBridge, "utf8");
@@ -431,28 +431,28 @@ async function writeStandaloneWrapper() {
 
   const rawSystemInterceptBridge = await fs.readFile(sourceSystemInterceptBridgeScript, "utf8");
   const rewrittenSystemInterceptBridge = rawSystemInterceptBridge.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-system-intercept-bridge.ts"), rewrittenSystemInterceptBridge, "utf8");
 
   const rawLedgerWriter = await fs.readFile(sourceLedgerWriterScript, "utf8");
   const rewrittenLedgerWriter = rawLedgerWriter.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-ledger-writer.ts"), rewrittenLedgerWriter, "utf8");
 
   const rawLedgerCli = await fs.readFile(sourceLedgerCliScript, "utf8");
   const rewrittenLedgerCli = rawLedgerCli.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "agent-buccet-ledger-cli.ts"), rewrittenLedgerCli, "utf8");
 
   const rawCli = await fs.readFile(sourceCliScript, "utf8");
   const rewrittenCli = rawCli.replaceAll(
-    "../lib/lml/agent-boundary/",
+    "../lib/agent-buccet/",
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "buccet.ts"), rewrittenCli, "utf8");
@@ -531,7 +531,7 @@ async function main() {
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
-  await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "lml-law-foundation"));
+  await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "agent-buccet-law-foundation"));
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
   await writeStandaloneExample();
   await writeStandaloneWrapper();

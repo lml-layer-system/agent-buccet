@@ -4,7 +4,7 @@ import {
   prepareBoundaryProcess,
   runBoundaryWrappedCommand,
   startPersistentBoundarySession,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

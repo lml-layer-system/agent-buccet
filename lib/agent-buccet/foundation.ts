@@ -5,7 +5,7 @@ import { AGENT_BUCCET_META_LAW_REFERENCES } from "./meta.ts";
 import type { BoundaryLaw } from "./types.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const FOUNDATION_LAWS_RELATIVE_PATH = path.join("data", "lml-law-foundation", "laws.json");
+const FOUNDATION_LAWS_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "laws.json");
 
 const AGENT_BUCCET_BASE_LAW_IDS = [
   "BUCCET.BASE.01",

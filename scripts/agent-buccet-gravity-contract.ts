@@ -1,8 +1,8 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { createBoundaryActionRequest } from "../lib/lml/agent-boundary/executor.ts";
-import { createBoundaryGravityService } from "../lib/lml/agent-boundary/gravity-adapter/gravity-service.ts";
-import { startPersistentBoundarySession } from "../lib/lml/agent-boundary/state.ts";
+import { createBoundaryActionRequest } from "../lib/agent-buccet/executor.ts";
+import { createBoundaryGravityService } from "../lib/agent-buccet/gravity-adapter/gravity-service.ts";
+import { startPersistentBoundarySession } from "../lib/agent-buccet/state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

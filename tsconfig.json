@@ -10,7 +10,7 @@
     "types": ["node"]
   },
   "include": [
-    "lib/lml/agent-boundary/**/*.ts",
+    "lib/agent-buccet/**/*.ts",
     "scripts/agent-buccet-*.ts",
     "scripts/buccet.ts",
     "scripts/prepare-agent-buccet-package.ts"

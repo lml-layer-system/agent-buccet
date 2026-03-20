@@ -7,7 +7,7 @@ import {
   readBoundaryLedgerSigningIdentity,
   readBoundaryLedgerBySession,
   verifyBoundaryLedgerRecordSignature,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 async function main() {
   const sessionId = `agent-buccet-ledger-contract-${randomUUID()}`;

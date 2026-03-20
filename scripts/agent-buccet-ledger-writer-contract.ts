@@ -7,7 +7,7 @@ import { once } from "node:events";
 import {
   sendBoundaryLedgerWriterInput,
   type BoundaryLedgerWriterOutput,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));

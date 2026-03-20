@@ -5,7 +5,7 @@ import {
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
   type BoundaryInterceptRequest,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 type ParsedArgs = {
   listenSocketPath?: string;

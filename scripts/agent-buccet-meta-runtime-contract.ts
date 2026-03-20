@@ -7,7 +7,7 @@ import {
   evaluateBoundaryAction,
   openBoundaryPath,
   startPersistentBoundarySession,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-meta-runtime-"));

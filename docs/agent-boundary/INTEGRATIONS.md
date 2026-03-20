@@ -8,7 +8,7 @@ They are explicit boundary entrypoints that make the compatibility claim concret
 ## Included
 
 ### NeMo Guardrails
-- [nemo.ts](../../lib/lml/agent-boundary/integrations/nemo.ts)
+- [nemo.ts](../../lib/agent-buccet/integrations/nemo.ts)
 - [Example](examples/nemo.md)
 
 Exports:
@@ -22,7 +22,7 @@ Use this when a NeMo workflow/tool wants to propose a real-world action and Bucc
 - `REQUIRE_APPROVAL`
 
 ### OpenAI Agents
-- [openai-agents.ts](../../lib/lml/agent-boundary/integrations/openai-agents.ts)
+- [openai-agents.ts](../../lib/agent-buccet/integrations/openai-agents.ts)
 - [Example](examples/openai-agents.md)
 
 Exports:
@@ -31,7 +31,7 @@ Exports:
 - `createOpenAIAgentsBoundaryGuard(...)`
 
 ### LangGraph / LangChain-style graphs
-- [langgraph.ts](../../lib/lml/agent-boundary/integrations/langgraph.ts)
+- [langgraph.ts](../../lib/agent-buccet/integrations/langgraph.ts)
 - [Example](examples/langgraph.md)
 
 Exports:
@@ -40,7 +40,7 @@ Exports:
 - `createLangGraphBoundaryGuard(...)`
 
 ### Telegram / remote async control
-- [telegram.ts](../../lib/lml/agent-boundary/integrations/telegram.ts)
+- [telegram.ts](../../lib/agent-buccet/integrations/telegram.ts)
 - [Example](examples/telegram.md)
 
 Exports:

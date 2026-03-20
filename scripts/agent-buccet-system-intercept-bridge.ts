@@ -5,7 +5,7 @@ import {
   type BoundaryInterceptDaemonCommand,
   type BoundaryInterceptDaemonOutput,
   type BoundarySystemInterceptEvent,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 type ParsedArgs = {
   host?: string;

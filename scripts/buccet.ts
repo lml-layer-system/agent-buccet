@@ -5,7 +5,7 @@ import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import type { BoundaryActionKind } from "../lib/lml/agent-boundary/index.ts";
+import type { BoundaryActionKind } from "../lib/agent-buccet/index.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -227,7 +227,7 @@ async function pidAlive(pid: number): Promise<boolean> {
 async function importBoundary(homePath: string) {
   await ensureDir(homePath);
   process.chdir(homePath);
-  return import("../lib/lml/agent-boundary/index.ts");
+  return import("../lib/agent-buccet/index.ts");
 }
 
 async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {

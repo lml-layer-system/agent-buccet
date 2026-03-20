@@ -10,7 +10,7 @@ import {
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 type ParsedArgs = {
   sessionId: string;

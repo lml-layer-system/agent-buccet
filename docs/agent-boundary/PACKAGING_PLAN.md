@@ -13,7 +13,7 @@ This is extraction prep around an already landed public gravity surface.
 The standalone Agent Buccet package should contain:
 
 - `src/`
-  - the full `lib/lml/agent-boundary` runtime
+  - the full `lib/agent-buccet` runtime
   - including `gravity-core/` and `gravity-adapter/`
 - `docs/`
   - the full `docs/agent-boundary` doc surface
@@ -34,7 +34,7 @@ The standalone Agent Buccet package should contain:
 
 Current canonical sources are:
 
-- [lib/lml/agent-boundary](../../lib/lml/agent-boundary)
+- [lib/agent-buccet](../../lib/agent-buccet)
 - [docs/agent-boundary](.)
 - [agent-buccet-e2e.ts](../../scripts/agent-buccet-e2e.ts)
 
@@ -45,7 +45,7 @@ The export step should package those sources without rewriting the architecture.
 ### Runtime
 
 Move all files under:
-- `lib/lml/agent-boundary/`
+- `lib/agent-buccet/`
 
 These files are now relative-import clean and script-runnable, which is the main precondition for standalone extraction.
 
@@ -122,7 +122,7 @@ with imports rewritten to target the local standalone `src/index.ts`.
 ## What Must Stay Behind
 
 Do not export:
-- the rest of `lib/lml`
+- the rest of `lib/`
 - Next.js app code
 - law-web/product/demo surfaces unrelated to Buccet
 - gravity internals not required for this package surface

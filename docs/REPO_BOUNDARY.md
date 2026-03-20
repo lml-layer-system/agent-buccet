@@ -6,7 +6,7 @@ This repository is an `Agent Buccet` repo.
 
 The intended public surface is:
 - `docs/agent-boundary/`
-- `lib/lml/agent-boundary/`
+- `lib/agent-buccet/`
 - `scripts/agent-buccet-*`
 - `scripts/buccet.ts`
 - `scripts/install-agent-buccet.sh`

@@ -142,7 +142,7 @@ npm run package:agent-buccet
 
 What is first-class here:
 - `docs/agent-boundary/`
-- `lib/lml/agent-boundary/`
+- `lib/agent-buccet/`
 - `scripts/agent-buccet-*`
 - `scripts/buccet.ts`
 - `scripts/install-agent-buccet.sh`

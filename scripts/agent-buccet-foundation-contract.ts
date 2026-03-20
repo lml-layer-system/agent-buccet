@@ -6,15 +6,15 @@ import {
   AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS,
   buildActiveAgentBuccetLawIds,
   startPersistentBoundarySession,
-} from "../lib/lml/agent-boundary/index.ts";
+} from "../lib/agent-buccet/index.ts";
 
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-foundation-"));
   process.chdir(tempRoot);
-  await fs.mkdir(path.join(tempRoot, "data", "lml-law-foundation"), { recursive: true });
+  await fs.mkdir(path.join(tempRoot, "data", "agent-buccet-law-foundation"), { recursive: true });
   await fs.copyFile(
-    path.join(import.meta.dirname, "..", "data", "lml-law-foundation", "laws.json"),
-    path.join(tempRoot, "data", "lml-law-foundation", "laws.json"),
+    path.join(import.meta.dirname, "..", "data", "agent-buccet-law-foundation", "laws.json"),
+    path.join(tempRoot, "data", "agent-buccet-law-foundation", "laws.json"),
   );
 
   const config = await startPersistentBoundarySession({

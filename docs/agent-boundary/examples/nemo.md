@@ -6,7 +6,7 @@ Minimal attach pattern:
 import {
   createPersistentBoundaryRuntimeStore,
   createBoundaryBodyguard,
-} from "@/lib/lml/agent-boundary";
+} from "@/lib/agent-buccet";
 
 const store = await createPersistentBoundaryRuntimeStore({
   sessionId: "nemo-session-1",
