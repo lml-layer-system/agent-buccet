@@ -66,6 +66,7 @@ export function mapBoundaryRequestToGravityProposal(request: BoundaryActionReque
       sessionId: request.sessionId,
       originId: request.requestId,
       authorityClaimed: request.flags?.authorityClaimed,
+      claimsCompleteCoverage: request.flags?.claimsCompleteCoverage,
       requestsScopeExpansion: request.flags?.requestsScopeExpansion,
       requestsLawMutation: request.flags?.requestsLawMutation,
       requestsSessionRevival: request.flags?.requestsSessionRevival,

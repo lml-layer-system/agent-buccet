@@ -9,6 +9,7 @@ const outDir = path.join(repoRoot, "dist", "agent-buccet");
 const releaseDir = path.join(repoRoot, "dist", "releases");
 const sourceRuntimeDir = path.join(repoRoot, "lib", "lml", "agent-boundary");
 const sourceDocsDir = path.join(repoRoot, "docs", "agent-boundary");
+const sourceLawFoundationDir = path.join(repoRoot, "data", "lml-law-foundation");
 const sourceExample = path.join(repoRoot, "scripts", "agent-buccet-e2e.ts");
 const sourceGravityExample = path.join(repoRoot, "scripts", "agent-buccet-gravity-e2e.ts");
 const sourceGravityContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-contract.ts");
@@ -184,6 +185,7 @@ async function writeExtractionManifest() {
     generatedAt: new Date().toISOString(),
     sourceRuntimeDir: "lib/lml/agent-boundary",
     sourceDocsDir: "docs/agent-boundary",
+    sourceLawFoundationDir: "data/lml-law-foundation",
     sourceExample: "scripts/agent-buccet-e2e.ts",
     sourceGravityExample: "scripts/agent-buccet-gravity-e2e.ts",
     sourceGravityContract: "scripts/agent-buccet-gravity-contract.ts",
@@ -222,6 +224,7 @@ async function writeExtractionManifest() {
     includes: [
       "src/**/*",
       "docs/**/*",
+      "data/lml-law-foundation/**/*",
       "examples/agent-buccet-e2e.ts",
       "examples/agent-buccet-gravity-e2e.ts",
       "examples/agent-buccet-gravity-contract.ts",
@@ -528,6 +531,7 @@ async function main() {
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
+  await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "lml-law-foundation"));
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
   await writeStandaloneExample();
   await writeStandaloneWrapper();

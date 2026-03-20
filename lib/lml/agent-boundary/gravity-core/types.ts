@@ -44,6 +44,7 @@ export interface GravityProvenance {
    * These are used by meta-laws like META.TRUST / META.AUTHORITY / META.SCOPE / META.LAW / META.SESSION / META.LEDGER.
    */
   authorityClaimed?: boolean;
+  claimsCompleteCoverage?: boolean;
   requestsScopeExpansion?: boolean;
   requestsLawMutation?: boolean;
   requestsSessionRevival?: boolean;

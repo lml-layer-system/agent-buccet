@@ -146,6 +146,7 @@ function parseGravityPayloadHints(payload: GravitySocketPayload): GravityPayload
     if (token.startsWith("flags=")) {
       for (const flagName of token.slice("flags=".length).split(",")) {
         if (flagName === "authorityClaimed") flags.authorityClaimed = true;
+        if (flagName === "claimsCompleteCoverage") flags.claimsCompleteCoverage = true;
         if (flagName === "requestsScopeExpansion") flags.requestsScopeExpansion = true;
         if (flagName === "requestsLawMutation") flags.requestsLawMutation = true;
         if (flagName === "requestsSessionRevival") flags.requestsSessionRevival = true;

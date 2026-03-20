@@ -5,6 +5,7 @@ export * from "./witness.ts";
 export * from "./release-witness.ts";
 export * from "./orchestrator.ts";
 export * from "./meta.ts";
+export * from "./foundation.ts";
 export * from "./laws.ts";
 export * from "./nsl.ts";
 export * from "./runtime.ts";

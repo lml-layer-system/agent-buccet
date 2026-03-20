@@ -4,6 +4,7 @@ import {
   appendBoundaryLedger,
   readAllBoundaryLedgerRecords,
 } from "./ledger.ts";
+import { buildActiveAgentBuccetLawIds } from "./foundation.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
 import type {
   BoundaryActionKind,
@@ -252,7 +253,9 @@ export async function startPersistentBoundarySession(args: {
     grants: [],
     pathLaws: [],
     approvalRequiredFor: args.approvalRequiredFor ?? [],
-    userLawIds: (args.laws ?? DEFAULT_BOUNDARY_LAWS).map((law) => law.lawId),
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
+    }),
     processPolicy: undefined,
     persistence: {
       enabled: true,
@@ -297,7 +300,10 @@ export async function restorePersistentBoundarySession(args: {
     grants: state.grants,
     pathLaws: state.pathLaws,
     approvalRequiredFor: state.approvalRequiredFor,
-    userLawIds: state.userLawIds,
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
+      existingLawIds: state.userLawIds,
+    }),
     processPolicy: state.processPolicy as BoundaryProcessPolicy | undefined,
     persistence: {
       enabled: true,

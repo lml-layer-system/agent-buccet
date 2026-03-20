@@ -16,6 +16,7 @@ export type BoundaryToolProposal<T = unknown> = {
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
@@ -37,6 +38,7 @@ export type BoundaryToolEnvelope<TInput, TOutput> = {
     input: TInput,
   ) => {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;

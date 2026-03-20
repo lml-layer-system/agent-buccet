@@ -94,6 +94,7 @@ export type BoundaryActionRequest = {
   provenance: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;

@@ -193,6 +193,7 @@ export function buildOpenAsLawNslStep(args: {
       sessionId: args.request.sessionId,
       originId: args.request.requestId,
       authorityClaimed: args.request.flags?.authorityClaimed,
+      claimsCompleteCoverage: args.request.flags?.claimsCompleteCoverage,
       requestsScopeExpansion: args.request.flags?.requestsScopeExpansion,
       requestsLawMutation: args.request.flags?.requestsLawMutation,
       requestsSessionRevival: args.request.flags?.requestsSessionRevival,

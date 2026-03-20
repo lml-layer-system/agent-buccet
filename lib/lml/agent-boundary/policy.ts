@@ -147,7 +147,7 @@ export function applyBoundaryPolicyConfig(args: {
     laws: nextLaws,
     grants: nextGrants,
     approvalRequiredFor: args.policy.approvalRequiredFor ?? args.config.approvalRequiredFor,
-    userLawIds: nextLaws.map((law) => law.lawId),
+    userLawIds: [...new Set([...(args.config.userLawIds ?? []), ...nextLaws.map((law) => law.lawId)])],
     processPolicy: args.policy.process ?? args.config.processPolicy,
   };
 }

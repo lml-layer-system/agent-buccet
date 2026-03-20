@@ -17,6 +17,7 @@ export async function boundaryNetworkSend<T>(args: {
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
@@ -47,6 +48,7 @@ export async function boundaryRecipientSend<T>(args: {
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
@@ -77,6 +79,7 @@ export async function boundaryToolExec<T>(args: {
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
@@ -108,6 +111,7 @@ export async function boundaryDatabaseAction<T>(args: {
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
@@ -145,6 +149,7 @@ export async function boundarySystemAction<T>(args: {
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
     requestsScopeExpansion?: boolean;
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;

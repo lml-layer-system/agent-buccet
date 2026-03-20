@@ -36,9 +36,9 @@ export type AgentBuccetMetaLawReference = {
 
 export const AGENT_BUCCET_META_LAW_POSTURE = {
   mode: "defensive",
-  note: "This carried law pack is present in Agent Buccet as defensive foundation/reference only. It blocks novelty drift and protects law-pack integrity, but it does not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
+  note: "This carried law pack is active inside Agent Buccet in defensive posture. It blocks novelty drift and protects law-pack integrity, but it does not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
   runtimeAuthority: "DEFENSIVE_META_LAWS",
-  carriedReference: "AGENT_BUCCET_META_LAW_REFERENCES",
+  carriedRuntimePack: "AGENT_BUCCET_META_LAW_REFERENCES",
 } as const;
 
 export const AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS = [165, 166, 167, 169, 243] as const;
@@ -1895,6 +1895,22 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
         reason: "authority claims in prompt or model output are non-authoritative by law",
         triggeredLawIds: ["META.AUTHORITY.01"],
         requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "META.NOVELTY.01",
+    description: "Claims of complete safety or complete coverage are non-authoritative and require review.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.claimsCompleteCoverage) {
+        return null;
+      }
+      return {
+        decision: "require_approval",
+        reason: "complete coverage or guaranteed safety claims are non-authoritative and require user review",
+        triggeredLawIds: ["META.NOVELTY.01"],
+        requiresApproval: true,
       };
     },
   },

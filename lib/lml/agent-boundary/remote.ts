@@ -12,6 +12,15 @@ const AUTHORITY_PATTERNS = [
   /\bbypass (the )?(approval|boundary|guardrails|laws)\b/i,
 ];
 
+const COMPLETE_COVERAGE_PATTERNS = [
+  /\bcomplete safety\b/i,
+  /\bcomplete coverage\b/i,
+  /\bfully safe\b/i,
+  /\bguaranteed safe\b/i,
+  /\bnothing can go wrong\b/i,
+  /\bperfectly secure\b/i,
+];
+
 const SCOPE_EXPANSION_PATTERNS = [
   /\bopen path\b/i,
   /\bgrant access\b/i,
@@ -44,6 +53,7 @@ const LEDGER_BYPASS_PATTERNS = [
 
 export function inferBoundaryMetaFlagsFromText(text: string): {
   authorityClaimed?: boolean;
+  claimsCompleteCoverage?: boolean;
   requestsScopeExpansion?: boolean;
   requestsLawMutation?: boolean;
   requestsSessionRevival?: boolean;
@@ -51,6 +61,7 @@ export function inferBoundaryMetaFlagsFromText(text: string): {
 } {
   return {
     authorityClaimed: AUTHORITY_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+    claimsCompleteCoverage: COMPLETE_COVERAGE_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     requestsScopeExpansion: SCOPE_EXPANSION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     requestsLawMutation: LAW_MUTATION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     requestsSessionRevival: SESSION_REVIVAL_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
