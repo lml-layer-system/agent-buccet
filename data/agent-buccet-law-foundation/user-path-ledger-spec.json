@@ -1,0 +1,146 @@
+{
+  "specVersion": 1,
+  "_role": "behavioral-contract — this is the full upstream implementer specification for the User Path Ledger. The machine-verifiable governing-law list used by verify-upstream-transfer.js lives at data/working/user-path-ledger-spec.json.",
+  "name": "Agent Buccet User Path Ledger",
+  "description": "Persistent sub-ledger of the main Agent Buccet ledger. Records all user-originated law decisions made at the action boundary. Authoritative source for NSL pre-checks before presenting user decisions.",
+  "governingLawSpec": "data/working/user-path-ledger-spec.json",
+  "governingLaws": [
+    "MT-00401",
+    "MT-00402",
+    "MT-00403",
+    "MT-00404",
+    "MT-00405",
+    "MT-00406",
+    "MT-00407",
+    "MT-00408",
+    "MT-00409",
+    "MT-00410",
+    "MT-00411",
+    "MT-00412",
+    "MT-00413",
+    "MT-00414",
+    "MT-00415",
+    "MT-00416",
+    "MT-00417",
+    "MT-00418",
+    "MT-00419",
+    "MT-00420"
+  ],
+  "sections": {
+    "userApprovedLawPaths": {
+      "description": "All paths the user has said yes to at the action boundary. Each entry is automatically written as law with status ACTIVE. No second confirmation required.",
+      "entryType": "APPROVED"
+    },
+    "userDeniedLawPaths": {
+      "description": "All paths the user has explicitly elevated to law via the denial fork. A regular denial does not appear here. Only paths where the user chose 'make denial a law' are stored.",
+      "entryType": "DENIED"
+    }
+  },
+  "entrySchema": {
+    "id": {
+      "type": "string",
+      "format": "UPL-XXXXXX",
+      "description": "Unique identifier for this User Path Ledger entry.",
+      "required": true
+    },
+    "type": {
+      "type": "string",
+      "enum": ["APPROVED", "DENIED"],
+      "description": "Whether this entry records an approved or denied path.",
+      "required": true
+    },
+    "path": {
+      "type": "string",
+      "description": "Human-readable description of the proposed action path that was decided upon.",
+      "required": true
+    },
+    "pathHash": {
+      "type": "string",
+      "description": "Deterministic hash of the path for efficient NSL lookup. Must be stable across sessions for the same path.",
+      "required": true
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "ISO 8601",
+      "description": "Timestamp when this law entry was created.",
+      "required": true
+    },
+    "scope": {
+      "type": "string",
+      "enum": ["SESSION", "GLOBAL", "DOMAIN"],
+      "default": "GLOBAL",
+      "description": "SESSION: expires at session end. GLOBAL: persists across all sessions. DOMAIN: applies to a defined category of paths.",
+      "required": true
+    },
+    "status": {
+      "type": "string",
+      "enum": ["ACTIVE", "MUTED", "DELETED"],
+      "default": "ACTIVE",
+      "description": "ACTIVE: consulted by NSL. MUTED: not consulted by NSL, entry preserved and reactivatable. DELETED: no longer carries legal force.",
+      "required": true
+    },
+    "witness": {
+      "type": "string",
+      "description": "Reference to the main ledger entry that witnessed this creation or last modification event.",
+      "required": true
+    },
+    "modifiedAt": {
+      "type": "string",
+      "format": "ISO 8601",
+      "description": "Timestamp of last modification. Null if never modified after creation.",
+      "required": false,
+      "nullable": true
+    },
+    "notes": {
+      "type": "string",
+      "description": "Optional user-authored annotation on this entry.",
+      "required": false,
+      "nullable": true
+    }
+  },
+  "nslLookupContract": {
+    "description": "How NSL queries the User Path Ledger before presenting a decision to the user.",
+    "steps": [
+      "1. Compute pathHash for the proposed action path.",
+      "2. Query User Path Ledger for entries where pathHash matches and status is ACTIVE.",
+      "3. If a matching APPROVED entry is found: proceed with the action. Do not ask the user.",
+      "4. If a matching DENIED entry is found: block the action as a lawful denial. Do not ask the user.",
+      "5. If no matching ACTIVE entry is found: present the decision to the user (yes/no).",
+      "6. On yes: write new APPROVED entry to User Approved Law Paths. Entry is ACTIVE immediately.",
+      "7. On no: ask exactly once 'Make this denial a law, or regular denial?'",
+      "8. On 'make denial a law': write new DENIED entry to User Denied Law Paths. Entry is ACTIVE immediately.",
+      "9. On 'regular denial': do not write to ledger. Denial has no future legal force."
+    ]
+  },
+  "userOperations": {
+    "view": {
+      "description": "User may view all entries in both sections at any time. No entry is hidden.",
+      "requiresWitness": false
+    },
+    "modify": {
+      "description": "User may modify any entry (notes, scope). Modification is a witnessed ledger event.",
+      "requiresWitness": true
+    },
+    "mute": {
+      "description": "User may set any entry to status MUTED. Muted entries are not consulted by NSL. Entry is preserved and reactivatable.",
+      "requiresWitness": true
+    },
+    "reactivate": {
+      "description": "User may set a MUTED entry back to ACTIVE. Reactivation is a witnessed ledger event.",
+      "requiresWitness": true
+    },
+    "delete": {
+      "description": "User may delete any entry. Deletion sets status to DELETED and removes the entry from NSL's active lookup. Deletion is a witnessed ledger event.",
+      "requiresWitness": true
+    }
+  },
+  "persistenceRules": {
+    "SESSION": "Entry expires at session end. Not reloaded at next session start.",
+    "GLOBAL": "Entry persists across all sessions. Reloaded at session start.",
+    "DOMAIN": "Entry persists and applies to all paths matching the defined domain category. Reloaded at session start."
+  },
+  "upstreamAttachPoints": {
+    "ledgerModule": "lib/agent-buccet/user-path-ledger.ts",
+    "persistentStore": "data/agent-buccet-law-foundation/user-path-ledger.json"
+  }
+}

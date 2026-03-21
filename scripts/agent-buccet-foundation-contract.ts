@@ -11,10 +11,10 @@ import {
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-foundation-"));
   process.chdir(tempRoot);
-  await fs.mkdir(path.join(tempRoot, "data", "agent-buccet-law-foundation"), { recursive: true });
-  await fs.copyFile(
-    path.join(import.meta.dirname, "..", "data", "agent-buccet-law-foundation", "laws.json"),
-    path.join(tempRoot, "data", "agent-buccet-law-foundation", "laws.json"),
+  await fs.cp(
+    path.join(import.meta.dirname, "..", "data", "agent-buccet-law-foundation"),
+    path.join(tempRoot, "data", "agent-buccet-law-foundation"),
+    { recursive: true },
   );
 
   const config = await startPersistentBoundarySession({
@@ -24,8 +24,11 @@ async function main() {
   const activeLawIds = config.userLawIds ?? [];
 
   assert.ok(activeLawIds.includes("BUCCET.BASE.01"), "expected base law ids to load into active runtime law identity");
-  assert.ok(activeLawIds.includes("LAW-0000001"), "expected carried base-law corpus ids to load into active runtime law identity");
-  assert.ok(activeLawIds.includes("LAW-0068277"), "expected carried base-law corpus tail ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("BUCCET.BASE.LAW-0049196"), "expected carried base law ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("BUCCET.STATE.LAW-0049196"), "expected carried state law ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("BUCCET.OUTPUT.LAW-0049196"), "expected carried output law ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("BUCCET.TIME.BASE.LAW-MT-00420"), "expected carried time law ids to load into active runtime law identity");
+  assert.ok(activeLawIds.includes("BUCCET.TIME.TEMPORAL.LAW-MT-00420"), "expected carried temporal time law ids to load into active runtime law identity");
   assert.ok(activeLawIds.includes("BUCCET.META.0001"), "expected carried defensive meta ids to load into active runtime law identity");
   assert.ok(activeLawIds.includes("META.AUTHORITY.01"), "expected live runtime meta ids to remain active");
 
@@ -45,7 +48,7 @@ async function main() {
 
   console.log(`active law ids: ${activeLawIds.length}`);
   console.log(`base law present: ${activeLawIds.includes("BUCCET.BASE.01")}`);
-  console.log(`carried base-law tail present: ${activeLawIds.includes("LAW-0068277")}`);
+  console.log(`carried temporal law present: ${activeLawIds.includes("BUCCET.TIME.TEMPORAL.LAW-MT-00420")}`);
 }
 
 main().catch((error) => {

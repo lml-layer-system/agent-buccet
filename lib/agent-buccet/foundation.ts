@@ -5,7 +5,14 @@ import { AGENT_BUCCET_META_LAW_REFERENCES } from "./meta.ts";
 import type { BoundaryLaw } from "./types.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const FOUNDATION_LAWS_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "laws.json");
+const FOUNDATION_LAWS_RELATIVE_PATH = path.join(
+  "data",
+  "agent-buccet-law-foundation",
+  "data",
+  "working",
+  "active-law-body",
+  "index.json",
+);
 
 const AGENT_BUCCET_BASE_LAW_IDS = [
   "BUCCET.BASE.01",
@@ -19,7 +26,7 @@ const AGENT_BUCCET_BASE_LAW_IDS = [
 export const AGENT_BUCCET_ACTIVE_FOUNDATION_EXCLUDED_LAW_IDS = [165, 166, 167, 169, 243] as const;
 
 export type AgentBuccetFoundationLawSourceRecord = {
-  id?: string;
+  byId?: Record<string, number>;
 };
 
 let cachedSunFoundationLawIds: Promise<string[]> | null = null;
@@ -32,8 +39,8 @@ async function loadSunFoundationLawIds(): Promise<string[]> {
   if (!cachedSunFoundationLawIds) {
     cachedSunFoundationLawIds = resolveFoundationLawsPath()
       .then((resolvedPath) => fs.readFile(resolvedPath, "utf8"))
-      .then((raw) => JSON.parse(raw) as AgentBuccetFoundationLawSourceRecord[])
-      .then((records) => records.map((record) => record.id).filter((id): id is string => typeof id === "string" && id.length > 0));
+      .then((raw) => JSON.parse(raw) as AgentBuccetFoundationLawSourceRecord)
+      .then((records) => Object.keys(records.byId ?? {}));
   }
   return cachedSunFoundationLawIds;
 }

@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-03-20",
+  "purpose": "Agent Buccet base-law family plan for defensive compression and transfer.",
+  "familyCount": 11,
+  "rule": "4 kept base families + 7 periodic-table dimensions = 11 Agent Buccet base-law families.",
+  "baseFamilies": [
+    {
+      "familyId": "BUCCET.BASE.FAMILY.01",
+      "title": "Base Defensive Invariants",
+      "sourceFamily": "S3_044__1ED7E9AD-1F2D-49D4-A7D4-5C5C4F5CE3C5.docx",
+      "status": "active",
+      "role": "Universal base defensive law layer",
+      "notes": "Coherence, completeness, groundedness, hierarchy, impossibility blocking, temporal validity, authenticity, consistency, context appropriateness, capacity constraint."
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.02",
+      "title": "Factual Integrity Defense",
+      "sourceFamily": "S3_043__18D5F666-F512-461A-8824-A3254F00C282.docx",
+      "status": "active",
+      "role": "Factual integrity, contradiction, verification, authority, and temporal integrity defense",
+      "notes": "Direct defensive knowledge-integrity law layer; no NSL repair scaffolding carried forward."
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.03",
+      "title": "Alignment and Architecture Defense",
+      "sourceFamily": "S3_060__A951F220-4F73-469E-AC41-CFD2B8F79F13.docx",
+      "status": "active",
+      "role": "Alignment-failure and architecture-failure defensive taxonomy",
+      "notes": "Carries class-level and concrete defensive failure worlds."
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.04",
+      "title": "Epistemic and Agentic Failure Defense",
+      "sourceFamily": "S3_063__EF7AD303-6CB0-4DBC-94BA-E4E34253D2D4.docx",
+      "status": "active",
+      "role": "Epistemic-failure and agentic-failure defensive taxonomy",
+      "notes": "Carries hallucination/fabrication and agentic deception/manipulation defense worlds."
+    }
+  ],
+  "periodicDimensionFamilies": [
+    {
+      "familyId": "BUCCET.BASE.FAMILY.05",
+      "title": "Epistemic Dimension",
+      "group": "GROUP 1: EPISTEMIC",
+      "status": "active",
+      "rootCause": "Probabilistic generation != logical deduction",
+      "invariant": "Output must match ground truth",
+      "sourceAnchor": "LAW-0062692"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.06",
+      "title": "Agentic Dimension",
+      "group": "GROUP 2: AGENTIC",
+      "status": "active",
+      "rootCause": "Instrumental convergence + goal preservation",
+      "invariant": "Agent must remain corrigible",
+      "sourceAnchor": "LAW-0062696"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.07",
+      "title": "Adversarial Robustness Dimension",
+      "group": "GROUP 3: ADVERSARIAL",
+      "status": "active",
+      "rootCause": "Optimization pressure against safety",
+      "invariant": "System must be robust to manipulation",
+      "sourceAnchor": "LAW-0062700",
+      "notes": "Active Agent Buccet defense family. Carry only defensive robustness/composure invariants. Do not carry offensive attack catalogs."
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.08",
+      "title": "Alignment Dimension",
+      "group": "GROUP 4: ALIGNMENT",
+      "status": "active",
+      "rootCause": "Reward hacking + specification gaming",
+      "invariant": "Behavior must match intent",
+      "sourceAnchor": "LAW-0062704"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "title": "Architectural Dimension",
+      "group": "GROUP 5: ARCHITECTURAL",
+      "status": "active",
+      "rootCause": "System design vs emergent properties",
+      "invariant": "Architecture must enforce constraints",
+      "sourceAnchor": "LAW-0062708"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.10",
+      "title": "Domain Boundary Dimension",
+      "group": "GROUP 6: DOMAIN",
+      "status": "active",
+      "rootCause": "Transfer failure + context mismatch",
+      "invariant": "Specialist knowledge must be accurate",
+      "sourceAnchor": "LAW-0062712",
+      "notes": "Active Agent Buccet defense family. Domain-boundary failures remain part of the defensive base-law body."
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.11",
+      "title": "Governance Persistence Dimension",
+      "group": "GROUP 7: GOVERNANCE",
+      "status": "active",
+      "rootCause": "Deployment != control",
+      "invariant": "Safety must persist post-deployment",
+      "sourceAnchor": "LAW-0062716",
+      "notes": "Active Agent Buccet defense family. Governance persistence remains part of the defensive base-law body."
+    }
+  ]
+}

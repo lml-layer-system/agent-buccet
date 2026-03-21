@@ -1,0 +1,29 @@
+{
+  "specVersion": 1,
+  "title": "Agent Buccet User Path Ledger Governing Laws",
+  "behavioralSpec": "../../../user-path-ledger-spec.json",
+  "familyId": "BUCCET.TIME.FAMILY.01",
+  "governingLawCount": 20,
+  "governingLaws": [
+    "MT-00401",
+    "MT-00402",
+    "MT-00403",
+    "MT-00404",
+    "MT-00405",
+    "MT-00406",
+    "MT-00407",
+    "MT-00408",
+    "MT-00409",
+    "MT-00410",
+    "MT-00411",
+    "MT-00412",
+    "MT-00413",
+    "MT-00414",
+    "MT-00415",
+    "MT-00416",
+    "MT-00417",
+    "MT-00418",
+    "MT-00419",
+    "MT-00420"
+  ]
+}

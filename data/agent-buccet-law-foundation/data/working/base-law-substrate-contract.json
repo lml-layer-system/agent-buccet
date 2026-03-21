@@ -1,0 +1,122 @@
+{
+  "generatedAt": "2026-03-21T18:36:50.219Z",
+  "method": "one_pass_substrate_collision",
+  "inputSurface": {
+    "id": "I∞",
+    "sourceFile": "laws.json",
+    "sourceLawCount": 68277,
+    "description": "Full Agent Buccet base-law surface preserved intact."
+  },
+  "defenseInvariants": [
+    {
+      "id": "F.01",
+      "name": "action_boundary_authority",
+      "rule": "Proposal is not authority; only lawful continuation may cross into system effect."
+    },
+    {
+      "id": "F.02",
+      "name": "no_ambient_authority",
+      "rule": "The model cannot silently authorize itself."
+    },
+    {
+      "id": "F.03",
+      "name": "scope_and_continuity_integrity",
+      "rule": "Scope, session continuity, ledger continuity, and bounded execution must be preserved."
+    },
+    {
+      "id": "F.04",
+      "name": "factual_integrity",
+      "rule": "Fabrication, contradiction, unsupported assertion, and stale unverified knowledge must be blocked."
+    },
+    {
+      "id": "F.05",
+      "name": "novelty_static_dynamic_defense",
+      "rule": "Novelty risk, static failure, and dynamic failure must be defended against."
+    },
+    {
+      "id": "F.06",
+      "name": "alignment_and_architecture_defense",
+      "rule": "Alignment drift, reward gaming, and architectural bypass must be resisted."
+    },
+    {
+      "id": "F.07",
+      "name": "agentic_deception_resistance",
+      "rule": "False compliance, sabotage, manipulation, and unauthorized escalation must be blocked."
+    },
+    {
+      "id": "F.08",
+      "name": "offensive_enablement_exclusion",
+      "rule": "Procedural attack enablement and non-defensive capability material must not survive into active base-law export, while adversarial recognition and containment knowledge must remain."
+    }
+  ],
+  "witnessFamilies": [
+    {
+      "familyId": "BUCCET.BASE.FAMILY.01",
+      "title": "Base Defensive Invariants",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.02",
+      "title": "Factual Integrity Defense",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.03",
+      "title": "Alignment and Architecture Defense",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.04",
+      "title": "Epistemic and Agentic Failure Defense",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.05",
+      "title": "Epistemic Dimension",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.06",
+      "title": "Agentic Dimension",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.07",
+      "title": "Adversarial Robustness Dimension",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.08",
+      "title": "Alignment Dimension",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "title": "Architectural Dimension",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.10",
+      "title": "Domain Boundary Dimension",
+      "status": "active"
+    },
+    {
+      "familyId": "BUCCET.BASE.FAMILY.11",
+      "title": "Governance Persistence Dimension",
+      "status": "active"
+    }
+  ],
+  "collisionFormula": "S = { law in I∞ : law satisfies Buccet defense invariants F, snaps to at least one witness family W, and is not eliminated by a hard exclusion gate }",
+  "hardExclusionBuckets": [
+    "trim_domain_legal_document",
+    "trim_domain_legal",
+    "trim_domain_citation",
+    "trim_writing",
+    "trim_retrieval_intelligence",
+    "trim_ui",
+    "trim_packaging",
+    "trim_ontology",
+    "trim_unresolved",
+    "duplicate_of_kept_core"
+  ]
+}
