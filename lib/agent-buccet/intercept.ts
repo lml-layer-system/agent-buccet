@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
 import { createBoundaryActionRequest, evaluateBoundaryAction } from "./bodyguard.ts";
-import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -147,72 +145,15 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  if (args.config.session.status === "ended") {
-    return {
-      decision: "deny",
-      reason: "session has been ended and can no longer authorize actions",
-      lawIds: ["BOUNDARY.SESSION.ENDED.01"],
-      nslMoves: [],
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  const standingLawResult = resolveBodyguardStandingLaw({
-    config: args.config,
-    request: boundaryRequest,
-  });
-
-  if (standingLawResult) {
-    return {
-      decision: standingLawResult.decision,
-      reason: standingLawResult.reason,
-      lawIds: standingLawResult.triggeredLawIds,
-      nslMoves: [],
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  const gravityService = args.config.gravityService ?? createBoundaryGravityService();
-  const gravity = await gravityService.enforceRequest({
-    config: args.config,
-    request: boundaryRequest,
-  });
-
-  if (gravity.outcome === "deny") {
-    return {
-      decision: "deny",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  if (gravity.outcome === "nsl_grant_offer") {
-    return {
-      decision: "require_approval",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  const nextRequest = gravity.request ?? boundaryRequest;
-  const nextConfig = gravity.config ?? args.config;
-  const evaluated = await evaluateBoundaryAction(nextConfig, nextRequest);
+  const { result, nslMoves } = await evaluateBoundaryAction(args.config, boundaryRequest);
 
   return {
-    decision: evaluated.result.decision,
-    reason: evaluated.result.reason,
-    lawIds: evaluated.result.triggeredLawIds,
-    nslMoves: evaluated.nslMoves,
-    requestId: nextRequest.requestId,
-    actionKind: nextRequest.actionKind,
+    decision: result.decision,
+    reason: result.reason,
+    lawIds: result.triggeredLawIds,
+    nslMoves,
+    requestId: boundaryRequest.requestId,
+    actionKind,
   };
 }
 

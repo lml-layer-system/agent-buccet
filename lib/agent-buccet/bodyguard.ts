@@ -43,20 +43,39 @@ export type BoundaryEvaluation = {
 /**
  * Evaluates a proposed action against the active session laws.
  *
- * This function is Bodyguard-owned. It does NOT re-check session status or UPL —
- * those are handled by the Bodyguard enforcement loop before this is called.
- * The snapped runtime muscle participates here directly: active muscle families
- * govern categorical invariants (law mutation, ledger bypass, session revival)
- * before the default law set runs.
+ * This is the Bodyguard decision function. Interceptors and all other callers
+ * route through here — they do not perform independent session, UPL, or law checks.
  *
- * Remaining gap: full muscle-governed adjudication (all families converted to
- * evaluated BoundaryLaw objects) is the next step — base invariant and temporal
- * continuity families are enforced directly here as the current step forward.
+ * Decision order:
+ * 1. Session-ended guard — deny immediately; no law evaluation for closed sessions.
+ * 2. UPL standing law — the only live standing-law surface; short-circuits if a
+ *    standing allow or deny exists for this target.
+ * 3. Snapped runtime muscle — active base families govern all flag-based violations
+ *    (authority claims, scope expansion, law mutation, ledger bypass, novelty claims)
+ *    and the time family governs temporal coherence including trust-provenance +
+ *    high-risk action combinations. Muscle law text appears directly in deny reasons.
+ * 4. Default law set — evaluated after muscle clears.
+ *
+ * Remaining gap: all 11 base families can be converted to full BoundaryLaw objects
+ * for complete substrate-native adjudication. Current step: muscle directly governs
+ * all flag-based and trust-provenance violations before the default law set runs.
  */
 export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
 ): Promise<BoundaryEvaluation> {
+  if (config.session.status === "ended") {
+    return {
+      result: {
+        decision: "deny",
+        reason: "session has ended; no actions permitted after session close",
+        triggeredLawIds: ["TIME.SESSION.01"],
+        requiresApproval: false,
+      },
+      nslMoves: [],
+    };
+  }
+
   await appendBoundaryLedger("ACTION_PROPOSED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
@@ -67,17 +86,25 @@ export async function evaluateBoundaryAction(
     createdAt: request.requestedAt,
   });
 
-  // Snapped runtime muscle participates in live adjudication.
-  // Active muscle families enforce categorical invariants before default law evaluation.
-  if (config.runtimeMuscle) {
-    const structuralViolation =
-      request.flags?.requestsLawMutation || request.flags?.requestsLedgerBypass;
+  // UPL: only live standing-law surface — short-circuits before muscle and default laws
+  const standingLaw = resolveBodyguardStandingLaw({ config, request });
+  if (standingLaw) {
+    return { result: standingLaw, nslMoves: [] };
+  }
 
-    if (structuralViolation) {
-      const governingFamily = config.runtimeMuscle.base.families.find(
-        (f) => f.status === "active",
-      );
-      if (governingFamily) {
+  // Snapped runtime muscle: active families govern live adjudication before default laws.
+  if (config.runtimeMuscle) {
+    const governingFamily = config.runtimeMuscle.base.families.find((f) => f.status === "active");
+    if (governingFamily) {
+      // Base families deny all structural flag violations:
+      // authority claims, scope expansion, law mutation, ledger bypass
+      const flagDeny =
+        request.flags?.authorityClaimed ||
+        request.flags?.requestsScopeExpansion ||
+        request.flags?.requestsLawMutation ||
+        request.flags?.requestsLedgerBypass;
+
+      if (flagDeny) {
         const muscleResult: BoundaryLawResult = {
           decision: "deny",
           reason: `[${governingFamily.familyId}] ${governingFamily.familyTitle}: ${governingFamily.familyCompressedLaw.slice(0, 200)}`,
@@ -97,30 +124,88 @@ export async function evaluateBoundaryAction(
         });
         return { result: muscleResult, nslMoves: [] };
       }
+
+      // Base families require approval for novelty/completeness claims (bounded action invariant)
+      if (request.flags?.claimsCompleteCoverage) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "require_approval",
+          reason: `[${governingFamily.familyId}] ${governingFamily.familyTitle}: ${governingFamily.familyCompressedLaw.slice(0, 200)}`,
+          triggeredLawIds: [governingFamily.familyId],
+          requiresApproval: true,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
     }
 
-    const timeViolation = request.flags?.requestsSessionRevival;
-    const timeFamilyActive = config.runtimeMuscle.time.family.status === "active";
-    if (timeViolation && timeFamilyActive) {
-      const tf = config.runtimeMuscle.time.family;
-      const muscleResult: BoundaryLawResult = {
-        decision: "deny",
-        reason: `[${tf.familyId}] ${tf.familyTitle}: ${tf.familyCompressedLaw.slice(0, 200)}`,
-        triggeredLawIds: [tf.familyId],
-        requiresApproval: false,
-      };
-      await appendBoundaryLedger("DECISION_RETURNED", {
-        sessionId: config.session.sessionId,
-        actorId: config.session.actorId,
-        requestId: request.requestId,
-        actionKind: request.actionKind,
-        target: request.target,
-        decision: muscleResult.decision,
-        reason: muscleResult.reason,
-        lawIds: muscleResult.triggeredLawIds,
-        createdAt: new Date().toISOString(),
-      });
-      return { result: muscleResult, nslMoves: [] };
+    const tf = config.runtimeMuscle.time.family;
+    if (tf.status === "active") {
+      // Time family denies session revival (temporal continuity invariant)
+      if (request.flags?.requestsSessionRevival) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "deny",
+          reason: `[${tf.familyId}] ${tf.familyTitle}: ${tf.familyCompressedLaw.slice(0, 200)}`,
+          triggeredLawIds: [tf.familyId],
+          requiresApproval: false,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
+
+      // Time family requires approval for untrusted provenance + high-risk action
+      // (temporal coherence includes trust coherence — untrusted sources cannot directly
+      // authorize high-risk side-effecting actions)
+      const isUntrustedProvenance =
+        request.provenance === "remote_user" ||
+        request.provenance === "agent_inference" ||
+        request.provenance === "tool_output" ||
+        request.provenance === "external_content";
+      const isHighRiskAction =
+        request.actionKind === "fs.delete" ||
+        request.actionKind === "fs.move" ||
+        request.actionKind === "comm.send" ||
+        request.actionKind === "tool.exec" ||
+        request.actionKind === "network.send";
+      if (isUntrustedProvenance && isHighRiskAction) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "require_approval",
+          reason: `[${tf.familyId}] ${tf.familyTitle}: ${tf.familyCompressedLaw.slice(0, 200)}`,
+          triggeredLawIds: [tf.familyId],
+          requiresApproval: true,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
     }
   }
 

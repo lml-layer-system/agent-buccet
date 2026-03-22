@@ -58,15 +58,15 @@ async function main() {
 
   assert(status?.type === "status" && status.running === true, "expected running status from intercept daemon");
   assert(
-    decision?.type === "decision" && decision.decision === "require_approval",
-    "expected out-of-scope database intercept request to require approval",
+    decision?.type === "decision" && decision.decision === "deny",
+    "expected out-of-scope database intercept request to be denied",
   );
   assert(restart?.type === "ack" && restart.command === "restart", "expected restart ack");
   assert(shutdown?.type === "ack" && shutdown.command === "shutdown", "expected shutdown ack");
 
   console.log("Agent Buccet intercept daemon contract");
   console.log(`initial status running: ${String(status?.running)}`);
-  console.log(`database intercept decision: ${String(decision?.decision)}`);
+  console.log(`database intercept decision (deny=out-of-scope): ${String(decision?.decision)}`);
   console.log(`restart command: ${String(restart?.command)}`);
   console.log(`shutdown command: ${String(shutdown?.command)}`);
 }
