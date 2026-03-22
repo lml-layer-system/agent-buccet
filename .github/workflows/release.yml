@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run typecheck
+      - name: Core contracts
+        run: |
+          npm run test:agent-buccet:foundation
+          npm run test:agent-buccet:time-runtime
+          npm run test:agent-buccet:gravity-contract
+          npm run test:agent-buccet:ledger-contract
+          npm run test:agent-buccet:wrapper-contract
+      - name: Build release package
+        run: node scripts/prepare-agent-buccet-package.ts
+      - name: Publish to npm
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            dist/releases/*.tar.gz
+            dist/releases/latest.json
