@@ -50,15 +50,19 @@ export type BoundaryEvaluation = {
  * 1. Session-ended guard — deny immediately; no law evaluation for closed sessions.
  * 2. UPL standing law — the only live standing-law surface; short-circuits if a
  *    standing allow or deny exists for this target.
- * 3. Snapped runtime muscle — active base families govern all flag-based violations
- *    (authority claims, scope expansion, law mutation, ledger bypass, novelty claims)
- *    and the time family governs temporal coherence including trust-provenance +
- *    high-risk action combinations. Muscle law text appears directly in deny reasons.
- * 4. Default law set — evaluated after muscle clears.
- *
- * Remaining gap: all 11 base families can be converted to full BoundaryLaw objects
- * for complete substrate-native adjudication. Current step: muscle directly governs
- * all flag-based and trust-provenance violations before the default law set runs.
+ * 3. Snapped runtime muscle — the governing law field when loaded.
+ *    The active base families govern the full flag-violation surface:
+ *    authority claims, scope expansion, law mutation, ledger bypass, novelty claims.
+ *    The time family governs temporal coherence: session revival and trust-provenance
+ *    combinations with high-risk actions.
+ *    When muscle is active, the full TIME.*.01 law surface is governed here.
+ *    Muscle law text appears directly in decision reasons alongside canonical law IDs.
+ * 4. Residual boundary action-class laws — evaluated only after muscle clears.
+ *    When muscle is active, this step covers only the BOUNDARY.*.01 action-class
+ *    laws (comm, delete, exec, network, db, sys) plus scope enforcement.
+ *    The TIME.*.01 laws are intentionally excluded from this step when muscle governs
+ *    them above. `config.laws` fallback is residual compatibility, not the core model.
+ *    When muscle is absent, full `config.laws` runs as the native default.
  */
 export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
@@ -266,10 +270,18 @@ export async function evaluateBoundaryAction(
     }
   }
 
+  // Residual law evaluation. When muscle is active, it has governed the full TIME.*.01
+  // surface above (all 7 defensive time laws). Only BOUNDARY.*.01 action-class laws and
+  // scope enforcement remain — these are residual compatibility with the non-muscle runtime.
+  // When muscle is absent, full config.laws runs as the native default.
+  const residualLaws = config.runtimeMuscle
+    ? config.laws.filter((law) => !law.lawId.startsWith("TIME."))
+    : config.laws;
+
   const result = evaluateBoundaryLaws({
     session: config.session,
     request,
-    laws: config.laws,
+    laws: residualLaws,
     grants: config.grants,
     approvalRequiredFor: config.approvalRequiredFor,
   });
