@@ -453,6 +453,13 @@ async function handleStatus(rest: string[]) {
   const ledgerVerify = await boundary.verifyBoundaryLedgerChain();
   const ledgerEntries = await boundary.readBoundaryLedgerBySession(config.sessionId);
 
+  // Read witness status from the installed release manifest (written at build time).
+  const releaseManifestPath = path.join(home.homePath, "current", "releases", "latest.json");
+  const releaseManifest = await fs.readFile(releaseManifestPath, "utf8")
+    .then((raw) => JSON.parse(raw) as { witness?: { status?: string; mode?: string; target?: string; fallback?: boolean; generated_at?: string } })
+    .catch(() => null);
+  const witnessStatus = releaseManifest?.witness ?? null;
+
   const payload = {
     initialized: true,
     home: home.homePath,
@@ -466,6 +473,15 @@ async function handleStatus(rest: string[]) {
       chainOk: ledgerVerify.ok,
       checkedFrom: ledgerVerify.checkedFrom,
     },
+    witness: witnessStatus
+      ? {
+          status: witnessStatus.status ?? "unknown",
+          mode: witnessStatus.mode ?? "unknown",
+          target: witnessStatus.target ?? "unknown",
+          fallback: witnessStatus.fallback ?? false,
+          published_at: witnessStatus.generated_at ?? null,
+        }
+      : null,
   };
 
   if (asJson) {
@@ -482,6 +498,16 @@ async function handleStatus(rest: string[]) {
   console.log(`active grants: ${payload.grants}`);
   console.log(`ledger entries: ${payload.ledger.entries}`);
   console.log(`ledger chain: ${payload.ledger.chainOk ? "ok" : "broken"}`);
+  if (payload.witness) {
+    console.log(`witness: ${payload.witness.target}`);
+    console.log(`witness.mode: ${payload.witness.mode}`);
+    console.log(`witness.status: ${payload.witness.status}${payload.witness.fallback ? " (fallback: local file)" : ""}`);
+    if (payload.witness.published_at) {
+      console.log(`witness.published: ${payload.witness.published_at}`);
+    }
+  } else {
+    console.log(`witness: unavailable (run package build to generate)`);
+  }
 }
 
 async function handleLogs(rest: string[]) {
