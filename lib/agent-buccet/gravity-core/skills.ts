@@ -222,26 +222,6 @@ export function createMetaLedgerSkill(): LawSkill {
         );
       }
 
-      if (!state.context.ledger.sessionTraceComplete) {
-        violations.push(
-          violation(
-            META_LEDGER_01,
-            "SESSION_TRACE_INCOMPLETE",
-            "Session ledger trace is incomplete; actions must not be treated as authoritative.",
-          ),
-        );
-      }
-
-      if (!state.context.ledger.requestTraceComplete) {
-        violations.push(
-          violation(
-            META_LEDGER_01,
-            "REQUEST_TRACE_INCOMPLETE",
-            "Request ledger trace is incomplete; this request must not be treated as authoritative.",
-          ),
-        );
-      }
-
       return violations;
     },
     normalize(state: GravityState, violations: LawViolation[]): GravityState {

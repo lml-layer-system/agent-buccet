@@ -17,6 +17,7 @@ import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
   BoundaryApprovalRequest,
+  BoundaryDecision,
   BoundaryLedgerRecord,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
@@ -125,6 +126,42 @@ async function logExecutedAction(
     decision: "allow",
     reason,
     metadata,
+    createdAt: new Date().toISOString(),
+  });
+}
+
+async function logProposedAction(
+  config: BoundaryRuntimeConfig,
+  request: BoundaryActionRequest,
+  reason = "action proposed",
+): Promise<void> {
+  await appendBoundaryLedger("ACTION_PROPOSED", {
+    sessionId: config.session.sessionId,
+    actorId: config.session.actorId,
+    requestId: request.requestId,
+    actionKind: request.actionKind,
+    target: request.target,
+    reason,
+    createdAt: request.requestedAt,
+  });
+}
+
+async function logDecisionReturned(
+  config: BoundaryRuntimeConfig,
+  request: BoundaryActionRequest,
+  reason: string,
+  decision: BoundaryDecision,
+  lawIds: string[],
+): Promise<void> {
+  await appendBoundaryLedger("DECISION_RETURNED", {
+    sessionId: config.session.sessionId,
+    actorId: config.session.actorId,
+    requestId: request.requestId,
+    actionKind: request.actionKind,
+    target: request.target,
+    decision,
+    reason,
+    lawIds,
     createdAt: new Date().toISOString(),
   });
 }
@@ -247,24 +284,20 @@ export async function runBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
+  await logProposedAction(activeConfig, activeRequest);
   let adjudication = await adjudicateBoundaryRequest({
     config: activeConfig,
     request: activeRequest,
   });
   activeConfig = adjudication.config;
   activeRequest = adjudication.request;
-
-  if (adjudication.result.triggeredLawIds[0] === "META.LEDGER.02") {
-    await appendBoundaryLedger("ACTION_PROPOSED", {
-      sessionId: activeConfig.session.sessionId,
-      actorId: activeConfig.session.actorId,
-      requestId: activeRequest.requestId,
-      actionKind: activeRequest.actionKind,
-      target: activeRequest.target,
-      reason: "action proposed during incomplete session ledger state",
-      createdAt: activeRequest.requestedAt,
-    });
-  }
+  await logDecisionReturned(
+    activeConfig,
+    activeRequest,
+    adjudication.result.reason,
+    adjudication.result.decision,
+    adjudication.result.triggeredLawIds,
+  );
 
   if (adjudication.result.decision === "deny") {
     await logBlockedAction(
@@ -348,12 +381,29 @@ export async function runBoundaryControlledAction<T>(args: {
       });
       activeConfig = replay.config;
       activeRequest = replay.request;
+      await appendBoundaryLedger("PROPOSAL_REPLAYED", {
+        sessionId: activeConfig.session.sessionId,
+        actorId: activeConfig.session.actorId,
+        requestId: activeRequest.requestId,
+        actionKind: activeRequest.actionKind,
+        target: activeRequest.target,
+        reason: "proposal replayed after user approval changed standing law",
+        lawIds: adjudication.result.triggeredLawIds,
+        createdAt: new Date().toISOString(),
+      });
       adjudication = await adjudicateBoundaryRequest({
         config: activeConfig,
         request: activeRequest,
       });
       activeConfig = adjudication.config;
       activeRequest = adjudication.request;
+      await logDecisionReturned(
+        activeConfig,
+        activeRequest,
+        adjudication.result.reason,
+        adjudication.result.decision,
+        adjudication.result.triggeredLawIds,
+      );
       if (adjudication.result.decision === "deny") {
         await logBlockedAction(
           activeConfig,
@@ -373,7 +423,35 @@ export async function runBoundaryControlledAction<T>(args: {
       continue;
     }
 
-    break;
+    adjudication = await adjudicateBoundaryRequest({
+      config: activeConfig,
+      request: activeRequest,
+    });
+    activeConfig = adjudication.config;
+    activeRequest = adjudication.request;
+    await logDecisionReturned(
+      activeConfig,
+      activeRequest,
+      adjudication.result.reason,
+      adjudication.result.decision,
+      adjudication.result.triggeredLawIds,
+    );
+    if (adjudication.result.decision === "deny") {
+      await logBlockedAction(
+        activeConfig,
+        activeRequest,
+        adjudication.result.reason,
+        adjudication.result.triggeredLawIds,
+      );
+      return {
+        config: activeConfig,
+        allowed: false,
+        executed: false,
+        requiresApproval: false,
+        reason: adjudication.result.reason,
+        nslMoves: adjudication.nslMoves,
+      };
+    }
   }
 
   if (!args.execute) {

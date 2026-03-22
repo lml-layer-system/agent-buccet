@@ -350,6 +350,14 @@ export type BoundaryRuntimeMuscleManifest = {
   };
 };
 
+export type BoundaryRuntimeMuscle = {
+  manifest: BoundaryRuntimeMuscleManifest;
+  substrate: unknown;
+  activeLawIds: string[];
+  timeLawIdsByGate: Record<string, string[]>;
+  timeLawIdsByCategory: Record<string, string[]>;
+};
+
 export type BoundaryRuntimeConfig = {
   session: BoundarySession;
   laws: BoundaryLaw[];
@@ -358,7 +366,7 @@ export type BoundaryRuntimeConfig = {
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds?: string[];
   upl?: BoundaryUserPathLedger;
-  runtimeMuscle?: BoundaryRuntimeMuscleManifest;
+  runtimeMuscle?: BoundaryRuntimeMuscle;
   bodyguardOnline?: boolean;
   persistence?: BoundaryPersistenceConfig;
   approvalHandler?: BoundaryApprovalHandler;

@@ -1,4 +1,3 @@
-import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { buildBoundaryBodyguardMoves } from "./bodyguard-moves.ts";
 import {
   createBoundaryGravityService,
@@ -95,17 +94,16 @@ export async function resolveBodyguardHeldRequest(args: {
     };
   }
 
-  const audit = await auditBoundarySessionLedger(args.config.session.sessionId);
-  if (audit.status !== "complete") {
+  if (args.config.session.status === "ended") {
     const result: BoundaryLawResult = {
       decision: "deny",
-      reason: audit.reason,
-      triggeredLawIds: ["META.LEDGER.02"],
+      reason: "session has been ended by the user and can no longer authorize actions",
+      triggeredLawIds: ["BOUNDARY.SESSION.ENDED.01"],
       requiresApproval: false,
     };
     return {
       result,
-      nslMoves: buildBoundaryBodyguardMoves(args.request, result),
+      nslMoves: [],
     };
   }
 
@@ -124,18 +122,6 @@ export function evaluateBodyguardAction(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
 }): BodyguardAdjudication {
-  if (args.config.session.status === "ended") {
-    return {
-      result: {
-        decision: "deny",
-        reason: "session has been ended by the user and can no longer authorize actions",
-        triggeredLawIds: ["BOUNDARY.SESSION.ENDED.01"],
-        requiresApproval: false,
-      },
-      nslMoves: [],
-    };
-  }
-
   const standingLaw = resolveBodyguardStandingLaw(args);
   if (standingLaw) {
     return {

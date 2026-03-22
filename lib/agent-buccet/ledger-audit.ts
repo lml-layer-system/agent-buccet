@@ -22,6 +22,19 @@ const REQUEST_TERMINAL_EVENTS: BoundaryLedgerEventType[] = [
   "APPROVAL_GRANTED",
 ];
 
+function hasTerminalDecisionReturned(trace: BoundaryLedgerRecord[]): boolean {
+  const latestDecision = [...trace]
+    .reverse()
+    .find((record) => record.eventType === "DECISION_RETURNED");
+  if (!latestDecision) {
+    return false;
+  }
+  return (
+    latestDecision.payload.decision === "allow" ||
+    latestDecision.payload.decision === "deny"
+  );
+}
+
 const SESSION_REQUIRED_EVENTS: BoundaryLedgerEventType[] = [
   "SESSION_STARTED",
   "SESSION_PERSISTED",
@@ -56,7 +69,11 @@ export async function auditBoundaryRequestLedger(requestId: string): Promise<{
   const seen = new Set(trace.map((record) => record.eventType));
   const missingRequired = REQUEST_REQUIRED_EVENTS.filter((eventType) => !seen.has(eventType));
   const hasTerminal = REQUEST_TERMINAL_EVENTS.some((eventType) => seen.has(eventType));
-  const missingEventTypes = hasTerminal ? missingRequired : [...missingRequired, ...REQUEST_TERMINAL_EVENTS];
+  const hasTerminalDecision = hasTerminalDecisionReturned(trace);
+  const missingEventTypes =
+    hasTerminal || hasTerminalDecision
+      ? missingRequired
+      : [...missingRequired, ...REQUEST_TERMINAL_EVENTS];
 
   if (missingEventTypes.length > 0) {
     return {

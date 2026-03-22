@@ -70,12 +70,15 @@ async function main() {
     config,
     request: brokenLedger,
   });
-  assert(brokenLedgerResult.outcome === "deny", "expected incomplete ledger session to be denied");
+  assert(
+    brokenLedgerResult.outcome === "nsl_grant_offer",
+    "expected missing ledger history not to become a live authorization deny",
+  );
 
   console.log("Agent Buccet gravity contract");
   console.log(`out-of-scope outcome: ${outOfScopeResult.outcome}`);
   console.log(`authority claim outcome: ${authorityResult.outcome}`);
-  console.log(`incomplete ledger outcome: ${brokenLedgerResult.outcome}`);
+  console.log(`missing ledger history outcome: ${brokenLedgerResult.outcome}`);
 }
 
 main().catch((error) => {
