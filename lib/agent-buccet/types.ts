@@ -344,6 +344,27 @@ export type BoundaryRuntimeMuscleManifest = {
   };
 };
 
+export type BoundaryRuntimeMuscleFamily = {
+  familyId: string;
+  familyTitle: string;
+  status: string;
+  kind?: string;
+  familyCompressedLaw: string;
+  sourceRowCount: number;
+};
+
+export type BoundaryRuntimeMuscle = {
+  manifest: BoundaryRuntimeMuscleManifest;
+  base: {
+    layerIds: string[];
+    families: BoundaryRuntimeMuscleFamily[];
+  };
+  time: {
+    layerIds: string[];
+    family: BoundaryRuntimeMuscleFamily;
+  };
+};
+
 export type BoundaryRuntimeConfig = {
   session: BoundarySession;
   laws: BoundaryLaw[];
@@ -352,7 +373,7 @@ export type BoundaryRuntimeConfig = {
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds?: string[];
   upl?: BoundaryUserPathLedger;
-  runtimeMuscle?: BoundaryRuntimeMuscleManifest;
+  runtimeMuscle?: BoundaryRuntimeMuscle;
   persistence?: BoundaryPersistenceConfig;
   approvalHandler?: BoundaryApprovalHandler;
   gravityService?: BoundaryGravityService;
