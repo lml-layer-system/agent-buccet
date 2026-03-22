@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { createBoundaryActionRequest } from "../lib/agent-buccet/executor.ts";
+import { createBoundaryActionRequest } from "../lib/agent-buccet/bodyguard-engine.ts";
 import { createBoundaryGravityService } from "../lib/agent-buccet/gravity-adapter/gravity-service.ts";
 import { startPersistentBoundarySession } from "../lib/agent-buccet/state.ts";
 

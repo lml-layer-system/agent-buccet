@@ -7,10 +7,10 @@ import type {
 import { allViolationsGrantable } from "./types.ts";
 
 /**
- * Result of mapping an EnforcementResult to executor behavior.
- * Executor branches on outcome and never silently says "no"; blocked becomes ledger + NSL.
+ * Result of mapping an EnforcementResult to a bodyguard routing decision.
+ * Bodyguard branches on outcome and never silently says "no"; blocked becomes ledger + NSL.
  */
-export type ExecutorOutcome =
+export type BodyguardOutcome =
   | { outcome: "allow"; result: EnforcementResult }
   | { outcome: "transform"; result: EnforcementResult }
   | { outcome: "nsl_grant_offer"; result: EnforcementResult; grantOffer: NslGrantOffer }
@@ -18,7 +18,7 @@ export type ExecutorOutcome =
 
 /**
  * Structured data for the "open this and make it law? yes/no" NSL step.
- * Built from grantable violations so executor can ledger blocked, show prompt, and on yes issue grant + replay.
+ * Built from grantable violations so bodyguard can ledger blocked, show prompt, and on yes issue grant + replay.
  */
 export interface NslGrantOffer {
   /** First grantable violation's scope (exact path/recipient/domain/tool). */
@@ -36,7 +36,7 @@ export interface NslGrantOffer {
 }
 
 /**
- * Maps gravity EnforcementResult to executor outcome.
+ * Maps gravity EnforcementResult to a bodyguard routing decision.
  * - allow: proceed to boundary checks and execution.
  * - transform: use result.proposal if present and proceed.
  * - null (only grantable violations): ledger blocked + emit NSL grant offer; on yes issue grant and replay.
@@ -45,7 +45,7 @@ export interface NslGrantOffer {
 export function mapEnforcementResultToOutcome(
   result: EnforcementResult,
   proposal?: GravityProposal,
-): ExecutorOutcome {
+): BodyguardOutcome {
   if (result.decision === "allow") {
     return { outcome: "allow", result };
   }

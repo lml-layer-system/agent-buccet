@@ -2,7 +2,7 @@ import {
   getDefaultLawSkills,
   mapEnforcementResultToOutcome,
   type EnforcementResult,
-  type ExecutorOutcome,
+  type BodyguardOutcome,
   type GravityEvent,
   type GravityState,
   type LawSkill,
@@ -136,7 +136,7 @@ export function createBoundaryGravityService(skills: readonly LawSkill[] = getDe
         ts: Date.now(),
         proposal,
       });
-      const outcome: ExecutorOutcome = mapEnforcementResultToOutcome(result, proposal);
+      const outcome: BodyguardOutcome = mapEnforcementResultToOutcome(result, proposal);
       const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
 
       if (outcome.outcome === "nsl_grant_offer") {

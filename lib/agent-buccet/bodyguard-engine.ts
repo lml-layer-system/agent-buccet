@@ -197,7 +197,7 @@ async function requestApproval(
 /**
  * The primary action enforcement + execution function.
  *
- * Orchestrates the full enforcement loop for a proposed action:
+ * Bodyguard's internal engine — orchestrates the full enforcement loop for a proposed action:
  * 1. Fires `onBeforeAction` hook if configured.
  * 2. Checks session ledger completeness (denies if incomplete).
  * 3. Checks the User Path Ledger for a standing allow/deny.
@@ -435,7 +435,7 @@ async function _executeBoundaryControlledActionCore<T>(args: {
         gravity.lawIds,
       );
 
-      if (!approved) {
+      if (!approved.approved) {
         await gravity.denyGrant();
         await logBlockedAction(activeConfig, activeRequest, gravity.reason, gravity.lawIds);
         return {

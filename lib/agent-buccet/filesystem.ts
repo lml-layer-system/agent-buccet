@@ -4,7 +4,7 @@ import {
   createBoundaryActionRequest,
   executeBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./executor.ts";
+} from "./bodyguard-engine.ts";
 import type { BoundaryRuntimeConfig } from "./types.ts";
 
 export type BoundaryFsResult<T = void> = BoundaryExecutionResult<T>;

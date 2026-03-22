@@ -4,7 +4,7 @@ export {
 export {
   mapEnforcementResultToOutcome,
   shouldOfferNslGrant,
-  type ExecutorOutcome,
+  type BodyguardOutcome,
   type NslGrantOffer,
 } from "./executor-mapping.ts";
 export { runGravityLoop } from "./kernel.ts";

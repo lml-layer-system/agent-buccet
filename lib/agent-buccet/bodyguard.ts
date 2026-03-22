@@ -6,7 +6,9 @@ import {
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
 } from "./adapters.ts";
-import type { BoundaryExecutionResult } from "./executor.ts";
+import type { BoundaryExecutionResult } from "./bodyguard-engine.ts";
+export { createBoundaryActionRequest, executeBoundaryControlledAction } from "./bodyguard-engine.ts";
+export type { BoundaryExecutionResult } from "./bodyguard-engine.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";

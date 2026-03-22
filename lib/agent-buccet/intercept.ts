@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
-import { createBoundaryActionRequest } from "./executor.ts";
-import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
+import { createBoundaryActionRequest } from "./bodyguard-engine.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
 import type {
@@ -184,36 +183,41 @@ export async function evaluateBoundaryIntercept(args: {
     };
   }
 
-  const gravityService = args.config.gravityService ?? createBoundaryGravityService();
-  const gravity = await gravityService.enforceRequest({
-    config: args.config,
-    request: boundaryRequest,
-  });
+  let nextRequest = boundaryRequest;
+  let nextConfig = args.config;
 
-  if (gravity.outcome === "deny") {
-    return {
-      decision: "deny",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
+  if (args.config.gravityService) {
+    const gravity = await args.config.gravityService.enforceRequest({
+      config: args.config,
+      request: boundaryRequest,
+    });
+
+    if (gravity.outcome === "deny") {
+      return {
+        decision: "deny",
+        reason: gravity.reason,
+        lawIds: gravity.lawIds,
+        nslMoves: gravity.nslMoves,
+        requestId: boundaryRequest.requestId,
+        actionKind,
+      };
+    }
+
+    if (gravity.outcome === "nsl_grant_offer") {
+      return {
+        decision: "require_approval",
+        reason: gravity.reason,
+        lawIds: gravity.lawIds,
+        nslMoves: gravity.nslMoves,
+        requestId: boundaryRequest.requestId,
+        actionKind,
+      };
+    }
+
+    nextRequest = gravity.request ?? boundaryRequest;
+    nextConfig = gravity.config ?? args.config;
   }
 
-  if (gravity.outcome === "nsl_grant_offer") {
-    return {
-      decision: "require_approval",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  const nextRequest = gravity.request ?? boundaryRequest;
-  const nextConfig = gravity.config ?? args.config;
   const evaluated = await evaluateBoundaryAction(nextConfig, nextRequest);
 
   return {

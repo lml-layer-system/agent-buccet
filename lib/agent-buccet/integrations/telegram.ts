@@ -3,7 +3,7 @@ import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
 } from "../adapters.ts";
-import type { BoundaryExecutionResult } from "../executor.ts";
+import type { BoundaryExecutionResult } from "../bodyguard-engine.ts";
 import { buildRemoteBoundaryProposal } from "../remote.ts";
 import type {
   BoundaryActionKind,
