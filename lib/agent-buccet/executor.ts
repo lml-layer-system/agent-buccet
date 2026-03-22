@@ -1,11 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   applyBodyguardUserLawDecision,
-  resolveBodyguardStandingLaw,
+  resolveBodyguardHeldRequest,
 } from "./bodyguard-core.ts";
-import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { buildBoundaryNslMoves } from "./nsl.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
 import type {
   BoundaryActionKind,
@@ -153,122 +151,54 @@ export async function executeBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
-  const sessionAudit = await auditBoundarySessionLedger(args.config.session.sessionId);
-  if (sessionAudit.status !== "complete") {
-    const result: BoundaryLawResult = {
-      decision: "deny",
-      reason: sessionAudit.reason,
-      triggeredLawIds: ["META.LEDGER.02"],
-      requiresApproval: false,
-    };
-    const nslMoves = buildBoundaryNslMoves(args.request, result);
+  const heldDecision = await resolveBodyguardHeldRequest({
+    config: activeConfig,
+    request: activeRequest,
+  });
+  if (heldDecision) {
+    if (heldDecision.result.triggeredLawIds[0] === "META.LEDGER.02") {
+      await appendBoundaryLedger("ACTION_PROPOSED", {
+        sessionId: activeConfig.session.sessionId,
+        actorId: activeConfig.session.actorId,
+        requestId: activeRequest.requestId,
+        actionKind: activeRequest.actionKind,
+        target: activeRequest.target,
+        reason: "action proposed during incomplete session ledger state",
+        createdAt: activeRequest.requestedAt,
+      });
+    }
 
-    await appendBoundaryLedger("ACTION_PROPOSED", {
-      sessionId: args.config.session.sessionId,
-      actorId: args.config.session.actorId,
-      requestId: args.request.requestId,
-      actionKind: args.request.actionKind,
-      target: args.request.target,
-      reason: "action proposed during incomplete session ledger state",
-      createdAt: args.request.requestedAt,
-    });
+    if (heldDecision.result.decision === "deny") {
+      await logBlockedAction(
+        activeConfig,
+        activeRequest,
+        heldDecision.result.reason,
+        heldDecision.result.triggeredLawIds,
+      );
+    }
 
-    await logBlockedAction(
-      args.config,
-      args.request,
-      result.reason,
-      result.triggeredLawIds,
-    );
-
-    for (const move of nslMoves) {
+    for (const move of heldDecision.nslMoves) {
       await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
-        sessionId: args.config.session.sessionId,
-        actorId: args.config.session.actorId,
-        requestId: args.request.requestId,
+        sessionId: activeConfig.session.sessionId,
+        actorId: activeConfig.session.actorId,
+        requestId: activeRequest.requestId,
         moveId: move.moveId,
-        actionKind: args.request.actionKind,
-        target: args.request.target,
-        decision: result.decision,
+        actionKind: activeRequest.actionKind,
+        target: activeRequest.target,
+        decision: heldDecision.result.decision,
         reason: move.description,
-        lawIds: result.triggeredLawIds,
+        lawIds: heldDecision.result.triggeredLawIds,
         createdAt: new Date().toISOString(),
       });
     }
 
     return {
       config: activeConfig,
-      allowed: false,
+      allowed: heldDecision.result.decision === "allow",
       executed: false,
-      requiresApproval: false,
-      reason: result.reason,
-      nslMoves,
-    };
-  }
-
-  const preGravityStandingLaw = resolveBodyguardStandingLaw({
-    config: activeConfig,
-    request: activeRequest,
-  });
-
-  if (preGravityStandingLaw?.decision === "deny") {
-    await logBlockedAction(
-      activeConfig,
-      activeRequest,
-      preGravityStandingLaw.reason,
-      preGravityStandingLaw.triggeredLawIds,
-    );
-    return {
-      config: activeConfig,
-      allowed: false,
-      executed: false,
-      requiresApproval: false,
-      reason: preGravityStandingLaw.reason,
-      nslMoves: [],
-    };
-  }
-
-  if (preGravityStandingLaw?.decision === "allow") {
-    if (!args.execute) {
-      return {
-        config: activeConfig,
-        allowed: true,
-        executed: false,
-        requiresApproval: false,
-        reason: preGravityStandingLaw.reason,
-        nslMoves: [],
-      };
-    }
-
-    const isMutatingAction = activeRequest.actionKind !== "fs.read";
-    if (activeConfig.session.dryRun && isMutatingAction) {
-      const reason =
-        args.dryRunPreviewReason ?? "session is in dry-run mode; action previewed but not executed";
-      await logExecutedAction(activeConfig, activeRequest, reason, { dry_run: true });
-      return {
-        config: activeConfig,
-        allowed: true,
-        executed: false,
-        requiresApproval: false,
-        reason,
-        nslMoves: [],
-      };
-    }
-
-    const value = await args.execute();
-    await logExecutedAction(
-      activeConfig,
-      activeRequest,
-      `executed under ${preGravityStandingLaw.reason.replace(/^allowed by /, "")}`,
-      args.successMetadata,
-    );
-    return {
-      config: activeConfig,
-      allowed: true,
-      executed: true,
-      requiresApproval: false,
-      reason: preGravityStandingLaw.reason,
-      nslMoves: [],
-      value,
+      requiresApproval: heldDecision.result.requiresApproval,
+      reason: heldDecision.result.reason,
+      nslMoves: heldDecision.nslMoves,
     };
   }
 
@@ -377,57 +307,6 @@ export async function executeBoundaryControlledAction<T>(args: {
       requiresApproval: false,
       reason: evaluation.result.reason,
       nslMoves: evaluation.nslMoves,
-    };
-  }
-
-  const standingLaw = resolveBodyguardStandingLaw({
-    config: activeConfig,
-    request: activeRequest,
-  });
-
-  if (standingLaw?.decision === "deny") {
-    await logBlockedAction(
-      activeConfig,
-      activeRequest,
-      standingLaw.reason,
-      standingLaw.triggeredLawIds,
-    );
-    return {
-      config: activeConfig,
-      allowed: false,
-      executed: false,
-      requiresApproval: false,
-      reason: standingLaw.reason,
-      nslMoves: [],
-    };
-  }
-
-  if (standingLaw?.decision === "allow") {
-    if (!args.execute) {
-      return {
-        config: activeConfig,
-        allowed: true,
-        executed: false,
-        requiresApproval: false,
-        reason: standingLaw.reason,
-        nslMoves: [],
-      };
-    }
-    const value = await args.execute();
-    await logExecutedAction(
-      activeConfig,
-      activeRequest,
-      `executed under ${standingLaw.reason.replace(/^allowed by /, "")}`,
-      args.successMetadata,
-    );
-    return {
-      config: activeConfig,
-      allowed: true,
-      executed: true,
-      requiresApproval: false,
-      reason: standingLaw.reason,
-      nslMoves: [],
-      value,
     };
   }
 

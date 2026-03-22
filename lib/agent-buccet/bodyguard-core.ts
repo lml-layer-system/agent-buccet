@@ -1,3 +1,4 @@
+import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
@@ -20,6 +21,8 @@ export type BodyguardAdjudication = {
   result: BoundaryLawResult;
   nslMoves: NslMove[];
 };
+
+export type BodyguardHeldDecision = BodyguardAdjudication | null;
 
 export function resolveBodyguardStandingLaw(args: {
   config: BoundaryRuntimeConfig;
@@ -52,6 +55,35 @@ export function resolveBodyguardStandingLaw(args: {
     triggeredLawIds: [standingUserLaw.entry.id],
     requiresApproval: false,
   };
+}
+
+export async function resolveBodyguardHeldRequest(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}): Promise<BodyguardHeldDecision> {
+  const audit = await auditBoundarySessionLedger(args.config.session.sessionId);
+  if (audit.status !== "complete") {
+    const result: BoundaryLawResult = {
+      decision: "deny",
+      reason: audit.reason,
+      triggeredLawIds: ["META.LEDGER.02"],
+      requiresApproval: false,
+    };
+    return {
+      result,
+      nslMoves: buildBoundaryNslMoves(args.request, result),
+    };
+  }
+
+  const standingLaw = resolveBodyguardStandingLaw(args);
+  if (standingLaw) {
+    return {
+      result: standingLaw,
+      nslMoves: [],
+    };
+  }
+
+  return null;
 }
 
 export function evaluateBodyguardAction(args: {

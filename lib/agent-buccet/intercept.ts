@@ -1,10 +1,8 @@
 import { randomUUID } from "node:crypto";
-import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
-import { auditBoundarySessionLedger } from "./ledger-audit.ts";
+import { resolveBodyguardHeldRequest } from "./bodyguard-core.ts";
 import { createBoundaryActionRequest } from "./executor.ts";
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
-import { buildBoundaryNslMoves } from "./nsl.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -150,35 +148,17 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  const sessionAudit = await auditBoundarySessionLedger(args.config.session.sessionId);
-  if (sessionAudit.status !== "complete") {
-    const result = {
-      decision: "deny" as const,
-      reason: sessionAudit.reason,
-      lawIds: ["META.LEDGER.02"],
-      nslMoves: buildBoundaryNslMoves(boundaryRequest, {
-        decision: "deny",
-        reason: sessionAudit.reason,
-        triggeredLawIds: ["META.LEDGER.02"],
-        requiresApproval: false,
-      }),
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-    return result;
-  }
-
-  const standingLawResult = resolveBodyguardStandingLaw({
+  const heldDecision = await resolveBodyguardHeldRequest({
     config: args.config,
     request: boundaryRequest,
   });
 
-  if (standingLawResult) {
+  if (heldDecision) {
     return {
-      decision: standingLawResult.decision,
-      reason: standingLawResult.reason,
-      lawIds: standingLawResult.triggeredLawIds,
-      nslMoves: [],
+      decision: heldDecision.result.decision,
+      reason: heldDecision.result.reason,
+      lawIds: heldDecision.result.triggeredLawIds,
+      nslMoves: heldDecision.nslMoves,
       requestId: boundaryRequest.requestId,
       actionKind,
     };
