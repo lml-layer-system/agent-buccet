@@ -1,7 +1,7 @@
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
+import { buildBoundaryBodyguardMoves } from "./bodyguard-moves.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
-import { buildBoundaryNslMoves } from "./nsl.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
@@ -95,7 +95,7 @@ export async function resolveBodyguardHeldRequest(args: {
     };
     return {
       result,
-      nslMoves: buildBoundaryNslMoves(args.request, result),
+      nslMoves: buildBoundaryBodyguardMoves(args.request, result),
     };
   }
 
@@ -144,7 +144,7 @@ export function evaluateBodyguardAction(args: {
 
   return {
     result,
-    nslMoves: buildBoundaryNslMoves(args.request, result),
+    nslMoves: buildBoundaryBodyguardMoves(args.request, result),
   };
 }
 

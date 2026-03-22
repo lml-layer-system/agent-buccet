@@ -43,8 +43,8 @@ async function main() {
     "expected novelty guard to trigger on complete coverage claims",
   );
 
-  console.log(`meta runtime decision: ${evaluated.result.decision}`);
-  console.log(`meta runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
+  console.log(`time runtime decision: ${evaluated.result.decision}`);
+  console.log(`time runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
 }
 
 main().catch((error) => {
