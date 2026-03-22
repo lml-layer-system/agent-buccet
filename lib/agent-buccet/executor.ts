@@ -207,6 +207,76 @@ export async function executeBoundaryControlledAction<T>(args: {
     };
   }
 
+  const preGravityStandingUserLaw = activeConfig.upl
+    ? lookupUserPathDecision({
+      ledger: activeConfig.upl,
+      session: activeConfig.session,
+      request: activeRequest,
+    })
+    : null;
+
+  if (preGravityStandingUserLaw?.decision === "deny") {
+    await logBlockedAction(
+      activeConfig,
+      activeRequest,
+      `blocked by standing UPL denial ${preGravityStandingUserLaw.entry.id}`,
+      [preGravityStandingUserLaw.entry.id],
+    );
+    return {
+      config: activeConfig,
+      allowed: false,
+      executed: false,
+      requiresApproval: false,
+      reason: `blocked by standing UPL denial ${preGravityStandingUserLaw.entry.id}`,
+      nslMoves: [],
+    };
+  }
+
+  if (preGravityStandingUserLaw?.decision === "allow") {
+    if (!args.execute) {
+      return {
+        config: activeConfig,
+        allowed: true,
+        executed: false,
+        requiresApproval: false,
+        reason: `allowed by standing UPL approval ${preGravityStandingUserLaw.entry.id}`,
+        nslMoves: [],
+      };
+    }
+
+    const isMutatingAction = activeRequest.actionKind !== "fs.read";
+    if (activeConfig.session.dryRun && isMutatingAction) {
+      const reason =
+        args.dryRunPreviewReason ?? "session is in dry-run mode; action previewed but not executed";
+      await logExecutedAction(activeConfig, activeRequest, reason, { dry_run: true });
+      return {
+        config: activeConfig,
+        allowed: true,
+        executed: false,
+        requiresApproval: false,
+        reason,
+        nslMoves: [],
+      };
+    }
+
+    const value = await args.execute();
+    await logExecutedAction(
+      activeConfig,
+      activeRequest,
+      `executed under standing UPL approval ${preGravityStandingUserLaw.entry.id}`,
+      args.successMetadata,
+    );
+    return {
+      config: activeConfig,
+      allowed: true,
+      executed: true,
+      requiresApproval: false,
+      reason: `allowed by standing UPL approval ${preGravityStandingUserLaw.entry.id}`,
+      nslMoves: [],
+      value,
+    };
+  }
+
   if (activeConfig.gravityService) {
     const gravity = await activeConfig.gravityService.enforceRequest({
       config: activeConfig,

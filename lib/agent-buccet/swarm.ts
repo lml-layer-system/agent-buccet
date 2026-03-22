@@ -2,7 +2,16 @@ import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
-import type { BoundaryActionKind, BoundaryResourceKind } from "./types.ts";
+import {
+  getActiveUserLawIds,
+  writeApprovedUserPathLaw,
+  writeDeniedUserPathLaw,
+} from "./user-path-ledger.ts";
+import type {
+  BoundaryActionKind,
+  BoundaryActionRequest,
+  BoundaryResourceKind,
+} from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 
 export type BoundarySwarmGroupState = "waiting" | "approved" | "denied";
@@ -121,6 +130,20 @@ function approvalGrantShape(request: BoundaryInterceptRequest): {
   }
 }
 
+function toBoundaryActionRequest(store: BoundaryRuntimeStore, request: BoundaryInterceptRequest, requestId: string): BoundaryActionRequest {
+  const config = store.getConfig();
+  return {
+    requestId,
+    sessionId: config.session.sessionId,
+    actionKind: mapInterceptToBoundaryAction(request),
+    target: normalizeTarget(request),
+    payloadSummary: request.payloadSummary,
+    requestedAt: new Date().toISOString(),
+    provenance: request.provenance ?? "agent_inference",
+    flags: request.flags,
+  };
+}
+
 async function appendSwarmLedger(args: {
   store: BoundaryRuntimeStore;
   eventType: "APPROVAL_REQUESTED" | "APPROVAL_GRANTED" | "APPROVAL_DENIED";
@@ -133,9 +156,9 @@ async function appendSwarmLedger(args: {
   waitingCount: number;
   actorId?: string;
   joined?: boolean;
-}) {
+}): Promise<Awaited<ReturnType<typeof appendBoundaryLedger>>> {
   const config = args.store.getConfig();
-  await appendBoundaryLedger(args.eventType, {
+  return appendBoundaryLedger(args.eventType, {
     sessionId: config.session.sessionId,
     actorId: args.actorId ?? config.session.actorId,
     requestId: args.requestId,
@@ -311,7 +334,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     group.updatedAt = new Date().toISOString();
     pendingGroups.delete(group.key);
 
-    await appendSwarmLedger({
+    const witness = await appendSwarmLedger({
       store,
       eventType: "APPROVAL_GRANTED",
       requestId: requestIdForGroup(group),
@@ -323,6 +346,26 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       waitingCount: group.waitingCount,
       actorId: args.issuedBy,
     });
+    const config = store.getConfig();
+    if (config.upl) {
+      const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
+      const upl = await writeApprovedUserPathLaw({
+        ledger: config.upl,
+        request: boundaryRequest,
+        witness,
+        session: config.session,
+      });
+      store.replaceConfig({
+        ...config,
+        upl,
+        userLawIds: [
+          ...new Set([
+            ...(config.userLawIds ?? []),
+            ...getActiveUserLawIds(upl, config.session),
+          ]),
+        ],
+      });
+    }
 
     for (const waiter of group.waiters) {
       waiter.settle({ kind: "retry" });
@@ -335,6 +378,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     groupId: string;
     deniedBy: string;
     reason?: string;
+    asLaw?: boolean;
   }) {
     const group = [...pendingGroups.values()].find((entry) => entry.groupId === args.groupId);
     if (!group) {
@@ -346,7 +390,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     pendingGroups.delete(group.key);
 
     const denyReason = args.reason ?? "swarm approval denied";
-    await appendSwarmLedger({
+    const witness = await appendSwarmLedger({
       store,
       eventType: "APPROVAL_DENIED",
       requestId: requestIdForGroup(group),
@@ -358,6 +402,26 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       waitingCount: group.waitingCount,
       actorId: args.deniedBy,
     });
+    const config = store.getConfig();
+    if (args.asLaw && config.upl) {
+      const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
+      const upl = await writeDeniedUserPathLaw({
+        ledger: config.upl,
+        request: boundaryRequest,
+        witness,
+        session: config.session,
+      });
+      store.replaceConfig({
+        ...config,
+        upl,
+        userLawIds: [
+          ...new Set([
+            ...(config.userLawIds ?? []),
+            ...getActiveUserLawIds(upl, config.session),
+          ]),
+        ],
+      });
+    }
 
     for (const waiter of group.waiters) {
       waiter.settle({ kind: "deny", reason: denyReason });

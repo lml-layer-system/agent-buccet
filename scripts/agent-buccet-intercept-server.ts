@@ -233,6 +233,7 @@ async function main() {
                 groupId: parsed.groupId,
                 deniedBy: parsed.deniedBy ?? store.getConfig().session.actorId,
                 reason: parsed.reason,
+                asLaw: parsed.asLaw,
               });
               if (!denied) {
                 writeOutput(socket, {

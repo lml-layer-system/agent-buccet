@@ -188,6 +188,7 @@ export async function runBoundaryGravityLoop(deps: BoundaryGravityDeps): Promise
       });
 
       const decision: BoundaryGravityDecision = result.allowed ? "allow" : "null";
+      store.replaceConfig(result.config);
       await store.persist();
       await deps.emitHeartbeat?.({
         sessionId: store.getConfig().session.sessionId,

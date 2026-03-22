@@ -4,6 +4,7 @@ import { createBoundaryActionRequest } from "./executor.ts";
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
+import { lookupUserPathDecision } from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -167,6 +168,27 @@ export async function evaluateBoundaryIntercept(args: {
     return result;
   }
 
+  const standingUserLaw = args.config.upl
+    ? lookupUserPathDecision({
+      ledger: args.config.upl,
+      session: args.config.session,
+      request: boundaryRequest,
+    })
+    : null;
+
+  if (standingUserLaw) {
+    return {
+      decision: standingUserLaw.decision === "allow" ? "allow" : "deny",
+      reason: standingUserLaw.decision === "allow"
+        ? `allowed by standing UPL approval ${standingUserLaw.entry.id}`
+        : `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
+      lawIds: [standingUserLaw.entry.id],
+      nslMoves: [],
+      requestId: boundaryRequest.requestId,
+      actionKind,
+    };
+  }
+
   const gravityService = args.config.gravityService ?? createBoundaryGravityService();
   const gravity = await gravityService.enforceRequest({
     config: args.config,
@@ -215,7 +237,7 @@ export type BoundaryInterceptDaemonCommand =
   | { command: "shutdown"; requestId?: string }
   | { command: "swarm_status"; requestId?: string }
   | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string }
-  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string };
+  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean };
 
 export type BoundaryInterceptDaemonInput =
   | ({ requestId?: string } & BoundaryInterceptRequest)

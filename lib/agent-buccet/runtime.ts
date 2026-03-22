@@ -6,6 +6,7 @@ import {
   instantiatePathLaw,
 } from "./orchestrator.ts";
 import { persistBoundarySessionState } from "./state.ts";
+import { lookupUserPathDecision } from "./user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryActionKind,
@@ -256,6 +257,45 @@ export async function evaluateBoundaryAction(
     reason: "action proposed",
     createdAt: request.requestedAt,
   });
+
+  const standingUserLaw = config.upl
+    ? lookupUserPathDecision({
+      ledger: config.upl,
+      session: config.session,
+      request,
+    })
+    : null;
+
+  if (standingUserLaw?.decision === "allow") {
+    const result: BoundaryLawResult = {
+      decision: "allow",
+      reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
+      triggeredLawIds: [standingUserLaw.entry.id],
+      requiresApproval: false,
+    };
+    return { result, nslMoves: [] };
+  }
+
+  if (standingUserLaw?.decision === "deny") {
+    const result: BoundaryLawResult = {
+      decision: "deny",
+      reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
+      triggeredLawIds: [standingUserLaw.entry.id],
+      requiresApproval: false,
+    };
+    await appendBoundaryLedger("ACTION_BLOCKED", {
+      sessionId: config.session.sessionId,
+      actorId: config.session.actorId,
+      requestId: request.requestId,
+      actionKind: request.actionKind,
+      target: request.target,
+      decision: result.decision,
+      reason: result.reason,
+      lawIds: result.triggeredLawIds,
+      createdAt: new Date().toISOString(),
+    });
+    return { result, nslMoves: [] };
+  }
 
   const result = evaluateBoundaryLaws({
     session: config.session,

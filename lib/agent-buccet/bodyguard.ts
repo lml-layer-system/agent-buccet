@@ -24,15 +24,20 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   }
 
   async function enforceProposal<T>(proposal: BoundaryToolProposal<T>): Promise<BoundaryExecutionResult<T>> {
-    return enforceBoundaryProposal({
+    const result = await enforceBoundaryProposal({
       config: getGuardedConfig(),
       proposal,
     });
+    store.replaceConfig(result.config);
+    return result;
   }
 
   function wrapTool<TInput, TOutput>(envelope: BoundaryToolEnvelope<TInput, TOutput>) {
-    return async (input: TInput) =>
-      wrapBoundaryTool(getGuardedConfig(), envelope)(input);
+    return async (input: TInput) => {
+      const result = await wrapBoundaryTool(getGuardedConfig(), envelope)(input);
+      store.replaceConfig(result.config);
+      return result;
+    };
   }
 
   const gravity = createBoundaryGravityAttachment({
