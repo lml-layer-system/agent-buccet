@@ -160,6 +160,62 @@ Swarm uses the same action-boundary path:
 - Witness Ledger
 - user authority when needed
 
+## Repo Seams
+
+Use these files as the fusion seams unless the code proves a better local seam is required.
+
+- [lib/agent-buccet/intercept.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/intercept.ts)
+  - Interceptor entrypoint
+  - maps boundary events into the native Buccet flow
+- [lib/agent-buccet/gravity.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/gravity.ts)
+  - Gravity hold/queue loop
+  - keeps caught proposals stopped and routed
+- [lib/agent-buccet/bodyguard.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/bodyguard.ts)
+  - Bodyguard decision surface
+  - this is where UPL-only live decisioning should converge
+- [lib/agent-buccet/foundation.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/foundation.ts)
+  - transferred foundation loading seam
+  - snapped runtime substrate and carried law identity should attach here
+- [lib/agent-buccet/runtime.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/runtime.ts)
+  - native runtime evaluation seam
+  - session/grant lifecycle enforcement stays here
+- [lib/agent-buccet/state.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/state.ts)
+  - runtime state assembly and restore seam
+  - fused state should include native runtime + snapped muscle + UPL + Witness Ledger
+- [lib/agent-buccet/ledger.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/ledger.ts)
+  - Witness Ledger write path
+  - immutable historical record only
+- [lib/agent-buccet/swarm.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/swarm.ts)
+  - native swarm seam
+  - swarm must stay on the same fused action-boundary path
+
+Do not invent a second runtime path outside these seams unless explicitly required.
+
+## Boss Example
+
+The runtime should be understood like this:
+
+- something tries to get in
+- the live law field twitches
+- Interceptor and Gravity catch it and hold it
+- they hand it to the boss-side native system
+- Bodyguard steps in immediately
+- Bodyguard asks UPL only:
+  - is this guy already on the list?
+- if UPL says yes:
+  - let him in
+- if UPL says permanent no:
+  - get him out
+- if UPL has no standing law:
+  - ask the boss, the user
+- if the boss says yes:
+  - that yes becomes UPL law automatically
+- if the boss says no:
+  - ask whether that no should become law
+- Witness Ledger records the whole thing afterward
+
+This example is the intended end-to-end behavior.
+
 ## Implementation Plan
 
 1. Freeze the architecture above.
@@ -193,3 +249,12 @@ This slice is done only when:
 - swarm uses the exact same fused path
 - no runtime-facing `meta` language remains for the transferred time body
 - README still has not been surgically updated yet
+
+## Do Not Do
+
+- Do not touch `main`.
+- Do not reintroduce `laws.json` or `law-web.json` as live runtime inputs.
+- Do not make Witness Ledger a live authorization source.
+- Do not split native Buccet and transferred muscle into separate brains.
+- Do not make the expanded `8,209` law body the hot path.
+- Do not update README before the fusion slice is actually working.
