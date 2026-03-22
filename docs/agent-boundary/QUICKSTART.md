@@ -8,40 +8,35 @@ Goal:
 - run one guarded action
 - understand where approval and ledger fit
 
-## 0. Install the shell
+## 0. Install
 
-Hosted-ready release install:
-
-```bash
-sh dist/releases/install.sh
-```
-
-If you are working directly from the repo root:
+One command:
 
 ```bash
-sh scripts/install-agent-buccet.sh
+curl -fsSL https://buccet.lml.dev/install | sh
 ```
 
 Then:
 
 ```bash
-buccet status
+buccet init
 buccet scope add .
 buccet run -- /bin/echo protected
+buccet status
 buccet logs
-```
-
-The hosted installer auto-initializes the runtime without opening default scope.
-The local repo installer leaves initialization explicit:
-
-```bash
-buccet init
 ```
 
 To remove it cleanly:
 
 ```bash
 buccet uninstall
+```
+
+**For repo contributors** (working directly from source):
+
+```bash
+sh scripts/install-agent-buccet.sh
+buccet init
 ```
 
 ## 1. Start a persistent session
@@ -119,7 +114,7 @@ Use:
 
 If the trace is incomplete:
 - do not trust the action
-- route back to user / NSL / lawful recovery
+- route back to user via Bodyguard / lawful recovery
 
 ## 6. Remote / async control
 
@@ -149,26 +144,32 @@ This keeps authority reversible.
 
 ## 8. The minimum mental model
 
+The chain:
+
+```
+INTERCEPT  catches it.   Nothing crosses without being seen.
+GRAVITY    holds it.     Evaluates it against the law body.
+BODYGUARD  checks UPL.   Looks for a standing user decision on this target.
+  → Match found:  applied on contact. Ledger updated.
+  → No match:     human is asked. Yes → becomes law. No → blocked.
+LEDGER     signs it all. Chained. The agent cannot erase it.
+```
+
 Someone says:
 - “clean up the temp files”
 
 The agent proposes an action.
 
-Before anything becomes real:
-- Buccet checks law
-- Buccet checks scope
-- Buccet checks ledger state
-- Buccet decides:
-  - `ALLOW`
-  - `DENY`
-  - after `DENY`, Buccet can ask one more question:
-    - make this denial a law?
-    - or keep it as a regular deny?
-  - `REQUIRE_APPROVAL`
+Before anything becomes real, Buccet decides:
+- `ALLOW`
+- `DENY`
+- `REQUIRE_APPROVAL`
+
+After `DENY`, the Bodyguard checks the UPL — if there is a standing user law for this target, it applies on contact. If not, the human is asked: make this a law, or keep it as a one-time deny?
+
+If the user makes it a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
 That is the whole point.
-
-If the user makes that denial a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
 ## 9. Run the end-to-end example
 

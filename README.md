@@ -1,51 +1,72 @@
 # Agent Buccet
-Building Ultimate Containment Constraints Every Time
+The Universal Agent Bodyguard.
 ![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
-Persistent, CPU-friendly law and scope enforcement for AI agents.
+Works with any agent. Any framework. Indefinitely.
 
-Agent Buccet is the containment layer you add to the agent stack you already run.
+Agents can propose. They cannot authorize.
 
-Core of Agent Buccet:
-- Agents can propose. They cannot authorize.
-- No ambient authority.
-- No out-of-scope actions.
-- No silent destructive tool use.
+## Install
 
-It works across agent stacks because the protected boundary is the same:
+```bash
+curl -fsSL https://buccet.lml.dev/install | sh
+```
+
+Protected in under 10 seconds:
+
+```bash
+buccet init
+buccet scope add .
+buccet run -- /bin/echo protected
+buccet status
+```
+
+To remove cleanly:
+
+```bash
+buccet uninstall
+```
+
+---
+
+## How It Works
+
+Every proposed action runs through the same chain — always:
+
+```
+INTERCEPT  catches it.   Nothing crosses without being seen.
+GRAVITY    holds it.     Evaluates it against the law body.
+BODYGUARD  checks UPL.   Looks for a standing user decision on this target.
+  → Match found:  applied on contact. Ledger updated.
+  → No match:     human is asked. Yes → becomes law. No → blocked.
+LEDGER     signs it all. Chained. The agent cannot erase it.
+```
+
+The human is always the boss. The agent never self-authorizes.
+
+That chain is the same regardless of which agent framework sits above it:
+- `@anthropic-ai/sdk` (Anthropic Claude SDK)
+- NemoClaw / NeMo Guardrails
+- OpenAI Agents
+- LangGraph
+- xAI API
+- Claude Cowork, Claude Dispatch, OpenClaw
+- any future agent that still crosses a real action boundary
+
+The protected boundaries are always the same:
 - filesystem changes
 - process execution
 - network and recipient sends
 - database mutations
 - system and credential access
 
-That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can sit under:
-- Anthropic Claude SDK (`@anthropic-ai/sdk`)
-- Claude Cowork
-- Claude Dispatch
-- OpenClaw
-- NemoClaw
-- OpenAI Agents
-- LangGraph
-- xAI API
-- other tools and future agents that still cross a real action boundary
-
 The agent stack can change.
 Agents can evolve.
 The action boundary does not.
-Agent Buccet is built to attach there.
 
-The public repo is centered on the shared Buccet brain.
-Additional deep kernel OS-level Agent Buccet interception can be added later for private environments without changing that core model.
-
+---
 
 ## The Proof in 30 Seconds
-
-Install:
-
-```bash
-sh scripts/install-agent-buccet.sh
-```
 
 Run the end-to-end demo — it shows a blocked delete, an approved write, and the signed ledger:
 
@@ -59,7 +80,7 @@ See 6 real prompt-injection attack patterns blocked live (authority claims, scop
 npm run demo:agent-buccet:attacks
 ```
 
-Or see the boundary catch a real action in code:
+Or see the chain catch a real action in code:
 
 ```typescript
 import {
@@ -82,7 +103,8 @@ let config = await startPersistentBoundarySession({
   issuedBy: "user:alice",
 }));
 
-// 3. Agent proposes a write outside that scope — interceptor → gravity → bodyguard
+// 3. Agent proposes a write outside that scope
+//    INTERCEPT + GRAVITY → BODYGUARD → UPL check → deny
 const result = await evaluateBoundaryIntercept({
   config,
   request: {
@@ -136,30 +158,9 @@ That catalog covers:
 - Agent Buccet session and grant lifecycle laws
 - Buccet ledger laws
 
-To see exactly what Agent Buccet is enforcing, use `\LAW_REFERENCE.md.`
+To see exactly what Agent Buccet is enforcing, use `LAW_REFERENCE.md`.
 
-## Hosted Install
-
-Hosted-ready release assets are generated under `dist/releases/`.
-
-Example hosted flow:
-
-```bash
-sh dist/releases/install.sh
-buccet status
-buccet scope add .
-buccet run -- /bin/echo protected
-buccet logs
-buccet uninstall
-```
-
-Local repo install remains available:
-
-```bash
-sh scripts/install-agent-buccet.sh
-buccet init
-buccet scope add .
-```
+---
 
 ## Proof Commands
 
@@ -234,6 +235,33 @@ Standalone export:
 ```bash
 npm run package:agent-buccet
 ```
+
+---
+
+## Contributing / Development
+
+Working directly from the repo:
+
+```bash
+sh scripts/install-agent-buccet.sh
+buccet init
+buccet scope add .
+```
+
+Build and typecheck:
+
+```bash
+npm run build
+npm run typecheck
+```
+
+Run all stable contracts:
+
+```bash
+npm run check:agent-buccet:contracts-stable
+```
+
+---
 
 ## Repo Boundary
 
