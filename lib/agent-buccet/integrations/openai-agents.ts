@@ -1,10 +1,10 @@
 import {
   enforceBoundaryProposal,
   wrapBoundaryTool,
+  type BoundaryExecutionResult,
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
 } from "../adapters.ts";
-import type { BoundaryExecutionResult } from "../action-runner.ts";
 import type { BoundaryRuntimeConfig } from "../types.ts";
 
 export async function enforceOpenAIAgentProposal<T>(args: {

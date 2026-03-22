@@ -4,7 +4,7 @@ import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./action-runner.ts";
+} from "./adapters.ts";
 import { createBoundaryActionRequest } from "./request-builder.ts";
 import type { BoundaryRuntimeConfig } from "./types.ts";
 

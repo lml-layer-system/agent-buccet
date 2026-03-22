@@ -16,7 +16,6 @@ export * from "./policy.ts";
 export * from "./approval.ts";
 export * from "./store.ts";
 export * from "./request-builder.ts";
-export * from "./action-runner.ts";
 export * from "./filesystem.ts";
 export * from "./actions.ts";
 export * from "./adapters.ts";

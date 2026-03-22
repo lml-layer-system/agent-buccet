@@ -9,11 +9,11 @@ import {
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import {
   enforceBoundaryProposal,
+  type BoundaryExecutionResult,
   wrapBoundaryTool,
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
 } from "./adapters.ts";
-import type { BoundaryExecutionResult } from "./action-runner.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
