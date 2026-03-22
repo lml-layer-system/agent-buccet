@@ -1,5 +1,5 @@
 import { appendBoundaryLedger } from "./ledger.ts";
-import { adjudicateBoundaryAction } from "./bodyguard.ts";
+import { adjudicateBoundaryRequest, enableBodyguardControl } from "./bodyguard.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
@@ -225,9 +225,11 @@ export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
 ): Promise<BoundaryEvaluation> {
+  const activeConfig = enableBodyguardControl(config);
+
   await appendBoundaryLedger("ACTION_PROPOSED", {
-    sessionId: config.session.sessionId,
-    actorId: config.session.actorId,
+    sessionId: activeConfig.session.sessionId,
+    actorId: activeConfig.session.actorId,
     requestId: request.requestId,
     actionKind: request.actionKind,
     target: request.target,
@@ -235,12 +237,12 @@ export async function evaluateBoundaryAction(
     createdAt: request.requestedAt,
   });
 
-  const adjudication = adjudicateBoundaryAction({ config, request });
+  const adjudication = await adjudicateBoundaryRequest({ config: activeConfig, request });
 
   if (adjudication.result.decision === "deny") {
     await appendBoundaryLedger("ACTION_BLOCKED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
+      sessionId: activeConfig.session.sessionId,
+      actorId: activeConfig.session.actorId,
       requestId: request.requestId,
       actionKind: request.actionKind,
       target: request.target,
@@ -253,8 +255,8 @@ export async function evaluateBoundaryAction(
   }
 
   await appendBoundaryLedger("DECISION_RETURNED", {
-    sessionId: config.session.sessionId,
-    actorId: config.session.actorId,
+    sessionId: activeConfig.session.sessionId,
+    actorId: activeConfig.session.actorId,
     requestId: request.requestId,
     actionKind: request.actionKind,
     target: request.target,
@@ -266,8 +268,8 @@ export async function evaluateBoundaryAction(
 
   for (const move of adjudication.nslMoves) {
     await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
+      sessionId: activeConfig.session.sessionId,
+      actorId: activeConfig.session.actorId,
       requestId: request.requestId,
       moveId: move.moveId,
       actionKind: request.actionKind,

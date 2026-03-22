@@ -1,3 +1,4 @@
+import path from "node:path";
 import type {
   DynamicLawGrant,
   GravityEvent,
@@ -47,6 +48,15 @@ function asProposal(event: GravityEvent): GravityProposal | null {
 
 function violation(lawId: LawId, code: string, message?: string): LawViolation {
   return { lawId, code, message };
+}
+
+function pathGrantMatches(grantScope: string, scopeId: string): boolean {
+  if (grantScope === scopeId) {
+    return true;
+  }
+  const normalizedGrant = path.resolve(grantScope);
+  const normalizedScope = path.resolve(scopeId);
+  return normalizedScope.startsWith(`${normalizedGrant}${path.sep}`);
 }
 
 /**
@@ -252,7 +262,12 @@ export function createScopeGrantSkill(): LawSkill {
 
       const now = Date.now();
       const hasGrant = state.dynamicLaws.grants.some((g: DynamicLawGrant) => {
-        if (g.kind !== scopeKind || g.scope !== scopeId) return false;
+        if (g.kind !== scopeKind) return false;
+        if (scopeKind === "path") {
+          if (!pathGrantMatches(g.scope, scopeId)) return false;
+        } else if (g.scope !== scopeId) {
+          return false;
+        }
         if (g.revokedAt != null) return false;
         if (g.expiresAt != null && g.expiresAt < now) return false;
         return true;

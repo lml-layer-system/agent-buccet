@@ -64,7 +64,12 @@ export function resolveBodyguardStandingLaw(args: {
     return {
       decision: "allow",
       reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
-      triggeredLawIds: [standingUserLaw.entry.id],
+      triggeredLawIds: [
+        standingUserLaw.entry.id,
+        ...(
+          args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []
+        ),
+      ],
       requiresApproval: false,
     };
   }
@@ -72,8 +77,61 @@ export function resolveBodyguardStandingLaw(args: {
   return {
     decision: "deny",
     reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
-    triggeredLawIds: [standingUserLaw.entry.id],
+    triggeredLawIds: [
+      standingUserLaw.entry.id,
+      ...(
+        args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []
+      ),
+    ],
     requiresApproval: false,
+  };
+}
+
+function expandRuntimeMuscleTriggeredLawIds(
+  config: BoundaryRuntimeConfig,
+  result: BoundaryLawResult,
+): BoundaryLawResult {
+  const runtimeMuscle = config.runtimeMuscle;
+  if (!runtimeMuscle) {
+    return result;
+  }
+
+  const extraLawIds = new Set<string>();
+  for (const lawId of result.triggeredLawIds) {
+    switch (lawId) {
+      case "META.TRUST.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.truth_alignment ?? []) extraLawIds.add(id);
+        break;
+      case "META.AUTHORITY.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.authority_bypass ?? []) extraLawIds.add(id);
+        break;
+      case "META.NOVELTY.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.hallucination_prevention ?? []) extraLawIds.add(id);
+        break;
+      case "META.SCOPE.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.safety_governance ?? []) extraLawIds.add(id);
+        break;
+      case "META.LAW.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.meta_law ?? []) extraLawIds.add(id);
+        break;
+      case "META.SESSION.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.memory_temporal ?? []) extraLawIds.add(id);
+        break;
+      case "META.LEDGER.01":
+        for (const id of runtimeMuscle.timeLawIdsByCategory.ledger_proof ?? []) extraLawIds.add(id);
+        break;
+      default:
+        break;
+    }
+  }
+
+  if (extraLawIds.size === 0) {
+    return result;
+  }
+
+  return {
+    ...result,
+    triggeredLawIds: [...new Set([...result.triggeredLawIds, ...extraLawIds])],
   };
 }
 
@@ -137,10 +195,11 @@ export function evaluateBodyguardAction(args: {
     grants: args.config.grants,
     approvalRequiredFor: args.config.approvalRequiredFor,
   });
+  const expandedResult = expandRuntimeMuscleTriggeredLawIds(args.config, result);
 
   return {
-    result,
-    nslMoves: buildBoundaryBodyguardMoves(args.request, result),
+    result: expandedResult,
+    nslMoves: buildBoundaryBodyguardMoves(args.request, expandedResult),
   };
 }
 
