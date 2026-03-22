@@ -155,11 +155,11 @@ export async function evaluateBoundaryIntercept(args: {
     const result = {
       decision: "deny" as const,
       reason: sessionAudit.reason,
-      lawIds: ["META.LEDGER.02"],
+      lawIds: ["TIME.LEDGER.02"],
       nslMoves: buildBoundaryNslMoves(boundaryRequest, {
         decision: "deny",
         reason: sessionAudit.reason,
-        triggeredLawIds: ["META.LEDGER.02"],
+        triggeredLawIds: ["TIME.LEDGER.02"],
         requiresApproval: false,
       }),
       requestId: boundaryRequest.requestId,

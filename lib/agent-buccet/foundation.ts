@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { AGENT_BUCCET_META_LAW_REFERENCES } from "./meta.ts";
+import { AGENT_BUCCET_TIME_LAW_REFERENCES } from "./time.ts";
 import type { BoundaryLaw, BoundaryRuntimeMuscle, BoundaryRuntimeMuscleFamily, BoundaryRuntimeMuscleManifest } from "./types.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -49,8 +49,8 @@ let cachedSunFoundationLawIds: Promise<string[]> | null = null;
 let cachedRuntimeMuscleManifest: Promise<BoundaryRuntimeMuscleManifest> | null = null;
 let cachedRuntimeMuscle: Promise<BoundaryRuntimeMuscle> | null = null;
 
-function normalizeMetaReferenceLawId(lawId: number): string {
-  return `BUCCET.META.${String(lawId).padStart(4, "0")}`;
+function normalizeTimeLawId(lawId: number): string {
+  return `BUCCET.TIME.${String(lawId).padStart(4, "0")}`;
 }
 
 async function loadSunFoundationLawIds(): Promise<string[]> {
@@ -107,12 +107,12 @@ export async function buildActiveAgentBuccetLawIds(args: {
 }): Promise<string[]> {
   const sunLawIds = await loadSunFoundationLawIds();
   const executableLawIds = args.executableLaws.map((law) => law.lawId);
-  const metaReferenceLawIds = AGENT_BUCCET_META_LAW_REFERENCES.map((law) => normalizeMetaReferenceLawId(law.lawId));
+  const timeReferenceLawIds = AGENT_BUCCET_TIME_LAW_REFERENCES.map((law) => normalizeTimeLawId(law.lawId));
 
   return [...new Set([
     ...AGENT_BUCCET_BASE_LAW_IDS,
     ...sunLawIds,
-    ...metaReferenceLawIds,
+    ...timeReferenceLawIds,
     ...(args.existingLawIds ?? []),
     ...executableLawIds,
   ])];

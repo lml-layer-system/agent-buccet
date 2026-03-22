@@ -158,7 +158,7 @@ export async function executeBoundaryControlledAction<T>(args: {
     const result: BoundaryLawResult = {
       decision: "deny",
       reason: sessionAudit.reason,
-      triggeredLawIds: ["META.LEDGER.02"],
+      triggeredLawIds: ["TIME.LEDGER.02"],
       requiresApproval: false,
     };
     const nslMoves = buildBoundaryNslMoves(args.request, result);

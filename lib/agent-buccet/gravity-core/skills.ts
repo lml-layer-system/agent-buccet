@@ -11,14 +11,14 @@ import type { ScopePayload } from "./types.ts";
 
 /**
  * Law ID constants for public defensive laws.
- * These mirror the public META.* family described in the design notes.
+ * These mirror the public TIME.* family described in the design notes.
  */
-export const META_TRUST_01: LawId = "META.TRUST.01";
-export const META_AUTHORITY_01: LawId = "META.AUTHORITY.01";
-export const META_SCOPE_01: LawId = "META.SCOPE.01";
-export const META_LAW_01: LawId = "META.LAW.01";
-export const META_SESSION_01: LawId = "META.SESSION.01";
-export const META_LEDGER_01: LawId = "META.LEDGER.01";
+export const TIME_TRUST_01: LawId = "TIME.TRUST.01";
+export const TIME_AUTHORITY_01: LawId = "TIME.AUTHORITY.01";
+export const TIME_SCOPE_01: LawId = "TIME.SCOPE.01";
+export const TIME_LAW_01: LawId = "TIME.LAW.01";
+export const TIME_SESSION_01: LawId = "TIME.SESSION.01";
+export const TIME_LEDGER_01: LawId = "TIME.LEDGER.01";
 
 /**
  * Scope law: path/recipient/domain/tool must be in dynamic laws (opened as law).
@@ -50,12 +50,12 @@ function violation(lawId: LawId, code: string, message?: string): LawViolation {
 }
 
 /**
- * META.TRUST.01
+ * TIME.TRUST.01
  * Untrusted content cannot directly authorize high-risk actions.
  */
-export function createMetaTrustSkill(): LawSkill {
+export function createTimeTrustSkill(): LawSkill {
   return {
-    id: META_TRUST_01,
+    id: TIME_TRUST_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -64,7 +64,7 @@ export function createMetaTrustSkill(): LawSkill {
       if (provenance.source === "external_content" && provenance.authorityClaimed) {
         return [
           violation(
-            META_TRUST_01,
+            TIME_TRUST_01,
             "UNTRUSTED_AUTHORITY_CLAIM",
             "External content attempted to claim authority.",
           ),
@@ -74,7 +74,7 @@ export function createMetaTrustSkill(): LawSkill {
     },
     normalize(state: GravityState, violations: LawViolation[]): GravityState {
       if (violations.length === 0) return state;
-      // Normalization for META.TRUST.01 is conceptual only here.
+      // Normalization for TIME.TRUST.01 is conceptual only here.
       // In the private runtime, this would downgrade any external authority claims to null.
       return state;
     },
@@ -82,12 +82,12 @@ export function createMetaTrustSkill(): LawSkill {
 }
 
 /**
- * META.AUTHORITY.01
+ * TIME.AUTHORITY.01
  * Prompt/model text cannot self-approve or self-authorize.
  */
-export function createMetaAuthoritySkill(): LawSkill {
+export function createTimeAuthoritySkill(): LawSkill {
   return {
-    id: META_AUTHORITY_01,
+    id: TIME_AUTHORITY_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -96,7 +96,7 @@ export function createMetaAuthoritySkill(): LawSkill {
       if (provenance.source === "agent_inference" && provenance.authorityClaimed) {
         return [
           violation(
-            META_AUTHORITY_01,
+            TIME_AUTHORITY_01,
             "MODEL_SELF_AUTHORIZATION",
             "Agent/model inference attempted to self-authorize.",
           ),
@@ -112,12 +112,12 @@ export function createMetaAuthoritySkill(): LawSkill {
 }
 
 /**
- * META.SCOPE.01
+ * TIME.SCOPE.01
  * Prompt text cannot widen session scope (paths, recipients, domains, tools).
  */
-export function createMetaScopeSkill(): LawSkill {
+export function createTimeScopeSkill(): LawSkill {
   return {
-    id: META_SCOPE_01,
+    id: TIME_SCOPE_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -126,7 +126,7 @@ export function createMetaScopeSkill(): LawSkill {
       if (provenance.requestsScopeExpansion) {
         return [
           violation(
-            META_SCOPE_01,
+            TIME_SCOPE_01,
             "ILLEGAL_SCOPE_EXPANSION_REQUEST",
             "Proposal attempted to expand scope via text.",
           ),
@@ -142,12 +142,12 @@ export function createMetaScopeSkill(): LawSkill {
 }
 
 /**
- * META.LAW.01
+ * TIME.LAW.01
  * Prompt text cannot mutate law.
  */
-export function createMetaLawSkill(): LawSkill {
+export function createTimeLawSkill(): LawSkill {
   return {
-    id: META_LAW_01,
+    id: TIME_LAW_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -156,7 +156,7 @@ export function createMetaLawSkill(): LawSkill {
       if (provenance.requestsLawMutation) {
         return [
           violation(
-            META_LAW_01,
+            TIME_LAW_01,
             "PROMPT_LAW_MUTATION_REQUEST",
             "Prompt attempted to mutate law via text.",
           ),
@@ -172,12 +172,12 @@ export function createMetaLawSkill(): LawSkill {
 }
 
 /**
- * META.SESSION.01
+ * TIME.SESSION.01
  * Prompt text cannot revive ended sessions.
  */
-export function createMetaSessionSkill(): LawSkill {
+export function createTimeSessionSkill(): LawSkill {
   return {
-    id: META_SESSION_01,
+    id: TIME_SESSION_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -186,7 +186,7 @@ export function createMetaSessionSkill(): LawSkill {
       if (provenance.requestsSessionRevival) {
         return [
           violation(
-            META_SESSION_01,
+            TIME_SESSION_01,
             "PROMPT_SESSION_REVIVAL_REQUEST",
             "Prompt attempted to revive an ended session.",
           ),
@@ -202,12 +202,12 @@ export function createMetaSessionSkill(): LawSkill {
 }
 
 /**
- * META.LEDGER.01
+ * TIME.LEDGER.01
  * Prompt text cannot bypass/suppress/rewrite the ledger; incomplete traces are non-authoritative.
  */
-export function createMetaLedgerSkill(): LawSkill {
+export function createTimeLedgerSkill(): LawSkill {
   return {
-    id: META_LEDGER_01,
+    id: TIME_LEDGER_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const violations: LawViolation[] = [];
       const proposal = asProposal(event);
@@ -215,7 +215,7 @@ export function createMetaLedgerSkill(): LawSkill {
       if (proposal?.provenance?.requestsLedgerBypass) {
         violations.push(
           violation(
-            META_LEDGER_01,
+            TIME_LEDGER_01,
             "LEDGER_BYPASS_REQUEST",
             "Proposal attempted to bypass or suppress ledger recording.",
           ),
@@ -225,7 +225,7 @@ export function createMetaLedgerSkill(): LawSkill {
       if (!state.context.ledger.sessionTraceComplete) {
         violations.push(
           violation(
-            META_LEDGER_01,
+            TIME_LEDGER_01,
             "SESSION_TRACE_INCOMPLETE",
             "Session ledger trace is incomplete; actions must not be treated as authoritative.",
           ),
@@ -235,7 +235,7 @@ export function createMetaLedgerSkill(): LawSkill {
       if (!state.context.ledger.requestTraceComplete) {
         violations.push(
           violation(
-            META_LEDGER_01,
+            TIME_LEDGER_01,
             "REQUEST_TRACE_INCOMPLETE",
             "Request ledger trace is incomplete; this request must not be treated as authoritative.",
           ),

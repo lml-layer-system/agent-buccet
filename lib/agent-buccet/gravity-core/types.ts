@@ -41,7 +41,7 @@ export interface GravityProvenance {
   originId?: string;
   /**
    * Defensive flags inferred from text or context.
-   * These are used by meta-laws like META.TRUST / META.AUTHORITY / META.SCOPE / META.LAW / META.SESSION / META.LEDGER.
+   * These are used by time-laws like TIME.TRUST / TIME.AUTHORITY / TIME.SCOPE / TIME.LAW / TIME.SESSION / TIME.LEDGER.
    */
   authorityClaimed?: boolean;
   claimsCompleteCoverage?: boolean;
@@ -53,7 +53,7 @@ export interface GravityProvenance {
 
 /**
  * Immutable identifier for a law.
- * Examples: META.TRUST.01, META.SCOPE.01, GRAVITY.IDENTITY.CANONICAL, etc.
+ * Examples: TIME.TRUST.01, TIME.SCOPE.01, GRAVITY.IDENTITY.CANONICAL, etc.
  */
 export type LawId = string;
 

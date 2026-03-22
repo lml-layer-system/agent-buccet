@@ -4,7 +4,7 @@ export * from "./ledger-audit.ts";
 export * from "./witness.ts";
 export * from "./release-witness.ts";
 export * from "./orchestrator.ts";
-export * from "./meta.ts";
+export * from "./time.ts";
 export * from "./foundation.ts";
 export * from "./laws.ts";
 export * from "./nsl.ts";

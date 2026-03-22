@@ -2,7 +2,7 @@ import {
   grantsForAction,
   isTargetReachable,
 } from "./orchestrator.ts";
-import { DEFENSIVE_META_LAWS } from "./meta.ts";
+import { DEFENSIVE_TIME_LAWS } from "./time.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -84,7 +84,7 @@ export function evaluateBoundaryLaws(args: {
 }
 
 export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
-  ...DEFENSIVE_META_LAWS,
+  ...DEFENSIVE_TIME_LAWS,
   {
     lawId: "BOUNDARY.COMM.01",
     description: "Recipient sends require explicit approval.",

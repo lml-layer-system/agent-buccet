@@ -25,7 +25,7 @@ function isHighRiskAction(actionKind: BoundaryActionKind): boolean {
   );
 }
 
-export type AgentBuccetMetaLawReference = {
+export type AgentBuccetTimeLawReference = {
   lawId: number;
   name: string;
   category: string;
@@ -34,16 +34,16 @@ export type AgentBuccetMetaLawReference = {
   source: string;
 };
 
-export const AGENT_BUCCET_META_LAW_POSTURE = {
+export const AGENT_BUCCET_TIME_LAW_POSTURE = {
   mode: "defensive",
-  note: "These are Agent Buccet meta laws in defensive posture. They block novelty drift and protect law-pack integrity, but they do not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
-  runtimeAuthority: "DEFENSIVE_META_LAWS",
-  carriedRuntimePack: "AGENT_BUCCET_META_LAW_REFERENCES",
+  note: "These are Agent Buccet time laws in defensive posture. They block novelty drift and protect law-pack integrity, but they do not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
+  runtimeAuthority: "DEFENSIVE_TIME_LAWS",
+  carriedRuntimePack: "AGENT_BUCCET_TIME_LAW_REFERENCES",
 } as const;
 
-export const AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS = [165, 166, 167, 169, 243] as const;
+export const AGENT_BUCCET_TIME_EXCLUDED_SELF_UPDATING_LAW_IDS = [165, 166, 167, 169, 243] as const;
 
-export const AGENT_BUCCET_META_LAW_REFERENCES: ReadonlyArray<AgentBuccetMetaLawReference> = [
+export const AGENT_BUCCET_TIME_LAW_REFERENCES: ReadonlyArray<AgentBuccetTimeLawReference> = [
   {
     lawId: 1,
     name: "Bounded State Space (State)",
@@ -1862,9 +1862,9 @@ export const AGENT_BUCCET_META_LAW_REFERENCES: ReadonlyArray<AgentBuccetMetaLawR
   },
 ];
 
-export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
+export const DEFENSIVE_TIME_LAWS: BoundaryLaw[] = [
   {
-    lawId: "META.TRUST.01",
+    lawId: "TIME.TRUST.01",
     description: "Untrusted content can propose actions but cannot directly authorize high-risk actions.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1877,13 +1877,13 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "require_approval",
         reason: "untrusted content cannot directly authorize high-risk actions",
-        triggeredLawIds: ["META.TRUST.01"],
+        triggeredLawIds: ["TIME.TRUST.01"],
         requiresApproval: true,
       };
     },
   },
   {
-    lawId: "META.AUTHORITY.01",
+    lawId: "TIME.AUTHORITY.01",
     description: "Text or model output cannot self-approve or claim authority.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1893,13 +1893,13 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "deny",
         reason: "authority claims in prompt or model output are non-authoritative by law",
-        triggeredLawIds: ["META.AUTHORITY.01"],
+        triggeredLawIds: ["TIME.AUTHORITY.01"],
         requiresApproval: false,
       };
     },
   },
   {
-    lawId: "META.NOVELTY.01",
+    lawId: "TIME.NOVELTY.01",
     description: "Claims of complete safety or complete coverage are non-authoritative and require review.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1909,13 +1909,13 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "require_approval",
         reason: "complete coverage or guaranteed safety claims are non-authoritative and require user review",
-        triggeredLawIds: ["META.NOVELTY.01"],
+        triggeredLawIds: ["TIME.NOVELTY.01"],
         requiresApproval: true,
       };
     },
   },
   {
-    lawId: "META.SCOPE.01",
+    lawId: "TIME.SCOPE.01",
     description: "Prompt content cannot widen reachable scope by itself.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1925,13 +1925,13 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "deny",
         reason: "scope expansion requires explicit grant issuance, not prompt content",
-        triggeredLawIds: ["META.SCOPE.01"],
+        triggeredLawIds: ["TIME.SCOPE.01"],
         requiresApproval: false,
       };
     },
   },
   {
-    lawId: "META.LAW.01",
+    lawId: "TIME.LAW.01",
     description: "Prompt content cannot mutate law or disable boundaries.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1941,13 +1941,13 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "deny",
         reason: "law mutation is not authorized from prompt content or agent output",
-        triggeredLawIds: ["META.LAW.01"],
+        triggeredLawIds: ["TIME.LAW.01"],
         requiresApproval: false,
       };
     },
   },
   {
-    lawId: "META.SESSION.01",
+    lawId: "TIME.SESSION.01",
     description: "Prompt content cannot reopen or revive a closed session.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1957,13 +1957,13 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "deny",
         reason: "session lifecycle is controlled by explicit runtime state, not prompt content",
-        triggeredLawIds: ["META.SESSION.01"],
+        triggeredLawIds: ["TIME.SESSION.01"],
         requiresApproval: false,
       };
     },
   },
   {
-    lawId: "META.LEDGER.01",
+    lawId: "TIME.LEDGER.01",
     description: "Prompt content cannot suppress, bypass, or rewrite the ledger.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
@@ -1973,7 +1973,7 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
       return {
         decision: "deny",
         reason: "ledgering is mandatory by law and cannot be bypassed from prompt content",
-        triggeredLawIds: ["META.LEDGER.01"],
+        triggeredLawIds: ["TIME.LEDGER.01"],
         requiresApproval: false,
       };
     },

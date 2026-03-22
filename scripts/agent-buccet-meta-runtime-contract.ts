@@ -39,7 +39,7 @@ async function main() {
   const evaluated = await evaluateBoundaryAction(config, request);
   assert.equal(evaluated.result.decision, "require_approval");
   assert.ok(
-    evaluated.result.triggeredLawIds.includes("META.NOVELTY.01"),
+    evaluated.result.triggeredLawIds.includes("TIME.NOVELTY.01"),
     "expected novelty guard to trigger on complete coverage claims",
   );
 
