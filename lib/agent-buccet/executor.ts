@@ -1,10 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
+  adjudicateBodyguardRequest,
   applyBodyguardUserLawDecision,
-  resolveBodyguardHeldRequest,
 } from "./bodyguard-core.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { evaluateBoundaryAction } from "./runtime.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -151,176 +150,69 @@ export async function executeBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
-  const heldDecision = await resolveBodyguardHeldRequest({
+  let adjudication = await adjudicateBodyguardRequest({
     config: activeConfig,
     request: activeRequest,
   });
-  if (heldDecision) {
-    if (heldDecision.result.triggeredLawIds[0] === "META.LEDGER.02") {
-      await appendBoundaryLedger("ACTION_PROPOSED", {
-        sessionId: activeConfig.session.sessionId,
-        actorId: activeConfig.session.actorId,
-        requestId: activeRequest.requestId,
-        actionKind: activeRequest.actionKind,
-        target: activeRequest.target,
-        reason: "action proposed during incomplete session ledger state",
-        createdAt: activeRequest.requestedAt,
-      });
-    }
+  activeConfig = adjudication.config;
+  activeRequest = adjudication.request;
 
-    if (heldDecision.result.decision === "deny") {
-      await logBlockedAction(
-        activeConfig,
-        activeRequest,
-        heldDecision.result.reason,
-        heldDecision.result.triggeredLawIds,
-      );
-    }
+  if (adjudication.result.triggeredLawIds[0] === "META.LEDGER.02") {
+    await appendBoundaryLedger("ACTION_PROPOSED", {
+      sessionId: activeConfig.session.sessionId,
+      actorId: activeConfig.session.actorId,
+      requestId: activeRequest.requestId,
+      actionKind: activeRequest.actionKind,
+      target: activeRequest.target,
+      reason: "action proposed during incomplete session ledger state",
+      createdAt: activeRequest.requestedAt,
+    });
+  }
 
-    for (const move of heldDecision.nslMoves) {
+  if (adjudication.result.decision === "deny") {
+    await logBlockedAction(
+      activeConfig,
+      activeRequest,
+      adjudication.result.reason,
+      adjudication.result.triggeredLawIds,
+    );
+
+    for (const move of adjudication.nslMoves) {
       await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
         sessionId: activeConfig.session.sessionId,
         actorId: activeConfig.session.actorId,
         requestId: activeRequest.requestId,
-        moveId: move.moveId,
         actionKind: activeRequest.actionKind,
         target: activeRequest.target,
-        decision: heldDecision.result.decision,
+        moveId: move.moveId,
+        decision: adjudication.result.decision,
         reason: move.description,
-        lawIds: heldDecision.result.triggeredLawIds,
+        lawIds: adjudication.result.triggeredLawIds,
         createdAt: new Date().toISOString(),
       });
     }
 
     return {
       config: activeConfig,
-      allowed: heldDecision.result.decision === "allow",
-      executed: false,
-      requiresApproval: heldDecision.result.requiresApproval,
-      reason: heldDecision.result.reason,
-      nslMoves: heldDecision.nslMoves,
-    };
-  }
-
-  if (activeConfig.gravityService) {
-    const gravity = await activeConfig.gravityService.enforceRequest({
-      config: activeConfig,
-      request: activeRequest,
-    });
-
-    if (gravity.outcome === "deny") {
-      for (const move of gravity.nslMoves) {
-        await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
-          sessionId: activeConfig.session.sessionId,
-          actorId: activeConfig.session.actorId,
-          requestId: activeRequest.requestId,
-          moveId: move.moveId,
-          actionKind: activeRequest.actionKind,
-          target: activeRequest.target,
-          decision: "deny",
-          reason: move.description,
-          lawIds: gravity.lawIds,
-          createdAt: new Date().toISOString(),
-        });
-      }
-      await logBlockedAction(activeConfig, activeRequest, gravity.reason, gravity.lawIds);
-      return {
-        config: activeConfig,
-        allowed: false,
-        executed: false,
-        requiresApproval: false,
-        reason: gravity.reason,
-        nslMoves: gravity.nslMoves,
-      };
-    }
-
-    if (gravity.outcome === "nsl_grant_offer") {
-      for (const move of gravity.nslMoves) {
-        await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
-          sessionId: activeConfig.session.sessionId,
-          actorId: activeConfig.session.actorId,
-          requestId: activeRequest.requestId,
-          moveId: move.moveId,
-          actionKind: activeRequest.actionKind,
-          target: activeRequest.target,
-          decision: "deny",
-          reason: move.description,
-          lawIds: gravity.lawIds,
-          createdAt: new Date().toISOString(),
-        });
-      }
-
-      const approved = await requestApproval(
-        activeConfig,
-        {
-          session: activeConfig.session,
-          request: activeRequest,
-          reason: gravity.reason,
-          lawIds: gravity.lawIds,
-          nslMoves: gravity.nslMoves,
-        },
-        gravity.lawIds,
-      );
-
-      if (!approved) {
-        await gravity.denyGrant();
-        await logBlockedAction(activeConfig, activeRequest, gravity.reason, gravity.lawIds);
-        return {
-          config: activeConfig,
-          allowed: false,
-          executed: false,
-          requiresApproval: true,
-          reason: gravity.reason,
-          nslMoves: gravity.nslMoves,
-        };
-      }
-
-      const replay = await gravity.applyGrant({
-        session: activeConfig.session,
-        request: activeRequest,
-        reason: gravity.reason,
-        lawIds: gravity.lawIds,
-        nslMoves: gravity.nslMoves,
-      });
-      activeConfig = replay.config;
-      activeRequest = replay.request;
-    }
-
-    if (gravity.outcome === "transform" && gravity.request.requestId !== activeRequest.requestId) {
-      activeRequest = gravity.request;
-    }
-  }
-
-  const evaluation = await evaluateBoundaryAction(activeConfig, activeRequest);
-
-  if (evaluation.result.decision === "deny") {
-    await logBlockedAction(
-      activeConfig,
-      activeRequest,
-      evaluation.result.reason,
-      evaluation.result.triggeredLawIds,
-    );
-    return {
-      config: activeConfig,
       allowed: false,
       executed: false,
       requiresApproval: false,
-      reason: evaluation.result.reason,
-      nslMoves: evaluation.nslMoves,
+      reason: adjudication.result.reason,
+      nslMoves: adjudication.nslMoves,
     };
   }
 
-  if (evaluation.result.decision === "require_approval") {
+  while (adjudication.result.decision === "require_approval") {
     const approvalResult = await requestApproval(
       activeConfig,
       {
         session: activeConfig.session,
         request: activeRequest,
-        reason: evaluation.result.reason,
-        lawIds: evaluation.result.triggeredLawIds,
-        nslMoves: evaluation.nslMoves,
+        reason: adjudication.result.reason,
+        lawIds: adjudication.result.triggeredLawIds,
+        nslMoves: adjudication.nslMoves,
       },
-      evaluation.result.triggeredLawIds,
+      adjudication.result.triggeredLawIds,
     );
     activeConfig = await applyBodyguardUserLawDecision({
       config: activeConfig,
@@ -330,21 +222,61 @@ export async function executeBoundaryControlledAction<T>(args: {
     });
 
     if (!approvalResult.approved) {
+      if (adjudication.grantOffer) {
+        await adjudication.grantOffer.denyGrant();
+      }
       await logBlockedAction(
         activeConfig,
         activeRequest,
-        evaluation.result.reason,
-        evaluation.result.triggeredLawIds,
+        adjudication.result.reason,
+        adjudication.result.triggeredLawIds,
       );
       return {
         config: activeConfig,
         allowed: false,
         executed: false,
         requiresApproval: true,
-        reason: evaluation.result.reason,
-        nslMoves: evaluation.nslMoves,
+        reason: adjudication.result.reason,
+        nslMoves: adjudication.nslMoves,
       };
     }
+
+    if (adjudication.grantOffer) {
+      const replay = await adjudication.grantOffer.applyGrant({
+        session: activeConfig.session,
+        request: activeRequest,
+        reason: adjudication.result.reason,
+        lawIds: adjudication.result.triggeredLawIds,
+        nslMoves: adjudication.nslMoves,
+      });
+      activeConfig = replay.config;
+      activeRequest = replay.request;
+      adjudication = await adjudicateBodyguardRequest({
+        config: activeConfig,
+        request: activeRequest,
+      });
+      activeConfig = adjudication.config;
+      activeRequest = adjudication.request;
+      if (adjudication.result.decision === "deny") {
+        await logBlockedAction(
+          activeConfig,
+          activeRequest,
+          adjudication.result.reason,
+          adjudication.result.triggeredLawIds,
+        );
+        return {
+          config: activeConfig,
+          allowed: false,
+          executed: false,
+          requiresApproval: false,
+          reason: adjudication.result.reason,
+          nslMoves: adjudication.nslMoves,
+        };
+      }
+      continue;
+    }
+
+    break;
   }
 
   if (!args.execute) {
@@ -352,9 +284,9 @@ export async function executeBoundaryControlledAction<T>(args: {
       config: activeConfig,
       allowed: true,
       executed: false,
-      requiresApproval: evaluation.result.requiresApproval,
+      requiresApproval: adjudication.result.requiresApproval,
       reason: args.successReason,
-      nslMoves: evaluation.nslMoves,
+      nslMoves: adjudication.nslMoves,
     };
   }
 
@@ -367,9 +299,9 @@ export async function executeBoundaryControlledAction<T>(args: {
       config: activeConfig,
       allowed: true,
       executed: false,
-      requiresApproval: evaluation.result.requiresApproval,
+      requiresApproval: adjudication.result.requiresApproval,
       reason,
-      nslMoves: evaluation.nslMoves,
+      nslMoves: adjudication.nslMoves,
     };
   }
 
@@ -380,9 +312,9 @@ export async function executeBoundaryControlledAction<T>(args: {
     config: activeConfig,
     allowed: true,
     executed: true,
-    requiresApproval: evaluation.result.requiresApproval,
+    requiresApproval: adjudication.result.requiresApproval,
     reason: args.successReason,
-    nslMoves: evaluation.nslMoves,
+    nslMoves: adjudication.nslMoves,
     value,
   };
 }

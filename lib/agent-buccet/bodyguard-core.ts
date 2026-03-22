@@ -1,5 +1,9 @@
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { buildBoundaryBodyguardMoves } from "./bodyguard-moves.ts";
+import {
+  createBoundaryGravityService,
+  type BoundaryGravityEnforcement,
+} from "./gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
 import {
@@ -23,6 +27,12 @@ export type BodyguardAdjudication = {
 };
 
 export type BodyguardHeldDecision = BodyguardAdjudication | null;
+
+export type BodyguardRequestAdjudication = BodyguardAdjudication & {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+  grantOffer?: Extract<BoundaryGravityEnforcement, { outcome: "nsl_grant_offer" }>;
+};
 
 export function attachBodyguardControl(
   config: BoundaryRuntimeConfig,
@@ -146,6 +156,69 @@ export function evaluateBodyguardAction(args: {
     result,
     nslMoves: buildBoundaryBodyguardMoves(args.request, result),
   };
+}
+
+export async function adjudicateBodyguardRequest(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}): Promise<BodyguardRequestAdjudication> {
+  const heldDecision = await resolveBodyguardHeldRequest(args);
+  if (heldDecision) {
+    return {
+      ...heldDecision,
+      config: args.config,
+      request: args.request,
+    };
+  }
+
+  {
+    const gravityService = args.config.gravityService ?? createBoundaryGravityService();
+    const gravity = await gravityService.enforceRequest({
+      config: args.config,
+      request: args.request,
+    });
+
+    if (gravity.outcome === "deny") {
+      return {
+        config: gravity.config,
+        request: gravity.request,
+        result: {
+          decision: "deny",
+          reason: gravity.reason,
+          triggeredLawIds: gravity.lawIds,
+          requiresApproval: false,
+        },
+        nslMoves: gravity.nslMoves,
+      };
+    }
+
+    if (gravity.outcome === "nsl_grant_offer") {
+      return {
+        config: gravity.config,
+        request: gravity.request,
+        result: {
+          decision: "require_approval",
+          reason: gravity.reason,
+          triggeredLawIds: gravity.lawIds,
+          requiresApproval: true,
+        },
+        nslMoves: gravity.nslMoves,
+        grantOffer: gravity,
+      };
+    }
+
+    const nextConfig = gravity.config ?? args.config;
+    const nextRequest = gravity.request ?? args.request;
+    const adjudication = evaluateBodyguardAction({
+      config: nextConfig,
+      request: nextRequest,
+    });
+    return {
+      ...adjudication,
+      config: nextConfig,
+      request: nextRequest,
+    };
+  }
 }
 
 export async function applyBodyguardUserLawDecision(args: {

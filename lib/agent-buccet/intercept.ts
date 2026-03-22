@@ -1,8 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { resolveBodyguardHeldRequest } from "./bodyguard-core.ts";
+import { adjudicateBodyguardRequest } from "./bodyguard-core.ts";
 import { createBoundaryActionRequest } from "./executor.ts";
-import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
-import { evaluateBoundaryAction } from "./runtime.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -148,61 +146,18 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  const heldDecision = await resolveBodyguardHeldRequest({
+  const adjudication = await adjudicateBodyguardRequest({
     config: args.config,
     request: boundaryRequest,
   });
-
-  if (heldDecision) {
-    return {
-      decision: heldDecision.result.decision,
-      reason: heldDecision.result.reason,
-      lawIds: heldDecision.result.triggeredLawIds,
-      nslMoves: heldDecision.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  const gravityService = args.config.gravityService ?? createBoundaryGravityService();
-  const gravity = await gravityService.enforceRequest({
-    config: args.config,
-    request: boundaryRequest,
-  });
-
-  if (gravity.outcome === "deny") {
-    return {
-      decision: "deny",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  if (gravity.outcome === "nsl_grant_offer") {
-    return {
-      decision: "require_approval",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  const nextRequest = gravity.request ?? boundaryRequest;
-  const nextConfig = gravity.config ?? args.config;
-  const evaluated = await evaluateBoundaryAction(nextConfig, nextRequest);
 
   return {
-    decision: evaluated.result.decision,
-    reason: evaluated.result.reason,
-    lawIds: evaluated.result.triggeredLawIds,
-    nslMoves: evaluated.nslMoves,
-    requestId: nextRequest.requestId,
-    actionKind: nextRequest.actionKind,
+    decision: adjudication.result.decision,
+    reason: adjudication.result.reason,
+    lawIds: adjudication.result.triggeredLawIds,
+    nslMoves: adjudication.nslMoves,
+    requestId: adjudication.request.requestId,
+    actionKind: adjudication.request.actionKind,
   };
 }
 
