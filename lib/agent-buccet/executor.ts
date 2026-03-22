@@ -3,9 +3,16 @@ import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
+import {
+  getActiveUserLawIds,
+  lookupUserPathDecision,
+  writeApprovedUserPathLaw,
+  writeDeniedUserPathLaw,
+} from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
+  BoundaryApprovalDecision,
   BoundaryApprovalRequest,
   BoundaryLawResult,
   BoundaryRequestProvenance,
@@ -81,11 +88,20 @@ async function logExecutedAction(
   });
 }
 
+function normalizeApprovalDecision(
+  decision: boolean | BoundaryApprovalDecision,
+): BoundaryApprovalDecision {
+  if (typeof decision === "boolean") {
+    return { approved: decision };
+  }
+  return decision;
+}
+
 async function requestApproval(
   config: BoundaryRuntimeConfig,
   approval: BoundaryApprovalRequest,
   lawIds: string[],
-): Promise<boolean> {
+): Promise<{ approved: boolean; decision: BoundaryApprovalDecision; witnessRecord: Awaited<ReturnType<typeof appendBoundaryLedger>> }> {
   await appendBoundaryLedger("APPROVAL_REQUESTED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
@@ -99,23 +115,34 @@ async function requestApproval(
   });
 
   if (!config.approvalHandler) {
-    return false;
+    const witnessRecord = await appendBoundaryLedger("APPROVAL_DENIED", {
+      sessionId: config.session.sessionId,
+      actorId: config.session.actorId,
+      requestId: approval.request.requestId,
+      actionKind: approval.request.actionKind,
+      target: approval.request.target,
+      decision: "deny",
+      reason: "approval denied or unavailable",
+      lawIds,
+      createdAt: new Date().toISOString(),
+    });
+    return { approved: false, decision: { approved: false }, witnessRecord };
   }
 
-  const approved = await config.approvalHandler(approval);
-  await appendBoundaryLedger(approved ? "APPROVAL_GRANTED" : "APPROVAL_DENIED", {
+  const decision = normalizeApprovalDecision(await config.approvalHandler(approval));
+  const witnessRecord = await appendBoundaryLedger(decision.approved ? "APPROVAL_GRANTED" : "APPROVAL_DENIED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
     requestId: approval.request.requestId,
     actionKind: approval.request.actionKind,
     target: approval.request.target,
-    decision: approved ? "allow" : "deny",
-    reason: approved ? "approval granted by user" : "approval denied or unavailable",
+    decision: decision.approved ? "allow" : "deny",
+    reason: decision.approved ? "approval granted by user" : "approval denied or unavailable",
     lawIds,
     createdAt: new Date().toISOString(),
   });
 
-  return approved;
+  return { approved: decision.approved, decision, witnessRecord };
 }
 
 export async function executeBoundaryControlledAction<T>(args: {
@@ -288,8 +315,62 @@ export async function executeBoundaryControlledAction<T>(args: {
     };
   }
 
+  const standingUserLaw = activeConfig.upl
+    ? lookupUserPathDecision({
+      ledger: activeConfig.upl,
+      session: activeConfig.session,
+      request: activeRequest,
+    })
+    : null;
+
+  if (standingUserLaw?.decision === "deny") {
+    await logBlockedAction(
+      activeConfig,
+      activeRequest,
+      `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
+      [standingUserLaw.entry.id],
+    );
+    return {
+      config: activeConfig,
+      allowed: false,
+      executed: false,
+      requiresApproval: false,
+      reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
+      nslMoves: [],
+    };
+  }
+
+  if (standingUserLaw?.decision === "allow") {
+    if (!args.execute) {
+      return {
+        config: activeConfig,
+        allowed: true,
+        executed: false,
+        requiresApproval: false,
+        reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
+        nslMoves: [],
+      };
+    }
+    const value = await args.execute();
+    await logExecutedAction(
+      activeConfig,
+      activeRequest,
+      `executed under standing UPL approval ${standingUserLaw.entry.id}`,
+      args.successMetadata,
+    );
+    return {
+      config: activeConfig,
+      allowed: true,
+      executed: true,
+      requiresApproval: false,
+      reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
+      nslMoves: [],
+      value,
+    };
+  }
+
   if (evaluation.result.decision === "require_approval") {
-    const approved = await requestApproval(
+    const approvalResult = await requestApproval(
       activeConfig,
       {
         session: activeConfig.session,
@@ -300,7 +381,37 @@ export async function executeBoundaryControlledAction<T>(args: {
       },
       evaluation.result.triggeredLawIds,
     );
-    if (!approved) {
+    if (activeConfig.upl) {
+      if (approvalResult.approved) {
+        activeConfig.upl = await writeApprovedUserPathLaw({
+          ledger: activeConfig.upl,
+          request: activeRequest,
+          witness: approvalResult.witnessRecord,
+          session: activeConfig.session,
+          decision: approvalResult.decision,
+        });
+      } else if (approvalResult.decision.persistDenied) {
+        activeConfig.upl = await writeDeniedUserPathLaw({
+          ledger: activeConfig.upl,
+          request: activeRequest,
+          witness: approvalResult.witnessRecord,
+          session: activeConfig.session,
+          decision: approvalResult.decision,
+        });
+      }
+      activeConfig = {
+        ...activeConfig,
+        upl: activeConfig.upl,
+        userLawIds: await Promise.resolve([
+          ...new Set([
+            ...(activeConfig.userLawIds ?? []),
+            ...getActiveUserLawIds(activeConfig.upl, activeConfig.session),
+          ]),
+        ]),
+      };
+    }
+
+    if (!approvalResult.approved) {
       await logBlockedAction(
         activeConfig,
         activeRequest,

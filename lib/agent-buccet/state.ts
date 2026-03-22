@@ -4,8 +4,16 @@ import {
   appendBoundaryLedger,
   readAllBoundaryLedgerRecords,
 } from "./ledger.ts";
-import { buildActiveAgentBuccetLawIds } from "./foundation.ts";
+import {
+  buildActiveAgentBuccetLawIds,
+  loadAgentBuccetRuntimeMuscleManifest,
+} from "./foundation.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
+import {
+  getActiveUserLawIds,
+  loadUserPathLedger,
+  pruneSessionScopedUserPathLaws,
+} from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryLaw,
@@ -261,7 +269,13 @@ export async function startPersistentBoundarySession(args: {
       enabled: true,
       sessionsDir: args.sessionsDir,
     },
+    upl: await loadUserPathLedger(),
+    runtimeMuscle: await loadAgentBuccetRuntimeMuscleManifest(),
   };
+  config.userLawIds = await buildActiveAgentBuccetLawIds({
+    executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
+    existingLawIds: getActiveUserLawIds(config.upl, config.session),
+  });
 
   await appendBoundaryLedger("SESSION_STARTED", {
     sessionId: session.sessionId,
@@ -300,16 +314,22 @@ export async function restorePersistentBoundarySession(args: {
     grants: state.grants,
     pathLaws: state.pathLaws,
     approvalRequiredFor: state.approvalRequiredFor,
-    userLawIds: await buildActiveAgentBuccetLawIds({
-      executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-      existingLawIds: state.userLawIds,
-    }),
+    userLawIds: [],
     processPolicy: state.processPolicy as BoundaryProcessPolicy | undefined,
     persistence: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),
     },
+    upl: await loadUserPathLedger(),
+    runtimeMuscle: await loadAgentBuccetRuntimeMuscleManifest(),
   };
+  config.userLawIds = await buildActiveAgentBuccetLawIds({
+    executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
+    existingLawIds: [
+      ...state.userLawIds,
+      ...getActiveUserLawIds(config.upl, config.session),
+    ],
+  });
 
   await appendBoundaryLedger("SESSION_RESTORED", {
     sessionId: config.session.sessionId,
@@ -350,6 +370,17 @@ export async function endPersistentBoundarySession(args: {
     },
     createdAt: endedAt,
   });
+
+  if (nextConfig.upl) {
+    nextConfig.upl = await pruneSessionScopedUserPathLaws({
+      ledger: nextConfig.upl,
+      sessionId: nextConfig.session.sessionId,
+    });
+    nextConfig.userLawIds = await buildActiveAgentBuccetLawIds({
+      executableLaws: nextConfig.laws,
+      existingLawIds: getActiveUserLawIds(nextConfig.upl, nextConfig.session),
+    });
+  }
 
   await persistBoundarySessionState(nextConfig);
   return nextConfig;

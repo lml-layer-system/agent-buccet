@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_BUCCET_META_LAW_REFERENCES } from "./meta.ts";
-import type { BoundaryLaw } from "./types.ts";
+import type { BoundaryLaw, BoundaryRuntimeMuscleManifest } from "./types.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const FOUNDATION_LAWS_RELATIVE_PATH = path.join(
@@ -12,6 +12,14 @@ const FOUNDATION_LAWS_RELATIVE_PATH = path.join(
   "working",
   "active-law-body",
   "index.json",
+);
+const FOUNDATION_RUNTIME_SUBSTRATE_MANIFEST_RELATIVE_PATH = path.join(
+  "data",
+  "agent-buccet-law-foundation",
+  "data",
+  "working",
+  "runtime-law-substrate",
+  "manifest.json",
 );
 
 const AGENT_BUCCET_BASE_LAW_IDS = [
@@ -30,6 +38,7 @@ export type AgentBuccetFoundationLawSourceRecord = {
 };
 
 let cachedSunFoundationLawIds: Promise<string[]> | null = null;
+let cachedRuntimeMuscleManifest: Promise<BoundaryRuntimeMuscleManifest> | null = null;
 
 function normalizeMetaReferenceLawId(lawId: number): string {
   return `BUCCET.META.${String(lawId).padStart(4, "0")}`;
@@ -46,11 +55,7 @@ async function loadSunFoundationLawIds(): Promise<string[]> {
 }
 
 async function resolveFoundationLawsPath(): Promise<string> {
-  const candidates = [
-    path.join(moduleDir, "../../../", FOUNDATION_LAWS_RELATIVE_PATH),
-    path.join(moduleDir, "../", FOUNDATION_LAWS_RELATIVE_PATH),
-    path.join(process.cwd(), FOUNDATION_LAWS_RELATIVE_PATH),
-  ];
+  const candidates = resolveFoundationCandidates(FOUNDATION_LAWS_RELATIVE_PATH);
 
   for (const candidate of candidates) {
     try {
@@ -62,6 +67,29 @@ async function resolveFoundationLawsPath(): Promise<string> {
   }
 
   throw new Error(`unable to locate Agent Buccet law foundation at ${FOUNDATION_LAWS_RELATIVE_PATH}`);
+}
+
+function resolveFoundationCandidates(relativePath: string): string[] {
+  return [
+    path.join(moduleDir, "../../../", relativePath),
+    path.join(moduleDir, "../", relativePath),
+    path.join(process.cwd(), relativePath),
+  ];
+}
+
+async function resolveRuntimeMuscleManifestPath(): Promise<string> {
+  for (const candidate of resolveFoundationCandidates(FOUNDATION_RUNTIME_SUBSTRATE_MANIFEST_RELATIVE_PATH)) {
+    try {
+      await fs.access(candidate);
+      return candidate;
+    } catch {
+      continue;
+    }
+  }
+
+  throw new Error(
+    `unable to locate Agent Buccet runtime law substrate manifest at ${FOUNDATION_RUNTIME_SUBSTRATE_MANIFEST_RELATIVE_PATH}`,
+  );
 }
 
 export async function buildActiveAgentBuccetLawIds(args: {
@@ -83,4 +111,13 @@ export async function buildActiveAgentBuccetLawIds(args: {
 
 export function getAgentBuccetBaseLawIds(): readonly string[] {
   return AGENT_BUCCET_BASE_LAW_IDS;
+}
+
+export async function loadAgentBuccetRuntimeMuscleManifest(): Promise<BoundaryRuntimeMuscleManifest> {
+  if (!cachedRuntimeMuscleManifest) {
+    cachedRuntimeMuscleManifest = resolveRuntimeMuscleManifestPath()
+      .then((resolvedPath) => fs.readFile(resolvedPath, "utf8"))
+      .then((raw) => JSON.parse(raw) as BoundaryRuntimeMuscleManifest);
+  }
+  return cachedRuntimeMuscleManifest;
 }

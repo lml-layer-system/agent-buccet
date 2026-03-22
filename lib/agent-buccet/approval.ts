@@ -1,6 +1,8 @@
 import type {
+  BoundaryApprovalDecision,
   BoundaryApprovalHandler,
   BoundaryApprovalRequest,
+  BoundaryUplScope,
 } from "./types.ts";
 
 export type PendingBoundaryApproval = {
@@ -12,8 +14,9 @@ export type PendingBoundaryApproval = {
 export type BoundaryApprovalQueueAdapter = {
   handler: BoundaryApprovalHandler;
   listPending(): PendingBoundaryApproval[];
-  approve(approvalId: string): boolean;
+  approve(approvalId: string, options?: { scope?: BoundaryUplScope; notes?: string | null; domain?: string }): boolean;
   deny(approvalId: string): boolean;
+  denyAsLaw(approvalId: string, options?: { scope?: BoundaryUplScope; notes?: string | null; domain?: string }): boolean;
 };
 
 export function createStaticApprovalHandler(approved: boolean): BoundaryApprovalHandler {
@@ -29,7 +32,7 @@ export function createPredicateApprovalHandler(
 export function createApprovalQueueAdapter(): BoundaryApprovalQueueAdapter {
   const pending = new Map<
     string,
-    PendingBoundaryApproval & { resolve: (approved: boolean) => void }
+    PendingBoundaryApproval & { resolve: (approved: boolean | BoundaryApprovalDecision) => void }
   >();
 
   const handler: BoundaryApprovalHandler = async (approval) =>
@@ -43,7 +46,7 @@ export function createApprovalQueueAdapter(): BoundaryApprovalQueueAdapter {
       });
     });
 
-  function settle(approvalId: string, approved: boolean): boolean {
+  function settle(approvalId: string, approved: boolean | BoundaryApprovalDecision): boolean {
     const entry = pending.get(approvalId);
     if (!entry) {
       return false;
@@ -57,7 +60,19 @@ export function createApprovalQueueAdapter(): BoundaryApprovalQueueAdapter {
     handler,
     listPending: () =>
       [...pending.values()].map(({ resolve: _resolve, ...entry }) => entry),
-    approve: (approvalId: string) => settle(approvalId, true),
+    approve: (approvalId: string, options) => settle(approvalId, {
+      approved: true,
+      scope: options?.scope,
+      notes: options?.notes,
+      domain: options?.domain,
+    }),
     deny: (approvalId: string) => settle(approvalId, false),
+    denyAsLaw: (approvalId: string, options) => settle(approvalId, {
+      approved: false,
+      persistDenied: true,
+      scope: options?.scope,
+      notes: options?.notes,
+      domain: options?.domain,
+    }),
   };
 }

@@ -298,6 +298,52 @@ export type BoundaryLedgerCheckpoint = {
   signature: string;
 };
 
+export type BoundaryUplEntryType = "APPROVED" | "DENIED";
+export type BoundaryUplScope = "SESSION" | "GLOBAL" | "DOMAIN";
+export type BoundaryUplStatus = "ACTIVE" | "MUTED" | "DELETED";
+
+export type BoundaryUplEntry = {
+  id: string;
+  type: BoundaryUplEntryType;
+  path: string;
+  pathHash: string;
+  createdAt: string;
+  scope: BoundaryUplScope;
+  status: BoundaryUplStatus;
+  witness: string;
+  modifiedAt?: string | null;
+  notes?: string | null;
+  sessionId?: string;
+  domain?: string;
+};
+
+export type BoundaryUserPathLedger = {
+  specVersion: 1;
+  userApprovedLawPaths: BoundaryUplEntry[];
+  userDeniedLawPaths: BoundaryUplEntry[];
+};
+
+export type BoundaryRuntimeMuscleManifest = {
+  generatedAt: string;
+  activeBaseLawCount: number;
+  activeTimeLawCount: number;
+  activeLawBodyCount: number;
+  substrateFamilyCount: number;
+  substrateSourceKernelCount: number;
+  hashes: {
+    runtimeSubstrateSha256: string;
+    materializedActiveLawBodySha256: string;
+  };
+  sizes: {
+    runtimeSubstrateBytes: number;
+    materializedActiveLawBodyBytes: number;
+  };
+  artifactPaths: {
+    substrate: string;
+    activeLawBodySource: string;
+  };
+};
+
 export type BoundaryRuntimeConfig = {
   session: BoundarySession;
   laws: BoundaryLaw[];
@@ -305,6 +351,8 @@ export type BoundaryRuntimeConfig = {
   pathLaws: BoundaryPathLaw[];
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds?: string[];
+  upl?: BoundaryUserPathLedger;
+  runtimeMuscle?: BoundaryRuntimeMuscleManifest;
   persistence?: BoundaryPersistenceConfig;
   approvalHandler?: BoundaryApprovalHandler;
   gravityService?: BoundaryGravityService;
@@ -335,9 +383,17 @@ export type BoundaryApprovalRequest = {
   nslMoves: NslMove[];
 };
 
+export type BoundaryApprovalDecision = {
+  approved: boolean;
+  persistDenied?: boolean;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  domain?: string;
+};
+
 export type BoundaryApprovalHandler = (
   approval: BoundaryApprovalRequest,
-) => Promise<boolean> | boolean;
+) => Promise<boolean | BoundaryApprovalDecision> | boolean | BoundaryApprovalDecision;
 
 export type BoundaryPolicyConfig = {
   approvalRequiredFor?: BoundaryActionKind[];

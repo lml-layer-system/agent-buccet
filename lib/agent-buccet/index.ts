@@ -19,6 +19,7 @@ export * from "./actions.ts";
 export * from "./adapters.ts";
 export * from "./remote.ts";
 export * from "./bodyguard.ts";
+export * from "./user-path-ledger.ts";
 export * from "./gravity.ts";
 export * from "./gravity-core/index.ts";
 export * from "./gravity-adapter/gravity-service.ts";
