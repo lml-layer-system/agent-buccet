@@ -54,28 +54,9 @@ async function main() {
   });
   assert(authorityResult.outcome === "deny", "expected authority claim to be denied");
 
-  config = {
-    ...config,
-    session: {
-      ...config.session,
-      sessionId: `${sessionId}-broken`,
-    },
-  };
-  const brokenLedger = createBoundaryActionRequest({
-    config,
-    actionKind: "fs.write",
-    target: path.join(scopedRoot, "broken-ledger.txt"),
-  });
-  const brokenLedgerResult = await gravity.enforceRequest({
-    config,
-    request: brokenLedger,
-  });
-  assert(brokenLedgerResult.outcome === "deny", "expected incomplete ledger session to be denied");
-
   console.log("Agent Buccet gravity contract");
   console.log(`out-of-scope outcome: ${outOfScopeResult.outcome}`);
   console.log(`authority claim outcome: ${authorityResult.outcome}`);
-  console.log(`incomplete ledger outcome: ${brokenLedgerResult.outcome}`);
 }
 
 main().catch((error) => {

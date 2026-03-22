@@ -1,42 +1,5 @@
 {
   "specVersion": 1,
-  "userApprovedLawPaths": [
-    {
-      "id": "UPL-000001",
-      "type": "APPROVED",
-      "path": "fs.write /tmp/agent-buccet-swarm-O2wnds/shared.txt :: pid=1001 agent=one",
-      "pathHash": "14407df2b425140127879616f5ff5f862b7ad289f9ffc801862deeaf70997543",
-      "createdAt": "2026-03-22T06:00:21.670Z",
-      "scope": "GLOBAL",
-      "status": "ACTIVE",
-      "witness": "entry_0000000246",
-      "modifiedAt": null,
-      "notes": null
-    },
-    {
-      "id": "UPL-000002",
-      "type": "APPROVED",
-      "path": "fs.write /tmp/agent-buccet-swarm-2kLSA3/shared.txt :: pid=1001 agent=one",
-      "pathHash": "62f24e39de599449ea21312fd69e19588be1e5695105699596730137ec817478",
-      "createdAt": "2026-03-22T06:19:25.058Z",
-      "scope": "GLOBAL",
-      "status": "ACTIVE",
-      "witness": "entry_0000000374",
-      "modifiedAt": null,
-      "notes": null
-    },
-    {
-      "id": "UPL-000003",
-      "type": "APPROVED",
-      "path": "fs.write /tmp/agent-buccet-swarm-kfKkOg/shared.txt :: pid=1002 agent=two",
-      "pathHash": "5e2cae3c476bfebc00a43da3df0718480f365f97da693c8902764626ef10b3f0",
-      "createdAt": "2026-03-22T06:21:58.295Z",
-      "scope": "GLOBAL",
-      "status": "ACTIVE",
-      "witness": "entry_0000000407",
-      "modifiedAt": null,
-      "notes": null
-    }
-  ],
+  "userApprovedLawPaths": [],
   "userDeniedLawPaths": []
 }
