@@ -147,12 +147,12 @@ This keeps authority reversible.
 The chain:
 
 ```
-INTERCEPT  catches it.   Nothing crosses without being seen.
-GRAVITY    holds it.     Evaluates it against the law body.
-BODYGUARD  checks UPL.   Looks for a standing user decision on this target.
-  → Match found:  applied on contact. Ledger updated.
-  → No match:     human is asked. Yes → becomes law. No → blocked.
-LEDGER     signs it all. Chained. The agent cannot erase it.
+INTERCEPT  freezes it.   Motion stops. Nothing crosses without being seen.
+GRAVITY    evaluates.    Runs the law body against the frozen proposal.
+BODYGUARD  arrives.      Carries the UPL — the user's own runtime laws.
+  → UPL match:    user's law decides on contact. Always.
+  → No match:     user is asked. Their answer becomes a new UPL law.
+LEDGER     signs it all. Every step, chained. The agent cannot erase it.
 ```
 
 Someone says:

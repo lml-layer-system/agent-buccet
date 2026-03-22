@@ -7,10 +7,11 @@ This document defines the operational split inside Agent Buccet.
 ### Hook
 
 The hook does only this:
-- catch motion
-- freeze motion
-- pass motion upward
-- wait
+- catch motion at the action boundary
+- freeze it — the action does not execute
+- signal the Buccet brain that a frozen proposal is waiting
+- wait for the verdict
+- apply the verdict
 
 The hook does not:
 - decide law
@@ -44,24 +45,46 @@ The main Agent Buccet runtime owns:
 
 ## Decision Path
 
-1. motion is intercepted
-2. hook freezes it
-3. hook forwards it into Agent Buccet
-4. Agent Buccet evaluates:
-   - laws
-   - scope
+1. motion is intercepted at the action boundary
+2. hook freezes it — the action does not execute
+3. hook signals the Buccet brain that a frozen proposal is waiting
+4. Buccet brain evaluates while the action stays frozen:
+   - laws (base runtime laws)
+   - scope and grants
    - gravity
+   - UPL (User Path Ledger — the user's own runtime laws, same enforcement class as base laws)
    - NSL if needed
    - swarm coordination if many matching requests are waiting
    - ledger
-5. verdict returns
-6. hook applies that verdict
+5. verdict returns: allow / deny / require_approval
+6. hook applies the verdict — allow executes, deny drops, require_approval holds until resolved
+
+## UPL — User Path Ledger
+
+The UPL is not a preference store. It is not a settings file. It is not a cache.
+
+The UPL is a set of **active runtime laws** — the same enforcement class as the base boundary laws — that are user-customizable.
+
+When the Bodyguard arrives at a frozen proposal:
+- it carries the UPL with it
+- every entry in the UPL is a standing law
+- if that law matches the target, it decides on contact — just like any base runtime law would
+
+The difference from base laws:
+- base laws are set by the runtime and cannot be changed by the agent
+- UPL laws are set by the **user** — one person, the human in the chair
+
+There is only one source of authority: the user.
+
+The Bodyguard enforces that by turning every user decision into a standing UPL law. If the user said "deny writes to /etc" once, that becomes law. Future identical proposals are resolved at the UPL check without asking again.
+
+The agent cannot write to the UPL. The agent cannot read the UPL to understand its limits. The agent proposes. The user's laws decide.
 
 ## Swarm Mode
 
 When many protected processes hit the same unresolved target:
-- hooks still only catch, freeze, and pass
-- the Buccet brain groups matching waiting requests into one shared pending group
+- hooks still only freeze and hold — no action executes, nothing passes
+- the Buccet brain groups matching frozen requests into one shared pending group
 - one lawful approval or denial resolves that whole group
 - ledger records the shared swarm decision path
 
@@ -92,7 +115,7 @@ Both route to the same Buccet brain.
 OS-specific kernel hooks (eBPF, seccomp, ptrace) go deeper on one platform but trade universal coverage for OS lock-in. They can be added as supplemental nets in front of the same Buccet brain but are not the universal default.
 
 Those supplemental nets do not become the authority system.
-They remain catch, freeze, and pass layers in front of the same Buccet brain.
+They remain freeze-and-hold layers in front of the same Buccet brain.
 
 ## Failure Model
 
