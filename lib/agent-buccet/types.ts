@@ -144,6 +144,10 @@ export type NslMove = {
   metadata?: Record<string, string | number | boolean>;
 };
 
+export type BodyguardMoveKind = NslMoveKind;
+
+export type BodyguardMove = NslMove;
+
 export type BoundaryLedgerEventType =
   | "SESSION_STARTED"
   | "SESSION_RESTORED"

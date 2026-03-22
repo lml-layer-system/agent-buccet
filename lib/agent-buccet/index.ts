@@ -27,6 +27,7 @@ export * from "./gravity-core/index.ts";
 export * from "./gravity-adapter/gravity-service.ts";
 export * from "./gravity-adapter/boundary-to-gravity.ts";
 export * from "./gravity-adapter/ledger-to-gravity.ts";
+export * from "./gravity-adapter/bodyguard-open-as-law.ts";
 export * from "./gravity-adapter/nsl-open-as-law.ts";
 export * from "./gravity-supervisor.ts";
 export * from "./intercept.ts";

@@ -36,8 +36,8 @@ async function main() {
     config,
     request: outOfScope,
   });
-  assert(outOfScopeResult.outcome === "nsl_grant_offer", "expected out-of-scope request to yield NSL grant offer");
-  assert(outOfScopeResult.nslMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law NSL move");
+  assert(outOfScopeResult.outcome === "nsl_grant_offer", "expected out-of-scope request to yield a Bodyguard grant offer");
+  assert(outOfScopeResult.nslMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law Bodyguard move");
 
   const authorityClaim = createBoundaryActionRequest({
     config,
