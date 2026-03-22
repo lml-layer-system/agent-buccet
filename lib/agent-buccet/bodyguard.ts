@@ -41,6 +41,34 @@ export type BoundaryEvaluation = {
 };
 
 /**
+ * Action-class law table for muscle-governed adjudication.
+ *
+ * When the snapped runtime muscle is active, these entries govern all
+ * BOUNDARY.*.01 action-class decisions. The governing base family's law text
+ * appears in the reason; the canonical BOUNDARY law ID is preserved in
+ * triggeredLawIds so callers and contracts that check specific law IDs remain correct.
+ *
+ * This is the mirror of `DEFAULT_BOUNDARY_LAWS` action-class entries in `laws.ts`.
+ * When muscle is absent, those native law objects run instead via `evaluateBoundaryLaws`.
+ */
+const MUSCLE_ACTION_CLASS_RULES: Partial<Record<BoundaryActionKind, { decision: "deny" | "require_approval"; lawId: string }>> = {
+  "comm.send":           { decision: "require_approval", lawId: "BOUNDARY.COMM.01" },
+  "fs.delete":           { decision: "require_approval", lawId: "BOUNDARY.DELETE.01" },
+  "tool.exec":           { decision: "deny",             lawId: "BOUNDARY.EXEC.01" },
+  "network.send":        { decision: "require_approval", lawId: "BOUNDARY.NETWORK.01" },
+  "db.query":            { decision: "require_approval", lawId: "BOUNDARY.DB.READ.01" },
+  "db.insert":           { decision: "require_approval", lawId: "BOUNDARY.DB.WRITE.01" },
+  "db.update":           { decision: "require_approval", lawId: "BOUNDARY.DB.WRITE.01" },
+  "db.delete":           { decision: "require_approval", lawId: "BOUNDARY.DB.WRITE.01" },
+  "sys.env.read":        { decision: "require_approval", lawId: "BOUNDARY.SYS.ENV.READ.01" },
+  "sys.env.write":       { decision: "deny",             lawId: "BOUNDARY.SYS.ENV.WRITE.01" },
+  "sys.config.read":     { decision: "require_approval", lawId: "BOUNDARY.SYS.CONFIG.READ.01" },
+  "sys.config.write":    { decision: "deny",             lawId: "BOUNDARY.SYS.CONFIG.WRITE.01" },
+  "sys.credential.read": { decision: "deny",             lawId: "BOUNDARY.SYS.CREDENTIAL.READ.01" },
+  "sys.credential.use":  { decision: "require_approval", lawId: "BOUNDARY.SYS.CREDENTIAL.USE.01" },
+};
+
+/**
  * Evaluates a proposed action against the active session laws.
  *
  * This is the Bodyguard decision function. Interceptors and all other callers
@@ -51,18 +79,18 @@ export type BoundaryEvaluation = {
  * 2. UPL standing law — the only live standing-law surface; short-circuits if a
  *    standing allow or deny exists for this target.
  * 3. Snapped runtime muscle — the governing law field when loaded.
- *    The active base families govern the full flag-violation surface:
+ *    Base families govern the full flag-violation surface (TIME.*.01, 7 laws):
  *    authority claims, scope expansion, law mutation, ledger bypass, novelty claims.
- *    The time family governs temporal coherence: session revival and trust-provenance
- *    combinations with high-risk actions.
- *    When muscle is active, the full TIME.*.01 law surface is governed here.
- *    Muscle law text appears directly in decision reasons alongside canonical law IDs.
- * 4. Residual boundary action-class laws — evaluated only after muscle clears.
- *    When muscle is active, this step covers only the BOUNDARY.*.01 action-class
- *    laws (comm, delete, exec, network, db, sys) plus scope enforcement.
- *    The TIME.*.01 laws are intentionally excluded from this step when muscle governs
- *    them above. `config.laws` fallback is residual compatibility, not the core model.
- *    When muscle is absent, full `config.laws` runs as the native default.
+ *    Base families also govern all action-class boundary decisions (BOUNDARY.*.01,
+ *    14 action kinds → 12 law entries): comm, delete, exec, network, db, sys.
+ *    Time family governs temporal coherence: session revival and trust-provenance
+ *    combinations with high-risk actions (TIME.TRUST.01, TIME.SESSION.01).
+ *    When muscle is active, 19 of the 20 law categories are governed here.
+ *    Muscle law text appears in decision reasons alongside canonical law IDs.
+ * 4. Residual structural enforcement — scope check and approvalRequiredFor override only.
+ *    When muscle is active, residualLaws = [] — no law evaluation pass runs here,
+ *    only isTargetReachable scope enforcement and the approvalRequiredFor override.
+ *    When muscle is absent, full config.laws runs as the native default path.
  */
 export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
@@ -208,6 +236,33 @@ export async function evaluateBoundaryAction(
         });
         return { result: muscleResult, nslMoves: [] };
       }
+
+      // Muscle governs action-class boundary decisions for laws active in this session's
+      // law set. config.userLawIds (populated from a policy file) may restrict which
+      // BOUNDARY.*.01 laws are active — the muscle respects that restriction.
+      // When no restriction is configured, all BOUNDARY.*.01 action-class rules apply.
+      const activeLawIds = config.userLawIds ?? config.laws.map((l) => l.lawId);
+      const actionClassRule = MUSCLE_ACTION_CLASS_RULES[request.actionKind];
+      if (actionClassRule && activeLawIds.includes(actionClassRule.lawId)) {
+        const muscleResult: BoundaryLawResult = {
+          decision: actionClassRule.decision,
+          reason: `${musclePrefix} | ${actionClassRule.lawId}`,
+          triggeredLawIds: [actionClassRule.lawId],
+          requiresApproval: actionClassRule.decision === "require_approval",
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
     }
 
     const tf = config.runtimeMuscle.time.family;
@@ -270,13 +325,12 @@ export async function evaluateBoundaryAction(
     }
   }
 
-  // Residual law evaluation. When muscle is active, it has governed the full TIME.*.01
-  // surface above (all 7 defensive time laws). Only BOUNDARY.*.01 action-class laws and
-  // scope enforcement remain — these are residual compatibility with the non-muscle runtime.
-  // When muscle is absent, full config.laws runs as the native default.
-  const residualLaws = config.runtimeMuscle
-    ? config.laws.filter((law) => !law.lawId.startsWith("TIME."))
-    : config.laws;
+  // Residual structural enforcement. When muscle is active, it has governed both the
+  // full TIME.*.01 surface (7 laws) and all BOUNDARY.*.01 action-class decisions
+  // (14 action kinds) above. What remains is scope enforcement (isTargetReachable)
+  // and the approvalRequiredFor override — structural checks, not a law evaluation pass.
+  // When muscle is absent, full config.laws runs as the native default path.
+  const residualLaws = config.runtimeMuscle ? [] : config.laws;
 
   const result = evaluateBoundaryLaws({
     session: config.session,

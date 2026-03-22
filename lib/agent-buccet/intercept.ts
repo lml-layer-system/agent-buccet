@@ -146,16 +146,20 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  // Gravity: reflex freeze — scope check and swarm grouping before authority evaluation
+  // Gravity reflex: scope check and swarm grouping.
+  // Gravity holds, freezes, or passes — it does not authorize.
   const gravityService = args.config.gravityService ?? createBoundaryGravityService();
   const gravity = await gravityService.enforceRequest({
     config: args.config,
     request: boundaryRequest,
   });
 
-  if (gravity.outcome === "deny") {
+  // Gravity reflex response flows directly to the caller.
+  // deny = scope blocked by reflex; nsl_grant_offer = scope requires a grant.
+  // Neither passes through bodyguard — these are reflexes, not authority decisions.
+  if (gravity.outcome !== "allow" && gravity.outcome !== "transform") {
     return {
-      decision: "deny",
+      decision: gravity.outcome === "nsl_grant_offer" ? "require_approval" : "deny",
       reason: gravity.reason,
       lawIds: gravity.lawIds,
       nslMoves: gravity.nslMoves,
@@ -164,17 +168,7 @@ export async function evaluateBoundaryIntercept(args: {
     };
   }
 
-  if (gravity.outcome === "nsl_grant_offer") {
-    return {
-      decision: "require_approval",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
+  // Gravity cleared. Hand off to bodyguard — bodyguard owns all authority decisions.
   const nextRequest = gravity.request ?? boundaryRequest;
   const nextConfig = gravity.config ?? args.config;
   const { result, nslMoves } = await evaluateBoundaryAction(nextConfig, nextRequest);
