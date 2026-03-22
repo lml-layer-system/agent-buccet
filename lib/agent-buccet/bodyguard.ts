@@ -87,10 +87,10 @@ const MUSCLE_ACTION_CLASS_RULES: Partial<Record<BoundaryActionKind, { decision: 
  *    combinations with high-risk actions (TIME.TRUST.01, TIME.SESSION.01).
  *    When muscle is active, 19 of the 20 law categories are governed here.
  *    Muscle law text appears in decision reasons alongside canonical law IDs.
- * 4. Residual structural enforcement — scope check and approvalRequiredFor override only.
- *    When muscle is active, residualLaws = [] — no law evaluation pass runs here,
- *    only isTargetReachable scope enforcement and the approvalRequiredFor override.
- *    When muscle is absent, full config.laws runs as the native default path.
+ * 4. Residual — approvalRequiredFor override only (muscle active) or full config.laws (absent).
+ *    When muscle is active: gravity owns scope enforcement; bodyguard does not re-check it.
+ *    Only the approvalRequiredFor policy override runs here.
+ *    When muscle is absent: full evaluateBoundaryLaws runs — scope check included.
  */
 export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
@@ -333,20 +333,35 @@ export async function evaluateBoundaryAction(
     }
   }
 
-  // Residual structural enforcement. When muscle is active, it has governed both the
-  // full TIME.*.01 surface (7 laws) and all BOUNDARY.*.01 action-class decisions
-  // (14 action kinds) above. What remains is scope enforcement (isTargetReachable)
-  // and the approvalRequiredFor override — structural checks, not a law evaluation pass.
-  // When muscle is absent, full config.laws runs as the native default path.
-  const residualLaws = config.runtimeMuscle ? [] : config.laws;
-
-  const result = evaluateBoundaryLaws({
-    session: config.session,
-    request,
-    laws: residualLaws,
-    grants: config.grants,
-    approvalRequiredFor: config.approvalRequiredFor,
-  });
+  // Residual. When muscle is active: gravity has already enforced scope — bodyguard
+  // does not re-check it. Only the approvalRequiredFor policy override remains.
+  // When muscle is absent: full evaluateBoundaryLaws runs — scope check included.
+  let result: BoundaryLawResult;
+  if (config.runtimeMuscle) {
+    if (config.approvalRequiredFor.includes(request.actionKind)) {
+      result = {
+        decision: "require_approval",
+        reason: "action class requires explicit approval",
+        triggeredLawIds: ["BOUNDARY.APPROVAL.01"],
+        requiresApproval: true,
+      };
+    } else {
+      result = {
+        decision: "allow",
+        reason: "action admitted by boundary runtime",
+        triggeredLawIds: [],
+        requiresApproval: false,
+      };
+    }
+  } else {
+    result = evaluateBoundaryLaws({
+      session: config.session,
+      request,
+      laws: config.laws,
+      grants: config.grants,
+      approvalRequiredFor: config.approvalRequiredFor,
+    });
+  }
 
   await appendBoundaryLedger("DECISION_RETURNED", {
     sessionId: config.session.sessionId,
