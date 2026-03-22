@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { createBoundaryActionRequest, evaluateBoundaryAction } from "./bodyguard.ts";
+import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -145,15 +146,46 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  const { result, nslMoves } = await evaluateBoundaryAction(args.config, boundaryRequest);
+  // Gravity: reflex freeze — scope check and swarm grouping before authority evaluation
+  const gravityService = args.config.gravityService ?? createBoundaryGravityService();
+  const gravity = await gravityService.enforceRequest({
+    config: args.config,
+    request: boundaryRequest,
+  });
+
+  if (gravity.outcome === "deny") {
+    return {
+      decision: "deny",
+      reason: gravity.reason,
+      lawIds: gravity.lawIds,
+      nslMoves: gravity.nslMoves,
+      requestId: boundaryRequest.requestId,
+      actionKind,
+    };
+  }
+
+  if (gravity.outcome === "nsl_grant_offer") {
+    return {
+      decision: "require_approval",
+      reason: gravity.reason,
+      lawIds: gravity.lawIds,
+      nslMoves: gravity.nslMoves,
+      requestId: boundaryRequest.requestId,
+      actionKind,
+    };
+  }
+
+  const nextRequest = gravity.request ?? boundaryRequest;
+  const nextConfig = gravity.config ?? args.config;
+  const { result, nslMoves } = await evaluateBoundaryAction(nextConfig, nextRequest);
 
   return {
     decision: result.decision,
     reason: result.reason,
     lawIds: result.triggeredLawIds,
     nslMoves,
-    requestId: boundaryRequest.requestId,
-    actionKind,
+    requestId: nextRequest.requestId,
+    actionKind: nextRequest.actionKind,
   };
 }
 

@@ -93,22 +93,18 @@ export async function evaluateBoundaryAction(
   }
 
   // Snapped runtime muscle: active families govern live adjudication before default laws.
+  // Muscle law text appears directly in decision reasons; canonical TIME law IDs are preserved
+  // so that callers and contracts that check for specific law IDs remain correct.
   if (config.runtimeMuscle) {
     const governingFamily = config.runtimeMuscle.base.families.find((f) => f.status === "active");
     if (governingFamily) {
-      // Base families deny all structural flag violations:
-      // authority claims, scope expansion, law mutation, ledger bypass
-      const flagDeny =
-        request.flags?.authorityClaimed ||
-        request.flags?.requestsScopeExpansion ||
-        request.flags?.requestsLawMutation ||
-        request.flags?.requestsLedgerBypass;
+      const musclePrefix = `[${governingFamily.familyId}] ${governingFamily.familyCompressedLaw.slice(0, 120)}`;
 
-      if (flagDeny) {
+      if (request.flags?.authorityClaimed) {
         const muscleResult: BoundaryLawResult = {
           decision: "deny",
-          reason: `[${governingFamily.familyId}] ${governingFamily.familyTitle}: ${governingFamily.familyCompressedLaw.slice(0, 200)}`,
-          triggeredLawIds: [governingFamily.familyId],
+          reason: `${musclePrefix} | TIME.AUTHORITY.01`,
+          triggeredLawIds: ["TIME.AUTHORITY.01"],
           requiresApproval: false,
         };
         await appendBoundaryLedger("DECISION_RETURNED", {
@@ -125,12 +121,74 @@ export async function evaluateBoundaryAction(
         return { result: muscleResult, nslMoves: [] };
       }
 
-      // Base families require approval for novelty/completeness claims (bounded action invariant)
+      if (request.flags?.requestsScopeExpansion) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "deny",
+          reason: `${musclePrefix} | TIME.SCOPE.01`,
+          triggeredLawIds: ["TIME.SCOPE.01"],
+          requiresApproval: false,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
+
+      if (request.flags?.requestsLawMutation) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "deny",
+          reason: `${musclePrefix} | TIME.LAW.01`,
+          triggeredLawIds: ["TIME.LAW.01"],
+          requiresApproval: false,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
+
+      if (request.flags?.requestsLedgerBypass) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "deny",
+          reason: `${musclePrefix} | TIME.LEDGER.01`,
+          triggeredLawIds: ["TIME.LEDGER.01"],
+          requiresApproval: false,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
+
       if (request.flags?.claimsCompleteCoverage) {
         const muscleResult: BoundaryLawResult = {
           decision: "require_approval",
-          reason: `[${governingFamily.familyId}] ${governingFamily.familyTitle}: ${governingFamily.familyCompressedLaw.slice(0, 200)}`,
-          triggeredLawIds: [governingFamily.familyId],
+          reason: `${musclePrefix} | TIME.NOVELTY.01`,
+          triggeredLawIds: ["TIME.NOVELTY.01"],
           requiresApproval: true,
         };
         await appendBoundaryLedger("DECISION_RETURNED", {
@@ -150,12 +208,13 @@ export async function evaluateBoundaryAction(
 
     const tf = config.runtimeMuscle.time.family;
     if (tf.status === "active") {
-      // Time family denies session revival (temporal continuity invariant)
+      const timePrefix = `[${tf.familyId}] ${tf.familyCompressedLaw.slice(0, 120)}`;
+
       if (request.flags?.requestsSessionRevival) {
         const muscleResult: BoundaryLawResult = {
           decision: "deny",
-          reason: `[${tf.familyId}] ${tf.familyTitle}: ${tf.familyCompressedLaw.slice(0, 200)}`,
-          triggeredLawIds: [tf.familyId],
+          reason: `${timePrefix} | TIME.SESSION.01`,
+          triggeredLawIds: ["TIME.SESSION.01"],
           requiresApproval: false,
         };
         await appendBoundaryLedger("DECISION_RETURNED", {
@@ -172,9 +231,7 @@ export async function evaluateBoundaryAction(
         return { result: muscleResult, nslMoves: [] };
       }
 
-      // Time family requires approval for untrusted provenance + high-risk action
-      // (temporal coherence includes trust coherence — untrusted sources cannot directly
-      // authorize high-risk side-effecting actions)
+      // Time family governs trust-provenance + high-risk action combinations
       const isUntrustedProvenance =
         request.provenance === "remote_user" ||
         request.provenance === "agent_inference" ||
@@ -189,8 +246,8 @@ export async function evaluateBoundaryAction(
       if (isUntrustedProvenance && isHighRiskAction) {
         const muscleResult: BoundaryLawResult = {
           decision: "require_approval",
-          reason: `[${tf.familyId}] ${tf.familyTitle}: ${tf.familyCompressedLaw.slice(0, 200)}`,
-          triggeredLawIds: [tf.familyId],
+          reason: `${timePrefix} | TIME.TRUST.01`,
+          triggeredLawIds: ["TIME.TRUST.01"],
           requiresApproval: true,
         };
         await appendBoundaryLedger("DECISION_RETURNED", {
