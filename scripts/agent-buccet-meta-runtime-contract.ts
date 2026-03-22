@@ -10,13 +10,13 @@ import {
 } from "../lib/agent-buccet/index.ts";
 
 async function main() {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-meta-runtime-"));
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-time-runtime-"));
   const scopedRoot = path.join(tempRoot, "workspace");
   await fs.mkdir(scopedRoot, { recursive: true });
 
   let config = await startPersistentBoundarySession({
-    sessionId: "agent-buccet-meta-runtime-contract",
-    actorId: "user:meta-runtime-contract",
+    sessionId: "agent-buccet-time-runtime-contract",
+    actorId: "user:time-runtime-contract",
   });
 
   ({ config } = await openBoundaryPath({
