@@ -64,8 +64,8 @@ The public defensive gravity core is now vendored under:
 The Agent Buccet adapter layer now lives under:
 - [gravity-adapter](../../lib/agent-buccet/gravity-adapter)
 
-The shared executor now consults gravity before side effects:
-- [executor.ts](../../lib/agent-buccet/executor.ts)
+The shared bodyguard engine now consults gravity before side effects:
+- [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts)
 
 The shared bodyguard attaches one gravity service to the shared store:
 - [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts)

@@ -164,28 +164,28 @@ Swarm uses the same action-boundary path:
 
 Use these files as the fusion seams unless the code proves a better local seam is required.
 
-- [lib/agent-buccet/intercept.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/intercept.ts)
+- [lib/agent-buccet/intercept.ts](lib/agent-buccet/intercept.ts)
   - Interceptor entrypoint
   - maps boundary events into the native Buccet flow
-- [lib/agent-buccet/gravity.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/gravity.ts)
+- [lib/agent-buccet/gravity.ts](lib/agent-buccet/gravity.ts)
   - Gravity hold/queue loop
   - keeps caught proposals stopped and routed
-- [lib/agent-buccet/bodyguard.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/bodyguard.ts)
+- [lib/agent-buccet/bodyguard.ts](lib/agent-buccet/bodyguard.ts)
   - Bodyguard decision surface
   - this is where UPL-only live decisioning should converge
-- [lib/agent-buccet/foundation.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/foundation.ts)
+- [lib/agent-buccet/foundation.ts](lib/agent-buccet/foundation.ts)
   - transferred foundation loading seam
   - snapped runtime substrate and carried law identity should attach here
-- [lib/agent-buccet/runtime.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/runtime.ts)
+- [lib/agent-buccet/runtime.ts](lib/agent-buccet/runtime.ts)
   - native runtime evaluation seam
   - session/grant lifecycle enforcement stays here
-- [lib/agent-buccet/state.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/state.ts)
+- [lib/agent-buccet/state.ts](lib/agent-buccet/state.ts)
   - runtime state assembly and restore seam
   - fused state should include native runtime + snapped muscle + UPL + Witness Ledger
-- [lib/agent-buccet/ledger.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/ledger.ts)
+- [lib/agent-buccet/ledger.ts](lib/agent-buccet/ledger.ts)
   - Witness Ledger write path
   - immutable historical record only
-- [lib/agent-buccet/swarm.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/swarm.ts)
+- [lib/agent-buccet/swarm.ts](lib/agent-buccet/swarm.ts)
   - native swarm seam
   - swarm must stay on the same fused action-boundary path
 

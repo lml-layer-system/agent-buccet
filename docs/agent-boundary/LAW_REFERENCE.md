@@ -15,10 +15,10 @@ This document has two layers:
 
 Main Agent Buccet law sources:
 - [laws.ts](../../lib/agent-buccet/laws.ts)
-- [meta.ts](../../lib/agent-buccet/meta.ts)
+- [time.ts](../../lib/agent-buccet/time.ts)
 - [foundation.ts](../../lib/agent-buccet/foundation.ts)
 - [runtime.ts](../../lib/agent-buccet/runtime.ts)
-- [executor.ts](../../lib/agent-buccet/executor.ts)
+- [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts)
 - [intercept.ts](../../lib/agent-buccet/intercept.ts)
 - [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts)
 
@@ -55,14 +55,14 @@ These are the active anti-authority-drift and anti-injection laws.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
-| `META.TRUST.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Untrusted content can propose high-risk actions, but cannot directly authorize them |
-| `META.AUTHORITY.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt or model output cannot self-approve or claim authority |
-| `META.SCOPE.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot widen scope on its own |
-| `META.LAW.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot mutate or disable law |
-| `META.SESSION.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot revive ended sessions |
-| `META.LEDGER.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot bypass, suppress, or rewrite the ledger |
-| `META.NOVELTY.01` | [meta.ts](../../lib/agent-buccet/meta.ts) | Claims of complete safety or complete coverage are non-authoritative and require review |
-| `META.LEDGER.02` | [executor.ts](../../lib/agent-buccet/executor.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Incomplete ledger traces are non-authoritative at execution time |
+| `META.TRUST.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Untrusted content can propose high-risk actions, but cannot directly authorize them |
+| `META.AUTHORITY.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt or model output cannot self-approve or claim authority |
+| `META.SCOPE.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot widen scope on its own |
+| `META.LAW.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot mutate or disable law |
+| `META.SESSION.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot revive ended sessions |
+| `META.LEDGER.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot bypass, suppress, or rewrite the ledger |
+| `META.NOVELTY.01` | [time.ts](../../lib/agent-buccet/time.ts) | Claims of complete safety or complete coverage are non-authoritative and require review |
+| `META.LEDGER.02` | [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Incomplete ledger traces are non-authoritative at execution time |
 
 ## Action Boundary Laws
 
@@ -117,8 +117,8 @@ These are Agent Buccet trust-boundary laws for audit state.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
-| `BOUNDARY.LEDGER.REQUEST.01` | [executor.ts](../../lib/agent-buccet/executor.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Request traces must be complete enough to be trusted |
-| `BOUNDARY.LEDGER.SESSION.01` | [executor.ts](../../lib/agent-buccet/executor.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Session traces must be complete enough to preserve lawful continuity |
+| `BOUNDARY.LEDGER.REQUEST.01` | [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Request traces must be complete enough to be trusted |
+| `BOUNDARY.LEDGER.SESSION.01` | [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Session traces must be complete enough to preserve lawful continuity |
 
 ## What This Means
 
