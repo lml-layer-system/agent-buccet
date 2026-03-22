@@ -1,5 +1,11 @@
 import { createApprovalQueueAdapter } from "./approval.ts";
-import { attachBodyguardControl } from "./bodyguard-core.ts";
+import {
+  adjudicateBodyguardRequest,
+  applyBodyguardUserLawDecision,
+  attachBodyguardControl,
+  evaluateBodyguardAction,
+  resolveBodyguardHeldRequest,
+} from "./bodyguard-core.ts";
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import {
   enforceBoundaryProposal,
@@ -11,15 +17,62 @@ import type { BoundaryExecutionResult } from "./executor.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
+import type {
+  BoundaryActionRequest,
+  BoundaryApprovalDecision,
+  BoundaryLedgerRecord,
+  BoundaryRuntimeConfig,
+} from "./types.ts";
 
-export * from "./bodyguard-core.ts";
+export {
+  type BodyguardAdjudication,
+  type BodyguardHeldDecision,
+  type BodyguardRequestAdjudication,
+} from "./bodyguard-core.ts";
+
+export function enableBodyguardControl(
+  config: BoundaryRuntimeConfig,
+  overrides?: Partial<BoundaryRuntimeConfig>,
+): BoundaryRuntimeConfig {
+  return attachBodyguardControl(config, overrides);
+}
+
+export async function adjudicateHeldBoundaryRequest(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}) {
+  return resolveBodyguardHeldRequest(args);
+}
+
+export function adjudicateBoundaryAction(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}) {
+  return evaluateBodyguardAction(args);
+}
+
+export async function adjudicateBoundaryRequest(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}) {
+  return adjudicateBodyguardRequest(args);
+}
+
+export async function recordBodyguardUserLawDecision(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+  witness: BoundaryLedgerRecord;
+  decision: BoundaryApprovalDecision;
+}) {
+  return applyBodyguardUserLawDecision(args);
+}
 
 export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   const approvals = createApprovalQueueAdapter();
   const gravityService = createBoundaryGravityService();
 
   function getGuardedConfig() {
-    return attachBodyguardControl(store.getConfig(), {
+    return enableBodyguardControl(store.getConfig(), {
       approvalHandler: approvals.handler,
       gravityService,
     });

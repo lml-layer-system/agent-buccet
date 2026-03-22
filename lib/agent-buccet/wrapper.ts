@@ -1,6 +1,6 @@
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { attachBodyguardControl } from "./bodyguard-core.ts";
+import { enableBodyguardControl } from "./bodyguard.ts";
 import { enforceBoundaryProposal } from "./adapters.ts";
 import { createStaticApprovalHandler } from "./approval.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
@@ -125,7 +125,7 @@ export async function runBoundaryWrappedCommand(args: {
   });
 
   const config = {
-    ...attachBodyguardControl(store.getConfig()),
+    ...enableBodyguardControl(store.getConfig()),
     approvalHandler: createStaticApprovalHandler(true),
   };
 

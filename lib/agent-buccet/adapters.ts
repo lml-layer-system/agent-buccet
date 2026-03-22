@@ -1,4 +1,4 @@
-import { attachBodyguardControl } from "./bodyguard-core.ts";
+import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   createBoundaryActionRequest,
   executeBoundaryControlledAction,
@@ -56,7 +56,7 @@ export async function enforceBoundaryProposal<T>(args: {
   proposal: BoundaryToolProposal<T>;
 }): Promise<BoundaryExecutionResult<T>> {
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(args.config),
+    config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: args.proposal.actionKind,

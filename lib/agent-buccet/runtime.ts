@@ -1,5 +1,5 @@
 import { appendBoundaryLedger } from "./ledger.ts";
-import { evaluateBodyguardAction } from "./bodyguard-core.ts";
+import { adjudicateBoundaryAction } from "./bodyguard.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
@@ -235,7 +235,7 @@ export async function evaluateBoundaryAction(
     createdAt: request.requestedAt,
   });
 
-  const adjudication = evaluateBodyguardAction({ config, request });
+  const adjudication = adjudicateBoundaryAction({ config, request });
 
   if (adjudication.result.decision === "deny") {
     await appendBoundaryLedger("ACTION_BLOCKED", {

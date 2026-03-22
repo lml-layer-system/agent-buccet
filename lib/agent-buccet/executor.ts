@@ -1,8 +1,8 @@
 import { randomUUID } from "node:crypto";
 import {
-  adjudicateBodyguardRequest,
-  applyBodyguardUserLawDecision,
-} from "./bodyguard-core.ts";
+  adjudicateBoundaryRequest,
+  recordBodyguardUserLawDecision,
+} from "./bodyguard.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryActionKind,
@@ -150,7 +150,7 @@ export async function executeBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
-  let adjudication = await adjudicateBodyguardRequest({
+  let adjudication = await adjudicateBoundaryRequest({
     config: activeConfig,
     request: activeRequest,
   });
@@ -214,7 +214,7 @@ export async function executeBoundaryControlledAction<T>(args: {
       },
       adjudication.result.triggeredLawIds,
     );
-    activeConfig = await applyBodyguardUserLawDecision({
+    activeConfig = await recordBodyguardUserLawDecision({
       config: activeConfig,
       request: activeRequest,
       witness: approvalResult.witnessRecord,
@@ -251,7 +251,7 @@ export async function executeBoundaryControlledAction<T>(args: {
       });
       activeConfig = replay.config;
       activeRequest = replay.request;
-      adjudication = await adjudicateBodyguardRequest({
+      adjudication = await adjudicateBoundaryRequest({
         config: activeConfig,
         request: activeRequest,
       });

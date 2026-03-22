@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import readline from "node:readline";
 import {
-  attachBodyguardControl,
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
   daemonRequestId,
+  enableBodyguardControl,
   evaluateBoundaryIntercept,
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
@@ -157,7 +157,7 @@ async function main() {
       }
 
       const result = await evaluateBoundaryIntercept({
-        config: attachBodyguardControl(store.getConfig()),
+        config: enableBodyguardControl(store.getConfig()),
         request: parsed,
       });
 

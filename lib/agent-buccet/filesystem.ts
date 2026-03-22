@@ -1,6 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { attachBodyguardControl } from "./bodyguard-core.ts";
+import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   createBoundaryActionRequest,
   executeBoundaryControlledAction,
@@ -21,7 +21,7 @@ export async function boundaryReadFile(
 ): Promise<BoundaryFsResult<string>> {
   const target = normalizeBoundaryPath(targetPath);
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.read",
@@ -40,7 +40,7 @@ export async function boundaryWriteFile(
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.write",
@@ -62,7 +62,7 @@ export async function boundaryAppendFile(
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.append",
@@ -83,7 +83,7 @@ export async function boundaryDeletePath(
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.delete",
@@ -103,7 +103,7 @@ export async function boundaryMkdir(
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.mkdir",
@@ -126,7 +126,7 @@ export async function boundaryMovePath(
   const destination = normalizeBoundaryPath(destinationPath);
 
   const sourceAdmission = await executeBoundaryControlledAction<void>({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.move",
@@ -140,7 +140,7 @@ export async function boundaryMovePath(
   }
 
   return executeBoundaryControlledAction({
-    config: attachBodyguardControl(config),
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.move",

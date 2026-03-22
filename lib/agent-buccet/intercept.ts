@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { adjudicateBodyguardRequest } from "./bodyguard-core.ts";
+import { adjudicateBoundaryRequest } from "./bodyguard.ts";
 import { createBoundaryActionRequest } from "./executor.ts";
 import type {
   BoundaryActionKind,
@@ -146,7 +146,7 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  const adjudication = await adjudicateBodyguardRequest({
+  const adjudication = await adjudicateBoundaryRequest({
     config: args.config,
     request: boundaryRequest,
   });
