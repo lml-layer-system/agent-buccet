@@ -1,3 +1,4 @@
+export * from "./errors.ts";
 export * from "./types.ts";
 export * from "./ledger.ts";
 export * from "./ledger-audit.ts";

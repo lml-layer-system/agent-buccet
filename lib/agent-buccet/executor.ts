@@ -3,6 +3,7 @@ import {
   applyBodyguardUserLawDecision,
   resolveBodyguardStandingLaw,
 } from "./bodyguard-core.ts";
+import { BoundaryApprovalTimeoutError } from "./errors.ts";
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
@@ -18,6 +19,16 @@ import type {
   NslMove,
 } from "./types.ts";
 
+/**
+ * The result of a boundary-controlled action execution.
+ *
+ * - `allowed` — whether the action was permitted by the law engine.
+ * - `executed` — whether the `execute` function was actually called.
+ * - `requiresApproval` — whether approval was required (even if granted).
+ * - `reason` — human-readable explanation of the decision.
+ * - `nslMoves` — suggested next lawful moves if the action was denied or deferred.
+ * - `value` — the return value of the `execute` function, if it ran.
+ */
 export type BoundaryExecutionResult<T = void> = {
   config: BoundaryRuntimeConfig;
   allowed: boolean;
@@ -28,6 +39,21 @@ export type BoundaryExecutionResult<T = void> = {
   value?: T;
 };
 
+/**
+ * Constructs a `BoundaryActionRequest` from the current config and action parameters.
+ *
+ * This is the standard way to build a request before calling `evaluateBoundaryAction`
+ * or `executeBoundaryControlledAction`. The request captures a timestamp and a unique
+ * ID at creation time, both of which are recorded in the ledger.
+ *
+ * @param args.config - Current runtime config (used for session context).
+ * @param args.actionKind - The kind of action being proposed.
+ * @param args.target - The resource target (path, URL, tool name, etc.).
+ * @param args.payloadSummary - Optional human-readable description of the payload.
+ * @param args.provenance - Trust level of the action source. Defaults to `"agent_inference"`.
+ * @param args.flags - Optional flags that activate specific time-body laws.
+ * @returns A fully-formed `BoundaryActionRequest` ready for evaluation.
+ */
 export function createBoundaryActionRequest(args: {
   config: BoundaryRuntimeConfig;
   actionKind: BoundaryActionKind;
@@ -112,6 +138,8 @@ async function requestApproval(
     createdAt: new Date().toISOString(),
   });
 
+  await config.hooks?.onApprovalRequested?.(approval);
+
   if (!config.approvalHandler) {
     const witnessRecord = await appendBoundaryLedger("APPROVAL_DENIED", {
       sessionId: config.session.sessionId,
@@ -127,7 +155,30 @@ async function requestApproval(
     return { approved: false, decision: { approved: false }, witnessRecord };
   }
 
-  const decision = normalizeApprovalDecision(await config.approvalHandler(approval));
+  let rawDecision: boolean | BoundaryApprovalDecision;
+  if (config.approvalTimeoutMs !== undefined) {
+    const timeoutMs = config.approvalTimeoutMs;
+    const behavior = config.approvalTimeoutBehavior ?? "deny";
+    rawDecision = await Promise.race([
+      config.approvalHandler(approval),
+      new Promise<boolean>((resolve, reject) => {
+        setTimeout(() => {
+          if (behavior === "throw") {
+            reject(
+              new BoundaryApprovalTimeoutError(
+                `approval timed out after ${timeoutMs}ms`,
+              ),
+            );
+          } else {
+            resolve(false);
+          }
+        }, timeoutMs);
+      }),
+    ]);
+  } else {
+    rawDecision = await config.approvalHandler(approval);
+  }
+  const decision = normalizeApprovalDecision(rawDecision);
   const witnessRecord = await appendBoundaryLedger(decision.approved ? "APPROVAL_GRANTED" : "APPROVAL_DENIED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
@@ -143,7 +194,59 @@ async function requestApproval(
   return { approved: decision.approved, decision, witnessRecord };
 }
 
+/**
+ * The primary action enforcement + execution function.
+ *
+ * Orchestrates the full enforcement loop for a proposed action:
+ * 1. Fires `onBeforeAction` hook if configured.
+ * 2. Checks session ledger completeness (denies if incomplete).
+ * 3. Checks the User Path Ledger for a standing allow/deny.
+ * 4. Runs through the gravity service (freeze-and-forward) if attached.
+ * 5. Evaluates all active laws via `evaluateBoundaryAction`.
+ * 6. Dispatches to the approval handler if `"require_approval"`.
+ * 7. Executes the `execute` function only if fully admitted.
+ * 8. Records the decision and outcome in the ledger.
+ * 9. Fires `onAfterAction` hook if configured.
+ *
+ * @param args.config - Current runtime config.
+ * @param args.request - The proposed action request.
+ * @param args.execute - Optional async function that performs the action.
+ *   Called only if the action is admitted. Not called in dry-run mode.
+ * @param args.successReason - Ledger reason recorded on successful execution.
+ * @param args.dryRunPreviewReason - Optional reason recorded when dry-run prevents execution.
+ * @param args.successMetadata - Optional metadata recorded on successful execution.
+ * @returns `BoundaryExecutionResult<T>` — enforcement outcome with optional return value.
+ *
+ * @example
+ * ```typescript
+ * const result = await executeBoundaryControlledAction({
+ *   config,
+ *   request: createBoundaryActionRequest({ config, actionKind: "fs.write", target: "/tmp/out.txt" }),
+ *   successReason: "write admitted by open path grant",
+ *   execute: async () => fs.writeFile("/tmp/out.txt", "hello"),
+ * });
+ * if (!result.allowed) console.log("blocked:", result.reason);
+ * ```
+ */
 export async function executeBoundaryControlledAction<T>(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+  execute?: () => Promise<T>;
+  successReason: string;
+  dryRunPreviewReason?: string;
+  successMetadata?: Record<string, string | number | boolean>;
+}): Promise<BoundaryExecutionResult<T>> {
+  await args.config.hooks?.onBeforeAction?.(args.request);
+  const result = await _executeBoundaryControlledActionCore(args);
+  await args.config.hooks?.onAfterAction?.(args.request, {
+    allowed: result.allowed,
+    executed: result.executed,
+    reason: result.reason,
+  });
+  return result;
+}
+
+async function _executeBoundaryControlledActionCore<T>(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
   execute?: () => Promise<T>;

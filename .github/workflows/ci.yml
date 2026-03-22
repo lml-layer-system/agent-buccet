@@ -39,6 +39,8 @@ jobs:
         run: npm run test:agent-buccet:foundation
       - name: Time-runtime contract
         run: npm run test:agent-buccet:time-runtime
+      - name: Law unit tests
+        run: npm run test:agent-buccet:law-unit
       - name: Gravity contract
         run: npm run test:agent-buccet:gravity-contract
       - name: Ledger contract

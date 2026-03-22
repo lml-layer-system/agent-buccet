@@ -38,6 +38,68 @@ The public repo is centered on the shared Buccet brain.
 Additional deep kernel OS-level Agent Buccet interception can be added later for private environments without changing that core model.
 
 
+## The Proof in 30 Seconds
+
+Install:
+
+```bash
+sh scripts/install-agent-buccet.sh
+```
+
+Run the end-to-end demo — it shows a blocked delete, an approved write, and the signed ledger:
+
+```bash
+npm run demo:agent-buccet
+```
+
+Or see the boundary catch a real action in code:
+
+```typescript
+import {
+  startPersistentBoundarySession,
+  openBoundaryPath,
+  evaluateBoundaryAction,
+  createBoundaryActionRequest,
+} from "agent-buccet";
+
+// 1. Start a session
+let config = await startPersistentBoundarySession({
+  sessionId: "my-agent",
+  actorId: "user:alice",
+});
+
+// 2. Open only the path the agent is allowed to touch
+({ config } = await openBoundaryPath({
+  config,
+  rootPath: "/home/alice/workspace",
+  grantedActions: ["fs.read", "fs.write"],
+  issuedBy: "user:alice",
+}));
+
+// 3. Agent proposes a write outside that scope
+const request = createBoundaryActionRequest({
+  config,
+  actionKind: "fs.write",
+  target: "/etc/passwd",          // outside opened scope
+  provenance: "agent_inference",
+});
+
+const { result } = await evaluateBoundaryAction(config, request);
+console.log(result.decision);    // "deny"
+console.log(result.reason);      // "target is outside user-opened reachable scope"
+// The ledger has a signed record of every decision. Agent never touched /etc/passwd.
+```
+
+The ledger:
+```bash
+npm run agent-buccet:ledger -- verify --format json
+npm run agent-buccet:ledger -- logs
+```
+
+Every decision is signed, chained, and inspectable. The agent cannot erase it.
+
+---
+
 ## Start Here
 
 - [Agent Buccet README](docs/agent-boundary/README.md)

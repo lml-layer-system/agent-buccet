@@ -1,5 +1,10 @@
 import type { BoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 
+/**
+ * The set of action kinds the boundary runtime can intercept and evaluate.
+ * Every proposed action must declare its kind so the law engine can apply
+ * the correct law set and scope checks.
+ */
 export type BoundaryActionKind =
   | "fs.read"
   | "fs.write"
@@ -21,6 +26,12 @@ export type BoundaryActionKind =
   | "sys.credential.read"
   | "sys.credential.use";
 
+/**
+ * The outcome of law evaluation for a proposed action.
+ * - `"allow"` — action is admitted; execute if an `execute` function is provided.
+ * - `"deny"` — action is blocked; do not execute.
+ * - `"require_approval"` — action requires explicit user approval before execution.
+ */
 export type BoundaryDecision = "allow" | "deny" | "require_approval";
 
 export type BoundaryResourceKind =
@@ -41,6 +52,11 @@ export type BoundaryProcessPolicy = {
   enforceScopedCwd?: boolean;
 };
 
+/**
+ * The trust level of the source of a proposed action.
+ * Actions from `agent_inference`, `tool_output`, or `external_content` are
+ * considered untrusted and may trigger additional law checks (see TIME.TRUST.01).
+ */
 export type BoundaryRequestProvenance =
   | "trusted_user"
   | "trusted_system"
@@ -49,6 +65,14 @@ export type BoundaryRequestProvenance =
   | "tool_output"
   | "external_content";
 
+/**
+ * An active boundary session. Sessions are the root of all scope and grant
+ * management. A session must be active for any action to be admitted.
+ *
+ * Sessions persist across process restarts. If the session state file is
+ * missing, the ledger is used for recovery. Sessions end explicitly via
+ * `endPersistentBoundarySession` — process exit does not close a session.
+ */
 export type BoundarySession = {
   sessionId: string;
   actorId: string;
@@ -60,6 +84,15 @@ export type BoundarySession = {
   endedAt?: string;
 };
 
+/**
+ * A grant is the explicit authorization for a session to access a specific
+ * resource. Grants are issued by the user via `openBoundaryPath` or
+ * `issueBoundaryGrant`. Without an active, non-revoked grant covering the
+ * target resource, all actions are denied by the scope check.
+ *
+ * Grants can be time-limited (`expiresAt`) and are revocable at any time.
+ * Revocation takes effect immediately and persists across restarts.
+ */
 export type BoundaryGrant = {
   grantId: string;
   sessionId: string;
@@ -102,6 +135,13 @@ export type BoundaryActionRequest = {
   };
 };
 
+/**
+ * The result produced by a single `BoundaryLaw.evaluate()` call, or by the
+ * full law evaluation pipeline in `evaluateBoundaryLaws`.
+ *
+ * A result of `null` from `evaluate()` means the law has no opinion on the
+ * request. A non-null result is decisive — `"deny"` short-circuits the pipeline.
+ */
 export type BoundaryLawResult = {
   decision: BoundaryDecision;
   reason: string;
@@ -109,6 +149,32 @@ export type BoundaryLawResult = {
   requiresApproval: boolean;
 };
 
+/**
+ * A typed policy evaluator. Laws form the core of the boundary enforcement
+ * engine. Each law is evaluated in order for every proposed action.
+ *
+ * Law evaluation rules:
+ * - Return `null` to abstain (law has no opinion on this action).
+ * - Return `{ decision: "deny" }` to block immediately (short-circuits remaining laws).
+ * - Return `{ decision: "require_approval" }` to require user approval.
+ * - Return `{ decision: "allow" }` to explicitly allow (overrides later deny laws).
+ *
+ * Laws must be deterministic and side-effect-free.
+ *
+ * @example
+ * ```typescript
+ * const myLaw: BoundaryLaw = {
+ *   lawId: "MY.LAW.01",
+ *   description: "Block writes to config directory.",
+ *   appliesTo: ["fs.write"],
+ *   evaluate: ({ request }) => {
+ *     if (!request.target.includes("/.config/")) return null;
+ *     return { decision: "deny", reason: "config directory is protected",
+ *              triggeredLawIds: ["MY.LAW.01"], requiresApproval: false };
+ *   },
+ * };
+ * ```
+ */
 export type BoundaryLaw = {
   lawId: string;
   description: string;
@@ -367,6 +433,42 @@ export type BoundaryRuntimeMuscle = {
   };
 };
 
+/**
+ * Observability hooks that fire at key boundary enforcement events.
+ * All hooks are optional and non-blocking — a thrown hook error will
+ * propagate and should be handled by the caller.
+ */
+export type BoundaryRuntimeHooks = {
+  /**
+   * Fires before any law evaluation or scope check for the given request.
+   * Use this to start traces, record request metadata, or log proposals.
+   */
+  onBeforeAction?: (request: BoundaryActionRequest) => void | Promise<void>;
+  /**
+   * Fires after enforcement completes (allow or deny) for the given request.
+   * Use this to record metrics, close traces, or emit audit events.
+   */
+  onAfterAction?: (
+    request: BoundaryActionRequest,
+    outcome: { allowed: boolean; executed: boolean; reason: string },
+  ) => void | Promise<void>;
+  /**
+   * Fires when an approval request is dispatched to the approval handler.
+   * Use this to send notifications or record pending approval state.
+   */
+  onApprovalRequested?: (approval: BoundaryApprovalRequest) => void | Promise<void>;
+};
+
+/**
+ * The complete runtime configuration for a boundary enforcement session.
+ * This object is the primary carrier of session state, active laws, grants,
+ * and behavioral configuration. It is immutable-by-convention — functions
+ * that mutate state return a new config rather than modifying in place.
+ *
+ * Construct this via `startPersistentBoundarySession` or
+ * `restorePersistentBoundarySession`. Use `createBoundaryBodyguard` for
+ * the primary integration surface.
+ */
 export type BoundaryRuntimeConfig = {
   session: BoundarySession;
   laws: BoundaryLaw[];
@@ -380,6 +482,26 @@ export type BoundaryRuntimeConfig = {
   approvalHandler?: BoundaryApprovalHandler;
   gravityService?: BoundaryGravityService;
   processPolicy?: BoundaryProcessPolicy;
+  /**
+   * Observability hooks. See `BoundaryRuntimeHooks` for available hooks.
+   */
+  hooks?: BoundaryRuntimeHooks;
+  /**
+   * Maximum milliseconds to wait for the approval handler to resolve.
+   * If the handler does not resolve within this window, the behavior is
+   * controlled by `approvalTimeoutBehavior`.
+   *
+   * Default: `undefined` (no timeout — waits indefinitely).
+   */
+  approvalTimeoutMs?: number;
+  /**
+   * What to do when `approvalTimeoutMs` is exceeded.
+   * - `"deny"` — treat the approval as denied and continue (default).
+   * - `"throw"` — throw a `BoundaryApprovalTimeoutError`.
+   *
+   * Default: `"deny"`.
+   */
+  approvalTimeoutBehavior?: "deny" | "throw";
 };
 
 export type BoundaryPersistenceConfig = {

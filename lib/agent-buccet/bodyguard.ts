@@ -13,6 +13,46 @@ import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
 
 export * from "./bodyguard-core.ts";
 
+/**
+ * Creates the primary boundary enforcement surface for an agent session.
+ *
+ * `createBoundaryBodyguard` is the main integration point for agent frameworks.
+ * It wires together the runtime store, approval queue, and gravity service into
+ * a single object with enforcement methods for each supported framework.
+ *
+ * The bodyguard is **stateful** — every enforcement call that results in a
+ * grant or UPL update automatically persists the updated config back to the
+ * store. Callers do not need to manage config mutations manually.
+ *
+ * @param store - A persistent runtime store created via
+ *   `createPersistentBoundaryRuntimeStore` or `restoreBoundaryRuntimeStore`.
+ * @returns The bodyguard object with per-framework integration surfaces.
+ *
+ * @example
+ * ```typescript
+ * const store = await createPersistentBoundaryRuntimeStore({
+ *   sessionId: "my-session",
+ *   actorId: "user:alice",
+ * });
+ * await store.openPath({ rootPath: "/tmp/workspace", grantedActions: ["fs.write"], issuedBy: "user:alice" });
+ *
+ * const bodyguard = createBoundaryBodyguard(store);
+ *
+ * // Wrap any tool — enforcement is automatic
+ * const safeWrite = bodyguard.wrapTool({
+ *   toolName: "write_file",
+ *   actionKind: "fs.write",
+ *   describeTarget: (input: { path: string }) => input.path,
+ *   execute: async ({ path, content }) => fs.writeFile(path, content),
+ * });
+ *
+ * const result = await safeWrite({ path: "/tmp/workspace/out.txt", content: "hello" });
+ * result.allowed   // true if admitted, false if blocked
+ * result.executed  // true if the execute fn actually ran
+ * ```
+ *
+ * @see {@link https://github.com/lml-layer-system/agent-buccet/blob/main/docs/agent-boundary/INTEGRATIONS.md}
+ */
 export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   const approvals = createApprovalQueueAdapter();
   const gravityService = createBoundaryGravityService();

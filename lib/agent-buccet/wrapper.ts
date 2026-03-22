@@ -68,6 +68,51 @@ async function getOrCreateStore(args: {
   });
 }
 
+/**
+ * Runs a command under full boundary enforcement.
+ *
+ * The wrapper:
+ * 1. Creates or restores a persistent session for `sessionId`.
+ * 2. Opens `scopePaths` as the lawful reachable filesystem scope.
+ * 3. Applies the policy at `policyPath` if provided.
+ * 4. Issues a `tool` grant for the specific command being run.
+ * 5. Enforces laws and scope checks before spawning the process.
+ * 6. Filters environment variables to the configured allowed set.
+ * 7. Records the full decision + process lifecycle in the ledger.
+ *
+ * If the command or working directory is blocked by policy, throws a
+ * `BoundaryProcessError`. If law enforcement denies the action, throws
+ * with the denial reason.
+ *
+ * @param args.sessionId - Stable identifier for this boundary session.
+ * @param args.actorId - Actor identifier (e.g. `"user:alice"`) recorded in the ledger.
+ * @param args.command - Absolute or relative path to the command to run.
+ * @param args.commandArgs - Arguments to pass to the command.
+ * @param args.scopePaths - Filesystem paths to open as lawful reachable scope.
+ * @param args.policyPath - Optional path to a JSON policy file.
+ * @param args.sessionsDir - Override the default sessions directory.
+ * @param args.env - Additional environment variables to pass to the process.
+ * @param args.cwd - Working directory override (must be within `scopePaths`).
+ * @param args.dryRun - If true, enforcement runs but the process is not spawned.
+ * @param args.keepSession - If true, the session remains active after the command exits.
+ * @param args.provenance - Trust level of the action source. Defaults to `"trusted_user"`.
+ * @returns `{ exitCode, sessionId }` — the process exit code and the session identifier.
+ * @throws `BoundaryProcessError` if the process is blocked by policy before launch.
+ * @throws `Error` with the denial reason if law enforcement blocks the action.
+ *
+ * @example
+ * ```typescript
+ * const { exitCode } = await runBoundaryWrappedCommand({
+ *   sessionId: "my-session",
+ *   actorId: "user:alice",
+ *   command: "/usr/bin/git",
+ *   commandArgs: ["status"],
+ *   scopePaths: ["/home/alice/project"],
+ * });
+ * ```
+ *
+ * @see {@link https://github.com/lml-layer-system/agent-buccet/blob/main/docs/agent-boundary/QUICKSTART.md}
+ */
 export async function runBoundaryWrappedCommand(args: {
   sessionId: string;
   actorId: string;

@@ -36,7 +36,7 @@ export function createApprovalQueueAdapter(): BoundaryApprovalQueueAdapter {
   >();
 
   const handler: BoundaryApprovalHandler = async (approval) =>
-    new Promise<boolean>((resolve) => {
+    new Promise<boolean | BoundaryApprovalDecision>((resolve) => {
       const approvalId = approval.request.requestId;
       pending.set(approvalId, {
         approvalId,

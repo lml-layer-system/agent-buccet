@@ -45,6 +45,26 @@ function revokePathLawsForGrant(
   });
 }
 
+/**
+ * Issues a grant that authorizes the session to access a specific resource.
+ *
+ * Grants are the mechanism by which users explicitly extend the session's
+ * reachable scope. Without a grant, any action targeting a resource is denied
+ * at the scope check before law evaluation. With a grant, the resource becomes
+ * reachable and laws are evaluated normally.
+ *
+ * Use `openBoundaryPath` for filesystem paths — it issues the grant and
+ * instantiates the corresponding path law in a single operation.
+ *
+ * @param args.config - Current runtime config.
+ * @param args.resourceKind - The kind of resource (`"path"`, `"recipient"`, `"tool"`, etc.).
+ * @param args.resourceValue - The resource identifier (path, URL, tool name, etc.).
+ * @param args.grantedActions - Action kinds permitted under this grant.
+ * @param args.issuedBy - Actor identifier recorded in the grant and ledger.
+ * @param args.expiresAt - Optional ISO-8601 expiry. Grant auto-expires after this time.
+ * @param args.metadata - Optional key-value metadata recorded in the ledger.
+ * @returns `{ grant, config }` — the issued grant and updated config with the grant added.
+ */
 export async function issueBoundaryGrant(args: {
   config: BoundaryRuntimeConfig;
   resourceKind: BoundaryResourceKind;
@@ -87,6 +107,22 @@ export async function issueBoundaryGrant(args: {
   return { grant, config: nextConfig };
 }
 
+/**
+ * Revokes a previously issued grant, immediately closing that resource from
+ * the session's reachable scope.
+ *
+ * Revocation is immediate and durable — after this call, any action targeting
+ * the revoked resource will be denied at the scope check. The revocation
+ * survives process restart because it is persisted to both the session state
+ * and the ledger.
+ *
+ * @param args.config - Current runtime config.
+ * @param args.grantId - The ID of the grant to revoke.
+ * @param args.revokedBy - Actor identifier recorded in the ledger.
+ * @param args.reason - Optional reason string recorded in the ledger.
+ * @returns `{ grant, config }` — the revoked grant (with `revokedAt` set) and
+ *   updated config. Returns `{ grant: null, config }` if the grant was not found.
+ */
 export async function revokeBoundaryGrant(args: {
   config: BoundaryRuntimeConfig;
   grantId: string;
@@ -170,6 +206,36 @@ export async function expireBoundaryGrants(args: {
   return { expiredGrantIds: [...expiredGrantIds], config: nextConfig };
 }
 
+/**
+ * Opens a filesystem path as lawful reachable scope for the session.
+ *
+ * This is the primary mechanism for granting filesystem access. It:
+ * 1. Issues a `"path"` grant covering `rootPath` and all descendants.
+ * 2. Instantiates a path law (logged as `PATH_LAW_INSTANTIATED`) that makes
+ *    the path structurally reachable in the session.
+ * 3. Persists the updated session state to disk.
+ *
+ * If a path is not opened, it does not exist to the agent — all actions
+ * targeting it are denied at the scope check before law evaluation runs.
+ *
+ * @param args.config - Current runtime config.
+ * @param args.rootPath - Absolute path to the root of the reachable scope.
+ * @param args.grantedActions - Action kinds permitted within this path.
+ * @param args.issuedBy - Actor identifier recorded in the grant and ledger.
+ * @param args.expiresAt - Optional ISO-8601 expiry for the path grant.
+ * @returns `{ grant, pathLaw, config }` — the issued grant, instantiated path
+ *   law, and updated config.
+ *
+ * @example
+ * ```typescript
+ * const { config } = await openBoundaryPath({
+ *   config,
+ *   rootPath: "/home/alice/project",
+ *   grantedActions: ["fs.read", "fs.write"],
+ *   issuedBy: "user:alice",
+ * });
+ * ```
+ */
 export async function openBoundaryPath(args: {
   config: BoundaryRuntimeConfig;
   rootPath: string;
@@ -223,6 +289,26 @@ export async function openBoundaryPath(args: {
   return { grant, pathLaw, config: nextConfig };
 }
 
+/**
+ * Evaluates a proposed action against the active session laws and scope.
+ *
+ * This is the core law evaluation function. It:
+ * 1. Short-circuits with `"deny"` if the session has ended.
+ * 2. Checks the User Path Ledger (UPL) for a standing user law on this target.
+ * 3. Evaluates all active `BoundaryLaw` objects in order.
+ * 4. Returns `"deny"` immediately on first deny law triggered.
+ * 5. Returns `"require_approval"` if any law requires it (and no deny fires).
+ * 6. Generates NSL moves for the denial/approval case.
+ * 7. Records all decisions in the ledger.
+ *
+ * Prefer `executeBoundaryControlledAction` for production use — it handles
+ * the full enforcement + execution + approval loop. Use `evaluateBoundaryAction`
+ * directly only when you need the raw evaluation result without executing.
+ *
+ * @param config - Current runtime config.
+ * @param request - The proposed action request (use `createBoundaryActionRequest`).
+ * @returns `{ result, nslMoves }` — the law evaluation result and suggested NSL moves.
+ */
 export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
