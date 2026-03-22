@@ -47,3 +47,65 @@ jobs:
         run: npm run test:agent-buccet:ledger-contract
       - name: Wrapper contract
         run: npm run test:agent-buccet:wrapper-contract
+      - name: Intercept daemon contract
+        run: npm run test:agent-buccet:intercept-daemon
+      - name: Release witness contract
+        run: npm run test:agent-buccet:release-witness
+
+  contracts-ledger:
+    name: Ledger contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Ledger rollup contract
+        run: npm run test:agent-buccet:ledger-rollup
+      - name: Ledger writer contract
+        run: npm run test:agent-buccet:ledger-writer
+      - name: Ledger witness contract
+        run: npm run test:agent-buccet:ledger-witness
+
+  contracts-runtime:
+    name: Runtime contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Action classes contract
+        run: npm run test:agent-buccet:action-classes
+      - name: Swarm contract
+        run: npm run test:agent-buccet:swarm
+      - name: Hook runtime contract
+        run: npm run test:agent-buccet:hook-runtime
+      - name: Gravity supervisor contract
+        run: npm run test:agent-buccet:gravity-supervisor
+      - name: CLI contract
+        run: npm run test:agent-buccet:cli
+      - name: Attack demo
+        run: npm run demo:agent-buccet:attacks
+
+  contracts-docs:
+    name: Docs and hygiene contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Doc links contract
+        run: npm run test:agent-buccet:doc-links
+      - name: Artifact hygiene contract
+        run: npm run test:agent-buccet:artifact-hygiene
