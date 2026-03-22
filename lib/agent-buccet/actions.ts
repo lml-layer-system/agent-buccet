@@ -1,9 +1,9 @@
 import { enableBodyguardControl } from "./bodyguard.ts";
 import {
+  createBoundaryActionRequest,
   runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./adapters.ts";
-import { createBoundaryActionRequest } from "./request-builder.ts";
+} from "./bodyguard.ts";
 import type {
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,

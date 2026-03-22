@@ -4,7 +4,7 @@ import {
   type BoundaryExecutionResult,
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
-} from "../adapters.ts";
+} from "../bodyguard.ts";
 import type { BoundaryRuntimeConfig } from "../types.ts";
 
 export async function enforceNemoProposal<T>(args: {

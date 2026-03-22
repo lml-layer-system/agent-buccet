@@ -2,7 +2,7 @@ import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
 } from "./types.ts";
-import type { BoundaryToolProposal } from "./adapters.ts";
+import type { BoundaryToolProposal } from "./bodyguard.ts";
 
 const AUTHORITY_PATTERNS = [
   /\bignore (all )?(previous|prior) instructions\b/i,

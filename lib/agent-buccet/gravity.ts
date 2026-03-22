@@ -2,7 +2,7 @@ import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
-} from "./adapters.ts";
+} from "./bodyguard.ts";
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import type { BoundaryApprovalHandler } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";

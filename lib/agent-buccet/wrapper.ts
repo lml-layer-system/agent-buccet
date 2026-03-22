@@ -1,7 +1,6 @@
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { enableBodyguardControl } from "./bodyguard.ts";
-import { enforceBoundaryProposal } from "./adapters.ts";
+import { enableBodyguardControl, enforceBoundaryProposal } from "./bodyguard.ts";
 import { createStaticApprovalHandler } from "./approval.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
 import { loadBoundaryPolicyConfig, applyBoundaryPolicyConfig } from "./policy.ts";

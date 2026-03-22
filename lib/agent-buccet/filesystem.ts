@@ -2,10 +2,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { enableBodyguardControl } from "./bodyguard.ts";
 import {
+  createBoundaryActionRequest,
   runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./adapters.ts";
-import { createBoundaryActionRequest } from "./request-builder.ts";
+} from "./bodyguard.ts";
 import type { BoundaryRuntimeConfig } from "./types.ts";
 
 export type BoundaryFsResult<T = void> = BoundaryExecutionResult<T>;
