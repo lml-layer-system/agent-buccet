@@ -20,6 +20,9 @@ jobs:
           node-version: '22'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
       - run: npm ci
       - run: npm run typecheck
       - name: Core contracts
@@ -31,6 +34,15 @@ jobs:
           npm run test:agent-buccet:wrapper-contract
       - name: Build release package
         run: node scripts/prepare-agent-buccet-package.ts
+        env:
+          AGENT_BUCCET_WITNESS_FILE: dist/releases/witness/latest.checkpoints.jsonl
+      - name: Compile standalone binaries
+        run: |
+          mkdir -p dist/releases/bin
+          bun build --compile --target bun-linux-x64   scripts/buccet.ts --outfile dist/releases/bin/buccet-linux-x64
+          bun build --compile --target bun-linux-arm64 scripts/buccet.ts --outfile dist/releases/bin/buccet-linux-arm64
+          bun build --compile --target bun-darwin-x64  scripts/buccet.ts --outfile dist/releases/bin/buccet-darwin-x64
+          bun build --compile --target bun-darwin-arm64 scripts/buccet.ts --outfile dist/releases/bin/buccet-darwin-arm64
       - name: Publish to npm
         run: npm publish --access public
         env:
@@ -42,3 +54,7 @@ jobs:
           files: |
             dist/releases/*.tar.gz
             dist/releases/latest.json
+            dist/releases/bin/buccet-linux-x64
+            dist/releases/bin/buccet-linux-arm64
+            dist/releases/bin/buccet-darwin-x64
+            dist/releases/bin/buccet-darwin-arm64

@@ -51,6 +51,8 @@ jobs:
         run: npm run test:agent-buccet:intercept-daemon
       - name: Release witness contract
         run: npm run test:agent-buccet:release-witness
+        env:
+          AGENT_BUCCET_WITNESS_FILE: /tmp/buccet-ci-witness.checkpoints.jsonl
 
   contracts-ledger:
     name: Ledger contracts

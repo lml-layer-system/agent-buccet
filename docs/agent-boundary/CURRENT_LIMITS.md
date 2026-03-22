@@ -12,6 +12,8 @@ The default intercept layer is:
 
 Both surfaces map into the same finite boundary action classes and route to the same Buccet brain.
 
+The hosted installer (`curl -fsSL https://buccet.lml.dev/install | sh`) requires no prior toolchain. It detects bun or node automatically and installs bun if neither is found. The launcher produced by the install script also resolves bun vs node at each invocation so the runtime preference is always correct.
+
 If a C compiler is not available at install time, Agent Buccet runs in user-space bridge mode — same brain, same law body, same ledger, framework-level interception only. Run `buccet hook build && buccet hook start` once `cc` is available to enable libc-level interception.
 
 The C/libc layer is the deepest public level. Below that — OS-kernel hooks (eBPF, seccomp, ptrace), hypervisor, and firmware/boot-level enforcement — is not part of this release and is not an open extension point. Proprietary by design.
@@ -36,11 +38,9 @@ Current ledger guarantees:
 - chain verification
 - public-key inspection
 - signed checkpoints
-- witness publishing
+- witness publishing — checkpoint published to external endpoint by default; local file is the explicit opt-down
 
 Current ledger does not yet guarantee:
-- mandatory external witness by default
-- remote anchoring by default
 - hardware-isolated signing keys by default
 
 ## Hook Failure Semantics
@@ -64,4 +64,4 @@ Safe claims:
 Unsafe claims:
 - full OS-kernel mediation on every syscall (platform-specific; not the universal default)
 - impossible bypass on all OS paths
-- independent external attestation by default
+- hardware-backed key protection (software keys on disk; HSM support is not part of this release)

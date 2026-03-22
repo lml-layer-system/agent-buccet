@@ -397,7 +397,11 @@ async function handleInit(rest: string[]) {
         console.log(`intercept: active (libc-level, daemon pid ${existingPid})`);
       } else {
         const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
-        const hookChild = spawn(process.execPath, [
+        // Use BUCCET_DAEMON_EXEC if set (compiled binary distributions set this to
+        // the bun/node path so the daemon sub-script is launched with the TS runtime,
+        // not the compiled binary itself).
+        const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+        const hookChild = spawn(daemonExec, [
           daemonScriptPath,
           "--session-id", nextConfig.sessionId,
           "--actor-id", nextConfig.actorId,
@@ -880,7 +884,8 @@ async function handleHook(rest: string[]) {
       console.log(`hook daemon already running: ${existingPid}`);
       return;
     }
-    const child = spawn(process.execPath, [
+    const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+    const child = spawn(daemonExec, [
       daemonScriptPath,
       "--session-id",
       config.sessionId,

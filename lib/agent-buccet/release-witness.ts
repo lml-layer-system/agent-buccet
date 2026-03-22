@@ -11,6 +11,7 @@ export type BoundaryReleaseWitnessStatus = {
   status: "published" | "skipped";
   mode: "file" | "http";
   target: string;
+  fallback?: boolean;
   checkpoint_id?: string;
   signer_id?: string;
   receipt?: {
@@ -41,18 +42,22 @@ function resolveOptOutReason(env: NodeJS.ProcessEnv): string | null {
   return legacy || null;
 }
 
+const DEFAULT_WITNESS_URL = "https://witness.buccet.lml.dev/checkpoint";
+
 function resolveTarget(releaseDir: string, env: NodeJS.ProcessEnv): { mode: "file" | "http"; target: string } {
   if (env.AGENT_BUCCET_WITNESS_HTTP_URL) {
-    return {
-      mode: "http",
-      target: env.AGENT_BUCCET_WITNESS_HTTP_URL,
-    };
+    return { mode: "http", target: env.AGENT_BUCCET_WITNESS_HTTP_URL };
   }
+  if (env.AGENT_BUCCET_WITNESS_FILE) {
+    return { mode: "file", target: env.AGENT_BUCCET_WITNESS_FILE };
+  }
+  // Default: publish to the external witness endpoint so the checkpoint escapes
+  // the local process boundary. Local-file mode is the explicit opt-down, not the default.
+  return { mode: "http", target: DEFAULT_WITNESS_URL };
+}
 
-  return {
-    mode: "file",
-    target: env.AGENT_BUCCET_WITNESS_FILE ?? path.join(releaseDir, "witness", "latest.checkpoints.jsonl"),
-  };
+function resolveLocalFallbackTarget(releaseDir: string): string {
+  return path.join(releaseDir, "witness", "latest.checkpoints.jsonl");
 }
 
 async function writeStatusFile(releaseDir: string, status: BoundaryReleaseWitnessStatus) {
@@ -89,17 +94,41 @@ export async function publishBoundaryReleaseWitness(args: {
     return skipped;
   }
 
-  const published = await publishBoundaryLedgerCheckpoint({
-    adapter: mode === "http"
-      ? createHttpBoundaryLedgerWitness({ targetUrl: target })
-      : createFileBoundaryLedgerWitness(target),
-  });
+  let published: Awaited<ReturnType<typeof publishBoundaryLedgerCheckpoint>>;
+  let resolvedMode = mode;
+  let resolvedTarget = target;
+  let usedFallback = false;
+
+  if (mode === "http") {
+    try {
+      published = await publishBoundaryLedgerCheckpoint({
+        adapter: createHttpBoundaryLedgerWitness({ targetUrl: target }),
+      });
+    } catch {
+      // HTTP witness failed — fall back to local file so the release is not blocked.
+      const localTarget = resolveLocalFallbackTarget(args.releaseDir);
+      process.stderr.write(
+        `[agent-buccet] witness HTTP publish failed (${target}); falling back to local file: ${localTarget}\n`,
+      );
+      published = await publishBoundaryLedgerCheckpoint({
+        adapter: createFileBoundaryLedgerWitness(localTarget),
+      });
+      resolvedMode = "file";
+      resolvedTarget = localTarget;
+      usedFallback = true;
+    }
+  } else {
+    published = await publishBoundaryLedgerCheckpoint({
+      adapter: createFileBoundaryLedgerWitness(target),
+    });
+  }
 
   const status: BoundaryReleaseWitnessStatus = {
     required,
     status: "published",
-    mode,
-    target,
+    mode: resolvedMode,
+    target: resolvedTarget,
+    ...(usedFallback ? { fallback: true } : {}),
     checkpoint_id: published.checkpoint.checkpoint_id,
     signer_id: published.checkpoint.signer_id,
     receipt: published.receipt,
