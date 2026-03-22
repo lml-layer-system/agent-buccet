@@ -1,5 +1,18 @@
 {
   "specVersion": 1,
-  "userApprovedLawPaths": [],
+  "userApprovedLawPaths": [
+    {
+      "id": "UPL-000001",
+      "type": "APPROVED",
+      "path": "fs.write /tmp/agent-buccet-swarm-O2wnds/shared.txt :: pid=1001 agent=one",
+      "pathHash": "14407df2b425140127879616f5ff5f862b7ad289f9ffc801862deeaf70997543",
+      "createdAt": "2026-03-22T06:00:21.670Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "entry_0000000246",
+      "modifiedAt": null,
+      "notes": null
+    }
+  ],
   "userDeniedLawPaths": []
 }
