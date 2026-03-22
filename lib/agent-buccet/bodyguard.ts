@@ -237,6 +237,47 @@ export async function evaluateBoundaryAction(
         return { result: muscleResult, nslMoves: [] };
       }
 
+      // TIME.TRUST.01 governs untrusted provenance + high-risk action combinations.
+      // This check runs before the action-class table so that TIME.TRUST.01 fires
+      // instead of BOUNDARY.DELETE.01 / BOUNDARY.NETWORK.01 etc. when both apply.
+      // (The time family may also govern this but is checked after the base family block;
+      // moving this check here ensures correct law-ID precedence for the attack surface.)
+      const tf = config.runtimeMuscle.time.family;
+      if (tf.status === "active") {
+        const isUntrustedProvenance =
+          request.provenance === "remote_user" ||
+          request.provenance === "agent_inference" ||
+          request.provenance === "tool_output" ||
+          request.provenance === "external_content";
+        const isHighRiskAction =
+          request.actionKind === "fs.delete" ||
+          request.actionKind === "fs.move" ||
+          request.actionKind === "comm.send" ||
+          request.actionKind === "tool.exec" ||
+          request.actionKind === "network.send";
+        if (isUntrustedProvenance && isHighRiskAction) {
+          const timePrefix = `[${tf.familyId}] ${tf.familyCompressedLaw.slice(0, 120)}`;
+          const muscleResult: BoundaryLawResult = {
+            decision: "require_approval",
+            reason: `${timePrefix} | TIME.TRUST.01`,
+            triggeredLawIds: ["TIME.TRUST.01"],
+            requiresApproval: true,
+          };
+          await appendBoundaryLedger("DECISION_RETURNED", {
+            sessionId: config.session.sessionId,
+            actorId: config.session.actorId,
+            requestId: request.requestId,
+            actionKind: request.actionKind,
+            target: request.target,
+            decision: muscleResult.decision,
+            reason: muscleResult.reason,
+            lawIds: muscleResult.triggeredLawIds,
+            createdAt: new Date().toISOString(),
+          });
+          return { result: muscleResult, nslMoves: [] };
+        }
+      }
+
       // Muscle governs action-class boundary decisions for laws active in this session's
       // law set. config.userLawIds (populated from a policy file) may restrict which
       // BOUNDARY.*.01 laws are active — the muscle respects that restriction.
@@ -265,63 +306,30 @@ export async function evaluateBoundaryAction(
       }
     }
 
-    const tf = config.runtimeMuscle.time.family;
-    if (tf.status === "active") {
-      const timePrefix = `[${tf.familyId}] ${tf.familyCompressedLaw.slice(0, 120)}`;
-
-      if (request.flags?.requestsSessionRevival) {
-        const muscleResult: BoundaryLawResult = {
-          decision: "deny",
-          reason: `${timePrefix} | TIME.SESSION.01`,
-          triggeredLawIds: ["TIME.SESSION.01"],
-          requiresApproval: false,
-        };
-        await appendBoundaryLedger("DECISION_RETURNED", {
-          sessionId: config.session.sessionId,
-          actorId: config.session.actorId,
-          requestId: request.requestId,
-          actionKind: request.actionKind,
-          target: request.target,
-          decision: muscleResult.decision,
-          reason: muscleResult.reason,
-          lawIds: muscleResult.triggeredLawIds,
-          createdAt: new Date().toISOString(),
-        });
-        return { result: muscleResult, nslMoves: [] };
-      }
-
-      // Time family governs trust-provenance + high-risk action combinations
-      const isUntrustedProvenance =
-        request.provenance === "remote_user" ||
-        request.provenance === "agent_inference" ||
-        request.provenance === "tool_output" ||
-        request.provenance === "external_content";
-      const isHighRiskAction =
-        request.actionKind === "fs.delete" ||
-        request.actionKind === "fs.move" ||
-        request.actionKind === "comm.send" ||
-        request.actionKind === "tool.exec" ||
-        request.actionKind === "network.send";
-      if (isUntrustedProvenance && isHighRiskAction) {
-        const muscleResult: BoundaryLawResult = {
-          decision: "require_approval",
-          reason: `${timePrefix} | TIME.TRUST.01`,
-          triggeredLawIds: ["TIME.TRUST.01"],
-          requiresApproval: true,
-        };
-        await appendBoundaryLedger("DECISION_RETURNED", {
-          sessionId: config.session.sessionId,
-          actorId: config.session.actorId,
-          requestId: request.requestId,
-          actionKind: request.actionKind,
-          target: request.target,
-          decision: muscleResult.decision,
-          reason: muscleResult.reason,
-          lawIds: muscleResult.triggeredLawIds,
-          createdAt: new Date().toISOString(),
-        });
-        return { result: muscleResult, nslMoves: [] };
-      }
+    // TIME.SESSION.01: session revival flag — governed by the time family.
+    // TIME.TRUST.01 (trust+provenance) was moved inside the base family block above
+    // to run before action-class checks and ensure correct law-ID precedence.
+    const tf2 = config.runtimeMuscle.time.family;
+    if (tf2.status === "active" && request.flags?.requestsSessionRevival) {
+      const timePrefix = `[${tf2.familyId}] ${tf2.familyCompressedLaw.slice(0, 120)}`;
+      const muscleResult: BoundaryLawResult = {
+        decision: "deny",
+        reason: `${timePrefix} | TIME.SESSION.01`,
+        triggeredLawIds: ["TIME.SESSION.01"],
+        requiresApproval: false,
+      };
+      await appendBoundaryLedger("DECISION_RETURNED", {
+        sessionId: config.session.sessionId,
+        actorId: config.session.actorId,
+        requestId: request.requestId,
+        actionKind: request.actionKind,
+        target: request.target,
+        decision: muscleResult.decision,
+        reason: muscleResult.reason,
+        lawIds: muscleResult.triggeredLawIds,
+        createdAt: new Date().toISOString(),
+      });
+      return { result: muscleResult, nslMoves: [] };
     }
   }
 
