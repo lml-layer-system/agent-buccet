@@ -9,7 +9,7 @@ export * from "./time.ts";
 export * from "./foundation.ts";
 export * from "./laws.ts";
 export * from "./nsl.ts";
-export type { BoundaryEvaluation, OpenPathResult } from "./runtime.ts";
+export type { OpenPathResult } from "./runtime.ts";
 export { issueBoundaryGrant, revokeBoundaryGrant, expireBoundaryGrants, openBoundaryPath } from "./runtime.ts";
 export * from "./state.ts";
 export * from "./policy.ts";

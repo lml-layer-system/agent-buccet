@@ -1,8 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
-import { createBoundaryActionRequest } from "./bodyguard-engine.ts";
+import { createBoundaryActionRequest, evaluateBoundaryAction } from "./bodyguard.ts";
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
-import { evaluateBoundaryAction } from "./runtime.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -147,6 +146,17 @@ export async function evaluateBoundaryIntercept(args: {
     provenance: args.request.provenance,
     flags: args.request.flags,
   });
+
+  if (args.config.session.status === "ended") {
+    return {
+      decision: "deny",
+      reason: "session has been ended and can no longer authorize actions",
+      lawIds: ["BOUNDARY.SESSION.ENDED.01"],
+      nslMoves: [],
+      requestId: boundaryRequest.requestId,
+      actionKind,
+    };
+  }
 
   const standingLawResult = resolveBodyguardStandingLaw({
     config: args.config,

@@ -13,8 +13,8 @@ import {
 } from "./bodyguard-core.ts";
 import { BoundaryApprovalTimeoutError } from "./errors.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
+import { evaluateBoundaryLaws } from "./laws.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
-import { evaluateBoundaryAction } from "./runtime.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
@@ -23,12 +23,145 @@ import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
   BoundaryApprovalRequest,
+  BoundaryLawResult,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
   NslMove,
 } from "./types.ts";
 
 export * from "./bodyguard-core.ts";
+
+/**
+ * The raw law evaluation result paired with NSL move suggestions.
+ * Returned by `evaluateBoundaryAction`.
+ */
+export type BoundaryEvaluation = {
+  result: BoundaryLawResult;
+  nslMoves: NslMove[];
+};
+
+/**
+ * Evaluates a proposed action against the active session laws.
+ *
+ * This function is Bodyguard-owned. It does NOT re-check session status or UPL —
+ * those are handled by the Bodyguard enforcement loop before this is called.
+ * The snapped runtime muscle participates here directly: active muscle families
+ * govern categorical invariants (law mutation, ledger bypass, session revival)
+ * before the default law set runs.
+ *
+ * Remaining gap: full muscle-governed adjudication (all families converted to
+ * evaluated BoundaryLaw objects) is the next step — base invariant and temporal
+ * continuity families are enforced directly here as the current step forward.
+ */
+export async function evaluateBoundaryAction(
+  config: BoundaryRuntimeConfig,
+  request: BoundaryActionRequest,
+): Promise<BoundaryEvaluation> {
+  await appendBoundaryLedger("ACTION_PROPOSED", {
+    sessionId: config.session.sessionId,
+    actorId: config.session.actorId,
+    requestId: request.requestId,
+    actionKind: request.actionKind,
+    target: request.target,
+    reason: "action proposed",
+    createdAt: request.requestedAt,
+  });
+
+  // Snapped runtime muscle participates in live adjudication.
+  // Active muscle families enforce categorical invariants before default law evaluation.
+  if (config.runtimeMuscle) {
+    const structuralViolation =
+      request.flags?.requestsLawMutation || request.flags?.requestsLedgerBypass;
+
+    if (structuralViolation) {
+      const governingFamily = config.runtimeMuscle.base.families.find(
+        (f) => f.status === "active",
+      );
+      if (governingFamily) {
+        const muscleResult: BoundaryLawResult = {
+          decision: "deny",
+          reason: `[${governingFamily.familyId}] ${governingFamily.familyTitle}: ${governingFamily.familyCompressedLaw.slice(0, 200)}`,
+          triggeredLawIds: [governingFamily.familyId],
+          requiresApproval: false,
+        };
+        await appendBoundaryLedger("DECISION_RETURNED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: muscleResult.decision,
+          reason: muscleResult.reason,
+          lawIds: muscleResult.triggeredLawIds,
+          createdAt: new Date().toISOString(),
+        });
+        return { result: muscleResult, nslMoves: [] };
+      }
+    }
+
+    const timeViolation = request.flags?.requestsSessionRevival;
+    const timeFamilyActive = config.runtimeMuscle.time.family.status === "active";
+    if (timeViolation && timeFamilyActive) {
+      const tf = config.runtimeMuscle.time.family;
+      const muscleResult: BoundaryLawResult = {
+        decision: "deny",
+        reason: `[${tf.familyId}] ${tf.familyTitle}: ${tf.familyCompressedLaw.slice(0, 200)}`,
+        triggeredLawIds: [tf.familyId],
+        requiresApproval: false,
+      };
+      await appendBoundaryLedger("DECISION_RETURNED", {
+        sessionId: config.session.sessionId,
+        actorId: config.session.actorId,
+        requestId: request.requestId,
+        actionKind: request.actionKind,
+        target: request.target,
+        decision: muscleResult.decision,
+        reason: muscleResult.reason,
+        lawIds: muscleResult.triggeredLawIds,
+        createdAt: new Date().toISOString(),
+      });
+      return { result: muscleResult, nslMoves: [] };
+    }
+  }
+
+  const result = evaluateBoundaryLaws({
+    session: config.session,
+    request,
+    laws: config.laws,
+    grants: config.grants,
+    approvalRequiredFor: config.approvalRequiredFor,
+  });
+
+  await appendBoundaryLedger("DECISION_RETURNED", {
+    sessionId: config.session.sessionId,
+    actorId: config.session.actorId,
+    requestId: request.requestId,
+    actionKind: request.actionKind,
+    target: request.target,
+    decision: result.decision,
+    reason: result.reason,
+    lawIds: result.triggeredLawIds,
+    createdAt: new Date().toISOString(),
+  });
+
+  const nslMoves = buildBoundaryNslMoves(request, result);
+  for (const move of nslMoves) {
+    await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
+      sessionId: config.session.sessionId,
+      actorId: config.session.actorId,
+      requestId: request.requestId,
+      moveId: move.moveId,
+      actionKind: request.actionKind,
+      target: request.target,
+      decision: result.decision,
+      reason: move.description,
+      lawIds: result.triggeredLawIds,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  return { result, nslMoves };
+}
 
 /**
  * The result of a boundary-controlled action execution.
