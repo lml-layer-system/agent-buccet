@@ -180,7 +180,9 @@ export type BoundaryLedgerEventType =
   | "PROCESS_BLOCKED"
   | "PROCESS_ENV_FILTERED"
   | "NSL_MOVE_SUGGESTED"
-  | "NSL_MOVE_CHOSEN";
+  | "NSL_MOVE_CHOSEN"
+  | "UPL_LAW_APPROVED"
+  | "UPL_LAW_DENIED";
 
 export type BoundaryLedgerPayload = {
   sessionId: string;

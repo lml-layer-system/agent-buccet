@@ -1,3 +1,4 @@
+import { appendBoundaryLedger } from "./ledger.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
@@ -65,6 +66,23 @@ export async function applyBodyguardUserLawDecision(args: {
       session: args.config.session,
       decision: args.decision,
     });
+    const newEntry = upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1];
+    await appendBoundaryLedger("UPL_LAW_APPROVED", {
+      sessionId: args.config.session.sessionId,
+      actorId: args.config.session.actorId,
+      requestId: args.request.requestId,
+      actionKind: args.request.actionKind,
+      target: args.request.target,
+      reason: `standing UPL allow created: ${newEntry.id}`,
+      lawIds: [newEntry.id],
+      metadata: {
+        upl_entry_id: newEntry.id,
+        upl_scope: newEntry.scope,
+        upl_path_hash: newEntry.pathHash,
+        witness_record_id: args.witness.META.id,
+      },
+      createdAt: newEntry.createdAt,
+    });
   } else if (args.decision.persistDenied) {
     upl = await writeDeniedUserPathLaw({
       ledger: upl,
@@ -72,6 +90,23 @@ export async function applyBodyguardUserLawDecision(args: {
       witness: args.witness,
       session: args.config.session,
       decision: args.decision,
+    });
+    const newEntry = upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1];
+    await appendBoundaryLedger("UPL_LAW_DENIED", {
+      sessionId: args.config.session.sessionId,
+      actorId: args.config.session.actorId,
+      requestId: args.request.requestId,
+      actionKind: args.request.actionKind,
+      target: args.request.target,
+      reason: `standing UPL deny created: ${newEntry.id}`,
+      lawIds: [newEntry.id],
+      metadata: {
+        upl_entry_id: newEntry.id,
+        upl_scope: newEntry.scope,
+        upl_path_hash: newEntry.pathHash,
+        witness_record_id: args.witness.META.id,
+      },
+      createdAt: newEntry.createdAt,
     });
   } else {
     return args.config;
