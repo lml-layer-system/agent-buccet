@@ -1,8 +1,8 @@
 # Agent Buccet
-Building Ultimate Containment Constraints Every Time
+The Universal Agent Bodyguard — Building Ultimate Containment Constraints Every Time
 ![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
-The universal agent bodyguard. Works with any agent. Any framework. Indefinitely.
+Works with any agent. Any framework. Indefinitely.
 
 Agents can propose. They cannot authorize.
 

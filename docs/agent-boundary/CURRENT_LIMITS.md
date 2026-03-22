@@ -14,7 +14,7 @@ Both surfaces map into the same finite boundary action classes and route to the 
 
 If a C compiler is not available at install time, Agent Buccet runs in user-space bridge mode — same brain, same law body, same ledger, framework-level interception only. Run `buccet hook build && buccet hook start` once `cc` is available to enable libc-level interception.
 
-OS-specific kernel hooks (eBPF, seccomp, ptrace) can be added as supplemental nets in front of the same brain for platform-locked high-assurance environments. They are not the universal default because they lock coverage to one OS.
+The C/libc layer is the deepest public level. Below that — OS-kernel hooks (eBPF, seccomp, ptrace), hypervisor, and firmware/boot-level enforcement — is not part of this release and is not an open extension point. Proprietary by design.
 
 ## Coverage
 

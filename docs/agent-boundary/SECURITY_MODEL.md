@@ -112,10 +112,9 @@ Both route to the same Buccet brain.
 
 `buccet init` builds and starts the intercept layer automatically. If a C compiler is not available, Agent Buccet runs in user-space bridge mode — the same brain, law body, and ledger, with framework-level interception only.
 
-OS-specific kernel hooks (eBPF, seccomp, ptrace) go deeper on one platform but trade universal coverage for OS lock-in. They can be added as supplemental nets in front of the same Buccet brain but are not the universal default.
+The C/libc layer is the deepest level in the public release. That is by design.
 
-Those supplemental nets do not become the authority system.
-They remain freeze-and-hold layers in front of the same Buccet brain.
+Below the C/libc layer — OS-kernel interception (eBPF, seccomp, ptrace), hypervisor-level, and firmware/boot-level enforcement — is not part of this release. It is not an open extension point. If you need that depth, contact the author or build it yourself. Those layers are proprietary by design and intentionally withheld.
 
 ## Failure Model
 
