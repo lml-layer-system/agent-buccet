@@ -1,9 +1,9 @@
 import { enableBodyguardControl } from "./bodyguard.ts";
 import {
-  createBoundaryActionRequest,
-  executeBoundaryControlledAction,
+  runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./executor.ts";
+} from "./action-runner.ts";
+import { createBoundaryActionRequest } from "./request-builder.ts";
 import type {
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
@@ -26,7 +26,7 @@ export async function boundaryNetworkSend<T>(args: {
   };
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
@@ -57,7 +57,7 @@ export async function boundaryRecipientSend<T>(args: {
   };
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
@@ -88,7 +88,7 @@ export async function boundaryToolExec<T>(args: {
   };
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
@@ -120,7 +120,7 @@ export async function boundaryDatabaseAction<T>(args: {
   };
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
@@ -158,7 +158,7 @@ export async function boundarySystemAction<T>(args: {
   };
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,

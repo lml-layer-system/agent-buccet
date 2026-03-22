@@ -1,16 +1,12 @@
-import { randomUUID } from "node:crypto";
 import {
   adjudicateBoundaryRequest,
   recordBodyguardUserLawDecision,
 } from "./bodyguard.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
-  BoundaryActionKind,
   BoundaryActionRequest,
   BoundaryApprovalDecision,
   BoundaryApprovalRequest,
-  BoundaryLawResult,
-  BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
   NslMove,
 } from "./types.ts";
@@ -24,26 +20,6 @@ export type BoundaryExecutionResult<T = void> = {
   nslMoves: NslMove[];
   value?: T;
 };
-
-export function createBoundaryActionRequest(args: {
-  config: BoundaryRuntimeConfig;
-  actionKind: BoundaryActionKind;
-  target: string;
-  payloadSummary?: string;
-  provenance?: BoundaryRequestProvenance;
-  flags?: BoundaryActionRequest["flags"];
-}): BoundaryActionRequest {
-  return {
-    requestId: randomUUID(),
-    sessionId: args.config.session.sessionId,
-    actionKind: args.actionKind,
-    target: args.target,
-    payloadSummary: args.payloadSummary,
-    requestedAt: new Date().toISOString(),
-    provenance: args.provenance ?? "agent_inference",
-    flags: args.flags,
-  };
-}
 
 async function logBlockedAction(
   config: BoundaryRuntimeConfig,
@@ -140,7 +116,7 @@ async function requestApproval(
   return { approved: decision.approved, decision, witnessRecord };
 }
 
-export async function executeBoundaryControlledAction<T>(args: {
+export async function runBoundaryControlledAction<T>(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
   execute?: () => Promise<T>;

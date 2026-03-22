@@ -2,10 +2,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { enableBodyguardControl } from "./bodyguard.ts";
 import {
-  createBoundaryActionRequest,
-  executeBoundaryControlledAction,
+  runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./executor.ts";
+} from "./action-runner.ts";
+import { createBoundaryActionRequest } from "./request-builder.ts";
 import type { BoundaryRuntimeConfig } from "./types.ts";
 
 export type BoundaryFsResult<T = void> = BoundaryExecutionResult<T>;
@@ -20,7 +20,7 @@ export async function boundaryReadFile(
   encoding: BufferEncoding = "utf8",
 ): Promise<BoundaryFsResult<string>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
@@ -39,7 +39,7 @@ export async function boundaryWriteFile(
   contents: string,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
@@ -61,7 +61,7 @@ export async function boundaryAppendFile(
   contents: string,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
@@ -82,7 +82,7 @@ export async function boundaryDeletePath(
   targetPath: string,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
@@ -102,7 +102,7 @@ export async function boundaryMkdir(
   targetPath: string,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
@@ -125,7 +125,7 @@ export async function boundaryMovePath(
   const source = normalizeBoundaryPath(sourcePath);
   const destination = normalizeBoundaryPath(destinationPath);
 
-  const sourceAdmission = await executeBoundaryControlledAction<void>({
+  const sourceAdmission = await runBoundaryControlledAction<void>({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
@@ -139,7 +139,7 @@ export async function boundaryMovePath(
     return sourceAdmission;
   }
 
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,

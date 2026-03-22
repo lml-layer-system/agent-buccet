@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { adjudicateBoundaryRequest } from "./bodyguard.ts";
-import { createBoundaryActionRequest } from "./executor.ts";
+import { createBoundaryActionRequest } from "./request-builder.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,

@@ -1,9 +1,9 @@
 import { enableBodyguardControl } from "./bodyguard.ts";
 import {
-  createBoundaryActionRequest,
-  executeBoundaryControlledAction,
+  runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./executor.ts";
+} from "./action-runner.ts";
+import { createBoundaryActionRequest } from "./request-builder.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -55,7 +55,7 @@ export async function enforceBoundaryProposal<T>(args: {
   config: BoundaryRuntimeConfig;
   proposal: BoundaryToolProposal<T>;
 }): Promise<BoundaryExecutionResult<T>> {
-  return executeBoundaryControlledAction({
+  return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
