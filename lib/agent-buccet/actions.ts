@@ -1,3 +1,4 @@
+import { attachBodyguardControl } from "./bodyguard-core.ts";
 import {
   createBoundaryActionRequest,
   executeBoundaryControlledAction,
@@ -26,7 +27,7 @@ export async function boundaryNetworkSend<T>(args: {
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return executeBoundaryControlledAction({
-    config: args.config,
+    config: attachBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: "network.send",
@@ -57,7 +58,7 @@ export async function boundaryRecipientSend<T>(args: {
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return executeBoundaryControlledAction({
-    config: args.config,
+    config: attachBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: "comm.send",
@@ -88,7 +89,7 @@ export async function boundaryToolExec<T>(args: {
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return executeBoundaryControlledAction({
-    config: args.config,
+    config: attachBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: "tool.exec",
@@ -120,7 +121,7 @@ export async function boundaryDatabaseAction<T>(args: {
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return executeBoundaryControlledAction({
-    config: args.config,
+    config: attachBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: args.actionKind,
@@ -158,7 +159,7 @@ export async function boundarySystemAction<T>(args: {
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return executeBoundaryControlledAction({
-    config: args.config,
+    config: attachBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: args.actionKind,

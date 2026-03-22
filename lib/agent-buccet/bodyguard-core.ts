@@ -24,6 +24,17 @@ export type BodyguardAdjudication = {
 
 export type BodyguardHeldDecision = BodyguardAdjudication | null;
 
+export function attachBodyguardControl(
+  config: BoundaryRuntimeConfig,
+  overrides?: Partial<BoundaryRuntimeConfig>,
+): BoundaryRuntimeConfig {
+  return {
+    ...config,
+    ...overrides,
+    bodyguardOnline: true,
+  };
+}
+
 export function resolveBodyguardStandingLaw(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
@@ -61,6 +72,19 @@ export async function resolveBodyguardHeldRequest(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
 }): Promise<BodyguardHeldDecision> {
+  if (!args.config.bodyguardOnline) {
+    const result: BoundaryLawResult = {
+      decision: "deny",
+      reason: "bodyguard is offline; no decision handoff is available",
+      triggeredLawIds: ["BODYGUARD.OFFLINE.01"],
+      requiresApproval: false,
+    };
+    return {
+      result,
+      nslMoves: [],
+    };
+  }
+
   const audit = await auditBoundarySessionLedger(args.config.session.sessionId);
   if (audit.status !== "complete") {
     const result: BoundaryLawResult = {

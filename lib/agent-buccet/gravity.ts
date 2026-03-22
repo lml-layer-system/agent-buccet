@@ -1,3 +1,4 @@
+import { attachBodyguardControl } from "./bodyguard-core.ts";
 import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
@@ -180,10 +181,9 @@ export async function runBoundaryGravityLoop(deps: BoundaryGravityDeps): Promise
       }
 
       const result = await enforceBoundaryProposal({
-        config: {
-          ...store.getConfig(),
+        config: attachBodyguardControl(store.getConfig(), {
           approvalHandler: deps.approvalHandler,
-        },
+        }),
         proposal: event.proposal,
       });
 

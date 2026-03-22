@@ -355,6 +355,7 @@ export type BoundaryRuntimeConfig = {
   userLawIds?: string[];
   upl?: BoundaryUserPathLedger;
   runtimeMuscle?: BoundaryRuntimeMuscleManifest;
+  bodyguardOnline?: boolean;
   persistence?: BoundaryPersistenceConfig;
   approvalHandler?: BoundaryApprovalHandler;
   gravityService?: BoundaryGravityService;

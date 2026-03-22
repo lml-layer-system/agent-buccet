@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { applyBodyguardUserLawDecision } from "./bodyguard-core.ts";
+import { applyBodyguardUserLawDecision, attachBodyguardControl } from "./bodyguard-core.ts";
 import path from "node:path";
 import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
@@ -291,7 +291,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
 
   async function evaluateOrWait(request: BoundaryInterceptRequest): Promise<BoundaryInterceptResult> {
     const result = await evaluateBoundaryIntercept({
-      config: store.getConfig(),
+      config: attachBodyguardControl(store.getConfig()),
       request,
     });
     if (result.decision !== "require_approval") {

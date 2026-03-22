@@ -1,4 +1,5 @@
 import { createApprovalQueueAdapter } from "./approval.ts";
+import { attachBodyguardControl } from "./bodyguard-core.ts";
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import {
   enforceBoundaryProposal,
@@ -18,11 +19,10 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   const gravityService = createBoundaryGravityService();
 
   function getGuardedConfig() {
-    return {
-      ...store.getConfig(),
+    return attachBodyguardControl(store.getConfig(), {
       approvalHandler: approvals.handler,
       gravityService,
-    };
+    });
   }
 
   async function enforceProposal<T>(proposal: BoundaryToolProposal<T>): Promise<BoundaryExecutionResult<T>> {
