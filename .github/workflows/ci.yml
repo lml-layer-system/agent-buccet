@@ -81,6 +81,8 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
+      - name: Compile native intercept layer
+        run: sh native/deep-intercept/build.sh native/deep-intercept/build
       - name: Action classes contract
         run: npm run test:agent-buccet:action-classes
       - name: Swarm contract

@@ -68,15 +68,30 @@ When many protected processes hit the same unresolved target:
 That means swarm support does not introduce a second control system.
 It is still one brain, one law body, one ledger, and one scope truth.
 
-## Optional Deeper Nets
+## Intercept Level
 
-Agent Buccet can also accept deeper deployment nets in front of the same brain:
-- preload-style hooks
-- process wrappers
-- transport bridges
-- kernel-level nets in high-assurance deployments
+The INTERCEPT layer catches at the universally lowest computational level: the action boundary.
 
-Those do not become the authority system.
+Every agent — regardless of framework, language, or runtime — must eventually cross a real action boundary to do anything:
+- libc calls (`open`, `write`, `execve`, `connect`, ...) for native processes
+- framework tool hooks for JS/Python agent stacks
+
+The INTERCEPT layer hooks both surfaces. This is universally the lowest you can get without locking to one OS.
+
+```
+INTERCEPT hooks at:
+  → libc calls     (LD_PRELOAD / DYLD_INSERT_LIBRARIES — any Unix/macOS process)
+  → framework APIs (Claude SDK, NeMo, OpenAI Agents, LangGraph, Telegram)
+
+Both map into the same finite boundary action classes.
+Both route to the same Buccet brain.
+```
+
+`buccet init` builds and starts the intercept layer automatically. If a C compiler is not available, Agent Buccet runs in user-space bridge mode — the same brain, law body, and ledger, with framework-level interception only.
+
+OS-specific kernel hooks (eBPF, seccomp, ptrace) go deeper on one platform but trade universal coverage for OS lock-in. They can be added as supplemental nets in front of the same Buccet brain but are not the universal default.
+
+Those supplemental nets do not become the authority system.
 They remain catch, freeze, and pass layers in front of the same Buccet brain.
 
 ## Failure Model
@@ -119,6 +134,6 @@ Release flows publish witness checkpoints by default and require explicit break-
 
 ## What Agent Buccet Does Not Yet Guarantee
 
-- full kernel mediation on every OS path
-- independent external witnessing by default
+- OS-kernel mediation on every syscall path (eBPF/seccomp/ptrace — locks to one platform)
+- independent external witnessing by default (ledger is locally signed; remote anchoring requires operator wiring)
 - hardware-backed key protection by default

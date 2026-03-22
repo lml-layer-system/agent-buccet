@@ -2,23 +2,19 @@
 
 This document states the current limits of the public Agent Buccet release plainly.
 
-## Deep Intercept
+## Intercept Level
 
-Current hook depth is:
-- preload / injected front-layer interception
-- bridge-fed into the existing Buccet runtime
+The INTERCEPT layer is the universally lowest computational level at which Buccet can catch action proposals — the action boundary, which every agent must cross to do anything real.
 
-The public release is intentionally centered on:
-- the shared Buccet brain
-- the shared law body
-- the shared scope truth
-- the shared ledger
+The default intercept layer is:
+- `LD_PRELOAD` / `DYLD_INSERT_LIBRARIES` libc hooks for native processes (built and started automatically by `buccet init` when a C compiler is available)
+- framework adapter hooks for JS/Python agent stacks (Claude SDK, NeMo, OpenAI Agents, LangGraph, Telegram)
 
-Optional deeper deployment layers can still be added for higher-assurance environments:
-- kernel-level mediation
-- platform-specific low-level catch nets
+Both surfaces map into the same finite boundary action classes and route to the same Buccet brain.
 
-Those are advanced extensions, not the core definition of the public containment model.
+If a C compiler is not available at install time, Agent Buccet runs in user-space bridge mode — same brain, same law body, same ledger, framework-level interception only. Run `buccet hook build && buccet hook start` once `cc` is available to enable libc-level interception.
+
+OS-specific kernel hooks (eBPF, seccomp, ptrace) can be added as supplemental nets in front of the same brain for platform-locked high-assurance environments. They are not the universal default because they lock coverage to one OS.
 
 ## Coverage
 
@@ -58,13 +54,14 @@ This is correct for the public release.
 ## Public Claim Discipline
 
 Safe claims:
-- add-on containment layer
-- persistent bodyguard
+- universal agent bodyguard
+- INTERCEPT catches at the universally lowest computational level (action boundary, libc + framework hooks)
+- persistent bodyguard that survives agent restarts
 - freeze-and-forward hook path
 - signed inspectable ledger
 - active base laws
 
 Unsafe claims:
-- full kernel mediation
+- full OS-kernel mediation on every syscall (platform-specific; not the universal default)
 - impossible bypass on all OS paths
 - independent external attestation by default

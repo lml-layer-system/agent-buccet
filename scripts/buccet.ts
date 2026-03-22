@@ -369,6 +369,56 @@ async function handleInit(rest: string[]) {
   console.log(`session: ${nextConfig.sessionId}`);
   console.log(`actor: ${nextConfig.actorId}`);
   console.log(`scopes: ${nextConfig.defaultScopes.length}`);
+
+  // Auto-enable the libc-level intercept layer.
+  // If a C compiler is available, build the native hook library and start the
+  // hook daemon so that LD_PRELOAD / DYLD_INSERT_LIBRARIES interception is
+  // active immediately after init — no separate `buccet hook build && buccet hook start` needed.
+  // If the compiler is not found, Agent Buccet continues in user-space bridge mode.
+  try {
+    await ensureDir(home.nativeBuildDir);
+    await ensureDir(home.runDir);
+    const nativeSourceDir = await resolveNativeSourceDir(home);
+    const compileArgs = process.platform === "darwin"
+      ? ["-dynamiclib", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"]
+      : ["-shared", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"];
+    const buildResult = await runSubprocess({
+      command: process.env.CC ?? "cc",
+      args: compileArgs,
+      cwd: home.homePath,
+    });
+    if (buildResult.code !== 0) {
+      console.log(`intercept: user-space only (native build failed; run 'buccet hook build' after installing gcc)`);
+    } else {
+      const existingPid = await fs.readFile(home.hookPidPath, "utf8")
+        .then((raw) => Number(raw.trim()))
+        .catch(() => 0);
+      if (existingPid && await pidAlive(existingPid)) {
+        console.log(`intercept: active (libc-level, daemon pid ${existingPid})`);
+      } else {
+        const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+        const hookChild = spawn(process.execPath, [
+          daemonScriptPath,
+          "--session-id", nextConfig.sessionId,
+          "--actor-id", nextConfig.actorId,
+          "--sessions-dir", home.sessionsDir,
+          "--intercept-socket", home.interceptSocketPath,
+          "--bridge-socket", home.gravityBridgeSocketPath,
+          "--brain-status-file", home.brainStatusPath,
+          "--pid-file", home.hookPidPath,
+        ], {
+          cwd: home.homePath,
+          detached: true,
+          stdio: "ignore",
+          env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
+        });
+        hookChild.unref();
+        console.log(`intercept: active (libc-level)`);
+      }
+    }
+  } catch {
+    console.log(`intercept: user-space only (cc not found; run 'buccet hook build' after installing gcc)`);
+  }
 }
 
 async function handleStatus(rest: string[]) {
