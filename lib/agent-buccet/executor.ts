@@ -1,14 +1,12 @@
 import { randomUUID } from "node:crypto";
+import {
+  applyBodyguardUserLawDecision,
+  resolveBodyguardStandingLaw,
+} from "./bodyguard-core.ts";
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
-import {
-  getActiveUserLawIds,
-  lookupUserPathDecision,
-  writeApprovedUserPathLaw,
-  writeDeniedUserPathLaw,
-} from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -207,39 +205,36 @@ export async function executeBoundaryControlledAction<T>(args: {
     };
   }
 
-  const preGravityStandingUserLaw = activeConfig.upl
-    ? lookupUserPathDecision({
-      ledger: activeConfig.upl,
-      session: activeConfig.session,
-      request: activeRequest,
-    })
-    : null;
+  const preGravityStandingLaw = resolveBodyguardStandingLaw({
+    config: activeConfig,
+    request: activeRequest,
+  });
 
-  if (preGravityStandingUserLaw?.decision === "deny") {
+  if (preGravityStandingLaw?.decision === "deny") {
     await logBlockedAction(
       activeConfig,
       activeRequest,
-      `blocked by standing UPL denial ${preGravityStandingUserLaw.entry.id}`,
-      [preGravityStandingUserLaw.entry.id],
+      preGravityStandingLaw.reason,
+      preGravityStandingLaw.triggeredLawIds,
     );
     return {
       config: activeConfig,
       allowed: false,
       executed: false,
       requiresApproval: false,
-      reason: `blocked by standing UPL denial ${preGravityStandingUserLaw.entry.id}`,
+      reason: preGravityStandingLaw.reason,
       nslMoves: [],
     };
   }
 
-  if (preGravityStandingUserLaw?.decision === "allow") {
+  if (preGravityStandingLaw?.decision === "allow") {
     if (!args.execute) {
       return {
         config: activeConfig,
         allowed: true,
         executed: false,
         requiresApproval: false,
-        reason: `allowed by standing UPL approval ${preGravityStandingUserLaw.entry.id}`,
+        reason: preGravityStandingLaw.reason,
         nslMoves: [],
       };
     }
@@ -263,7 +258,7 @@ export async function executeBoundaryControlledAction<T>(args: {
     await logExecutedAction(
       activeConfig,
       activeRequest,
-      `executed under standing UPL approval ${preGravityStandingUserLaw.entry.id}`,
+      `executed under ${preGravityStandingLaw.reason.replace(/^allowed by /, "")}`,
       args.successMetadata,
     );
     return {
@@ -271,7 +266,7 @@ export async function executeBoundaryControlledAction<T>(args: {
       allowed: true,
       executed: true,
       requiresApproval: false,
-      reason: `allowed by standing UPL approval ${preGravityStandingUserLaw.entry.id}`,
+      reason: preGravityStandingLaw.reason,
       nslMoves: [],
       value,
     };
@@ -385,39 +380,36 @@ export async function executeBoundaryControlledAction<T>(args: {
     };
   }
 
-  const standingUserLaw = activeConfig.upl
-    ? lookupUserPathDecision({
-      ledger: activeConfig.upl,
-      session: activeConfig.session,
-      request: activeRequest,
-    })
-    : null;
+  const standingLaw = resolveBodyguardStandingLaw({
+    config: activeConfig,
+    request: activeRequest,
+  });
 
-  if (standingUserLaw?.decision === "deny") {
+  if (standingLaw?.decision === "deny") {
     await logBlockedAction(
       activeConfig,
       activeRequest,
-      `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
-      [standingUserLaw.entry.id],
+      standingLaw.reason,
+      standingLaw.triggeredLawIds,
     );
     return {
       config: activeConfig,
       allowed: false,
       executed: false,
       requiresApproval: false,
-      reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
+      reason: standingLaw.reason,
       nslMoves: [],
     };
   }
 
-  if (standingUserLaw?.decision === "allow") {
+  if (standingLaw?.decision === "allow") {
     if (!args.execute) {
       return {
         config: activeConfig,
         allowed: true,
         executed: false,
         requiresApproval: false,
-        reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
+        reason: standingLaw.reason,
         nslMoves: [],
       };
     }
@@ -425,7 +417,7 @@ export async function executeBoundaryControlledAction<T>(args: {
     await logExecutedAction(
       activeConfig,
       activeRequest,
-      `executed under standing UPL approval ${standingUserLaw.entry.id}`,
+      `executed under ${standingLaw.reason.replace(/^allowed by /, "")}`,
       args.successMetadata,
     );
     return {
@@ -433,7 +425,7 @@ export async function executeBoundaryControlledAction<T>(args: {
       allowed: true,
       executed: true,
       requiresApproval: false,
-      reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
+      reason: standingLaw.reason,
       nslMoves: [],
       value,
     };
@@ -451,35 +443,12 @@ export async function executeBoundaryControlledAction<T>(args: {
       },
       evaluation.result.triggeredLawIds,
     );
-    if (activeConfig.upl) {
-      if (approvalResult.approved) {
-        activeConfig.upl = await writeApprovedUserPathLaw({
-          ledger: activeConfig.upl,
-          request: activeRequest,
-          witness: approvalResult.witnessRecord,
-          session: activeConfig.session,
-          decision: approvalResult.decision,
-        });
-      } else if (approvalResult.decision.persistDenied) {
-        activeConfig.upl = await writeDeniedUserPathLaw({
-          ledger: activeConfig.upl,
-          request: activeRequest,
-          witness: approvalResult.witnessRecord,
-          session: activeConfig.session,
-          decision: approvalResult.decision,
-        });
-      }
-      activeConfig = {
-        ...activeConfig,
-        upl: activeConfig.upl,
-        userLawIds: await Promise.resolve([
-          ...new Set([
-            ...(activeConfig.userLawIds ?? []),
-            ...getActiveUserLawIds(activeConfig.upl, activeConfig.session),
-          ]),
-        ]),
-      };
-    }
+    activeConfig = await applyBodyguardUserLawDecision({
+      config: activeConfig,
+      request: activeRequest,
+      witness: approvalResult.witnessRecord,
+      decision: approvalResult.decision,
+    });
 
     if (!approvalResult.approved) {
       await logBlockedAction(

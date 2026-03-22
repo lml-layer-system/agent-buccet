@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import { createBoundaryActionRequest } from "./executor.ts";
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import { evaluateBoundaryAction } from "./runtime.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
-import { lookupUserPathDecision } from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -168,21 +168,16 @@ export async function evaluateBoundaryIntercept(args: {
     return result;
   }
 
-  const standingUserLaw = args.config.upl
-    ? lookupUserPathDecision({
-      ledger: args.config.upl,
-      session: args.config.session,
-      request: boundaryRequest,
-    })
-    : null;
+  const standingLawResult = resolveBodyguardStandingLaw({
+    config: args.config,
+    request: boundaryRequest,
+  });
 
-  if (standingUserLaw) {
+  if (standingLawResult) {
     return {
-      decision: standingUserLaw.decision === "allow" ? "allow" : "deny",
-      reason: standingUserLaw.decision === "allow"
-        ? `allowed by standing UPL approval ${standingUserLaw.entry.id}`
-        : `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
-      lawIds: [standingUserLaw.entry.id],
+      decision: standingLawResult.decision,
+      reason: standingLawResult.reason,
+      lawIds: standingLawResult.triggeredLawIds,
       nslMoves: [],
       requestId: boundaryRequest.requestId,
       actionKind,

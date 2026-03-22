@@ -1,12 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
+import { applyBodyguardUserLawDecision } from "./bodyguard-core.ts";
 import path from "node:path";
 import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
-import {
-  getActiveUserLawIds,
-  writeApprovedUserPathLaw,
-  writeDeniedUserPathLaw,
-} from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -349,22 +345,13 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     const config = store.getConfig();
     if (config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
-      const upl = await writeApprovedUserPathLaw({
-        ledger: config.upl,
+      const nextConfig = await applyBodyguardUserLawDecision({
+        config,
         request: boundaryRequest,
         witness,
-        session: config.session,
+        decision: { approved: true },
       });
-      store.replaceConfig({
-        ...config,
-        upl,
-        userLawIds: [
-          ...new Set([
-            ...(config.userLawIds ?? []),
-            ...getActiveUserLawIds(upl, config.session),
-          ]),
-        ],
-      });
+      store.replaceConfig(nextConfig);
     }
 
     for (const waiter of group.waiters) {
@@ -405,22 +392,13 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     const config = store.getConfig();
     if (args.asLaw && config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
-      const upl = await writeDeniedUserPathLaw({
-        ledger: config.upl,
+      const nextConfig = await applyBodyguardUserLawDecision({
+        config,
         request: boundaryRequest,
         witness,
-        session: config.session,
+        decision: { approved: false, persistDenied: true },
       });
-      store.replaceConfig({
-        ...config,
-        upl,
-        userLawIds: [
-          ...new Set([
-            ...(config.userLawIds ?? []),
-            ...getActiveUserLawIds(upl, config.session),
-          ]),
-        ],
-      });
+      store.replaceConfig(nextConfig);
     }
 
     for (const waiter of group.waiters) {

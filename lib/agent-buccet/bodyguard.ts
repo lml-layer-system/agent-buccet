@@ -11,6 +11,8 @@ import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
 
+export * from "./bodyguard-core.ts";
+
 export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   const approvals = createApprovalQueueAdapter();
   const gravityService = createBoundaryGravityService();

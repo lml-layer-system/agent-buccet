@@ -1,12 +1,12 @@
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
 import { buildBoundaryNslMoves } from "./nsl.ts";
+import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
 } from "./orchestrator.ts";
 import { persistBoundarySessionState } from "./state.ts";
-import { lookupUserPathDecision } from "./user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryActionKind,
@@ -258,43 +258,25 @@ export async function evaluateBoundaryAction(
     createdAt: request.requestedAt,
   });
 
-  const standingUserLaw = config.upl
-    ? lookupUserPathDecision({
-      ledger: config.upl,
-      session: config.session,
-      request,
-    })
-    : null;
+  const standingLawResult = resolveBodyguardStandingLaw({ config, request });
 
-  if (standingUserLaw?.decision === "allow") {
-    const result: BoundaryLawResult = {
-      decision: "allow",
-      reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
-      triggeredLawIds: [standingUserLaw.entry.id],
-      requiresApproval: false,
-    };
-    return { result, nslMoves: [] };
+  if (standingLawResult?.decision === "allow") {
+    return { result: standingLawResult, nslMoves: [] };
   }
 
-  if (standingUserLaw?.decision === "deny") {
-    const result: BoundaryLawResult = {
-      decision: "deny",
-      reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
-      triggeredLawIds: [standingUserLaw.entry.id],
-      requiresApproval: false,
-    };
+  if (standingLawResult?.decision === "deny") {
     await appendBoundaryLedger("ACTION_BLOCKED", {
       sessionId: config.session.sessionId,
       actorId: config.session.actorId,
       requestId: request.requestId,
       actionKind: request.actionKind,
       target: request.target,
-      decision: result.decision,
-      reason: result.reason,
-      lawIds: result.triggeredLawIds,
+      decision: standingLawResult.decision,
+      reason: standingLawResult.reason,
+      lawIds: standingLawResult.triggeredLawIds,
       createdAt: new Date().toISOString(),
     });
-    return { result, nslMoves: [] };
+    return { result: standingLawResult, nslMoves: [] };
   }
 
   const result = evaluateBoundaryLaws({
