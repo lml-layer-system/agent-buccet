@@ -105,3 +105,5 @@ jobs:
         run: npm run test:agent-buccet:doc-links
       - name: Artifact hygiene contract
         run: npm run test:agent-buccet:artifact-hygiene
+      - name: Quickstart example
+        run: npm run demo:quickstart

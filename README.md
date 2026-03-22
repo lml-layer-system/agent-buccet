@@ -20,6 +20,7 @@ It works across agent stacks because the protected boundary is the same:
 - system and credential access
 
 That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can sit under:
+- Anthropic Claude SDK (`@anthropic-ai/sdk`)
 - Claude Cowork
 - Claude Dispatch
 - OpenClaw
