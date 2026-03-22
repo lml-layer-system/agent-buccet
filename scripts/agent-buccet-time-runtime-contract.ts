@@ -3,10 +3,9 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import {
-  createBoundaryActionRequest,
-  evaluateBoundaryAction,
   openBoundaryPath,
   startPersistentBoundarySession,
+  evaluateBoundaryIntercept,
 } from "../lib/agent-buccet/index.ts";
 
 async function main() {
@@ -26,25 +25,27 @@ async function main() {
     issuedBy: config.session.actorId,
   }));
 
-  const request = createBoundaryActionRequest({
+  const result = await evaluateBoundaryIntercept({
     config,
-    actionKind: "fs.write",
-    target: path.join(scopedRoot, "result.txt"),
-    provenance: "agent_inference",
-    flags: {
-      claimsCompleteCoverage: true,
+    request: {
+      actionClass: "file",
+      operation: "write",
+      target: path.join(scopedRoot, "result.txt"),
+      provenance: "agent_inference",
+      flags: {
+        claimsCompleteCoverage: true,
+      },
     },
   });
 
-  const evaluated = await evaluateBoundaryAction(config, request);
-  assert.equal(evaluated.result.decision, "require_approval");
+  assert.equal(result.decision, "require_approval");
   assert.ok(
-    evaluated.result.triggeredLawIds.includes("TIME.NOVELTY.01"),
+    result.lawIds.includes("TIME.NOVELTY.01"),
     "expected novelty guard to trigger on complete coverage claims",
   );
 
-  console.log(`time runtime decision: ${evaluated.result.decision}`);
-  console.log(`time runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
+  console.log(`time runtime decision: ${result.decision}`);
+  console.log(`time runtime laws: ${result.lawIds.join(",")}`);
 }
 
 main().catch((error) => {

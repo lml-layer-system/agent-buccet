@@ -52,14 +52,19 @@ Run the end-to-end demo — it shows a blocked delete, an approved write, and th
 npm run demo:agent-buccet
 ```
 
+See 6 real prompt-injection attack patterns blocked live (authority claims, scope expansion, law mutation, ledger bypass, tool-output escalation, compound multi-flag):
+
+```bash
+npm run demo:agent-buccet:attacks
+```
+
 Or see the boundary catch a real action in code:
 
 ```typescript
 import {
   startPersistentBoundarySession,
   openBoundaryPath,
-  evaluateBoundaryAction,
-  createBoundaryActionRequest,
+  evaluateBoundaryIntercept,
 } from "agent-buccet";
 
 // 1. Start a session
@@ -76,15 +81,16 @@ let config = await startPersistentBoundarySession({
   issuedBy: "user:alice",
 }));
 
-// 3. Agent proposes a write outside that scope
-const request = createBoundaryActionRequest({
+// 3. Agent proposes a write outside that scope — interceptor → gravity → bodyguard
+const result = await evaluateBoundaryIntercept({
   config,
-  actionKind: "fs.write",
-  target: "/etc/passwd",          // outside opened scope
-  provenance: "agent_inference",
+  request: {
+    actionClass: "file",
+    operation: "write",
+    target: "/etc/passwd",          // outside opened scope
+    provenance: "agent_inference",
+  },
 });
-
-const { result } = await evaluateBoundaryAction(config, request);
 console.log(result.decision);    // "deny"
 console.log(result.reason);      // "target is outside user-opened reachable scope"
 // The ledger has a signed record of every decision. Agent never touched /etc/passwd.
@@ -160,6 +166,12 @@ Runnable example:
 
 ```bash
 npm run demo:agent-buccet
+```
+
+Prompt-injection attack demo — 6 real attack patterns, all blocked:
+
+```bash
+npm run demo:agent-buccet:attacks
 ```
 
 Gravity contract:

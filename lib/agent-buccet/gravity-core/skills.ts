@@ -272,10 +272,13 @@ export function createScopeGrantSkill(): LawSkill {
 
       const now = Date.now();
       const hasGrant = state.dynamicLaws.grants.some((g: DynamicLawGrant) => {
-        if (g.kind !== scopeKind || g.scope !== scopeId) return false;
+        if (g.kind !== scopeKind) return false;
         if (g.revokedAt != null) return false;
         if (g.expiresAt != null && g.expiresAt < now) return false;
-        return true;
+        if (g.kind === "path") {
+          return scopeId === g.scope || scopeId.startsWith(`${g.scope}/`);
+        }
+        return g.scope === scopeId;
       });
       if (hasGrant) return [];
 
