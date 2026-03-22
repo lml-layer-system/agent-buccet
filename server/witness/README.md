@@ -1,8 +1,16 @@
 # Buccet Witness Server
 
-External checkpoint anchor for Agent Buccet. A single Go binary with an embedded SQLite database. No Docker. No runtime. No dependencies to install.
+## This is your server
 
-Receives signed ledger checkpoints from agent installations and stores them in an append-only SQLite table with WAL mode. The checkpoint is already signed ed25519 by the client — the server is an independent store the local process cannot reach to suppress.
+Agent Buccet does not host a witness endpoint and never will. This binary is the enterprise audit anchor that **you** deploy on **your** infrastructure. Your data never leaves your machines. We do not collect or store anything.
+
+Agent Buccet is 100% offline by default. The witness server is optional — it exists for enterprise and security-paranoid deployments that want immutable, off-machine audit logs on infrastructure they fully control.
+
+---
+
+A single Go binary with an embedded SQLite database. No Docker. No runtime. No dependencies to install. Drop it on a machine and run it.
+
+Receives signed ledger checkpoints from agent installations and stores them in an append-only SQLite table with WAL mode. The checkpoint is already signed ed25519 by the client — the server is an independent store that the local process cannot reach to suppress.
 
 ## Routes
 
@@ -37,18 +45,14 @@ go build -ldflags="-s -w" -o buccet-witness .
 ### Cross-compile for any target
 
 ```sh
-# Linux — primary deploy target for witness.buccet.lml.dev
 GOOS=linux  GOARCH=amd64 go build -ldflags="-s -w" -o buccet-witness-linux-amd64 .
 GOOS=linux  GOARCH=arm64 go build -ldflags="-s -w" -o buccet-witness-linux-arm64 .
-
-# macOS
 GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o buccet-witness-darwin-amd64 .
 GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o buccet-witness-darwin-arm64 .
 ```
 
 `-ldflags="-s -w"` strips debug symbols — smaller binary, no behavior change.
-
-No `CGO_ENABLED=0` needed. `modernc.org/sqlite` is pure Go — cross-compilation just works.
+No `CGO_ENABLED=0` flag needed. `modernc.org/sqlite` is pure Go — cross-compilation just works.
 
 ## Run
 
@@ -110,20 +114,20 @@ WAL mode (`PRAGMA journal_mode=WAL`) means readers never block writers and the d
 
 The `raw_json` column preserves the original checkpoint payload verbatim so future tooling can re-verify signatures without relying on the decomposed columns.
 
-## Deploy to bare metal (recommended for `witness.buccet.lml.dev`)
+## Deploy to bare metal
 
 ```sh
 # Build linux binary locally
 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o buccet-witness-linux-amd64 .
 
-# Copy to server
-scp buccet-witness-linux-amd64 user@witness.buccet.lml.dev:/opt/buccet-witness/buccet-witness
+# Copy to your server
+scp buccet-witness-linux-amd64 user@your-server.internal:/opt/buccet-witness/buccet-witness
 
-# On the server — run with systemd or screen
-WITNESS_DB_PATH=/var/buccet/checkpoints.db PORT=3000 /opt/buccet-witness/buccet-witness
+# On the server — run directly
+WITNESS_DB_PATH=/var/buccet/checkpoints.db PORT=9443 /opt/buccet-witness/buccet-witness
 ```
 
-Systemd unit example:
+Systemd unit:
 
 ```ini
 [Unit]
@@ -132,7 +136,7 @@ After=network.target
 
 [Service]
 ExecStart=/opt/buccet-witness/buccet-witness
-Environment=PORT=3000
+Environment=PORT=9443
 Environment=WITNESS_DB_PATH=/var/buccet/checkpoints.db
 Restart=always
 RestartSec=5
@@ -142,27 +146,22 @@ User=buccet
 WantedBy=multi-user.target
 ```
 
-## Deploy on Fly.io
+## Configure Agent Buccet to use your server
+
+Set `BUCCET_WITNESS_URL` to your server's URL before running `buccet init` or any release build:
 
 ```sh
-fly launch --name buccet-witness
-# When prompted for Dockerfile: no. Copy the linux-amd64 binary directly.
-fly deploy --strategy immediate
+export BUCCET_WITNESS_URL=https://your-server.internal:9443
+buccet init
 ```
 
-Or use Fly's raw binary exec mode — copy `buccet-witness-linux-amd64` and configure it as the process in `fly.toml`:
+Verify it's picked up:
 
-```toml
-[processes]
-  app = "/app/buccet-witness"
-
-[env]
-  PORT = "3000"
-  WITNESS_DB_PATH = "/data/checkpoints.db"
-
-[mounts]
-  source = "witness_data"
-  destination = "/data"
+```sh
+buccet status
+# witness: https://your-server.internal:9443
+# witness.mode: http
+# witness.status: published
 ```
 
-Mount the `/data` volume so the database survives deploys.
+For the full setup guide, see [`docs/agent-boundary/enterprise-witness.md`](../../docs/agent-boundary/enterprise-witness.md).

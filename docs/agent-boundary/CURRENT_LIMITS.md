@@ -38,7 +38,7 @@ Current ledger guarantees:
 - chain verification
 - public-key inspection
 - signed checkpoints
-- witness publishing — checkpoint published to external endpoint by default; local file is the explicit opt-down
+- witness publishing — checkpoint signed and stored locally by default; set BUCCET_WITNESS_URL to publish to your own off-machine witness server
 
 Current ledger does not yet guarantee:
 - hardware-isolated signing keys by default

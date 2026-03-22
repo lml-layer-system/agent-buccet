@@ -129,6 +129,16 @@ Every decision is signed, chained, and inspectable. The agent cannot erase it.
 
 ---
 
+## Privacy
+
+**Agent Buccet is 100% offline. Zero telemetry. No phone home. No cloud dependency. Your data never leaves your machine.**
+
+The signed audit ledger is a local file. Nothing is transmitted anywhere by default. There is no phone-home option or ability — there is nothing to disable because nothing calls out.
+
+For enterprise deployments that require immutable, off-machine audit logs on infrastructure they fully control, you can self-host the optional [Go witness server](docs/agent-boundary/enterprise-witness.md). You build it. You run it. You own it.
+
+---
+
 ## Start Here
 
 - [Agent Buccet README](docs/agent-boundary/README.md)
@@ -142,6 +152,7 @@ Every decision is signed, chained, and inspectable. The agent cannot erase it.
 - [Security Model](docs/agent-boundary/SECURITY_MODEL.md)
 - [Threat Model Traceability](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
+- [Enterprise Witness Server](docs/agent-boundary/enterprise-witness.md)
 - [Examples](docs/agent-boundary/examples/README.md)
 - [Repo Boundary](docs/REPO_BOUNDARY.md)
 
