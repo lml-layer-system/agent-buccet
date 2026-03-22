@@ -1,80 +1,168 @@
 # Buccet Witness Server
 
-The external checkpoint anchor for Agent Buccet. Receives signed ledger checkpoints from agent installations and stores them in an append-only JSONL log.
+External checkpoint anchor for Agent Buccet. A single Go binary with an embedded SQLite database. No Docker. No runtime. No dependencies to install.
 
-The client already signs every checkpoint with ed25519 before sending it here. The server's only job is to be an independent, always-on store that the local process cannot reach to suppress — making it impossible for a compromised agent runtime to erase its own audit trail.
+Receives signed ledger checkpoints from agent installations and stores them in an append-only SQLite table with WAL mode. The checkpoint is already signed ed25519 by the client — the server is an independent store the local process cannot reach to suppress.
 
-## What it does
+## Routes
 
-- `POST /checkpoint` — receives a `BoundaryLedgerCheckpoint` JSON body, appends it to `data/checkpoints.jsonl`, returns HTTP 200
-- `GET /health` — liveness probe, returns `{ status: "ok" }`
-- Zero dependencies. Runs on Bun. No database. The log is the truth.
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/health` | Liveness probe — returns `{"status":"ok","service":"buccet-witness"}` |
+| `POST` | `/checkpoint` | Receive and store a `BoundaryLedgerCheckpoint` |
 
-## Run locally
+### POST /checkpoint
+
+**Request body** (JSON): a `BoundaryLedgerCheckpoint` as sent by the Agent Buccet client.
+
+Required fields: `checkpoint_id`, `signer_id`, `signature`, `generated_at`
+
+**Response codes:**
+- `200` — stored successfully
+- `400` — invalid JSON
+- `409` — duplicate `checkpoint_id` (idempotent: safe to retry)
+- `422` — missing required fields
+- `500` — storage failure
+
+## Build from source
+
+Requires Go 1.22+. No C compiler needed — pure Go, zero CGO.
 
 ```sh
-bun run server/witness/index.ts
+cd server/witness
+go mod tidy
+go build -ldflags="-s -w" -o buccet-witness .
+```
+
+### Cross-compile for any target
+
+```sh
+# Linux — primary deploy target for witness.buccet.lml.dev
+GOOS=linux  GOARCH=amd64 go build -ldflags="-s -w" -o buccet-witness-linux-amd64 .
+GOOS=linux  GOARCH=arm64 go build -ldflags="-s -w" -o buccet-witness-linux-arm64 .
+
+# macOS
+GOOS=darwin GOARCH=amd64 go build -ldflags="-s -w" -o buccet-witness-darwin-amd64 .
+GOOS=darwin GOARCH=arm64 go build -ldflags="-s -w" -o buccet-witness-darwin-arm64 .
+```
+
+`-ldflags="-s -w"` strips debug symbols — smaller binary, no behavior change.
+
+No `CGO_ENABLED=0` needed. `modernc.org/sqlite` is pure Go — cross-compilation just works.
+
+## Run
+
+```sh
+./buccet-witness
+# [witness] listening on :3000
+# [witness] db: data/checkpoints.db
 ```
 
 Test it:
+
 ```sh
+curl http://localhost:3000/health
+
 curl -X POST http://localhost:3000/checkpoint \
   -H "content-type: application/json" \
-  -d '{"checkpoint_id":"test-01","signer_id":"dev","signature":"sig","generated_at":"2026-03-22T00:00:00Z","chain_ok":true,"cryptographic_ok":true,"total_records":1,"signature_algo":"ed25519"}'
+  -d '{
+    "checkpoint_id": "cp_test_01",
+    "signer_id": "dev-key",
+    "signature": "aabbcc",
+    "signature_algo": "ed25519",
+    "generated_at": "2026-03-22T00:00:00Z",
+    "total_records": 1,
+    "chain_ok": true,
+    "cryptographic_ok": true
+  }'
 ```
 
-## Deploy with Docker
+## Configuration
 
-```sh
-# Build
-docker build -f server/witness/Dockerfile -t buccet-witness .
-
-# Run — mount a volume so the log survives container restarts.
-docker run -d \
-  -p 3000:3000 \
-  -v /var/buccet/witness:/app/data \
-  --name buccet-witness \
-  buccet-witness
-```
-
-## Deploy on Fly.io (recommended for `witness.buccet.lml.dev`)
-
-```sh
-fly launch --name buccet-witness --dockerfile server/witness/Dockerfile
-fly volumes create witness_data --size 1 --region iad
-```
-
-Add to `fly.toml`:
-```toml
-[mounts]
-  source = "witness_data"
-  destination = "/app/data"
-```
-
-```sh
-fly deploy
-```
-
-## Environment variables
-
-| Variable | Default | Description |
+| Env var | Default | Description |
 |---|---|---|
 | `PORT` | `3000` | TCP port to listen on |
-| `WITNESS_LOG_PATH` | `./data/checkpoints.jsonl` | Append-only checkpoint log file |
-| `WITNESS_ALLOWED_ORIGINS` | `*` | CORS allowed origins |
+| `WITNESS_DB_PATH` | `./data/checkpoints.db` | SQLite database file path |
+| `WITNESS_ALLOWED_ORIGINS` | `*` | CORS `Access-Control-Allow-Origin` value |
 
-## The log format
+## Database
 
-Each line in `checkpoints.jsonl` is a `BoundaryLedgerCheckpoint` (as sent by the client) with an added `_received_at` timestamp from the server:
+SQLite with WAL mode. Schema:
 
-```json
-{"checkpoint_id":"...","signer_id":"...","signature":"...","generated_at":"...","chain_ok":true,"cryptographic_ok":true,"total_records":42,"signature_algo":"ed25519","_received_at":"2026-03-22T10:34:00Z"}
+```sql
+CREATE TABLE checkpoints (
+    checkpoint_id      TEXT PRIMARY KEY,
+    signer_id          TEXT NOT NULL,
+    signature          TEXT NOT NULL,
+    signature_algo     TEXT NOT NULL,
+    generated_at       TEXT NOT NULL,
+    total_records      INTEGER NOT NULL,
+    latest_record_id   TEXT,
+    latest_record_hash TEXT,
+    chain_ok           INTEGER NOT NULL,
+    cryptographic_ok   INTEGER NOT NULL,
+    received_at        TEXT NOT NULL,
+    raw_json           TEXT NOT NULL   -- original checkpoint JSON as sent by client
+);
 ```
 
-The file is append-only. Never truncate it. If you need to rotate logs, copy and compress — never overwrite in place.
+WAL mode (`PRAGMA journal_mode=WAL`) means readers never block writers and the database survives crashes cleanly.
 
-## Verifying the log
+The `raw_json` column preserves the original checkpoint payload verbatim so future tooling can re-verify signatures without relying on the decomposed columns.
 
-The checkpoints are signed with the client's ed25519 key. To verify a checkpoint, extract the `signer_id` (which is the client's public key identifier), retrieve the client's public key from their ledger, and verify the `signature` field against the checkpoint body.
+## Deploy to bare metal (recommended for `witness.buccet.lml.dev`)
 
-The `buccet` CLI will include a `buccet verify` command to do this automatically.
+```sh
+# Build linux binary locally
+GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o buccet-witness-linux-amd64 .
+
+# Copy to server
+scp buccet-witness-linux-amd64 user@witness.buccet.lml.dev:/opt/buccet-witness/buccet-witness
+
+# On the server — run with systemd or screen
+WITNESS_DB_PATH=/var/buccet/checkpoints.db PORT=3000 /opt/buccet-witness/buccet-witness
+```
+
+Systemd unit example:
+
+```ini
+[Unit]
+Description=Buccet Witness Server
+After=network.target
+
+[Service]
+ExecStart=/opt/buccet-witness/buccet-witness
+Environment=PORT=3000
+Environment=WITNESS_DB_PATH=/var/buccet/checkpoints.db
+Restart=always
+RestartSec=5
+User=buccet
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Deploy on Fly.io
+
+```sh
+fly launch --name buccet-witness
+# When prompted for Dockerfile: no. Copy the linux-amd64 binary directly.
+fly deploy --strategy immediate
+```
+
+Or use Fly's raw binary exec mode — copy `buccet-witness-linux-amd64` and configure it as the process in `fly.toml`:
+
+```toml
+[processes]
+  app = "/app/buccet-witness"
+
+[env]
+  PORT = "3000"
+  WITNESS_DB_PATH = "/data/checkpoints.db"
+
+[mounts]
+  source = "witness_data"
+  destination = "/data"
+```
+
+Mount the `/data` volume so the database survives deploys.
