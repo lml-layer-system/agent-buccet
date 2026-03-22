@@ -1,7 +1,5 @@
 import { appendBoundaryLedger } from "./ledger.ts";
-import { evaluateBoundaryLaws } from "./laws.ts";
-import { buildBoundaryNslMoves } from "./nsl.ts";
-import { resolveBodyguardStandingLaw } from "./bodyguard-core.ts";
+import { evaluateBodyguardAction } from "./bodyguard-core.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
@@ -227,27 +225,6 @@ export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
 ): Promise<BoundaryEvaluation> {
-  if (config.session.status === "ended") {
-    const result: BoundaryLawResult = {
-      decision: "deny",
-      reason: "session has been ended by the user and can no longer authorize actions",
-      triggeredLawIds: ["BOUNDARY.SESSION.ENDED.01"],
-      requiresApproval: false,
-    };
-    await appendBoundaryLedger("ACTION_BLOCKED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
-      requestId: request.requestId,
-      actionKind: request.actionKind,
-      target: request.target,
-      decision: result.decision,
-      reason: result.reason,
-      lawIds: result.triggeredLawIds,
-      createdAt: new Date().toISOString(),
-    });
-    return { result, nslMoves: [] };
-  }
-
   await appendBoundaryLedger("ACTION_PROPOSED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
@@ -258,34 +235,22 @@ export async function evaluateBoundaryAction(
     createdAt: request.requestedAt,
   });
 
-  const standingLawResult = resolveBodyguardStandingLaw({ config, request });
+  const adjudication = evaluateBodyguardAction({ config, request });
 
-  if (standingLawResult?.decision === "allow") {
-    return { result: standingLawResult, nslMoves: [] };
-  }
-
-  if (standingLawResult?.decision === "deny") {
+  if (adjudication.result.decision === "deny") {
     await appendBoundaryLedger("ACTION_BLOCKED", {
       sessionId: config.session.sessionId,
       actorId: config.session.actorId,
       requestId: request.requestId,
       actionKind: request.actionKind,
       target: request.target,
-      decision: standingLawResult.decision,
-      reason: standingLawResult.reason,
-      lawIds: standingLawResult.triggeredLawIds,
+      decision: adjudication.result.decision,
+      reason: adjudication.result.reason,
+      lawIds: adjudication.result.triggeredLawIds,
       createdAt: new Date().toISOString(),
     });
-    return { result: standingLawResult, nslMoves: [] };
+    return adjudication;
   }
-
-  const result = evaluateBoundaryLaws({
-    session: config.session,
-    request,
-    laws: config.laws,
-    grants: config.grants,
-    approvalRequiredFor: config.approvalRequiredFor,
-  });
 
   await appendBoundaryLedger("DECISION_RETURNED", {
     sessionId: config.session.sessionId,
@@ -293,14 +258,13 @@ export async function evaluateBoundaryAction(
     requestId: request.requestId,
     actionKind: request.actionKind,
     target: request.target,
-    decision: result.decision,
-    reason: result.reason,
-    lawIds: result.triggeredLawIds,
+    decision: adjudication.result.decision,
+    reason: adjudication.result.reason,
+    lawIds: adjudication.result.triggeredLawIds,
     createdAt: new Date().toISOString(),
   });
 
-  const nslMoves = buildBoundaryNslMoves(request, result);
-  for (const move of nslMoves) {
+  for (const move of adjudication.nslMoves) {
     await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
       sessionId: config.session.sessionId,
       actorId: config.session.actorId,
@@ -308,12 +272,12 @@ export async function evaluateBoundaryAction(
       moveId: move.moveId,
       actionKind: request.actionKind,
       target: request.target,
-      decision: result.decision,
+      decision: adjudication.result.decision,
       reason: move.description,
-      lawIds: result.triggeredLawIds,
+      lawIds: adjudication.result.triggeredLawIds,
       createdAt: new Date().toISOString(),
     });
   }
 
-  return { result, nslMoves };
+  return adjudication;
 }

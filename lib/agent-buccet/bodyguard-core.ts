@@ -1,3 +1,6 @@
+import { appendBoundaryLedger } from "./ledger.ts";
+import { evaluateBoundaryLaws } from "./laws.ts";
+import { buildBoundaryNslMoves } from "./nsl.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
@@ -10,7 +13,13 @@ import type {
   BoundaryLawResult,
   BoundaryLedgerRecord,
   BoundaryRuntimeConfig,
+  NslMove,
 } from "./types.ts";
+
+export type BodyguardAdjudication = {
+  result: BoundaryLawResult;
+  nslMoves: NslMove[];
+};
 
 export function resolveBodyguardStandingLaw(args: {
   config: BoundaryRuntimeConfig;
@@ -45,6 +54,44 @@ export function resolveBodyguardStandingLaw(args: {
   };
 }
 
+export function evaluateBodyguardAction(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}): BodyguardAdjudication {
+  if (args.config.session.status === "ended") {
+    return {
+      result: {
+        decision: "deny",
+        reason: "session has been ended by the user and can no longer authorize actions",
+        triggeredLawIds: ["BOUNDARY.SESSION.ENDED.01"],
+        requiresApproval: false,
+      },
+      nslMoves: [],
+    };
+  }
+
+  const standingLaw = resolveBodyguardStandingLaw(args);
+  if (standingLaw) {
+    return {
+      result: standingLaw,
+      nslMoves: [],
+    };
+  }
+
+  const result = evaluateBoundaryLaws({
+    session: args.config.session,
+    request: args.request,
+    laws: args.config.laws,
+    grants: args.config.grants,
+    approvalRequiredFor: args.config.approvalRequiredFor,
+  });
+
+  return {
+    result,
+    nslMoves: buildBoundaryNslMoves(args.request, result),
+  };
+}
+
 export async function applyBodyguardUserLawDecision(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
@@ -65,6 +112,21 @@ export async function applyBodyguardUserLawDecision(args: {
       session: args.config.session,
       decision: args.decision,
     });
+    await appendBoundaryLedger("UPL_ALLOW_RECORDED", {
+      sessionId: args.config.session.sessionId,
+      actorId: args.config.session.actorId,
+      requestId: args.request.requestId,
+      actionKind: args.request.actionKind,
+      target: args.request.target,
+      decision: "allow",
+      reason: "standing UPL approval recorded",
+      lawIds: [upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1]?.id].filter(Boolean),
+      metadata: {
+        witness_record: args.witness.META.id,
+        upl_scope: args.decision.scope ?? "GLOBAL",
+      },
+      createdAt: new Date().toISOString(),
+    });
   } else if (args.decision.persistDenied) {
     upl = await writeDeniedUserPathLaw({
       ledger: upl,
@@ -72,6 +134,21 @@ export async function applyBodyguardUserLawDecision(args: {
       witness: args.witness,
       session: args.config.session,
       decision: args.decision,
+    });
+    await appendBoundaryLedger("UPL_DENY_RECORDED", {
+      sessionId: args.config.session.sessionId,
+      actorId: args.config.session.actorId,
+      requestId: args.request.requestId,
+      actionKind: args.request.actionKind,
+      target: args.request.target,
+      decision: "deny",
+      reason: "standing UPL denial recorded",
+      lawIds: [upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1]?.id].filter(Boolean),
+      metadata: {
+        witness_record: args.witness.META.id,
+        upl_scope: args.decision.scope ?? "GLOBAL",
+      },
+      createdAt: new Date().toISOString(),
     });
   } else {
     return args.config;
