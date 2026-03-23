@@ -70,7 +70,6 @@ That script lives at:
 It proves:
 - out-of-scope -> `nsl_grant_offer`
 - authority claim -> `deny`
-- incomplete ledger session -> `deny`
 
 ## Swarm contract harness
 

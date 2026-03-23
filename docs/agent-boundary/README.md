@@ -305,7 +305,6 @@ npm run test:agent-buccet:gravity-contract
 It proves:
 - out-of-scope -> `nsl_grant_offer`
 - authority claim -> `deny`
-- incomplete ledger session -> `deny`
 
 Run the ledger contract harness with:
 
