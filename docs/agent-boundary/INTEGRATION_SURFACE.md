@@ -18,7 +18,7 @@ It sits at the action boundary and decides:
 
 After a `DENY`, the user can also choose to make that denial a law so the same class of motion is denied on contact in later requests.
 
-With executor-integrated gravity enabled, unlawful motion can also collapse to:
+With bodyguard-integrated gravity enabled, unlawful motion can also collapse to:
 - `null`
 - followed by NSL open-as-law recovery outside the active execution path
 
@@ -73,20 +73,20 @@ Scope is not path-only:
 
 ## Public API Surface
 
-### Framework-agnostic executor
+### Boundary action surface
 
 Use:
 - `createBoundaryActionRequest(...)`
 - `executeBoundaryControlledAction(...)`
 
-This is the shared action admission path.
+This is the shared action admission path through Bodyguard.
 
 ### Gravity service
 
 Use:
 - `createBoundaryGravityService(...)`
 
-Gravity is the deeper no-leak enforcement layer under the executor path.
+Gravity is the deeper no-leak enforcement layer under the bodyguard path.
 It can:
 - allow lawful motion
 - null unlawful but grantable motion into NSL recovery
@@ -165,7 +165,7 @@ Use:
 - `boundaryDatabaseAction(...)`
 - `boundarySystemAction(...)`
 
-These expose the same boundary executor for recipient sends, domain sends, tool execution, database actions, and system/config/credential actions.
+These expose the same boundary bodyguard for recipient sends, domain sends, tool execution, database actions, and system/config/credential actions.
 
 ### Process wrapper layer
 

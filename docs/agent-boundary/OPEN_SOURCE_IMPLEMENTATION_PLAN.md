@@ -71,7 +71,7 @@ Execution flow:
 3. law engine decides allow / deny / require_approval
 4. NSL produces next lawful move if needed
 5. ledger records the full decision path
-6. executor runs only if admitted
+6. Bodyguard admits or blocks; action runs only if admitted
 
 ## V1 Feature Set
 
@@ -110,7 +110,7 @@ Execution flow:
 - user-extensible repair moves
 
 ### Integration Surface
-- framework-agnostic action executor
+- framework-agnostic boundary action surface (Bodyguard + admission path)
 - policy config loading and validation
 - queued approval bridge for remote control surfaces
 - ledger query helpers

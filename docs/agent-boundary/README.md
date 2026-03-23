@@ -284,7 +284,7 @@ It exercises:
 - post-end-session denial
 - session and request ledger audits
 
-Run the executor-integrated gravity example with:
+Run the bodyguard-integrated gravity example with:
 
 ```bash
 npm run demo:agent-buccet:gravity

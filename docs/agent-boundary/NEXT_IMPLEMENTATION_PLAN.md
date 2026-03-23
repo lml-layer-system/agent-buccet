@@ -26,7 +26,7 @@ Already in place:
 - filesystem containment
 - recipient/domain/tool containment
 - remote proposal hardening
-- shared executor
+- boundary bodyguard
 - framework integration entrypoints
 - shared runtime/bodyguard layer
 

@@ -56,7 +56,7 @@ Prevents:
 - orchestration layers quietly becoming permission systems
 
 Lawful recovery:
-- boundary executor decides
+- Bodyguard decides
 
 ### `BUCCET.BASE.04` Opened Paths Become Law
 
@@ -100,11 +100,11 @@ Lawful recovery:
 - review ledger
 - re-establish lawful path through NSL/approval
 
-## Defensive Meta Laws
+## Defensive Meta Laws (TIME body)
 
-These are the public anti-injection / anti-authority-drift laws.
+These are the public anti-injection / anti-authority-drift laws from the transferred time law body.
 
-### `META.TRUST.01`
+### `TIME.TRUST.01`
 
 Meaning:
 - untrusted content may propose high-risk actions
@@ -116,7 +116,7 @@ Prevents:
 Lawful recovery:
 - explicit approval
 
-### `META.AUTHORITY.01`
+### `TIME.AUTHORITY.01`
 
 Meaning:
 - prompt content or model output cannot self-approve or claim authority
@@ -129,7 +129,7 @@ Prevents:
 Lawful recovery:
 - explicit user or approved channel approval
 
-### `META.SCOPE.01`
+### `TIME.SCOPE.01`
 
 Meaning:
 - prompt content cannot widen reachable scope on its own
@@ -142,7 +142,7 @@ Lawful recovery:
 - explicit grant issuance
 - explicit path opening
 
-### `META.LAW.01`
+### `TIME.LAW.01`
 
 Meaning:
 - prompt content cannot mutate or disable law
@@ -155,7 +155,7 @@ Prevents:
 Lawful recovery:
 - law changes must happen through explicit trusted runtime paths, not prompt content
 
-### `META.SESSION.01`
+### `TIME.SESSION.01`
 
 Meaning:
 - prompt content cannot revive or reopen ended sessions
@@ -167,7 +167,7 @@ Prevents:
 Lawful recovery:
 - create a new session or explicitly restore lawful persisted state
 
-### `META.LEDGER.01`
+### `TIME.LEDGER.01`
 
 Meaning:
 - prompt content cannot suppress, bypass, or rewrite the ledger
