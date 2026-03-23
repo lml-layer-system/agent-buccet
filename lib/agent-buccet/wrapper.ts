@@ -16,6 +16,16 @@ function commandTarget(command: string): string {
   return path.basename(command);
 }
 
+function buildCommandAttemptLines(command: string, commandArgs: string[]): string[] {
+  if (commandArgs.length === 0) {
+    return [`$ ${command}`];
+  }
+  return [
+    `$ ${command} ${commandArgs[0]}`,
+    ...commandArgs.slice(1).map((arg) => `  ${arg}`),
+  ];
+}
+
 function createWrapperExecLaws(allowedCommandTarget: string): BoundaryLaw[] {
   const laws = DEFAULT_BOUNDARY_LAWS.filter((law) => law.lawId !== "BOUNDARY.EXEC.01");
   return [
@@ -213,6 +223,12 @@ export async function runBoundaryWrappedCommand(args: {
       target,
       payloadSummary: `spawn:${[args.command, ...args.commandArgs].join(" ")}`,
       provenance: args.provenance ?? "trusted_user",
+      reviewContext: {
+        surface: "action",
+        title: "Would you like to run the following command?",
+        question: "Does this command match your intent?",
+        attemptLines: buildCommandAttemptLines(args.command, args.commandArgs),
+      },
       successReason: "wrapper launched explicitly granted command",
       successMetadata: {
         wrapper: true,

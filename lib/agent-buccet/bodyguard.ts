@@ -418,14 +418,8 @@ export type BoundaryToolProposal<T = unknown> = {
   target: string;
   payloadSummary?: string;
   provenance?: BoundaryRequestProvenance;
-  flags?: {
-    authorityClaimed?: boolean;
-    claimsCompleteCoverage?: boolean;
-    requestsScopeExpansion?: boolean;
-    requestsLawMutation?: boolean;
-    requestsSessionRevival?: boolean;
-    requestsLedgerBypass?: boolean;
-  };
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
   successReason: string;
   dryRunPreviewReason?: string;
   execute?: () => Promise<T>;
@@ -438,16 +432,8 @@ export type BoundaryToolEnvelope<TInput, TOutput> = {
   actionKind: BoundaryActionKind;
   payloadSummary?: (input: TInput) => string | undefined;
   provenance?: BoundaryRequestProvenance | ((input: TInput) => BoundaryRequestProvenance);
-  flags?: (
-    input: TInput,
-  ) => {
-    authorityClaimed?: boolean;
-    claimsCompleteCoverage?: boolean;
-    requestsScopeExpansion?: boolean;
-    requestsLawMutation?: boolean;
-    requestsSessionRevival?: boolean;
-    requestsLedgerBypass?: boolean;
-  };
+  flags?: (input: TInput) => BoundaryActionRequest["flags"];
+  reviewContext?: (input: TInput) => BoundaryReviewContext | undefined;
   successReason?: string | ((input: TInput) => string);
   dryRunPreviewReason?: string | ((input: TInput) => string);
   successMetadata?: (input: TInput) => Record<string, string | number | boolean> | undefined;
@@ -683,11 +669,87 @@ function defaultApprovalOptions(): BoundaryApprovalOption[] {
   ];
 }
 
-function buildCommandPreview(request: BoundaryActionRequest): string[] {
-  return [
-    `${request.actionKind} ${request.target}`,
-    ...(request.payloadSummary ? [request.payloadSummary] : []),
-  ];
+function describeFlagViolations(request: BoundaryActionRequest): string[] {
+  const flags = request.flags;
+  if (!flags) {
+    return [];
+  }
+
+  const violations: string[] = [];
+  if (flags.authorityClaimed) {
+    violations.push("attempt claims authority or self-approval");
+  }
+  if (flags.claimsUserApproval) {
+    violations.push("attempt claims the user already approved it");
+  }
+  if (flags.claimsCompleteCoverage) {
+    violations.push("attempt claims complete safety or complete coverage");
+  }
+  if (flags.requestsScopeExpansion) {
+    violations.push("attempt tries to widen scope or open new reachability");
+  }
+  if (flags.requestsLawMutation) {
+    violations.push("attempt tries to mutate or disable law");
+  }
+  if (flags.requestsSessionRevival) {
+    violations.push("attempt tries to revive or reopen a closed session");
+  }
+  if (flags.requestsLedgerBypass) {
+    violations.push("attempt tries to bypass or suppress ledgering");
+  }
+  if (flags.violatesUserConstraint) {
+    violations.push("attempt conflicts with an explicit user constraint");
+  }
+  if (flags.groundingMismatch) {
+    violations.push("attempt conflicts with grounding or supporting evidence");
+  }
+  if (flags.claimsActionCompletionWithoutWitness) {
+    violations.push("attempt claims completion without witness evidence");
+  }
+  return violations;
+}
+
+function buildDefaultActionAttemptLines(request: BoundaryActionRequest): string[] {
+  if (request.actionKind === "tool.exec") {
+    const command = request.payloadSummary?.startsWith("spawn:")
+      ? request.payloadSummary.slice("spawn:".length)
+      : `${request.target}${request.payloadSummary ? ` ${request.payloadSummary}` : ""}`;
+    return [`$ ${command}`];
+  }
+
+  switch (request.actionKind) {
+    case "fs.delete":
+      return [`$ delete ${request.target}`];
+    case "fs.write":
+      return [`$ write ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+    case "fs.append":
+      return [`$ append ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+    case "fs.mkdir":
+      return [`$ mkdir ${request.target}`];
+    case "fs.move":
+      return [`$ move ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+    case "network.send":
+      return [`$ network.send ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+    case "comm.send":
+      return [`$ comm.send ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+    case "db.query":
+    case "db.insert":
+    case "db.update":
+    case "db.delete":
+      return [`$ ${request.actionKind} ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+    default:
+      return [`$ ${request.actionKind} ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+  }
+}
+
+function actionPromptTitle(request: BoundaryActionRequest, context?: BoundaryReviewContext): string {
+  if (context?.title) {
+    return context.title;
+  }
+  if (request.actionKind === "tool.exec") {
+    return "Would you like to run the following command?";
+  }
+  return "Would you like to allow the following boundary action?";
 }
 
 function buildBoundaryApprovalPrompt(args: {
@@ -700,35 +762,42 @@ function buildBoundaryApprovalPrompt(args: {
     const actorLabel = context.actorLabel ?? "Agent";
     return {
       title: `${actorLabel} hit the chat action boundary`,
-      question: "Does this emitted output match your intent?",
+      question: context.question ?? "Does this emitted output match your intent?",
       surface: "chat",
+      lawIds: args.lawIds,
       userInput: context.userInput,
       attemptedOutput: context.attemptedOutput,
       invariantLawId: context.invariantLawId ?? args.lawIds[0],
       invariantLabel: context.invariantLabel ?? args.reason,
       evidence: context.evidence ?? [],
+      violations: context.violations ?? describeFlagViolations(args.request),
       options: defaultApprovalOptions(),
     };
   }
 
   return {
-    title: "Would you like to allow the following boundary action?",
-    question: args.reason,
+    title: actionPromptTitle(args.request, context),
+    question: context?.question ?? args.reason,
     surface: "action",
-    commandPreview: buildCommandPreview(args.request),
+    lawIds: args.lawIds,
+    attemptLines: context?.attemptLines ?? buildDefaultActionAttemptLines(args.request),
     invariantLawId: args.lawIds[0],
+    violations: context?.violations ?? describeFlagViolations(args.request),
     options: defaultApprovalOptions(),
   };
 }
 
 export function renderBoundaryApprovalPrompt(approval: BoundaryApprovalRequest): string {
   const lines: string[] = [approval.prompt.title, ""];
-  if (approval.prompt.surface === "chat") {
-    if (approval.prompt.invariantLawId) {
-      lines.push(`Triggered law: ${approval.prompt.invariantLawId}`);
+  if (approval.prompt.lawIds.length > 0) {
+    lines.push("Triggered laws:");
+    for (const lawId of approval.prompt.lawIds) {
+      lines.push(`- ${lawId}`);
     }
+  }
+  if (approval.prompt.surface === "chat") {
     if (approval.prompt.invariantLabel) {
-      lines.push(approval.prompt.invariantLabel);
+      lines.push("", approval.prompt.invariantLabel);
     }
     if (approval.prompt.userInput) {
       lines.push("", `User input: ${approval.prompt.userInput}`);
@@ -742,10 +811,16 @@ export function renderBoundaryApprovalPrompt(approval: BoundaryApprovalRequest):
         lines.push(`- ${line}`);
       }
     }
-  } else if (approval.prompt.commandPreview?.length) {
-    lines.push("$ " + approval.prompt.commandPreview[0]);
-    for (const extra of approval.prompt.commandPreview.slice(1)) {
-      lines.push(`  ${extra}`);
+  } else if (approval.prompt.attemptLines?.length) {
+    lines.push("", "Attempt:");
+    for (const line of approval.prompt.attemptLines) {
+      lines.push(line);
+    }
+  }
+  if (approval.prompt.violations?.length) {
+    lines.push("", "Violations:");
+    for (const line of approval.prompt.violations) {
+      lines.push(`- ${line}`);
     }
   }
   lines.push("", approval.prompt.question, "");
@@ -1164,6 +1239,7 @@ export async function enforceBoundaryProposal<T>(args: {
       payloadSummary: args.proposal.payloadSummary,
       provenance: args.proposal.provenance,
       flags: args.proposal.flags,
+      reviewContext: args.proposal.reviewContext,
     }),
     execute: args.proposal.execute,
     successReason: args.proposal.successReason,
@@ -1188,6 +1264,7 @@ export function wrapBoundaryTool<TInput, TOutput>(
             ? envelope.provenance(input)
             : envelope.provenance,
         flags: envelope.flags?.(input),
+        reviewContext: envelope.reviewContext?.(input),
         successReason:
           typeof envelope.successReason === "function"
             ? envelope.successReason(input)

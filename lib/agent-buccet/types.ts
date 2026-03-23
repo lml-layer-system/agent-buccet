@@ -221,12 +221,16 @@ export type BodyguardMove = NslMove;
 
 export type BoundaryReviewContext = {
   surface: "action" | "chat";
+  title?: string;
+  question?: string;
   actorLabel?: string;
   invariantLawId?: string;
   invariantLabel?: string;
   userInput?: string;
   attemptedOutput?: string;
+  attemptLines?: string[];
   evidence?: string[];
+  violations?: string[];
 };
 
 export type BoundaryLedgerEventType =
@@ -564,12 +568,14 @@ export type BoundaryApprovalPrompt = {
   title: string;
   question: string;
   surface: "action" | "chat";
-  commandPreview?: string[];
+  lawIds: string[];
+  attemptLines?: string[];
   userInput?: string;
   attemptedOutput?: string;
   invariantLawId?: string;
   invariantLabel?: string;
   evidence?: string[];
+  violations?: string[];
   options: BoundaryApprovalOption[];
 };
 
