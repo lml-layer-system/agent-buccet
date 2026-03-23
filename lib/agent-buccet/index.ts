@@ -8,7 +8,7 @@ export * from "./time.ts";
 export * from "./meta.ts";
 export * from "./foundation.ts";
 export * from "./laws.ts";
-export * from "./bodyguard-moves.ts";
+export { buildBoundaryBodyguardMoves } from "./bodyguard-moves.ts";
 export * from "./nsl.ts";
 export * from "./runtime.ts";
 export * from "./state.ts";

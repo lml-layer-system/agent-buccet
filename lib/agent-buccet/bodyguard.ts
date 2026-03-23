@@ -825,12 +825,20 @@ export async function runBoundaryControlledAction<T>(args: {
     }
 
     if (adjudication.grantOffer) {
-      const replay = await adjudication.grantOffer.applyGrant({
+      const replayApproval: BoundaryApprovalRequest = {
         session: activeConfig.session,
         request: activeRequest,
         reason: adjudication.result.reason,
         lawIds: adjudication.result.triggeredLawIds,
         nslMoves: adjudication.nslMoves,
+        prompt: buildBoundaryApprovalPrompt({
+          request: activeRequest,
+          reason: adjudication.result.reason,
+          lawIds: adjudication.result.triggeredLawIds,
+        }),
+      };
+      const replay = await adjudication.grantOffer.applyGrant({
+        ...replayApproval,
       });
       activeConfig = replay.config;
       activeRequest = replay.request;

@@ -301,6 +301,8 @@ export async function startPersistentBoundarySession(args: {
     },
   });
 
+  const upl = await loadUserPathLedger();
+
   const config: BoundaryRuntimeConfig = {
     session,
     laws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
@@ -315,12 +317,12 @@ export async function startPersistentBoundarySession(args: {
       enabled: true,
       sessionsDir: args.sessionsDir,
     },
-    upl: await loadUserPathLedger(),
+    upl,
     runtimeMuscle: await loadAgentBuccetRuntimeMuscle(),
   };
   config.userLawIds = await buildActiveAgentBuccetLawIds({
     executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-    existingLawIds: getActiveUserLawIds(config.upl, config.session),
+    existingLawIds: getActiveUserLawIds(upl, config.session),
     runtimeMuscle: config.runtimeMuscle,
   });
 
@@ -366,6 +368,8 @@ export async function restorePersistentBoundarySession(args: {
     return null;
   }
 
+  const upl = await loadUserPathLedger();
+
   const config: BoundaryRuntimeConfig = {
     session: {
       ...state.session,
@@ -381,14 +385,14 @@ export async function restorePersistentBoundarySession(args: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),
     },
-    upl: await loadUserPathLedger(),
+    upl,
     runtimeMuscle: await loadAgentBuccetRuntimeMuscle(),
   };
   config.userLawIds = await buildActiveAgentBuccetLawIds({
     executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
     existingLawIds: [
       ...state.userLawIds,
-      ...getActiveUserLawIds(config.upl, config.session),
+      ...getActiveUserLawIds(upl, config.session),
     ],
     runtimeMuscle: config.runtimeMuscle,
   });
