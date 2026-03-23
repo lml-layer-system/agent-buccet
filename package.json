@@ -56,6 +56,7 @@
     "test:agent-buccet:upl-governance": "node scripts/agent-buccet-upl-governance-contract.ts",
     "test:agent-buccet:foundation": "node scripts/agent-buccet-foundation-contract.ts",
     "test:agent-buccet:time-runtime": "node scripts/agent-buccet-time-runtime-contract.ts",
+    "test:agent-buccet:meta-runtime": "node scripts/agent-buccet-meta-runtime-contract.ts",
     "test:agent-buccet:law-unit": "node scripts/agent-buccet-law-unit-contract.ts",
     "test:agent-buccet:ledger-contract": "node scripts/agent-buccet-ledger-contract.ts",
     "test:agent-buccet:ledger-rollup": "node scripts/agent-buccet-ledger-rollup-contract.ts",
