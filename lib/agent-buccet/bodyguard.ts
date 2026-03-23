@@ -1058,13 +1058,19 @@ async function _executeBoundaryControlledActionCore<T>(args: {
         };
       }
 
-      const replay = await gravity.applyGrant({
+      const replayApproval: BoundaryApprovalRequest = {
         session: activeConfig.session,
         request: activeRequest,
         reason: gravity.reason,
         lawIds: gravity.lawIds,
         nslMoves: gravity.nslMoves,
-      });
+        prompt: buildBoundaryApprovalPrompt({
+          request: activeRequest,
+          reason: gravity.reason,
+          lawIds: gravity.lawIds,
+        }),
+      };
+      const replay = await gravity.applyGrant(replayApproval);
       activeConfig = replay.config;
       activeRequest = replay.request;
     }

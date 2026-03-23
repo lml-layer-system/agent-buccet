@@ -46,6 +46,11 @@ export type BoundaryGravityEnforcement =
     };
 
 function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessionTraceComplete: boolean; requestTraceComplete: boolean }): GravityState {
+  const gravityEligibleGrants = config.grants.filter(
+    (grant): grant is typeof grant & { resourceKind: Exclude<typeof grant.resourceKind, "chat"> } =>
+      grant.resourceKind !== "chat",
+  );
+
   return {
     identity: {
       id: config.session.sessionId,
@@ -55,7 +60,7 @@ function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessio
       laws: (config.userLawIds ?? config.laws.map((law) => law.lawId)).map((id) => ({ id })),
     },
     dynamicLaws: {
-      grants: config.grants.map((grant) => ({
+      grants: gravityEligibleGrants.map((grant) => ({
         id: grant.grantId,
         kind: grant.resourceKind,
         scope: grant.resourceValue,

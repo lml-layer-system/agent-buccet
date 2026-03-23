@@ -12,6 +12,7 @@ export type BoundaryActionKind =
   | "fs.delete"
   | "fs.mkdir"
   | "fs.move"
+  | "chat.emit"
   | "comm.send"
   | "tool.exec"
   | "network.send"
@@ -36,6 +37,7 @@ export type BoundaryDecision = "allow" | "deny" | "require_approval";
 
 export type BoundaryResourceKind =
   | "path"
+  | "chat"
   | "recipient"
   | "domain"
   | "tool"

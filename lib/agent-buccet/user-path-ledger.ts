@@ -229,6 +229,18 @@ function normalizeScope(args: {
   return args.decision?.scope ?? args.defaultScope ?? "GLOBAL";
 }
 
+function withNormalizedScope(
+  decision: BoundaryApprovalDecision | undefined,
+  scope: BoundaryUplScope,
+): BoundaryApprovalDecision | undefined {
+  return decision
+    ? {
+      ...decision,
+      scope,
+    }
+    : undefined;
+}
+
 function createEntry(args: {
   ledger: BoundaryUserPathLedger;
   request: BoundaryActionRequest;
@@ -275,10 +287,7 @@ export async function writeApprovedUserPathLaw(args: {
     witness: args.witness,
     type: "APPROVED",
     session: args.session,
-    decision: {
-      ...args.decision,
-      scope,
-    },
+    decision: withNormalizedScope(args.decision, scope),
   });
   const next = {
     ...nextLedger,
@@ -308,10 +317,7 @@ export async function writeDeniedUserPathLaw(args: {
     witness: args.witness,
     type: "DENIED",
     session: args.session,
-    decision: {
-      ...args.decision,
-      scope,
-    },
+    decision: withNormalizedScope(args.decision, scope),
   });
   const next = {
     ...nextLedger,
