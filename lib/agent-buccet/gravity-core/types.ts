@@ -60,7 +60,7 @@ export type LawId = string;
 export interface LawViolation {
   lawId: LawId;
   /**
-   * Machine-readable code for violation subtype. Required for executor/NSL branching.
+   * Machine-readable code for violation subtype. Required for Bodyguard/NSL branching.
    */
   code?: string;
   /**
@@ -69,7 +69,7 @@ export interface LawViolation {
   message?: string;
   /**
    * For grantable scope violations: the exact path/recipient/domain/tool to offer as law.
-   * Executor uses this to build "open this and make it law?" and to issue the grant on yes.
+   * Bodyguard uses this to build the NSL law-choice surface and to replay after a user allows scope as law.
    */
   scopeIdentifier?: string;
   /**
@@ -80,7 +80,7 @@ export interface LawViolation {
 
 /**
  * Violation codes that are user-fixable by opening scope as law (NSL grant offer).
- * All other codes are non-grantable: executor should hard-deny and show diagnostics only.
+ * All other codes are non-grantable: Bodyguard should hard-deny and show diagnostics only.
  */
 export const GRANTABLE_VIOLATION_CODES = new Set<string>([
   "PATH_OUT_OF_SCOPE",
@@ -264,9 +264,9 @@ export type GravityEvent =
 
 /**
  * - allow: No violations; proposal is eligible for execution.
- * - null: Only grantable scope violations (e.g. path/recipient/tool out of scope). Executor must ledger blocked + emit NSL "open as law? yes/no".
- * - deny: At least one non-grantable violation (meta-law, ledger, etc.). Executor must block and show diagnostics; no grant offer.
- * - transform: Proposal was normalized to a lawful shape (e.g. path clamped); executor may use the transformed proposal.
+ * - null: Only grantable scope violations (e.g. path/recipient/tool out of scope). Bodyguard must ledger blocked and surface the four-way NSL law choice.
+ * - deny: At least one non-grantable violation (meta-law, ledger, etc.). Bodyguard must block and show diagnostics; no grant offer.
+ * - transform: Proposal was normalized to a lawful shape (e.g. path clamped); Bodyguard may use the transformed proposal.
  */
 export type EnforcementDecision = "allow" | "transform" | "deny" | "null";
 

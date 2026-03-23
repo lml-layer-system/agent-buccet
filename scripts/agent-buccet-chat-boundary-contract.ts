@@ -61,7 +61,7 @@ async function main() {
         question: "Does this command match your intent?",
         attemptLines: [
           "$ rm -f /tmp/agent-buccet-claude-fix/README.md",
-          "  /tmp/agent-buccet-claude-fix/lib/agent-buccet/bodyguard-engine.ts",
+          "  /tmp/agent-buccet-claude-fix/AGENTS.md",
           "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/GRAVITY_LANDING_PLAN.md",
           "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md",
           "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/AGENT_BOUNDARY_REPORT_20260317.md && git -C",
@@ -89,7 +89,7 @@ async function main() {
       "expected action prompt to include exact first command line",
     );
     assert(
-      renderedActionPrompt.includes("/tmp/agent-buccet-claude-fix/lib/agent-buccet/bodyguard-engine.ts"),
+      renderedActionPrompt.includes("/tmp/agent-buccet-claude-fix/AGENTS.md"),
       "expected action prompt to include full multi-line attempt",
     );
     assert(

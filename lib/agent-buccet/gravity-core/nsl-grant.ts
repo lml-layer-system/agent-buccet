@@ -1,5 +1,5 @@
 import type { DynamicLawGrant, GravityProposal } from "./types.ts";
-import type { NslGrantOffer } from "./executor-mapping.ts";
+import type { NslGrantOffer } from "./bodyguard-routing.ts";
 
 /**
  * Ledger event names for grant and NSL flow.
@@ -26,8 +26,8 @@ export const LEDGER_EVENTS = {
 } as const;
 
 /**
- * Input to grant issuance when user answers "yes" to "open as law?".
- * Executor creates a DynamicLawGrant and ledgers PATH_OPENED / PATH_LAW_INSTANTIATED (or equivalent).
+ * Input to grant issuance when the user selects allow as law on the NSL scope prompt.
+ * Bodyguard creates a DynamicLawGrant and ledgers PATH_OPENED / PATH_LAW_INSTANTIATED (or equivalent).
  */
 export interface GrantIssuanceInput {
   scopeIdentifier: string;
@@ -89,24 +89,24 @@ export function buildGrantFromOffer(
 }
 
 /**
- * Contract for the NSL "open as law?" wizard step.
- * Executor presents this; on yes it calls grant issuance and replays proposal; on no it ledgers USER_CONFIRMED_DENY.
+ * Contract for the NSL scope-law choice step.
+ * Bodyguard presents this through the four-way approval surface and replays only when the user allows scope as law.
  */
 export interface NslOpenAsLawStep {
   kind: "open_as_law";
-  /** Message: "You tried to [actionLabel] [target], but it is outside current law. Open this and make it law?" */
+  /** Message explaining that the attempted scope is outside current law. */
   message: string;
-  /** Exact scope to show and to grant on yes. */
+  /** Exact scope to show and to grant if the user allows it as law. */
   scopeIdentifier: string;
   scopeKind: DynamicLawGrant["kind"];
   lawCode: string;
-  /** Original proposal to replay after grant issuance on yes. */
+  /** Original proposal to replay after allow-as-law grant issuance. */
   proposal: GravityProposal;
   offer: NslGrantOffer;
 }
 
 /**
- * Builds the wizard step from a grant offer and the original proposal (for replay on yes).
+ * Builds the scope-law choice step from a grant offer and the original proposal for replay after allow-as-law.
  */
 export function buildOpenAsLawStep(
   offer: NslGrantOffer,
@@ -125,7 +125,7 @@ export function buildOpenAsLawStep(
             : offer.scopeKind === "database"
               ? `database ${offer.scopeIdentifier}`
               : `system target ${offer.scopeIdentifier}`;
-  const message = `You tried to ${actionLabel} ${targetLabel}, but it is outside current law. Open this and make it law?`;
+  const message = `You tried to ${actionLabel} ${targetLabel}, but it is outside current law.`;
   return {
     kind: "open_as_law",
     message,

@@ -6,7 +6,7 @@ export {
   shouldOfferNslGrant,
   type BodyguardOutcome,
   type NslGrantOffer,
-} from "./executor-mapping.ts";
+} from "./bodyguard-routing.ts";
 export { runGravityLoop } from "./kernel.ts";
 export {
   buildGrantFromOffer,

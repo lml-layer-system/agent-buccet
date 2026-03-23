@@ -22,7 +22,7 @@ export const TIME_LEDGER_01: LawId = "TIME.LEDGER.01";
 
 /**
  * Scope law: path/recipient/domain/tool must be in dynamic laws (opened as law).
- * Violations from this skill are grantable: executor surfaces NSL "open as law? yes/no".
+ * Violations from this skill are grantable: Bodyguard surfaces a four-way NSL law choice.
  */
 export const SCOPE_GRANT_CLOSED: LawId = "SCOPE.GRANT.CLOSED";
 const SCOPE_VIOLATION_CODES: Record<DynamicLawGrant["kind"], string> = {
@@ -257,7 +257,7 @@ export function createTimeLedgerSkill(): LawSkill {
 /**
  * SCOPE.GRANT.CLOSED
  * Proposal targets a path/recipient/domain/tool that is not in the session's granted scope.
- * Violations are grantable: executor must ledger blocked + emit NSL "open this and make it law? yes/no".
+ * Violations are grantable: Bodyguard must ledger blocked and surface the four-way NSL law choice.
  */
 export function createScopeGrantSkill(): LawSkill {
   return {
