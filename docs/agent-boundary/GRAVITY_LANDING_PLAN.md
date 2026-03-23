@@ -12,9 +12,9 @@ It does not replace:
 - approval
 - ledger
 - session lifecycle
-- shared executor
+- the boundary bodyguard
 
-It now reinforces them as a no-leak field on the executor path.
+It now reinforces them as a no-leak field on the bodyguard path.
 
 ## What Gravity Is
 
@@ -37,7 +37,7 @@ Gravity should attach to the stable public boundary spine:
 1. persistent session state
 2. grants and path-law state
 3. ledger state and ledger audit status
-4. shared executor proposals
+4. boundary proposals
 5. NSL recovery output
 
 It should sit below framework adapters and below surface-specific wrappers.
@@ -81,9 +81,9 @@ Need a stable mapping for:
 - relevant policy/law inventory
 - ledger completeness state
 
-### Executor proposal -> gravity proposal
+### Boundary proposal -> gravity proposal
 
-Every action proposal entering the shared executor must have a gravity-side representation with:
+Every action proposal entering the bodyguard must have a gravity-side representation with:
 - action kind
 - target
 - provenance
@@ -163,7 +163,7 @@ The remaining deeper gravity work is:
 - daemon/supervisor orchestration beyond the current public seam
 - additional containment internals beyond current runtime scope
 
-That is the remaining deeper side. The executor-integrated no-leak gravity path is now in place.
+That is the remaining deeper side. The bodyguard-integrated no-leak gravity path is now in place.
 
 Public supervisor note:
 - restart/heartbeat are handled by the supervisor layer

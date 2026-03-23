@@ -52,7 +52,7 @@ Public pillars:
 - path/scope orchestrator
 - defensive NSL
 - append-only ledger
-- executor-integrated defensive gravity
+- bodyguard-integrated defensive gravity
 
 Public enforcement surfaces:
 - filesystem actions
@@ -144,7 +144,7 @@ The repo now includes:
 - defensive meta laws
 - remote proposal hardening
 - ledger audit completeness checks
-- gravity core integrated on the executor path
+- gravity core integrated on the bodyguard path
 - out-of-scope -> null -> NSL open-as-law recovery
 - hard deny for authority claims and incomplete ledger state
 

@@ -61,7 +61,7 @@ Possible results:
 
 Meaning:
 - if the session trace is incomplete, the bucket should tighten
-- the shared executor already treats incomplete session traces as non-authoritative
+- the bodyguard already treats incomplete session traces as non-authoritative
 
 ## Formatting
 

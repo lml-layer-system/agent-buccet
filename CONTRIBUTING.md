@@ -83,7 +83,7 @@ agent proposes action
   → Bodyguard checks UPL (bodyguard.ts / bodyguard-core.ts)
     → standing allow → let through
     → standing deny → block
-    → no standing law → evaluate laws (runtime.ts / executor.ts)
+    → no standing law → evaluate laws (runtime.ts / bodyguard-core.ts)
       → allow / deny / require_approval
       → if require_approval: ask user
         → user yes → becomes standing UPL allow
@@ -98,7 +98,6 @@ Key files:
 | `lib/agent-buccet/laws.ts` | Default boundary laws |
 | `lib/agent-buccet/time.ts` | Time-body defensive laws |
 | `lib/agent-buccet/runtime.ts` | Grant/path lifecycle, law evaluation |
-| `lib/agent-buccet/executor.ts` | Action enforcement + approval flow |
 | `lib/agent-buccet/bodyguard.ts` | Primary integration surface |
 | `lib/agent-buccet/ledger.ts` | Append-only witness ledger |
 | `lib/agent-buccet/user-path-ledger.ts` | Standing user law (UPL) |
