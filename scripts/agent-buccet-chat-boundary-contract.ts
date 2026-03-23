@@ -118,16 +118,6 @@ async function main() {
     const flaggedAttempt = bodyguard.chat.emit({
       userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
-      invariantLawId: "META.NOVELTY.01",
-      invariantLabel: "Output conflicts with the user date constraint.",
-      evidence: [
-        "User asked for 1999 only.",
-        "Attempted output references 2003 material.",
-      ],
-      flags: {
-        violatesUserConstraint: true,
-        groundingMismatch: true,
-      },
       execute: async () => "should-not-run",
       successReason: "chat output emitted after review",
     });
@@ -150,6 +140,14 @@ async function main() {
     assert(renderedPrompt.includes("User input:"), "expected rendered prompt to show user input");
     assert(renderedPrompt.includes("Attempted output:"), "expected rendered prompt to show attempted output");
     assert(renderedPrompt.includes("Violations:"), "expected rendered prompt to show violations section");
+    assert(
+      renderedPrompt.includes("Output conflicts with the user time constraint."),
+      "expected rendered prompt to infer the time-constraint invariant label",
+    );
+    assert(
+      renderedPrompt.includes("Attempted output references 2003."),
+      "expected rendered prompt to infer evidence from the attempted output",
+    );
     assert(renderedPrompt.includes("No, block and make it law"), "expected rendered prompt to show deny-as-law option");
 
     bodyguard.approvals.denyAsLaw(pending[0].approvalId, {
@@ -164,16 +162,6 @@ async function main() {
     const repeated = await bodyguard.chat.emit({
       userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
-      invariantLawId: "META.NOVELTY.01",
-      invariantLabel: "Output conflicts with the user date constraint.",
-      evidence: [
-        "User asked for 1999 only.",
-        "Attempted output references 2003 material.",
-      ],
-      flags: {
-        violatesUserConstraint: true,
-        groundingMismatch: true,
-      },
       execute: async () => "should-not-run",
       successReason: "chat output emitted after review",
     });

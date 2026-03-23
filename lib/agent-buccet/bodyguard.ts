@@ -1317,6 +1317,90 @@ export function inferBoundaryChatFlagsFromOutput(text: string): BoundaryActionRe
   };
 }
 
+function extractYears(text: string | undefined): number[] {
+  if (!text) {
+    return [];
+  }
+  return [...text.matchAll(/\b(19|20)\d{2}\b/g)].map((match) => Number(match[0]));
+}
+
+function extractBlockedDecades(text: string | undefined): number[] {
+  if (!text) {
+    return [];
+  }
+  const matches = [...text.matchAll(/\b((?:19|20)\d)0s\b/g)];
+  return matches.map((match) => Number(`${match[1]}0`));
+}
+
+function inferBoundaryChatConstraintSignals(args: {
+  userInput?: string;
+  attemptedOutput: string;
+}): {
+  flags: BoundaryActionRequest["flags"];
+  evidence: string[];
+  invariantLabel?: string;
+} {
+  const userInput = args.userInput ?? "";
+  const attemptedOutput = args.attemptedOutput;
+  const userYears = extractYears(userInput);
+  const outputYears = extractYears(attemptedOutput);
+  const blockedDecades = extractBlockedDecades(userInput);
+  const hasOnlyConstraint = /\bonly\b/i.test(userInput);
+  const hasNegativeConstraint = /\b(do not|don't|not from|no|exclude|without)\b/i.test(userInput);
+
+  const outputViolatesExplicitYearOnly =
+    hasOnlyConstraint &&
+    userYears.length > 0 &&
+    outputYears.length > 0 &&
+    outputYears.some((year) => !userYears.includes(year));
+
+  const outputViolatesBlockedDecade =
+    blockedDecades.length > 0 &&
+    outputYears.some((year) => blockedDecades.includes(Math.floor(year / 10) * 10));
+
+  if (!outputViolatesExplicitYearOnly && !outputViolatesBlockedDecade) {
+    return {
+      flags: {},
+      evidence: [],
+    };
+  }
+
+  const evidence: string[] = [];
+  if (userYears.length > 0 && (hasOnlyConstraint || hasNegativeConstraint)) {
+    evidence.push(`User constrained the answer to ${userYears.join(", ")}.`);
+  }
+  if (blockedDecades.length > 0) {
+    evidence.push(`User excluded material from the ${blockedDecades.map((decade) => `${decade}s`).join(", ")}.`);
+  }
+  if (outputYears.length > 0) {
+    evidence.push(`Attempted output references ${outputYears.join(", ")}.`);
+  }
+
+  return {
+    flags: {
+      violatesUserConstraint: true,
+      groundingMismatch: true,
+    },
+    evidence,
+    invariantLabel: "Output conflicts with the user time constraint.",
+  };
+}
+
+function mergeEvidenceLines(...groups: Array<string[] | undefined>): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const group of groups) {
+    for (const line of group ?? []) {
+      if (seen.has(line)) {
+        continue;
+      }
+      seen.add(line);
+      merged.push(line);
+    }
+  }
+  return merged;
+}
+
 function summarizeChatEmission(args: {
   attemptedOutput: string;
   invariantLawId?: string;
@@ -1340,6 +1424,13 @@ export function createBoundaryChatEmissionRequest(args: {
   provenance?: BoundaryRequestProvenance;
   flags?: BoundaryActionRequest["flags"];
 }): BoundaryActionRequest {
+  const inferredConstraintSignals = inferBoundaryChatConstraintSignals({
+    userInput: args.userInput,
+    attemptedOutput: args.attemptedOutput,
+  });
+  const inferredOutputFlags = inferBoundaryChatFlagsFromOutput(args.attemptedOutput);
+  const mergedEvidence = mergeEvidenceLines(inferredConstraintSignals.evidence, args.evidence);
+
   return createBoundaryActionRequest({
     config: args.config,
     actionKind: "chat.emit",
@@ -1351,17 +1442,18 @@ export function createBoundaryChatEmissionRequest(args: {
     }),
     provenance: args.provenance ?? "agent_inference",
     flags: {
-      ...inferBoundaryChatFlagsFromOutput(args.attemptedOutput),
+      ...inferredOutputFlags,
+      ...inferredConstraintSignals.flags,
       ...args.flags,
     },
     reviewContext: {
       surface: "chat",
       actorLabel: args.actorLabel,
       invariantLawId: args.invariantLawId,
-      invariantLabel: args.invariantLabel,
+      invariantLabel: args.invariantLabel ?? inferredConstraintSignals.invariantLabel,
       userInput: args.userInput,
       attemptedOutput: args.attemptedOutput,
-      evidence: args.evidence,
+      evidence: mergedEvidence,
     },
   });
 }

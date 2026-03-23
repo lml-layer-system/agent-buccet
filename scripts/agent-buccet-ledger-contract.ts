@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import {
   appendBoundaryLedger,
   buildBoundaryLedgerCheckpoint,
@@ -10,6 +12,14 @@ import {
 } from "../lib/agent-buccet/index.ts";
 
 async function main() {
+  const ledgerLockPath = path.join(process.cwd(), "data", "ledger", "agent-boundary-ledger.lock");
+  await fs.mkdir(path.dirname(ledgerLockPath), { recursive: true });
+  await fs.writeFile(
+    ledgerLockPath,
+    `${JSON.stringify({ pid: 999999, createdAt: new Date(Date.now() - 60_000).toISOString() })}\n`,
+    "utf8",
+  );
+
   const sessionId = `agent-buccet-ledger-contract-${randomUUID()}`;
   const actorId = "system:ledger-contract";
   const first = await appendBoundaryLedger("ACTION_PROPOSED", {
@@ -71,6 +81,13 @@ async function main() {
   const checkpoint = await buildBoundaryLedgerCheckpoint();
   assert.equal(typeof checkpoint.signature, "string");
   assert.equal(checkpoint.signer_id, signingIdentity.signer_id);
+
+  await fs.access(ledgerLockPath).then(
+    () => {
+      throw new Error("expected stale ledger lock to be cleared during append");
+    },
+    () => undefined,
+  );
 
   const allowResults = await queryBoundaryLedger({
     source: actorId,
