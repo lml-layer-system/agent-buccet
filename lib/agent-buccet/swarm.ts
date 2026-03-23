@@ -349,7 +349,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
         config,
         request: boundaryRequest,
         witness,
-        decision: { approved: true },
+        decision: { choice: "allow_as_law" },
       });
       store.replaceConfig(nextConfig);
     }
@@ -396,7 +396,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
         config,
         request: boundaryRequest,
         witness,
-        decision: { approved: false, persistDenied: true },
+        decision: { choice: "deny_as_law" },
       });
       store.replaceConfig(nextConfig);
     }

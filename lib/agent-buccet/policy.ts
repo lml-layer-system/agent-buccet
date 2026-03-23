@@ -16,6 +16,7 @@ const VALID_ACTION_KINDS: BoundaryActionKind[] = [
   "fs.delete",
   "fs.mkdir",
   "fs.move",
+  "chat.emit",
   "comm.send",
   "tool.exec",
   "network.send",

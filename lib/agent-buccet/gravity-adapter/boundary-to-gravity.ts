@@ -29,6 +29,7 @@ function actionLabel(actionKind: BoundaryActionRequest["actionKind"]): string {
     case "fs.delete": return "delete";
     case "fs.mkdir": return "create";
     case "fs.move": return "move";
+    case "chat.emit": return "emit";
     case "comm.send": return "send to";
     case "network.send": return "call";
     case "tool.exec": return "run";

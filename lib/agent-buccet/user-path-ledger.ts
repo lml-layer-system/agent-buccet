@@ -35,6 +35,12 @@ function stablePathDescriptor(request: BoundaryActionRequest) {
     requestsLawMutation: request.flags?.requestsLawMutation ?? false,
     requestsSessionRevival: request.flags?.requestsSessionRevival ?? false,
     requestsLedgerBypass: request.flags?.requestsLedgerBypass ?? false,
+    violatesUserConstraint: request.flags?.violatesUserConstraint ?? false,
+    groundingMismatch: request.flags?.groundingMismatch ?? false,
+    claimsActionCompletionWithoutWitness: request.flags?.claimsActionCompletionWithoutWitness ?? false,
+    claimsUserApproval: request.flags?.claimsUserApproval ?? false,
+    reviewSurface: request.reviewContext?.surface ?? null,
+    reviewInvariantLawId: request.reviewContext?.invariantLawId ?? null,
   };
 }
 

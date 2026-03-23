@@ -32,6 +32,9 @@ export function resourceKindForAction(actionKind: BoundaryActionKind): BoundaryR
   if (actionKind.startsWith("fs.")) {
     return "path";
   }
+  if (actionKind === "chat.emit") {
+    return "chat";
+  }
   if (actionKind === "comm.send") {
     return "recipient";
   }
@@ -63,6 +66,10 @@ function recipientMatches(target: string, resourceValue: string): boolean {
   return target.trim().toLowerCase() === resourceValue.trim().toLowerCase();
 }
 
+function chatMatches(target: string, resourceValue: string): boolean {
+  return target.trim().toLowerCase() === resourceValue.trim().toLowerCase();
+}
+
 function toolMatches(target: string, resourceValue: string): boolean {
   return target.trim() === resourceValue.trim();
 }
@@ -90,6 +97,9 @@ export function targetMatchesGrant(request: BoundaryActionRequest, grant: Bounda
   }
   if (grant.resourceKind === "domain") {
     return domainMatches(request.target, grant.resourceValue);
+  }
+  if (grant.resourceKind === "chat") {
+    return chatMatches(request.target, grant.resourceValue);
   }
   if (grant.resourceKind === "recipient") {
     return recipientMatches(request.target, grant.resourceValue);
