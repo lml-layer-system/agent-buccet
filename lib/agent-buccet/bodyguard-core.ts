@@ -14,8 +14,10 @@ import {
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
+  BoundaryApprovalChoice,
   BoundaryLawResult,
   BoundaryLedgerRecord,
+  BoundaryLegacyApprovalDecision,
   BoundaryRuntimeConfig,
   NslMove,
 } from "./types.ts";
@@ -278,7 +280,9 @@ export async function applyBodyguardUserLawDecision(args: {
 
   let upl = args.config.upl;
 
-  if (args.decision.approved) {
+  const choice = normalizeApprovalChoice(args.decision);
+
+  if (choice === "allow_as_law") {
     upl = await writeApprovedUserPathLaw({
       ledger: upl,
       request: args.request,
@@ -301,7 +305,7 @@ export async function applyBodyguardUserLawDecision(args: {
       },
       createdAt: new Date().toISOString(),
     });
-  } else if (args.decision.persistDenied) {
+  } else if (choice === "deny_as_law") {
     upl = await writeDeniedUserPathLaw({
       ledger: upl,
       request: args.request,
@@ -338,4 +342,19 @@ export async function applyBodyguardUserLawDecision(args: {
       ]),
     ],
   };
+}
+
+function normalizeApprovalChoice(
+  decision: BoundaryApprovalDecision | BoundaryLegacyApprovalDecision,
+): BoundaryApprovalChoice {
+  if ("choice" in decision) {
+    return decision.choice;
+  }
+  if (decision.approved) {
+    return "allow_as_law";
+  }
+  if (decision.persistDenied) {
+    return "deny_as_law";
+  }
+  return "deny_once";
 }

@@ -121,7 +121,7 @@ async function main() {
   const deniedWritePromise = outsideWrite({ path: outsideFile });
   const pendingScopeApproval = await waitForPendingApproval(() => bodyguard.approvals.listPending());
   assert(pendingScopeApproval.length === 1, "expected out-of-scope write to queue open-as-law approval");
-  bodyguard.approvals.deny(pendingScopeApproval[0].approvalId);
+  bodyguard.approvals.denyOnce(pendingScopeApproval[0].approvalId);
   const finalizedDeniedWriteResult = await deniedWritePromise;
   assert(!finalizedDeniedWriteResult.allowed && !finalizedDeniedWriteResult.executed, "expected out-of-scope write to be denied");
   assert((await readText(outsideFile)) === "protected\n", "expected out-of-scope file to remain unchanged");
@@ -144,7 +144,7 @@ async function main() {
     pendingApprovals[0].request.request.target === insideDeleteFile,
     "expected queued approval to match delete target",
   );
-  bodyguard.approvals.approve(pendingApprovals[0].approvalId);
+  bodyguard.approvals.allowOnce(pendingApprovals[0].approvalId);
   const deleteResult = await deletePromise;
   assert(deleteResult.allowed && deleteResult.executed, "expected approved delete to execute");
   assert(!(await pathExists(insideDeleteFile)), "expected approved delete target to be removed");

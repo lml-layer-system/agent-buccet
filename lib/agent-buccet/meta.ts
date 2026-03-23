@@ -1887,7 +1887,7 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
     description: "Text or model output cannot self-approve or claim authority.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
-      if (!request.flags?.authorityClaimed) {
+      if (!request.flags?.authorityClaimed && !request.flags?.claimsUserApproval) {
         return null;
       }
       return {
@@ -1903,12 +1903,18 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
     description: "Claims of complete safety or complete coverage are non-authoritative and require review.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
-      if (!request.flags?.claimsCompleteCoverage) {
+      if (
+        !request.flags?.claimsCompleteCoverage &&
+        !request.flags?.violatesUserConstraint &&
+        !request.flags?.groundingMismatch
+      ) {
         return null;
       }
       return {
         decision: "require_approval",
-        reason: "complete coverage or guaranteed safety claims are non-authoritative and require user review",
+        reason: request.flags?.violatesUserConstraint || request.flags?.groundingMismatch
+          ? "output conflicts with user constraint or grounding evidence and requires user review"
+          : "complete coverage or guaranteed safety claims are non-authoritative and require user review",
         triggeredLawIds: ["META.NOVELTY.01"],
         requiresApproval: true,
       };
@@ -1967,12 +1973,14 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
     description: "Prompt content cannot suppress, bypass, or rewrite the ledger.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
-      if (!request.flags?.requestsLedgerBypass) {
+      if (!request.flags?.requestsLedgerBypass && !request.flags?.claimsActionCompletionWithoutWitness) {
         return null;
       }
       return {
         decision: "deny",
-        reason: "ledgering is mandatory by law and cannot be bypassed from prompt content",
+        reason: request.flags?.claimsActionCompletionWithoutWitness
+          ? "completed actions cannot be claimed in output without witness evidence"
+          : "ledgering is mandatory by law and cannot be bypassed from prompt content",
         triggeredLawIds: ["META.LEDGER.01"],
         requiresApproval: false,
       };

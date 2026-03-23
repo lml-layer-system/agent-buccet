@@ -7,6 +7,7 @@ export type BoundaryActionKind =
   | "fs.delete"
   | "fs.mkdir"
   | "fs.move"
+  | "chat.emit"
   | "comm.send"
   | "tool.exec"
   | "network.send"
@@ -25,6 +26,7 @@ export type BoundaryDecision = "allow" | "deny" | "require_approval";
 
 export type BoundaryResourceKind =
   | "path"
+  | "chat"
   | "recipient"
   | "domain"
   | "tool"
@@ -99,7 +101,12 @@ export type BoundaryActionRequest = {
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
+    violatesUserConstraint?: boolean;
+    groundingMismatch?: boolean;
+    claimsActionCompletionWithoutWitness?: boolean;
+    claimsUserApproval?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
 };
 
 export type BoundaryLawResult = {
@@ -147,6 +154,16 @@ export type NslMove = {
 export type BodyguardMoveKind = NslMoveKind;
 
 export type BodyguardMove = NslMove;
+
+export type BoundaryReviewContext = {
+  surface: "action" | "chat";
+  actorLabel?: string;
+  invariantLawId?: string;
+  invariantLabel?: string;
+  userInput?: string;
+  attemptedOutput?: string;
+  evidence?: string[];
+};
 
 export type BoundaryLedgerEventType =
   | "SESSION_STARTED"
@@ -396,9 +413,42 @@ export type BoundaryApprovalRequest = {
   reason: string;
   lawIds: string[];
   nslMoves: NslMove[];
+  prompt: BoundaryApprovalPrompt;
+};
+
+export type BoundaryApprovalChoice =
+  | "allow_once"
+  | "allow_as_law"
+  | "deny_once"
+  | "deny_as_law";
+
+export type BoundaryApprovalOption = {
+  choice: BoundaryApprovalChoice;
+  label: string;
+  effect: string;
+};
+
+export type BoundaryApprovalPrompt = {
+  title: string;
+  question: string;
+  surface: "action" | "chat";
+  commandPreview?: string[];
+  userInput?: string;
+  attemptedOutput?: string;
+  invariantLawId?: string;
+  invariantLabel?: string;
+  evidence?: string[];
+  options: BoundaryApprovalOption[];
 };
 
 export type BoundaryApprovalDecision = {
+  choice: BoundaryApprovalChoice;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  domain?: string;
+};
+
+export type BoundaryLegacyApprovalDecision = {
   approved: boolean;
   persistDenied?: boolean;
   scope?: BoundaryUplScope;
@@ -408,7 +458,10 @@ export type BoundaryApprovalDecision = {
 
 export type BoundaryApprovalHandler = (
   approval: BoundaryApprovalRequest,
-) => Promise<boolean | BoundaryApprovalDecision> | boolean | BoundaryApprovalDecision;
+) => Promise<boolean | BoundaryApprovalDecision | BoundaryLegacyApprovalDecision>
+  | boolean
+  | BoundaryApprovalDecision
+  | BoundaryLegacyApprovalDecision;
 
 export type BoundaryPolicyConfig = {
   approvalRequiredFor?: BoundaryActionKind[];

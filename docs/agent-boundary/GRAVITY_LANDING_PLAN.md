@@ -12,9 +12,9 @@ It does not replace:
 - approval
 - ledger
 - session lifecycle
-- shared executor
+- shared bodyguard boundary path
 
-It now reinforces them as a no-leak field on the executor path.
+It now reinforces them as a no-leak field on the Bodyguard path.
 
 ## What Gravity Is
 
@@ -24,7 +24,7 @@ Its job is:
 - detect unlawful motion
 - collapse unlawful motion to `null`
 - ledger the collapse
-- route recovery through NSL
+- route recovery through Bodyguard
 - allow lawful re-entry only
 
 This is not just denial.
@@ -36,9 +36,9 @@ Gravity should attach to the stable public boundary spine:
 
 1. persistent session state
 2. grants and path-law state
-3. ledger state and ledger audit status
-4. shared executor proposals
-5. NSL recovery output
+3. ledger state
+4. shared Bodyguard proposals
+5. Bodyguard recovery output
 
 It should sit below framework adapters and below surface-specific wrappers.
 
@@ -47,7 +47,6 @@ It should sit below framework adapters and below surface-specific wrappers.
 Gravity should not replace:
 - `createBoundaryBodyguard(...)`
 - `createPersistentBoundaryRuntimeStore(...)`
-- `executeBoundaryControlledAction(...)`
 - approval handlers
 - policy loading
 - integration wrappers for NeMo / OpenAI Agents / LangGraph / Telegram
@@ -64,9 +63,6 @@ The public defensive gravity core is now vendored under:
 The Agent Buccet adapter layer now lives under:
 - [gravity-adapter](../../lib/agent-buccet/gravity-adapter)
 
-The shared executor now consults gravity before side effects:
-- [executor.ts](../../lib/agent-buccet/executor.ts)
-
 The shared bodyguard attaches one gravity service to the shared store:
 - [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts)
 
@@ -81,9 +77,9 @@ Need a stable mapping for:
 - relevant policy/law inventory
 - ledger completeness state
 
-### Executor proposal -> gravity proposal
+### Bodyguard proposal -> gravity proposal
 
-Every action proposal entering the shared executor must have a gravity-side representation with:
+Every action proposal entering the shared Bodyguard path must have a gravity-side representation with:
 - action kind
 - target
 - provenance
@@ -92,12 +88,7 @@ Every action proposal entering the shared executor must have a gravity-side repr
 
 ### Ledger audit -> gravity ledger view
 
-Gravity should not invent ledger trust.
-
-It should consume:
-- request trace completeness
-- session trace completeness
-- latest authoritative ledger position
+Gravity should not invent ledger trust or turn witness history into live authorization.
 
 ## No-Leak Rule
 
@@ -153,7 +144,7 @@ npm run test:agent-buccet:gravity-contract
 This proves:
 - out-of-scope -> `nsl_grant_offer`
 - authority claim -> `deny`
-- incomplete ledger session -> `deny`
+- missing ledger history does not become live authorization deny
 
 ## What Still Remains Deeper
 
@@ -163,7 +154,7 @@ The remaining deeper gravity work is:
 - daemon/supervisor orchestration beyond the current public seam
 - additional containment internals beyond current runtime scope
 
-That is the remaining deeper side. The executor-integrated no-leak gravity path is now in place.
+That is the remaining deeper side. The Bodyguard-integrated no-leak gravity path is now in place.
 
 Public supervisor note:
 - restart/heartbeat are handled by the supervisor layer

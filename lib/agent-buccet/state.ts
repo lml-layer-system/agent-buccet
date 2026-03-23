@@ -9,6 +9,7 @@ import {
   loadAgentBuccetRuntimeMuscle,
 } from "./foundation.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
+import { instantiateBoundaryGrant } from "./orchestrator.ts";
 import {
   getActiveUserLawIds,
   loadUserPathLedger,
@@ -16,6 +17,7 @@ import {
 } from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
+  BoundaryGrant,
   BoundaryLaw,
   BoundaryPersistedSessionState,
   BoundaryProcessPolicy,
@@ -235,6 +237,37 @@ export async function loadBoundarySessionState(args: {
   return rebuildBoundarySessionStateFromLedger({ sessionId: args.sessionId });
 }
 
+function ensureDefaultChatGrant(
+  grants: BoundaryGrant[],
+  session: BoundarySession,
+  issuedAt = new Date().toISOString(),
+): BoundaryGrant[] {
+  const hasChatGrant = grants.some((grant) =>
+    grant.resourceKind === "chat" &&
+    grant.resourceValue === "chat:primary" &&
+    grant.grantedActions.includes("chat.emit") &&
+    !grant.revokedAt
+  );
+  if (hasChatGrant) {
+    return grants;
+  }
+  return [
+    ...grants,
+    instantiateBoundaryGrant({
+      session,
+      resourceKind: "chat",
+      resourceValue: "chat:primary",
+      grantedActions: ["chat.emit"],
+      issuedBy: session.actorId,
+      issuedAt,
+      metadata: {
+        default_surface: true,
+        boundary_surface: "chat",
+      },
+    }),
+  ];
+}
+
 export async function startPersistentBoundarySession(args: {
   sessionId: string;
   actorId: string;
@@ -255,10 +288,23 @@ export async function startPersistentBoundarySession(args: {
     status: "active",
   };
 
+  const defaultChatGrant = instantiateBoundaryGrant({
+    session,
+    resourceKind: "chat",
+    resourceValue: "chat:primary",
+    grantedActions: ["chat.emit"],
+    issuedBy: session.actorId,
+    issuedAt: createdAt,
+    metadata: {
+      default_surface: true,
+      boundary_surface: "chat",
+    },
+  });
+
   const config: BoundaryRuntimeConfig = {
     session,
     laws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-    grants: [],
+    grants: [defaultChatGrant],
     pathLaws: [],
     approvalRequiredFor: args.approvalRequiredFor ?? [],
     userLawIds: await buildActiveAgentBuccetLawIds({
@@ -289,6 +335,20 @@ export async function startPersistentBoundarySession(args: {
     createdAt,
   });
 
+  await appendBoundaryLedger("GRANT_ISSUED", {
+    sessionId: session.sessionId,
+    actorId: session.actorId,
+    grantId: defaultChatGrant.grantId,
+    target: defaultChatGrant.resourceValue,
+    reason: "default chat emission boundary surface attached to active session",
+    metadata: {
+      resource_kind: defaultChatGrant.resourceKind,
+      granted_actions: defaultChatGrant.grantedActions.join(","),
+      default_surface: true,
+    },
+    createdAt,
+  });
+
   await persistBoundarySessionState(config);
   return config;
 }
@@ -312,7 +372,7 @@ export async function restorePersistentBoundarySession(args: {
       persistent: true,
     },
     laws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-    grants: state.grants,
+    grants: ensureDefaultChatGrant(state.grants, state.session, state.session.createdAt),
     pathLaws: state.pathLaws,
     approvalRequiredFor: state.approvalRequiredFor,
     userLawIds: [],

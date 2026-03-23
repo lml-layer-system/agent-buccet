@@ -109,10 +109,13 @@ So the reflex path is:
 5. Bodyguard checks UPL only.
 6. If UPL has standing allow, allow.
 7. If UPL has standing deny, deny.
-8. If UPL has no standing user law, ask the user.
-9. If the user says yes, approval automatically becomes UPL law.
-10. If the user says no, ask whether that no should become law.
-11. Every event and every UPL mutation is written to Witness Ledger.
+8. If UPL has no standing user law, present the full four-way choice surface.
+9. The user chooses one of:
+   - allow once
+   - allow as law
+   - deny once
+   - deny as law
+10. Every event and every UPL mutation is written to Witness Ledger.
 
 Witness Ledger is never used as live authorization input.
 
@@ -130,9 +133,10 @@ UPL contains:
 UPL is customizable and changeable by the user.
 
 Exact behavior:
-- yes always becomes UPL law
-- no always asks whether that no should become law
-- one-time no is recorded but does not become standing law
+- allow once does not mutate UPL
+- allow as law records standing UPL allow
+- deny once does not mutate UPL
+- deny as law records standing UPL deny
 
 ## Witness Ledger Rules
 
@@ -164,28 +168,28 @@ Swarm uses the same action-boundary path:
 
 Use these files as the fusion seams unless the code proves a better local seam is required.
 
-- [lib/agent-buccet/intercept.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/intercept.ts)
+- `lib/agent-buccet/intercept.ts`
   - Interceptor entrypoint
   - maps boundary events into the native Buccet flow
-- [lib/agent-buccet/gravity.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/gravity.ts)
+- `lib/agent-buccet/gravity.ts`
   - Gravity hold/queue loop
   - keeps caught proposals stopped and routed
-- [lib/agent-buccet/bodyguard.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/bodyguard.ts)
+- `lib/agent-buccet/bodyguard.ts`
   - Bodyguard decision surface
   - this is where UPL-only live decisioning should converge
-- [lib/agent-buccet/foundation.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/foundation.ts)
+- `lib/agent-buccet/foundation.ts`
   - transferred foundation loading seam
   - snapped runtime substrate and carried law identity should attach here
-- [lib/agent-buccet/runtime.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/runtime.ts)
+- `lib/agent-buccet/runtime.ts`
   - native runtime evaluation seam
   - session/grant lifecycle enforcement stays here
-- [lib/agent-buccet/state.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/state.ts)
+- `lib/agent-buccet/state.ts`
   - runtime state assembly and restore seam
   - fused state should include native runtime + snapped muscle + UPL + Witness Ledger
-- [lib/agent-buccet/ledger.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/ledger.ts)
+- `lib/agent-buccet/ledger.ts`
   - Witness Ledger write path
   - immutable historical record only
-- [lib/agent-buccet/swarm.ts](/tmp/agent-buccet-transfer-worktree/lib/agent-buccet/swarm.ts)
+- `lib/agent-buccet/swarm.ts`
   - native swarm seam
   - swarm must stay on the same fused action-boundary path
 
@@ -208,10 +212,14 @@ The runtime should be understood like this:
   - get him out
 - if UPL has no standing law:
   - ask the boss, the user
-- if the boss says yes:
-  - that yes becomes UPL law automatically
-- if the boss says no:
-  - ask whether that no should become law
+- if the boss chooses allow once:
+  - let this one through
+- if the boss chooses allow as law:
+  - let it through and record standing UPL allow
+- if the boss chooses deny once:
+  - block this one
+- if the boss chooses deny as law:
+  - block it and record standing UPL deny
 - Witness Ledger records the whole thing afterward
 
 This example is the intended end-to-end behavior.
