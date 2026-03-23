@@ -4,7 +4,7 @@ import {
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
 } from "../adapters.ts";
-import type { BoundaryExecutionResult } from "../bodyguard-engine.ts";
+import type { BoundaryExecutionResult } from "../bodyguard.ts";
 import type { BoundaryRuntimeConfig } from "../types.ts";
 
 export async function enforceLangGraphProposal<T>(args: {

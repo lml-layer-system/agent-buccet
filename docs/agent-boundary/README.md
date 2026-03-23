@@ -27,7 +27,6 @@ Core docs:
 - [Launch Proof](LAUNCH_PROOF.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
 - [Security Model](SECURITY_MODEL.md)
-- [Threat Model Traceability](THREAT_MODEL_TRACEABILITY.md)
 - [Current Limits](CURRENT_LIMITS.md)
 - [Law Catalog](LAW_CATALOG.md)
 - [Law Reference](LAW_REFERENCE.md)
@@ -526,5 +525,3 @@ That means:
 - [Ledger Audit Example](examples/ledger-audit.md)
 - [PUBLIC_PRIVATE_BOUNDARY.md](PUBLIC_PRIVATE_BOUNDARY.md)
 - [PACKAGING_PLAN.md](PACKAGING_PLAN.md)
-- [GRAVITY_LANDING_PLAN.md](GRAVITY_LANDING_PLAN.md)
-- [AGENT_BOUNDARY_REPORT_20260317.md](AGENT_BOUNDARY_REPORT_20260317.md)

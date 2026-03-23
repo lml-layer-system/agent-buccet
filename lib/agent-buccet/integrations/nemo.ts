@@ -6,7 +6,7 @@ import {
 } from "../adapters.ts";
 import type {
   BoundaryExecutionResult,
-} from "../bodyguard-engine.ts";
+} from "../bodyguard.ts";
 import type { BoundaryRuntimeConfig } from "../types.ts";
 
 export async function enforceNemoProposal<T>(args: {

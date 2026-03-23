@@ -193,7 +193,6 @@ Problem:
 - gravity is understood conceptually, but there is not yet a precise landing plan tying it into the current boundary runtime
 
 Deliverables:
-- `docs/agent-boundary/GRAVITY_LANDING_PLAN.md`
 
 Must define:
 - what gravity attaches to

@@ -2,7 +2,7 @@ import {
   createBoundaryActionRequest,
   executeBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./bodyguard-engine.ts";
+} from "./bodyguard.ts";
 import type {
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,

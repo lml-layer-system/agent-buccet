@@ -46,4 +46,4 @@ We will coordinate disclosure timing with you. We follow responsible disclosure 
 
 ## Threat Model
 
-The full threat model, including what Agent Buccet is and is not designed to prevent, is documented in [`docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md`](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md) and [`docs/agent-boundary/SECURITY_MODEL.md`](docs/agent-boundary/SECURITY_MODEL.md).
+The current security and boundary model is documented in [`docs/agent-boundary/SECURITY_MODEL.md`](docs/agent-boundary/SECURITY_MODEL.md).

@@ -18,7 +18,7 @@ Main Agent Buccet law sources:
 - [time.ts](../../lib/agent-buccet/time.ts)
 - [foundation.ts](../../lib/agent-buccet/foundation.ts)
 - [runtime.ts](../../lib/agent-buccet/runtime.ts)
-- [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts)
+- [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts)
 - [intercept.ts](../../lib/agent-buccet/intercept.ts)
 - [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts)
 
@@ -62,7 +62,7 @@ These are the active anti-authority-drift and anti-injection laws.
 | `META.SESSION.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot revive ended sessions |
 | `META.LEDGER.01` | [time.ts](../../lib/agent-buccet/time.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot bypass, suppress, or rewrite the ledger |
 | `META.NOVELTY.01` | [time.ts](../../lib/agent-buccet/time.ts) | Claims of complete safety or complete coverage are non-authoritative and require review |
-| `META.LEDGER.02` | [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Incomplete ledger traces are non-authoritative at execution time |
+| `META.LEDGER.02` | [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Incomplete ledger traces are non-authoritative at execution time |
 
 ## Action Boundary Laws
 
@@ -117,8 +117,8 @@ These are Agent Buccet trust-boundary laws for audit state.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
-| `BOUNDARY.LEDGER.REQUEST.01` | [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Request traces must be complete enough to be trusted |
-| `BOUNDARY.LEDGER.SESSION.01` | [bodyguard-engine.ts](../../lib/agent-buccet/bodyguard-engine.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Session traces must be complete enough to preserve lawful continuity |
+| `BOUNDARY.LEDGER.REQUEST.01` | [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Request traces must be complete enough to be trusted |
+| `BOUNDARY.LEDGER.SESSION.01` | [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Session traces must be complete enough to preserve lawful continuity |
 
 ## What This Means
 
