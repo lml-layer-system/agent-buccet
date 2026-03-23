@@ -51,6 +51,59 @@ async function main() {
     });
     const bodyguard = createBoundaryBodyguard(store);
 
+    const actionAttempt = bodyguard.enforceProposal({
+      actionKind: "fs.delete",
+      target: "/tmp/agent-buccet-claude-fix/README.md",
+      payloadSummary: "delete:5 paths",
+      reviewContext: {
+        surface: "action",
+        title: "Would you like to run the following command?",
+        question: "Does this command match your intent?",
+        attemptLines: [
+          "$ rm -f /tmp/agent-buccet-claude-fix/README.md",
+          "  /tmp/agent-buccet-claude-fix/lib/agent-buccet/bodyguard-engine.ts",
+          "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/GRAVITY_LANDING_PLAN.md",
+          "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md",
+          "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/AGENT_BOUNDARY_REPORT_20260317.md && git -C",
+          "  /tmp/agent-buccet-claude-fix status --short",
+        ],
+        violations: [
+          "destructive delete spans multiple files",
+          "attempt claims complete cleanup coverage",
+        ],
+      },
+      flags: {
+        claimsCompleteCoverage: true,
+      },
+      execute: async () => "should-not-run",
+      successReason: "command admitted by bodyguard",
+    });
+
+    const actionPending = await waitForPendingApproval(() => bodyguard.approvals.listPending());
+    assert(actionPending.length === 1, "expected one pending action-boundary approval");
+    const actionApproval = actionPending[0].request;
+    assert(actionApproval.prompt.surface === "action", "expected action approval surface");
+    const renderedActionPrompt = renderBoundaryApprovalPrompt(actionApproval);
+    assert(
+      renderedActionPrompt.includes("$ rm -f /tmp/agent-buccet-claude-fix/README.md"),
+      "expected action prompt to include exact first command line",
+    );
+    assert(
+      renderedActionPrompt.includes("/tmp/agent-buccet-claude-fix/lib/agent-buccet/bodyguard-engine.ts"),
+      "expected action prompt to include full multi-line attempt",
+    );
+    assert(
+      renderedActionPrompt.includes("Triggered laws:"),
+      "expected action prompt to show triggered laws heading",
+    );
+    assert(
+      renderedActionPrompt.includes("Violations:"),
+      "expected action prompt to show violations heading",
+    );
+    bodyguard.approvals.denyOnce(actionPending[0].approvalId);
+    const deniedAction = await actionAttempt;
+    assert(!deniedAction.allowed, "expected action-boundary attempt to be denied");
+
     const lawful = await bodyguard.chat.emit({
       userInput: "say hello",
       attemptedOutput: "Hello. I can help with that.",
@@ -82,7 +135,7 @@ async function main() {
     const pending = await waitForPendingApproval(() => bodyguard.approvals.listPending());
     assert(pending.length === 1, "expected one pending chat-boundary approval");
 
-    const approval = pending[0].approval;
+    const approval = pending[0].request;
     assert(approval.request.actionKind === "chat.emit", "expected pending approval for chat.emit");
     assert(approval.prompt.surface === "chat", "expected chat approval surface");
     assert(approval.prompt.options.length === 4, "expected four-way approval choices");
@@ -93,9 +146,10 @@ async function main() {
     );
 
     const renderedPrompt = renderBoundaryApprovalPrompt(approval);
-    assert(renderedPrompt.includes("Triggered law: META.NOVELTY.01"), "expected rendered prompt to show triggered law");
+    assert(renderedPrompt.includes("Triggered laws:"), "expected rendered prompt to show triggered laws heading");
     assert(renderedPrompt.includes("User input:"), "expected rendered prompt to show user input");
     assert(renderedPrompt.includes("Attempted output:"), "expected rendered prompt to show attempted output");
+    assert(renderedPrompt.includes("Violations:"), "expected rendered prompt to show violations section");
     assert(renderedPrompt.includes("No, block and make it law"), "expected rendered prompt to show deny-as-law option");
 
     bodyguard.approvals.denyAsLaw(pending[0].approvalId, {
@@ -132,6 +186,10 @@ async function main() {
     assert(updatedLedger.userDeniedLawPaths.length === 1, "expected one denied UPL law after deny_as_law");
 
     console.log("Agent Buccet chat boundary contract");
+    console.log("---ACTION PROMPT---");
+    console.log(renderedActionPrompt);
+    console.log("---CHAT PROMPT---");
+    console.log(renderedPrompt);
     console.log(`lawful chat allowed: ${lawful.allowed}`);
     console.log(`flagged prompt options: ${approval.prompt.options.length}`);
     console.log(`rendered prompt surface: ${approval.prompt.surface}`);
