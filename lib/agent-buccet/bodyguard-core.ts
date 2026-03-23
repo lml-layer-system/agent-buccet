@@ -77,8 +77,9 @@ export async function applyBodyguardUserLawDecision(args: {
       requestId: args.request.requestId,
       actionKind: args.request.actionKind,
       target: args.request.target,
-      reason: `standing UPL allow created: ${newEntry.id}`,
-      lawIds: [newEntry.id],
+      decision: "allow",
+      reason: "user recorded standing UPL approval",
+      lawIds: [upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1]?.id].filter(Boolean),
       metadata: {
         upl_entry_id: newEntry.id,
         upl_scope: newEntry.scope,
@@ -102,8 +103,9 @@ export async function applyBodyguardUserLawDecision(args: {
       requestId: args.request.requestId,
       actionKind: args.request.actionKind,
       target: args.request.target,
-      reason: `standing UPL deny created: ${newEntry.id}`,
-      lawIds: [newEntry.id],
+      decision: "deny",
+      reason: "user recorded standing UPL denial",
+      lawIds: [upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1]?.id].filter(Boolean),
       metadata: {
         upl_entry_id: newEntry.id,
         upl_scope: newEntry.scope,
