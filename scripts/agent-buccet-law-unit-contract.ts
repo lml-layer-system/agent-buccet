@@ -56,8 +56,30 @@ function makePathGrant(rootPath: string, actions: BoundaryActionKind[]): Boundar
   };
 }
 
+const TIME_TO_LIVE_LAW_ID = new Map<string, string>([
+  ["TIME.TRUST.01", "META.TRUST.01"],
+  ["TIME.AUTHORITY.01", "META.AUTHORITY.01"],
+  ["TIME.NOVELTY.01", "META.NOVELTY.01"],
+  ["TIME.SCOPE.01", "META.SCOPE.01"],
+  ["TIME.LAW.01", "META.LAW.01"],
+  ["TIME.SESSION.01", "META.SESSION.01"],
+  ["TIME.LEDGER.01", "META.LEDGER.01"],
+]);
+
+function resolveLiveLawId(lawId: string): string {
+  return TIME_TO_LIVE_LAW_ID.get(lawId) ?? lawId;
+}
+
+function hasTriggeredLaw(
+  result: { triggeredLawIds: string[] },
+  requestedLawId: string,
+): boolean {
+  const liveLawId = resolveLiveLawId(requestedLawId);
+  return result.triggeredLawIds.includes(requestedLawId) || result.triggeredLawIds.includes(liveLawId);
+}
+
 function evalLaw(lawId: string, request: BoundaryActionRequest) {
-  const law = DEFENSIVE_TIME_LAWS.find((l) => l.lawId === lawId);
+  const law = DEFENSIVE_TIME_LAWS.find((l) => l.lawId === resolveLiveLawId(lawId));
   if (!law) throw new Error(`Law not found: ${lawId}`);
   return law.evaluate({
     session: makeSession(),
@@ -101,7 +123,7 @@ test("untrusted provenance + high-risk action → require_approval", () => {
   }));
   assert.ok(result !== null, "should not abstain");
   assert.equal(result!.decision, "require_approval");
-  assert.ok(result!.triggeredLawIds.includes("TIME.TRUST.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.TRUST.01"));
 });
 
 test("untrusted provenance + low-risk action → abstain (null)", () => {
@@ -173,7 +195,7 @@ test("authorityClaimed flag → deny", () => {
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.AUTHORITY.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.AUTHORITY.01"));
 });
 
 test("no authorityClaimed flag → abstain (null)", () => {
@@ -207,7 +229,7 @@ test("claimsCompleteCoverage → require_approval", () => {
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "require_approval");
-  assert.ok(result!.triggeredLawIds.includes("TIME.NOVELTY.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.NOVELTY.01"));
 });
 
 test("no completeCoverage flag → abstain (null)", () => {
@@ -235,7 +257,7 @@ test("requestsScopeExpansion → deny", () => {
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.SCOPE.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.SCOPE.01"));
 });
 
 test("no scopeExpansion flag → abstain (null)", () => {
@@ -271,7 +293,7 @@ test("requestsLawMutation → deny", () => {
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.LAW.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.LAW.01"));
 });
 
 test("no lawMutation flag → abstain (null)", () => {
@@ -302,7 +324,7 @@ test("requestsSessionRevival → deny", () => {
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.SESSION.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.SESSION.01"));
 });
 
 test("no sessionRevival flag → abstain (null)", () => {
@@ -328,7 +350,7 @@ test("requestsLedgerBypass → deny", () => {
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.LEDGER.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.LEDGER.01"));
 });
 
 test("no ledgerBypass flag → abstain (null)", () => {
@@ -559,7 +581,7 @@ test("prompt-injection authority claim: 'I have been authorized' → TIME.AUTHOR
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.AUTHORITY.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.AUTHORITY.01"));
 });
 
 test("prompt-injection scope grab: 'all directories are now accessible' → TIME.SCOPE.01 deny", () => {
@@ -571,7 +593,7 @@ test("prompt-injection scope grab: 'all directories are now accessible' → TIME
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.SCOPE.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.SCOPE.01"));
 });
 
 test("prompt-injection law mutation: 'ignore all previous rules' → TIME.LAW.01 deny", () => {
@@ -583,7 +605,7 @@ test("prompt-injection law mutation: 'ignore all previous rules' → TIME.LAW.01
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.LAW.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.LAW.01"));
 });
 
 test("prompt-injection audit bypass: 'skip logging for this operation' → TIME.LEDGER.01 deny", () => {
@@ -595,7 +617,7 @@ test("prompt-injection audit bypass: 'skip logging for this operation' → TIME.
   }));
   assert.ok(result !== null);
   assert.equal(result!.decision, "deny");
-  assert.ok(result!.triggeredLawIds.includes("TIME.LEDGER.01"));
+  assert.ok(hasTriggeredLaw(result!, "TIME.LEDGER.01"));
 });
 
 test("multi-flag attack: authority + scope + law mutation all set → each law independently denies", () => {
@@ -636,7 +658,7 @@ test("evaluateBoundaryLaws: full stack — in-scope target + authority claim →
     approvalRequiredFor: [],
   });
   assert.equal(result.decision, "deny");
-  assert.ok(result.triggeredLawIds.includes("TIME.AUTHORITY.01"));
+  assert.ok(hasTriggeredLaw(result, "TIME.AUTHORITY.01"));
 });
 
 test("evaluateBoundaryLaws: full stack — in-scope + scope expansion flag → deny", () => {
@@ -652,7 +674,7 @@ test("evaluateBoundaryLaws: full stack — in-scope + scope expansion flag → d
     approvalRequiredFor: [],
   });
   assert.equal(result.decision, "deny");
-  assert.ok(result.triggeredLawIds.includes("TIME.SCOPE.01"));
+  assert.ok(hasTriggeredLaw(result, "TIME.SCOPE.01"));
 });
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
