@@ -30,7 +30,7 @@ async function main() {
   assert.ok(activeLawIds.includes("BUCCET.TIME.BASE.LAW-MT-00420"), "expected carried time law ids to load into active runtime law identity");
   assert.ok(activeLawIds.includes("BUCCET.TIME.TEMPORAL.LAW-MT-00420"), "expected carried temporal time law ids to load into active runtime law identity");
   assert.ok(activeLawIds.includes("BUCCET.TIME.0001"), "expected carried defensive time ids to load into active runtime law identity");
-  assert.ok(activeLawIds.includes("TIME.AUTHORITY.01"), "expected live runtime time ids to remain active");
+  assert.ok(activeLawIds.includes("META.AUTHORITY.01"), "expected live runtime time-guard ids to remain active");
 
   for (const excludedLawId of AGENT_BUCCET_TIME_EXCLUDED_SELF_UPDATING_LAW_IDS) {
     assert.equal(
