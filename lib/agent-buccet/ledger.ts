@@ -35,6 +35,7 @@ const KEYS_DIR = path.join(LEDGER_DIR, "keys");
 const CHECKPOINT_DIR = path.join(LEDGER_DIR, "checkpoints");
 const SIGNING_PRIVATE_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-private.pem");
 const SIGNING_PUBLIC_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-public.pem");
+const LOCK_STALE_MS = 5_000;
 
 export type BoundaryLedgerWriterTarget =
   | { socketPath: string }
@@ -397,11 +398,65 @@ async function appendLineAtomic(targetPath: string, line: string): Promise<void>
   await writeAtomic(targetPath, `${existing}${line}`);
 }
 
+type BoundaryLedgerLockMetadata = {
+  pid: number;
+  createdAt: string;
+};
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === "EPERM";
+  }
+}
+
+async function readBoundaryLedgerLockMetadata(): Promise<BoundaryLedgerLockMetadata | null> {
+  try {
+    const raw = await fs.readFile(LOCK_FILE, "utf8");
+    const parsed = JSON.parse(raw) as Partial<BoundaryLedgerLockMetadata>;
+    if (typeof parsed.pid !== "number" || typeof parsed.createdAt !== "string") {
+      return null;
+    }
+    return {
+      pid: parsed.pid,
+      createdAt: parsed.createdAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function clearStaleBoundaryLedgerLock(): Promise<boolean> {
+  const metadata = await readBoundaryLedgerLockMetadata();
+  if (metadata && !isProcessAlive(metadata.pid)) {
+    await fs.rm(LOCK_FILE, { force: true }).catch(() => undefined);
+    return true;
+  }
+
+  try {
+    const stats = await fs.stat(LOCK_FILE);
+    if (Date.now() - stats.mtimeMs > LOCK_STALE_MS) {
+      await fs.rm(LOCK_FILE, { force: true }).catch(() => undefined);
+      return true;
+    }
+  } catch {
+    return false;
+  }
+
+  return false;
+}
+
 async function acquireBoundaryLedgerLock(maxAttempts = 200, waitMs = 10): Promise<() => Promise<void>> {
   await ensureLedgerDir();
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
       const handle = await fs.open(LOCK_FILE, "wx");
+      await handle.writeFile(
+        `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })}\n`,
+        "utf8",
+      );
       return async () => {
         await handle.close().catch(() => undefined);
         await fs.rm(LOCK_FILE, { force: true }).catch(() => undefined);
@@ -409,6 +464,9 @@ async function acquireBoundaryLedgerLock(maxAttempts = 200, waitMs = 10): Promis
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
         throw error;
+      }
+      if (await clearStaleBoundaryLedgerLock()) {
+        continue;
       }
       await new Promise((resolve) => setTimeout(resolve, waitMs));
     }

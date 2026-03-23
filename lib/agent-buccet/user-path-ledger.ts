@@ -128,6 +128,60 @@ function entrySpecificity(entry: BoundaryUplEntry): 0 | 1 | 2 {
   return 0;
 }
 
+function entryMatchesScope(args: {
+  entry: BoundaryUplEntry;
+  request: BoundaryActionRequest;
+  session: BoundarySession;
+  scope: BoundaryUplScope;
+  domain: string;
+}): boolean {
+  if (args.entry.scope !== args.scope) {
+    return false;
+  }
+  if (args.scope === "SESSION") {
+    return args.entry.sessionId === args.session.sessionId && args.entry.pathHash === hashUserPath(args.request);
+  }
+  if (args.scope === "DOMAIN") {
+    return args.entry.domain === args.domain;
+  }
+  return args.entry.pathHash === hashUserPath(args.request);
+}
+
+function supersedeConflictingEntries(args: {
+  ledger: BoundaryUserPathLedger;
+  request: BoundaryActionRequest;
+  session: BoundarySession;
+  scope: BoundaryUplScope;
+  modifiedAt: string;
+}): BoundaryUserPathLedger {
+  const domain = classifyUserPathDomain(args.request);
+  const muteIfConflicting = (entry: BoundaryUplEntry): BoundaryUplEntry => {
+    if (entry.status !== "ACTIVE") {
+      return entry;
+    }
+    if (!entryMatchesScope({
+      entry,
+      request: args.request,
+      session: args.session,
+      scope: args.scope,
+      domain,
+    })) {
+      return entry;
+    }
+    return {
+      ...entry,
+      status: "MUTED",
+      modifiedAt: args.modifiedAt,
+    };
+  };
+
+  return {
+    ...args.ledger,
+    userApprovedLawPaths: args.ledger.userApprovedLawPaths.map(muteIfConflicting),
+    userDeniedLawPaths: args.ledger.userDeniedLawPaths.map(muteIfConflicting),
+  };
+}
+
 export function lookupUserPathDecision(args: {
   ledger: BoundaryUserPathLedger;
   session: BoundarySession;
@@ -155,10 +209,13 @@ export function lookupUserPathDecision(args: {
     if (right.specificity !== left.specificity) {
       return right.specificity - left.specificity;
     }
+    if (left.entry.createdAt !== right.entry.createdAt) {
+      return right.entry.createdAt.localeCompare(left.entry.createdAt);
+    }
     if (left.decision !== right.decision) {
       return left.decision === "deny" ? -1 : 1;
     }
-    return left.entry.createdAt.localeCompare(right.entry.createdAt);
+    return left.entry.id.localeCompare(right.entry.id);
   });
 
   const winner = matches[0];
@@ -204,17 +261,28 @@ export async function writeApprovedUserPathLaw(args: {
   session: BoundarySession;
   decision?: BoundaryApprovalDecision;
 }): Promise<BoundaryUserPathLedger> {
-  const entry = createEntry({
+  const scope = normalizeScope({ decision: args.decision });
+  const nextLedger = supersedeConflictingEntries({
     ledger: args.ledger,
+    request: args.request,
+    session: args.session,
+    scope,
+    modifiedAt: args.witness.META.timestamp,
+  });
+  const entry = createEntry({
+    ledger: nextLedger,
     request: args.request,
     witness: args.witness,
     type: "APPROVED",
     session: args.session,
-    decision: args.decision,
+    decision: {
+      ...args.decision,
+      scope,
+    },
   });
   const next = {
-    ...args.ledger,
-    userApprovedLawPaths: [...args.ledger.userApprovedLawPaths, entry],
+    ...nextLedger,
+    userApprovedLawPaths: [...nextLedger.userApprovedLawPaths, entry],
   };
   return saveUserPathLedger(next);
 }
@@ -226,17 +294,28 @@ export async function writeDeniedUserPathLaw(args: {
   session: BoundarySession;
   decision?: BoundaryApprovalDecision;
 }): Promise<BoundaryUserPathLedger> {
-  const entry = createEntry({
+  const scope = normalizeScope({ decision: args.decision });
+  const nextLedger = supersedeConflictingEntries({
     ledger: args.ledger,
+    request: args.request,
+    session: args.session,
+    scope,
+    modifiedAt: args.witness.META.timestamp,
+  });
+  const entry = createEntry({
+    ledger: nextLedger,
     request: args.request,
     witness: args.witness,
     type: "DENIED",
     session: args.session,
-    decision: args.decision,
+    decision: {
+      ...args.decision,
+      scope,
+    },
   });
   const next = {
-    ...args.ledger,
-    userDeniedLawPaths: [...args.ledger.userDeniedLawPaths, entry],
+    ...nextLedger,
+    userDeniedLawPaths: [...nextLedger.userDeniedLawPaths, entry],
   };
   return saveUserPathLedger(next);
 }
