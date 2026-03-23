@@ -148,8 +148,8 @@ The chain:
 
 ```
 INTERCEPT  freezes it.   Motion stops. Nothing crosses without being seen.
-GRAVITY    evaluates.    Runs the law body against the frozen proposal.
-BODYGUARD  arrives.      Carries the UPL — the user's own runtime laws.
+GRAVITY    holds it.     Keeps the proposal frozen inside the boundary.
+BODYGUARD  decides.      Checks the UPL and the live law field every time.
   → UPL match:    user's law decides on contact. Always.
   → No match:     user is asked. Their answer becomes a new UPL law.
 LEDGER     signs it all. Every step, chained. The agent cannot erase it.

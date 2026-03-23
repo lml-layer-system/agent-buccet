@@ -1,7 +1,7 @@
 import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
-} from "./adapters.ts";
+} from "./bodyguard.ts";
 import type { BoundaryApprovalHandler } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 

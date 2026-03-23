@@ -3,7 +3,7 @@ import {
   wrapBoundaryTool,
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
-} from "../adapters.ts";
+} from "../bodyguard.ts";
 import type {
   BoundaryExecutionResult,
 } from "../bodyguard.ts";
