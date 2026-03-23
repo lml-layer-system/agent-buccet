@@ -107,6 +107,12 @@ function defaultDecisionForEvent(eventType: BoundaryLedgerEventType): BoundaryLe
   if (eventType === "ACTION_EXECUTED" || eventType === "SESSION_STARTED" || eventType === "SESSION_RESTORED") {
     return "ALLOW";
   }
+  if (eventType === "UPL_ALLOW_RECORDED") {
+    return "ALLOW";
+  }
+  if (eventType === "UPL_DENY_RECORDED") {
+    return "DENY";
+  }
   if (eventType === "ACTION_BLOCKED" || eventType === "APPROVAL_DENIED" || eventType === "USER_CONFIRMED_DENY") {
     return "DENY";
   }
@@ -116,6 +122,9 @@ function defaultDecisionForEvent(eventType: BoundaryLedgerEventType): BoundaryLe
 function defaultOutcomeForEvent(eventType: BoundaryLedgerEventType): BoundaryLedgerNextOutcome {
   if (eventType === "ACTION_EXECUTED" || eventType === "PROCESS_SPAWNED") {
     return "EXECUTED";
+  }
+  if (eventType === "UPL_ALLOW_RECORDED" || eventType === "UPL_DENY_RECORDED") {
+    return "QUEUED";
   }
   if (
     eventType === "ACTION_BLOCKED" ||

@@ -34,7 +34,7 @@ async function main() {
     config,
     request: dbRequest,
   });
-  assert(dbOutOfScope.outcome === "nsl_grant_offer", "expected out-of-scope database query to yield NSL grant offer");
+  assert(dbOutOfScope.outcome === "nsl_grant_offer", "expected out-of-scope database query to yield a Bodyguard grant offer");
 
   const sysCredentialRequest = createBoundaryActionRequest({
     config,
@@ -45,7 +45,7 @@ async function main() {
     config,
     request: sysCredentialRequest,
   });
-  assert(sysCredentialDeny.outcome === "nsl_grant_offer", "expected out-of-scope system read to yield NSL grant offer before boundary deny");
+  assert(sysCredentialDeny.outcome === "nsl_grant_offer", "expected out-of-scope system read to yield a Bodyguard grant offer before boundary deny");
 
   config = (await issueBoundaryGrant({
     config,

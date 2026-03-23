@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { applyBodyguardUserLawDecision } from "./bodyguard-core.ts";
+import { enableBodyguardControl, recordBodyguardUserLawDecision } from "./bodyguard.ts";
 import path from "node:path";
 import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
@@ -291,7 +291,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
 
   async function evaluateOrWait(request: BoundaryInterceptRequest): Promise<BoundaryInterceptResult> {
     const result = await evaluateBoundaryIntercept({
-      config: store.getConfig(),
+      config: enableBodyguardControl(store.getConfig()),
       request,
     });
     if (result.decision !== "require_approval") {
@@ -345,7 +345,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     const config = store.getConfig();
     if (config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
-      const nextConfig = await applyBodyguardUserLawDecision({
+      const nextConfig = await recordBodyguardUserLawDecision({
         config,
         request: boundaryRequest,
         witness,
@@ -392,7 +392,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     const config = store.getConfig();
     if (args.asLaw && config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
-      const nextConfig = await applyBodyguardUserLawDecision({
+      const nextConfig = await recordBodyguardUserLawDecision({
         config,
         request: boundaryRequest,
         witness,

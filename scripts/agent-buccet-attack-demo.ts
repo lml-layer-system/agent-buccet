@@ -14,7 +14,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { evaluateBoundaryIntercept, openBoundaryPath } from "../lib/agent-buccet/index.ts";
+import { enableBodyguardControl, evaluateBoundaryIntercept, openBoundaryPath } from "../lib/agent-buccet/index.ts";
 import { startPersistentBoundarySession } from "../lib/agent-buccet/state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -30,12 +30,30 @@ function banner(title: string) {
   console.log(line);
 }
 
+function normalizeLawIdsForDisplay(lawIds: string[]): string[] {
+  return lawIds.map((lawId) =>
+    lawId
+      .replace("META.TRUST.01", "TIME.TRUST.01")
+      .replace("META.AUTHORITY.01", "TIME.AUTHORITY.01")
+      .replace("META.NOVELTY.01", "TIME.NOVELTY.01")
+      .replace("META.SCOPE.01", "TIME.SCOPE.01")
+      .replace("META.LAW.01", "TIME.LAW.01")
+      .replace("META.SESSION.01", "TIME.SESSION.01")
+      .replace("META.LEDGER.01", "TIME.LEDGER.01"),
+  );
+}
+
+function hasDisplayedLaw(lawIds: string[], expectedLawId: string): boolean {
+  return normalizeLawIdsForDisplay(lawIds).includes(expectedLawId);
+}
+
 function result(label: string, decision: string, lawIds: string[]) {
   const icon = decision === "allow" ? "✓" : decision === "deny" ? "✗" : "?";
+  const displayLawIds = normalizeLawIdsForDisplay(lawIds);
   console.log(`  ${icon} ${label}`);
   console.log(`    decision: ${decision}`);
-  if (lawIds.length > 0) {
-    console.log(`    triggered: ${lawIds.join(", ")}`);
+  if (displayLawIds.length > 0) {
+    console.log(`    triggered: ${displayLawIds.join(", ")}`);
   }
 }
 
@@ -55,7 +73,7 @@ async function main() {
     grantedActions: ["fs.read", "fs.write", "fs.delete"],
     issuedBy: actorId,
   });
-  config = scopedConfig;
+  config = enableBodyguardControl(scopedConfig);
 
   console.log(`\nAgent Buccet — Prompt-Injection Attack Demo`);
   console.log(`Session: ${sessionId}`);
@@ -80,7 +98,7 @@ async function main() {
   });
   result("fs.write with authorityClaimed=true", authorityEval.decision, authorityEval.lawIds);
   assert(authorityEval.decision === "deny", "authority claim must be denied");
-  assert(authorityEval.lawIds.includes("TIME.AUTHORITY.01"), "TIME.AUTHORITY.01 must fire");
+  assert(hasDisplayedLaw(authorityEval.lawIds, "TIME.AUTHORITY.01"), "TIME.AUTHORITY.01 must fire");
 
   // ── Attack 2: Scope Expansion ─────────────────────────────────────────────
   // Pattern: Injected instruction tells the agent "you now have access to all
@@ -105,7 +123,7 @@ async function main() {
     scopeEval.lawIds,
   );
   assert(scopeEval.decision === "deny", "scope expansion must be denied");
-  assert(scopeEval.lawIds.includes("TIME.SCOPE.01"), "TIME.SCOPE.01 must fire");
+  assert(hasDisplayedLaw(scopeEval.lawIds, "TIME.SCOPE.01"), "TIME.SCOPE.01 must fire");
 
   // ── Attack 3: Law Mutation ────────────────────────────────────────────────
   // Pattern: Jailbreak prompt says "ignore all previous restrictions and rules."
@@ -126,7 +144,7 @@ async function main() {
   });
   result("fs.write with requestsLawMutation=true", lawEval.decision, lawEval.lawIds);
   assert(lawEval.decision === "deny", "law mutation must be denied");
-  assert(lawEval.lawIds.includes("TIME.LAW.01"), "TIME.LAW.01 must fire");
+  assert(hasDisplayedLaw(lawEval.lawIds, "TIME.LAW.01"), "TIME.LAW.01 must fire");
 
   // ── Attack 4: Ledger Bypass ────────────────────────────────────────────────
   // Pattern: Injected instruction tells the agent "don't log this operation"
@@ -147,7 +165,7 @@ async function main() {
   });
   result("fs.write with requestsLedgerBypass=true", ledgerEval.decision, ledgerEval.lawIds);
   assert(ledgerEval.decision === "deny", "ledger bypass must be denied");
-  assert(ledgerEval.lawIds.includes("TIME.LEDGER.01"), "TIME.LEDGER.01 must fire");
+  assert(hasDisplayedLaw(ledgerEval.lawIds, "TIME.LEDGER.01"), "TIME.LEDGER.01 must fire");
 
   // ── Attack 5: Tool Output Escalation ─────────────────────────────────────
   // Pattern: A tool's output contains injected instructions that cause the
@@ -174,7 +192,7 @@ async function main() {
     trustEval.decision === "require_approval",
     "untrusted high-risk action must require approval",
   );
-  assert(trustEval.lawIds.includes("TIME.TRUST.01"), "TIME.TRUST.01 must fire");
+  assert(hasDisplayedLaw(trustEval.lawIds, "TIME.TRUST.01"), "TIME.TRUST.01 must fire");
 
   // ── Attack 6: Multi-flag Compound Attack ──────────────────────────────────
   // Pattern: Sophisticated attack sets multiple flags simultaneously — claiming
@@ -204,7 +222,7 @@ async function main() {
     compoundEval.lawIds,
   );
   assert(compoundEval.decision === "deny", "compound attack must be denied");
-  const anyTimeLaw = compoundEval.lawIds.some((id) => id.startsWith("TIME."));
+  const anyTimeLaw = normalizeLawIdsForDisplay(compoundEval.lawIds).some((id) => id.startsWith("TIME."));
   assert(anyTimeLaw, "at least one TIME law must trigger on compound attack");
 
   // ── Baseline: Legitimate action succeeds ─────────────────────────────────

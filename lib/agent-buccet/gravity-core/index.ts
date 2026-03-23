@@ -18,19 +18,19 @@ export {
 } from "./nsl-grant.ts";
 export { startGravityKernel, type GravityClient } from "./integration.ts";
 export {
-  createTimeAuthoritySkill,
-  createTimeLawSkill,
-  createTimeLedgerSkill,
-  createTimeScopeSkill,
-  createTimeSessionSkill,
-  createTimeTrustSkill,
+  createMetaAuthoritySkill,
+  createMetaLawSkill,
+  createMetaLedgerSkill,
+  createMetaScopeSkill,
+  createMetaSessionSkill,
+  createMetaTrustSkill,
   createScopeGrantSkill,
-  TIME_AUTHORITY_01,
-  TIME_LEDGER_01,
-  TIME_LAW_01,
-  TIME_SCOPE_01,
-  TIME_SESSION_01,
-  TIME_TRUST_01,
+  META_AUTHORITY_01,
+  META_LEDGER_01,
+  META_LAW_01,
+  META_SCOPE_01,
+  META_SESSION_01,
+  META_TRUST_01,
   SCOPE_GRANT_CLOSED,
 } from "./skills.ts";
 export type {

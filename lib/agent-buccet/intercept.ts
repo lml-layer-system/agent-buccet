@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createBoundaryActionRequest, evaluateBoundaryAction } from "./bodyguard.ts";
-import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
+import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./bodyguard.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
@@ -146,40 +145,18 @@ export async function evaluateBoundaryIntercept(args: {
     flags: args.request.flags,
   });
 
-  // Gravity reflex: scope check and swarm grouping.
-  // Gravity holds, freezes, or passes — it does not authorize.
-  const gravityService = args.config.gravityService ?? createBoundaryGravityService();
-  const gravity = await gravityService.enforceRequest({
+  const adjudication = await adjudicateBoundaryRequest({
     config: args.config,
     request: boundaryRequest,
   });
 
-  // Gravity reflex response flows directly to the caller.
-  // deny = scope blocked by reflex; nsl_grant_offer = scope requires a grant.
-  // Neither passes through bodyguard — these are reflexes, not authority decisions.
-  if (gravity.outcome !== "allow" && gravity.outcome !== "transform") {
-    return {
-      decision: gravity.outcome === "nsl_grant_offer" ? "require_approval" : "deny",
-      reason: gravity.reason,
-      lawIds: gravity.lawIds,
-      nslMoves: gravity.nslMoves,
-      requestId: boundaryRequest.requestId,
-      actionKind,
-    };
-  }
-
-  // Gravity cleared. Hand off to bodyguard — bodyguard owns all authority decisions.
-  const nextRequest = gravity.request ?? boundaryRequest;
-  const nextConfig = gravity.config ?? args.config;
-  const { result, nslMoves } = await evaluateBoundaryAction(nextConfig, nextRequest);
-
   return {
-    decision: result.decision,
-    reason: result.reason,
-    lawIds: result.triggeredLawIds,
-    nslMoves,
-    requestId: nextRequest.requestId,
-    actionKind: nextRequest.actionKind,
+    decision: adjudication.result.decision,
+    reason: adjudication.result.reason,
+    lawIds: adjudication.result.triggeredLawIds,
+    nslMoves: adjudication.nslMoves,
+    requestId: adjudication.request.requestId,
+    actionKind: adjudication.request.actionKind,
   };
 }
 

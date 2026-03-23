@@ -79,37 +79,6 @@ function parseGrantedActions(value: string | number | boolean | undefined): Boun
     .filter(Boolean) as BoundaryActionKind[];
 }
 
-function ensureDefaultChatGrant(
-  grants: BoundaryGrant[],
-  session: BoundarySession,
-  issuedAt = new Date().toISOString(),
-): BoundaryGrant[] {
-  const hasChatGrant = grants.some((grant) =>
-    grant.resourceKind === "chat" &&
-    grant.resourceValue === "chat:primary" &&
-    grant.grantedActions.includes("chat.emit") &&
-    !grant.revokedAt
-  );
-  if (hasChatGrant) {
-    return grants;
-  }
-  return [
-    ...grants,
-    instantiateBoundaryGrant({
-      session,
-      resourceKind: "chat",
-      resourceValue: "chat:primary",
-      grantedActions: ["chat.emit"],
-      issuedBy: session.actorId,
-      issuedAt,
-      metadata: {
-        default_surface: true,
-        boundary_surface: "chat",
-      },
-    }),
-  ];
-}
-
 async function rebuildBoundarySessionStateFromLedger(args: {
   sessionId: string;
 }): Promise<BoundaryPersistedSessionState | null> {
@@ -268,34 +237,37 @@ export async function loadBoundarySessionState(args: {
   return rebuildBoundarySessionStateFromLedger({ sessionId: args.sessionId });
 }
 
-/**
- * Starts a new persistent boundary session.
- *
- * The session is persisted to disk immediately and recorded in the ledger.
- * It survives process exits and can be restored via `restorePersistentBoundarySession`.
- * If the session state file is later missing or corrupted, the ledger is used
- * as the recovery source.
- *
- * If a session with the same `sessionId` already exists on disk, this will
- * overwrite it — use `restorePersistentBoundarySession` to resume an existing session.
- *
- * @param args.sessionId - Stable unique identifier for this session.
- * @param args.actorId - Actor identifier (e.g. `"user:alice"`) recorded in all ledger entries.
- * @param args.dryRun - If true, enforcement runs normally but side-effecting actions are not executed.
- * @param args.expiresAt - Optional ISO-8601 session expiry.
- * @param args.laws - Override the active law set. Defaults to `DEFAULT_BOUNDARY_LAWS`.
- * @param args.approvalRequiredFor - Action kinds that always require approval regardless of law results.
- * @param args.sessionsDir - Override the default sessions storage directory.
- * @returns The initialized `BoundaryRuntimeConfig` ready for enforcement.
- *
- * @example
- * ```typescript
- * const config = await startPersistentBoundarySession({
- *   sessionId: "my-agent-session",
- *   actorId: "user:alice",
- * });
- * ```
- */
+function ensureDefaultChatGrant(
+  grants: BoundaryGrant[],
+  session: BoundarySession,
+  issuedAt = new Date().toISOString(),
+): BoundaryGrant[] {
+  const hasChatGrant = grants.some((grant) =>
+    grant.resourceKind === "chat" &&
+    grant.resourceValue === "chat:primary" &&
+    grant.grantedActions.includes("chat.emit") &&
+    !grant.revokedAt
+  );
+  if (hasChatGrant) {
+    return grants;
+  }
+  return [
+    ...grants,
+    instantiateBoundaryGrant({
+      session,
+      resourceKind: "chat",
+      resourceValue: "chat:primary",
+      grantedActions: ["chat.emit"],
+      issuedBy: session.actorId,
+      issuedAt,
+      metadata: {
+        default_surface: true,
+        boundary_surface: "chat",
+      },
+    }),
+  ];
+}
+
 export async function startPersistentBoundarySession(args: {
   sessionId: string;
   actorId: string;
@@ -329,6 +301,8 @@ export async function startPersistentBoundarySession(args: {
     },
   });
 
+  const upl = await loadUserPathLedger();
+
   const config: BoundaryRuntimeConfig = {
     session,
     laws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
@@ -343,12 +317,13 @@ export async function startPersistentBoundarySession(args: {
       enabled: true,
       sessionsDir: args.sessionsDir,
     },
-    upl: await loadUserPathLedger(),
+    upl,
     runtimeMuscle: await loadAgentBuccetRuntimeMuscle(),
   };
   config.userLawIds = await buildActiveAgentBuccetLawIds({
     executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-    existingLawIds: getActiveUserLawIds(config.upl!, config.session),
+    existingLawIds: getActiveUserLawIds(upl, config.session),
+    runtimeMuscle: config.runtimeMuscle,
   });
 
   await appendBoundaryLedger("SESSION_STARTED", {
@@ -380,22 +355,6 @@ export async function startPersistentBoundarySession(args: {
   return config;
 }
 
-/**
- * Restores a previously started session from disk or from the ledger.
- *
- * Recovery order:
- * 1. Primary session state file (`<sessionsDir>/<sessionId>.json`)
- * 2. Backup state file (`<sessionsDir>/<sessionId>.bak.json`)
- * 3. Ledger replay — reconstructs grants and paths from the ledger history
- *
- * The ledger recovery path ensures that even if both state files are lost,
- * the session's lawful scope can be rebuilt from the audit trail.
- *
- * @param args.sessionId - The session identifier to restore.
- * @param args.laws - Override the active law set. Defaults to `DEFAULT_BOUNDARY_LAWS`.
- * @param args.sessionsDir - Override the default sessions storage directory.
- * @returns The restored `BoundaryRuntimeConfig`, or `null` if no session state exists.
- */
 export async function restorePersistentBoundarySession(args: {
   sessionId: string;
   laws?: BoundaryLaw[];
@@ -408,6 +367,8 @@ export async function restorePersistentBoundarySession(args: {
   if (!state) {
     return null;
   }
+
+  const upl = await loadUserPathLedger();
 
   const config: BoundaryRuntimeConfig = {
     session: {
@@ -424,15 +385,16 @@ export async function restorePersistentBoundarySession(args: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),
     },
-    upl: await loadUserPathLedger(),
+    upl,
     runtimeMuscle: await loadAgentBuccetRuntimeMuscle(),
   };
   config.userLawIds = await buildActiveAgentBuccetLawIds({
     executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
     existingLawIds: [
       ...state.userLawIds,
-      ...getActiveUserLawIds(config.upl!, config.session),
+      ...getActiveUserLawIds(upl, config.session),
     ],
+    runtimeMuscle: config.runtimeMuscle,
   });
 
   await appendBoundaryLedger("SESSION_RESTORED", {
@@ -450,21 +412,6 @@ export async function restorePersistentBoundarySession(args: {
   return config;
 }
 
-/**
- * Ends a persistent boundary session explicitly.
- *
- * After this call, the session status is `"ended"`. All subsequent action
- * proposals will be denied with `"BOUNDARY.SESSION.ENDED.01"`. The session
- * cannot be revived — a new session must be started.
- *
- * Session-scoped UPL entries (user path laws with `scope: "SESSION"`) are
- * pruned from the User Path Ledger on session end.
- *
- * @param args.config - Current runtime config.
- * @param args.endedBy - Actor identifier recorded in the ledger.
- * @param args.reason - Optional reason string recorded in the ledger.
- * @returns Updated config with `session.status === "ended"`.
- */
 export async function endPersistentBoundarySession(args: {
   config: BoundaryRuntimeConfig;
   endedBy: string;
@@ -497,7 +444,8 @@ export async function endPersistentBoundarySession(args: {
     });
     nextConfig.userLawIds = await buildActiveAgentBuccetLawIds({
       executableLaws: nextConfig.laws,
-      existingLawIds: getActiveUserLawIds(nextConfig.upl!, nextConfig.session),
+      existingLawIds: getActiveUserLawIds(nextConfig.upl, nextConfig.session),
+      runtimeMuscle: nextConfig.runtimeMuscle,
     });
   }
 

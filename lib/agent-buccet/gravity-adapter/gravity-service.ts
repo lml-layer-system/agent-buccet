@@ -10,12 +10,12 @@ import {
 import { mapBoundaryRequestToGravityProposal } from "./boundary-to-gravity.ts";
 import { mapBoundaryLedgerToGravityView } from "./ledger-to-gravity.ts";
 import {
-  applyOpenAsLawGrant,
-  buildGravityNslMoves,
-  buildOpenAsLawNslStep,
-  ledgerGrantOffer,
-  ledgerUserConfirmedDeny,
-} from "./nsl-open-as-law.ts";
+  applyOpenAsLawBodyguardGrant,
+  buildGravityBodyguardMoves,
+  buildOpenAsLawBodyguardStep,
+  ledgerBodyguardConfirmedDeny,
+  ledgerBodyguardGrantOffer,
+} from "./bodyguard-open-as-law.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
@@ -145,18 +145,18 @@ export function createBoundaryGravityService(skills: readonly LawSkill[] = getDe
       const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
 
       if (outcome.outcome === "nsl_grant_offer") {
-        await ledgerGrantOffer({ config, request, offer: outcome.grantOffer });
-        const step = buildOpenAsLawNslStep({ offer: outcome.grantOffer, request });
+        await ledgerBodyguardGrantOffer({ config, request, offer: outcome.grantOffer });
+        const step = buildOpenAsLawBodyguardStep({ offer: outcome.grantOffer, request });
         return {
           outcome: "nsl_grant_offer",
           result,
           reason: step.message,
           lawIds,
-          nslMoves: buildGravityNslMoves(step),
+          nslMoves: buildGravityBodyguardMoves(step),
           request,
           config,
           applyGrant: async (approval) => {
-            const nextConfig = await applyOpenAsLawGrant({
+            const nextConfig = await applyOpenAsLawBodyguardGrant({
               config,
               request,
               offer: outcome.grantOffer,
@@ -168,7 +168,7 @@ export function createBoundaryGravityService(skills: readonly LawSkill[] = getDe
             };
           },
           denyGrant: async () => {
-            await ledgerUserConfirmedDeny({ config, request, offer: outcome.grantOffer });
+            await ledgerBodyguardConfirmedDeny({ config, request, offer: outcome.grantOffer });
           },
         };
       }

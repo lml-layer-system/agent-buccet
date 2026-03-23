@@ -4,6 +4,7 @@ import {
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
   daemonRequestId,
+  enableBodyguardControl,
   evaluateBoundaryIntercept,
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
@@ -156,9 +157,7 @@ async function main() {
       }
 
       const result = await evaluateBoundaryIntercept({
-        config: {
-          ...store.getConfig(),
-        },
+        config: enableBodyguardControl(store.getConfig()),
         request: parsed,
       });
 

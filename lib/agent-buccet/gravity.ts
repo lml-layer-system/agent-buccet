@@ -1,7 +1,9 @@
+import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
 } from "./bodyguard.ts";
+import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import type { BoundaryApprovalHandler } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 
@@ -163,26 +165,25 @@ export async function runBoundaryGravityLoop(deps: BoundaryGravityDeps): Promise
       }
 
       if (event.type === "audit_session") {
-        // Witness Ledger is history only — it never gates live authorization.
-        // Gravity always allows here; Bodyguard's UPL check is the live law surface.
+        const audit = await auditBoundarySessionLedger(store.getConfig().session.sessionId);
+        const decision: BoundaryGravityDecision = audit.status === "complete" ? "allow" : "null";
         await deps.emitHeartbeat?.({
           sessionId: store.getConfig().session.sessionId,
           lastEventType: event.type,
-          lastDecision: "allow",
+          lastDecision: decision,
           emittedAt: new Date().toISOString(),
         });
         event.resolve({
-          decision: "allow",
-          reason: "session active",
+          decision,
+          reason: audit.reason,
         });
         continue;
       }
 
       const result = await enforceBoundaryProposal({
-        config: {
-          ...store.getConfig(),
+        config: enableBodyguardControl(store.getConfig(), {
           approvalHandler: deps.approvalHandler,
-        },
+        }),
         proposal: event.proposal,
       });
 

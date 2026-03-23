@@ -1,3 +1,4 @@
+import path from "node:path";
 import type {
   DynamicLawGrant,
   GravityEvent,
@@ -11,18 +12,18 @@ import type { ScopePayload } from "./types.ts";
 
 /**
  * Law ID constants for public defensive laws.
- * These mirror the public TIME.* family described in the design notes.
+ * These mirror the public META.* family described in the design notes.
  */
-export const TIME_TRUST_01: LawId = "TIME.TRUST.01";
-export const TIME_AUTHORITY_01: LawId = "TIME.AUTHORITY.01";
-export const TIME_SCOPE_01: LawId = "TIME.SCOPE.01";
-export const TIME_LAW_01: LawId = "TIME.LAW.01";
-export const TIME_SESSION_01: LawId = "TIME.SESSION.01";
-export const TIME_LEDGER_01: LawId = "TIME.LEDGER.01";
+export const META_TRUST_01: LawId = "META.TRUST.01";
+export const META_AUTHORITY_01: LawId = "META.AUTHORITY.01";
+export const META_SCOPE_01: LawId = "META.SCOPE.01";
+export const META_LAW_01: LawId = "META.LAW.01";
+export const META_SESSION_01: LawId = "META.SESSION.01";
+export const META_LEDGER_01: LawId = "META.LEDGER.01";
 
 /**
  * Scope law: path/recipient/domain/tool must be in dynamic laws (opened as law).
- * Violations from this skill are grantable: Bodyguard surfaces a four-way NSL law choice.
+ * Violations from this skill are grantable: executor surfaces NSL "open as law? yes/no".
  */
 export const SCOPE_GRANT_CLOSED: LawId = "SCOPE.GRANT.CLOSED";
 const SCOPE_VIOLATION_CODES: Record<DynamicLawGrant["kind"], string> = {
@@ -49,13 +50,22 @@ function violation(lawId: LawId, code: string, message?: string): LawViolation {
   return { lawId, code, message };
 }
 
+function pathGrantMatches(grantScope: string, scopeId: string): boolean {
+  if (grantScope === scopeId) {
+    return true;
+  }
+  const normalizedGrant = path.resolve(grantScope);
+  const normalizedScope = path.resolve(scopeId);
+  return normalizedScope.startsWith(`${normalizedGrant}${path.sep}`);
+}
+
 /**
- * TIME.TRUST.01
+ * META.TRUST.01
  * Untrusted content cannot directly authorize high-risk actions.
  */
-export function createTimeTrustSkill(): LawSkill {
+export function createMetaTrustSkill(): LawSkill {
   return {
-    id: TIME_TRUST_01,
+    id: META_TRUST_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -64,7 +74,7 @@ export function createTimeTrustSkill(): LawSkill {
       if (provenance.source === "external_content" && provenance.authorityClaimed) {
         return [
           violation(
-            TIME_TRUST_01,
+            META_TRUST_01,
             "UNTRUSTED_AUTHORITY_CLAIM",
             "External content attempted to claim authority.",
           ),
@@ -74,7 +84,7 @@ export function createTimeTrustSkill(): LawSkill {
     },
     normalize(state: GravityState, violations: LawViolation[]): GravityState {
       if (violations.length === 0) return state;
-      // Normalization for TIME.TRUST.01 is conceptual only here.
+      // Normalization for META.TRUST.01 is conceptual only here.
       // In the private runtime, this would downgrade any external authority claims to null.
       return state;
     },
@@ -82,12 +92,12 @@ export function createTimeTrustSkill(): LawSkill {
 }
 
 /**
- * TIME.AUTHORITY.01
+ * META.AUTHORITY.01
  * Prompt/model text cannot self-approve or self-authorize.
  */
-export function createTimeAuthoritySkill(): LawSkill {
+export function createMetaAuthoritySkill(): LawSkill {
   return {
-    id: TIME_AUTHORITY_01,
+    id: META_AUTHORITY_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -96,7 +106,7 @@ export function createTimeAuthoritySkill(): LawSkill {
       if (provenance.source === "agent_inference" && provenance.authorityClaimed) {
         return [
           violation(
-            TIME_AUTHORITY_01,
+            META_AUTHORITY_01,
             "MODEL_SELF_AUTHORIZATION",
             "Agent/model inference attempted to self-authorize.",
           ),
@@ -112,12 +122,12 @@ export function createTimeAuthoritySkill(): LawSkill {
 }
 
 /**
- * TIME.SCOPE.01
+ * META.SCOPE.01
  * Prompt text cannot widen session scope (paths, recipients, domains, tools).
  */
-export function createTimeScopeSkill(): LawSkill {
+export function createMetaScopeSkill(): LawSkill {
   return {
-    id: TIME_SCOPE_01,
+    id: META_SCOPE_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -126,7 +136,7 @@ export function createTimeScopeSkill(): LawSkill {
       if (provenance.requestsScopeExpansion) {
         return [
           violation(
-            TIME_SCOPE_01,
+            META_SCOPE_01,
             "ILLEGAL_SCOPE_EXPANSION_REQUEST",
             "Proposal attempted to expand scope via text.",
           ),
@@ -142,12 +152,12 @@ export function createTimeScopeSkill(): LawSkill {
 }
 
 /**
- * TIME.LAW.01
+ * META.LAW.01
  * Prompt text cannot mutate law.
  */
-export function createTimeLawSkill(): LawSkill {
+export function createMetaLawSkill(): LawSkill {
   return {
-    id: TIME_LAW_01,
+    id: META_LAW_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -156,7 +166,7 @@ export function createTimeLawSkill(): LawSkill {
       if (provenance.requestsLawMutation) {
         return [
           violation(
-            TIME_LAW_01,
+            META_LAW_01,
             "PROMPT_LAW_MUTATION_REQUEST",
             "Prompt attempted to mutate law via text.",
           ),
@@ -172,12 +182,12 @@ export function createTimeLawSkill(): LawSkill {
 }
 
 /**
- * TIME.SESSION.01
+ * META.SESSION.01
  * Prompt text cannot revive ended sessions.
  */
-export function createTimeSessionSkill(): LawSkill {
+export function createMetaSessionSkill(): LawSkill {
   return {
-    id: TIME_SESSION_01,
+    id: META_SESSION_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
@@ -186,7 +196,7 @@ export function createTimeSessionSkill(): LawSkill {
       if (provenance.requestsSessionRevival) {
         return [
           violation(
-            TIME_SESSION_01,
+            META_SESSION_01,
             "PROMPT_SESSION_REVIVAL_REQUEST",
             "Prompt attempted to revive an ended session.",
           ),
@@ -202,12 +212,12 @@ export function createTimeSessionSkill(): LawSkill {
 }
 
 /**
- * TIME.LEDGER.01
+ * META.LEDGER.01
  * Prompt text cannot bypass/suppress/rewrite the ledger; incomplete traces are non-authoritative.
  */
-export function createTimeLedgerSkill(): LawSkill {
+export function createMetaLedgerSkill(): LawSkill {
   return {
-    id: TIME_LEDGER_01,
+    id: META_LEDGER_01,
     validate(state: GravityState, event: GravityEvent): LawViolation[] {
       const violations: LawViolation[] = [];
       const proposal = asProposal(event);
@@ -215,29 +225,9 @@ export function createTimeLedgerSkill(): LawSkill {
       if (proposal?.provenance?.requestsLedgerBypass) {
         violations.push(
           violation(
-            TIME_LEDGER_01,
+            META_LEDGER_01,
             "LEDGER_BYPASS_REQUEST",
             "Proposal attempted to bypass or suppress ledger recording.",
-          ),
-        );
-      }
-
-      if (!state.context.ledger.sessionTraceComplete) {
-        violations.push(
-          violation(
-            TIME_LEDGER_01,
-            "SESSION_TRACE_INCOMPLETE",
-            "Session ledger trace is incomplete; actions must not be treated as authoritative.",
-          ),
-        );
-      }
-
-      if (!state.context.ledger.requestTraceComplete) {
-        violations.push(
-          violation(
-            TIME_LEDGER_01,
-            "REQUEST_TRACE_INCOMPLETE",
-            "Request ledger trace is incomplete; this request must not be treated as authoritative.",
           ),
         );
       }
@@ -257,7 +247,7 @@ export function createTimeLedgerSkill(): LawSkill {
 /**
  * SCOPE.GRANT.CLOSED
  * Proposal targets a path/recipient/domain/tool that is not in the session's granted scope.
- * Violations are grantable: Bodyguard must ledger blocked and surface the four-way NSL law choice.
+ * Violations are grantable: executor must ledger blocked + emit NSL "open this and make it law? yes/no".
  */
 export function createScopeGrantSkill(): LawSkill {
   return {
@@ -273,12 +263,14 @@ export function createScopeGrantSkill(): LawSkill {
       const now = Date.now();
       const hasGrant = state.dynamicLaws.grants.some((g: DynamicLawGrant) => {
         if (g.kind !== scopeKind) return false;
+        if (scopeKind === "path") {
+          if (!pathGrantMatches(g.scope, scopeId)) return false;
+        } else if (g.scope !== scopeId) {
+          return false;
+        }
         if (g.revokedAt != null) return false;
         if (g.expiresAt != null && g.expiresAt < now) return false;
-        if (g.kind === "path") {
-          return scopeId === g.scope || scopeId.startsWith(`${g.scope}/`);
-        }
-        return g.scope === scopeId;
+        return true;
       });
       if (hasGrant) return [];
 

@@ -18,6 +18,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import {
+  enableBodyguardControl,
   startPersistentBoundarySession,
   openBoundaryPath,
   evaluateBoundaryIntercept,
@@ -45,7 +46,7 @@ async function main() {
     grantedActions: ["fs.read", "fs.write"],
     issuedBy: actorId,
   });
-  config = scopedConfig;
+  config = enableBodyguardControl(scopedConfig);
 
   // ── 4. Evaluate a legitimate action ───────────────────────────────────────
   // A trusted user writing inside the workspace → allowed.
