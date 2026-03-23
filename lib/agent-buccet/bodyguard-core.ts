@@ -297,7 +297,7 @@ export async function applyBodyguardUserLawDecision(args: {
       actionKind: args.request.actionKind,
       target: args.request.target,
       decision: "allow",
-      reason: "standing UPL approval recorded",
+      reason: "user recorded standing UPL approval",
       lawIds: [upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1]?.id].filter(Boolean),
       metadata: {
         witness_record: args.witness.META.id,
@@ -320,7 +320,7 @@ export async function applyBodyguardUserLawDecision(args: {
       actionKind: args.request.actionKind,
       target: args.request.target,
       decision: "deny",
-      reason: "standing UPL denial recorded",
+      reason: "user recorded standing UPL denial",
       lawIds: [upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1]?.id].filter(Boolean),
       metadata: {
         witness_record: args.witness.META.id,

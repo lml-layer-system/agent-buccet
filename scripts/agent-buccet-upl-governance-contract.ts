@@ -103,11 +103,11 @@ async function main() {
     });
 
     const activeDenied = updatedLedger.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE");
-    const mutedDenied = updatedLedger.userDeniedLawPaths.filter((entry) => entry.status === "MUTED");
+    const replacedDenied = updatedLedger.userDeniedLawPaths.filter((entry) => entry.status === "MUTED");
     const activeApproved = updatedLedger.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE");
 
-    assert.equal(activeDenied.length, 0, "expected conflicting deny law to be muted");
-    assert.equal(mutedDenied.length, 1, "expected previous deny law to remain as muted history");
+    assert.equal(activeDenied.length, 0, "expected conflicting deny law to be replaced by the user's newer law");
+    assert.equal(replacedDenied.length, 1, "expected previous deny law to remain as replaced history");
     assert.equal(activeApproved.length, 1, "expected new allow law to be active");
 
     const allowed = await bodyguard.chat.emit({
@@ -121,7 +121,7 @@ async function main() {
     assert.equal(allowed.requiresApproval, false, "expected later standing allow to short-circuit approval");
 
     console.log("Agent Buccet UPL governance contract");
-    console.log(`muted denied laws: ${mutedDenied.length}`);
+    console.log(`replaced denied laws: ${replacedDenied.length}`);
     console.log(`active approved laws: ${activeApproved.length}`);
     console.log(`later standing allow admitted: ${allowed.allowed}`);
   } finally {

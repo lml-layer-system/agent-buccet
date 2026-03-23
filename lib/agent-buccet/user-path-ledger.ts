@@ -147,7 +147,7 @@ function entryMatchesScope(args: {
   return args.entry.pathHash === hashUserPath(args.request);
 }
 
-function supersedeConflictingEntries(args: {
+function applyUserLawReplacement(args: {
   ledger: BoundaryUserPathLedger;
   request: BoundaryActionRequest;
   session: BoundarySession;
@@ -155,7 +155,7 @@ function supersedeConflictingEntries(args: {
   modifiedAt: string;
 }): BoundaryUserPathLedger {
   const domain = classifyUserPathDomain(args.request);
-  const muteIfConflicting = (entry: BoundaryUplEntry): BoundaryUplEntry => {
+  const markReplacedByUserLaw = (entry: BoundaryUplEntry): BoundaryUplEntry => {
     if (entry.status !== "ACTIVE") {
       return entry;
     }
@@ -177,8 +177,8 @@ function supersedeConflictingEntries(args: {
 
   return {
     ...args.ledger,
-    userApprovedLawPaths: args.ledger.userApprovedLawPaths.map(muteIfConflicting),
-    userDeniedLawPaths: args.ledger.userDeniedLawPaths.map(muteIfConflicting),
+    userApprovedLawPaths: args.ledger.userApprovedLawPaths.map(markReplacedByUserLaw),
+    userDeniedLawPaths: args.ledger.userDeniedLawPaths.map(markReplacedByUserLaw),
   };
 }
 
@@ -262,7 +262,7 @@ export async function writeApprovedUserPathLaw(args: {
   decision?: BoundaryApprovalDecision;
 }): Promise<BoundaryUserPathLedger> {
   const scope = normalizeScope({ decision: args.decision });
-  const nextLedger = supersedeConflictingEntries({
+  const nextLedger = applyUserLawReplacement({
     ledger: args.ledger,
     request: args.request,
     session: args.session,
@@ -295,7 +295,7 @@ export async function writeDeniedUserPathLaw(args: {
   decision?: BoundaryApprovalDecision;
 }): Promise<BoundaryUserPathLedger> {
   const scope = normalizeScope({ decision: args.decision });
-  const nextLedger = supersedeConflictingEntries({
+  const nextLedger = applyUserLawReplacement({
     ledger: args.ledger,
     request: args.request,
     session: args.session,
