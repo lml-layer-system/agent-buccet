@@ -53,6 +53,10 @@ jobs:
         run: npm run test:agent-buccet:release-witness
         env:
           AGENT_BUCCET_WITNESS_FILE: /tmp/buccet-ci-witness.checkpoints.jsonl
+      - name: Chat boundary contract
+        run: npm run test:agent-buccet:chat-boundary
+      - name: UPL governance contract
+        run: npm run test:agent-buccet:upl-governance
 
   contracts-ledger:
     name: Ledger contracts
@@ -91,6 +95,8 @@ jobs:
         run: npm run test:agent-buccet:swarm
       - name: Gravity supervisor contract
         run: npm run test:agent-buccet:gravity-supervisor
+      - name: CLI contract
+        run: npm run test:agent-buccet:cli
       - name: Attack demo
         run: npm run demo:agent-buccet:attacks
 

@@ -58,7 +58,7 @@ export function normalizeTimeReferenceLawId(lawId: number): string {
 
 function resolveFoundationCandidates(relativePath: string): string[] {
   return [
-    path.join(moduleDir, "../../../", relativePath),
+    path.join(moduleDir, "../../", relativePath),
     path.join(moduleDir, "../", relativePath),
     path.join(process.cwd(), relativePath),
   ];
@@ -148,11 +148,22 @@ export async function buildActiveAgentBuccetLawIds(args: {
   const executableLawIds = args.executableLaws.map((law) => law.lawId);
   const timeReferenceLawIds = AGENT_BUCCET_TIME_LAW_REFERENCES.map((law) => normalizeTimeReferenceLawId(law.lawId));
 
+  // Only carry forward existingLawIds that are valid in the current execution context.
+  // This prevents stale law IDs from a different law configuration (e.g. DEFAULT_BOUNDARY_LAWS
+  // session restored with wrapperLaws) from activating muscle rules they no longer belong to.
+  const knownLawIdSet = new Set([
+    ...AGENT_BUCCET_BASE_LAW_IDS,
+    ...runtimeMuscle.activeLawIds,
+    ...timeReferenceLawIds,
+    ...executableLawIds,
+  ]);
+  const validExistingLawIds = (args.existingLawIds ?? []).filter((id) => knownLawIdSet.has(id));
+
   return [...new Set([
     ...AGENT_BUCCET_BASE_LAW_IDS,
     ...runtimeMuscle.activeLawIds,
     ...timeReferenceLawIds,
-    ...(args.existingLawIds ?? []),
+    ...validExistingLawIds,
     ...executableLawIds,
   ])];
 }
