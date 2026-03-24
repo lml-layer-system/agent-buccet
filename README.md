@@ -67,7 +67,7 @@ That catalog covers:
 - Agent Buccet session and grant lifecycle laws
 - Buccet ledger laws
 
-To see exactly what Agent Buccet is enforcing, use `\LAW_REFERENCE.md.`
+To see exactly what Agent Buccet is enforcing, see [`LAW_REFERENCE.md`](docs/agent-boundary/LAW_REFERENCE.md).
 
 ## Hosted Install
 

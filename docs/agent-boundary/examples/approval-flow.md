@@ -60,13 +60,13 @@ Every approval decision has four options:
 
 ```ts
 // Allow once — one-time admission, not persisted to UPL
-bodyguard.approvals.approve(pending[0].approvalId);
+bodyguard.approvals.allowOnce(pending[0].approvalId);
 
 // Allow as law — persisted to standing UPL, same class allowed automatically from now on
-bodyguard.approvals.approve(pending[0].approvalId, { scope: "GLOBAL" });
+bodyguard.approvals.allowAsLaw(pending[0].approvalId, { scope: "GLOBAL" });
 
 // Deny once — one-time denial, not persisted to UPL
-bodyguard.approvals.deny(pending[0].approvalId);
+bodyguard.approvals.denyOnce(pending[0].approvalId);
 
 // Deny as law — persisted to standing UPL, same class denied automatically from now on
 bodyguard.approvals.denyAsLaw(pending[0].approvalId, { scope: "GLOBAL" });
