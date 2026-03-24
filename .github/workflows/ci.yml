@@ -59,6 +59,8 @@ jobs:
         run: npm run test:agent-buccet:upl-governance
       - name: Egress classification contract
         run: npm run test:agent-buccet:egress-contract
+      - name: Resource governor contract
+        run: npm run test:agent-buccet:governor-contract
 
   contracts-ledger:
     name: Ledger contracts
@@ -99,6 +101,8 @@ jobs:
         run: npm run test:agent-buccet:gravity-supervisor
       - name: CLI contract
         run: npm run test:agent-buccet:cli
+      - name: Payload physics contract
+        run: npm run test:agent-buccet:payload-physics-contract
       - name: Attack demo
         run: npm run demo:agent-buccet:attacks
 

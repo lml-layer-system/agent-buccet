@@ -167,6 +167,30 @@ Use:
 
 These expose the same boundary bodyguard for recipient sends, domain sends, tool execution, database actions, and system/config/credential actions.
 
+### Resource governor
+
+Configure via `BoundaryRuntimeConfig`:
+
+```ts
+const config: BoundaryRuntimeConfig = {
+  // ...
+  governorConfig: {
+    velocity: { maxRpm: 30, windowMs: 60_000 },       // max 30 crossings per 60s window
+    density:  { maxFailureRatio: 0.5, windowSize: 20 }, // deny/total ≤ 50% over last 20 decisions
+    mass:     { maxCrossings: 200 },                   // weighted horizon ceiling
+    weight:   { "tool.exec": 10, "fs.delete": 8 },    // override default weights (optional)
+  },
+  // governorState is managed automatically — do not set manually
+};
+```
+
+The governor pre-check fires before law evaluation. When any dimension trips, the action is denied with `GOVERNOR_TRIP` ledger event and a `deny_and_explain` NSL move. State flows back automatically via `BoundaryExecutionResult.config` — callers using `createBoundaryBodyguard` need no changes.
+
+Default weight table (full): `tool.exec=10`, `fs.delete=8`, `sys.credential.use/read=8`, `sys.config.write/sys.env.write=6`, `network.send/comm.send=5`, `db.delete=8`, `db.update=4`, `db.insert=3`, `db.query=2`, `fs.write/append/move=2`, `fs.mkdir/fs.read/chat.emit/sys.env.read/sys.config.read=1`.
+
+For proof:
+- `npm run test:agent-buccet:governor-contract`
+
 ### Process wrapper layer
 
 Use:
@@ -180,9 +204,12 @@ It adds:
 - scoped working directory enforcement
 - filtered child environment
 - process launch/spawn/exit ledgering
+- wall-clock timeout enforcement (`BoundaryProcessPhysics.wallClockTimeoutMs` → `SIGKILL` + `PROCESS_WALL_CLOCK_KILL` ledger event)
+- POSIX rlimit scaffold (`cpuTimeLimitSec`, `maxProcesses`, `maxMemoryBytes`, `maxOpenFiles`, `maxFileSizeBytes` via `sh -c ulimit ...; exec {cmd}` — Linux/macOS only)
 
 For proof:
 - `npm run test:agent-buccet:wrapper-contract`
+- `npm run test:agent-buccet:payload-physics-contract`
 
 ### Gravity supervisor / daemon
 

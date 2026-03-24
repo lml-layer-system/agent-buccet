@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
+  BoundaryProcessPhysics,
   BoundaryProcessPolicy,
   BoundaryRuntimeConfig,
 } from "./types.ts";
@@ -225,14 +226,50 @@ export async function runBoundaryProcess(args: {
     });
   }
 
+  // Build wall-clock + rlimit physics constraints
+  const physics = args.config.processPolicy?.physics;
+  const spawnCommand = buildPhysicsSpawnCommand(args.command, args.commandArgs, physics);
+
   return new Promise((resolve, reject) => {
-    const child = spawn(args.command, args.commandArgs, {
+    const child = spawn(spawnCommand.command, spawnCommand.args, {
       stdio: "inherit",
       env: prepared.env,
       cwd: prepared.cwd,
     });
 
+    // Wall-clock timeout: SIGKILL after configured ms — O(1) Node.js native
+    let wallClockHandle: ReturnType<typeof setTimeout> | undefined;
+    if (physics?.wallClockTimeoutMs) {
+      wallClockHandle = setTimeout(() => {
+        child.kill("SIGKILL");
+        appendBoundaryLedger("PROCESS_WALL_CLOCK_KILL", {
+          sessionId: args.config.session.sessionId,
+          actorId: args.config.session.actorId,
+          actionKind: "tool.exec",
+          target: prepared.commandTarget,
+          decision: "deny",
+          reason: `wall-clock timeout exceeded: ${physics.wallClockTimeoutMs}ms`,
+          metadata: {
+            pid: child.pid ?? -1,
+            timeout_ms: physics.wallClockTimeoutMs ?? 0,
+          },
+          createdAt: new Date().toISOString(),
+        }).catch(() => undefined);
+      }, physics.wallClockTimeoutMs);
+    }
+
     child.on("spawn", () => {
+      if (physics && hasRlimits(physics)) {
+        appendBoundaryLedger("PROCESS_LAUNCH_REQUESTED", {
+          sessionId: args.config.session.sessionId,
+          actorId: args.config.session.actorId,
+          actionKind: "tool.exec",
+          target: prepared.commandTarget,
+          reason: "payload physics constraints applied via ulimit",
+          metadata: buildRlimitMetadata(physics),
+          createdAt: new Date().toISOString(),
+        }).catch(() => undefined);
+      }
       appendBoundaryLedger("PROCESS_SPAWNED", {
         sessionId: args.config.session.sessionId,
         actorId: args.config.session.actorId,
@@ -269,6 +306,9 @@ export async function runBoundaryProcess(args: {
     });
 
     child.on("exit", async (code, signal) => {
+      if (wallClockHandle !== undefined) {
+        clearTimeout(wallClockHandle);
+      }
       await appendBoundaryLedger("PROCESS_EXITED", {
         sessionId: args.config.session.sessionId,
         actorId: args.config.session.actorId,
@@ -299,4 +339,71 @@ export async function runBoundaryProcess(args: {
       });
     });
   });
+}
+
+// ─── Payload Physics Helpers ──────────────────────────────────────────────────
+// Tier 2: governs what approved processes can physically become.
+// Wall-clock timeout is applied via Node.js setTimeout (all platforms).
+// POSIX rlimits (cpu, nproc, memory, files, fsize) are applied via a `sh -c ulimit`
+// shell wrapper on Linux/macOS. These limits are set before exec so the kernel
+// enforces them directly — the process cannot raise its own limits.
+
+function hasRlimits(physics: BoundaryProcessPhysics): boolean {
+  return (
+    physics.cpuTimeLimitSec !== undefined ||
+    physics.maxProcesses !== undefined ||
+    physics.maxMemoryBytes !== undefined ||
+    physics.maxOpenFiles !== undefined ||
+    physics.maxFileSizeBytes !== undefined
+  );
+}
+
+function buildPhysicsSpawnCommand(
+  command: string,
+  commandArgs: string[],
+  physics: BoundaryProcessPhysics | undefined,
+): { command: string; args: string[] } {
+  if (!physics || !hasRlimits(physics) || process.platform === "win32") {
+    return { command, args: commandArgs };
+  }
+
+  // Build ulimit preamble for POSIX rlimit injection.
+  // Each ulimit call sets the hard and soft limit before exec-ing the target.
+  // The process inherits these limits and cannot exceed them without CAP_SYS_RESOURCE.
+  const ulimitParts: string[] = [];
+
+  if (physics.cpuTimeLimitSec !== undefined) {
+    ulimitParts.push(`ulimit -t ${physics.cpuTimeLimitSec}`);
+  }
+  if (physics.maxProcesses !== undefined) {
+    ulimitParts.push(`ulimit -u ${physics.maxProcesses}`);
+  }
+  if (physics.maxMemoryBytes !== undefined) {
+    // ulimit -v takes kilobytes (virtual address space = RLIMIT_AS)
+    const kb = Math.ceil(physics.maxMemoryBytes / 1024);
+    ulimitParts.push(`ulimit -v ${kb}`);
+  }
+  if (physics.maxOpenFiles !== undefined) {
+    ulimitParts.push(`ulimit -n ${physics.maxOpenFiles}`);
+  }
+  if (physics.maxFileSizeBytes !== undefined) {
+    // ulimit -f takes 512-byte blocks (RLIMIT_FSIZE)
+    const blocks = Math.ceil(physics.maxFileSizeBytes / 512);
+    ulimitParts.push(`ulimit -f ${blocks}`);
+  }
+
+  const escapedArgs = [command, ...commandArgs].map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+  const shellCmd = [...ulimitParts, `exec ${escapedArgs}`].join("; ");
+
+  return { command: "sh", args: ["-c", shellCmd] };
+}
+
+function buildRlimitMetadata(physics: BoundaryProcessPhysics): Record<string, string | number | boolean> {
+  const meta: Record<string, string | number | boolean> = {};
+  if (physics.cpuTimeLimitSec !== undefined) meta["rlimit_cpu_sec"] = physics.cpuTimeLimitSec;
+  if (physics.maxProcesses !== undefined) meta["rlimit_nproc"] = physics.maxProcesses;
+  if (physics.maxMemoryBytes !== undefined) meta["rlimit_as_bytes"] = physics.maxMemoryBytes;
+  if (physics.maxOpenFiles !== undefined) meta["rlimit_nofile"] = physics.maxOpenFiles;
+  if (physics.maxFileSizeBytes !== undefined) meta["rlimit_fsize_bytes"] = physics.maxFileSizeBytes;
+  return meta;
 }

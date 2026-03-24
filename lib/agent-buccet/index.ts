@@ -19,6 +19,7 @@ export * from "./filesystem.ts";
 export * from "./actions.ts";
 export * from "./remote.ts";
 export * from "./bodyguard.ts";
+export * from "./governor.ts";
 export * from "./user-path-ledger.ts";
 export * from "./gravity.ts";
 export * from "./gravity-core/index.ts";

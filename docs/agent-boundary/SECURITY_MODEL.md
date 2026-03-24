@@ -49,6 +49,7 @@ The main Agent Buccet runtime owns:
 2. hook freezes it — the action does not execute
 3. hook signals the Buccet brain that a frozen proposal is waiting
 4. Buccet brain evaluates while the action stays frozen:
+   - **resource governor** (Tier 1 pre-check — velocity / density / mass; trips before law evaluation)
    - laws (base runtime laws)
    - scope and grants
    - gravity
@@ -153,6 +154,27 @@ Release flows publish witness checkpoints by default and require explicit break-
 - ledger bypass is denied
 - hook does not become a second brain
 - release artifacts carry a witness decision trail by default
+
+## Resource Governor
+
+The resource governor fires before law evaluation. It is not a law; it is a pre-law rate and volume control layer.
+
+Two tiers:
+
+**Tier 1 — Boundary Laws (stateful, pure functions)**
+
+- `BOUNDARY.GOVERNOR.VELOCITY.01` — request rate ceiling (RPM). Trips when crossing count in the velocity window exceeds `maxRpm`.
+- `BOUNDARY.GOVERNOR.DENSITY.01` — sliding window failure ratio. Trips when denied/total in the decision window exceeds `maxFailureRatio`.
+- `BOUNDARY.GOVERNOR.MASS.01` — weighted action horizon. Trips when cumulative weighted crossings exceed `maxCrossings`. Action class weights are asymmetric: `tool.exec=10`, `fs.delete=8`, `sys.credential.*=8`, down to `fs.read/chat.emit=1`.
+
+All three are stateless from the function's perspective — state is carried in `BoundaryRuntimeConfig.governorState` and flows back through `BoundaryExecutionResult.config` after every crossing.
+
+**Tier 2 — Payload Physics (process containment)**
+
+- Wall-clock timeout: `setTimeout` → `SIGKILL` on breach. Fully live. Platform-independent.
+- POSIX rlimits: `ulimit -t` (CPU), `ulimit -u` (nproc), `ulimit -v` (AS), `ulimit -n` (open files), `ulimit -f` (file size). Scaffolded via `sh -c ulimit ...; exec {cmd}`. Linux/macOS only; skipped on Windows.
+
+Governor trips are ledgered as `GOVERNOR_TRIP`. Wall-clock kills are ledgered as `PROCESS_WALL_CLOCK_KILL`. Both fail closed — no fallback, no retry, no best-effort continuation.
 
 ## What Agent Buccet Does Not Yet Guarantee
 

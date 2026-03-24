@@ -51,6 +51,24 @@ Current behavior:
 
 This is correct for the public release.
 
+## Resource Governor
+
+**Tier 1 — Boundary Governor: LIVE**
+
+Three stateful pre-law dimensions are enforced before the law body evaluates any request:
+- `BOUNDARY.GOVERNOR.VELOCITY.01` — RPM ceiling (sliding window)
+- `BOUNDARY.GOVERNOR.DENSITY.01` — failure ratio ceiling (sliding decision window)
+- `BOUNDARY.GOVERNOR.MASS.01` — weighted action horizon (asymmetric weights by action class)
+
+State is carried in `BoundaryRuntimeConfig.governorState`. All three are pure functions in `governor.ts`. Governor trips are ledgered as `GOVERNOR_TRIP` and fail closed — no fallback, no retry.
+
+Configure via `BoundaryRuntimeConfig.governorConfig`. All fields optional; governor is inert when `governorConfig` is absent.
+
+**Tier 2 — Payload Physics:**
+
+- **Wall-clock timeout: LIVE** — `wallClockTimeoutMs` in `BoundaryProcessPhysics` triggers `SIGKILL` on breach. Platform-independent. Ledgered as `PROCESS_WALL_CLOCK_KILL`.
+- **POSIX rlimits: SCAFFOLDED** — `cpuTimeLimitSec`, `maxProcesses`, `maxMemoryBytes`, `maxOpenFiles`, `maxFileSizeBytes` translate to `ulimit` flags wrapped via `sh -c ulimit ...; exec {cmd}`. Linux/macOS only (skipped on Windows). No kernel-enforced guarantee without OS-level enforcement; this is the user-space scaffold.
+
 ## Public Claim Discipline
 
 Safe claims:

@@ -33,6 +33,15 @@ export type BoundaryResourceKind =
   | "database"
   | "system";
 
+export type BoundaryProcessPhysics = {
+  wallClockTimeoutMs?: number;
+  cpuTimeLimitSec?: number;
+  maxProcesses?: number;
+  maxMemoryBytes?: number;
+  maxOpenFiles?: number;
+  maxFileSizeBytes?: number;
+};
+
 export type BoundaryProcessPolicy = {
   allowedCommands?: string[];
   blockedCommands?: string[];
@@ -41,6 +50,28 @@ export type BoundaryProcessPolicy = {
   blockedEnvVars?: string[];
   inheritParentEnv?: boolean;
   enforceScopedCwd?: boolean;
+  physics?: BoundaryProcessPhysics;
+};
+
+export type BoundaryGovernorConfig = {
+  velocity?: {
+    maxRpm: number;
+    windowMs?: number;
+  };
+  density?: {
+    maxFailureRatio: number;
+    windowSize?: number;
+  };
+  mass?: {
+    maxCrossings: number;
+  };
+  weight?: Partial<Record<BoundaryActionKind, number>>;
+};
+
+export type BoundaryGovernorState = {
+  crossingTimestamps: number[];
+  totalWeightedCrossings: number;
+  recentDecisions: boolean[];
 };
 
 export type BoundaryRequestProvenance =
@@ -210,7 +241,9 @@ export type BoundaryLedgerEventType =
   | "PROCESS_BLOCKED"
   | "PROCESS_ENV_FILTERED"
   | "NSL_MOVE_SUGGESTED"
-  | "NSL_MOVE_CHOSEN";
+  | "NSL_MOVE_CHOSEN"
+  | "GOVERNOR_TRIP"
+  | "PROCESS_WALL_CLOCK_KILL";
 
 export type BoundaryLedgerPayload = {
   sessionId: string;
@@ -396,6 +429,8 @@ export type BoundaryRuntimeConfig = {
   approvalHandler?: BoundaryApprovalHandler;
   gravityService?: BoundaryGravityService;
   processPolicy?: BoundaryProcessPolicy;
+  governorConfig?: BoundaryGovernorConfig;
+  governorState?: BoundaryGovernorState;
 };
 
 export type BoundaryPersistenceConfig = {
