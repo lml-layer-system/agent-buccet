@@ -36,6 +36,7 @@
   ],
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build:native:physwrap": "sh native/physwrap/build.sh",
     "build:types": "tsc -p tsconfig.build.json",
     "lint": "biome check lib/agent-buccet scripts",
     "lint:fix": "biome check --write lib/agent-buccet scripts",
@@ -58,6 +59,7 @@
     "test:agent-buccet:governor-contract": "node scripts/agent-buccet-governor-contract.ts",
     "test:agent-buccet:payload-physics-contract": "node scripts/agent-buccet-payload-physics-contract.ts",
     "test:agent-buccet:admission-contract": "node scripts/agent-buccet-admission-contract.ts",
+    "test:agent-buccet:physwrap-contract": "node scripts/agent-buccet-physwrap-contract.ts",
     "test:agent-buccet:foundation": "node scripts/agent-buccet-foundation-contract.ts",
     "test:agent-buccet:time-runtime": "node scripts/agent-buccet-time-runtime-contract.ts",
     "test:agent-buccet:meta-runtime": "node scripts/agent-buccet-meta-runtime-contract.ts",

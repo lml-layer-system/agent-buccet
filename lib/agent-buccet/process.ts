@@ -1,5 +1,7 @@
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryProcessPhysics,
@@ -230,6 +232,31 @@ export async function runBoundaryProcess(args: {
   const physics = args.config.processPolicy?.physics;
   const spawnCommand = buildPhysicsSpawnCommand(args.command, args.commandArgs, physics);
 
+  // Log which enforcement path is active so the ledger reflects the real physics strength.
+  if (physics && hasRlimits(physics)) {
+    if (spawnCommand.mode === "physwrap") {
+      await appendBoundaryLedger("PROCESS_PHYSWRAP_ACTIVE", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        actionKind: "tool.exec",
+        target: prepared.commandTarget,
+        reason: "native physwrap enforcer: setrlimit() + CAP_SYS_RESOURCE bounding-set drop",
+        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN },
+        createdAt: new Date().toISOString(),
+      });
+    } else {
+      await appendBoundaryLedger("PROCESS_PHYSWRAP_FALLBACK", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        actionKind: "tool.exec",
+        target: prepared.commandTarget,
+        reason: "shell-ulimit fallback: physwrap binary not found — limits applied but CAP_SYS_RESOURCE not dropped",
+        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN },
+        createdAt: new Date().toISOString(),
+      });
+    }
+  }
+
   return new Promise((resolve, reject) => {
     const child = spawn(spawnCommand.command, spawnCommand.args, {
       stdio: "inherit",
@@ -259,17 +286,6 @@ export async function runBoundaryProcess(args: {
     }
 
     child.on("spawn", () => {
-      if (physics && hasRlimits(physics)) {
-        appendBoundaryLedger("PROCESS_LAUNCH_REQUESTED", {
-          sessionId: args.config.session.sessionId,
-          actorId: args.config.session.actorId,
-          actionKind: "tool.exec",
-          target: prepared.commandTarget,
-          reason: "payload physics constraints applied via ulimit",
-          metadata: buildRlimitMetadata(physics),
-          createdAt: new Date().toISOString(),
-        }).catch(() => undefined);
-      }
       appendBoundaryLedger("PROCESS_SPAWNED", {
         sessionId: args.config.session.sessionId,
         actorId: args.config.session.actorId,
@@ -344,9 +360,32 @@ export async function runBoundaryProcess(args: {
 // ─── Payload Physics Helpers ──────────────────────────────────────────────────
 // Tier 2: governs what approved processes can physically become.
 // Wall-clock timeout is applied via Node.js setTimeout (all platforms).
-// POSIX rlimits (cpu, nproc, memory, files, fsize) are applied via a `sh -c ulimit`
-// shell wrapper on Linux/macOS. These limits are set before exec so the kernel
-// enforces them directly — the process cannot raise its own limits.
+//
+// rlimit enforcement strategy (in order of preference):
+//
+//  1. buccet-physwrap (native binary, Linux/macOS)
+//     - Calls setrlimit() directly — no shell dependency
+//     - Drops CAP_SYS_RESOURCE from the capability bounding set (Linux) before
+//       exec, so the spawned process cannot raise its own limits back up even if
+//       it runs as root or inherits elevated capabilities
+//     - Hard limit == soft limit: the hard ceiling is set, not just the soft one
+//     - Binary path: native/physwrap/build/buccet-physwrap (relative to this module)
+//
+//  2. sh -c ulimit fallback
+//     - Used when physwrap binary is not built/available, or on Windows
+//     - Sets both hard and soft limits via shell ulimit built-in
+//     - Does NOT drop capabilities — a root process with CAP_SYS_RESOURCE
+//       could raise limits back up
+//     - Logged with PROCESS_PHYSWRAP_FALLBACK event so it is auditable
+
+// Resolved once at module load. __dirname equivalent for ESM.
+const _moduleDir = path.dirname(fileURLToPath(import.meta.url));
+const PHYSWRAP_BIN = path.resolve(_moduleDir, "../../native/physwrap/build/buccet-physwrap");
+
+/** True if the physwrap binary is available at the expected path. */
+export function isPhyswrapAvailable(): boolean {
+  return process.platform !== "win32" && existsSync(PHYSWRAP_BIN);
+}
 
 function hasRlimits(physics: BoundaryProcessPhysics): boolean {
   return (
@@ -358,44 +397,78 @@ function hasRlimits(physics: BoundaryProcessPhysics): boolean {
   );
 }
 
+export type PhysicsSpawnMode = "physwrap" | "shell_ulimit" | "passthrough";
+
+export type PhysicsSpawnResult = {
+  command: string;
+  args: string[];
+  mode: PhysicsSpawnMode;
+};
+
 function buildPhysicsSpawnCommand(
   command: string,
   commandArgs: string[],
   physics: BoundaryProcessPhysics | undefined,
-): { command: string; args: string[] } {
+): PhysicsSpawnResult {
   if (!physics || !hasRlimits(physics) || process.platform === "win32") {
-    return { command, args: commandArgs };
+    return { command, args: commandArgs, mode: "passthrough" };
   }
 
-  // Build ulimit preamble for POSIX rlimit injection.
-  // Each ulimit call sets the hard and soft limit before exec-ing the target.
-  // The process inherits these limits and cannot exceed them without CAP_SYS_RESOURCE.
+  // ── Path 1: buccet-physwrap (preferred) ──────────────────────────────────
+  if (isPhyswrapAvailable()) {
+    const physwrapArgs: string[] = [];
+
+    if (physics.cpuTimeLimitSec !== undefined) {
+      physwrapArgs.push("--cpu", String(physics.cpuTimeLimitSec));
+    }
+    if (physics.maxProcesses !== undefined) {
+      physwrapArgs.push("--nproc", String(physics.maxProcesses));
+    }
+    if (physics.maxMemoryBytes !== undefined) {
+      const kb = Math.ceil(physics.maxMemoryBytes / 1024);
+      physwrapArgs.push("--as-kb", String(kb));
+    }
+    if (physics.maxOpenFiles !== undefined) {
+      physwrapArgs.push("--nofile", String(physics.maxOpenFiles));
+    }
+    if (physics.maxFileSizeBytes !== undefined) {
+      physwrapArgs.push("--fsize-b", String(physics.maxFileSizeBytes));
+    }
+
+    return {
+      command: PHYSWRAP_BIN,
+      args: [...physwrapArgs, "--", command, ...commandArgs],
+      mode: "physwrap",
+    };
+  }
+
+  // ── Path 2: sh -c ulimit fallback ────────────────────────────────────────
+  // Sets both hard and soft limits. Does NOT drop CAP_SYS_RESOURCE.
+  // Logged as PROCESS_PHYSWRAP_FALLBACK for auditability.
   const ulimitParts: string[] = [];
 
   if (physics.cpuTimeLimitSec !== undefined) {
-    ulimitParts.push(`ulimit -t ${physics.cpuTimeLimitSec}`);
+    ulimitParts.push(`ulimit -St ${physics.cpuTimeLimitSec}; ulimit -Ht ${physics.cpuTimeLimitSec}`);
   }
   if (physics.maxProcesses !== undefined) {
-    ulimitParts.push(`ulimit -u ${physics.maxProcesses}`);
+    ulimitParts.push(`ulimit -Su ${physics.maxProcesses}; ulimit -Hu ${physics.maxProcesses}`);
   }
   if (physics.maxMemoryBytes !== undefined) {
-    // ulimit -v takes kilobytes (virtual address space = RLIMIT_AS)
     const kb = Math.ceil(physics.maxMemoryBytes / 1024);
-    ulimitParts.push(`ulimit -v ${kb}`);
+    ulimitParts.push(`ulimit -Sv ${kb}; ulimit -Hv ${kb}`);
   }
   if (physics.maxOpenFiles !== undefined) {
-    ulimitParts.push(`ulimit -n ${physics.maxOpenFiles}`);
+    ulimitParts.push(`ulimit -Sn ${physics.maxOpenFiles}; ulimit -Hn ${physics.maxOpenFiles}`);
   }
   if (physics.maxFileSizeBytes !== undefined) {
-    // ulimit -f takes 512-byte blocks (RLIMIT_FSIZE)
     const blocks = Math.ceil(physics.maxFileSizeBytes / 512);
-    ulimitParts.push(`ulimit -f ${blocks}`);
+    ulimitParts.push(`ulimit -Sf ${blocks}; ulimit -Hf ${blocks}`);
   }
 
   const escapedArgs = [command, ...commandArgs].map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
   const shellCmd = [...ulimitParts, `exec ${escapedArgs}`].join("; ");
 
-  return { command: "sh", args: ["-c", shellCmd] };
+  return { command: "sh", args: ["-c", shellCmd], mode: "shell_ulimit" };
 }
 
 function buildRlimitMetadata(physics: BoundaryProcessPhysics): Record<string, string | number | boolean> {

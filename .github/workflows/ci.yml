@@ -95,6 +95,8 @@ jobs:
       - run: npm ci
       - name: Compile native intercept layer
         run: sh native/deep-intercept/build.sh native/deep-intercept/build
+      - name: Compile native physwrap enforcer
+        run: npm run build:native:physwrap
       - name: Action classes contract
         run: npm run test:agent-buccet:action-classes
       - name: Swarm contract
@@ -105,6 +107,8 @@ jobs:
         run: npm run test:agent-buccet:cli
       - name: Payload physics contract
         run: npm run test:agent-buccet:payload-physics-contract
+      - name: Native physwrap contract
+        run: npm run test:agent-buccet:physwrap-contract
       - name: Attack demo
         run: npm run demo:agent-buccet:attacks
 
