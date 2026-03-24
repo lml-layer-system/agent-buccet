@@ -1,7 +1,16 @@
 import { randomUUID } from "node:crypto";
 import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./bodyguard.ts";
+import {
+  evaluateAdmission,
+  initialAdmissionState,
+  markStandingDenyLedgered,
+} from "./admission.ts";
+import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryActionKind,
+  BoundaryAdmissionState,
+  BoundaryInputWeightClass,
+  BoundaryProvenanceStrength,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
   NslMove,
@@ -28,6 +37,13 @@ export type BoundaryInterceptRequest = {
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
+  };
+  /** Admission boundary metadata — used for inbound DDoS / prompt-spam defense. */
+  admission?: {
+    /** Provenance key: strongest available (pubkey > session > IP). */
+    provenance: string;
+    provenanceStrength: BoundaryProvenanceStrength;
+    weightClass: BoundaryInputWeightClass;
   };
 };
 
@@ -134,7 +150,104 @@ export function mapInterceptToBoundaryAction(request: BoundaryInterceptRequest):
 export async function evaluateBoundaryIntercept(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryInterceptRequest;
-}): Promise<BoundaryInterceptResult> {
+}): Promise<BoundaryInterceptResult & { admissionState?: BoundaryAdmissionState }> {
+  // ── Admission Boundary: fires BEFORE adjudication, tokenization, or any
+  //    application-layer processing. Hostile inbound traffic is tarpitted here.
+  if (args.config.admissionConfig && args.request.admission) {
+    const { admission } = args.request;
+    const admState = args.config.admissionState ?? initialAdmissionState();
+
+    const { result: admResult, state: nextAdmState } = evaluateAdmission({
+      config: args.config.admissionConfig,
+      state: admState,
+      request: {
+        requestId: randomUUID(),
+        provenance: admission.provenance,
+        provenanceStrength: admission.provenanceStrength,
+        weightClass: admission.weightClass,
+        receivedAtMs: Date.now(),
+      },
+      nowMs: Date.now(),
+    });
+
+    if (admResult.decision === "tarpit") {
+      // Exactly-once ledger write for standing-deny promotion.
+      // Check ledgered flag before writing — prevents duplicate I/O under flood.
+      let finalAdmState = nextAdmState;
+      if (admResult.promoted && !nextAdmState.standingDenyProvenances[admission.provenance]?.ledgered) {
+        await appendBoundaryLedger("INGRESS_STANDING_LAW_WRITTEN", {
+          sessionId: args.config.session.sessionId,
+          actorId: args.config.session.actorId,
+          decision: "deny",
+          reason: admResult.reason,
+          lawIds: admResult.lawId ? [admResult.lawId] : [],
+          metadata: {
+            provenance: admission.provenance,
+            provenance_strength: admission.provenanceStrength,
+            dimension: admResult.dimension ?? "standing_deny",
+          },
+          createdAt: new Date().toISOString(),
+        });
+        finalAdmState = markStandingDenyLedgered(nextAdmState, admission.provenance);
+      }
+
+      // Log tarpit (not every drop — only the first block per provenance per call)
+      await appendBoundaryLedger("INGRESS_PROVENANCE_BLOCKED", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        decision: "deny",
+        reason: admResult.reason,
+        lawIds: admResult.lawId ? [admResult.lawId] : [],
+        metadata: {
+          provenance: admission.provenance,
+          dimension: admResult.dimension ?? "standing_deny",
+        },
+        createdAt: new Date().toISOString(),
+      });
+
+      return {
+        // Tarpit — not a fast "deny". At socket layer this means: hold the connection,
+        // drop the payload, return nothing. The caller (intercept daemon/server) is
+        // responsible for applying actual socket-level tarpit behavior.
+        decision: "deny",
+        reason: admResult.reason,
+        lawIds: admResult.lawId ? [admResult.lawId] : ["BOUNDARY.ADMISSION.STANDING_DENY.01"],
+        nslMoves: [],
+        requestId: randomUUID(),
+        actionKind: mapInterceptToBoundaryAction(args.request),
+        admissionState: finalAdmState,
+      };
+    }
+
+    // Admitted by admission boundary — continue to law/gravity adjudication
+    // Pass updated admission state back to caller via result
+    const actionKind = mapInterceptToBoundaryAction(args.request);
+    const boundaryRequest = createBoundaryActionRequest({
+      config: args.config,
+      actionKind,
+      target: args.request.target,
+      payloadSummary: args.request.payloadSummary,
+      provenance: args.request.provenance,
+      flags: args.request.flags,
+    });
+
+    const adjudication = await adjudicateBoundaryRequest({
+      config: args.config,
+      request: boundaryRequest,
+    });
+
+    return {
+      decision: adjudication.result.decision,
+      reason: adjudication.result.reason,
+      lawIds: adjudication.result.triggeredLawIds,
+      nslMoves: adjudication.nslMoves,
+      requestId: adjudication.request.requestId,
+      actionKind: adjudication.request.actionKind,
+      admissionState: nextAdmState,
+    };
+  }
+
+  // No admission config — standard intercept path (no change to existing behavior)
   const actionKind = mapInterceptToBoundaryAction(args.request);
   const boundaryRequest = createBoundaryActionRequest({
     config: args.config,

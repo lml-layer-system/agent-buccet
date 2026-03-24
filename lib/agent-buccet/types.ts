@@ -74,6 +74,47 @@ export type BoundaryGovernorState = {
   recentDecisions: boolean[];
 };
 
+// ─── Input Admission Boundary ─────────────────────────────────────────────────
+// Same doctrine applied inward: deny hostile inbound force before it becomes
+// internal motion (tokenization, prompt assembly, inference, API spend).
+
+/** Weight class of an inbound input — not all inputs cost the same. */
+export type BoundaryInputWeightClass =
+  | "standard"          // weight 1 — normal request
+  | "large_prompt"      // weight 4 — body > configured token threshold
+  | "attachment"        // weight 6 — binary/media attachment
+  | "retrieval_request" // weight 5 — triggers RAG / external retrieval
+  | "fanout_request";   // weight 8 — triggers broadcast to multiple targets
+
+/** Strength of provenance evidence — stronger binds tighter and evicts slower. */
+export type BoundaryProvenanceStrength = "strong" | "medium" | "weak";
+
+export type BoundaryAdmissionConfig = {
+  velocity?: { maxRpm: number; windowMs?: number };
+  density?: { maxDenyRatio: number; windowSize?: number };
+  mass?: { maxInboundWeight: number; windowMs?: number };
+  weight?: Partial<Record<BoundaryInputWeightClass, number>>;
+  /** Max number of tracked provenances (LRU). Default 10_000. */
+  provenanceMaxSize?: number;
+  /** TTL for provenance records that never tripped (ms). Default 300_000 (5 min). */
+  provenanceTtlMs?: number;
+};
+
+export type BoundaryProvenanceRecord = {
+  requestTimestamps: number[];
+  recentDecisions: boolean[];   // true = admitted, false = denied
+  totalInboundWeight: number;
+  windowWeightTimestamps: Array<{ ts: number; weight: number }>;
+  lastSeenMs: number;
+};
+
+export type BoundaryAdmissionState = {
+  /** O(1) standing-deny cache: provenances denied for the session lifetime. */
+  standingDenyProvenances: Record<string, { deniedAt: number; reason: string; ledgered: boolean }>;
+  /** Bounded density tracking — evicted by TTL/LRU. */
+  provenanceRecords: Record<string, BoundaryProvenanceRecord>;
+};
+
 export type BoundaryRequestProvenance =
   | "trusted_user"
   | "trusted_system"
@@ -243,7 +284,13 @@ export type BoundaryLedgerEventType =
   | "NSL_MOVE_SUGGESTED"
   | "NSL_MOVE_CHOSEN"
   | "GOVERNOR_TRIP"
-  | "PROCESS_WALL_CLOCK_KILL";
+  | "PROCESS_WALL_CLOCK_KILL"
+  | "INGRESS_DENIED"
+  | "INGRESS_VELOCITY_TRIP"
+  | "INGRESS_DENSITY_TRIP"
+  | "INGRESS_MASS_TRIP"
+  | "INGRESS_PROVENANCE_BLOCKED"
+  | "INGRESS_STANDING_LAW_WRITTEN";
 
 export type BoundaryLedgerPayload = {
   sessionId: string;
@@ -431,6 +478,8 @@ export type BoundaryRuntimeConfig = {
   processPolicy?: BoundaryProcessPolicy;
   governorConfig?: BoundaryGovernorConfig;
   governorState?: BoundaryGovernorState;
+  admissionConfig?: BoundaryAdmissionConfig;
+  admissionState?: BoundaryAdmissionState;
 };
 
 export type BoundaryPersistenceConfig = {

@@ -61,6 +61,8 @@ jobs:
         run: npm run test:agent-buccet:egress-contract
       - name: Resource governor contract
         run: npm run test:agent-buccet:governor-contract
+      - name: Input admission boundary contract
+        run: npm run test:agent-buccet:admission-contract
 
   contracts-ledger:
     name: Ledger contracts

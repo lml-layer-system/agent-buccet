@@ -35,3 +35,4 @@ export * from "./swarm.ts";
 export * from "./process.ts";
 export * from "./wrapper.ts";
 export * from "./integrations/index.ts";
+export * from "./admission.ts";
