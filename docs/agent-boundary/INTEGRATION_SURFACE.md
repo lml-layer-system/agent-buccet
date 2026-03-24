@@ -20,7 +20,7 @@ After a `DENY`, the user can also choose to make that denial a law so the same c
 
 With bodyguard-integrated gravity enabled, unlawful motion can also collapse to:
 - `null`
-- followed by NSL open-as-law recovery outside the active execution path
+- followed by Bodyguard recovery moves outside the active execution path (e.g. `open_as_law`, `grant_network`, `dry_run_preview`)
 
 ## Core Position
 
@@ -142,7 +142,7 @@ Use:
 - `formatBoundaryLedgerRecords(...)`
 
 These make the containment proof inspectable by higher-level systems.
-If a request or session trace is incomplete, higher-level systems should treat it as non-authoritative and ask for explicit user intervention through NSL/approval.
+If a request or session trace is incomplete, higher-level systems should treat it as non-authoritative and ask for explicit user intervention through the approval handler or Bodyguard recovery moves.
 
 ### Filesystem wrappers
 
@@ -264,6 +264,35 @@ Use:
 - `buildRemoteBoundaryProposal(...)`
 
 These mark remote or async control text as untrusted proposal input and attach defensive meta flags before execution is even attempted.
+
+### Outbound payload classification
+
+Use:
+- `inferBoundaryEgressFlagsFromPayload(payload: string)`
+
+This scans an outbound payload string and returns flags for `network.send` and `comm.send` proposals:
+- `payloadContainsPii` — email, phone, SSN patterns
+- `payloadContainsCredential` — API keys, private keys, password/token fields, AWS access key IDs
+- `payloadContainsFinancialData` — card number patterns with Luhn validation
+
+Set the returned flags on the proposal. `BOUNDARY.EGRESS.PII.01`, `BOUNDARY.EGRESS.CREDENTIAL.01`, and `BOUNDARY.EGRESS.FINANCIAL.01` laws will deny the send automatically.
+
+For proof:
+- `npm run test:agent-buccet:egress-contract`
+
+## UPL as zero-search skill discovery
+
+The User Path Ledger (UPL) is the agent's approved action space, indexed by SHA256 path hash over `(actionKind + target + flags + payloadSummary)`.
+
+Other agent frameworks use recursive skill search: the agent is asked to do something, the framework searches skills.md or tool indexes for a matching capability, the LLM evaluates the match, and the result may recurse. This is compute-heavy, latency-heavy, and structurally redundant.
+
+In this architecture, **UPL is skills**:
+- First time the agent proposes an action → goes through Bodyguard admission → user approves or denies
+- Approval/denial is written to the UPL as standing law with a SHA256 path hash key
+- Every subsequent identical action → O(1) UPL lookup → instant allow or deny, no re-prompt, no LLM evaluation
+- The agent's approved action space is pre-indexed and self-building through normal use
+
+There is no separate skill registry. There is no recursive search. The agent's skill set emerges from its operating history under law enforcement. The UPL is both the decision cache and the standing law surface.
 
 ## Why This Matters
 

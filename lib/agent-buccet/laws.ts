@@ -217,4 +217,52 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
       requiresApproval: true,
     }),
   },
+  {
+    lawId: "BOUNDARY.EGRESS.PII.01",
+    description: "Outbound payloads containing PII are denied by default.",
+    appliesTo: ["network.send", "comm.send"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.payloadContainsPii) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "payload contains personally identifiable information (PII)",
+        triggeredLawIds: ["BOUNDARY.EGRESS.PII.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "BOUNDARY.EGRESS.CREDENTIAL.01",
+    description: "Outbound payloads containing credentials are denied by default.",
+    appliesTo: ["network.send", "comm.send"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.payloadContainsCredential) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "payload contains credentials or secrets",
+        triggeredLawIds: ["BOUNDARY.EGRESS.CREDENTIAL.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "BOUNDARY.EGRESS.FINANCIAL.01",
+    description: "Outbound payloads containing financial data are denied by default.",
+    appliesTo: ["network.send", "comm.send"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.payloadContainsFinancialData) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "payload contains financial data (card number or similar)",
+        triggeredLawIds: ["BOUNDARY.EGRESS.FINANCIAL.01"],
+        requiresApproval: false,
+      };
+    },
+  },
 ];

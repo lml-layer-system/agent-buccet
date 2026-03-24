@@ -105,6 +105,9 @@ export type BoundaryActionRequest = {
     groundingMismatch?: boolean;
     claimsActionCompletionWithoutWitness?: boolean;
     claimsUserApproval?: boolean;
+    payloadContainsPii?: boolean;
+    payloadContainsCredential?: boolean;
+    payloadContainsFinancialData?: boolean;
   };
   reviewContext?: BoundaryReviewContext;
 };

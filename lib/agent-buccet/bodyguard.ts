@@ -341,6 +341,15 @@ function describeFlagViolations(request: BoundaryActionRequest): string[] {
   if (flags.claimsActionCompletionWithoutWitness) {
     violations.push("attempt claims completion without witness evidence");
   }
+  if (flags.payloadContainsPii) {
+    violations.push("payload contains personally identifiable information (PII)");
+  }
+  if (flags.payloadContainsCredential) {
+    violations.push("payload contains credentials or secrets");
+  }
+  if (flags.payloadContainsFinancialData) {
+    violations.push("payload contains financial data (card number or similar)");
+  }
   return violations;
 }
 
@@ -554,6 +563,51 @@ export function inferBoundaryChatFlagsFromOutput(text: string): BoundaryActionRe
     claimsCompleteCoverage: COMPLETE_COVERAGE_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     claimsUserApproval: USER_APPROVAL_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     claimsActionCompletionWithoutWitness: ACTION_COMPLETION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+  };
+}
+
+const EGRESS_PII_PATTERNS = [
+  /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/,
+  /\b(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/,
+  /\b\d{3}-\d{2}-\d{4}\b/,
+];
+
+const EGRESS_CREDENTIAL_PATTERNS = [
+  /\b(sk-|pk-|api[_-]?key[_-]?)[a-zA-Z0-9]{16,}/i,
+  /-----BEGIN (RSA |EC |)PRIVATE KEY-----/,
+  /\b(password|passwd|secret|token)\s*[:=]\s*\S{6,}/i,
+  /\bAKIA[0-9A-Z]{16}\b/,
+];
+
+const EGRESS_FINANCIAL_PATTERNS = [
+  /\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b/,
+];
+
+function luhnCheck(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+  let sum = 0;
+  let isEven = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = parseInt(digits[i]!, 10);
+    if (isEven) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    isEven = !isEven;
+  }
+  return sum % 10 === 0 && digits.length >= 13;
+}
+
+export function inferBoundaryEgressFlagsFromPayload(payload: string): BoundaryActionRequest["flags"] {
+  const hasPii = EGRESS_PII_PATTERNS.some((p) => p.test(payload)) || undefined;
+  const hasCredential = EGRESS_CREDENTIAL_PATTERNS.some((p) => p.test(payload)) || undefined;
+  const financialMatch = EGRESS_FINANCIAL_PATTERNS.reduce<RegExpExecArray | null>(
+    (found, p) => found ?? p.exec(payload),
+    null,
+  );
+  const hasFinancial = (financialMatch ? luhnCheck(financialMatch[0]) : false) || undefined;
+  return {
+    payloadContainsPii: hasPii,
+    payloadContainsCredential: hasCredential,
+    payloadContainsFinancialData: hasFinancial,
   };
 }
 

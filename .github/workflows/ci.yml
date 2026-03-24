@@ -57,6 +57,8 @@ jobs:
         run: npm run test:agent-buccet:chat-boundary
       - name: UPL governance contract
         run: npm run test:agent-buccet:upl-governance
+      - name: Egress classification contract
+        run: npm run test:agent-buccet:egress-contract
 
   contracts-ledger:
     name: Ledger contracts
