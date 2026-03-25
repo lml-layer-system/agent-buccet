@@ -126,6 +126,7 @@ dState = {
     "session:attacker": {
       requestTimestamps: [1, 2, 3, 4, 5],
       recentDecisions: [false, false, false, true, true], // 3 denied, 2 admitted = 60%
+      totalDeniedCount: 3,
       totalInboundWeight: 5,
       windowWeightTimestamps: [],
       lastSeenMs: 5,

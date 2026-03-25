@@ -65,6 +65,8 @@ jobs:
         run: npm run test:agent-buccet:governor-contract
       - name: Input admission boundary contract
         run: npm run test:agent-buccet:admission-contract
+      - name: Admission hard block ceiling contract
+        run: npm run test:agent-buccet:admission-hardcap-contract
 
   contracts-ledger:
     name: Ledger contracts

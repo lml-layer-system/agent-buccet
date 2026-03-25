@@ -185,6 +185,7 @@ export async function evaluateBoundaryIntercept(args: {
             provenance: admission.provenance,
             provenance_strength: admission.provenanceStrength,
             dimension: admResult.dimension ?? "standing_deny",
+            promotion_kind: admResult.promotionKind ?? "density",
           },
           createdAt: new Date().toISOString(),
         });

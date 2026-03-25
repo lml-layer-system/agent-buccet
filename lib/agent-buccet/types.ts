@@ -167,11 +167,22 @@ export type BoundaryProvenanceRecord = {
   totalInboundWeight: number;
   windowWeightTimestamps: Array<{ ts: number; weight: number }>;
   lastSeenMs: number;
+  /** Cumulative count of tarpit decisions for this provenance.
+   *  Feeds the hard block ceiling: weak provenances are forced to standing deny
+   *  after WEAK_PROVENANCE_HARD_BLOCK_CEILING tarpit decisions, regardless of density config. */
+  totalDeniedCount: number;
 };
 
 export type BoundaryAdmissionState = {
   /** O(1) standing-deny cache: provenances denied for the session lifetime. */
-  standingDenyProvenances: Record<string, { deniedAt: number; reason: string; ledgered: boolean }>;
+  standingDenyProvenances: Record<string, {
+    deniedAt: number;
+    reason: string;
+    ledgered: boolean;
+    /** How standing-deny was triggered. "hard_ceiling" means the hard block ceiling
+     *  fired — density config was too loose to catch it first. */
+    promotionKind: "density" | "hard_ceiling";
+  }>;
   /** Bounded density tracking — evicted by TTL/LRU. */
   provenanceRecords: Record<string, BoundaryProvenanceRecord>;
 };

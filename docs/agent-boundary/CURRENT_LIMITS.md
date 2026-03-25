@@ -208,7 +208,30 @@ Inbound → O(1) standing-deny cache → bounded provenance tracking → admissi
 | Velocity | Inbound RPM per provenance | `BOUNDARY.ADMISSION.VELOCITY.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
 | Density | Deny ratio → standing deny promotion | `BOUNDARY.ADMISSION.DENSITY.01` | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` (once) |
 | Mass | Inbound weight horizon | `BOUNDARY.ADMISSION.MASS.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
+| Hard Block Ceiling | Weak provenance tarpit counter | `BOUNDARY.ADMISSION.HARD_CEILING.01` | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` (once, `promotion_kind=hard_ceiling`) |
 | Standing Deny | O(1) cache hit | `BOUNDARY.ADMISSION.STANDING_DENY.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
+
+### Hard Block Ceiling
+
+A structural safety floor that cannot be disabled or loosened by operator config.
+
+**Invariant:** A weak-strength provenance (IP/network) accumulating `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions is unconditionally forced to standing deny — regardless of `density.windowSize`, `density.maxDenyRatio`, or the absence of any density config.
+
+**Two seams — two enforcement mechanisms:**
+
+| Seam | What it is | How it is closed |
+|---|---|---|
+| **Architectural seam** | `ACTION_BLOCKED` is a material bypass event, written for every blocked action | Closed architecturally — `ACTION_BLOCKED` is only written via the bodyguard path (LLM-mediated, inference-speed limited). It is never written by the intercept path (the botnet-facing path). Admission events are the intercept path's write surface, and they are queueable (LIOPE-bounded). |
+| **Config seam** | Density config could theoretically be set loose enough that weak provenance accumulates many blocks before density fires | Locked by hard ceiling — density config may make promotion sooner (tighter = faster), but it can NEVER delay promotion past `WEAK_PROVENANCE_HARD_BLOCK_CEILING` for weak provenance. This is enforced in `evaluateAdmission` in `admission.ts`, not in config. |
+
+**`promotionKind` field in ledger:**
+- `INGRESS_STANDING_LAW_WRITTEN` records now carry `promotion_kind: "density"` or `promotion_kind: "hard_ceiling"` in metadata — distinguishing which seam triggered the promotion.
+
+**`validateAdmissionConfig()` warns on unsafe configs:**
+- `density.windowSize > DENSITY_SAFE_MAX_WINDOW_SIZE` (= 20): density signal threshold exceeds the hard ceiling — density is effectively inert for weak provenances (ceiling fires first).
+- `density.maxDenyRatio > 1.0`: after weak-provenance scaling, threshold is vacuously permissive.
+
+These warnings do not disable the ceiling. They surface config drift at startup so operators know their density settings are outside the safe envelope.
 
 ### Ledger vs. Cache
 
@@ -295,7 +318,7 @@ A distributed botnet hits the **intercept path**. The intercept path calls `adju
 | `APPROVAL_*`, `NSL_*`, `USER_CONFIRMED_DENY`, `PROPOSAL_REPLAYED` | No — human/operator gated | Near-zero | Yes |
 | `LEDGER_STORM_SUMMARY` | No — emitted by LIOPE itself | One per flush window (100ms) | Yes — storm audit record |
 
-**Residual dependency:** `ACTION_BLOCKED` is bounded by admission density config tightness. With density window=5, deny_ratio=0.6 (the default), a hostile IP is promoted to standing deny after ~3 blocks. With 10M unique IPs that each get 3 ACTION_BLOCKEDs before standing deny, that is 30M writes — but these arrive over the time it takes 10M IPs to trip density (tens of minutes at realistic attack rates). Not a spike. If tighter bounds are needed, reduce the density window or increase the deny ratio threshold in `admissionConfig`.
+**Residual dependency (config seam — locked by hard ceiling):** `ACTION_BLOCKED` is bounded by admission density config tightness AND the hard block ceiling. With density window=5, deny_ratio=0.6 (the default), a hostile IP is promoted to standing deny after ~3 blocks. At worst — with no density config at all — the hard ceiling fires at `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions, unconditionally. With 10M unique IPs that each get at most 10 ACTION_BLOCKEDs, that is 100M writes — but these arrive over the time it takes 10M IPs to hit the ceiling (tens of minutes at realistic attack rates). Not a spike. The hard ceiling is a code-level floor, not a config parameter — it cannot be loosened. Density config only makes promotion happen sooner.
 
 **Verdict:** The bypass set cannot be used as the new seam for botnet-scale disk exhaustion. The intercept path is the botnet-facing surface, and it writes only queueable admission events (shed under storm) plus exactly-once-per-IP standing-deny records. Action events (the material set) are gated behind LLM inference, not IP rate.
 
@@ -355,7 +378,9 @@ Every major architectural claim maps to:
 | Physwrap strong path | `process.ts` + `native/physwrap/physwrap.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 | Physwrap fallback | `process.ts` | `PROCESS_PHYSWRAP_FALLBACK` | `agent-buccet-physwrap-contract.ts` |
 | Velocity law (inbound) | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` | `agent-buccet-admission-contract.ts` |
-| Density → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` | `agent-buccet-admission-contract.ts` |
+| Density → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` promotion_kind=density | `agent-buccet-admission-contract.ts` |
+| Hard block ceiling → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` promotion_kind=hard_ceiling | `agent-buccet-admission-hardcap-contract.ts` |
+| Hard ceiling config seam locked | `admission.ts:WEAK_PROVENANCE_HARD_BLOCK_CEILING` | — | `agent-buccet-admission-hardcap-contract.ts` |
 | O(1) cache hit | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` dim=standing_deny | `agent-buccet-admission-contract.ts` |
 | Mass law (inbound) | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` | `agent-buccet-admission-contract.ts` |
 | LRU provenance eviction | `admission.ts` | — | `agent-buccet-admission-contract.ts` |
@@ -381,6 +406,7 @@ Every major architectural claim maps to:
 - Wall-clock kill — live
 - Native physwrap rlimits — live when `PROCESS_PHYSWRAP_ACTIVE` in ledger
 - Input Admission Boundary — live when `admissionConfig` is configured
+- Hard block ceiling for weak provenance — code-enforced safety floor, cannot be loosened by density config
 - Ledger I/O Physics Envelope (LIOPE) — storm-survival, bounded I/O, signed storm summaries — live
 
 ### Unsafe claims (do not make)
