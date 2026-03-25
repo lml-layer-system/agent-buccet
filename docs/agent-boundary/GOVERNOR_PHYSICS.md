@@ -213,23 +213,32 @@ On Linux with physwrap active:
 
 #### `PROCESS_PHYSWRAP_ACTIVE` Ledger Metadata
 
-Every physwrap invocation records per-class coverage in the ledger:
+Every physwrap invocation records per-class coverage and runtime-observed backend reinforcement. This event is emitted **post-exit** so it carries the exact physics that were active for the run, not just the physics that were configured.
 
 ```
-physwrap_platform              "linux" | "macos" | "windows" | "unknown"
-physwrap_envelope_active       comma-separated active Tier 2a limits, e.g. "cpu,nproc,as"
-physwrap_envelope_skipped      comma-separated skipped Tier 2a limits
-physwrap_io_boundary_active    comma-separated active Tier 2b limits
-                               Linux/macOS: "nofile,fsize" (rlimit refuse)
-                               Windows: "nofile,fsize" (IAT hook refuse) + "io_rate"/"io_iops" if configured
-physwrap_io_boundary_skipped   comma-separated skipped Tier 2b limits
-                               Linux/macOS: "io_rate,io_iops" if those fields are configured (no rlimit equiv)
-                               Windows: "io_rate"/"io_iops" if not configured; "nofile"/"fsize" no longer skipped
-physwrap_privilege_active      e.g. "uid_gid_drop" on macOS when --uid provided
-physwrap_privilege_skipped     e.g. "uid_gid_drop" on Linux (CAP drop is always on)
+physwrap_platform                    "linux" | "macos" | "windows" | "unknown"
+physwrap_envelope_active             comma-separated active Tier 2a limits, e.g. "cpu,nproc,as"
+physwrap_envelope_skipped            comma-separated skipped Tier 2a limits
+physwrap_io_boundary_active          comma-separated active Tier 2b limits
+                                     Linux/macOS: "nofile,fsize" (rlimit refuse)
+                                     Windows: "nofile,fsize" (IAT hook refuse) + "io_rate"/"io_iops" if configured
+physwrap_io_boundary_skipped         comma-separated skipped Tier 2b limits
+                                     Linux/macOS: "io_rate,io_iops" if configured (no rlimit equiv)
+                                     Windows: "io_rate"/"io_iops" if not configured
+physwrap_privilege_active            e.g. "uid_gid_drop" on macOS when --uid provided
+physwrap_privilege_skipped           e.g. "uid_gid_drop" on Linux (CAP drop is always on)
+physwrap_macos_jetsam_reinforcement  Darwin only — runtime-observed jetsam ceiling outcome:
+                                       "active"              memorystatus_control applied (full arm64 coverage)
+                                       "failed"              memorystatus_control returned error; RLIMIT_AS active
+                                       "unavailable"         symbol absent (weak_import NULL); RLIMIT_AS active
+                                       "not_configured"      --as-kb not passed; no memory limit applied
+                                       "status_file_missing" physwrap crashed before writing status
+                                       "n/a"                 non-Darwin platform
 ```
 
-`physwrap_io_boundary_active` containing `nofile` and `fsize` on Windows confirms the IAT hook DLL was wired and per-operation refusal is live. `physwrap_io_boundary_skipped` on Windows contains only `io_rate`/`io_iops` if those throttle fields were not configured.
+**Darwin memory enforcement — reading the ledger truth:** `physwrap_platform=macos` + `physwrap_macos_jetsam_reinforcement=active` means both `RLIMIT_AS` and the jetsam ceiling are live. Any other value tells the operator exactly which path degraded and why. The jetsam status is written by `physwrap_mac.c` to a temp file before `execvp()` and read by `process.ts` after child exit — it reflects what actually ran, not just what was configured.
+
+`physwrap_io_boundary_active` containing `nofile` and `fsize` on Windows confirms the IAT hook DLL was wired and per-operation refusal is live.
 
 #### Shell-Ulimit Fallback (Auditable Degradation)
 

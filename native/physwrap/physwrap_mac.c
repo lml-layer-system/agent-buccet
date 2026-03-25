@@ -51,6 +51,13 @@
  *
  * Ledger visibility: caller (process.ts) records PROCESS_PHYSWRAP_ACTIVE
  * with physwrap_platform=macos when this binary is used.
+ *
+ * Darwin jetsam status protocol:
+ *   process.ts passes BUCCET_PHYSWRAP_STATUS_FILE=/tmp/buccet-physwrap-*.status
+ *   in the environment. physwrap_mac writes the jetsam reinforcement outcome
+ *   to that file before execvp(). process.ts reads the file after the child
+ *   exits and includes the result in PROCESS_PHYSWRAP_ACTIVE as:
+ *     physwrap_macos_jetsam_reinforcement = active | failed | unavailable | not_configured
  */
 
 #include <errno.h>
@@ -81,6 +88,24 @@
 extern int memorystatus_control(uint32_t command, int32_t pid, uint32_t flags,
                                 void *buffer, size_t buffersize)
     __attribute__((weak_import));
+
+/* ── Darwin jetsam status protocol ───────────────────────────────────────── */
+/*
+ * Tracks the runtime outcome of the memorystatus_control call.
+ * Written to BUCCET_PHYSWRAP_STATUS_FILE (set by process.ts) before execvp()
+ * so process.ts can include the result in the PROCESS_PHYSWRAP_ACTIVE ledger
+ * event as physwrap_macos_jetsam_reinforcement.
+ */
+static const char *g_jetsam_status = "not_configured";
+
+static void write_physwrap_status_file(void) {
+    const char *path = getenv("BUCCET_PHYSWRAP_STATUS_FILE");
+    if (!path || !path[0]) return;
+    FILE *f = fopen(path, "w");
+    if (!f) return;
+    fprintf(f, "jetsam_reinforcement=%s\n", g_jetsam_status);
+    fclose(f);
+}
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -216,6 +241,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr,
                 "buccet-physwrap(darwin): warning: memorystatus_control not available "
                 "(symbol absent) — RLIMIT_AS applied, jetsam ceiling not set\n");
+            g_jetsam_status = "unavailable";
         } else {
             int mc_ret = memorystatus_control(
                 MEMORYSTATUS_CMD_SET_JETSAM_TASK_LIMIT, (int32_t)getpid(),
@@ -225,6 +251,9 @@ int main(int argc, char *argv[]) {
                     "buccet-physwrap(darwin): warning: memorystatus_control(%u MB) "
                     "failed (errno=%d) — RLIMIT_AS still applied\n",
                     limit_mb, errno);
+                g_jetsam_status = "failed";
+            } else {
+                g_jetsam_status = "active";
             }
         }
     }
@@ -263,6 +292,16 @@ int main(int argc, char *argv[]) {
             exit(5);
         }
     }
+
+    /*
+     * ── Darwin jetsam status write ─────────────────────────────────────────
+     * Write the jetsam reinforcement outcome to BUCCET_PHYSWRAP_STATUS_FILE
+     * (set by process.ts) before execvp() replaces this process. process.ts
+     * reads this file after the child exits and includes the result in the
+     * PROCESS_PHYSWRAP_ACTIVE ledger event as physwrap_macos_jetsam_reinforcement.
+     * The file survives execvp() because it is on disk, not in this process's memory.
+     */
+    write_physwrap_status_file();
 
     /*
      * ── exec ───────────────────────────────────────────────────────────────

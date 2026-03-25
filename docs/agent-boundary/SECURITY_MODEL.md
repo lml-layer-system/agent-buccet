@@ -179,7 +179,7 @@ All three are stateless from the function's perspective — state is carried in 
 
 The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by the Native Physics Translator (`buccet-physwrap`). Two enforcement classes with different native shapes:
 
-- **Tier 2a — Payload Envelope Physics** — launch-time ceiling on what a process can BECOME. Wall-clock timeout (`setTimeout` → `SIGKILL`), CPU time (`RLIMIT_CPU` / `PerJobUserTimeLimit`), process count, virtual memory. Kernel terminates the process when ceiling is exceeded. Live on all platforms (with noted macOS skips for nproc/as). Ledgered as `PROCESS_PHYSWRAP_ACTIVE` with `physwrap_envelope_active`/`physwrap_envelope_skipped`.
+- **Tier 2a — Payload Envelope Physics** — launch-time ceiling on what a process can BECOME. Wall-clock timeout (`setTimeout` → `SIGKILL`), CPU time (`RLIMIT_CPU` / `PerJobUserTimeLimit`), process count (`RLIMIT_NPROC` on Linux/macOS; per-user scope on macOS), virtual memory (`RLIMIT_AS` on Linux/macOS; `memorystatus_control` jetsam ceiling on macOS for arm64 RSS coverage). All surfaces live on all three platforms. Ledgered as `PROCESS_PHYSWRAP_ACTIVE` with `physwrap_envelope_active`/`physwrap_envelope_skipped` and `physwrap_macos_jetsam_reinforcement` (Darwin runtime-observed jetsam outcome).
 
 - **Tier 2b — Live I/O / Object Boundary** — ongoing enforcement on live object creation and I/O operations during execution. Live on all platforms. `maxOpenFiles` and `maxFileSizeBytes` use refuse semantics on all platforms: POSIX via `RLIMIT_NOFILE`/`RLIMIT_FSIZE` (EMFILE/SIGXFSZ), Windows via `buccet-ioboundary.dll` IAT hooks on `CreateFileA/W` and `WriteFile` (`ERROR_TOO_MANY_OPEN_FILES`/`ERROR_FILE_TOO_LARGE`). The DLL is injected by `physwrap_win.c` before the main thread resumes — fail closed if injection fails. `maxIoRateBytesPerSec`/`maxIoOpsPerSec` enforce via `SetIoRateControlInformationJobObject` throttle semantics on Windows 10 1607+; skipped on Linux/macOS (no rlimit equivalent).
 
@@ -196,7 +196,7 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - A **fail-closed law boundary** — deny is the default when the brain is unreachable; the hook never guesses
 - An **egress structural validity layer** — outbound actions are validated against boundary laws before execution
 - A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move
-- A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling; Tier 2b: live I/O boundary — file descriptor/file size limits on all platforms; I/O rate/IOPS throttle on Windows 10 1607+) — native rlimits, IAT-hook DLL injection, Job Objects, and capability drop govern what approved processes can physically become and do
+- A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling on all platforms; Tier 2b: live I/O boundary — file descriptor/file size limits on all platforms; I/O rate/IOPS throttle on Windows 10 1607+) — native rlimits, IAT-hook DLL injection, Job Objects, capability drop, and macOS jetsam ceiling govern what approved processes can physically become and do; runtime enforcement outcome ledgered per-run
 - An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation
 
 ### Agent Buccet Is Not
@@ -220,7 +220,7 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Release artifacts carry a witness decision trail by default
 - Tier 1 governor enforces before law evaluation — velocity, density, mass, weight all live
 - Wall-clock kill enforces on all platforms — platform-independent
-- Native physwrap enforces rlimits directly when `PROCESS_PHYSWRAP_ACTIVE` in ledger
+- Native physwrap enforces rlimits directly when `PROCESS_PHYSWRAP_ACTIVE` in ledger; on Darwin, `physwrap_macos_jetsam_reinforcement` tells the operator exactly which memory enforcement path was active at runtime
 - Input admission boundary protects the brain from hostile inbound force when `admissionConfig` is configured
 
 ---

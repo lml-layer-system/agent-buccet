@@ -169,7 +169,19 @@ Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat
 | **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — Tier 2a limits applied, privilege drop NOT executed, Tier 2b partially covered |
 | **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute (Linux) |
 
-`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage: `physwrap_envelope_active`, `physwrap_envelope_skipped`, `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`. On Linux/macOS, `physwrap_io_boundary_skipped` contains `io_rate`/`io_iops` (no rlimit equiv). On macOS, `physwrap_envelope_active` contains `nproc` and `as` (both live). On Windows, `nofile` and `fsize` are active via IAT hook DLL; `io_rate`/`io_iops` are active via Job Object when configured.
+`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage and runtime-observed backend reinforcement. Key fields:
+
+| Metadata field | Values | What it tells the operator |
+|---|---|---|
+| `physwrap_platform` | `linux` / `macos` / `windows` | Which native backend ran |
+| `physwrap_envelope_active` | e.g. `cpu,nproc,as` | Tier 2a limits applied at launch |
+| `physwrap_envelope_skipped` | e.g. `io_rate` | Configured limits not enforced on this platform |
+| `physwrap_io_boundary_active` | e.g. `nofile,fsize` | Tier 2b live-I/O limits active |
+| `physwrap_io_boundary_skipped` | e.g. `io_rate,io_iops` | Live-I/O limits skipped (no rlimit equiv on Linux/macOS) |
+| `physwrap_privilege_active` | e.g. `uid_gid_drop` | Privilege drop path taken |
+| `physwrap_macos_jetsam_reinforcement` | `active` / `failed` / `unavailable` / `not_configured` / `n/a` | **Darwin only — runtime-observed jetsam ceiling outcome.** `active`: memorystatus_control applied; `failed`: call returned error, RLIMIT_AS still active; `unavailable`: symbol absent (weak_import), RLIMIT_AS still active; `not_configured`: `--as-kb` not passed; `n/a`: non-Darwin platform |
+
+**Reading the Darwin memory truth from a single run:** look for `physwrap_platform=macos`, then read `physwrap_macos_jetsam_reinforcement`. `active` means both RLIMIT_AS and jetsam ceiling are live (full arm64 coverage). Anything else tells you which path degraded and why.
 
 **CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
 

@@ -220,6 +220,24 @@ assert(macSrc.includes("memorystatus_control"),
 assert(macSrc.includes("MEMORYSTATUS_CMD_SET_JETSAM_TASK_LIMIT"),
   "physwrap_mac.c uses MEMORYSTATUS_CMD_SET_JETSAM_TASK_LIMIT (= 6)");
 
+// ─── 15e. Darwin jetsam runtime visibility — status file protocol ─────────────
+// physwrap_mac.c writes jetsam outcome to BUCCET_PHYSWRAP_STATUS_FILE before execvp().
+// process.ts reads the file post-exit and includes physwrap_macos_jetsam_reinforcement
+// in PROCESS_PHYSWRAP_ACTIVE. This closes the source-only truth gap.
+assert(macSrc.includes("BUCCET_PHYSWRAP_STATUS_FILE"),
+  "physwrap_mac.c reads BUCCET_PHYSWRAP_STATUS_FILE and writes backend runtime status");
+assert(macSrc.includes("jetsam_reinforcement="),
+  "physwrap_mac.c writes jetsam_reinforcement= to the status file");
+assert(macSrc.includes("g_jetsam_status"),
+  "physwrap_mac.c tracks jetsam outcome in g_jetsam_status before writing status file");
+assert(
+  macSrc.includes('"active"') && macSrc.includes('"failed"') && macSrc.includes('"unavailable"'),
+  "physwrap_mac.c distinguishes active / failed / unavailable jetsam outcomes");
+assert(macSrc.includes("write_physwrap_status_file"),
+  "physwrap_mac.c calls write_physwrap_status_file() before execvp()");
+
+// process.ts side of the protocol — verified in 15c below (processSrc initialized there)
+
 // ─── 15a. physwrap_win.c: Windows Tier 2b I/O rate control implementation ───
 assert(winSrc.includes("SetIoRateControlInformationJobObject"),
   "physwrap_win.c contains SetIoRateControlInformationJobObject (Tier 2b I/O rate throttle)");
@@ -285,6 +303,22 @@ assert(
   !processSrc.match(/[^-]as.*platform.*macos.*skipped/),
   "process.ts coverage function no longer marks as (memory) as skipped on macOS");
 
+// ─── 15c-ii. process.ts: Darwin jetsam runtime visibility ────────────────────
+assert(processSrc.includes("BUCCET_PHYSWRAP_STATUS_FILE"),
+  "process.ts passes BUCCET_PHYSWRAP_STATUS_FILE to physwrap env (Darwin status protocol)");
+assert(processSrc.includes("physwrap_macos_jetsam_reinforcement"),
+  "process.ts includes physwrap_macos_jetsam_reinforcement in PROCESS_PHYSWRAP_ACTIVE metadata");
+assert(processSrc.includes("darwinStatusPath"),
+  "process.ts uses darwinStatusPath for Darwin jetsam status file lifecycle");
+assert(processSrc.includes("darwinJetsamStatus"),
+  "process.ts reads darwinJetsamStatus from the status file and passes it to the ledger");
+assert(
+  processSrc.includes("status_file_missing") && processSrc.includes('"n/a"'),
+  "process.ts handles status_file_missing (physwrap crash) and n/a (non-Darwin) cases");
+assert(
+  processSrc.includes("darwinJetsamStatus") && processSrc.includes("PROCESS_PHYSWRAP_ACTIVE"),
+  "process.ts emits PROCESS_PHYSWRAP_ACTIVE post-exit with runtime jetsam status");
+
 // ─── 15d. types.ts: Tier 2b Windows fields are declared ──────────────────────
 const typesSrc = readFileSync(
   path.resolve(_moduleDir, "../lib/agent-buccet/types.ts"), "utf8");
@@ -309,5 +343,7 @@ console.log(`missing -- separator rejected: ${missingDash.status !== 0}`);
 console.log(`platform source files: physwrap.c + physwrap_mac.c + physwrap_win.c + buccet_ioboundary_win.c all present`);
 console.log(`physwrap_mac.c has --uid/--gid drop: true`);
 console.log(`physwrap_mac.c macOS Tier 2a parity: RLIMIT_NPROC + RLIMIT_AS + memorystatus_control: true`);
+console.log(`physwrap_mac.c Darwin jetsam status protocol: BUCCET_PHYSWRAP_STATUS_FILE + write_physwrap_status_file: true`);
+console.log(`process.ts Darwin jetsam runtime visibility: physwrap_macos_jetsam_reinforcement in PROCESS_PHYSWRAP_ACTIVE: true`);
 console.log(`physwrap_win.c Tier 2b: DLL injection for EMFILE/EFBIG + I/O rate throttle: true`);
 console.log(`buccet_ioboundary_win.c: IAT hook for CreateFileA/W + WriteFile: true`);
