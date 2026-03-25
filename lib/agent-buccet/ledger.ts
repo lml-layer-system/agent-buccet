@@ -115,8 +115,10 @@ function liopeEnqueue(eventType: BoundaryLedgerEventType, payload: BoundaryLedge
 // D2.8: max-IOPS background daemon
 let liopeDaemonHandle: ReturnType<typeof setInterval> | undefined;
 let liopeFlushActive = false;
+let liopeDaemonDisabled = false; // set by stopLiopeDaemon(); prevents restart after stop
 
 function ensureLiopeDaemonRunning(): void {
+  if (liopeDaemonDisabled) return; // permanently stopped (e.g. during contract tests)
   if (liopeDaemonHandle !== undefined) return;
   liopeDaemonHandle = setInterval(() => {
     if (liopeFlushActive) return; // skip if previous flush still running
@@ -186,9 +188,11 @@ export async function flushLiopeQueue(): Promise<void> {
   return liopeFlush();
 }
 
-/** Stop the LIOPE background daemon. Used in tests to prevent the daemon from firing
- *  between enqueue and flush, which would cause shed-count races in contract tests. */
+/** Stop the LIOPE background daemon and prevent it from restarting.
+ *  Used in contract tests — once called, ensureLiopeDaemonRunning() is a no-op
+ *  for the lifetime of the process, so daemon cannot restart via enqueue calls. */
 export function stopLiopeDaemon(): void {
+  liopeDaemonDisabled = true;
   if (liopeDaemonHandle !== undefined) {
     clearInterval(liopeDaemonHandle);
     liopeDaemonHandle = undefined;
