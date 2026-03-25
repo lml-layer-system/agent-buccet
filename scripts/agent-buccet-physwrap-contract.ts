@@ -136,7 +136,7 @@ assert(macSrc.includes("exit(5)"),   "physwrap_mac.c uses exit code 5 for uid/gi
 // ─── 13. physwrap_win.c source contains explicit --nofile/--fsize-b warnings ─
 
 const winSrc = readFileSync(path.join(NATIVE_DIR, "physwrap_win.c"), "utf8");
-assert(winSrc.includes("--nofile") && winSrc.includes("WARNING") && winSrc.includes("not enforced"),
+assert(winSrc.includes("--nofile") && winSrc.includes("WARNING") && (winSrc.includes("not enforced") || winSrc.includes("NOT enforced")),
   "physwrap_win.c emits explicit WARNING for --nofile (not silently skipped)");
 assert(winSrc.includes("--fsize-b") && winSrc.includes("WARNING"),
   "physwrap_win.c emits explicit WARNING for --fsize-b (not silently skipped)");
@@ -166,32 +166,68 @@ if (process.platform === "darwin") {
 // ─── 15. Tier 2a/2b class-tagged coverage metadata ───────────────────────────
 // Verifies:
 //  - physwrap_mac.c documents Tier 2a skipped limits (nproc, as)
-//  - physwrap_win.c documents Tier 2b as an OPEN GAP class (not just missing flags)
-//  - process.ts source emits per-class metadata keys in the ledger
-//
-// The computePhyswrapLimitCoverage function is internal to process.ts.
-// We test its structure by reading the source and checking for class-tagged keys.
+//  - physwrap_win.c contains real Tier 2b I/O rate control implementation
+//  - physwrap_win.c documents the OPEN GAP surfaces (EMFILE/SIGXFSZ)
+//  - process.ts emits class-tagged ledger keys
+//  - process.ts passes --io-rate-bps / --io-max-iops on Windows path
+//  - types.ts has the new Tier 2b Windows fields
 
 assert(macSrc.includes("not enforced on Darwin") || macSrc.includes("silently skipped"),
   "physwrap_mac.c documents which Tier 2a limits are not enforced on Darwin (nproc, as)");
 
-// Tier 2b class-level gap on Windows: verify win.c says the class is absent,
-// not just that individual flags are missing.
-assert(winSrc.includes("NOT YET enforced") || winSrc.includes("not enforced") || winSrc.includes("not yet enforced"),
-  "physwrap_win.c documents the Tier 2b enforcement gap");
+// ─── 15a. physwrap_win.c: Windows Tier 2b I/O rate control implementation ───
+assert(winSrc.includes("SetIoRateControlInformationJobObject"),
+  "physwrap_win.c contains SetIoRateControlInformationJobObject (Tier 2b I/O rate control)");
+assert(winSrc.includes("--io-rate-bps"),
+  "physwrap_win.c handles --io-rate-bps flag");
+assert(winSrc.includes("--io-max-iops"),
+  "physwrap_win.c handles --io-max-iops flag");
+assert(winSrc.includes("JOB_OBJECT_IO_RATE_CONTROL_ENABLE"),
+  "physwrap_win.c sets JOB_OBJECT_IO_RATE_CONTROL_ENABLE flag");
+assert(winSrc.includes("MaxBandwidth") && winSrc.includes("* 8"),
+  "physwrap_win.c converts bytes/sec to bits/sec for MaxBandwidth (API expects bits/sec)");
+assert(winSrc.includes("GetProcAddress") && winSrc.includes("kernel32"),
+  "physwrap_win.c dynamically loads SetIoRateControlInformationJobObject for version compat");
+assert(winSrc.includes("Windows 10 1607"),
+  "physwrap_win.c documents Windows 10 1607+ requirement");
 
-// Verify process.ts emits class-tagged ledger keys (not old flat active_limits)
-import { readFileSync as fsReadFileSync } from "node:fs";
-const processSrc = fsReadFileSync(
+// ─── 15b. physwrap_win.c: OPEN GAP surfaces remain explicitly documented ─────
+// The EMFILE/SIGXFSZ semantics remain open — warnings must still be present.
+assert(winSrc.includes("--nofile") && winSrc.includes("NOT enforced"),
+  "physwrap_win.c still warns --nofile is NOT enforced (EMFILE gap remains open)");
+assert(winSrc.includes("--fsize-b") && winSrc.includes("NOT enforced"),
+  "physwrap_win.c still warns --fsize-b is NOT enforced (SIGXFSZ gap remains open)");
+// Semantic distinction: throttle vs refuse
+assert(winSrc.includes("throttled") || winSrc.includes("DELAYS") || winSrc.includes("delayed"),
+  "physwrap_win.c documents throttle semantics (delay, not refuse) for I/O rate control");
+
+// ─── 15c. process.ts: class-tagged metadata + new field wiring ───────────────
+const processSrc = readFileSync(
   path.resolve(_moduleDir, "../lib/agent-buccet/process.ts"), "utf8");
 assert(processSrc.includes("physwrap_envelope_active"),
   "process.ts emits physwrap_envelope_active (Tier 2a class tag)");
 assert(processSrc.includes("physwrap_io_boundary_active"),
   "process.ts emits physwrap_io_boundary_active (Tier 2b class tag)");
 assert(processSrc.includes("physwrap_io_boundary_skipped"),
-  "process.ts emits physwrap_io_boundary_skipped (Tier 2b open gap tag)");
+  "process.ts emits physwrap_io_boundary_skipped (Tier 2b gap tag)");
 assert(!processSrc.includes("physwrap_active_limits"),
   "process.ts no longer uses flat physwrap_active_limits key (replaced by class tags)");
+assert(processSrc.includes("--io-rate-bps") && processSrc.includes("maxIoRateBytesPerSec"),
+  "process.ts passes --io-rate-bps on Windows path when maxIoRateBytesPerSec is set");
+assert(processSrc.includes("--io-max-iops") && processSrc.includes("maxIoOpsPerSec"),
+  "process.ts passes --io-max-iops on Windows path when maxIoOpsPerSec is set");
+assert(processSrc.includes("io_rate") && processSrc.includes("io_iops"),
+  "process.ts coverage function handles io_rate and io_iops for Windows ioBoundary");
+
+// ─── 15d. types.ts: new Tier 2b Windows fields are declared ──────────────────
+const typesSrc = readFileSync(
+  path.resolve(_moduleDir, "../lib/agent-buccet/types.ts"), "utf8");
+assert(typesSrc.includes("maxIoRateBytesPerSec"),
+  "types.ts declares maxIoRateBytesPerSec (Windows Tier 2b I/O bandwidth field)");
+assert(typesSrc.includes("maxIoOpsPerSec"),
+  "types.ts declares maxIoOpsPerSec (Windows Tier 2b IOPS field)");
+assert(typesSrc.includes("throttle") || typesSrc.includes("THROTTLE"),
+  "types.ts documents throttle semantics for Windows Tier 2b fields");
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 

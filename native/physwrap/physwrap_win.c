@@ -2,28 +2,44 @@
  * buccet-physwrap — Windows Native Physics Translator
  *
  * Platform: Windows (Win32 / NT)
- * Method:   NT Job Objects — CreateJobObject + SetInformationJobObject.
+ * Method:   NT Job Objects — CreateJobObject + SetInformationJobObject,
+ *           plus Job Object I/O Rate Control (Windows 10 1607+).
  *
  * Job Objects provide inescapable process containment on Windows. The
  * target process is created in SUSPENDED state, assigned to the job
  * before any user code runs, then resumed. Limits apply to the entire
  * job tree — child processes spawned by the target are also contained.
  *
- * Enforced limits:
+ * ── Tier 2a: Payload Envelope Physics ────────────────────────────────────
+ * Launch-time ceilings; kernel terminates the process when exceeded.
  *   --cpu N      PerJobUserTimeLimit (user-mode CPU, 100ns units)
  *                Action: JOB_OBJECT_TERMINATE_AT_END_OF_JOB
  *   --nproc N    ActiveProcessLimit (simultaneous live processes in job)
  *   --as-kb N    ProcessMemoryLimit (per-process virtual memory, in bytes)
  *
- * Accepted but NOT YET enforced on Windows (no Job Object equivalent):
- *   --nofile N   (no Win32 Job Object equivalent — explicit stderr warning emitted)
- *   --fsize-b N  (no Win32 Job Object equivalent — explicit stderr warning emitted)
+ * ── Tier 2b: Live I/O / Object Boundary ──────────────────────────────────
+ * Ongoing enforcement on I/O operations during execution.
+ *   --io-rate-bps N   I/O bandwidth throttle (bytes/sec; API takes bits/sec)
+ *                     Via SetIoRateControlInformationJobObject, Windows 10 1607+
+ *                     Semantics: kernel I/O scheduler DELAYS operations exceeding
+ *                     the budget. Operations complete at the controlled rate.
+ *   --io-max-iops N   Maximum I/O operations per second; same API and semantics.
+ *
+ * OPEN GAP — per-operation refusal (EMFILE / SIGXFSZ equivalents):
+ *   --nofile N   (no Win32 Job Object equivalent — explicit stderr warning)
+ *   --fsize-b N  (no Win32 Job Object equivalent — explicit stderr warning)
+ * The EMFILE (handle count hard ceiling) and SIGXFSZ (per-write-size hard
+ * ceiling) enforcement semantics are not achievable at user-mode via Job
+ * Objects. The I/O rate control above is real kernel enforcement but uses
+ * throttle (delay) rather than refuse semantics.
  *
  * Job lifetime: physwrap.exe holds the only handle. JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
  * ensures that if physwrap exits unexpectedly, all job processes are terminated.
  *
  * Usage:
- *   buccet-physwrap.exe [--cpu N] [--nproc N] [--as-kb N] [--nofile N] [--fsize-b N] -- cmd [args...]
+ *   buccet-physwrap.exe [--cpu N] [--nproc N] [--as-kb N]
+ *                       [--io-rate-bps N] [--io-max-iops N]
+ *                       [--nofile N] [--fsize-b N] -- cmd [args...]
  *
  * Exit codes:
  *   0  target exited 0
@@ -40,7 +56,8 @@
  * and carries the target's exit code.
  *
  * Ledger visibility: caller (process.ts) records PROCESS_PHYSWRAP_ACTIVE
- * with physwrap_platform=windows when this binary is used.
+ * with physwrap_platform=windows, physwrap_io_boundary_active, and
+ * physwrap_io_boundary_skipped when this binary is used.
  */
 
 #ifndef WIN32_LEAN_AND_MEAN
@@ -50,6 +67,33 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/*
+ * ── Windows I/O Rate Control — inline type definitions ────────────────────
+ *
+ * JOBOBJECT_IO_RATE_CONTROL_INFORMATION lives in <jobapi2.h> (Windows 10 SDK).
+ * We define a compatible struct here for portability across SDK versions and
+ * to allow dynamic loading of SetIoRateControlInformationJobObject, which
+ * lets physwrap.exe run on older Windows with graceful degradation.
+ *
+ * MaxBandwidth is in BITS per second (not bytes). We accept bytes/sec on the
+ * command line and multiply by 8 before calling the API.
+ */
+#ifndef JOB_OBJECT_IO_RATE_CONTROL_ENABLE
+#define JOB_OBJECT_IO_RATE_CONTROL_ENABLE 0x1UL
+
+typedef struct {
+    LONG64  MaxIops;            /* max I/O operations per second (0 = unlimited) */
+    LONG64  MaxBandwidth;       /* max bandwidth in BITS/sec   (0 = unlimited) */
+    LONG64  ReservationIops;    /* reserved IOPS (0 = none)    */
+    PWSTR   VolumeName;         /* NULL = apply to all volumes */
+    DWORD   BaseIoSize;         /* min I/O unit (0 = system default) */
+    DWORD   ControlFlags;       /* JOB_OBJECT_IO_RATE_CONTROL_ENABLE = 0x1 */
+} BUCCET_IO_RATE_CONTROL;
+
+#endif /* JOB_OBJECT_IO_RATE_CONTROL_ENABLE */
+
+typedef BOOL (WINAPI *PFN_SetIoRateControl)(HANDLE, BUCCET_IO_RATE_CONTROL *);
 
 /* ── Helpers ──────────────────────────────────────────────────────────────── */
 
@@ -118,12 +162,14 @@ static char *build_cmdline(char **argv) {
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 int main(int argc, char *argv[]) {
-    long long cpu_sec   = -1;
-    long long nproc     = -1;
-    long long as_kb     = -1;
-    long long nofile    = -1;
-    long long fsize_b   = -1;
-    int       separator = 0;
+    long long cpu_sec      = -1;
+    long long nproc        = -1;
+    long long as_kb        = -1;
+    long long nofile       = -1;
+    long long fsize_b      = -1;
+    long long io_rate_bps  = -1;  /* bytes/sec; multiplied by 8 before API call */
+    long long io_max_iops  = -1;  /* I/O operations per second */
+    int       separator    = 0;
 
     int i;
     for (i = 1; i < argc; i++) {
@@ -141,6 +187,10 @@ int main(int argc, char *argv[]) {
             nofile = parse_llong(argv[++i], "--nofile");
         } else if (strcmp(argv[i], "--fsize-b") == 0 && i + 1 < argc) {
             fsize_b = parse_llong(argv[++i], "--fsize-b");
+        } else if (strcmp(argv[i], "--io-rate-bps") == 0 && i + 1 < argc) {
+            io_rate_bps = parse_llong(argv[++i], "--io-rate-bps");
+        } else if (strcmp(argv[i], "--io-max-iops") == 0 && i + 1 < argc) {
+            io_max_iops = parse_llong(argv[++i], "--io-max-iops");
         } else {
             fprintf(stderr, "buccet-physwrap(windows): unknown flag: %s\n", argv[i]);
             exit(1);
@@ -155,24 +205,78 @@ int main(int argc, char *argv[]) {
     char **cmd = &argv[separator + 1];
 
     /*
-     * ── Explicit warnings for unenforced limits ────────────────────────────
-     * --nofile and --fsize-b have no Win32 Job Object equivalent. When the
-     * caller requests them, emit a warning so the gap is visible at runtime.
-     * The caller (process.ts) records this in PROCESS_PHYSWRAP_ACTIVE as
-     * physwrap_skipped_limits. Execution continues — the other limits apply.
+     * ── Tier 2b: Live I/O Rate Control (Windows 10 1607+) ─────────────────
+     *
+     * SetIoRateControlInformationJobObject applies an I/O bandwidth and/or
+     * IOPS budget to the entire job tree. When processes exceed the budget,
+     * the kernel I/O scheduler DELAYS their I/O operations to bring the rate
+     * back within the limit. Operations complete; they are throttled, not
+     * refused. This is the Windows-native I/O boundary for Tier 2b.
+     *
+     * Semantic note: POSIX RLIMIT_FSIZE causes write() to return SIGXFSZ
+     * (refusal). Windows I/O rate control causes write() to block until
+     * the scheduler allows it (delay). Both are kernel-enforced live operation
+     * boundaries. The enforcement mechanism differs — only the semantics.
+     *
+     * Dynamically loaded: physwrap.exe runs on older Windows and logs a
+     * warning if the API is unavailable (pre-1607). Execution continues with
+     * Tier 2a limits intact. The caller sees this in physwrap_io_boundary_skipped.
+     */
+    if (io_rate_bps >= 0 || io_max_iops >= 0) {
+        PFN_SetIoRateControl pfnSetIoRate = (PFN_SetIoRateControl)
+            GetProcAddress(GetModuleHandleA("kernel32.dll"),
+                           "SetIoRateControlInformationJobObject");
+
+        if (pfnSetIoRate == NULL) {
+            fprintf(stderr,
+                "buccet-physwrap(windows): WARNING: --io-rate-bps/--io-max-iops "
+                "requested but SetIoRateControlInformationJobObject is not available "
+                "(requires Windows 10 1607+). I/O rate control NOT applied.\n");
+        } else {
+            BUCCET_IO_RATE_CONTROL ioRate;
+            ZeroMemory(&ioRate, sizeof(ioRate));
+            ioRate.ControlFlags = JOB_OBJECT_IO_RATE_CONTROL_ENABLE;
+            ioRate.VolumeName   = NULL;  /* NULL = apply to all volumes */
+            ioRate.BaseIoSize   = 0;     /* 0 = use system default I/O unit */
+
+            if (io_rate_bps > 0) {
+                ioRate.MaxBandwidth = io_rate_bps * 8LL;  /* bytes/sec → bits/sec */
+            }
+            if (io_max_iops > 0) {
+                ioRate.MaxIops = io_max_iops;
+            }
+
+            if (!pfnSetIoRate(hJob, &ioRate)) {
+                fprintf(stderr,
+                    "buccet-physwrap(windows): SetIoRateControlInformationJobObject "
+                    "failed: %lu\n", GetLastError());
+                CloseHandle(hJob);
+                exit(2);
+            }
+        }
+    }
+
+    /*
+     * ── OPEN GAP: per-operation refusal (EMFILE / SIGXFSZ) ────────────────
+     * --nofile and --fsize-b have no Win32 Job Object equivalent.
+     * No user-mode API provides per-process handle-count refusal (EMFILE)
+     * or per-file-write refusal (SIGXFSZ) without a kernel driver.
+     * Emit explicit warnings so the gap is visible at runtime.
+     * Execution continues — Tier 2a and I/O rate limits still apply.
+     * Caller records this in physwrap_io_boundary_skipped.
      */
     if (nofile >= 0) {
         fprintf(stderr,
             "buccet-physwrap(windows): WARNING: --nofile %lld requested but "
-            "not enforced — no Win32 Job Object equivalent for file descriptor "
-            "limits. Limit NOT applied.\n", nofile);
+            "NOT enforced — no Win32 Job Object equivalent for per-process file "
+            "descriptor limits (EMFILE semantics). Limit NOT applied.\n", nofile);
     }
 
     if (fsize_b >= 0) {
         fprintf(stderr,
             "buccet-physwrap(windows): WARNING: --fsize-b %lld requested but "
-            "not enforced — no Win32 Job Object equivalent for file size limits "
-            "(NTFS quotas require admin setup). Limit NOT applied.\n", fsize_b);
+            "NOT enforced — no Win32 Job Object equivalent for per-process file "
+            "write-size limits (SIGXFSZ semantics). Limit NOT applied.\n", fsize_b);
     }
 
     /*

@@ -415,6 +415,8 @@ function hasPhysicsConstraints(physics: BoundaryProcessPhysics): boolean {
     physics.maxMemoryBytes !== undefined ||
     physics.maxOpenFiles !== undefined ||
     physics.maxFileSizeBytes !== undefined ||
+    physics.maxIoRateBytesPerSec !== undefined ||
+    physics.maxIoOpsPerSec !== undefined ||
     physics.dropToUid !== undefined ||
     physics.dropToGid !== undefined
   );
@@ -468,16 +470,32 @@ function computePhyswrapLimitCoverage(physics: BoundaryProcessPhysics): {
   }
 
   // ── Tier 2b: Live I/O / Object Boundary ───────────────────────────────────
-  // nofile: Linux + macOS via RLIMIT_NOFILE; Windows OPEN GAP (no Job Object equiv)
+  // nofile: Linux + macOS via RLIMIT_NOFILE (EMFILE refuse semantics)
+  // Windows: OPEN GAP — no per-process handle-count limit via Job Objects
   if (physics.maxOpenFiles !== undefined) {
     if (platform === "windows") ioBoundary.skipped.push("nofile");
     else ioBoundary.active.push("nofile");
   }
 
-  // fsize: Linux + macOS via RLIMIT_FSIZE; Windows OPEN GAP (no Job Object equiv)
+  // fsize: Linux + macOS via RLIMIT_FSIZE (SIGXFSZ refuse semantics)
+  // Windows: OPEN GAP — no per-process file-write-size limit via Job Objects
   if (physics.maxFileSizeBytes !== undefined) {
     if (platform === "windows") ioBoundary.skipped.push("fsize");
     else ioBoundary.active.push("fsize");
+  }
+
+  // io_rate: Windows 10 1607+ via SetIoRateControlInformationJobObject (throttle semantics)
+  // Linux/macOS: no direct rlimit equivalent — skipped
+  if (physics.maxIoRateBytesPerSec !== undefined) {
+    if (platform === "windows") ioBoundary.active.push("io_rate");
+    else ioBoundary.skipped.push("io_rate");
+  }
+
+  // io_iops: Windows 10 1607+ via SetIoRateControlInformationJobObject (throttle semantics)
+  // Linux/macOS: no direct rlimit equivalent — skipped
+  if (physics.maxIoOpsPerSec !== undefined) {
+    if (platform === "windows") ioBoundary.active.push("io_iops");
+    else ioBoundary.skipped.push("io_iops");
   }
 
   // ── Privilege drop ─────────────────────────────────────────────────────────
@@ -519,6 +537,16 @@ function buildPhysicsSpawnCommand(
     if (physics.maxFileSizeBytes !== undefined) {
       physwrapArgs.push("--fsize-b", String(physics.maxFileSizeBytes));
     }
+    // Windows Tier 2b: I/O rate control (throttle semantics, Windows 10 1607+)
+    if (process.platform === "win32") {
+      if (physics.maxIoRateBytesPerSec !== undefined) {
+        physwrapArgs.push("--io-rate-bps", String(physics.maxIoRateBytesPerSec));
+      }
+      if (physics.maxIoOpsPerSec !== undefined) {
+        physwrapArgs.push("--io-max-iops", String(physics.maxIoOpsPerSec));
+      }
+    }
+
     // uid/gid drop: Darwin only — Linux uses CAP drop, Windows no equivalent
     if (process.platform === "darwin") {
       if (physics.dropToGid !== undefined) {
@@ -577,6 +605,8 @@ function buildRlimitMetadata(physics: BoundaryProcessPhysics): Record<string, st
   if (physics.maxMemoryBytes !== undefined) meta["rlimit_as_bytes"] = physics.maxMemoryBytes;
   if (physics.maxOpenFiles !== undefined) meta["rlimit_nofile"] = physics.maxOpenFiles;
   if (physics.maxFileSizeBytes !== undefined) meta["rlimit_fsize_bytes"] = physics.maxFileSizeBytes;
+  if (physics.maxIoRateBytesPerSec !== undefined) meta["io_rate_bytes_per_sec"] = physics.maxIoRateBytesPerSec;
+  if (physics.maxIoOpsPerSec !== undefined) meta["io_max_iops"] = physics.maxIoOpsPerSec;
   if (physics.dropToUid !== undefined) meta["drop_uid"] = physics.dropToUid;
   if (physics.dropToGid !== undefined) meta["drop_gid"] = physics.dropToGid;
   return meta;

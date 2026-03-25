@@ -146,23 +146,30 @@ Ledger metadata key: `physwrap_envelope_active`, `physwrap_envelope_skipped`.
 
 ### Tier 2b — Live I/O / Object Boundary
 
-**What it governs:** ongoing enforcement on live object creation and I/O operations during execution. The process continues running; individual operations are denied. Governs live behavior, not process birth.
+**What it governs:** ongoing enforcement on live I/O operations during execution. The process continues running; operations are denied or throttled depending on platform semantics.
 
-| Policy field | Native primitive | Breach behavior |
-|---|---|---|
-| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` on `open()`/`socket()` |
-| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` on `write()` beyond size |
+| Policy field | Native primitive | Breach behavior | Platforms |
+|---|---|---|---|
+| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` on `open()`/`socket()` — refuse | Linux, macOS |
+| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` on `write()` beyond size — refuse | Linux, macOS |
+| `maxIoRateBytesPerSec` | `SetIoRateControlInformationJobObject` `MaxBandwidth` | I/O delayed by kernel scheduler — throttle | Windows 10 1607+ |
+| `maxIoOpsPerSec` | `SetIoRateControlInformationJobObject` `MaxIops` | I/O delayed by kernel scheduler — throttle | Windows 10 1607+ |
 
 **Platform coverage:**
 
 | Field | Linux | macOS | Windows |
 |---|---|---|---|
-| `maxOpenFiles` | **LIVE** | **LIVE** | **OPEN GAP** |
-| `maxFileSizeBytes` | **LIVE** | **LIVE** | **OPEN GAP** |
+| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **OPEN GAP** — no Job Object equiv |
+| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **OPEN GAP** — no Job Object equiv |
+| `maxIoRateBytesPerSec` | Skipped — no rlimit equiv | Skipped — no rlimit equiv | **LIVE** — Job Object I/O rate throttle (Win 10 1607+) |
+| `maxIoOpsPerSec` | Skipped — no rlimit equiv | Skipped — no rlimit equiv | **LIVE** — Job Object IOPS throttle (Win 10 1607+) |
 
-**OPEN GAP — Windows Tier 2b:** No Win32 Job Object equivalent exists for file descriptor limits or file size limits. This is a class-level gap — the entire Tier 2b enforcement class is absent on Windows. physwrap.exe warns at runtime when these limits are requested and records them in `physwrap_io_boundary_skipped`. Warnings are not enforcement. This surface remains uncovered until a native Windows I/O boundary enforcement path is implemented.
+**Semantic distinction — throttle vs refuse:**
+POSIX `RLIMIT_NOFILE`/`RLIMIT_FSIZE` use **refuse** semantics: the syscall returns an error (`EMFILE`, `SIGXFSZ`) immediately when the limit is exceeded. Windows `SetIoRateControlInformationJobObject` uses **throttle** semantics: the kernel I/O scheduler delays operations that would exceed the bandwidth or IOPS budget. Operations complete; they run at the controlled rate. Both are real kernel-enforced live operation boundaries with different enforcement shapes.
 
-Ledger metadata key: `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`.
+**OPEN GAP — Windows `maxOpenFiles` / `maxFileSizeBytes`:** No Win32 Job Object equivalent exists for per-process handle-count ceiling (EMFILE) or per-file-write-size ceiling (SIGXFSZ). These specific per-operation refusal semantics are not achievable at user-mode without a kernel driver. physwrap.exe emits explicit stderr warnings when these fields are requested and records them in `physwrap_io_boundary_skipped`. Windows Tier 2b is PARTIALLY LIVE — I/O rate/IOPS surfaces are enforced; EMFILE/SIGXFSZ surfaces remain open.
+
+Ledger metadata keys: `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`.
 
 ---
 
@@ -184,9 +191,9 @@ One physwrap source per platform. Same contract after the hook — same ledger e
 
 | Platform | Source file | Tier 2a method | Tier 2b method | Privilege drop |
 |---|---|---|---|---|
-| **Linux** | `physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` | `setrlimit()` | `PR_CAPBSET_DROP` |
-| **macOS** | `physwrap_mac.c` | `setrlimit()` (partial — nproc/as skipped) | `setrlimit()` | `setgid()`/`setuid()` via `--uid`/`--gid` |
-| **Windows** | `physwrap_win.c` | NT Job Objects | **OPEN GAP** — no equivalent | N/A |
+| **Linux** | `physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` | `setrlimit()` (refuse semantics) | `PR_CAPBSET_DROP` |
+| **macOS** | `physwrap_mac.c` | `setrlimit()` (nproc/as skipped) | `setrlimit()` (refuse semantics) | `setgid()`/`setuid()` via `--uid`/`--gid` |
+| **Windows** | `physwrap_win.c` | NT Job Objects | `SetIoRateControlInformationJobObject` (throttle semantics, Win 10 1607+); EMFILE/SIGXFSZ: OPEN GAP | N/A |
 
 All three are built by `native/physwrap/build.sh` (POSIX) or `native/physwrap/build_win.bat` (MSVC). Platform recorded in `physwrap_platform` of `PROCESS_PHYSWRAP_ACTIVE` events.
 
@@ -204,16 +211,20 @@ On Linux with physwrap active:
 Every physwrap invocation records per-class coverage in the ledger:
 
 ```
-physwrap_platform           "linux" | "macos" | "windows" | "unknown"
-physwrap_envelope_active    comma-separated active Tier 2a limits, e.g. "cpu,nproc,as"
-physwrap_envelope_skipped   comma-separated skipped Tier 2a limits
-physwrap_io_boundary_active comma-separated active Tier 2b limits, e.g. "nofile,fsize"
-physwrap_io_boundary_skipped comma-separated skipped Tier 2b limits (e.g. "nofile,fsize" on Windows)
-physwrap_privilege_active   e.g. "uid_gid_drop" on macOS when --uid provided
-physwrap_privilege_skipped  e.g. "uid_gid_drop" on Linux (CAP drop is always on; field not needed)
+physwrap_platform              "linux" | "macos" | "windows" | "unknown"
+physwrap_envelope_active       comma-separated active Tier 2a limits, e.g. "cpu,nproc,as"
+physwrap_envelope_skipped      comma-separated skipped Tier 2a limits
+physwrap_io_boundary_active    comma-separated active Tier 2b limits
+                               Linux/macOS: "nofile,fsize"
+                               Windows: "io_rate" and/or "io_iops" if configured
+physwrap_io_boundary_skipped   comma-separated skipped Tier 2b limits
+                               Windows: "nofile,fsize" (EMFILE/SIGXFSZ gap — always present)
+                               Linux/macOS: "io_rate,io_iops" if those fields are configured
+physwrap_privilege_active      e.g. "uid_gid_drop" on macOS when --uid provided
+physwrap_privilege_skipped     e.g. "uid_gid_drop" on Linux (CAP drop is always on)
 ```
 
-Non-empty `physwrap_io_boundary_skipped` on Windows is a standing indicator of the open Tier 2b gap — visible in every physwrap ledger event for the duration of a Windows deployment.
+`physwrap_io_boundary_skipped` containing `nofile` and/or `fsize` on Windows is a standing indicator of the EMFILE/SIGXFSZ open gap — visible in every physwrap ledger event for the duration of a Windows deployment.
 
 #### Shell-Ulimit Fallback (Auditable Degradation)
 

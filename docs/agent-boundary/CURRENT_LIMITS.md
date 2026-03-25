@@ -126,22 +126,27 @@ Launch-time ceiling on what a process can BECOME. The kernel terminates or block
 | `maxProcesses` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
 | `maxMemoryBytes` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
 
-#### Tier 2b — Live I/O / Object Boundary: LIVE on Linux + macOS | OPEN GAP on Windows
+#### Tier 2b — Live I/O / Object Boundary: LIVE on Linux + macOS | PARTIALLY LIVE on Windows
 
-Ongoing enforcement on live object creation and I/O operations during execution. Individual syscalls fail (`EMFILE`, `SIGXFSZ`) rather than process termination. The process continues; constrained operations are denied.
+Ongoing enforcement on live I/O operations during execution. Platform enforcement shape differs: POSIX uses refuse semantics (operation returns error); Windows uses throttle semantics (kernel delays operation).
 
 | Primitive | Code | Ledger event | Contract |
 |---|---|---|---|
 | `RLIMIT_NOFILE` / `RLIMIT_FSIZE` | `physwrap.c` / `physwrap_mac.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
+| `SetIoRateControlInformationJobObject` | `physwrap_win.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 
 **Tier 2b coverage by platform:**
 
 | Field | Linux | macOS | Windows |
 |---|---|---|---|
-| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` | **OPEN GAP** |
-| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` | **OPEN GAP** |
+| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **OPEN GAP** — no Job Object equiv |
+| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **OPEN GAP** — no Job Object equiv |
+| `maxIoRateBytesPerSec` | Skipped — ledgered | Skipped — ledgered | **LIVE** — Job Object I/O rate throttle (Win 10 1607+) |
+| `maxIoOpsPerSec` | Skipped — ledgered | Skipped — ledgered | **LIVE** — Job Object IOPS throttle (Win 10 1607+) |
 
-**OPEN GAP — Windows Tier 2b (class-level):** No Win32 Job Object equivalent exists for file descriptor limits or file size limits. This is not a missing flag — the entire Live I/O / Object Boundary enforcement class is absent on Windows. physwrap.exe emits explicit stderr warnings when `maxOpenFiles` or `maxFileSizeBytes` are requested, and records them in `physwrap_io_boundary_skipped` on every invocation. Warnings are not enforcement. This class remains uncovered until a native Windows I/O boundary enforcement path is implemented.
+**Windows Tier 2b status:** PARTIALLY LIVE. `maxIoRateBytesPerSec` and `maxIoOpsPerSec` are enforced via `SetIoRateControlInformationJobObject` (Windows 10 1607+) — real kernel-enforced I/O boundary with throttle semantics. `maxOpenFiles` (EMFILE) and `maxFileSizeBytes` (SIGXFSZ) remain **OPEN GAP** — per-operation refusal semantics are not achievable via Job Objects at user-mode. physwrap.exe warns at runtime for the open surfaces and records them in `physwrap_io_boundary_skipped`.
+
+**Semantic note:** Windows I/O rate control throttles operations (delays, not refuses). POSIX rlimits refuse operations (EMFILE, SIGXFSZ). Both are kernel-enforced live operation boundaries; the enforcement shape differs by platform.
 
 #### Native backends — one source file per platform
 

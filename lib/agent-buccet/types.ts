@@ -50,16 +50,31 @@ export type BoundaryResourceKind =
  *
  * ── Tier 2b: Live I/O / Object Boundary ─────────────────────────────────────
  * Ongoing enforcement on live object creation and I/O operations during
- * execution. Individual syscalls fail (EMFILE, SIGXFSZ) rather than process
- * termination. The process continues running; constrained operations are denied.
+ * execution. The process continues running; constrained operations are denied
+ * or throttled per native platform semantics.
  *
  *   maxOpenFiles        Max simultaneous open file descriptors
- *   maxFileSizeBytes    Max file size for any single write/growth
+ *                       POSIX: RLIMIT_NOFILE → EMFILE (refuse semantics)
+ *                       Windows: OPEN GAP (no Job Object equiv; warns at runtime)
  *
- * OPEN GAP — Windows (Tier 2b): no Win32 Job Object equivalent exists for
- * file descriptor or file size limits. physwrap warns at runtime and records
- * in physwrap_io_boundary_skipped. This is a class-level gap, not a missing
- * flag — the entire Tier 2b enforcement class is absent on Windows.
+ *   maxFileSizeBytes    Max file size for any single write/growth
+ *                       POSIX: RLIMIT_FSIZE → SIGXFSZ (refuse semantics)
+ *                       Windows: OPEN GAP (no Job Object equiv; warns at runtime)
+ *
+ *   maxIoRateBytesPerSec  I/O bandwidth limit (bytes/sec)
+ *                       Windows 10 1607+: Job Object I/O rate control
+ *                       (throttle semantics — operations delayed, not refused)
+ *                       Linux/macOS: no direct rlimit equivalent; skipped (ledgered)
+ *
+ *   maxIoOpsPerSec      I/O operations-per-second limit
+ *                       Windows 10 1607+: Job Object I/O rate control
+ *                       (throttle semantics)
+ *                       Linux/macOS: skipped (ledgered)
+ *
+ * Windows Tier 2b semantic note: the I/O rate control fields use THROTTLE
+ * semantics (kernel delays I/O to stay within budget) rather than REFUSE
+ * semantics (EMFILE/SIGXFSZ). Both are kernel-enforced live operation
+ * boundaries; the enforcement mechanism differs by platform.
  *
  * ── Privilege drop ───────────────────────────────────────────────────────────
  * Drop process uid/gid before exec (Darwin: setgid+setuid; Linux: CAP drop).
@@ -71,9 +86,15 @@ export type BoundaryProcessPhysics = {
   maxProcesses?: number;
   maxMemoryBytes?: number;
 
-  // Tier 2b — Live I/O / Object Boundary
+  // Tier 2b — Live I/O / Object Boundary (POSIX: refuse semantics; Windows: throttle semantics)
   maxOpenFiles?: number;
   maxFileSizeBytes?: number;
+  /** I/O bandwidth throttle in bytes/sec. Windows 10 1607+: Job Object I/O rate control.
+   *  Linux/macOS: no direct rlimit equivalent — skipped (recorded in physwrap_io_boundary_skipped). */
+  maxIoRateBytesPerSec?: number;
+  /** I/O operations-per-second throttle. Windows 10 1607+: Job Object I/O rate control.
+   *  Linux/macOS: skipped (recorded in physwrap_io_boundary_skipped). */
+  maxIoOpsPerSec?: number;
 
   // Privilege drop
   /** Drop to this uid before exec (Darwin: setuid; Linux: already handled by CAP drop path). */

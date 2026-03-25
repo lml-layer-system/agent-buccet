@@ -181,7 +181,7 @@ The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcemen
 
 - **Tier 2a — Payload Envelope Physics** — launch-time ceiling on what a process can BECOME. Wall-clock timeout (`setTimeout` → `SIGKILL`), CPU time (`RLIMIT_CPU` / `PerJobUserTimeLimit`), process count, virtual memory. Kernel terminates the process when ceiling is exceeded. Live on all platforms (with noted macOS skips for nproc/as). Ledgered as `PROCESS_PHYSWRAP_ACTIVE` with `physwrap_envelope_active`/`physwrap_envelope_skipped`.
 
-- **Tier 2b — Live I/O / Object Boundary** — ongoing enforcement on live object creation and I/O operations during execution. File descriptor limit (`RLIMIT_NOFILE` → `EMFILE`), file size limit (`RLIMIT_FSIZE` → `SIGXFSZ`). Individual operations fail; process continues. Live on Linux and macOS. **OPEN GAP on Windows** — the entire class is absent; no Win32 Job Object equivalent exists. physwrap warns at runtime; recorded in `physwrap_io_boundary_skipped`.
+- **Tier 2b — Live I/O / Object Boundary** — ongoing enforcement on live object creation and I/O operations during execution. Two native shapes: POSIX uses refuse semantics (operation returns error); Windows uses throttle semantics (kernel delays operation). Live on Linux and macOS for all Tier 2b fields. **PARTIALLY LIVE on Windows**: `maxIoRateBytesPerSec` and `maxIoOpsPerSec` are enforced via `SetIoRateControlInformationJobObject` (Windows 10 1607+) with real kernel-enforced throttle semantics. `maxOpenFiles` (EMFILE) and `maxFileSizeBytes` (SIGXFSZ) remain **OPEN GAP on Windows** — per-operation refusal semantics are not achievable via Job Objects at user-mode; physwrap warns at runtime; recorded in `physwrap_io_boundary_skipped`.
 
 - **Shell-ulimit fallback (degraded path)** — used when physwrap binary is not built. Covers Tier 2a limits only. Does NOT drop `CAP_SYS_RESOURCE`. Ledgered as `PROCESS_PHYSWRAP_FALLBACK`.
 
@@ -196,7 +196,7 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - A **fail-closed law boundary** — deny is the default when the brain is unreachable; the hook never guesses
 - An **egress structural validity layer** — outbound actions are validated against boundary laws before execution
 - A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move
-- A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling; Tier 2b: live I/O boundary — file descriptor and file size limits) — native rlimits and capability drop govern what approved processes can physically become and do
+- A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling; Tier 2b: live I/O boundary — file descriptor/file size limits on Linux/macOS; I/O rate/IOPS throttle on Windows 10 1607+) — native rlimits, Job Objects, and capability drop govern what approved processes can physically become and do
 - An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation
 
 ### Agent Buccet Is Not
@@ -232,4 +232,4 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
 - macOS privileged containment when `dropToUid` is not configured (root can exceed POSIX rlimit hard limits on Darwin without uid drop; physwrap warns at runtime; Darwin-native sandbox backend is the next-phase mechanism for full containment)
-- Windows Tier 2b (Live I/O / Object Boundary) — OPEN GAP; the entire class is absent on Windows (no Job Object equivalent for file descriptor or file size limits); physwrap warns at runtime and records in `physwrap_io_boundary_skipped`; warnings are not enforcement
+- Windows Tier 2b full parity — PARTIAL COVERAGE: `maxIoRateBytesPerSec` and `maxIoOpsPerSec` are live (Job Object I/O rate control, throttle semantics, Windows 10 1607+); `maxOpenFiles` (EMFILE) and `maxFileSizeBytes` (SIGXFSZ) remain **OPEN GAP** — no Win32 Job Object equivalent for per-operation refusal semantics at user-mode; physwrap warns at runtime and records in `physwrap_io_boundary_skipped`; warnings are not enforcement for those two surfaces
