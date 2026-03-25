@@ -132,6 +132,7 @@ dState = {
       lastSeenMs: 5,
     },
   },
+  hostileDeniedCounts: { "session:attacker": 3 },
 };
 
 const d1 = evaluateAdmission({ config: densityConfig, state: dState, request: makeRequest("session:attacker", { receivedAtMs: 6 }), nowMs: 6 });

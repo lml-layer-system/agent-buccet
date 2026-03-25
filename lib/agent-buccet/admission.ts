@@ -151,6 +151,7 @@ export function initialAdmissionState(): BoundaryAdmissionState {
   return {
     standingDenyProvenances: {},
     provenanceRecords: {},
+    hostileDeniedCounts: {},
   };
 }
 
@@ -194,6 +195,27 @@ function evictProvenanceRecords(
   const evictCount = sorted.length - maxSize + 1; // +1 to make room for new entry
   for (let i = 0; i < evictCount; i++) {
     delete result[sorted[i]];
+  }
+  return result;
+}
+
+// ─── Hostile denied count eviction ────────────────────────────────────────────
+// hostileDeniedCounts is NOT TTL-evicted — an IP that goes quiet and returns must
+// still carry its prior tarpit count toward the ceiling.
+// Size eviction uses a count-ascending sort: evict lowest-count entries first,
+// keeping the most hostile provenances (closest to or at the ceiling).
+
+function evictHostileDeniedCounts(
+  counts: Record<string, number>,
+  maxSize: number,
+): Record<string, number> {
+  const keys = Object.keys(counts);
+  if (keys.length <= maxSize) return counts;
+  // Keep highest-count entries — they're the most dangerous
+  const sorted = keys.sort((a, b) => counts[a] - counts[b]);
+  const result: Record<string, number> = {};
+  for (let i = sorted.length - maxSize; i < sorted.length; i++) {
+    result[sorted[i]] = counts[sorted[i]];
   }
   return result;
 }
@@ -248,7 +270,17 @@ export function evaluateAdmission(args: {
     records = evictProvenanceRecords(records, maxSize, ttlMs, nowMs);
   }
 
-  const existing = records[provenance] ?? emptyProvenanceRecord(nowMs);
+  // Seed totalDeniedCount from hostileDeniedCounts when the provenanceRecord is absent
+  // (new IP or TTL-evicted). This is the TTL-churn fix: an IP that goes quiet long enough
+  // for its record to expire returns carrying its prior tarpit count — the ceiling cannot
+  // be reset by pacing attacks below the provenanceTtlMs interval.
+  const rawExisting = records[provenance];
+  const historicalCount = state.hostileDeniedCounts[provenance] ?? 0;
+  const existing: BoundaryProvenanceRecord = rawExisting
+    ? (rawExisting.totalDeniedCount < historicalCount
+        ? { ...rawExisting, totalDeniedCount: historicalCount }
+        : rawExisting)
+    : { ...emptyProvenanceRecord(nowMs), totalDeniedCount: historicalCount };
   const weight = getInputWeight(weightClass, config.weight);
 
   // ── Step 2.5: Hard block ceiling for weak provenance ─────────────────────
@@ -428,10 +460,11 @@ function buildUpdatedState(
   promoted: { isNew: boolean; kind?: "density" | "hard_ceiling" },
 ): BoundaryAdmissionState {
   const velocityWindowMs = 60_000; // default; caller's config not threaded here — trimmed conservatively
+  const newDeniedCount = wasAdmitted ? (existing.totalDeniedCount ?? 0) : (existing.totalDeniedCount ?? 0) + 1;
   const updatedRecord: BoundaryProvenanceRecord = {
     requestTimestamps: [...existing.requestTimestamps.filter((t) => t >= nowMs - velocityWindowMs), nowMs],
     recentDecisions: [...existing.recentDecisions, wasAdmitted].slice(-40),
-    totalDeniedCount: wasAdmitted ? (existing.totalDeniedCount ?? 0) : (existing.totalDeniedCount ?? 0) + 1,
+    totalDeniedCount: newDeniedCount,
     totalInboundWeight: existing.totalInboundWeight + weight,
     windowWeightTimestamps: [...existing.windowWeightTimestamps.filter((e) => e.ts >= nowMs - velocityWindowMs), { ts: nowMs, weight }],
     lastSeenMs: nowMs,
@@ -443,7 +476,7 @@ function buildUpdatedState(
         [provenance]: {
           deniedAt: nowMs,
           reason: promoted.kind === "hard_ceiling"
-            ? `hard block ceiling: accumulated ${updatedRecord.totalDeniedCount} tarpit decisions for weak provenance`
+            ? `hard block ceiling: accumulated ${newDeniedCount} tarpit decisions for weak provenance`
             : "density threshold crossed",
           ledgered: false,
           promotionKind: promoted.kind ?? "density",
@@ -451,9 +484,28 @@ function buildUpdatedState(
       }
     : state.standingDenyProvenances;
 
+  // Update hostileDeniedCounts on every tarpit decision.
+  // This map survives provenanceRecord TTL eviction so the ceiling cannot be
+  // farmed by timing attacks below the provenanceTtlMs threshold.
+  let nextHostileCounts = state.hostileDeniedCounts;
+  if (!wasAdmitted) {
+    const prev = nextHostileCounts[provenance] ?? 0;
+    if (newDeniedCount > prev) {
+      // Only write when the count genuinely increased (monotone)
+      const maxSize = Object.keys(records).length > 0
+        ? Math.max(Object.keys(records).length, 10_000)
+        : 10_000;
+      nextHostileCounts = evictHostileDeniedCounts(
+        { ...nextHostileCounts, [provenance]: newDeniedCount },
+        maxSize,
+      );
+    }
+  }
+
   return {
     standingDenyProvenances: nextStandingDeny,
     provenanceRecords: { ...records, [provenance]: updatedRecord },
+    hostileDeniedCounts: nextHostileCounts,
   };
 }
 

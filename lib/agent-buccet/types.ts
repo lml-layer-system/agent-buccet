@@ -185,6 +185,18 @@ export type BoundaryAdmissionState = {
   }>;
   /** Bounded density tracking — evicted by TTL/LRU. */
   provenanceRecords: Record<string, BoundaryProvenanceRecord>;
+  /**
+   * Cumulative tarpit count per provenance — survives TTL/LRU eviction of provenanceRecords.
+   *
+   * Without this, an IP can accumulate N < WEAK_PROVENANCE_HARD_BLOCK_CEILING tarpit decisions,
+   * go quiet long enough for its provenanceRecord to TTL-expire, return, and start a fresh
+   * count from 0 — effectively farming the ceiling window indefinitely.
+   *
+   * hostileDeniedCounts is evicted only by LRU size pressure (evicts lowest-count entries
+   * first, keeping the most hostile provenances). It is intentionally NOT TTL-evicted.
+   * Once an IP has generated any tarpit decisions it keeps accumulating toward the ceiling.
+   */
+  hostileDeniedCounts: Record<string, number>;
 };
 
 export type BoundaryRequestProvenance =

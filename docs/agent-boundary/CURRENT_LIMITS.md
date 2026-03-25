@@ -217,6 +217,10 @@ A structural safety floor that cannot be disabled or loosened by operator config
 
 **Invariant:** A weak-strength provenance (IP/network) accumulating `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions is unconditionally forced to standing deny — regardless of `density.windowSize`, `density.maxDenyRatio`, or the absence of any density config.
 
+**`totalDeniedCount` counts admission-layer tarpit decisions only** (velocity/mass/density trips at the admission boundary). It does NOT count `ACTION_BLOCKED` events from the bodyguard path. These are distinct paths: admission tarpits happen before the brain wakes; `ACTION_BLOCKED` events require the request to pass admission and then fail law evaluation in the bodyguard. The rate of `ACTION_BLOCKED` from admitted IPs is bounded by admission velocity limits (cap on RPM per weak provenance) and LLM inference speed — not by `totalDeniedCount`. The ceiling operates on the admission-tarpit path, which is the right path for forcing standing-deny promotion.
+
+**TTL/LRU churn protection:** `totalDeniedCount` is tracked in two places: `provenanceRecords[ip].totalDeniedCount` (subject to normal TTL/LRU eviction) and `hostileDeniedCounts[ip]` (evicted by LRU size pressure only — NOT TTL-evicted, intentionally). When a provenance record is absent (new IP or evicted), the new record is seeded from `hostileDeniedCounts`. This means an IP cannot reset its ceiling counter by going quiet for `provenanceTtlMs` (5 min) and returning. Once hostile, always accumulating toward the ceiling. `hostileDeniedCounts` evicts by count ascending (lowest-count entries evicted first) to prioritise keeping the most dangerous IPs in memory.
+
 **Two seams — two enforcement mechanisms:**
 
 | Seam | What it is | How it is closed |
@@ -381,6 +385,7 @@ Every major architectural claim maps to:
 | Density → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` promotion_kind=density | `agent-buccet-admission-contract.ts` |
 | Hard block ceiling → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` promotion_kind=hard_ceiling | `agent-buccet-admission-hardcap-contract.ts` |
 | Hard ceiling config seam locked | `admission.ts:WEAK_PROVENANCE_HARD_BLOCK_CEILING` | — | `agent-buccet-admission-hardcap-contract.ts` |
+| Hard ceiling survives TTL/LRU churn | `admission.ts:hostileDeniedCounts` | — | `agent-buccet-admission-hardcap-contract.ts` H7 |
 | O(1) cache hit | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` dim=standing_deny | `agent-buccet-admission-contract.ts` |
 | Mass law (inbound) | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` | `agent-buccet-admission-contract.ts` |
 | LRU provenance eviction | `admission.ts` | — | `agent-buccet-admission-contract.ts` |

@@ -59,6 +59,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   return {
     standingDenyProvenances: {},
     provenanceRecords: { [provenance]: record },
+    hostileDeniedCounts: { [provenance]: deniedCount },
   };
 }
 
@@ -331,9 +332,89 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   console.log("  [pass] H6: O(1) cache hit after ceiling promotion — promotionKind preserved");
 }
 
+// ─── H7: TTL eviction does not reset the ceiling counter ──────────────────────
+// Simulates: IP accumulates CEILING - 1 denials, goes quiet (record TTL-expires),
+// returns. The hostileDeniedCounts map must seed the new record so the ceiling
+// fires on the next tarpit — not after a fresh 10 more.
+
+{
+  const cfg: BoundaryAdmissionConfig = {
+    velocity: { maxRpm: 0, windowMs: 60_000 },
+    // Very short provenance TTL to simulate expiry without a 5-minute wait
+    provenanceTtlMs: 100,
+  };
+
+  // Accumulate CEILING - 1 tarpit decisions normally
+  let state = initialAdmissionState();
+  for (let i = 0; i < WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1; i++) {
+    const r = evaluateAdmission({
+      config: cfg,
+      state,
+      request: makeRequest("ip:weak-h7", 1_000 + i * 200),
+      nowMs: 1_000 + i * 200,
+    });
+    state = r.state;
+    // Must not be promoted yet
+    assert(
+      !state.standingDenyProvenances["ip:weak-h7"],
+      `H7: must not be in standing deny before ceiling (i=${i})`,
+    );
+  }
+
+  // Verify hostileDeniedCounts carries the count so far
+  const preTtlCount = state.hostileDeniedCounts["ip:weak-h7"] ?? 0;
+  // preTtlCount may be less than CEILING - 1 because some requests were admitted
+  // (velocity with weak scaling allows 1 admitted request first), but it must be > 0
+  assert(preTtlCount > 0, "H7: hostileDeniedCounts must be populated before TTL eviction");
+
+  // Now simulate TTL expiry: advance time far past provenanceTtlMs (100ms).
+  // The provenanceRecord will be evicted on the next lookup, but hostileDeniedCounts must persist.
+  const farFutureMs = 1_000 + (WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1) * 200 + 10_000; // +10s
+
+  // Verify: provenanceRecord would be evicted at this time (TTL=100ms, record lastSeenMs < cutoff)
+  const recordAfterTtl = state.provenanceRecords["ip:weak-h7"];
+  if (recordAfterTtl) {
+    const ttlMs = cfg.provenanceTtlMs ?? 300_000;
+    const wouldBeEvicted = recordAfterTtl.lastSeenMs < farFutureMs - ttlMs;
+    assert(wouldBeEvicted, "H7: provenance record must be evictable at farFutureMs");
+  }
+
+  // Drive one more tarpit at farFutureMs — provenanceRecord evicted on lookup,
+  // but hostileDeniedCounts seeds the new record's totalDeniedCount.
+  // If hostileDeniedCounts + new tarpit >= CEILING, ceiling must fire.
+  let ceilingFired = false;
+  let stateAtExpiry = state;
+
+  for (let i = 0; i < 5; i++) {
+    const r = evaluateAdmission({
+      config: cfg,
+      state: stateAtExpiry,
+      request: makeRequest("ip:weak-h7", farFutureMs + i * 200),
+      nowMs: farFutureMs + i * 200,
+    });
+    stateAtExpiry = r.state;
+
+    if (stateAtExpiry.standingDenyProvenances["ip:weak-h7"]) {
+      ceilingFired = true;
+      break;
+    }
+  }
+
+  assert(
+    ceilingFired,
+    "H7: ceiling must fire after TTL expiry — hostileDeniedCounts must carry the prior count",
+  );
+  assert(
+    stateAtExpiry.standingDenyProvenances["ip:weak-h7"]?.promotionKind === "hard_ceiling",
+    "H7: promotion after TTL expiry must be hard_ceiling (not density reset)",
+  );
+
+  console.log("  [pass] H7: TTL-evicted provenance carries prior denied count via hostileDeniedCounts — ceiling still fires");
+}
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
-console.log("\nAdmission hard-cap contract: all 6 tests passed.");
+console.log("\nAdmission hard-cap contract: all 7 tests passed.");
 console.log(`  WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING}`);
 console.log(`  DENSITY_SAFE_MAX_WINDOW_SIZE=${DENSITY_SAFE_MAX_WINDOW_SIZE}`);
 console.log(`  DEFAULT_ADMISSION_WEIGHT.standard=${DEFAULT_ADMISSION_WEIGHT["standard"]}`);
