@@ -14,7 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isPhyswrapAvailable } from "../lib/agent-buccet/index.ts";
+import { isPhyswrapAvailable, PHYSWRAP_PLATFORM } from "../lib/agent-buccet/index.ts";
 import type { PhysicsSpawnMode } from "../lib/agent-buccet/index.ts";
 
 const _moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -92,21 +92,43 @@ assert(missingDash.status !== 0, "physwrap exits non-zero when -- separator is m
 const unknownFlag = spawnSync(PHYSWRAP_BIN, ["--badarg", "5", "--", "echo", "x"]);
 assert(unknownFlag.status !== 0, "physwrap exits non-zero on unknown flag");
 
-// ─── 9. Shell-ulimit mode strings are structurally consistent ─────────────────
-// We can't easily test the fallback path without removing the binary, but we can
-// verify the PhysicsSpawnMode type is exported correctly and the physwrap path
-// is chosen when available.
+// ─── 9. PhysicsSpawnMode type roundtrip ──────────────────────────────────────
 
 const mode: PhysicsSpawnMode = "physwrap";
 assert(mode === "physwrap", "PhysicsSpawnMode type roundtrips");
+
+// ─── 10. PHYSWRAP_PLATFORM reflects the actual OS ────────────────────────────
+// The platform tag is recorded in PROCESS_PHYSWRAP_ACTIVE ledger events.
+// On this CI host (Linux), it must be "linux".
+
+const expectedPlatform = process.platform === "linux"  ? "linux"
+                       : process.platform === "darwin" ? "macos"
+                       : process.platform === "win32"  ? "windows" : "unknown";
+
+assert(
+  PHYSWRAP_PLATFORM === expectedPlatform,
+  `PHYSWRAP_PLATFORM="${PHYSWRAP_PLATFORM}" matches expected "${expectedPlatform}"`,
+);
+
+// ─── 11. Platform source file exists for all three platforms ─────────────────
+import { existsSync as fsExistsSync } from "node:fs";
+
+const NATIVE_DIR = path.resolve(_moduleDir, "../native/physwrap");
+assert(fsExistsSync(path.join(NATIVE_DIR, "physwrap.c")),       "physwrap.c (Linux) exists");
+assert(fsExistsSync(path.join(NATIVE_DIR, "physwrap_mac.c")),   "physwrap_mac.c (Darwin) exists");
+assert(fsExistsSync(path.join(NATIVE_DIR, "physwrap_win.c")),   "physwrap_win.c (Windows) exists");
+assert(fsExistsSync(path.join(NATIVE_DIR, "build.sh")),         "build.sh exists");
+assert(fsExistsSync(path.join(NATIVE_DIR, "build_win.bat")),    "build_win.bat exists");
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 
 console.log("Agent Buccet physwrap contract");
 console.log(`physwrap binary: ${PHYSWRAP_BIN}`);
 console.log(`isPhyswrapAvailable(): ${isPhyswrapAvailable()}`);
+console.log(`PHYSWRAP_PLATFORM: ${PHYSWRAP_PLATFORM}`);
 console.log(`CPU limit applied (5s): ${cpuLimit === 5}`);
 console.log(`nofile limit applied (64): ${nofileLimit === 64}`);
 console.log(`hard limit blocks self-elevation: ${raiseOutput.includes("error") || raiseOutput.includes("invalid")}`);
 console.log(`multi-limit (cpu=10 nofile=32): ${multiOut === "cpu=10 nofile=32"}`);
 console.log(`missing -- separator rejected: ${missingDash.status !== 0}`);
+console.log(`platform source files: physwrap.c + physwrap_mac.c + physwrap_win.c all present`);

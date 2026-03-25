@@ -241,7 +241,7 @@ export async function runBoundaryProcess(args: {
         actionKind: "tool.exec",
         target: prepared.commandTarget,
         reason: "native physwrap enforcer: setrlimit() + CAP_SYS_RESOURCE bounding-set drop",
-        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN },
+        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN, physwrap_platform: PHYSWRAP_PLATFORM },
         createdAt: new Date().toISOString(),
       });
     } else {
@@ -251,7 +251,7 @@ export async function runBoundaryProcess(args: {
         actionKind: "tool.exec",
         target: prepared.commandTarget,
         reason: "shell-ulimit fallback: physwrap binary not found — limits applied but CAP_SYS_RESOURCE not dropped",
-        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN },
+        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN, physwrap_platform: PHYSWRAP_PLATFORM },
         createdAt: new Date().toISOString(),
       });
     }
@@ -380,11 +380,18 @@ export async function runBoundaryProcess(args: {
 
 // Resolved once at module load. __dirname equivalent for ESM.
 const _moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const PHYSWRAP_BIN = path.resolve(_moduleDir, "../../native/physwrap/build/buccet-physwrap");
+const _physwrapBinName = process.platform === "win32" ? "buccet-physwrap.exe" : "buccet-physwrap";
+const PHYSWRAP_BIN = path.resolve(_moduleDir, `../../native/physwrap/build/${_physwrapBinName}`);
 
-/** True if the physwrap binary is available at the expected path. */
+/** Platform tag recorded in PROCESS_PHYSWRAP_ACTIVE / PROCESS_PHYSWRAP_FALLBACK ledger events. */
+export const PHYSWRAP_PLATFORM: "linux" | "macos" | "windows" | "unknown" =
+  process.platform === "linux"  ? "linux"   :
+  process.platform === "darwin" ? "macos"   :
+  process.platform === "win32"  ? "windows" : "unknown";
+
+/** True if the platform-native physwrap binary is available at the expected path. */
 export function isPhyswrapAvailable(): boolean {
-  return process.platform !== "win32" && existsSync(PHYSWRAP_BIN);
+  return existsSync(PHYSWRAP_BIN);
 }
 
 function hasRlimits(physics: BoundaryProcessPhysics): boolean {

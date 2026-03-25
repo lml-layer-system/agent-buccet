@@ -128,22 +128,29 @@ The `buccet-physwrap` binary is the Native Physics Translator. It applies rlimit
 
 Build physwrap to activate the strong path: `npm run build:native:physwrap`
 
+#### Native backends — one source file per platform
+
+| Platform | Source | Method |
+|---|---|---|
+| Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` |
+| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` (Darwin POSIX) |
+| Windows | `native/physwrap/physwrap_win.c` | NT Job Objects (`CreateJobObject` + `SetInformationJobObject`) |
+
+Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat` (MSVC).
+`PHYSWRAP_PLATFORM` is recorded in `PROCESS_PHYSWRAP_ACTIVE` ledger events.
+
 #### Limit coverage by platform
 
-| Limit | Field | Linux physwrap | macOS physwrap | Windows |
+| Limit | Field | Linux | macOS | Windows |
 |---|---|---|---|---|
-| CPU time | `cpuTimeLimitSec` | `RLIMIT_CPU` — **LIVE** | `RLIMIT_CPU` — **LIVE** | Wall-clock only |
-| Process tree | `maxProcesses` | `RLIMIT_NPROC` — **LIVE** | Skipped (not universal on Darwin) | — |
-| Virtual memory | `maxMemoryBytes` | `RLIMIT_AS` — **LIVE** | Skipped (not universal on Darwin) | — |
-| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | — |
-| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | — |
-| `CAP_SYS_RESOURCE` drop | — | `PR_CAPBSET_DROP` — **LIVE** | N/A (no Linux cap system) | N/A |
+| CPU time | `cpuTimeLimitSec` | `RLIMIT_CPU` — **LIVE** | `RLIMIT_CPU` — **LIVE** | `PerJobUserTimeLimit` — **LIVE** |
+| Process tree | `maxProcesses` | `RLIMIT_NPROC` — **LIVE** | Ignored (not reliable on Darwin) | `ActiveProcessLimit` — **LIVE** |
+| Virtual memory | `maxMemoryBytes` | `RLIMIT_AS` — **LIVE** | Ignored (not reliable on Darwin) | `ProcessMemoryLimit` — **LIVE** |
+| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | Not yet enforced |
+| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | Not yet enforced |
+| Privilege lock | — | `PR_CAPBSET_DROP` — **LIVE** | N/A | N/A |
 
-**Next-phase platform backends:**
-- **macOS:** Darwin-native sandbox backend (App Sandbox / seatbelt-class) — Mapped, not yet implemented
-- **Windows:** NT Job Objects (`CreateJobObject` + `SetInformationJobObject`) — Mapped, not yet implemented
-
-The shell-ulimit fallback is an auditable degradation path. It is not the permanent state of Windows or macOS.
+The shell-ulimit fallback is an auditable degradation path used when physwrap is not built.
 
 Contracts: `agent-buccet-payload-physics-contract.ts`, `agent-buccet-physwrap-contract.ts`
 

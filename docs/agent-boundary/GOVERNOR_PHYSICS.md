@@ -147,18 +147,21 @@ The policy layer (`BoundaryProcessPhysics`) declares OS-agnostic limits. The phy
 
 #### Platform Status
 
-| Platform | Physwrap backend | Cap drop | Status |
-|---|---|---|---|
-| **Linux** | `setrlimit()` direct + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` | Yes — bounding set | **LIVE — Strong Path** |
-| **macOS** | `setrlimit()` direct (Darwin) | N/A (no Linux cap system) | **LIVE — rlimits active, cap drop not applicable** |
-| **macOS (next)** | Darwin-native sandbox backend (App Sandbox / seatbelt-class) | N/A | **Mapped — Next Phase** |
-| **Windows** | physwrap not built; wall-clock only | N/A | **Next Phase** (NT Job Objects: `CreateJobObject` + `SetInformationJobObject`) |
+One physwrap source per platform. Same contract after the hook — same ledger events, same metadata shape, same operator guarantee model. The only OS-specific layer is the translator itself.
 
-**CRITICAL RULE:** macOS backend documentation is at the class level (App Sandbox / seatbelt-class) — not collapsed to a single fragile API name. Darwin sandbox APIs are version-sensitive; the class maps to the appropriate primitive at build time.
+| Platform | Source file | Method | Cap drop | Status |
+|---|---|---|---|---|
+| **Linux** | `physwrap.c` | `setrlimit()` + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` | Yes — bounding set | **LIVE** |
+| **macOS** | `physwrap_mac.c` | `setrlimit()` (Darwin POSIX) | N/A — no Linux cap system | **LIVE** |
+| **Windows** | `physwrap_win.c` | NT Job Objects (`CreateJobObject` + `SetInformationJobObject`) | N/A | **LIVE** |
 
-**CRITICAL RULE:** The shell-ulimit fallback is an auditable degradation path. It is not the permanent destiny of Windows or macOS. Each platform gets its own native backend in the next phase.
+All three are built by `native/physwrap/build.sh` (POSIX platforms) or `native/physwrap/build_win.bat` (MSVC). Platform is detected at build time and recorded in the `physwrap_platform` field of `PROCESS_PHYSWRAP_ACTIVE` ledger events.
 
-#### Linux Strong-Path Guarantee
+**macOS root processes:** POSIX `setrlimit()` hard limits prevent self-elevation for unprivileged processes. Root can exceed on Darwin. A Darwin-native sandbox backend (App Sandbox / seatbelt-class) is the correct next-phase mechanism for privileged containment — documented, not implied as present.
+
+**CRITICAL RULE:** macOS next-phase documentation stays at the backend class level (App Sandbox / seatbelt-class), not a single API name. Darwin sandbox APIs are version-sensitive; the class maps to the appropriate primitive at build time.
+
+#### Linux Strong-Path Guarantee (`physwrap.c`)
 
 On Linux with physwrap active:
 
@@ -167,17 +170,20 @@ On Linux with physwrap active:
 3. `setrlimit()` is called with **hard == soft** for each limit. Setting the hard limit equal to the soft prevents self-elevation without requiring the capability.
 4. `execvp()` — no shell interposition, no PATH injection surface.
 
-#### Supported Limits
+#### Supported Limits by Platform
 
-| Policy field | rlimit | Kernel signal on breach | Linux | macOS |
-|---|---|---|---|---|
-| `cpuTimeLimitSec` | `RLIMIT_CPU` | `SIGXCPU` → `SIGKILL` | ✓ | ✓ |
-| `maxProcesses` | `RLIMIT_NPROC` | `EAGAIN` on `fork`/`clone` | ✓ | — (skipped) |
-| `maxMemoryBytes` | `RLIMIT_AS` | `ENOMEM` | ✓ | — (skipped) |
-| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` | ✓ | ✓ |
-| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` | ✓ | ✓ |
+| Policy field | Primitive | Signal / error on breach | Linux | macOS | Windows |
+|---|---|---|---|---|---|
+| `cpuTimeLimitSec` | `RLIMIT_CPU` / `PerJobUserTimeLimit` | `SIGXCPU`→`SIGKILL` / job termination | ✓ | ✓ | ✓ |
+| `maxProcesses` | `RLIMIT_NPROC` / `ActiveProcessLimit` | `EAGAIN` on `fork` / `CreateProcess` fails | ✓ | — | ✓ |
+| `maxMemoryBytes` | `RLIMIT_AS` / `ProcessMemoryLimit` | `ENOMEM` / `VirtualAlloc` fails | ✓ | — | ✓ |
+| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` | ✓ | ✓ | — |
+| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` | ✓ | ✓ | — |
+| `CAP_SYS_RESOURCE` drop | `PR_CAPBSET_DROP` | prevents self-elevation | ✓ | N/A | N/A |
 
-`maxProcesses` and `maxMemoryBytes` are skipped on macOS — `RLIMIT_NPROC` and `RLIMIT_AS` are not universally supported on Darwin. They do not silently mis-apply; they are compile-time gated.
+macOS: `maxProcesses` (`RLIMIT_NPROC`) and `maxMemoryBytes` (`RLIMIT_AS`) are accepted but silently ignored — not reliably enforced on Darwin. Flags are consumed without error.
+
+Windows: `maxOpenFiles` and `maxFileSizeBytes` are accepted but not yet enforced — no Job Object equivalent. `PROCESS_PHYSWRAP_ACTIVE` is still recorded; the active limits are listed in the metadata.
 
 ```ts
 processPolicy: {

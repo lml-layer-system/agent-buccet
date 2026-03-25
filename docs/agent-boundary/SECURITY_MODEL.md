@@ -229,5 +229,5 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Independent external witnessing by default (ledger is locally signed; remote anchoring requires operator configuration)
 - Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
-- macOS Darwin-native sandbox backend (App Sandbox / seatbelt-class) — mapped, next phase
-- Windows NT Job Object backend — mapped, next phase
+- macOS privileged containment (root processes can exceed POSIX rlimits on Darwin — Darwin-native sandbox backend is the next-phase mechanism)
+- Windows `maxOpenFiles` and `maxFileSizeBytes` enforcement (no Job Object equivalent)
