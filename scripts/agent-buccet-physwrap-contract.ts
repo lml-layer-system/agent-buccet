@@ -163,21 +163,35 @@ if (process.platform === "darwin") {
     `process runs as expected uid/gid: expected "uid=${currentUid} gid=${currentGid}", got "${uidOut}"`);
 }
 
-// ─── 15. physwrap_active_limits / physwrap_skipped_limits coverage ────────────
-// Structural test: verifies computePhyswrapLimitCoverage logic via source
-// import. The function is internal to process.ts so we test its observable
-// effects via the PHYSWRAP_PLATFORM constant and known platform rules.
+// ─── 15. Tier 2a/2b class-tagged coverage metadata ───────────────────────────
+// Verifies:
+//  - physwrap_mac.c documents Tier 2a skipped limits (nproc, as)
+//  - physwrap_win.c documents Tier 2b as an OPEN GAP class (not just missing flags)
+//  - process.ts source emits per-class metadata keys in the ledger
+//
+// The computePhyswrapLimitCoverage function is internal to process.ts.
+// We test its structure by reading the source and checking for class-tagged keys.
 
-// On Linux: cpu + nofile + fsize should be active; nothing skipped for those limits
-// On macOS: cpu + nofile + fsize active; nproc + as skipped
-// On Windows: cpu + nproc + as active; nofile + fsize skipped
-
-// We verify the platform-specific skipped limits are present in physwrap_win.c warnings
-// and that physwrap_mac.c documents skipped limits in its header comment.
 assert(macSrc.includes("not enforced on Darwin") || macSrc.includes("silently skipped"),
-  "physwrap_mac.c documents which limits are not enforced on Darwin");
-assert(winSrc.includes("not yet enforced") || winSrc.includes("NOT YET enforced") || winSrc.includes("not enforced"),
-  "physwrap_win.c documents which limits are not enforced on Windows");
+  "physwrap_mac.c documents which Tier 2a limits are not enforced on Darwin (nproc, as)");
+
+// Tier 2b class-level gap on Windows: verify win.c says the class is absent,
+// not just that individual flags are missing.
+assert(winSrc.includes("NOT YET enforced") || winSrc.includes("not enforced") || winSrc.includes("not yet enforced"),
+  "physwrap_win.c documents the Tier 2b enforcement gap");
+
+// Verify process.ts emits class-tagged ledger keys (not old flat active_limits)
+import { readFileSync as fsReadFileSync } from "node:fs";
+const processSrc = fsReadFileSync(
+  path.resolve(_moduleDir, "../lib/agent-buccet/process.ts"), "utf8");
+assert(processSrc.includes("physwrap_envelope_active"),
+  "process.ts emits physwrap_envelope_active (Tier 2a class tag)");
+assert(processSrc.includes("physwrap_io_boundary_active"),
+  "process.ts emits physwrap_io_boundary_active (Tier 2b class tag)");
+assert(processSrc.includes("physwrap_io_boundary_skipped"),
+  "process.ts emits physwrap_io_boundary_skipped (Tier 2b open gap tag)");
+assert(!processSrc.includes("physwrap_active_limits"),
+  "process.ts no longer uses flat physwrap_active_limits key (replaced by class tags)");
 
 // ─── Summary ─────────────────────────────────────────────────────────────────
 

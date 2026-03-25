@@ -106,60 +106,68 @@ Trips before law evaluation. No fallback. No retry. No best-effort continuation.
 
 ### Tier 2 — Payload Physics
 
-#### Wall-clock timeout: LIVE (all platforms)
+Two enforcement classes with different native shapes. Both use `buccet-physwrap` as the translator, but the enforcement primitive and breach behavior differ.
+
+#### Tier 2a — Payload Envelope Physics: LIVE (all platforms with noted gaps)
+
+Launch-time ceiling on what a process can BECOME. The kernel terminates or blocks the process itself when the ceiling is exceeded.
 
 | Primitive | Code | Ledger event | Contract |
 |---|---|---|---|
 | `wallClockTimeoutMs` → `SIGKILL` | `process.ts` | `PROCESS_WALL_CLOCK_KILL` | `agent-buccet-payload-physics-contract.ts` |
+| `setrlimit()` / Job Objects | `physwrap.c` / `physwrap_win.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 
-Platform-independent. `setTimeout` + `child.kill('SIGKILL')`.
+**Tier 2a coverage by platform:**
 
-#### Native physwrap enforcer (rlimits + privilege drop)
+| Field | Linux | macOS | Windows |
+|---|---|---|---|
+| `wallClockTimeoutMs` | **LIVE** | **LIVE** | **LIVE** |
+| `cpuTimeLimitSec` | **LIVE** | **LIVE** | **LIVE** |
+| `maxProcesses` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
+| `maxMemoryBytes` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
 
-The `buccet-physwrap` binary is the Native Physics Translator. It applies rlimits via direct `setrlimit()` syscalls and applies a platform-native privilege drop before `exec()`.
+#### Tier 2b — Live I/O / Object Boundary: LIVE on Linux + macOS | OPEN GAP on Windows
 
-| Path | Ledger event | Guarantee level |
-|---|---|---|
-| **Strong path** — physwrap binary found | `PROCESS_PHYSWRAP_ACTIVE` | `setrlimit()` hard+soft + platform privilege drop |
-| **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — limits applied, privilege drop NOT executed |
-| **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute (Linux) |
+Ongoing enforcement on live object creation and I/O operations during execution. Individual syscalls fail (`EMFILE`, `SIGXFSZ`) rather than process termination. The process continues; constrained operations are denied.
 
-`PROCESS_PHYSWRAP_ACTIVE` includes `physwrap_active_limits` and `physwrap_skipped_limits` — the exact per-platform limit coverage is recorded in the ledger for every invocation.
+| Primitive | Code | Ledger event | Contract |
+|---|---|---|---|
+| `RLIMIT_NOFILE` / `RLIMIT_FSIZE` | `physwrap.c` / `physwrap_mac.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 
-**CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
+**Tier 2b coverage by platform:**
 
-Build physwrap to activate the strong path: `npm run build:native:physwrap`
+| Field | Linux | macOS | Windows |
+|---|---|---|---|
+| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` | **OPEN GAP** |
+| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` | **OPEN GAP** |
+
+**OPEN GAP — Windows Tier 2b (class-level):** No Win32 Job Object equivalent exists for file descriptor limits or file size limits. This is not a missing flag — the entire Live I/O / Object Boundary enforcement class is absent on Windows. physwrap.exe emits explicit stderr warnings when `maxOpenFiles` or `maxFileSizeBytes` are requested, and records them in `physwrap_io_boundary_skipped` on every invocation. Warnings are not enforcement. This class remains uncovered until a native Windows I/O boundary enforcement path is implemented.
 
 #### Native backends — one source file per platform
 
-| Platform | Source | Method |
-|---|---|---|
-| Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` + `PR_CAP_AMBIENT_LOWER` |
-| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` + `setgid()`/`setuid()` privilege drop (`--uid`/`--gid`) |
-| Windows | `native/physwrap/physwrap_win.c` | NT Job Objects (`CreateJobObject` + `SetInformationJobObject`) |
+| Platform | Source | Tier 2a | Tier 2b | Privilege drop |
+|---|---|---|---|---|
+| Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP` | `setrlimit()` | `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` |
+| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` (nproc/as skipped) | `setrlimit()` | `setgid()`/`setuid()` via `--uid`/`--gid` |
+| Windows | `native/physwrap/physwrap_win.c` | NT Job Objects | **OPEN GAP** | N/A |
 
 Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat` (MSVC).
-`PHYSWRAP_PLATFORM` is recorded in `PROCESS_PHYSWRAP_ACTIVE` ledger events.
 
-#### Limit coverage by platform
+#### physwrap enforcement path
 
-| Limit | Field | Linux | macOS | Windows |
-|---|---|---|---|---|
-| CPU time | `cpuTimeLimitSec` | `RLIMIT_CPU` — **LIVE** | `RLIMIT_CPU` — **LIVE** | `PerJobUserTimeLimit` — **LIVE** |
-| Process tree | `maxProcesses` | `RLIMIT_NPROC` — **LIVE** | Skipped (unreliable on Darwin) — ledgered | `ActiveProcessLimit` — **LIVE** |
-| Virtual memory | `maxMemoryBytes` | `RLIMIT_AS` — **LIVE** | Skipped (unreliable on Darwin) — ledgered | `ProcessMemoryLimit` — **LIVE** |
-| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | **OPEN GAP** — no Job Object equivalent; warning emitted, limit NOT applied |
-| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | **OPEN GAP** — no Job Object equivalent; warning emitted, limit NOT applied |
-| Privilege drop (Linux) | — | `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` — **LIVE** | N/A | N/A |
-| Privilege drop (macOS) | `dropToUid` / `dropToGid` | N/A | `setgid()`/`setuid()` before exec — **LIVE** | N/A |
+| Path | Ledger event | Guarantee level |
+|---|---|---|
+| **Strong path** — physwrap binary found | `PROCESS_PHYSWRAP_ACTIVE` | `setrlimit()` hard+soft + platform privilege drop; per-class coverage recorded |
+| **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — Tier 2a limits applied, privilege drop NOT executed, Tier 2b partially covered |
+| **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute (Linux) |
 
-**OPEN GAP — Windows `maxOpenFiles` and `maxFileSizeBytes`: no Win32 Job Object equivalent exists. These limits are NOT enforced. physwrap emits explicit stderr warnings and records them in `physwrap_skipped_limits` so the gap is auditable at runtime — but warnings are not enforcement. This surface remains uncovered until a native Windows enforcement path is implemented.**
+`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage: `physwrap_envelope_active`, `physwrap_envelope_skipped`, `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`. Non-empty `physwrap_io_boundary_skipped` is a standing indicator of the open Tier 2b gap on Windows.
+
+**CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
 
 **macOS: without `dropToUid`, root processes can exceed POSIX rlimit hard limits. physwrap emits a warning to stderr when running as root without `--uid`. Pass `dropToUid` in `BoundaryProcessPhysics` to close this gap.**
 
-The shell-ulimit fallback is an auditable degradation path used when physwrap is not built. It does not support `dropToUid`/`dropToGid`.
-
-Contracts: `agent-buccet-payload-physics-contract.ts`, `agent-buccet-physwrap-contract.ts`
+Build physwrap to activate the strong path: `npm run build:native:physwrap`
 
 ---
 

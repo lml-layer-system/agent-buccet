@@ -235,7 +235,7 @@ export async function runBoundaryProcess(args: {
   // Log which enforcement path is active so the ledger reflects the real physics strength.
   if (physics && hasPhysicsConstraints(physics)) {
     if (spawnCommand.mode === "physwrap") {
-      const { active, skipped } = computePhyswrapLimitCoverage(physics);
+      const coverage = computePhyswrapLimitCoverage(physics);
       await appendBoundaryLedger("PROCESS_PHYSWRAP_ACTIVE", {
         sessionId: args.config.session.sessionId,
         actorId: args.config.session.actorId,
@@ -246,8 +246,15 @@ export async function runBoundaryProcess(args: {
           ...buildRlimitMetadata(physics),
           physwrap_bin: PHYSWRAP_BIN,
           physwrap_platform: PHYSWRAP_PLATFORM,
-          physwrap_active_limits: active.join(","),
-          physwrap_skipped_limits: skipped.join(","),
+          // Tier 2a: Payload Envelope Physics
+          physwrap_envelope_active: coverage.envelope.active.join(","),
+          physwrap_envelope_skipped: coverage.envelope.skipped.join(","),
+          // Tier 2b: Live I/O / Object Boundary
+          physwrap_io_boundary_active: coverage.ioBoundary.active.join(","),
+          physwrap_io_boundary_skipped: coverage.ioBoundary.skipped.join(","),
+          // Privilege drop
+          physwrap_privilege_active: coverage.privilege.active.join(","),
+          physwrap_privilege_skipped: coverage.privilege.skipped.join(","),
         },
         createdAt: new Date().toISOString(),
       });
@@ -422,51 +429,65 @@ export type PhysicsSpawnResult = {
 };
 
 /**
- * Compute which physics limits are enforced on the current platform
- * (deterministic — no I/O). Used for PROCESS_PHYSWRAP_ACTIVE metadata.
+ * Compute per-class physwrap enforcement coverage for the current platform.
+ * Deterministic — no I/O. Returned values are recorded in ledger metadata.
+ *
+ * Two enforcement classes (see BoundaryProcessPhysics):
+ *   envelope    — Tier 2a: launch-time ceiling (cpu, nproc, as)
+ *   ioBoundary  — Tier 2b: live I/O / object boundary (nofile, fsize)
+ *
+ * Windows has a class-level gap in ioBoundary: no Win32 Job Object equivalent
+ * exists for file descriptor or file size limits. The entire ioBoundary class
+ * is unenforced on Windows — physwrap warns at runtime.
  */
 function computePhyswrapLimitCoverage(physics: BoundaryProcessPhysics): {
-  active: string[];
-  skipped: string[];
+  envelope: { active: string[]; skipped: string[] };
+  ioBoundary: { active: string[]; skipped: string[] };
+  privilege: { active: string[]; skipped: string[] };
 } {
   const platform = PHYSWRAP_PLATFORM;
-  const active: string[] = [];
-  const skipped: string[] = [];
 
+  const envelope = { active: [] as string[], skipped: [] as string[] };
+  const ioBoundary = { active: [] as string[], skipped: [] as string[] };
+  const privilege = { active: [] as string[], skipped: [] as string[] };
+
+  // ── Tier 2a: Payload Envelope Physics ─────────────────────────────────────
   // CPU — enforced on all platforms
-  if (physics.cpuTimeLimitSec !== undefined) active.push("cpu");
+  if (physics.cpuTimeLimitSec !== undefined) envelope.active.push("cpu");
 
-  // nproc: Linux + Windows; not reliable on macOS
+  // nproc: Linux + Windows; not reliable on macOS (per-user, not per-process)
   if (physics.maxProcesses !== undefined) {
-    if (platform === "macos") skipped.push("nproc");
-    else active.push("nproc");
+    if (platform === "macos") envelope.skipped.push("nproc");
+    else envelope.active.push("nproc");
   }
 
   // as (virtual memory): Linux + Windows; not reliable on macOS
   if (physics.maxMemoryBytes !== undefined) {
-    if (platform === "macos") skipped.push("as");
-    else active.push("as");
+    if (platform === "macos") envelope.skipped.push("as");
+    else envelope.active.push("as");
   }
 
-  // nofile: Linux + macOS; no Job Object equivalent on Windows
+  // ── Tier 2b: Live I/O / Object Boundary ───────────────────────────────────
+  // nofile: Linux + macOS via RLIMIT_NOFILE; Windows OPEN GAP (no Job Object equiv)
   if (physics.maxOpenFiles !== undefined) {
-    if (platform === "windows") skipped.push("nofile");
-    else active.push("nofile");
+    if (platform === "windows") ioBoundary.skipped.push("nofile");
+    else ioBoundary.active.push("nofile");
   }
 
-  // fsize: Linux + macOS; no Job Object equivalent on Windows
+  // fsize: Linux + macOS via RLIMIT_FSIZE; Windows OPEN GAP (no Job Object equiv)
   if (physics.maxFileSizeBytes !== undefined) {
-    if (platform === "windows") skipped.push("fsize");
-    else active.push("fsize");
+    if (platform === "windows") ioBoundary.skipped.push("fsize");
+    else ioBoundary.active.push("fsize");
   }
 
-  // uid/gid drop: only Darwin physwrap supports --uid/--gid
+  // ── Privilege drop ─────────────────────────────────────────────────────────
+  // uid/gid drop: Darwin only (setuid/setgid); Linux uses CAP drop (always on)
   if (physics.dropToUid !== undefined || physics.dropToGid !== undefined) {
-    if (platform === "macos") active.push("uid_gid_drop");
-    else skipped.push("uid_gid_drop");
+    if (platform === "macos") privilege.active.push("uid_gid_drop");
+    else privilege.skipped.push("uid_gid_drop");
   }
 
-  return { active, skipped };
+  return { envelope, ioBoundary, privilege };
 }
 
 function buildPhysicsSpawnCommand(

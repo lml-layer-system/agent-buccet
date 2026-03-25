@@ -112,26 +112,59 @@ Governor trips before `evaluateBoundaryLaws` is called. No law evaluation, no ap
 
 ---
 
-## Tier 2 — Payload Physics (Envelope Governance)
+## Tier 2 — Payload Physics
 
-Tier 1 governs boundary crossings. A single approved `tool.exec` crossing can still spawn a process that exhausts all RAM, opens infinite file descriptors, or runs forever. Tier 2 governs what that process can physically become.
+Tier 1 governs boundary crossings. A single approved `tool.exec` crossing can still spawn a process that exhausts all RAM, opens infinite file descriptors, or runs forever. Tier 2 governs what that process can physically do and become.
 
-The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by a Native Physics Translator that selects the appropriate backend for the current platform.
+The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by a Native Physics Translator (`buccet-physwrap`) that selects the platform's appropriate backend. Two distinct enforcement classes exist under Tier 2.
 
-### Wall-Clock Timeout
+---
 
-**Status: LIVE (all platforms)**
+### Tier 2a — Payload Envelope Physics
 
-Maximum elapsed time for an approved process. When the timeout expires, the process receives `SIGKILL` from the Node.js runtime. No cooperation required — the process is killed unconditionally.
+**What it governs:** launch-time ceiling on what a process can BECOME. Limits are set before `exec()`; the kernel terminates or blocks the process itself when the ceiling is exceeded. Governs the entire lifecycle of the process from birth.
 
-```ts
-processPolicy: {
-  physics: { wallClockTimeoutMs: 30_000 }
-}
-```
+| Policy field | Native primitive | Breach behavior |
+|---|---|---|
+| `wallClockTimeoutMs` | `setTimeout` → `SIGKILL` | unconditional kill (Node.js, all platforms) |
+| `cpuTimeLimitSec` | `RLIMIT_CPU` / `PerJobUserTimeLimit` | `SIGXCPU`→`SIGKILL` / job termination |
+| `maxProcesses` | `RLIMIT_NPROC` / `ActiveProcessLimit` | `EAGAIN` on `fork` / `CreateProcess` fails |
+| `maxMemoryBytes` | `RLIMIT_AS` / `ProcessMemoryLimit` | `ENOMEM` / `VirtualAlloc` fails |
 
-Ledger event: `PROCESS_WALL_CLOCK_KILL`
-Implementation: `setTimeout` + `child.kill('SIGKILL')`, cleared on normal exit.
+**Platform coverage:**
+
+| Field | Linux | macOS | Windows |
+|---|---|---|---|
+| `wallClockTimeoutMs` | **LIVE** | **LIVE** | **LIVE** |
+| `cpuTimeLimitSec` | **LIVE** | **LIVE** | **LIVE** |
+| `maxProcesses` | **LIVE** | Skipped (unreliable, per-user not per-process) | **LIVE** |
+| `maxMemoryBytes` | **LIVE** | Skipped (not reliably enforced on Darwin) | **LIVE** |
+
+Ledger metadata key: `physwrap_envelope_active`, `physwrap_envelope_skipped`.
+
+---
+
+### Tier 2b — Live I/O / Object Boundary
+
+**What it governs:** ongoing enforcement on live object creation and I/O operations during execution. The process continues running; individual operations are denied. Governs live behavior, not process birth.
+
+| Policy field | Native primitive | Breach behavior |
+|---|---|---|
+| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` on `open()`/`socket()` |
+| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` on `write()` beyond size |
+
+**Platform coverage:**
+
+| Field | Linux | macOS | Windows |
+|---|---|---|---|
+| `maxOpenFiles` | **LIVE** | **LIVE** | **OPEN GAP** |
+| `maxFileSizeBytes` | **LIVE** | **LIVE** | **OPEN GAP** |
+
+**OPEN GAP — Windows Tier 2b:** No Win32 Job Object equivalent exists for file descriptor limits or file size limits. This is a class-level gap — the entire Tier 2b enforcement class is absent on Windows. physwrap.exe warns at runtime when these limits are requested and records them in `physwrap_io_boundary_skipped`. Warnings are not enforcement. This surface remains uncovered until a native Windows I/O boundary enforcement path is implemented.
+
+Ledger metadata key: `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`.
+
+---
 
 ### Native Physics Translator (`buccet-physwrap`)
 
@@ -140,26 +173,22 @@ Implementation: `setTimeout` + `child.kill('SIGKILL')`, cleared on normal exit.
 The policy layer (`BoundaryProcessPhysics`) declares OS-agnostic limits. The physwrap translator converts them into the platform's native enforcement primitives before `exec()`. Without physwrap, limits are applied via a shell-ulimit fallback that is auditable but weaker.
 
 `process.ts` selects the enforcement path automatically:
-- `PROCESS_PHYSWRAP_ACTIVE` ledger event: physwrap binary found and used — strong path
-- `PROCESS_PHYSWRAP_FALLBACK` ledger event: binary not found — shell-ulimit fallback in use
+- `PROCESS_PHYSWRAP_ACTIVE` — physwrap binary found and used; metadata includes per-class coverage
+- `PROCESS_PHYSWRAP_FALLBACK` — binary not found; shell-ulimit fallback in use
 
-**If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees below do not apply.**
+**If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees do not apply.**
 
 #### Platform Status
 
 One physwrap source per platform. Same contract after the hook — same ledger events, same metadata shape, same operator guarantee model. The only OS-specific layer is the translator itself.
 
-| Platform | Source file | Method | Cap drop | Status |
+| Platform | Source file | Tier 2a method | Tier 2b method | Privilege drop |
 |---|---|---|---|---|
-| **Linux** | `physwrap.c` | `setrlimit()` + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` | Yes — bounding set | **LIVE** |
-| **macOS** | `physwrap_mac.c` | `setrlimit()` (Darwin POSIX) | N/A — no Linux cap system | **LIVE** |
-| **Windows** | `physwrap_win.c` | NT Job Objects (`CreateJobObject` + `SetInformationJobObject`) | N/A | **LIVE** |
+| **Linux** | `physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` | `setrlimit()` | `PR_CAPBSET_DROP` |
+| **macOS** | `physwrap_mac.c` | `setrlimit()` (partial — nproc/as skipped) | `setrlimit()` | `setgid()`/`setuid()` via `--uid`/`--gid` |
+| **Windows** | `physwrap_win.c` | NT Job Objects | **OPEN GAP** — no equivalent | N/A |
 
-All three are built by `native/physwrap/build.sh` (POSIX platforms) or `native/physwrap/build_win.bat` (MSVC). Platform is detected at build time and recorded in the `physwrap_platform` field of `PROCESS_PHYSWRAP_ACTIVE` ledger events.
-
-**macOS root processes:** POSIX `setrlimit()` hard limits prevent self-elevation for unprivileged processes. Root can exceed on Darwin. A Darwin-native sandbox backend (App Sandbox / seatbelt-class) is the correct next-phase mechanism for privileged containment — documented, not implied as present.
-
-**CRITICAL RULE:** macOS next-phase documentation stays at the backend class level (App Sandbox / seatbelt-class), not a single API name. Darwin sandbox APIs are version-sensitive; the class maps to the appropriate primitive at build time.
+All three are built by `native/physwrap/build.sh` (POSIX) or `native/physwrap/build_win.bat` (MSVC). Platform recorded in `physwrap_platform` of `PROCESS_PHYSWRAP_ACTIVE` events.
 
 #### Linux Strong-Path Guarantee (`physwrap.c`)
 
@@ -170,35 +199,21 @@ On Linux with physwrap active:
 3. `setrlimit()` is called with **hard == soft** for each limit. Setting the hard limit equal to the soft prevents self-elevation without requiring the capability.
 4. `execvp()` — no shell interposition, no PATH injection surface.
 
-#### Supported Limits by Platform
+#### `PROCESS_PHYSWRAP_ACTIVE` Ledger Metadata
 
-| Policy field | Primitive | Signal / error on breach | Linux | macOS | Windows |
-|---|---|---|---|---|---|
-| `cpuTimeLimitSec` | `RLIMIT_CPU` / `PerJobUserTimeLimit` | `SIGXCPU`→`SIGKILL` / job termination | ✓ | ✓ | ✓ |
-| `maxProcesses` | `RLIMIT_NPROC` / `ActiveProcessLimit` | `EAGAIN` on `fork` / `CreateProcess` fails | ✓ | — | ✓ |
-| `maxMemoryBytes` | `RLIMIT_AS` / `ProcessMemoryLimit` | `ENOMEM` / `VirtualAlloc` fails | ✓ | — | ✓ |
-| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` | ✓ | ✓ | — |
-| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` | ✓ | ✓ | — |
-| `CAP_SYS_RESOURCE` drop | `PR_CAPBSET_DROP` | prevents self-elevation | ✓ | N/A | N/A |
+Every physwrap invocation records per-class coverage in the ledger:
 
-macOS: `maxProcesses` (`RLIMIT_NPROC`) and `maxMemoryBytes` (`RLIMIT_AS`) are accepted but silently ignored — not reliably enforced on Darwin. Flags are consumed without error.
-
-Windows: `maxOpenFiles` and `maxFileSizeBytes` are accepted but not yet enforced — no Job Object equivalent. `PROCESS_PHYSWRAP_ACTIVE` is still recorded; the active limits are listed in the metadata.
-
-```ts
-processPolicy: {
-  physics: {
-    wallClockTimeoutMs: 30_000,
-    cpuTimeLimitSec: 10,
-    maxProcesses: 32,           // Linux only
-    maxMemoryBytes: 536870912,  // 512 MB — Linux only
-    maxOpenFiles: 64,
-    maxFileSizeBytes: 104857600, // 100 MB
-  }
-}
+```
+physwrap_platform           "linux" | "macos" | "windows" | "unknown"
+physwrap_envelope_active    comma-separated active Tier 2a limits, e.g. "cpu,nproc,as"
+physwrap_envelope_skipped   comma-separated skipped Tier 2a limits
+physwrap_io_boundary_active comma-separated active Tier 2b limits, e.g. "nofile,fsize"
+physwrap_io_boundary_skipped comma-separated skipped Tier 2b limits (e.g. "nofile,fsize" on Windows)
+physwrap_privilege_active   e.g. "uid_gid_drop" on macOS when --uid provided
+physwrap_privilege_skipped  e.g. "uid_gid_drop" on Linux (CAP drop is always on; field not needed)
 ```
 
-Ledger events: `PROCESS_PHYSWRAP_ACTIVE` (strong path) or `PROCESS_PHYSWRAP_FALLBACK` (degraded path), plus `PROCESS_SPAWNED` and `PROCESS_EXITED`.
+Non-empty `physwrap_io_boundary_skipped` on Windows is a standing indicator of the open Tier 2b gap — visible in every physwrap ledger event for the duration of a Windows deployment.
 
 #### Shell-Ulimit Fallback (Auditable Degradation)
 
@@ -208,6 +223,7 @@ Fallback weaknesses relative to the strong path:
 - Requires `sh` to be present in the environment
 - Does not drop `CAP_SYS_RESOURCE` — root or cap-elevated processes can raise limits
 - Shell subprocess adds a thin injection surface
+- Not available on Windows
 
 **When the fallback path is active, the system's guarantee level is explicitly downgraded. Operators should treat `PROCESS_PHYSWRAP_FALLBACK` ledger events as a configuration gap requiring resolution.**
 

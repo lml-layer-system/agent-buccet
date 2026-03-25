@@ -33,13 +33,49 @@ export type BoundaryResourceKind =
   | "database"
   | "system";
 
+/**
+ * Tier 2 — Payload Physics
+ *
+ * Two enforcement classes with different native shapes:
+ *
+ * ── Tier 2a: Payload Envelope Physics ───────────────────────────────────────
+ * Launch-time ceiling on what a process can BECOME.
+ * The kernel terminates or blocks the entire process when it tries to exceed
+ * the pre-set envelope. Applied once at spawn; governs the process lifecycle.
+ *
+ *   wallClockTimeoutMs  Wall-clock timeout → SIGKILL (Node.js, all platforms)
+ *   cpuTimeLimitSec     CPU time ceiling → SIGXCPU/SIGKILL or job termination
+ *   maxProcesses        Process/thread count ceiling
+ *   maxMemoryBytes      Virtual address space ceiling
+ *
+ * ── Tier 2b: Live I/O / Object Boundary ─────────────────────────────────────
+ * Ongoing enforcement on live object creation and I/O operations during
+ * execution. Individual syscalls fail (EMFILE, SIGXFSZ) rather than process
+ * termination. The process continues running; constrained operations are denied.
+ *
+ *   maxOpenFiles        Max simultaneous open file descriptors
+ *   maxFileSizeBytes    Max file size for any single write/growth
+ *
+ * OPEN GAP — Windows (Tier 2b): no Win32 Job Object equivalent exists for
+ * file descriptor or file size limits. physwrap warns at runtime and records
+ * in physwrap_io_boundary_skipped. This is a class-level gap, not a missing
+ * flag — the entire Tier 2b enforcement class is absent on Windows.
+ *
+ * ── Privilege drop ───────────────────────────────────────────────────────────
+ * Drop process uid/gid before exec (Darwin: setgid+setuid; Linux: CAP drop).
+ */
 export type BoundaryProcessPhysics = {
+  // Tier 2a — Payload Envelope Physics
   wallClockTimeoutMs?: number;
   cpuTimeLimitSec?: number;
   maxProcesses?: number;
   maxMemoryBytes?: number;
+
+  // Tier 2b — Live I/O / Object Boundary
   maxOpenFiles?: number;
   maxFileSizeBytes?: number;
+
+  // Privilege drop
   /** Drop to this uid before exec (Darwin: setuid; Linux: already handled by CAP drop path). */
   dropToUid?: number;
   /** Drop to this gid before exec (Darwin: setgid; paired with dropToUid). */

@@ -175,13 +175,15 @@ Two tiers:
 
 All three are stateless from the function's perspective — state is carried in `BoundaryRuntimeConfig.governorState` and flows back through `BoundaryExecutionResult.config` after every crossing.
 
-**Tier 2 — Payload Physics (process containment)**
+**Tier 2 — Payload Physics (two enforcement classes)**
 
-The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by the Native Physics Translator (`buccet-physwrap`).
+The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by the Native Physics Translator (`buccet-physwrap`). Two enforcement classes with different native shapes:
 
-- **Wall-clock timeout** — `setTimeout` → `SIGKILL`. Live. Platform-independent. Ledgered as `PROCESS_WALL_CLOCK_KILL`.
-- **Native physwrap (strong path)** — `setrlimit()` direct + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` on Linux; `setrlimit()` + `setgid()`/`setuid()` privilege drop on macOS (when `--uid`/`--gid` provided); NT Job Objects on Windows. Hard limit == soft limit. Spawned process cannot raise limits. Ledgered as `PROCESS_PHYSWRAP_ACTIVE` with `physwrap_active_limits` and `physwrap_skipped_limits`.
-- **Shell-ulimit fallback (degraded path)** — used when physwrap binary is not built. Sets both hard and soft flags. Does NOT drop `CAP_SYS_RESOURCE`. Ledgered as `PROCESS_PHYSWRAP_FALLBACK`.
+- **Tier 2a — Payload Envelope Physics** — launch-time ceiling on what a process can BECOME. Wall-clock timeout (`setTimeout` → `SIGKILL`), CPU time (`RLIMIT_CPU` / `PerJobUserTimeLimit`), process count, virtual memory. Kernel terminates the process when ceiling is exceeded. Live on all platforms (with noted macOS skips for nproc/as). Ledgered as `PROCESS_PHYSWRAP_ACTIVE` with `physwrap_envelope_active`/`physwrap_envelope_skipped`.
+
+- **Tier 2b — Live I/O / Object Boundary** — ongoing enforcement on live object creation and I/O operations during execution. File descriptor limit (`RLIMIT_NOFILE` → `EMFILE`), file size limit (`RLIMIT_FSIZE` → `SIGXFSZ`). Individual operations fail; process continues. Live on Linux and macOS. **OPEN GAP on Windows** — the entire class is absent; no Win32 Job Object equivalent exists. physwrap warns at runtime; recorded in `physwrap_io_boundary_skipped`.
+
+- **Shell-ulimit fallback (degraded path)** — used when physwrap binary is not built. Covers Tier 2a limits only. Does NOT drop `CAP_SYS_RESOURCE`. Ledgered as `PROCESS_PHYSWRAP_FALLBACK`.
 
 **If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path envelope guarantee is explicitly downgraded. Root or cap-elevated payloads may raise their own limits.**
 
@@ -194,7 +196,7 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - A **fail-closed law boundary** — deny is the default when the brain is unreachable; the hook never guesses
 - An **egress structural validity layer** — outbound actions are validated against boundary laws before execution
 - A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move
-- A **payload physics envelope** (Tier 2) — native rlimits and capability drop cap what approved processes can physically become
+- A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling; Tier 2b: live I/O boundary — file descriptor and file size limits) — native rlimits and capability drop govern what approved processes can physically become and do
 - An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation
 
 ### Agent Buccet Is Not
@@ -230,4 +232,4 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
 - macOS privileged containment when `dropToUid` is not configured (root can exceed POSIX rlimit hard limits on Darwin without uid drop; physwrap warns at runtime; Darwin-native sandbox backend is the next-phase mechanism for full containment)
-- Windows `maxOpenFiles` and `maxFileSizeBytes` enforcement — OPEN GAP (no Job Object equivalent; physwrap warns at runtime and records in `physwrap_skipped_limits`, but these limits are NOT applied on Windows)
+- Windows Tier 2b (Live I/O / Object Boundary) — OPEN GAP; the entire class is absent on Windows (no Job Object equivalent for file descriptor or file size limits); physwrap warns at runtime and records in `physwrap_io_boundary_skipped`; warnings are not enforcement
