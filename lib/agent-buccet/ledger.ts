@@ -186,6 +186,15 @@ export async function flushLiopeQueue(): Promise<void> {
   return liopeFlush();
 }
 
+/** Stop the LIOPE background daemon. Used in tests to prevent the daemon from firing
+ *  between enqueue and flush, which would cause shed-count races in contract tests. */
+export function stopLiopeDaemon(): void {
+  if (liopeDaemonHandle !== undefined) {
+    clearInterval(liopeDaemonHandle);
+    liopeDaemonHandle = undefined;
+  }
+}
+
 /** Current LIOPE queue depth + shed counter — for observability and contract tests. */
 export function getLiopeStats(): { queueDepth: number; shedCount: number; shedByClass: Record<string, number> } {
   const shedByClass: Record<string, number> = {};
