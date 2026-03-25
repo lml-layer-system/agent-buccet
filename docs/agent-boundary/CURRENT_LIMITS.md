@@ -261,11 +261,43 @@ Three dimensions:
 
 **How it works:**
 
-- High-volume *observation events* (`INGRESS_PROVENANCE_BLOCKED`, `ACTION_PROPOSED`, `DECISION_RETURNED`, etc.) are enqueued in memory (O(1) hot path) and flushed in batches.
-- *Material state transitions* (`SESSION_STARTED`, `GRANT_ISSUED`, `ACTION_BLOCKED`, `GOVERNOR_TRIP`, `PROCESS_PHYSWRAP_ACTIVE`, `INGRESS_STANDING_LAW_WRITTEN`, etc.) bypass the queue and write immediately — always durable.
+- High-volume *admission observation events* (`INGRESS_PROVENANCE_BLOCKED`, `INGRESS_DENIED`, `INGRESS_VELOCITY_TRIP`, `INGRESS_DENSITY_TRIP`, `INGRESS_MASS_TRIP`) are enqueued in memory (O(1) hot path) and flushed in batches. These are the primary botnet storm events.
+- *Material state transitions* (`SESSION_STARTED`, `GRANT_ISSUED`, `ACTION_PROPOSED`, `ACTION_BLOCKED`, `ACTION_EXECUTED`, `DECISION_RETURNED`, `GOVERNOR_TRIP`, `PROCESS_PHYSWRAP_ACTIVE`, `INGRESS_STANDING_LAW_WRITTEN`, etc.) bypass the queue and write immediately — always durable.
 - When the queue is full, overflow events are shed. The shed count is tracked atomically.
 - On each flush: if shed > 0, one `LEDGER_STORM_SUMMARY` record is prepended to the batch. It carries `shed_count`, `window_ms`, `by_class` (JSON breakdown by event type). It is ed25519-signed and chain-linked like any other record.
 - File rollover: when the ledger file exceeds `BUCCET_LEDGER_MAX_FILE_SIZE_BYTES` (default 10 MB), it is renamed to a timestamped archive and a new file begins. Chain linkage is preserved via `prev_hash`.
+
+**Two-path architecture — why the bypass set is safe under botnet pressure:**
+
+Agent Buccet has two distinct execution paths with different write profiles:
+
+| Path | Entry point | Typical caller | What writes on this path |
+|---|---|---|---|
+| **Intercept path** | `evaluateBoundaryIntercept` | Intercept daemon/server (network-facing) | `INGRESS_PROVENANCE_BLOCKED` (queueable), `INGRESS_STANDING_LAW_WRITTEN` (material, once per IP lifetime) |
+| **Bodyguard path** | `enforceBodyguardBoundary` | LLM framework adapters (tool-call dispatch) | `ACTION_PROPOSED`, `DECISION_RETURNED`, `ACTION_BLOCKED`, `ACTION_EXECUTED`, `GOVERNOR_TRIP` |
+
+A distributed botnet hits the **intercept path**. The intercept path calls `adjudicateBoundaryRequest` (the core adjudicator) directly — it does NOT pass through the outer bodyguard wrapper that writes `ACTION_PROPOSED` / `DECISION_RETURNED` / `ACTION_BLOCKED`. Those events are only written in the bodyguard path, which is reached via LLM inference (tool call proposals) — inference-speed limited, not IP-rate limited.
+
+**Adversarial classification of each material bypass class:**
+
+| Event class | Externally amplifiable | Max frequency under attack | Durability justified |
+|---|---|---|---|
+| `SESSION_STARTED/ENDED` | Only if session creation endpoint is unprotected upstream | Bounded by session creation rate | Yes — operator API, not direct attacker surface |
+| `PATH_*/GRANT_*/RECIPIENT_*/DOMAIN_*/TOOL_*/DATABASE_*/SYSTEM_*` | No | Operator config events, not runtime | Yes |
+| `UPL_ALLOW_RECORDED`, `UPL_DENY_RECORDED` | No | User interaction required | Yes |
+| `ACTION_PROPOSED` | **Not via intercept path** (never written there). Via bodyguard path: inference-speed limited | ~1–5/sec via LLM tool calls | Yes — lawful-session audit trail; not botnet-reachable |
+| `DECISION_RETURNED` | Same as ACTION_PROPOSED | Same | Yes |
+| `ACTION_BLOCKED` | Same as ACTION_PROPOSED | Same | Yes — enforcement record |
+| `ACTION_EXECUTED` | Requires passing law eval — harder than block | Very low | Yes |
+| `GOVERNOR_TRIP` | Via bodyguard path only | maxRpm × session count | Yes — enforcement record, velocity-bounded |
+| `INGRESS_STANDING_LAW_WRITTEN` | Structurally once per IP lifetime (`ledgered` flag check in intercept.ts) | One write per unique hostile IP | Yes — standing deny authority record |
+| `PROCESS_*`, `PROCESS_PHYSWRAP_*` | No — requires passing law eval + actual process spawn | Bounded by OS process limits | Yes |
+| `APPROVAL_*`, `NSL_*`, `USER_CONFIRMED_DENY`, `PROPOSAL_REPLAYED` | No — human/operator gated | Near-zero | Yes |
+| `LEDGER_STORM_SUMMARY` | No — emitted by LIOPE itself | One per flush window (100ms) | Yes — storm audit record |
+
+**Residual dependency:** `ACTION_BLOCKED` is bounded by admission density config tightness. With density window=5, deny_ratio=0.6 (the default), a hostile IP is promoted to standing deny after ~3 blocks. With 10M unique IPs that each get 3 ACTION_BLOCKEDs before standing deny, that is 30M writes — but these arrive over the time it takes 10M IPs to trip density (tens of minutes at realistic attack rates). Not a spike. If tighter bounds are needed, reduce the density window or increase the deny ratio threshold in `admissionConfig`.
+
+**Verdict:** The bypass set cannot be used as the new seam for botnet-scale disk exhaustion. The intercept path is the botnet-facing surface, and it writes only queueable admission events (shed under storm) plus exactly-once-per-IP standing-deny records. Action events (the material set) are gated behind LLM inference, not IP rate.
 
 **Invariants:**
 
