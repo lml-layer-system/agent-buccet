@@ -210,8 +210,15 @@ if (process.platform === "darwin") {
 //  - process.ts passes --io-rate-bps / --io-max-iops on Windows path
 //  - types.ts has the Tier 2b Windows fields
 
-assert(macSrc.includes("not enforced on Darwin") || macSrc.includes("silently skipped"),
-  "physwrap_mac.c documents which Tier 2a limits are not enforced on Darwin (nproc, as)");
+// macOS Tier 2a parity: nproc and as are now enforced (not skipped)
+assert(macSrc.includes("RLIMIT_NPROC"),
+  "physwrap_mac.c applies RLIMIT_NPROC (nproc live on macOS)");
+assert(macSrc.includes("RLIMIT_AS"),
+  "physwrap_mac.c applies RLIMIT_AS (virtual memory ceiling live on macOS)");
+assert(macSrc.includes("memorystatus_control"),
+  "physwrap_mac.c calls memorystatus_control (jetsam ceiling for arm64 memory coverage)");
+assert(macSrc.includes("MEMORYSTATUS_CMD_SET_JETSAM_TASK_LIMIT"),
+  "physwrap_mac.c uses MEMORYSTATUS_CMD_SET_JETSAM_TASK_LIMIT (= 6)");
 
 // ─── 15a. physwrap_win.c: Windows Tier 2b I/O rate control implementation ───
 assert(winSrc.includes("SetIoRateControlInformationJobObject"),
@@ -268,6 +275,15 @@ assert(
   !processSrc.match(/platform.*windows.*ioBoundary\.skipped.*fsize/) &&
   !processSrc.match(/fsize.*platform.*windows.*skipped/),
   "process.ts coverage function no longer marks fsize as skipped on Windows");
+// nproc and as are now active on macOS — no macos-skipped guard
+assert(
+  !processSrc.match(/platform.*macos.*envelope\.skipped.*nproc/) &&
+  !processSrc.match(/nproc.*platform.*macos.*skipped/),
+  "process.ts coverage function no longer marks nproc as skipped on macOS");
+assert(
+  !processSrc.match(/platform.*macos.*envelope\.skipped.*as[^-]/) &&
+  !processSrc.match(/[^-]as.*platform.*macos.*skipped/),
+  "process.ts coverage function no longer marks as (memory) as skipped on macOS");
 
 // ─── 15d. types.ts: Tier 2b Windows fields are declared ──────────────────────
 const typesSrc = readFileSync(
@@ -292,5 +308,6 @@ console.log(`multi-limit (cpu=10 nofile=32): ${multiOut === "cpu=10 nofile=32"}`
 console.log(`missing -- separator rejected: ${missingDash.status !== 0}`);
 console.log(`platform source files: physwrap.c + physwrap_mac.c + physwrap_win.c + buccet_ioboundary_win.c all present`);
 console.log(`physwrap_mac.c has --uid/--gid drop: true`);
+console.log(`physwrap_mac.c macOS Tier 2a parity: RLIMIT_NPROC + RLIMIT_AS + memorystatus_control: true`);
 console.log(`physwrap_win.c Tier 2b: DLL injection for EMFILE/EFBIG + I/O rate throttle: true`);
 console.log(`buccet_ioboundary_win.c: IAT hook for CreateFileA/W + WriteFile: true`);

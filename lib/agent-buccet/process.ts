@@ -461,16 +461,18 @@ function computePhyswrapLimitCoverage(physics: BoundaryProcessPhysics): {
   // CPU — enforced on all platforms
   if (physics.cpuTimeLimitSec !== undefined) envelope.active.push("cpu");
 
-  // nproc: Linux + Windows; not reliable on macOS (per-user, not per-process)
+  // nproc: all platforms — RLIMIT_NPROC on Linux/macOS (per-user scope on macOS,
+  //         per-process-tree on Linux), ActiveProcessLimit Job Object on Windows.
+  //         macOS scope difference is documented in ledger via physwrap_envelope_active.
   if (physics.maxProcesses !== undefined) {
-    if (platform === "macos") envelope.skipped.push("nproc");
-    else envelope.active.push("nproc");
+    envelope.active.push("nproc");
   }
 
-  // as (virtual memory): Linux + Windows; not reliable on macOS
+  // as: all platforms — RLIMIT_AS on Linux/macOS (belt-and-suspenders:
+  //     memorystatus_control jetsam ceiling applied alongside RLIMIT_AS on macOS
+  //     for arm64 RSS coverage); ProcessMemoryLimit Job Object on Windows.
   if (physics.maxMemoryBytes !== undefined) {
-    if (platform === "macos") envelope.skipped.push("as");
-    else envelope.active.push("as");
+    envelope.active.push("as");
   }
 
   // ── Tier 2b: Live I/O / Object Boundary ───────────────────────────────────

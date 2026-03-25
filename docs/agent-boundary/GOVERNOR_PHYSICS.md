@@ -137,8 +137,8 @@ The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcemen
 |---|---|---|---|
 | `wallClockTimeoutMs` | **LIVE** | **LIVE** | **LIVE** |
 | `cpuTimeLimitSec` | **LIVE** | **LIVE** | **LIVE** |
-| `maxProcesses` | **LIVE** | Skipped (unreliable, per-user not per-process) | **LIVE** |
-| `maxMemoryBytes` | **LIVE** | Skipped (not reliably enforced on Darwin) | **LIVE** |
+| `maxProcesses` | **LIVE** | **LIVE** — `RLIMIT_NPROC` (per-user scope; not per-process-tree) | **LIVE** |
+| `maxMemoryBytes` | **LIVE** | **LIVE** — `RLIMIT_AS` + `memorystatus_control` jetsam (arm64 coverage) | **LIVE** |
 
 Ledger metadata key: `physwrap_envelope_active`, `physwrap_envelope_skipped`.
 
@@ -197,7 +197,7 @@ One physwrap source per platform. Same contract after the hook — same ledger e
 | Platform | Source file | Tier 2a method | Tier 2b method | Privilege drop |
 |---|---|---|---|---|
 | **Linux** | `physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` | `setrlimit()` (refuse semantics) | `PR_CAPBSET_DROP` |
-| **macOS** | `physwrap_mac.c` | `setrlimit()` (nproc/as skipped) | `setrlimit()` (refuse semantics) | `setgid()`/`setuid()` via `--uid`/`--gid` |
+| **macOS** | `physwrap_mac.c` | `setrlimit()` + `memorystatus_control` jetsam (arm64 memory) | `setrlimit()` (refuse semantics) | `setgid()`/`setuid()` via `--uid`/`--gid` |
 | **Windows** | `physwrap_win.c` + `buccet_ioboundary_win.c` | NT Job Objects | IAT hook DLL: nofile/fsize (refuse); Job Object: io_rate/iops (throttle, Win 10 1607+) | N/A |
 
 All three are built by `native/physwrap/build.sh` (POSIX) or `native/physwrap/build_win.bat` (MSVC). Platform recorded in `physwrap_platform` of `PROCESS_PHYSWRAP_ACTIVE` events.
@@ -377,8 +377,8 @@ ENVELOPE (OUTBOUND)
   Payload Physics (Tier 2)
     ├── Wall-clock timeout: SIGKILL after N ms [LIVE — all platforms]
     ├── CPU time limit: RLIMIT_CPU (physwrap → setrlimit) [LIVE — Linux/macOS]
-    ├── Process tree: RLIMIT_NPROC (physwrap → setrlimit) [LIVE — Linux only]
-    ├── Memory: RLIMIT_AS (physwrap → setrlimit) [LIVE — Linux only]
+    ├── Process tree: RLIMIT_NPROC (physwrap → setrlimit) [LIVE — Linux/macOS (per-user scope on macOS)]
+    ├── Memory: RLIMIT_AS + memorystatus_control jetsam (physwrap) [LIVE — Linux/macOS]
     ├── File descriptors: RLIMIT_NOFILE / IAT hook CreateFileA/W [LIVE — all platforms]
     ├── File size: RLIMIT_FSIZE / IAT hook WriteFile [LIVE — all platforms]
     └── CAP_SYS_RESOURCE bounding-set drop [LIVE — Linux, requires CAP_SETPCAP]

@@ -123,8 +123,8 @@ Launch-time ceiling on what a process can BECOME. The kernel terminates or block
 |---|---|---|---|
 | `wallClockTimeoutMs` | **LIVE** | **LIVE** | **LIVE** |
 | `cpuTimeLimitSec` | **LIVE** | **LIVE** | **LIVE** |
-| `maxProcesses` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
-| `maxMemoryBytes` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
+| `maxProcesses` | **LIVE** | **LIVE** — `RLIMIT_NPROC` (per-user scope; not per-process-tree) | **LIVE** |
+| `maxMemoryBytes` | **LIVE** | **LIVE** — `RLIMIT_AS` + `memorystatus_control` jetsam (arm64 coverage) | **LIVE** |
 
 #### Tier 2b — Live I/O / Object Boundary: LIVE on all platforms
 
@@ -156,7 +156,7 @@ Ongoing enforcement on live I/O operations during execution. Platform enforcemen
 | Platform | Source | Tier 2a | Tier 2b | Privilege drop |
 |---|---|---|---|---|
 | Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP` | `setrlimit()` | `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` |
-| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` (nproc/as skipped) | `setrlimit()` | `setgid()`/`setuid()` via `--uid`/`--gid` |
+| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` + `memorystatus_control` jetsam (arm64 memory) | `setrlimit()` | `setgid()`/`setuid()` via `--uid`/`--gid` |
 | Windows | `physwrap_win.c` + `buccet_ioboundary_win.c` | NT Job Objects | IAT hook DLL (nofile/fsize) + Job Object throttle (io_rate/iops) | N/A |
 
 Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat` (MSVC).
@@ -169,7 +169,7 @@ Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat
 | **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — Tier 2a limits applied, privilege drop NOT executed, Tier 2b partially covered |
 | **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute (Linux) |
 
-`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage: `physwrap_envelope_active`, `physwrap_envelope_skipped`, `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`. On Linux/macOS, `physwrap_io_boundary_skipped` contains `io_rate`/`io_iops` (no rlimit equiv). On Windows, it contains `io_rate`/`io_iops` only if not configured; `nofile` and `fsize` are now active on all platforms.
+`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage: `physwrap_envelope_active`, `physwrap_envelope_skipped`, `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`. On Linux/macOS, `physwrap_io_boundary_skipped` contains `io_rate`/`io_iops` (no rlimit equiv). On macOS, `physwrap_envelope_active` contains `nproc` and `as` (both live). On Windows, `nofile` and `fsize` are active via IAT hook DLL; `io_rate`/`io_iops` are active via Job Object when configured.
 
 **CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
 
