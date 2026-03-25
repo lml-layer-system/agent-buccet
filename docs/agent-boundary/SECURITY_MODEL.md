@@ -198,6 +198,7 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move
 - A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling on all platforms; Tier 2b: live I/O boundary — file descriptor/file size limits on all platforms; I/O rate/IOPS throttle on Windows 10 1607+) — native rlimits, IAT-hook DLL injection, Job Objects, capability drop, and macOS jetsam ceiling govern what approved processes can physically become and do; runtime enforcement outcome ledgered per-run
 - An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation
+- A **ledger I/O physics envelope** (LIOPE) — the ledger survives distributed event storms via a bounded ring buffer (Q1.8), max-IOPS background daemon (D2.8), and signed magnitude storm summaries (A3.8); hot path O(1); material state transitions always durable
 
 ### Agent Buccet Is Not
 
@@ -222,6 +223,7 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Wall-clock kill enforces on all platforms — platform-independent
 - Native physwrap enforces rlimits directly when `PROCESS_PHYSWRAP_ACTIVE` in ledger; on Darwin, `physwrap_macos_jetsam_reinforcement` tells the operator exactly which memory enforcement path was active at runtime
 - Input admission boundary protects the brain from hostile inbound force when `admissionConfig` is configured
+- Ledger I/O Physics Envelope (LIOPE) bounds disk I/O and memory under distributed event storms — hot path O(1), material state transitions always durable, storm repetition collapses to signed `LEDGER_STORM_SUMMARY`
 
 ---
 

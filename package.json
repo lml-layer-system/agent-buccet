@@ -65,6 +65,7 @@
     "test:agent-buccet:meta-runtime": "node scripts/agent-buccet-meta-runtime-contract.ts",
     "test:agent-buccet:law-unit": "node scripts/agent-buccet-law-unit-contract.ts",
     "test:agent-buccet:ledger-contract": "node scripts/agent-buccet-ledger-contract.ts",
+    "test:agent-buccet:liope-contract": "node scripts/agent-buccet-liope-contract.ts",
     "test:agent-buccet:ledger-rollup": "node scripts/agent-buccet-ledger-rollup-contract.ts",
     "test:agent-buccet:ledger-writer": "node scripts/agent-buccet-ledger-writer-contract.ts",
     "test:agent-buccet:ledger-witness": "node scripts/agent-buccet-ledger-witness-contract.ts",

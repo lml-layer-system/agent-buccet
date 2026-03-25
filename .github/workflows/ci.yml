@@ -45,6 +45,8 @@ jobs:
         run: npm run test:agent-buccet:gravity-contract
       - name: Ledger contract
         run: npm run test:agent-buccet:ledger-contract
+      - name: LIOPE contract
+        run: npm run test:agent-buccet:liope-contract
       - name: Wrapper contract
         run: npm run test:agent-buccet:wrapper-contract
       - name: Intercept daemon contract

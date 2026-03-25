@@ -354,7 +354,8 @@ export type BoundaryLedgerEventType =
   | "INGRESS_STANDING_LAW_WRITTEN"
   | "PROCESS_PHYSWRAP_ACTIVE"
   | "PROCESS_PHYSWRAP_FALLBACK"
-  | "PROCESS_PHYSWRAP_CAP_WARNING";
+  | "PROCESS_PHYSWRAP_CAP_WARNING"
+  | "LEDGER_STORM_SUMMARY";
 
 export type BoundaryLedgerPayload = {
   sessionId: string;

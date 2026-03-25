@@ -247,6 +247,37 @@ Contract: `agent-buccet-admission-contract.ts`
 - Signed checkpoints
 - Optional witness publication (set `BUCCET_WITNESS_URL`)
 
+### Ledger I/O Physics Envelope (LIOPE) — storm-survival guarantees
+
+Agent Buccet's ledger survives distributed event storms without exhausting disk I/O or memory.
+
+Three dimensions:
+
+| Dimension | Code | Config env var | Default |
+|---|---|---|---|
+| **Q1.8** — Atomic Shedding Ring Buffer | `ledger.ts:liopeEnqueue` | `BUCCET_LEDGER_MAX_QUEUE_SIZE` | 10,000 entries |
+| **D2.8** — Max-IOPS Background Daemon | `ledger.ts:liopeFlush` | `BUCCET_LEDGER_FLUSH_INTERVAL_MS` | 100ms (max 10 IOPS) |
+| **A3.8** — Signed Magnitude Storm Summary | `ledger.ts` → `LEDGER_STORM_SUMMARY` | — | emitted when shed > 0 |
+
+**How it works:**
+
+- High-volume *observation events* (`INGRESS_PROVENANCE_BLOCKED`, `ACTION_PROPOSED`, `DECISION_RETURNED`, etc.) are enqueued in memory (O(1) hot path) and flushed in batches.
+- *Material state transitions* (`SESSION_STARTED`, `GRANT_ISSUED`, `ACTION_BLOCKED`, `GOVERNOR_TRIP`, `PROCESS_PHYSWRAP_ACTIVE`, `INGRESS_STANDING_LAW_WRITTEN`, etc.) bypass the queue and write immediately — always durable.
+- When the queue is full, overflow events are shed. The shed count is tracked atomically.
+- On each flush: if shed > 0, one `LEDGER_STORM_SUMMARY` record is prepended to the batch. It carries `shed_count`, `window_ms`, `by_class` (JSON breakdown by event type). It is ed25519-signed and chain-linked like any other record.
+- File rollover: when the ledger file exceeds `BUCCET_LEDGER_MAX_FILE_SIZE_BYTES` (default 10 MB), it is renamed to a timestamped archive and a new file begins. Chain linkage is preserved via `prev_hash`.
+
+**Invariants:**
+
+1. Hot path O(1) — enqueue never blocks on disk
+2. Disk writes bounded by `floor(1000 / LIOPE_FLUSH_INTERVAL_MS)` flushes/sec
+3. Memory bounded by `LIOPE_MAX_QUEUE_SIZE` entries
+4. Material state transitions always durable (bypass queue)
+5. Storm repetition collapses to one signed summary per flush window
+6. Auditability survives storm conditions — shed count is ledgered, not silently dropped
+
+Contract: `agent-buccet-liope-contract.ts`
+
 ### Not yet guaranteed
 
 - Hardware-isolated signing keys by default (software keys on disk; HSM support is not in this release)
@@ -297,6 +328,9 @@ Every major architectural claim maps to:
 | Mass law (inbound) | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` | `agent-buccet-admission-contract.ts` |
 | LRU provenance eviction | `admission.ts` | — | `agent-buccet-admission-contract.ts` |
 | Ledger integrity | `ledger.ts` | chain + ed25519 | `agent-buccet-ledger-contract.ts` |
+| LIOPE storm survival — Q1.8 shed | `ledger.ts:liopeEnqueue` | — | `agent-buccet-liope-contract.ts` |
+| LIOPE storm survival — A3.8 summary | `ledger.ts:liopeFlush` | `LEDGER_STORM_SUMMARY` | `agent-buccet-liope-contract.ts` |
+| LIOPE material bypass | `ledger.ts:appendBoundaryLedger` | immediate write | `agent-buccet-liope-contract.ts` |
 
 ---
 
@@ -315,6 +349,7 @@ Every major architectural claim maps to:
 - Wall-clock kill — live
 - Native physwrap rlimits — live when `PROCESS_PHYSWRAP_ACTIVE` in ledger
 - Input Admission Boundary — live when `admissionConfig` is configured
+- Ledger I/O Physics Envelope (LIOPE) — storm-survival, bounded I/O, signed storm summaries — live
 
 ### Unsafe claims (do not make)
 
