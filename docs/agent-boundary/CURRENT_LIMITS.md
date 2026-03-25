@@ -126,27 +126,30 @@ Launch-time ceiling on what a process can BECOME. The kernel terminates or block
 | `maxProcesses` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
 | `maxMemoryBytes` | **LIVE** | Skipped — ledgered in `physwrap_envelope_skipped` | **LIVE** |
 
-#### Tier 2b — Live I/O / Object Boundary: LIVE on Linux + macOS | PARTIALLY LIVE on Windows
+#### Tier 2b — Live I/O / Object Boundary: LIVE on all platforms
 
-Ongoing enforcement on live I/O operations during execution. Platform enforcement shape differs: POSIX uses refuse semantics (operation returns error); Windows uses throttle semantics (kernel delays operation).
+Ongoing enforcement on live I/O operations during execution. Platform enforcement shape differs by surface: POSIX rlimits use refuse semantics (operation returns error); Windows uses IAT-hook per-operation refusal for nofile/fsize and Job Object throttle for I/O rate.
 
 | Primitive | Code | Ledger event | Contract |
 |---|---|---|---|
 | `RLIMIT_NOFILE` / `RLIMIT_FSIZE` | `physwrap.c` / `physwrap_mac.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
+| IAT hook: `CreateFileA/W` / `WriteFile` | `buccet_ioboundary_win.c` (DLL, injected by `physwrap_win.c`) | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 | `SetIoRateControlInformationJobObject` | `physwrap_win.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 
 **Tier 2b coverage by platform:**
 
 | Field | Linux | macOS | Windows |
 |---|---|---|---|
-| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **OPEN GAP** — no Job Object equiv |
-| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **OPEN GAP** — no Job Object equiv |
+| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — IAT hook → `ERROR_TOO_MANY_OPEN_FILES` (refuse) |
+| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — IAT hook → `ERROR_FILE_TOO_LARGE` (refuse) |
 | `maxIoRateBytesPerSec` | Skipped — ledgered | Skipped — ledgered | **LIVE** — Job Object I/O rate throttle (Win 10 1607+) |
 | `maxIoOpsPerSec` | Skipped — ledgered | Skipped — ledgered | **LIVE** — Job Object IOPS throttle (Win 10 1607+) |
 
-**Windows Tier 2b status:** PARTIALLY LIVE. `maxIoRateBytesPerSec` and `maxIoOpsPerSec` are enforced via `SetIoRateControlInformationJobObject` (Windows 10 1607+) — real kernel-enforced I/O boundary with throttle semantics. `maxOpenFiles` (EMFILE) and `maxFileSizeBytes` (SIGXFSZ) remain **OPEN GAP** — per-operation refusal semantics are not achievable via Job Objects at user-mode. physwrap.exe warns at runtime for the open surfaces and records them in `physwrap_io_boundary_skipped`.
+**Windows Tier 2b implementation:** `maxOpenFiles` and `maxFileSizeBytes` are enforced via `buccet-ioboundary.dll`, which is injected into the child process by `physwrap_win.c` before the main thread resumes. The DLL hooks `CreateFileA`/`CreateFileW` and `WriteFile` via IAT patching, applying per-operation refusal semantics (`ERROR_TOO_MANY_OPEN_FILES`, `ERROR_FILE_TOO_LARGE`). Fail closed: if the DLL cannot be found or injection fails, physwrap exits with code 2 — the limits cannot be silently skipped. `maxIoRateBytesPerSec` and `maxIoOpsPerSec` are enforced via `SetIoRateControlInformationJobObject` (Windows 10 1607+) with throttle semantics.
 
-**Semantic note:** Windows I/O rate control throttles operations (delays, not refuses). POSIX rlimits refuse operations (EMFILE, SIGXFSZ). Both are kernel-enforced live operation boundaries; the enforcement shape differs by platform.
+**Scope note (Windows):** The IAT hook covers Win32 API callers (`CreateFileA/W`, `WriteFile`). Processes that call `ntdll.dll` directly (bypassing Win32) are outside this boundary. Standard agent workloads (Python, Node.js, PowerShell) use Win32 and are covered.
+
+**Semantic note:** POSIX rlimits and Windows IAT hooks both use refuse semantics (operation returns error). Windows I/O rate control uses throttle semantics (delays, not refuses). The nofile/fsize contract is semantically equivalent across platforms; the I/O rate contract differs.
 
 #### Native backends — one source file per platform
 
@@ -154,7 +157,7 @@ Ongoing enforcement on live I/O operations during execution. Platform enforcemen
 |---|---|---|---|---|
 | Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP` | `setrlimit()` | `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` |
 | macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` (nproc/as skipped) | `setrlimit()` | `setgid()`/`setuid()` via `--uid`/`--gid` |
-| Windows | `native/physwrap/physwrap_win.c` | NT Job Objects | **OPEN GAP** | N/A |
+| Windows | `physwrap_win.c` + `buccet_ioboundary_win.c` | NT Job Objects | IAT hook DLL (nofile/fsize) + Job Object throttle (io_rate/iops) | N/A |
 
 Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat` (MSVC).
 
@@ -166,7 +169,7 @@ Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat
 | **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — Tier 2a limits applied, privilege drop NOT executed, Tier 2b partially covered |
 | **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute (Linux) |
 
-`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage: `physwrap_envelope_active`, `physwrap_envelope_skipped`, `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`. Non-empty `physwrap_io_boundary_skipped` is a standing indicator of the open Tier 2b gap on Windows.
+`PROCESS_PHYSWRAP_ACTIVE` records per-class coverage: `physwrap_envelope_active`, `physwrap_envelope_skipped`, `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`. On Linux/macOS, `physwrap_io_boundary_skipped` contains `io_rate`/`io_iops` (no rlimit equiv). On Windows, it contains `io_rate`/`io_iops` only if not configured; `nofile` and `fsize` are now active on all platforms.
 
 **CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
 

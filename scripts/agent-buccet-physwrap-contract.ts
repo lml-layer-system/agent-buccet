@@ -116,11 +116,12 @@ assert(
 // ─── 11. Platform source file exists for all three platforms ─────────────────
 
 const NATIVE_DIR = path.resolve(_moduleDir, "../native/physwrap");
-assert(existsSync(path.join(NATIVE_DIR, "physwrap.c")),       "physwrap.c (Linux) exists");
-assert(existsSync(path.join(NATIVE_DIR, "physwrap_mac.c")),   "physwrap_mac.c (Darwin) exists");
-assert(existsSync(path.join(NATIVE_DIR, "physwrap_win.c")),   "physwrap_win.c (Windows) exists");
-assert(existsSync(path.join(NATIVE_DIR, "build.sh")),         "build.sh exists");
-assert(existsSync(path.join(NATIVE_DIR, "build_win.bat")),    "build_win.bat exists");
+assert(existsSync(path.join(NATIVE_DIR, "physwrap.c")),                "physwrap.c (Linux) exists");
+assert(existsSync(path.join(NATIVE_DIR, "physwrap_mac.c")),            "physwrap_mac.c (Darwin) exists");
+assert(existsSync(path.join(NATIVE_DIR, "physwrap_win.c")),            "physwrap_win.c (Windows) exists");
+assert(existsSync(path.join(NATIVE_DIR, "buccet_ioboundary_win.c")),   "buccet_ioboundary_win.c (Windows I/O boundary DLL) exists");
+assert(existsSync(path.join(NATIVE_DIR, "build.sh")),                  "build.sh exists");
+assert(existsSync(path.join(NATIVE_DIR, "build_win.bat")),             "build_win.bat exists");
 
 // ─── 12. physwrap_mac.c source contains --uid/--gid drop implementation ──────
 // Structural source check: ensures the macOS privilege drop code is present.
@@ -133,13 +134,50 @@ assert(macSrc.includes("setuid("),   "physwrap_mac.c calls setuid()");
 assert(macSrc.includes("setgid("),   "physwrap_mac.c calls setgid()");
 assert(macSrc.includes("exit(5)"),   "physwrap_mac.c uses exit code 5 for uid/gid failure");
 
-// ─── 13. physwrap_win.c source contains explicit --nofile/--fsize-b warnings ─
+// ─── 13. physwrap_win.c and buccet_ioboundary_win.c: Tier 2b enforcement ──────
 
 const winSrc = readFileSync(path.join(NATIVE_DIR, "physwrap_win.c"), "utf8");
-assert(winSrc.includes("--nofile") && winSrc.includes("WARNING") && (winSrc.includes("not enforced") || winSrc.includes("NOT enforced")),
-  "physwrap_win.c emits explicit WARNING for --nofile (not silently skipped)");
-assert(winSrc.includes("--fsize-b") && winSrc.includes("WARNING"),
-  "physwrap_win.c emits explicit WARNING for --fsize-b (not silently skipped)");
+const iobSrc = readFileSync(path.join(NATIVE_DIR, "buccet_ioboundary_win.c"), "utf8");
+
+// physwrap_win.c: --nofile and --fsize-b are now real enforced args (not just warnings)
+assert(winSrc.includes("--nofile"),   "physwrap_win.c handles --nofile flag");
+assert(winSrc.includes("--fsize-b"),  "physwrap_win.c handles --fsize-b flag");
+assert(winSrc.includes("BUCCET_MAX_OPEN_FILES"),
+  "physwrap_win.c sets BUCCET_MAX_OPEN_FILES env var for DLL");
+assert(winSrc.includes("BUCCET_MAX_FILE_SIZE_BYTES"),
+  "physwrap_win.c sets BUCCET_MAX_FILE_SIZE_BYTES env var for DLL");
+assert(winSrc.includes("inject_dll") || winSrc.includes("inject_ioboundary"),
+  "physwrap_win.c injects the I/O boundary DLL");
+assert(winSrc.includes("buccet-ioboundary.dll"),
+  "physwrap_win.c references buccet-ioboundary.dll by name");
+assert(winSrc.includes("failing closed") || winSrc.includes("Fail closed") || winSrc.includes("fail closed"),
+  "physwrap_win.c fails closed if DLL injection fails");
+
+// buccet_ioboundary_win.c: IAT hook DLL
+assert(iobSrc.includes("CreateFileA") && iobSrc.includes("CreateFileW"),
+  "buccet_ioboundary_win.c hooks CreateFileA and CreateFileW");
+assert(iobSrc.includes("CloseHandle"),
+  "buccet_ioboundary_win.c hooks CloseHandle (for open count decrement)");
+assert(iobSrc.includes("WriteFile"),
+  "buccet_ioboundary_win.c hooks WriteFile (for file size limit)");
+assert(iobSrc.includes("ERROR_TOO_MANY_OPEN_FILES"),
+  "buccet_ioboundary_win.c returns ERROR_TOO_MANY_OPEN_FILES (EMFILE semantics)");
+assert(iobSrc.includes("ERROR_FILE_TOO_LARGE"),
+  "buccet_ioboundary_win.c returns ERROR_FILE_TOO_LARGE (EFBIG/SIGXFSZ semantics)");
+assert(iobSrc.includes("BUCCET_MAX_OPEN_FILES"),
+  "buccet_ioboundary_win.c reads BUCCET_MAX_OPEN_FILES from environment");
+assert(iobSrc.includes("BUCCET_MAX_FILE_SIZE_BYTES"),
+  "buccet_ioboundary_win.c reads BUCCET_MAX_FILE_SIZE_BYTES from environment");
+assert(iobSrc.includes("IAT") || iobSrc.includes("Import Address Table") || iobSrc.includes("patch_module_iat"),
+  "buccet_ioboundary_win.c uses IAT patching");
+assert(iobSrc.includes("EnumProcessModules"),
+  "buccet_ioboundary_win.c enumerates all loaded modules to patch");
+assert(iobSrc.includes("LoadLibraryA") || iobSrc.includes("LoadLibraryW"),
+  "buccet_ioboundary_win.c hooks LoadLibrary for future module coverage");
+assert(iobSrc.includes("InterlockedIncrement") || iobSrc.includes("InterlockedDecrement"),
+  "buccet_ioboundary_win.c uses atomic operations for open file counter");
+assert(iobSrc.includes("EMFILE") || iobSrc.includes("per-operation REFUSAL") || iobSrc.includes("per-operation refusal"),
+  "buccet_ioboundary_win.c documents per-operation refusal semantics");
 
 // ─── 14. Darwin --uid/--gid live execution (macOS only) ──────────────────────
 // On macOS: verify that --uid/--gid flags are accepted by the binary and that
@@ -167,17 +205,17 @@ if (process.platform === "darwin") {
 // Verifies:
 //  - physwrap_mac.c documents Tier 2a skipped limits (nproc, as)
 //  - physwrap_win.c contains real Tier 2b I/O rate control implementation
-//  - physwrap_win.c documents the OPEN GAP surfaces (EMFILE/SIGXFSZ)
-//  - process.ts emits class-tagged ledger keys
+//  - physwrap_win.c + buccet_ioboundary_win.c close EMFILE/EFBIG gap via DLL injection
+//  - process.ts emits class-tagged ledger keys; nofile/fsize active on all platforms
 //  - process.ts passes --io-rate-bps / --io-max-iops on Windows path
-//  - types.ts has the new Tier 2b Windows fields
+//  - types.ts has the Tier 2b Windows fields
 
 assert(macSrc.includes("not enforced on Darwin") || macSrc.includes("silently skipped"),
   "physwrap_mac.c documents which Tier 2a limits are not enforced on Darwin (nproc, as)");
 
 // ─── 15a. physwrap_win.c: Windows Tier 2b I/O rate control implementation ───
 assert(winSrc.includes("SetIoRateControlInformationJobObject"),
-  "physwrap_win.c contains SetIoRateControlInformationJobObject (Tier 2b I/O rate control)");
+  "physwrap_win.c contains SetIoRateControlInformationJobObject (Tier 2b I/O rate throttle)");
 assert(winSrc.includes("--io-rate-bps"),
   "physwrap_win.c handles --io-rate-bps flag");
 assert(winSrc.includes("--io-max-iops"),
@@ -190,26 +228,29 @@ assert(winSrc.includes("GetProcAddress") && winSrc.includes("kernel32"),
   "physwrap_win.c dynamically loads SetIoRateControlInformationJobObject for version compat");
 assert(winSrc.includes("Windows 10 1607"),
   "physwrap_win.c documents Windows 10 1607+ requirement");
-
-// ─── 15b. physwrap_win.c: OPEN GAP surfaces remain explicitly documented ─────
-// The EMFILE/SIGXFSZ semantics remain open — warnings must still be present.
-assert(winSrc.includes("--nofile") && winSrc.includes("NOT enforced"),
-  "physwrap_win.c still warns --nofile is NOT enforced (EMFILE gap remains open)");
-assert(winSrc.includes("--fsize-b") && winSrc.includes("NOT enforced"),
-  "physwrap_win.c still warns --fsize-b is NOT enforced (SIGXFSZ gap remains open)");
 // Semantic distinction: throttle vs refuse
-assert(winSrc.includes("throttled") || winSrc.includes("DELAYS") || winSrc.includes("delayed"),
+assert(winSrc.includes("throttle") || winSrc.includes("DELAYS") || winSrc.includes("delayed"),
   "physwrap_win.c documents throttle semantics (delay, not refuse) for I/O rate control");
 
-// ─── 15c. process.ts: class-tagged metadata + new field wiring ───────────────
+// ─── 15b. Windows EMFILE/EFBIG gap is closed via DLL injection ───────────────
+// Closed by buccet_ioboundary_win.c (DLL) + inject_dll in physwrap_win.c.
+// Verify the closure is real code, not docs-only.
+assert(iobSrc.includes("ERROR_TOO_MANY_OPEN_FILES"),
+  "buccet_ioboundary_win.c: CreateFile returns ERROR_TOO_MANY_OPEN_FILES on nofile limit (EMFILE)");
+assert(iobSrc.includes("ERROR_FILE_TOO_LARGE"),
+  "buccet_ioboundary_win.c: WriteFile returns ERROR_FILE_TOO_LARGE on fsize limit (EFBIG)");
+assert(winSrc.includes("inject_dll") || winSrc.includes("LoadLibraryW"),
+  "physwrap_win.c injects the I/O boundary DLL before resuming the child thread");
+assert(winSrc.includes("failing closed") || winSrc.includes("Fail closed") || winSrc.includes("fail closed"),
+  "physwrap_win.c fails closed if DLL injection fails (no silent skip)");
+
+// ─── 15c. process.ts: class-tagged metadata + coverage ───────────────────────
 const processSrc = readFileSync(
   path.resolve(_moduleDir, "../lib/agent-buccet/process.ts"), "utf8");
 assert(processSrc.includes("physwrap_envelope_active"),
   "process.ts emits physwrap_envelope_active (Tier 2a class tag)");
 assert(processSrc.includes("physwrap_io_boundary_active"),
   "process.ts emits physwrap_io_boundary_active (Tier 2b class tag)");
-assert(processSrc.includes("physwrap_io_boundary_skipped"),
-  "process.ts emits physwrap_io_boundary_skipped (Tier 2b gap tag)");
 assert(!processSrc.includes("physwrap_active_limits"),
   "process.ts no longer uses flat physwrap_active_limits key (replaced by class tags)");
 assert(processSrc.includes("--io-rate-bps") && processSrc.includes("maxIoRateBytesPerSec"),
@@ -218,8 +259,17 @@ assert(processSrc.includes("--io-max-iops") && processSrc.includes("maxIoOpsPerS
   "process.ts passes --io-max-iops on Windows path when maxIoOpsPerSec is set");
 assert(processSrc.includes("io_rate") && processSrc.includes("io_iops"),
   "process.ts coverage function handles io_rate and io_iops for Windows ioBoundary");
+// nofile and fsize are now active on ALL platforms — no platform guard
+assert(
+  !processSrc.match(/platform.*windows.*ioBoundary\.skipped.*nofile/) &&
+  !processSrc.match(/nofile.*platform.*windows.*skipped/),
+  "process.ts coverage function no longer marks nofile as skipped on Windows");
+assert(
+  !processSrc.match(/platform.*windows.*ioBoundary\.skipped.*fsize/) &&
+  !processSrc.match(/fsize.*platform.*windows.*skipped/),
+  "process.ts coverage function no longer marks fsize as skipped on Windows");
 
-// ─── 15d. types.ts: new Tier 2b Windows fields are declared ──────────────────
+// ─── 15d. types.ts: Tier 2b Windows fields are declared ──────────────────────
 const typesSrc = readFileSync(
   path.resolve(_moduleDir, "../lib/agent-buccet/types.ts"), "utf8");
 assert(typesSrc.includes("maxIoRateBytesPerSec"),
@@ -240,6 +290,7 @@ console.log(`nofile limit applied (64): ${nofileLimit === 64}`);
 console.log(`hard limit blocks self-elevation: ${raiseOutput.includes("error") || raiseOutput.includes("invalid")}`);
 console.log(`multi-limit (cpu=10 nofile=32): ${multiOut === "cpu=10 nofile=32"}`);
 console.log(`missing -- separator rejected: ${missingDash.status !== 0}`);
-console.log(`platform source files: physwrap.c + physwrap_mac.c + physwrap_win.c all present`);
+console.log(`platform source files: physwrap.c + physwrap_mac.c + physwrap_win.c + buccet_ioboundary_win.c all present`);
 console.log(`physwrap_mac.c has --uid/--gid drop: true`);
-console.log(`physwrap_win.c has explicit --nofile/--fsize-b warnings: true`);
+console.log(`physwrap_win.c Tier 2b: DLL injection for EMFILE/EFBIG + I/O rate throttle: true`);
+console.log(`buccet_ioboundary_win.c: IAT hook for CreateFileA/W + WriteFile: true`);

@@ -436,11 +436,15 @@ export type PhysicsSpawnResult = {
  *
  * Two enforcement classes (see BoundaryProcessPhysics):
  *   envelope    — Tier 2a: launch-time ceiling (cpu, nproc, as)
- *   ioBoundary  — Tier 2b: live I/O / object boundary (nofile, fsize)
+ *   ioBoundary  — Tier 2b: live I/O / object boundary (nofile, fsize, io_rate, io_iops)
  *
- * Windows has a class-level gap in ioBoundary: no Win32 Job Object equivalent
- * exists for file descriptor or file size limits. The entire ioBoundary class
- * is unenforced on Windows — physwrap warns at runtime.
+ * Windows Tier 2b coverage (all surfaces active):
+ *   nofile — buccet-ioboundary.dll hooks CreateFileA/W via IAT patching;
+ *            returns ERROR_TOO_MANY_OPEN_FILES on limit (EMFILE semantics, refuse).
+ *   fsize  — same DLL hooks WriteFile; returns ERROR_FILE_TOO_LARGE on limit
+ *            (EFBIG/SIGXFSZ semantics, refuse).
+ *   io_rate / io_iops — SetIoRateControlInformationJobObject (throttle semantics,
+ *            Windows 10 1607+).
  */
 function computePhyswrapLimitCoverage(physics: BoundaryProcessPhysics): {
   envelope: { active: string[]; skipped: string[] };
@@ -470,18 +474,18 @@ function computePhyswrapLimitCoverage(physics: BoundaryProcessPhysics): {
   }
 
   // ── Tier 2b: Live I/O / Object Boundary ───────────────────────────────────
-  // nofile: Linux + macOS via RLIMIT_NOFILE (EMFILE refuse semantics)
-  // Windows: OPEN GAP — no per-process handle-count limit via Job Objects
+  // nofile: Linux/macOS via RLIMIT_NOFILE (EMFILE refuse);
+  //         Windows via buccet-ioboundary.dll IAT hook on CreateFileA/W
+  //         (ERROR_TOO_MANY_OPEN_FILES refuse semantics) — all platforms active
   if (physics.maxOpenFiles !== undefined) {
-    if (platform === "windows") ioBoundary.skipped.push("nofile");
-    else ioBoundary.active.push("nofile");
+    ioBoundary.active.push("nofile");
   }
 
-  // fsize: Linux + macOS via RLIMIT_FSIZE (SIGXFSZ refuse semantics)
-  // Windows: OPEN GAP — no per-process file-write-size limit via Job Objects
+  // fsize: Linux/macOS via RLIMIT_FSIZE (SIGXFSZ refuse);
+  //        Windows via buccet-ioboundary.dll IAT hook on WriteFile
+  //        (ERROR_FILE_TOO_LARGE refuse semantics) — all platforms active
   if (physics.maxFileSizeBytes !== undefined) {
-    if (platform === "windows") ioBoundary.skipped.push("fsize");
-    else ioBoundary.active.push("fsize");
+    ioBoundary.active.push("fsize");
   }
 
   // io_rate: Windows 10 1607+ via SetIoRateControlInformationJobObject (throttle semantics)

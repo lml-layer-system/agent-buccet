@@ -2,13 +2,12 @@
  * buccet-physwrap — Windows Native Physics Translator
  *
  * Platform: Windows (Win32 / NT)
- * Method:   NT Job Objects — CreateJobObject + SetInformationJobObject,
- *           plus Job Object I/O Rate Control (Windows 10 1607+).
+ * Method:   NT Job Objects (Tier 2a envelope) + DLL injection (Tier 2b
+ *           I/O boundary) + Job Object I/O rate control (Tier 2b throttle).
  *
- * Job Objects provide inescapable process containment on Windows. The
- * target process is created in SUSPENDED state, assigned to the job
- * before any user code runs, then resumed. Limits apply to the entire
- * job tree — child processes spawned by the target are also contained.
+ * The target process is created SUSPENDED, assigned to the Job Object, then
+ * the I/O boundary DLL is injected before the main thread is resumed. All
+ * limits are in effect before any user code runs.
  *
  * ── Tier 2a: Payload Envelope Physics ────────────────────────────────────
  * Launch-time ceilings; kernel terminates the process when exceeded.
@@ -18,34 +17,46 @@
  *   --as-kb N    ProcessMemoryLimit (per-process virtual memory, in bytes)
  *
  * ── Tier 2b: Live I/O / Object Boundary ──────────────────────────────────
- * Ongoing enforcement on I/O operations during execution.
- *   --io-rate-bps N   I/O bandwidth throttle (bytes/sec; API takes bits/sec)
- *                     Via SetIoRateControlInformationJobObject, Windows 10 1607+
- *                     Semantics: kernel I/O scheduler DELAYS operations exceeding
- *                     the budget. Operations complete at the controlled rate.
- *   --io-max-iops N   Maximum I/O operations per second; same API and semantics.
+ * Ongoing enforcement on file operations during execution.
  *
- * OPEN GAP — per-operation refusal (EMFILE / SIGXFSZ equivalents):
- *   --nofile N   (no Win32 Job Object equivalent — explicit stderr warning)
- *   --fsize-b N  (no Win32 Job Object equivalent — explicit stderr warning)
- * The EMFILE (handle count hard ceiling) and SIGXFSZ (per-write-size hard
- * ceiling) enforcement semantics are not achievable at user-mode via Job
- * Objects. The I/O rate control above is real kernel enforcement but uses
- * throttle (delay) rather than refuse semantics.
+ * Per-operation refusal path (EMFILE / EFBIG semantics):
+ *   --nofile N   Max open disk file handles. Implemented by injecting
+ *                buccet-ioboundary.dll (same directory as this .exe) into
+ *                the suspended child process before the main thread runs.
+ *                The DLL hooks CreateFileA/W via IAT patching; when the
+ *                limit is reached, CreateFile returns INVALID_HANDLE_VALUE
+ *                + ERROR_TOO_MANY_OPEN_FILES.  Fail closed: if the DLL
+ *                cannot be found or injection fails, physwrap exits 2.
+ *   --fsize-b N  Max bytes per file. Same DLL hooks WriteFile; when a
+ *                write would exceed the limit, WriteFile returns FALSE +
+ *                ERROR_FILE_TOO_LARGE.  Fail closed: same as --nofile.
+ *
+ *   Scope: Win32 API callers (CreateFileA/W, WriteFile). Programs that call
+ *   ntdll directly (NtCreateFile / NtWriteFile bypassing kernel32) are
+ *   outside this boundary — standard agent workloads are covered.
+ *
+ * I/O rate throttle path (delay semantics, Windows 10 1607+):
+ *   --io-rate-bps N   I/O bandwidth throttle (bytes/sec; API takes bits/sec)
+ *                     Via SetIoRateControlInformationJobObject.
+ *                     Semantics: kernel I/O scheduler DELAYS operations
+ *                     exceeding the budget. Operations complete at the
+ *                     controlled rate; they are not refused.
+ *   --io-max-iops N   Maximum I/O operations per second; same API.
  *
  * Job lifetime: physwrap.exe holds the only handle. JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
  * ensures that if physwrap exits unexpectedly, all job processes are terminated.
  *
  * Usage:
  *   buccet-physwrap.exe [--cpu N] [--nproc N] [--as-kb N]
+ *                       [--nofile N] [--fsize-b N]
  *                       [--io-rate-bps N] [--io-max-iops N]
- *                       [--nofile N] [--fsize-b N] -- cmd [args...]
+ *                       -- cmd [args...]
  *
  * Exit codes:
  *   0  target exited 0
  *   N  target exit code N (propagated)
  *   1  argument error
- *   2  job object / limit setup failed
+ *   2  job object / limit setup / DLL injection failed
  *   3  process creation failed
  *   4  process assignment to job failed
  *
@@ -159,6 +170,74 @@ static char *build_cmdline(char **argv) {
     return buf;
 }
 
+/*
+ * Resolve the path to buccet-ioboundary.dll, expected in the same directory
+ * as this physwrap.exe binary.
+ */
+static int get_ioboundary_dll_path(wchar_t *out, DWORD out_cap) {
+    wchar_t exe_path[MAX_PATH];
+    DWORD got = GetModuleFileNameW(NULL, exe_path, MAX_PATH);
+    if (!got || got >= MAX_PATH) return 0;
+
+    wchar_t *last_sep = wcsrchr(exe_path, L'\\');
+    if (!last_sep) last_sep = wcsrchr(exe_path, L'/');
+    if (!last_sep) return 0;
+
+    last_sep[1] = L'\0'; /* truncate to directory */
+
+    int written = _snwprintf(out, out_cap, L"%lsbuccet-ioboundary.dll", exe_path);
+    return (written > 0 && (DWORD)written < out_cap);
+}
+
+/*
+ * Inject a DLL into the target process by creating a remote thread that
+ * calls LoadLibraryW with the DLL path as argument.
+ *
+ * physwrap.exe calls this while the child's main thread is SUSPENDED and
+ * after AssignProcessToJobObject. The remote thread runs LoadLibraryW, which
+ * loads the DLL and executes its DllMain (which patches IATs). physwrap waits
+ * for the remote thread to complete before resuming the main thread.
+ *
+ * Returns 1 on success (DLL loaded), 0 on failure.
+ */
+static int inject_dll(HANDLE hProcess, const wchar_t *dll_path) {
+    SIZE_T path_bytes = (wcslen(dll_path) + 1) * sizeof(wchar_t);
+
+    void *remote_mem = VirtualAllocEx(hProcess, NULL, path_bytes,
+                                       MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    if (!remote_mem) return 0;
+
+    if (!WriteProcessMemory(hProcess, remote_mem, dll_path, path_bytes, NULL)) {
+        VirtualFreeEx(hProcess, remote_mem, 0, MEM_RELEASE);
+        return 0;
+    }
+
+    LPTHREAD_START_ROUTINE pfnLoadLibW = (LPTHREAD_START_ROUTINE)
+        GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryW");
+    if (!pfnLoadLibW) {
+        VirtualFreeEx(hProcess, remote_mem, 0, MEM_RELEASE);
+        return 0;
+    }
+
+    HANDLE hThread = CreateRemoteThread(
+        hProcess, NULL, 0, pfnLoadLibW, remote_mem, 0, NULL);
+    if (!hThread) {
+        VirtualFreeEx(hProcess, remote_mem, 0, MEM_RELEASE);
+        return 0;
+    }
+
+    /* Wait for DllMain to complete; 5 seconds is generous for IAT patching */
+    DWORD wait = WaitForSingleObject(hThread, 5000);
+
+    DWORD exit_code = 0;
+    GetExitCodeThread(hThread, &exit_code);
+    CloseHandle(hThread);
+    VirtualFreeEx(hProcess, remote_mem, 0, MEM_RELEASE);
+
+    /* exit_code from the LoadLibraryW thread is the HMODULE value; 0 = failure */
+    return (wait == WAIT_OBJECT_0 && exit_code != 0);
+}
+
 /* ── main ─────────────────────────────────────────────────────────────────── */
 
 int main(int argc, char *argv[]) {
@@ -168,7 +247,7 @@ int main(int argc, char *argv[]) {
     long long nofile       = -1;
     long long fsize_b      = -1;
     long long io_rate_bps  = -1;  /* bytes/sec; multiplied by 8 before API call */
-    long long io_max_iops  = -1;  /* I/O operations per second */
+    long long io_max_iops  = -1;
     int       separator    = 0;
 
     int i;
@@ -205,78 +284,20 @@ int main(int argc, char *argv[]) {
     char **cmd = &argv[separator + 1];
 
     /*
-     * ── Tier 2b: Live I/O Rate Control (Windows 10 1607+) ─────────────────
-     *
-     * SetIoRateControlInformationJobObject applies an I/O bandwidth and/or
-     * IOPS budget to the entire job tree. When processes exceed the budget,
-     * the kernel I/O scheduler DELAYS their I/O operations to bring the rate
-     * back within the limit. Operations complete; they are throttled, not
-     * refused. This is the Windows-native I/O boundary for Tier 2b.
-     *
-     * Semantic note: POSIX RLIMIT_FSIZE causes write() to return SIGXFSZ
-     * (refusal). Windows I/O rate control causes write() to block until
-     * the scheduler allows it (delay). Both are kernel-enforced live operation
-     * boundaries. The enforcement mechanism differs — only the semantics.
-     *
-     * Dynamically loaded: physwrap.exe runs on older Windows and logs a
-     * warning if the API is unavailable (pre-1607). Execution continues with
-     * Tier 2a limits intact. The caller sees this in physwrap_io_boundary_skipped.
-     */
-    if (io_rate_bps >= 0 || io_max_iops >= 0) {
-        PFN_SetIoRateControl pfnSetIoRate = (PFN_SetIoRateControl)
-            GetProcAddress(GetModuleHandleA("kernel32.dll"),
-                           "SetIoRateControlInformationJobObject");
-
-        if (pfnSetIoRate == NULL) {
-            fprintf(stderr,
-                "buccet-physwrap(windows): WARNING: --io-rate-bps/--io-max-iops "
-                "requested but SetIoRateControlInformationJobObject is not available "
-                "(requires Windows 10 1607+). I/O rate control NOT applied.\n");
-        } else {
-            BUCCET_IO_RATE_CONTROL ioRate;
-            ZeroMemory(&ioRate, sizeof(ioRate));
-            ioRate.ControlFlags = JOB_OBJECT_IO_RATE_CONTROL_ENABLE;
-            ioRate.VolumeName   = NULL;  /* NULL = apply to all volumes */
-            ioRate.BaseIoSize   = 0;     /* 0 = use system default I/O unit */
-
-            if (io_rate_bps > 0) {
-                ioRate.MaxBandwidth = io_rate_bps * 8LL;  /* bytes/sec → bits/sec */
-            }
-            if (io_max_iops > 0) {
-                ioRate.MaxIops = io_max_iops;
-            }
-
-            if (!pfnSetIoRate(hJob, &ioRate)) {
-                fprintf(stderr,
-                    "buccet-physwrap(windows): SetIoRateControlInformationJobObject "
-                    "failed: %lu\n", GetLastError());
-                CloseHandle(hJob);
-                exit(2);
-            }
-        }
-    }
-
-    /*
-     * ── OPEN GAP: per-operation refusal (EMFILE / SIGXFSZ) ────────────────
-     * --nofile and --fsize-b have no Win32 Job Object equivalent.
-     * No user-mode API provides per-process handle-count refusal (EMFILE)
-     * or per-file-write refusal (SIGXFSZ) without a kernel driver.
-     * Emit explicit warnings so the gap is visible at runtime.
-     * Execution continues — Tier 2a and I/O rate limits still apply.
-     * Caller records this in physwrap_io_boundary_skipped.
+     * ── Set env vars for Tier 2b I/O boundary DLL ─────────────────────────
+     * Communicate limits to buccet-ioboundary.dll via environment variables
+     * before creating the child process. The child inherits physwrap's
+     * environment, and the DLL reads these in DllMain.
      */
     if (nofile >= 0) {
-        fprintf(stderr,
-            "buccet-physwrap(windows): WARNING: --nofile %lld requested but "
-            "NOT enforced — no Win32 Job Object equivalent for per-process file "
-            "descriptor limits (EMFILE semantics). Limit NOT applied.\n", nofile);
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%lld", nofile);
+        SetEnvironmentVariableA("BUCCET_MAX_OPEN_FILES", buf);
     }
-
     if (fsize_b >= 0) {
-        fprintf(stderr,
-            "buccet-physwrap(windows): WARNING: --fsize-b %lld requested but "
-            "NOT enforced — no Win32 Job Object equivalent for per-process file "
-            "write-size limits (SIGXFSZ semantics). Limit NOT applied.\n", fsize_b);
+        char buf[32];
+        snprintf(buf, sizeof(buf), "%lld", fsize_b);
+        SetEnvironmentVariableA("BUCCET_MAX_FILE_SIZE_BYTES", buf);
     }
 
     /*
@@ -292,7 +313,7 @@ int main(int argc, char *argv[]) {
     }
 
     /*
-     * ── Apply limits ───────────────────────────────────────────────────────
+     * ── Apply Tier 2a limits ───────────────────────────────────────────────
      * JOBOBJECT_EXTENDED_LIMIT_INFORMATION covers both basic and extended
      * limits in one call.
      */
@@ -345,9 +366,56 @@ int main(int argc, char *argv[]) {
     }
 
     /*
+     * ── Tier 2b: I/O rate throttle (Windows 10 1607+) ─────────────────────
+     *
+     * SetIoRateControlInformationJobObject applies an I/O bandwidth and/or
+     * IOPS budget to the entire job tree. When processes exceed the budget,
+     * the kernel I/O scheduler DELAYS their I/O operations (throttle semantics).
+     * Operations complete at the controlled rate; they are not refused.
+     *
+     * Dynamically loaded so physwrap.exe runs on older Windows. Logs a warning
+     * if the API is unavailable (pre-1607). Execution continues with Tier 2a
+     * limits intact. The caller sees this in physwrap_io_boundary_skipped.
+     */
+    if (io_rate_bps >= 0 || io_max_iops >= 0) {
+        PFN_SetIoRateControl pfnSetIoRate = (PFN_SetIoRateControl)
+            GetProcAddress(GetModuleHandleA("kernel32.dll"),
+                           "SetIoRateControlInformationJobObject");
+
+        if (pfnSetIoRate == NULL) {
+            fprintf(stderr,
+                "buccet-physwrap(windows): WARNING: --io-rate-bps/--io-max-iops "
+                "requested but SetIoRateControlInformationJobObject is not available "
+                "(requires Windows 10 1607+). I/O rate control NOT applied.\n");
+        } else {
+            BUCCET_IO_RATE_CONTROL ioRate;
+            ZeroMemory(&ioRate, sizeof(ioRate));
+            ioRate.ControlFlags = JOB_OBJECT_IO_RATE_CONTROL_ENABLE;
+            ioRate.VolumeName   = NULL;  /* NULL = apply to all volumes */
+            ioRate.BaseIoSize   = 0;     /* 0 = use system default I/O unit */
+
+            if (io_rate_bps > 0) {
+                ioRate.MaxBandwidth = io_rate_bps * 8LL;  /* bytes/sec → bits/sec */
+            }
+            if (io_max_iops > 0) {
+                ioRate.MaxIops = io_max_iops;
+            }
+
+            if (!pfnSetIoRate(hJob, &ioRate)) {
+                fprintf(stderr,
+                    "buccet-physwrap(windows): SetIoRateControlInformationJobObject "
+                    "failed: %lu\n", GetLastError());
+                CloseHandle(hJob);
+                exit(2);
+            }
+        }
+    }
+
+    /*
      * ── Create target process SUSPENDED ────────────────────────────────────
      * CREATE_SUSPENDED: the primary thread does not start until ResumeThread.
-     * This guarantees the process is in the job before any code executes.
+     * This guarantees the process is in the job and the I/O boundary DLL is
+     * injected before any user code executes.
      *
      * CREATE_BREAKAWAY_FROM_JOB is NOT set: if physwrap itself is already in
      * a job (e.g., launched from Node.js which is in a job), the child will
@@ -362,14 +430,14 @@ int main(int argc, char *argv[]) {
     ZeroMemory(&pi, sizeof(pi));
 
     if (!CreateProcessA(
-            NULL,           /* lpApplicationName — let Windows resolve via PATH */
-            cmdline,        /* lpCommandLine */
-            NULL,           /* lpProcessAttributes */
-            NULL,           /* lpThreadAttributes */
-            TRUE,           /* bInheritHandles — inherit stdin/stdout/stderr */
+            NULL,             /* lpApplicationName — let Windows resolve via PATH */
+            cmdline,          /* lpCommandLine */
+            NULL,             /* lpProcessAttributes */
+            NULL,             /* lpThreadAttributes */
+            TRUE,             /* bInheritHandles — inherit stdin/stdout/stderr */
             CREATE_SUSPENDED, /* dwCreationFlags */
-            NULL,           /* lpEnvironment — inherit parent */
-            NULL,           /* lpCurrentDirectory — inherit parent */
+            NULL,             /* lpEnvironment — inherit parent (includes BUCCET_* vars) */
+            NULL,             /* lpCurrentDirectory — inherit parent */
             &si,
             &pi)) {
         fprintf(stderr, "buccet-physwrap(windows): CreateProcess('%s') failed: %lu\n",
@@ -395,7 +463,44 @@ int main(int argc, char *argv[]) {
         exit(4);
     }
 
-    /* Resume — the target now runs under job constraints */
+    /*
+     * ── Inject Tier 2b I/O boundary DLL (EMFILE / EFBIG path) ────────────
+     *
+     * buccet-ioboundary.dll hooks CreateFileA/W and WriteFile via IAT
+     * patching to enforce maxOpenFiles and maxFileSizeBytes with
+     * per-operation refusal semantics. The DLL must be injected while the
+     * main thread is SUSPENDED so patching completes before any user code
+     * runs.
+     *
+     * Fail closed: if the DLL is missing or injection fails, we terminate
+     * the child and exit 2. The limits cannot be silently skipped.
+     */
+    if (nofile >= 0 || fsize_b >= 0) {
+        wchar_t dll_path[MAX_PATH + 64];
+        if (!get_ioboundary_dll_path(dll_path, (DWORD)(MAX_PATH + 64))) {
+            fprintf(stderr,
+                "buccet-physwrap(windows): failed to resolve buccet-ioboundary.dll path\n");
+            TerminateProcess(pi.hProcess, 1);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            CloseHandle(hJob);
+            exit(2);
+        }
+
+        if (!inject_dll(pi.hProcess, dll_path)) {
+            fprintf(stderr,
+                "buccet-physwrap(windows): buccet-ioboundary.dll injection failed: %lu\n"
+                "  nofile/fsize limits NOT applied — failing closed.\n",
+                GetLastError());
+            TerminateProcess(pi.hProcess, 1);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+            CloseHandle(hJob);
+            exit(2);
+        }
+    }
+
+    /* Resume — the target now runs under all limits */
     ResumeThread(pi.hThread);
     CloseHandle(pi.hThread);
 

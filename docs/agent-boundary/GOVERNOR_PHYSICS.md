@@ -151,7 +151,9 @@ Ledger metadata key: `physwrap_envelope_active`, `physwrap_envelope_skipped`.
 | Policy field | Native primitive | Breach behavior | Platforms |
 |---|---|---|---|
 | `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` on `open()`/`socket()` — refuse | Linux, macOS |
+| `maxOpenFiles` | IAT hook on `CreateFileA`/`CreateFileW` in `buccet-ioboundary.dll` | `ERROR_TOO_MANY_OPEN_FILES` — refuse | Windows |
 | `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` on `write()` beyond size — refuse | Linux, macOS |
+| `maxFileSizeBytes` | IAT hook on `WriteFile` in `buccet-ioboundary.dll` | `ERROR_FILE_TOO_LARGE` — refuse | Windows |
 | `maxIoRateBytesPerSec` | `SetIoRateControlInformationJobObject` `MaxBandwidth` | I/O delayed by kernel scheduler — throttle | Windows 10 1607+ |
 | `maxIoOpsPerSec` | `SetIoRateControlInformationJobObject` `MaxIops` | I/O delayed by kernel scheduler — throttle | Windows 10 1607+ |
 
@@ -159,15 +161,18 @@ Ledger metadata key: `physwrap_envelope_active`, `physwrap_envelope_skipped`.
 
 | Field | Linux | macOS | Windows |
 |---|---|---|---|
-| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **OPEN GAP** — no Job Object equiv |
-| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **OPEN GAP** — no Job Object equiv |
+| `maxOpenFiles` | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — `RLIMIT_NOFILE` → `EMFILE` (refuse) | **LIVE** — IAT hook → `ERROR_TOO_MANY_OPEN_FILES` (refuse) |
+| `maxFileSizeBytes` | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — `RLIMIT_FSIZE` → `SIGXFSZ` (refuse) | **LIVE** — IAT hook → `ERROR_FILE_TOO_LARGE` (refuse) |
 | `maxIoRateBytesPerSec` | Skipped — no rlimit equiv | Skipped — no rlimit equiv | **LIVE** — Job Object I/O rate throttle (Win 10 1607+) |
 | `maxIoOpsPerSec` | Skipped — no rlimit equiv | Skipped — no rlimit equiv | **LIVE** — Job Object IOPS throttle (Win 10 1607+) |
 
-**Semantic distinction — throttle vs refuse:**
-POSIX `RLIMIT_NOFILE`/`RLIMIT_FSIZE` use **refuse** semantics: the syscall returns an error (`EMFILE`, `SIGXFSZ`) immediately when the limit is exceeded. Windows `SetIoRateControlInformationJobObject` uses **throttle** semantics: the kernel I/O scheduler delays operations that would exceed the bandwidth or IOPS budget. Operations complete; they run at the controlled rate. Both are real kernel-enforced live operation boundaries with different enforcement shapes.
+**Windows Tier 2b implementation — `buccet-ioboundary.dll`:**
+`physwrap_win.c` injects `buccet-ioboundary.dll` into the target process while the main thread is SUSPENDED, before any user code runs. The DLL uses IAT patching to hook `CreateFileA`/`CreateFileW` and `WriteFile` in all loaded modules. When the open-file count reaches `maxOpenFiles`, `CreateFile` returns `INVALID_HANDLE_VALUE` with `ERROR_TOO_MANY_OPEN_FILES` — per-operation refusal. When a write would cause a file to exceed `maxFileSizeBytes`, `WriteFile` returns `FALSE` with `ERROR_FILE_TOO_LARGE`. Future modules loaded via `LoadLibrary` are also patched. Fail closed: if the DLL cannot be found or injection fails, physwrap terminates the process and exits with code 2.
 
-**OPEN GAP — Windows `maxOpenFiles` / `maxFileSizeBytes`:** No Win32 Job Object equivalent exists for per-process handle-count ceiling (EMFILE) or per-file-write-size ceiling (SIGXFSZ). These specific per-operation refusal semantics are not achievable at user-mode without a kernel driver. physwrap.exe emits explicit stderr warnings when these fields are requested and records them in `physwrap_io_boundary_skipped`. Windows Tier 2b is PARTIALLY LIVE — I/O rate/IOPS surfaces are enforced; EMFILE/SIGXFSZ surfaces remain open.
+**Scope note (Windows IAT hook):** Covers Win32 API callers (`CreateFileA/W`, `WriteFile`). Processes calling `ntdll.dll` directly (bypassing Win32) are outside this boundary. Standard agent workloads are covered.
+
+**Semantic note — refuse vs throttle:**
+POSIX rlimits and Windows IAT hooks both implement **refuse** semantics for `maxOpenFiles`/`maxFileSizeBytes`: the operation returns an error immediately. Windows I/O rate control implements **throttle** semantics: the kernel delays operations to enforce the budget. The nofile/fsize contract is semantically equivalent across all platforms.
 
 Ledger metadata keys: `physwrap_io_boundary_active`, `physwrap_io_boundary_skipped`.
 
@@ -193,7 +198,7 @@ One physwrap source per platform. Same contract after the hook — same ledger e
 |---|---|---|---|---|
 | **Linux** | `physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` | `setrlimit()` (refuse semantics) | `PR_CAPBSET_DROP` |
 | **macOS** | `physwrap_mac.c` | `setrlimit()` (nproc/as skipped) | `setrlimit()` (refuse semantics) | `setgid()`/`setuid()` via `--uid`/`--gid` |
-| **Windows** | `physwrap_win.c` | NT Job Objects | `SetIoRateControlInformationJobObject` (throttle semantics, Win 10 1607+); EMFILE/SIGXFSZ: OPEN GAP | N/A |
+| **Windows** | `physwrap_win.c` + `buccet_ioboundary_win.c` | NT Job Objects | IAT hook DLL: nofile/fsize (refuse); Job Object: io_rate/iops (throttle, Win 10 1607+) | N/A |
 
 All three are built by `native/physwrap/build.sh` (POSIX) or `native/physwrap/build_win.bat` (MSVC). Platform recorded in `physwrap_platform` of `PROCESS_PHYSWRAP_ACTIVE` events.
 
@@ -215,16 +220,16 @@ physwrap_platform              "linux" | "macos" | "windows" | "unknown"
 physwrap_envelope_active       comma-separated active Tier 2a limits, e.g. "cpu,nproc,as"
 physwrap_envelope_skipped      comma-separated skipped Tier 2a limits
 physwrap_io_boundary_active    comma-separated active Tier 2b limits
-                               Linux/macOS: "nofile,fsize"
-                               Windows: "io_rate" and/or "io_iops" if configured
+                               Linux/macOS: "nofile,fsize" (rlimit refuse)
+                               Windows: "nofile,fsize" (IAT hook refuse) + "io_rate"/"io_iops" if configured
 physwrap_io_boundary_skipped   comma-separated skipped Tier 2b limits
-                               Windows: "nofile,fsize" (EMFILE/SIGXFSZ gap — always present)
-                               Linux/macOS: "io_rate,io_iops" if those fields are configured
+                               Linux/macOS: "io_rate,io_iops" if those fields are configured (no rlimit equiv)
+                               Windows: "io_rate"/"io_iops" if not configured; "nofile"/"fsize" no longer skipped
 physwrap_privilege_active      e.g. "uid_gid_drop" on macOS when --uid provided
 physwrap_privilege_skipped     e.g. "uid_gid_drop" on Linux (CAP drop is always on)
 ```
 
-`physwrap_io_boundary_skipped` containing `nofile` and/or `fsize` on Windows is a standing indicator of the EMFILE/SIGXFSZ open gap — visible in every physwrap ledger event for the duration of a Windows deployment.
+`physwrap_io_boundary_active` containing `nofile` and `fsize` on Windows confirms the IAT hook DLL was wired and per-operation refusal is live. `physwrap_io_boundary_skipped` on Windows contains only `io_rate`/`io_iops` if those throttle fields were not configured.
 
 #### Shell-Ulimit Fallback (Auditable Degradation)
 
@@ -374,8 +379,8 @@ ENVELOPE (OUTBOUND)
     ├── CPU time limit: RLIMIT_CPU (physwrap → setrlimit) [LIVE — Linux/macOS]
     ├── Process tree: RLIMIT_NPROC (physwrap → setrlimit) [LIVE — Linux only]
     ├── Memory: RLIMIT_AS (physwrap → setrlimit) [LIVE — Linux only]
-    ├── File descriptors: RLIMIT_NOFILE (physwrap → setrlimit) [LIVE — Linux/macOS]
-    ├── File size: RLIMIT_FSIZE (physwrap → setrlimit) [LIVE — Linux/macOS]
+    ├── File descriptors: RLIMIT_NOFILE / IAT hook CreateFileA/W [LIVE — all platforms]
+    ├── File size: RLIMIT_FSIZE / IAT hook WriteFile [LIVE — all platforms]
     └── CAP_SYS_RESOURCE bounding-set drop [LIVE — Linux, requires CAP_SETPCAP]
 ```
 
