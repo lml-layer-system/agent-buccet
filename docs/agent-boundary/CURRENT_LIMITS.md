@@ -148,12 +148,12 @@ Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat
 | CPU time | `cpuTimeLimitSec` | `RLIMIT_CPU` — **LIVE** | `RLIMIT_CPU` — **LIVE** | `PerJobUserTimeLimit` — **LIVE** |
 | Process tree | `maxProcesses` | `RLIMIT_NPROC` — **LIVE** | Skipped (unreliable on Darwin) — ledgered | `ActiveProcessLimit` — **LIVE** |
 | Virtual memory | `maxMemoryBytes` | `RLIMIT_AS` — **LIVE** | Skipped (unreliable on Darwin) — ledgered | `ProcessMemoryLimit` — **LIVE** |
-| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | Not enforced — explicit stderr warning |
-| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | Not enforced — explicit stderr warning |
+| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | **OPEN GAP** — no Job Object equivalent; warning emitted, limit NOT applied |
+| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | **OPEN GAP** — no Job Object equivalent; warning emitted, limit NOT applied |
 | Privilege drop (Linux) | — | `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` — **LIVE** | N/A | N/A |
 | Privilege drop (macOS) | `dropToUid` / `dropToGid` | N/A | `setgid()`/`setuid()` before exec — **LIVE** | N/A |
 
-**Windows unenforced limits (`maxOpenFiles`, `maxFileSizeBytes`) emit explicit stderr warnings when requested — the gap is auditable at runtime and recorded in `physwrap_skipped_limits`.**
+**OPEN GAP — Windows `maxOpenFiles` and `maxFileSizeBytes`: no Win32 Job Object equivalent exists. These limits are NOT enforced. physwrap emits explicit stderr warnings and records them in `physwrap_skipped_limits` so the gap is auditable at runtime — but warnings are not enforcement. This surface remains uncovered until a native Windows enforcement path is implemented.**
 
 **macOS: without `dropToUid`, root processes can exceed POSIX rlimit hard limits. physwrap emits a warning to stderr when running as root without `--uid`. Pass `dropToUid` in `BoundaryProcessPhysics` to close this gap.**
 

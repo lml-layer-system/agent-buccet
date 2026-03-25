@@ -230,4 +230,4 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
 - macOS privileged containment when `dropToUid` is not configured (root can exceed POSIX rlimit hard limits on Darwin without uid drop; physwrap warns at runtime; Darwin-native sandbox backend is the next-phase mechanism for full containment)
-- Windows `maxOpenFiles` and `maxFileSizeBytes` enforcement (no Job Object equivalent)
+- Windows `maxOpenFiles` and `maxFileSizeBytes` enforcement — OPEN GAP (no Job Object equivalent; physwrap warns at runtime and records in `physwrap_skipped_limits`, but these limits are NOT applied on Windows)
