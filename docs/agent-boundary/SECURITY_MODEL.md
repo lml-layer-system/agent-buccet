@@ -47,9 +47,15 @@ The main Agent Buccet runtime owns:
 
 1. motion is intercepted at the action boundary
 2. hook freezes it — the action does not execute
-3. hook signals the Buccet brain that a frozen proposal is waiting
-4. Buccet brain evaluates while the action stays frozen:
-   - **resource governor** (Tier 1 pre-check — velocity / density / mass; trips before law evaluation)
+3. **Input Admission Boundary fires** (when `admissionConfig` is configured):
+   - O(1) standing-deny cache check — brain never wakes for known-hostile provenances
+   - Bounded provenance density tracking
+   - Velocity / Density / Mass laws for inbound traffic
+   - Tarpit decision: hold socket, return nothing (not a fast 403/429)
+   - Only if admitted → continue
+4. hook signals the Buccet brain that a frozen proposal is waiting
+5. Buccet brain evaluates while the action stays frozen:
+   - **resource governor** (Tier 1 pre-check — velocity / density / mass / weight; trips before law evaluation)
    - laws (base runtime laws)
    - scope and grants
    - gravity
@@ -57,8 +63,8 @@ The main Agent Buccet runtime owns:
    - NSL if needed
    - swarm coordination if many matching requests are waiting
    - ledger
-5. verdict returns: allow / deny / require_approval
-6. hook applies the verdict — allow executes, deny drops, require_approval holds until resolved
+6. verdict returns: allow / deny / require_approval
+7. hook applies the verdict — allow executes, deny drops, require_approval holds until resolved
 
 ## UPL — User Path Ledger
 
@@ -171,13 +177,57 @@ All three are stateless from the function's perspective — state is carried in 
 
 **Tier 2 — Payload Physics (process containment)**
 
-- Wall-clock timeout: `setTimeout` → `SIGKILL` on breach. Fully live. Platform-independent.
-- POSIX rlimits: `ulimit -t` (CPU), `ulimit -u` (nproc), `ulimit -v` (AS), `ulimit -n` (open files), `ulimit -f` (file size). Scaffolded via `sh -c ulimit ...; exec {cmd}`. Linux/macOS only; skipped on Windows.
+The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by the Native Physics Translator (`buccet-physwrap`).
 
-Governor trips are ledgered as `GOVERNOR_TRIP`. Wall-clock kills are ledgered as `PROCESS_WALL_CLOCK_KILL`. Both fail closed — no fallback, no retry, no best-effort continuation.
+- **Wall-clock timeout** — `setTimeout` → `SIGKILL`. Live. Platform-independent. Ledgered as `PROCESS_WALL_CLOCK_KILL`.
+- **Native physwrap (strong path)** — `setrlimit()` direct + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` on Linux; `setrlimit()` on macOS. Hard limit == soft limit. Spawned process cannot raise limits. Ledgered as `PROCESS_PHYSWRAP_ACTIVE`.
+- **Shell-ulimit fallback (degraded path)** — used when physwrap binary is not built. Sets both hard and soft flags. Does NOT drop `CAP_SYS_RESOURCE`. Ledgered as `PROCESS_PHYSWRAP_FALLBACK`.
+
+**If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path envelope guarantee is explicitly downgraded. Root or cap-elevated payloads may raise their own limits.**
+
+Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed — no fallback, no retry, no best-effort continuation.
+
+## Category Definition
+
+### Agent Buccet Is
+
+- A **fail-closed law boundary** — deny is the default when the brain is unreachable; the hook never guesses
+- An **egress structural validity layer** — outbound actions are validated against boundary laws before execution
+- A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move
+- A **payload physics envelope** (Tier 2) — native rlimits and capability drop cap what approved processes can physically become
+- An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation
+
+### Agent Buccet Is Not
+
+- A generic sandbox (it is a specific law boundary with declared coverage)
+- A token budget dashboard (it governs actions and process envelopes, not LLM token counts)
+- An LLM moderation gateway (no semantic classification in the hot path; pre-cognitive law only)
+- A probabilistic scanner (decisions are deterministic — law matches or doesn't)
+- A fail-open wrapper (there is no default-allow fallback on brain death)
+- A promise of 100% OS-kernel mediation on every syscall (honest about what the deep-intercept layer covers and what it does not)
+
+---
+
+## What Agent Buccet Guarantees
+
+- No ambient authority — agent cannot act outside opened scope
+- Opened scope becomes lawful scope — scope boundaries are enforced, not advisory
+- Prompt content does not become authority — only explicit grants and laws confer capability
+- Ledger bypass is denied — there is no path that executes without a ledger record
+- Hook does not become a second brain — the hook only freezes, signals, and applies verdicts
+- Release artifacts carry a witness decision trail by default
+- Tier 1 governor enforces before law evaluation — velocity, density, mass, weight all live
+- Wall-clock kill enforces on all platforms — platform-independent
+- Native physwrap enforces rlimits directly when `PROCESS_PHYSWRAP_ACTIVE` in ledger
+- Input admission boundary protects the brain from hostile inbound force when `admissionConfig` is configured
+
+---
 
 ## What Agent Buccet Does Not Yet Guarantee
 
-- OS-kernel mediation on every syscall path (eBPF/seccomp/ptrace — locks to one platform)
-- independent external witnessing by default (ledger is locally signed; remote anchoring requires operator wiring)
-- hardware-backed key protection by default
+- OS-kernel mediation on every syscall path (eBPF/seccomp/ptrace — not part of this release)
+- Independent external witnessing by default (ledger is locally signed; remote anchoring requires operator configuration)
+- Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
+- rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
+- macOS Darwin-native sandbox backend (App Sandbox / seatbelt-class) — mapped, next phase
+- Windows NT Job Object backend — mapped, next phase

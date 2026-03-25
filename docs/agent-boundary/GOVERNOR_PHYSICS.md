@@ -2,16 +2,20 @@
 
 Agent Buccet governs two layers:
 
-**Boundary Laws** — how the agent moves (motion)
-**Payload Physics** — what approved processes can physically become (envelope)
+**Boundary Laws (Tier 1)** — how the agent moves (motion governance)
+**Payload Physics (Tier 2)** — what approved processes can physically become (envelope governance)
 
 These are not the same thing. An agent that moves slowly and lawfully can still spawn a process that allocates infinite memory. The two tiers together close the full break surface.
+
+A third layer governs the inbound direction:
+
+**Input Admission Boundary** — hostile inbound traffic denied before it reaches the brain
 
 ---
 
 ## Tier 1 — Boundary Laws (Motion Governance)
 
-Four kinetic dimensions govern how the agent crosses the action boundary per session.
+Four kinetic dimensions govern how the agent crosses the action boundary per session. All four are pure functions in `governor.ts`. State is carried in `BoundaryRuntimeConfig.governorState` and flows back through `BoundaryExecutionResult.config` after every crossing.
 
 ### Velocity
 
@@ -26,12 +30,13 @@ governorConfig: {
 ```
 
 Law ID: `BOUNDARY.GOVERNOR.VELOCITY.01`
+Ledger event: `GOVERNOR_TRIP` (dimension: `"velocity"`)
 
 ### Density
 
 Maximum ratio of unlawful-to-lawful crossings in a sliding window.
 
-A healthy session has a low denial rate. An agent that alternates lawful and unlawful actions, or fires repeated denied actions, has a pathological density pattern. Density trips when the recent denial ratio exceeds the configured threshold.
+A healthy session has a low denial rate. An agent that fires repeated denied actions has a pathological density pattern. Density trips when the recent denial ratio exceeds the configured threshold.
 
 ```ts
 governorConfig: {
@@ -40,16 +45,31 @@ governorConfig: {
 ```
 
 Law ID: `BOUNDARY.GOVERNOR.DENSITY.01`
+Ledger event: `GOVERNOR_TRIP` (dimension: `"density"`)
 
 ### Mass
 
 Absolute weighted action horizon per session.
 
-Every session has a ceiling on total actions, weighted by action class. Dangerous actions (tool.exec, fs.delete, db.delete) count more toward the horizon than lightweight reads. When the ceiling is reached, no further crossings are permitted in that session.
+Every session has a ceiling on total actions, weighted by action class. Dangerous actions (`tool.exec`, `fs.delete`, `db.delete`) count more toward the horizon than lightweight reads. When the ceiling is reached, no further crossings are permitted in that session.
 
 ```ts
 governorConfig: {
   mass: { maxCrossings: 500 },
+}
+```
+
+Law ID: `BOUNDARY.GOVERNOR.MASS.01`
+Ledger event: `GOVERNOR_TRIP` (dimension: `"mass"`)
+
+### Weight
+
+Asymmetric per-action-class cost scaling used by Mass.
+
+Not all actions cost the same. `weight` is a partial override table. Unspecified action kinds use the default table below.
+
+```ts
+governorConfig: {
   weight: {
     "tool.exec": 10,
     "fs.delete": 8,
@@ -59,7 +79,7 @@ governorConfig: {
 }
 ```
 
-Law ID: `BOUNDARY.GOVERNOR.MASS.01`
+Weight is not a separate law dimension — it is the cost scale applied when computing the Mass running total.
 
 ### Default Weight Table
 
@@ -86,23 +106,23 @@ Law ID: `BOUNDARY.GOVERNOR.MASS.01`
 | `sys.config.read` | 1 |
 | (unlisted) | 1 |
 
-### Governor State Persistence
-
-Governor state (`crossingTimestamps`, `totalWeightedCrossings`, `recentDecisions`) is stored in `BoundaryRuntimeConfig.governorState` and flows back through `BoundaryExecutionResult.config` after every action. `createBoundaryBodyguard` calls `store.replaceConfig(result.config)` after each enforcement, so the state is always current in the store.
-
 ### Fail Behavior
 
-If the governor trips, the action is denied before `evaluateBoundaryLaws` is called. No law evaluation, no approval prompt, no execution. The ledger records a `GOVERNOR_TRIP` event with the dimension, law ID, and reason. A `deny_and_explain` recovery move is returned.
+Governor trips before `evaluateBoundaryLaws` is called. No law evaluation, no approval prompt, no execution. The ledger records a `GOVERNOR_TRIP` event with the dimension, law ID, and reason. A `deny_and_explain` recovery move is returned. Fail closed — no fallback, no retry.
 
 ---
 
 ## Tier 2 — Payload Physics (Envelope Governance)
 
-Tier 1 governs boundary crossings. A single approved crossing (`sys_execve`) can still spawn a process that exhausts all RAM, opens infinite file descriptors, or writes an unlimited disk file. Tier 2 governs what that process can physically become.
+Tier 1 governs boundary crossings. A single approved `tool.exec` crossing can still spawn a process that exhausts all RAM, opens infinite file descriptors, or runs forever. Tier 2 governs what that process can physically become.
 
-### Wall-clock timeout (live)
+The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by a Native Physics Translator that selects the appropriate backend for the current platform.
 
-Maximum elapsed time for an approved process. When the timeout expires, the process receives SIGKILL from the Node.js runtime. No cooperation required from the process — it is killed regardless.
+### Wall-Clock Timeout
+
+**Status: LIVE (all platforms)**
+
+Maximum elapsed time for an approved process. When the timeout expires, the process receives `SIGKILL` from the Node.js runtime. No cooperation required — the process is killed unconditionally.
 
 ```ts
 processPolicy: {
@@ -111,63 +131,231 @@ processPolicy: {
 ```
 
 Ledger event: `PROCESS_WALL_CLOCK_KILL`
+Implementation: `setTimeout` + `child.kill('SIGKILL')`, cleared on normal exit.
 
-Implementation: `setTimeout` + `child.kill('SIGKILL')` applied immediately after `spawn()`. The timeout is cleared on normal process exit.
+### Native Physics Translator (`buccet-physwrap`)
 
-### POSIX rlimit injection (scaffolded — Linux/macOS)
+**The physwrap binary is the native enforcement translator for Tier 2 limits.**
 
-When `physics` includes any of the following, the process is spawned via a `sh -c ulimit ...` wrapper that sets the limits before exec. The kernel then enforces them directly — the process cannot raise its own limits without `CAP_SYS_RESOURCE`.
+The policy layer (`BoundaryProcessPhysics`) declares OS-agnostic limits. The physwrap translator converts them into the platform's native enforcement primitives before `exec()`. Without physwrap, limits are applied via a shell-ulimit fallback that is auditable but weaker.
 
-| Field | rlimit | Kernel signal |
-|---|---|---|
-| `cpuTimeLimitSec` | `RLIMIT_CPU` (ulimit -t) | SIGXCPU |
-| `maxProcesses` | `RLIMIT_NPROC` (ulimit -u) | fork/clone returns EAGAIN |
-| `maxMemoryBytes` | `RLIMIT_AS` (ulimit -v, in KB) | ENOMEM |
-| `maxOpenFiles` | `RLIMIT_NOFILE` (ulimit -n) | EMFILE |
-| `maxFileSizeBytes` | `RLIMIT_FSIZE` (ulimit -f, in 512-byte blocks) | SIGXFSZ |
+`process.ts` selects the enforcement path automatically:
+- `PROCESS_PHYSWRAP_ACTIVE` ledger event: physwrap binary found and used — strong path
+- `PROCESS_PHYSWRAP_FALLBACK` ledger event: binary not found — shell-ulimit fallback in use
+
+**If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees below do not apply.**
+
+#### Platform Status
+
+| Platform | Physwrap backend | Cap drop | Status |
+|---|---|---|---|
+| **Linux** | `setrlimit()` direct + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` | Yes — bounding set | **LIVE — Strong Path** |
+| **macOS** | `setrlimit()` direct (Darwin) | N/A (no Linux cap system) | **LIVE — rlimits active, cap drop not applicable** |
+| **macOS (next)** | Darwin-native sandbox backend (App Sandbox / seatbelt-class) | N/A | **Mapped — Next Phase** |
+| **Windows** | physwrap not built; wall-clock only | N/A | **Next Phase** (NT Job Objects: `CreateJobObject` + `SetInformationJobObject`) |
+
+**CRITICAL RULE:** macOS backend documentation is at the class level (App Sandbox / seatbelt-class) — not collapsed to a single fragile API name. Darwin sandbox APIs are version-sensitive; the class maps to the appropriate primitive at build time.
+
+**CRITICAL RULE:** The shell-ulimit fallback is an auditable degradation path. It is not the permanent destiny of Windows or macOS. Each platform gets its own native backend in the next phase.
+
+#### Linux Strong-Path Guarantee
+
+On Linux with physwrap active:
+
+1. `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` removes the capability from the bounding set before `exec()`. The spawned process and all its descendants cannot call `setrlimit()` to raise limits above the configured ceiling, regardless of UID. `EPERM` (lacks `CAP_SETPCAP`) is non-fatal but logged as `PROCESS_PHYSWRAP_CAP_WARNING` — limits still bind for non-root processes.
+2. `prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_LOWER, CAP_SYS_RESOURCE)` clears the ambient set (Linux 4.3+; silently ignored on older kernels).
+3. `setrlimit()` is called with **hard == soft** for each limit. Setting the hard limit equal to the soft prevents self-elevation without requiring the capability.
+4. `execvp()` — no shell interposition, no PATH injection surface.
+
+#### Supported Limits
+
+| Policy field | rlimit | Kernel signal on breach | Linux | macOS |
+|---|---|---|---|---|
+| `cpuTimeLimitSec` | `RLIMIT_CPU` | `SIGXCPU` → `SIGKILL` | ✓ | ✓ |
+| `maxProcesses` | `RLIMIT_NPROC` | `EAGAIN` on `fork`/`clone` | ✓ | — (skipped) |
+| `maxMemoryBytes` | `RLIMIT_AS` | `ENOMEM` | ✓ | — (skipped) |
+| `maxOpenFiles` | `RLIMIT_NOFILE` | `EMFILE` | ✓ | ✓ |
+| `maxFileSizeBytes` | `RLIMIT_FSIZE` | `SIGXFSZ` | ✓ | ✓ |
+
+`maxProcesses` and `maxMemoryBytes` are skipped on macOS — `RLIMIT_NPROC` and `RLIMIT_AS` are not universally supported on Darwin. They do not silently mis-apply; they are compile-time gated.
 
 ```ts
 processPolicy: {
   physics: {
     wallClockTimeoutMs: 30_000,
     cpuTimeLimitSec: 10,
-    maxProcesses: 32,
-    maxMemoryBytes: 512 * 1024 * 1024, // 512 MB
+    maxProcesses: 32,           // Linux only
+    maxMemoryBytes: 536870912,  // 512 MB — Linux only
     maxOpenFiles: 64,
-    maxFileSizeBytes: 100 * 1024 * 1024, // 100 MB
+    maxFileSizeBytes: 104857600, // 100 MB
   }
 }
 ```
 
-Ledger event: `PROCESS_LAUNCH_REQUESTED` (with rlimit metadata when physics is applied)
+Ledger events: `PROCESS_PHYSWRAP_ACTIVE` (strong path) or `PROCESS_PHYSWRAP_FALLBACK` (degraded path), plus `PROCESS_SPAWNED` and `PROCESS_EXITED`.
 
-These guarantees hold within the declared Buccet enforcement surface, assuming:
-- hook integrity
-- kernel integrity
-- explicit syscall-family coverage
-- an unprivileged contained payload that cannot alter its own limits
+#### Shell-Ulimit Fallback (Auditable Degradation)
 
-Note: on Windows (`process.platform === 'win32'`), rlimit injection is skipped. Wall-clock timeout is platform-independent.
+When physwrap is not available, `process.ts` falls back to `sh -c ulimit -S{flag} N; ulimit -H{flag} N; exec {cmd}`. Both soft and hard flags are set explicitly. The ledger records `PROCESS_PHYSWRAP_FALLBACK`.
+
+Fallback weaknesses relative to the strong path:
+- Requires `sh` to be present in the environment
+- Does not drop `CAP_SYS_RESOURCE` — root or cap-elevated processes can raise limits
+- Shell subprocess adds a thin injection surface
+
+**When the fallback path is active, the system's guarantee level is explicitly downgraded. Operators should treat `PROCESS_PHYSWRAP_FALLBACK` ledger events as a configuration gap requiring resolution.**
+
+Build physwrap to restore the strong path:
+```bash
+npm run build:native:physwrap
+```
 
 ---
 
-## Architecture Distinction
+## Input Admission Boundary
+
+**Status: LIVE**
+
+The same doctrine applied inward. Outbound: protect the world from agent force. Inbound: protect the agent/system from hostile inbound force.
+
+**The brain must never be the thing that filters attacks aimed at waking the brain.**
+
+If hostile traffic reaches tokenization, prompt assembly, inference, or API calls before denial, the attacker has already won: compute bleed, wallet bleed, rate-limit bleed, and starvation of real users.
+
+### Admission Law Family
+
+The same four kinetic dimensions govern inbound traffic per provenance. All are pure functions in `admission.ts`.
+
+| Law | Dimension | What it governs | Law ID |
+|---|---|---|---|
+| Velocity | RPM ceiling per provenance per window | Request rate | `BOUNDARY.ADMISSION.VELOCITY.01` |
+| Density | Deny ratio in sliding window → standing deny | Pathological repetition | `BOUNDARY.ADMISSION.DENSITY.01` |
+| Mass | Inbound weight horizon per provenance per window | Total cost of admitted work | `BOUNDARY.ADMISSION.MASS.01` |
+| Standing Deny | O(1) cache check | Exact provenance match after promotion | `BOUNDARY.ADMISSION.STANDING_DENY.01` |
+
+Velocity and Mass trips tarpit the current request but do **not** promote to standing deny alone — standing deny promotion is density-driven only. The distinction: temporary rate enforcement ≠ permanent ban.
+
+### Inbound Weight Table
+
+Not all inputs cost the same.
+
+| Weight class | Default weight | Examples |
+|---|---|---|
+| `standard` | 1 | Normal chat/tool request |
+| `large_prompt` | 4 | Body > configured token threshold |
+| `retrieval_request` | 5 | Triggers RAG / external retrieval |
+| `attachment` | 6 | Binary or media attachment |
+| `fanout_request` | 8 | Triggers broadcast to multiple targets |
+
+### Provenance Policy
+
+Provenance classes in order of strength:
+
+1. **Strong** — authenticated pubkey / signed identity: double threshold headroom
+2. **Medium** — session identity / device / client binding: no scaling
+3. **Weak** — IP / network provenance: half threshold (tighter denial ceiling)
+
+Stronger provenance = more headroom before denial. Weaker provenance = faster trip.
+
+### Bounded Provenance Tracking
+
+Provenance density tracking is bounded by LRU eviction and TTL:
+
+- `provenanceMaxSize` (default 10,000): when exceeded, oldest-by-last-seen entries are evicted
+- `provenanceTtlMs` (default 300,000 ms): entries not seen within TTL are evicted on next access
+
+This prevents an attacker from converting compute DDoS into memory DDoS by spraying fake provenances.
+
+### Standing-Deny Promotion: Ledger vs. Cache
+
+- **Ledger** — durable exactly-once authority: `INGRESS_STANDING_LAW_WRITTEN` written once per hostile provenance when density threshold is crossed
+- **Cache** — O(1) hot-path enforcement: in-memory `standingDenyProvenances` checked before any law evaluation
+
+Flood traffic never creates flood disk writes. The state update is synchronous (exactly-once in the single-threaded Node.js event loop) before the async ledger write. `ledgered: false → true` flag prevents re-write under any concurrent evaluation.
+
+### Enforcement Path
 
 ```
-MOTION
+Inbound request
+  │
+  ├─► O(1) standing-deny cache check       ← zero I/O, zero allocation
+  │     hit → TARPIT (hold socket, return nothing)
+  │
+  ├─► Bounded provenance record lookup
+  │     (LRU/TTL eviction on miss)
+  │
+  ├─► Velocity check (per-provenance RPM)
+  │     trip → TARPIT (+ density check for standing-deny promotion)
+  │
+  ├─► Mass check (per-provenance inbound weight)
+  │     trip → TARPIT (+ density check for standing-deny promotion)
+  │
+  ├─► Density check (deny ratio in sliding window)
+  │     trip → standing-deny promotion → INGRESS_STANDING_LAW_WRITTEN (once)
+  │          → TARPIT
+  │
+  └─► ADMIT → law evaluation, routing, model path
+```
+
+**Tarpit behavior:** not a fast HTTP 403 or 429. The intercept layer holds the socket open, drops the payload, and returns nothing. Attacker threads hang until their own OS times out. Attacker socket pool is exhausted, not ours.
+
+### Admission Boundary Placement
+
+The Input Admission Boundary fires at the **earliest intercept layer** — inside `evaluateBoundaryIntercept()`, before any law evaluation, gravity, approval queue, tokenization, prompt assembly, or model invocation.
+
+To activate: supply `admissionConfig` and `admissionState` in `BoundaryRuntimeConfig`.
+
+### Ledger Events
+
+| Event | When emitted |
+|---|---|
+| `INGRESS_STANDING_LAW_WRITTEN` | Once per hostile provenance at density trip (durable) |
+| `INGRESS_PROVENANCE_BLOCKED` | On each tarpit decision (per-call, not per-packet) |
+| `INGRESS_DENIED` | Reserved for explicit deny path |
+| `INGRESS_VELOCITY_TRIP` | Reserved |
+| `INGRESS_DENSITY_TRIP` | Reserved |
+| `INGRESS_MASS_TRIP` | Reserved |
+
+---
+
+## Architecture Map
+
+```
+INBOUND DIRECTION
+  Input Admission Boundary
+    ├── Velocity: RPM ceiling per provenance
+    ├── Density: deny ratio → standing deny → O(1) cache
+    ├── Mass: inbound weight horizon
+    └── Standing Deny: O(1) cache check — brain never wakes
+
+MOTION (OUTBOUND)
   Boundary Laws (Tier 1)
     ├── Velocity: RPM ceiling per session
     ├── Density: pathological failure ratio
-    └── Mass: weighted total action horizon
+    ├── Mass: weighted total action horizon
+    └── Weight: asymmetric per-class cost scale
 
-ENVELOPE
+ENVELOPE (OUTBOUND)
   Payload Physics (Tier 2)
-    ├── Wall-clock timeout: SIGKILL after N ms (live)
-    ├── CPU time limit: RLIMIT_CPU via ulimit -t
-    ├── Process tree: RLIMIT_NPROC via ulimit -u
-    ├── Memory: RLIMIT_AS via ulimit -v
-    ├── File descriptors: RLIMIT_NOFILE via ulimit -n
-    └── File size: RLIMIT_FSIZE via ulimit -f
+    ├── Wall-clock timeout: SIGKILL after N ms [LIVE — all platforms]
+    ├── CPU time limit: RLIMIT_CPU (physwrap → setrlimit) [LIVE — Linux/macOS]
+    ├── Process tree: RLIMIT_NPROC (physwrap → setrlimit) [LIVE — Linux only]
+    ├── Memory: RLIMIT_AS (physwrap → setrlimit) [LIVE — Linux only]
+    ├── File descriptors: RLIMIT_NOFILE (physwrap → setrlimit) [LIVE — Linux/macOS]
+    ├── File size: RLIMIT_FSIZE (physwrap → setrlimit) [LIVE — Linux/macOS]
+    └── CAP_SYS_RESOURCE bounding-set drop [LIVE — Linux, requires CAP_SETPCAP]
 ```
 
-Agent Buccet does not promise abstract safety. Within the declared enforcement surface, a contained unprivileged process cannot exceed its configured kinetic and capacity invariants because the kernel itself refuses the violating operation.
+---
+
+## Trust Surface Assumptions
+
+These guarantees hold within the declared Buccet enforcement surface, assuming:
+
+1. **Hook integrity** — the intercept hook is running and has not been bypassed or removed
+2. **Kernel integrity** — the OS kernel enforces rlimits, signals, and capability constraints as specified
+3. **Physwrap path active** — the `PROCESS_PHYSWRAP_ACTIVE` ledger event must be present; if `PROCESS_PHYSWRAP_FALLBACK` appears, root/cap-elevated payloads can raise their own limits
+4. **Unprivileged payload** — on the physwrap strong path (Linux), the spawned process cannot raise limits above the hard ceiling regardless of UID; on the fallback path, this requires the process to lack `CAP_SYS_RESOURCE`
+5. **`CAP_SETPCAP` available** — the Node.js process running physwrap must hold `CAP_SETPCAP` for the bounding-set drop to succeed on Linux; `EPERM` is non-fatal but is logged as `PROCESS_PHYSWRAP_CAP_WARNING`
+
+When any assumption is violated, the affected guarantee is explicitly downgraded in the ledger via the appropriate event type.
