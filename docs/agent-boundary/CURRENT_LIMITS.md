@@ -114,17 +114,19 @@ Trips before law evaluation. No fallback. No retry. No best-effort continuation.
 
 Platform-independent. `setTimeout` + `child.kill('SIGKILL')`.
 
-#### Native physwrap enforcer (rlimits + cap drop)
+#### Native physwrap enforcer (rlimits + privilege drop)
 
-The `buccet-physwrap` binary is the Native Physics Translator. It applies rlimits via direct `setrlimit()` syscalls and drops `CAP_SYS_RESOURCE` from the capability bounding set before `exec()`.
+The `buccet-physwrap` binary is the Native Physics Translator. It applies rlimits via direct `setrlimit()` syscalls and applies a platform-native privilege drop before `exec()`.
 
 | Path | Ledger event | Guarantee level |
 |---|---|---|
-| **Strong path** — physwrap binary found | `PROCESS_PHYSWRAP_ACTIVE` | `setrlimit()` hard+soft + cap drop (Linux) |
-| **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — limits applied, cap NOT dropped |
-| **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute |
+| **Strong path** — physwrap binary found | `PROCESS_PHYSWRAP_ACTIVE` | `setrlimit()` hard+soft + platform privilege drop |
+| **Fallback path** — binary not found | `PROCESS_PHYSWRAP_FALLBACK` | `sh -c ulimit -S/-H` — limits applied, privilege drop NOT executed |
+| **Cap drop warning** — lacks `CAP_SETPCAP` | `PROCESS_PHYSWRAP_CAP_WARNING` | Limits enforced; bounding-set drop did not execute (Linux) |
 
-**CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path rlimit guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
+`PROCESS_PHYSWRAP_ACTIVE` includes `physwrap_active_limits` and `physwrap_skipped_limits` — the exact per-platform limit coverage is recorded in the ledger for every invocation.
+
+**CRITICAL: If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path guarantees are degraded. Root or cap-elevated payloads may raise their own limits. Treat as a configuration gap.**
 
 Build physwrap to activate the strong path: `npm run build:native:physwrap`
 
@@ -132,8 +134,8 @@ Build physwrap to activate the strong path: `npm run build:native:physwrap`
 
 | Platform | Source | Method |
 |---|---|---|
-| Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` |
-| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` (Darwin POSIX) |
+| Linux | `native/physwrap/physwrap.c` | `setrlimit()` + `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` + `PR_CAP_AMBIENT_LOWER` |
+| macOS | `native/physwrap/physwrap_mac.c` | `setrlimit()` + `setgid()`/`setuid()` privilege drop (`--uid`/`--gid`) |
 | Windows | `native/physwrap/physwrap_win.c` | NT Job Objects (`CreateJobObject` + `SetInformationJobObject`) |
 
 Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat` (MSVC).
@@ -144,13 +146,18 @@ Build: `npm run build:native:physwrap` (POSIX) or `native/physwrap/build_win.bat
 | Limit | Field | Linux | macOS | Windows |
 |---|---|---|---|---|
 | CPU time | `cpuTimeLimitSec` | `RLIMIT_CPU` — **LIVE** | `RLIMIT_CPU` — **LIVE** | `PerJobUserTimeLimit` — **LIVE** |
-| Process tree | `maxProcesses` | `RLIMIT_NPROC` — **LIVE** | Ignored (not reliable on Darwin) | `ActiveProcessLimit` — **LIVE** |
-| Virtual memory | `maxMemoryBytes` | `RLIMIT_AS` — **LIVE** | Ignored (not reliable on Darwin) | `ProcessMemoryLimit` — **LIVE** |
-| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | Not yet enforced |
-| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | Not yet enforced |
-| Privilege lock | — | `PR_CAPBSET_DROP` — **LIVE** | N/A | N/A |
+| Process tree | `maxProcesses` | `RLIMIT_NPROC` — **LIVE** | Skipped (unreliable on Darwin) — ledgered | `ActiveProcessLimit` — **LIVE** |
+| Virtual memory | `maxMemoryBytes` | `RLIMIT_AS` — **LIVE** | Skipped (unreliable on Darwin) — ledgered | `ProcessMemoryLimit` — **LIVE** |
+| Open file descriptors | `maxOpenFiles` | `RLIMIT_NOFILE` — **LIVE** | `RLIMIT_NOFILE` — **LIVE** | Not enforced — explicit stderr warning |
+| File size | `maxFileSizeBytes` | `RLIMIT_FSIZE` — **LIVE** | `RLIMIT_FSIZE` — **LIVE** | Not enforced — explicit stderr warning |
+| Privilege drop (Linux) | — | `PR_CAPBSET_DROP(CAP_SYS_RESOURCE)` — **LIVE** | N/A | N/A |
+| Privilege drop (macOS) | `dropToUid` / `dropToGid` | N/A | `setgid()`/`setuid()` before exec — **LIVE** | N/A |
 
-The shell-ulimit fallback is an auditable degradation path used when physwrap is not built.
+**Windows unenforced limits (`maxOpenFiles`, `maxFileSizeBytes`) emit explicit stderr warnings when requested — the gap is auditable at runtime and recorded in `physwrap_skipped_limits`.**
+
+**macOS: without `dropToUid`, root processes can exceed POSIX rlimit hard limits. physwrap emits a warning to stderr when running as root without `--uid`. Pass `dropToUid` in `BoundaryProcessPhysics` to close this gap.**
+
+The shell-ulimit fallback is an auditable degradation path used when physwrap is not built. It does not support `dropToUid`/`dropToGid`.
 
 Contracts: `agent-buccet-payload-physics-contract.ts`, `agent-buccet-physwrap-contract.ts`
 

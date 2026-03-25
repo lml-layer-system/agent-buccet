@@ -233,18 +233,25 @@ export async function runBoundaryProcess(args: {
   const spawnCommand = buildPhysicsSpawnCommand(args.command, args.commandArgs, physics);
 
   // Log which enforcement path is active so the ledger reflects the real physics strength.
-  if (physics && hasRlimits(physics)) {
+  if (physics && hasPhysicsConstraints(physics)) {
     if (spawnCommand.mode === "physwrap") {
+      const { active, skipped } = computePhyswrapLimitCoverage(physics);
       await appendBoundaryLedger("PROCESS_PHYSWRAP_ACTIVE", {
         sessionId: args.config.session.sessionId,
         actorId: args.config.session.actorId,
         actionKind: "tool.exec",
         target: prepared.commandTarget,
-        reason: "native physwrap enforcer: setrlimit() + CAP_SYS_RESOURCE bounding-set drop",
-        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN, physwrap_platform: PHYSWRAP_PLATFORM },
+        reason: "native physwrap enforcer: setrlimit() + privilege drop (platform-native)",
+        metadata: {
+          ...buildRlimitMetadata(physics),
+          physwrap_bin: PHYSWRAP_BIN,
+          physwrap_platform: PHYSWRAP_PLATFORM,
+          physwrap_active_limits: active.join(","),
+          physwrap_skipped_limits: skipped.join(","),
+        },
         createdAt: new Date().toISOString(),
       });
-    } else {
+    } else if (spawnCommand.mode === "shell_ulimit") {
       await appendBoundaryLedger("PROCESS_PHYSWRAP_FALLBACK", {
         sessionId: args.config.session.sessionId,
         actorId: args.config.session.actorId,
@@ -394,13 +401,15 @@ export function isPhyswrapAvailable(): boolean {
   return existsSync(PHYSWRAP_BIN);
 }
 
-function hasRlimits(physics: BoundaryProcessPhysics): boolean {
+function hasPhysicsConstraints(physics: BoundaryProcessPhysics): boolean {
   return (
     physics.cpuTimeLimitSec !== undefined ||
     physics.maxProcesses !== undefined ||
     physics.maxMemoryBytes !== undefined ||
     physics.maxOpenFiles !== undefined ||
-    physics.maxFileSizeBytes !== undefined
+    physics.maxFileSizeBytes !== undefined ||
+    physics.dropToUid !== undefined ||
+    physics.dropToGid !== undefined
   );
 }
 
@@ -412,16 +421,64 @@ export type PhysicsSpawnResult = {
   mode: PhysicsSpawnMode;
 };
 
+/**
+ * Compute which physics limits are enforced on the current platform
+ * (deterministic — no I/O). Used for PROCESS_PHYSWRAP_ACTIVE metadata.
+ */
+function computePhyswrapLimitCoverage(physics: BoundaryProcessPhysics): {
+  active: string[];
+  skipped: string[];
+} {
+  const platform = PHYSWRAP_PLATFORM;
+  const active: string[] = [];
+  const skipped: string[] = [];
+
+  // CPU — enforced on all platforms
+  if (physics.cpuTimeLimitSec !== undefined) active.push("cpu");
+
+  // nproc: Linux + Windows; not reliable on macOS
+  if (physics.maxProcesses !== undefined) {
+    if (platform === "macos") skipped.push("nproc");
+    else active.push("nproc");
+  }
+
+  // as (virtual memory): Linux + Windows; not reliable on macOS
+  if (physics.maxMemoryBytes !== undefined) {
+    if (platform === "macos") skipped.push("as");
+    else active.push("as");
+  }
+
+  // nofile: Linux + macOS; no Job Object equivalent on Windows
+  if (physics.maxOpenFiles !== undefined) {
+    if (platform === "windows") skipped.push("nofile");
+    else active.push("nofile");
+  }
+
+  // fsize: Linux + macOS; no Job Object equivalent on Windows
+  if (physics.maxFileSizeBytes !== undefined) {
+    if (platform === "windows") skipped.push("fsize");
+    else active.push("fsize");
+  }
+
+  // uid/gid drop: only Darwin physwrap supports --uid/--gid
+  if (physics.dropToUid !== undefined || physics.dropToGid !== undefined) {
+    if (platform === "macos") active.push("uid_gid_drop");
+    else skipped.push("uid_gid_drop");
+  }
+
+  return { active, skipped };
+}
+
 function buildPhysicsSpawnCommand(
   command: string,
   commandArgs: string[],
   physics: BoundaryProcessPhysics | undefined,
 ): PhysicsSpawnResult {
-  if (!physics || !hasRlimits(physics) || process.platform === "win32") {
+  if (!physics || !hasPhysicsConstraints(physics)) {
     return { command, args: commandArgs, mode: "passthrough" };
   }
 
-  // ── Path 1: buccet-physwrap (preferred) ──────────────────────────────────
+  // ── Path 1: buccet-physwrap (preferred, all platforms) ───────────────────
   if (isPhyswrapAvailable()) {
     const physwrapArgs: string[] = [];
 
@@ -441,6 +498,15 @@ function buildPhysicsSpawnCommand(
     if (physics.maxFileSizeBytes !== undefined) {
       physwrapArgs.push("--fsize-b", String(physics.maxFileSizeBytes));
     }
+    // uid/gid drop: Darwin only — Linux uses CAP drop, Windows no equivalent
+    if (process.platform === "darwin") {
+      if (physics.dropToGid !== undefined) {
+        physwrapArgs.push("--gid", String(physics.dropToGid));
+      }
+      if (physics.dropToUid !== undefined) {
+        physwrapArgs.push("--uid", String(physics.dropToUid));
+      }
+    }
 
     return {
       command: PHYSWRAP_BIN,
@@ -449,9 +515,14 @@ function buildPhysicsSpawnCommand(
     };
   }
 
-  // ── Path 2: sh -c ulimit fallback ────────────────────────────────────────
+  // ── Path 2: sh -c ulimit fallback (POSIX only) ───────────────────────────
   // Sets both hard and soft limits. Does NOT drop CAP_SYS_RESOURCE.
   // Logged as PROCESS_PHYSWRAP_FALLBACK for auditability.
+  // Windows has no sh; fall through to passthrough when physwrap binary absent.
+  if (process.platform === "win32") {
+    return { command, args: commandArgs, mode: "passthrough" };
+  }
+
   const ulimitParts: string[] = [];
 
   if (physics.cpuTimeLimitSec !== undefined) {
@@ -485,5 +556,7 @@ function buildRlimitMetadata(physics: BoundaryProcessPhysics): Record<string, st
   if (physics.maxMemoryBytes !== undefined) meta["rlimit_as_bytes"] = physics.maxMemoryBytes;
   if (physics.maxOpenFiles !== undefined) meta["rlimit_nofile"] = physics.maxOpenFiles;
   if (physics.maxFileSizeBytes !== undefined) meta["rlimit_fsize_bytes"] = physics.maxFileSizeBytes;
+  if (physics.dropToUid !== undefined) meta["drop_uid"] = physics.dropToUid;
+  if (physics.dropToGid !== undefined) meta["drop_gid"] = physics.dropToGid;
   return meta;
 }

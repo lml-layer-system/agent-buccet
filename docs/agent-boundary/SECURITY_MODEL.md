@@ -180,7 +180,7 @@ All three are stateless from the function's perspective — state is carried in 
 The payload physics policy (`BoundaryProcessPhysics`) is OS-agnostic. Enforcement is OS-native, applied by the Native Physics Translator (`buccet-physwrap`).
 
 - **Wall-clock timeout** — `setTimeout` → `SIGKILL`. Live. Platform-independent. Ledgered as `PROCESS_WALL_CLOCK_KILL`.
-- **Native physwrap (strong path)** — `setrlimit()` direct + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` on Linux; `setrlimit()` on macOS. Hard limit == soft limit. Spawned process cannot raise limits. Ledgered as `PROCESS_PHYSWRAP_ACTIVE`.
+- **Native physwrap (strong path)** — `setrlimit()` direct + `prctl(PR_CAPBSET_DROP, CAP_SYS_RESOURCE)` on Linux; `setrlimit()` + `setgid()`/`setuid()` privilege drop on macOS (when `--uid`/`--gid` provided); NT Job Objects on Windows. Hard limit == soft limit. Spawned process cannot raise limits. Ledgered as `PROCESS_PHYSWRAP_ACTIVE` with `physwrap_active_limits` and `physwrap_skipped_limits`.
 - **Shell-ulimit fallback (degraded path)** — used when physwrap binary is not built. Sets both hard and soft flags. Does NOT drop `CAP_SYS_RESOURCE`. Ledgered as `PROCESS_PHYSWRAP_FALLBACK`.
 
 **If `PROCESS_PHYSWRAP_FALLBACK` appears in the ledger, the strong-path envelope guarantee is explicitly downgraded. Root or cap-elevated payloads may raise their own limits.**
@@ -229,5 +229,5 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 - Independent external witnessing by default (ledger is locally signed; remote anchoring requires operator configuration)
 - Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
-- macOS privileged containment (root processes can exceed POSIX rlimits on Darwin — Darwin-native sandbox backend is the next-phase mechanism)
+- macOS privileged containment when `dropToUid` is not configured (root can exceed POSIX rlimit hard limits on Darwin without uid drop; physwrap warns at runtime; Darwin-native sandbox backend is the next-phase mechanism for full containment)
 - Windows `maxOpenFiles` and `maxFileSizeBytes` enforcement (no Job Object equivalent)

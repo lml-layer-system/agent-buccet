@@ -40,6 +40,10 @@ export type BoundaryProcessPhysics = {
   maxMemoryBytes?: number;
   maxOpenFiles?: number;
   maxFileSizeBytes?: number;
+  /** Drop to this uid before exec (Darwin: setuid; Linux: already handled by CAP drop path). */
+  dropToUid?: number;
+  /** Drop to this gid before exec (Darwin: setgid; paired with dropToUid). */
+  dropToGid?: number;
 };
 
 export type BoundaryProcessPolicy = {

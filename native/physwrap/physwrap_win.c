@@ -16,8 +16,8 @@
  *   --as-kb N    ProcessMemoryLimit (per-process virtual memory, in bytes)
  *
  * Accepted but NOT YET enforced on Windows (no Job Object equivalent):
- *   --nofile N   (no equivalent — IOCP-based file handle limits are out of scope)
- *   --fsize-b N  (no equivalent — NTFS quota requires admin setup)
+ *   --nofile N   (no Win32 Job Object equivalent — explicit stderr warning emitted)
+ *   --fsize-b N  (no Win32 Job Object equivalent — explicit stderr warning emitted)
  *
  * Job lifetime: physwrap.exe holds the only handle. JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
  * ensures that if physwrap exits unexpectedly, all job processes are terminated.
@@ -121,6 +121,8 @@ int main(int argc, char *argv[]) {
     long long cpu_sec   = -1;
     long long nproc     = -1;
     long long as_kb     = -1;
+    long long nofile    = -1;
+    long long fsize_b   = -1;
     int       separator = 0;
 
     int i;
@@ -136,9 +138,9 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[i], "--as-kb") == 0 && i + 1 < argc) {
             as_kb = parse_llong(argv[++i], "--as-kb");
         } else if (strcmp(argv[i], "--nofile") == 0 && i + 1 < argc) {
-            ++i; /* accepted, not yet enforced on Windows */
+            nofile = parse_llong(argv[++i], "--nofile");
         } else if (strcmp(argv[i], "--fsize-b") == 0 && i + 1 < argc) {
-            ++i; /* accepted, not yet enforced on Windows */
+            fsize_b = parse_llong(argv[++i], "--fsize-b");
         } else {
             fprintf(stderr, "buccet-physwrap(windows): unknown flag: %s\n", argv[i]);
             exit(1);
@@ -151,6 +153,27 @@ int main(int argc, char *argv[]) {
     }
 
     char **cmd = &argv[separator + 1];
+
+    /*
+     * ── Explicit warnings for unenforced limits ────────────────────────────
+     * --nofile and --fsize-b have no Win32 Job Object equivalent. When the
+     * caller requests them, emit a warning so the gap is visible at runtime.
+     * The caller (process.ts) records this in PROCESS_PHYSWRAP_ACTIVE as
+     * physwrap_skipped_limits. Execution continues — the other limits apply.
+     */
+    if (nofile >= 0) {
+        fprintf(stderr,
+            "buccet-physwrap(windows): WARNING: --nofile %lld requested but "
+            "not enforced — no Win32 Job Object equivalent for file descriptor "
+            "limits. Limit NOT applied.\n", nofile);
+    }
+
+    if (fsize_b >= 0) {
+        fprintf(stderr,
+            "buccet-physwrap(windows): WARNING: --fsize-b %lld requested but "
+            "not enforced — no Win32 Job Object equivalent for file size limits "
+            "(NTFS quotas require admin setup). Limit NOT applied.\n", fsize_b);
+    }
 
     /*
      * ── Create Job Object ──────────────────────────────────────────────────
