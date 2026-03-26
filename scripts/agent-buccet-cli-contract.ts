@@ -90,6 +90,14 @@ async function main() {
   assert.equal(doctorResult.code, 0, doctorResult.stderr);
   assert.match(doctorResult.stdout, /Doctor/);
 
+  const hookStatusResult = await runCli(["hook", "status", "--json"], env);
+  assert.equal(hookStatusResult.code, 0, hookStatusResult.stderr);
+  const hookStatus = JSON.parse(hookStatusResult.stdout) as {
+    initialized: boolean;
+    interceptedAttempts?: number;
+  };
+  assert.equal(hookStatus.initialized, true);
+
   const consoleResult = await runCli(["console"], env, "quit\n");
   assert.equal(consoleResult.code, 0, consoleResult.stderr);
   assert.match(consoleResult.stdout, /Bodyguard Console/);
@@ -103,6 +111,10 @@ async function main() {
   const logs = JSON.parse(logsResult.stdout) as Array<{ META: { event_type: string } }>;
   assert.ok(logs.some((record) => record.META.event_type === "ACTION_EXECUTED"));
 
+  const ledgerResult = await runCli(["ledger", "--limit", "5"], env);
+  assert.equal(ledgerResult.code, 0, ledgerResult.stderr);
+  assert.match(ledgerResult.stdout, /Witness Ledger/);
+
   const uninstallResult = await runCli(["uninstall"], env);
   assert.equal(uninstallResult.code, 0, uninstallResult.stderr);
   const homeExists = await fs.access(homePath).then(() => true).catch(() => false);
@@ -111,7 +123,9 @@ async function main() {
   console.log(`cli status scopes: ${status.scopes.length}`);
   console.log(`cli log tail: ${logs.length}`);
   console.log(`cli doctor: ok`);
+  console.log(`cli hook status: ok`);
   console.log(`cli console: ok`);
+  console.log(`cli ledger: ok`);
 }
 
 main().catch((error) => {

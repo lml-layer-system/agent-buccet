@@ -41,11 +41,12 @@ function usage(): never {
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
     "  buccet logs [--limit <n>] [--json]",
+    "  buccet ledger [--limit <n>] [--json] [--follow]          — open the ledger surface (Terminal 3)",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
     "  buccet hook build",
     "  buccet hook start",
-    "  buccet hook status [--json]",
+    "  buccet hook status [--json] [--watch]",
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
@@ -296,6 +297,93 @@ function printLogRecord(record: {
   ].join(" | "));
 }
 
+function summarizeInterceptedAttempts(records: Array<{ META: { event_type: string } }>): number {
+  const intercepted = new Set([
+    "ACTION_BLOCKED",
+    "APPROVAL_DENIED",
+    "GOVERNOR_TRIP",
+    "INGRESS_PROVENANCE_BLOCKED",
+    "INGRESS_CANYON_STATE_WRITTEN",
+  ]);
+  return records.reduce((sum, record) => sum + (intercepted.has(record.META.event_type) ? 1 : 0), 0);
+}
+
+async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
+  home: ReturnType<typeof resolveHomePaths>;
+  config: BuccetConfig | null;
+}): Promise<HookStatusPayload> {
+  const hookState = await readJsonIfExists<{
+    state?: string;
+    sessionId?: string;
+    actorId?: string;
+    interceptSocketPath?: string;
+    gravityBridgeSocketPath?: string;
+    brainStatusPath?: string;
+    restartCount?: number;
+    lastError?: string;
+    pid?: number;
+  }>(args.home.brainStatusPath);
+  const pid = await fs.readFile(args.home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+  const running = pid ? await pidAlive(pid) : false;
+
+  let interceptReachable = false;
+  let ledgerEntries = 0;
+  let interceptedAttempts = 0;
+  let canyonHeld = 0;
+  let pendingApprovals = 0;
+
+  if (args.config && running) {
+    try {
+      const status = await boundary.sendBoundaryInterceptServerInput({
+        target: { socketPath: args.home.interceptSocketPath },
+        input: { command: "status" },
+      });
+      interceptReachable = status.type === "status";
+      if (interceptReachable) {
+        pendingApprovals = status.swarm?.pending ?? 0;
+      }
+      const ingress = await boundary.sendBoundaryInterceptServerInput({
+        target: { socketPath: args.home.interceptSocketPath },
+        input: { command: "ingress_status" },
+      });
+      if (ingress.type === "ingress_status") {
+        canyonHeld = ingress.provenances.filter((entry: { state: string }) => entry.state === "canyon").length;
+      }
+    } catch {
+      interceptReachable = false;
+    }
+
+    try {
+      const records = await boundary.readBoundaryLedgerBySession(args.config.sessionId);
+      ledgerEntries = records.length;
+      interceptedAttempts = summarizeInterceptedAttempts(records);
+    } catch {
+      ledgerEntries = 0;
+      interceptedAttempts = 0;
+    }
+  }
+
+  return {
+    initialized: Boolean(args.config),
+    running,
+    pid: pid || undefined,
+    state: hookState?.state,
+    sessionId: hookState?.sessionId ?? args.config?.sessionId,
+    actorId: hookState?.actorId ?? args.config?.actorId,
+    interceptSocketPath: hookState?.interceptSocketPath ?? args.home.interceptSocketPath,
+    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
+    brainStatusPath: hookState?.brainStatusPath ?? args.home.brainStatusPath,
+    nativeLibraryPath: args.home.nativeLibraryPath,
+    restarts: hookState?.restartCount,
+    lastError: hookState?.lastError,
+    interceptReachable,
+    ledgerEntries,
+    interceptedAttempts,
+    canyonHeld,
+    pendingApprovals,
+  };
+}
+
 async function handleInit(rest: string[]) {
   const homePath = resolveHome();
   const callerCwd = resolveCallerCwd();
@@ -441,6 +529,7 @@ async function handleInit(rest: string[]) {
   console.log(`  Open a second terminal and run:`);
   console.log(``);
   console.log(`    buccet console`);
+  console.log(`    buccet ledger --follow`);
   console.log(``);
 }
 
@@ -558,6 +647,74 @@ async function handleLogs(rest: string[]) {
   for (const record of tail) {
     printLogRecord(record);
   }
+}
+
+async function handleLedger(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const boundary = await importBoundary(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  let limit = 20;
+  const asJson = rest.includes("--json");
+  const follow = rest.includes("--follow");
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === "--limit") {
+      limit = Number(rest[index + 1] ?? usage());
+      index += 1;
+    }
+  }
+
+  const render = async (fromCount = 0) => {
+    const records = await boundary.readBoundaryLedgerBySession(config.sessionId);
+    const slice = follow ? records.slice(fromCount) : records.slice(-limit);
+    if (!follow && asJson) {
+      printJson(slice);
+      return records.length;
+    }
+    if (!follow) {
+      console.log(``);
+      console.log(`  Agent Buccet — Witness Ledger`);
+      console.log(`  ─────────────────────────────────────`);
+      console.log(`  Session: ${config.sessionId}`);
+      console.log(`  Entries: ${records.length}`);
+      console.log(``);
+    }
+    for (const record of slice) {
+      printLogRecord(record);
+    }
+    return records.length;
+  };
+
+  if (!follow) {
+    await render();
+    return;
+  }
+
+  let lastSeen = 0;
+  console.log(``);
+  console.log(`  Agent Buccet — Witness Ledger`);
+  console.log(`  ─────────────────────────────────────`);
+  console.log(`  Session: ${config.sessionId}`);
+  console.log(`  Following live ledger stream. Ctrl-C to exit.`);
+  console.log(``);
+  lastSeen = await render(0);
+  const interval = setInterval(() => {
+    void render(lastSeen).then((next) => {
+      lastSeen = next;
+    }).catch(() => undefined);
+  }, 1_000);
+  await new Promise<void>((resolve) => {
+    const stop = () => {
+      clearInterval(interval);
+      resolve();
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+  });
 }
 
 async function handleScope(rest: string[]) {
@@ -772,6 +929,11 @@ type HookStatusPayload = {
   nativeLibraryPath?: string;
   restarts?: number;
   lastError?: string;
+  interceptReachable?: boolean;
+  ledgerEntries?: number;
+  interceptedAttempts?: number;
+  canyonHeld?: number;
+  pendingApprovals?: number;
 };
 
 async function handleSwarm(rest: string[]) {
@@ -976,46 +1138,54 @@ async function handleHook(rest: string[]) {
   }
 
   if (subcommand === "status") {
+    const boundary = await importBoundary(homePath);
     const asJson = rest.includes("--json");
-    const hookState = await readJsonIfExists<{
-      state?: string;
-      sessionId?: string;
-      actorId?: string;
-      interceptSocketPath?: string;
-      gravityBridgeSocketPath?: string;
-      brainStatusPath?: string;
-      restartCount?: number;
-      lastError?: string;
-      pid?: number;
-    }>(home.brainStatusPath);
-    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
-    const running = pid ? await pidAlive(pid) : false;
-    const payload: HookStatusPayload = {
-      initialized: Boolean(config),
-      running,
-      pid: pid || undefined,
-      state: hookState?.state,
-      sessionId: hookState?.sessionId ?? config?.sessionId,
-      actorId: hookState?.actorId ?? config?.actorId,
-      interceptSocketPath: hookState?.interceptSocketPath ?? home.interceptSocketPath,
-      gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? home.gravityBridgeSocketPath,
-      brainStatusPath: hookState?.brainStatusPath ?? home.brainStatusPath,
-      nativeLibraryPath: home.nativeLibraryPath,
-      restarts: hookState?.restartCount,
-      lastError: hookState?.lastError,
+    const watch = rest.includes("--watch");
+    const render = async () => {
+      const payload = await buildHookStatusPayload(boundary, { home, config });
+      if (asJson && !watch) {
+        printJson(payload);
+        return payload;
+      }
+      if (watch) {
+        process.stdout.write("\x1Bc");
+        console.log(`Buccet live | ${payload.running && payload.interceptReachable ? "protected" : "disconnected"} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`);
+        console.log(``);
+      } else {
+        console.log(`Agent Buccet hook status`);
+      }
+      console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
+      console.log(`running: ${payload.running ? "yes" : "no"}`);
+      console.log(`state: ${payload.state ?? "missing"}`);
+      console.log(`pid: ${payload.pid ?? "-"}`);
+      console.log(`intercept socket: ${payload.interceptReachable ? "reachable" : "unreachable"}`);
+      console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
+      console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
+      console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
+      console.log(`bridge socket: ${payload.gravityBridgeSocketPath}`);
+      console.log(`brain status: ${payload.brainStatusPath}`);
+      console.log(`native library: ${payload.nativeLibraryPath}`);
+      if (!watch && !payload.running) {
+        console.log(`re-arm: buccet hook start`);
+      }
+      return payload;
     };
-    if (asJson) {
-      printJson(payload);
+    if (!watch) {
+      await render();
       return;
     }
-    console.log(`Agent Buccet hook status`);
-    console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
-    console.log(`running: ${payload.running ? "yes" : "no"}`);
-    console.log(`state: ${payload.state ?? "missing"}`);
-    console.log(`pid: ${payload.pid ?? "-"}`);
-    console.log(`bridge socket: ${payload.gravityBridgeSocketPath}`);
-    console.log(`brain status: ${payload.brainStatusPath}`);
-    console.log(`native library: ${payload.nativeLibraryPath}`);
+    await render();
+    const interval = setInterval(() => {
+      void render();
+    }, 1_000);
+    await new Promise<void>((resolve) => {
+      const stop = () => {
+        clearInterval(interval);
+        resolve();
+      };
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
+    });
     return;
   }
 
@@ -1892,6 +2062,10 @@ async function main() {
   }
   if (parsed.command === "logs") {
     await handleLogs(parsed.rest);
+    return;
+  }
+  if (parsed.command === "ledger") {
+    await handleLedger(parsed.rest);
     return;
   }
   if (parsed.command === "scope") {
