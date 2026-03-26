@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type { BoundaryActionKind } from "../lib/agent-buccet/index.ts";
@@ -35,6 +36,8 @@ function usage(): never {
   console.error([
     "Usage:",
     "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
+    "  buccet console                                            — open the bodyguard console (Terminal 2)",
+    "  buccet doctor                                             — health check: platform, backend, intercept, ledger",
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
     "  buccet logs [--limit <n>] [--json]",
@@ -364,17 +367,24 @@ async function handleInit(rest: string[]) {
   await store.persist();
   await saveConfig(home.configPath, nextConfig);
 
-  console.log(`Agent Buccet initialized.`);
-  console.log(`home: ${home.homePath}`);
-  console.log(`session: ${nextConfig.sessionId}`);
-  console.log(`actor: ${nextConfig.actorId}`);
-  console.log(`scopes: ${nextConfig.defaultScopes.length}`);
+  const platformLabel = detectPlatformLabel();
+  const backendLabel = detectBackendLabel();
+  const nativeReady = await pathExists(home.nativeLibraryPath);
+  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+
+  console.log(``);
+  console.log(`  Agent Buccet`);
+  console.log(`  ─────────────────────────────────────`);
+  console.log(`  Platform:         ${platformLabel}`);
+  console.log(`  Backend:          ${backendLabel}`);
+  console.log(`  Protection mode:  ${protectionMode}`);
 
   // Auto-enable the libc-level intercept layer.
   // If a C compiler is available, build the native hook library and start the
   // hook daemon so that LD_PRELOAD / DYLD_INSERT_LIBRARIES interception is
   // active immediately after init — no separate `buccet hook build && buccet hook start` needed.
   // If the compiler is not found, Agent Buccet continues in user-space bridge mode.
+  let interceptLine = "compatibility_path (run 'buccet hook build' after installing gcc)";
   try {
     await ensureDir(home.nativeBuildDir);
     await ensureDir(home.runDir);
@@ -388,18 +398,15 @@ async function handleInit(rest: string[]) {
       cwd: home.homePath,
     });
     if (buildResult.code !== 0) {
-      console.log(`intercept: user-space only (native build failed; run 'buccet hook build' after installing gcc)`);
+      interceptLine = "compatibility_path (native build failed; run 'buccet hook build' after installing gcc)";
     } else {
       const existingPid = await fs.readFile(home.hookPidPath, "utf8")
         .then((raw) => Number(raw.trim()))
         .catch(() => 0);
       if (existingPid && await pidAlive(existingPid)) {
-        console.log(`intercept: active (libc-level, daemon pid ${existingPid})`);
+        interceptLine = `strong_path (libc-level, pid ${existingPid})`;
       } else {
         const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
-        // Use BUCCET_DAEMON_EXEC if set (compiled binary distributions set this to
-        // the bun/node path so the daemon sub-script is launched with the TS runtime,
-        // not the compiled binary itself).
         const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
         const hookChild = spawn(daemonExec, [
           daemonScriptPath,
@@ -417,12 +424,24 @@ async function handleInit(rest: string[]) {
           env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
         });
         hookChild.unref();
-        console.log(`intercept: active (libc-level)`);
+        interceptLine = "strong_path (libc-level)";
       }
     }
   } catch {
-    console.log(`intercept: user-space only (cc not found; run 'buccet hook build' after installing gcc)`);
+    interceptLine = "compatibility_path (cc not found; run 'buccet hook build' after installing gcc)";
   }
+
+  console.log(`  Intercept:        ${interceptLine}`);
+  console.log(`  Ledger:           active`);
+  console.log(`  Session:          ${nextConfig.sessionId}`);
+  console.log(`  Scopes:           ${nextConfig.defaultScopes.length}`);
+  console.log(``);
+  console.log(`  This terminal is now your protected execution lane.`);
+  console.log(``);
+  console.log(`  Open a second terminal and run:`);
+  console.log(``);
+  console.log(`    buccet console`);
+  console.log(``);
 }
 
 async function handleStatus(rest: string[]) {
@@ -711,6 +730,20 @@ async function handleRun(rest: string[]) {
 async function handleUninstall() {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
+
+  // Stop the hook daemon before removing home so it cannot recreate run-dir files.
+  const hookPid = await fs.readFile(home.hookPidPath, "utf8")
+    .then((raw) => Number(raw.trim())).catch(() => 0);
+  if (hookPid && await pidAlive(hookPid)) {
+    try {
+      process.kill(hookPid, "SIGTERM");
+      // Give the daemon a moment to exit before we rm the directory.
+      await new Promise<void>((resolve) => setTimeout(resolve, 150));
+    } catch {
+      // already dead — fine
+    }
+  }
+
   const launcherCandidates = uniquePaths([
     home.launcherPath,
     path.join(home.homePath, "bin", "buccet"),
@@ -1084,11 +1117,338 @@ async function handleHook(rest: string[]) {
   usage();
 }
 
+// ─── platform helpers ──────────────────────────────────────────────────────
+
+function detectPlatformLabel(): string {
+  const arch = process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "x64" : process.arch;
+  const platform = process.platform === "darwin" ? "macOS"
+    : process.platform === "linux" ? "Linux"
+    : process.platform === "win32" ? "Windows"
+    : process.platform;
+  return `${platform} ${arch}`;
+}
+
+function detectBackendLabel(): string {
+  if (process.platform === "darwin") return "darwin_physwrap";
+  if (process.platform === "linux") return "linux_physwrap";
+  if (process.platform === "win32") return "windows_physwrap";
+  return "user_space";
+}
+
+// ─── buccet doctor ─────────────────────────────────────────────────────────
+
+async function handleDoctor() {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+
+  const platformLabel = detectPlatformLabel();
+  const backendLabel = detectBackendLabel();
+  const nativeReady = await pathExists(home.nativeLibraryPath);
+  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+
+  const hookPid = await fs.readFile(home.hookPidPath, "utf8")
+    .then((raw) => Number(raw.trim())).catch(() => 0);
+  const hookAlive = hookPid ? await pidAlive(hookPid) : false;
+
+  let interceptReachable = false;
+  if (hookAlive) {
+    try {
+      const boundary = await importBoundary(homePath);
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: { socketPath: home.interceptSocketPath },
+        input: { command: "status" },
+      });
+      interceptReachable = out.type === "status";
+    } catch {
+      interceptReachable = false;
+    }
+  }
+
+  let ledgerChainOk: boolean | null = null;
+  let ledgerEntries = 0;
+  if (config) {
+    try {
+      const boundary = await importBoundary(homePath);
+      const verify = await boundary.verifyBoundaryLedgerChain();
+      const entries = await boundary.readBoundaryLedgerBySession(config.sessionId);
+      ledgerChainOk = verify.ok;
+      ledgerEntries = entries.length;
+    } catch {
+      ledgerChainOk = null;
+    }
+  }
+
+  const sessionStatus = config ? "initialized" : "not initialized";
+
+  const passIcon = "ok";
+  const failIcon = "FAIL";
+  const warnIcon = "warn";
+
+  const lines: string[] = [
+    ``,
+    `  Agent Buccet — Doctor`,
+    `  ─────────────────────────────────────`,
+    `  Platform:         ${platformLabel}`,
+    `  Backend:          ${backendLabel}`,
+    `  Native library:   ${nativeReady ? `${passIcon} (${protectionMode})` : `${warnIcon} (${protectionMode} — run 'buccet hook build')`}`,
+    `  Hook daemon:      ${hookAlive ? `${passIcon} (pid ${hookPid})` : `${failIcon} (not running — run 'buccet hook start')`}`,
+    `  Intercept socket: ${interceptReachable ? passIcon : hookAlive ? `${failIcon} (daemon alive but socket unreachable)` : `${warnIcon} (daemon not running)`}`,
+    `  Ledger chain:     ${ledgerChainOk === null ? `${warnIcon} (not checked)` : ledgerChainOk ? `${passIcon} (${ledgerEntries} entries)` : `${failIcon} (chain broken — run 'buccet ledger repair')`}`,
+    `  Session:          ${sessionStatus}`,
+    ``,
+  ];
+
+  for (const line of lines) {
+    console.log(line);
+  }
+
+  const critical = !hookAlive || (hookAlive && !interceptReachable) || ledgerChainOk === false;
+  if (critical) {
+    console.log(`  One or more checks require attention.`);
+    console.log(`  Run 'buccet hook start' to re-arm the protected execution lane.`);
+    console.log(``);
+  } else {
+    console.log(`  All systems active. This machine is guarded.`);
+    console.log(``);
+  }
+}
+
+// ─── buccet console ────────────────────────────────────────────────────────
+
+async function handleConsole() {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+
+  if (!config) {
+    console.error(`Agent Buccet is not initialized. Run 'buccet init' first.`);
+    process.exit(1);
+  }
+
+  const boundary = await importBoundary(homePath);
+  const interceptTarget = { socketPath: home.interceptSocketPath };
+
+  const platformLabel = detectPlatformLabel();
+  const backendLabel = detectBackendLabel();
+  const nativeReady = await pathExists(home.nativeLibraryPath);
+  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+
+  // Print the header once.
+  console.log(``);
+  console.log(`  Agent Buccet — Bodyguard Console`);
+  console.log(`  ─────────────────────────────────────`);
+  console.log(`  Platform:         ${platformLabel}`);
+  console.log(`  Backend:          ${backendLabel}`);
+  console.log(`  Protection mode:  ${protectionMode}`);
+  console.log(`  Session:          ${config.sessionId}`);
+  console.log(``);
+  console.log(`  This is the bodyguard console. Terminal 1 is the protected execution lane.`);
+  console.log(``);
+  console.log(`  Commands:`);
+  console.log(`    status             — show session status`);
+  console.log(`    allow <id>         — allow once (swarm group)`);
+  console.log(`    deny <id>          — deny once`);
+  console.log(`    law <id>           — allow as standing law`);
+  console.log(`    deny-law <id>      — deny as standing law`);
+  console.log(`    logs [n]           — show last n ledger entries (default 10)`);
+  console.log(`    upl                — show active UPL laws`);
+  console.log(`    doctor             — run health check`);
+  console.log(`    quit               — exit console`);
+  console.log(``);
+
+  // Track which groups have already been reported so we don't repeat them.
+  const reportedGroupIds = new Set<string>();
+
+  async function pollApprovals() {
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: { command: "swarm_status" },
+      });
+      if (out.type !== "swarm_status") return;
+
+      const pendingGroups = out.groups.filter(
+        (g: { state: string; waitingCount: number }) => g.state === "pending" || g.waitingCount > 0,
+      );
+
+      for (const group of pendingGroups) {
+        if (reportedGroupIds.has(group.groupId)) continue;
+        reportedGroupIds.add(group.groupId);
+        console.log(``);
+        console.log(`  ┌─ APPROVAL REQUIRED ──────────────────────`);
+        console.log(`  │  id:      ${group.groupId}`);
+        console.log(`  │  action:  ${group.actionClass}.${group.operation}`);
+        console.log(`  │  target:  ${group.target}`);
+        console.log(`  │  waiting: ${group.waitingCount} request(s)`);
+        console.log(`  └──────────────────────────────────────────`);
+        console.log(`  > allow ${group.groupId}  /  deny ${group.groupId}  /  law ${group.groupId}`);
+        console.log(``);
+      }
+
+      // Clear resolved groups from the reported set so they can appear again if they re-enter pending.
+      for (const id of reportedGroupIds) {
+        const stillPending = pendingGroups.some((g: { groupId: string }) => g.groupId === id);
+        if (!stillPending) reportedGroupIds.delete(id);
+      }
+    } catch {
+      // Intercept socket not reachable — daemon may not be running. Silent.
+    }
+  }
+
+  const pollHandle = setInterval(() => {
+    void pollApprovals();
+  }, 1_000);
+
+  // Initial poll immediately.
+  await pollApprovals();
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: "buccet> ",
+    terminal: true,
+  });
+
+  rl.prompt();
+
+  rl.on("line", (rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      rl.prompt();
+      return;
+    }
+
+    const parts = line.split(/\s+/);
+    const cmd = parts[0];
+    const arg1 = parts[1];
+
+    void (async () => {
+      try {
+        if (cmd === "quit" || cmd === "q" || cmd === "exit") {
+          clearInterval(pollHandle);
+          rl.close();
+          process.exit(0);
+        }
+
+        if (cmd === "status") {
+          const sessionState = await boundary.loadBoundarySessionState({
+            sessionId: config.sessionId,
+            sessionsDir: home.sessionsDir,
+          });
+          const scopes = (sessionState?.pathLaws ?? []).filter((l: { revokedAt?: string }) => !l.revokedAt);
+          const grants = (sessionState?.grants ?? []).filter((g: { revokedAt?: string }) => !g.revokedAt);
+          console.log(``);
+          console.log(`  Session:    ${config.sessionId}`);
+          console.log(`  Status:     ${sessionState?.session.status ?? "missing"}`);
+          console.log(`  Scopes:     ${scopes.length}`);
+          console.log(`  Grants:     ${grants.length}`);
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "logs") {
+          const limit = arg1 ? Number(arg1) : 10;
+          const records = await boundary.readBoundaryLedgerBySession(config.sessionId);
+          const tail = records.slice(-limit);
+          console.log(``);
+          for (const record of tail) {
+            printLogRecord(record);
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "upl") {
+          const upl = await boundary.loadUserPathLedger();
+          const approved = (upl.userApprovedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
+          const denied = (upl.userDeniedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
+          console.log(``);
+          console.log(`  UPL: ${approved.length} approved laws / ${denied.length} denied laws`);
+          for (const law of approved.slice(-8)) {
+            console.log(`  allow | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
+          }
+          for (const law of denied.slice(-5)) {
+            console.log(`  deny  | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "doctor") {
+          await handleDoctor();
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "allow" || cmd === "deny" || cmd === "law" || cmd === "deny-law") {
+          if (!arg1) {
+            console.log(`  Usage: ${cmd} <group-id>`);
+            rl.prompt();
+            return;
+          }
+          const groupId = arg1;
+          let input: Record<string, unknown>;
+          if (cmd === "allow") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once" };
+          } else if (cmd === "law") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law" };
+          } else if (cmd === "deny-law") {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
+          } else {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once" };
+          }
+          const out = await boundary.sendBoundaryInterceptServerInput({
+            target: interceptTarget,
+            input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+          });
+          if (out.type === "error") {
+            console.log(`  Error: ${out.error}`);
+          } else {
+            console.log(`  ${cmd}: ${groupId} — done`);
+            reportedGroupIds.delete(groupId);
+          }
+          rl.prompt();
+          return;
+        }
+
+        console.log(`  Unknown command: ${cmd}. Type 'quit' to exit.`);
+      } catch (error) {
+        console.log(`  Error: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      rl.prompt();
+    })();
+  });
+
+  rl.on("close", () => {
+    clearInterval(pollHandle);
+    process.exit(0);
+  });
+
+  // Keep alive until rl closes.
+  await new Promise<void>((resolve) => {
+    rl.on("close", resolve);
+  });
+}
+
+// ─── main ──────────────────────────────────────────────────────────────────
+
 async function main() {
   const parsed = parseGlobal(process.argv.slice(2));
 
   if (parsed.command === "init") {
     await handleInit(parsed.rest);
+    return;
+  }
+  if (parsed.command === "console") {
+    await handleConsole();
+    return;
+  }
+  if (parsed.command === "doctor") {
+    await handleDoctor();
     return;
   }
   if (parsed.command === "status") {

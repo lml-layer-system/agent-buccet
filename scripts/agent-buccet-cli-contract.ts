@@ -60,7 +60,7 @@ async function main() {
 
   const initResult = await runCli(["init"], env);
   assert.equal(initResult.code, 0, initResult.stderr);
-  assert.match(initResult.stdout, /Agent Buccet initialized\./);
+  assert.match(initResult.stdout, /Agent Buccet/);
 
   const statusResult = await runCli(["status", "--json"], env);
   assert.equal(statusResult.code, 0, statusResult.stderr);
