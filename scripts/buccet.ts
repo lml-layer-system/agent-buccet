@@ -1273,6 +1273,7 @@ async function handleConsole() {
     target: string;
     reason: string;
     lawIds: string[];
+    nslMoves: Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
     memberCount: number;
     waitingCount: number;
   }> = [];
@@ -1395,22 +1396,48 @@ async function handleConsole() {
         if (reportedGroupIds.has(group.groupId)) continue;
         reportedGroupIds.add(group.groupId);
         console.log(``);
-        console.log(`  ╔═ BOUNDARY INTERCEPTION ══════════════════════════════════════════╗`);
-        console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
-        console.log(`  ║  Target:    ${group.target}`);
-        console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
-        if (group.reason) {
+        const nslMoves = (group.nslMoves ?? []) as Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+        const isNslGrantOffer = nslMoves.some((m) => m.kind === "open_as_law");
+        const openAsLawMove = nslMoves.find((m) => m.kind === "open_as_law");
+
+        if (isNslGrantOffer && openAsLawMove) {
+          // NSL grant offer — show the full negotiation surface
+          console.log(`  ╔═ NSL GRANT OFFER ═════════════════════════════════════════════════╗`);
+          console.log(`  ║  ${openAsLawMove.title}`);
+          console.log(`  ║  ${openAsLawMove.description}`);
           console.log(`  ║`);
-          console.log(`  ║  Reason:    ${group.reason}`);
+          console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
+          if (openAsLawMove.target ?? group.target) {
+            console.log(`  ║  Scope:     ${openAsLawMove.target ?? group.target}`);
+          }
+          console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+          if (group.lawIds?.length > 0) {
+            console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+          }
+          console.log(`  ║`);
+          console.log(`  ║  1. Allow once     — proceed this time; no law written`);
+          console.log(`  ║  2. Open as law    — open scope as standing law; always allowed`);
+          console.log(`  ║  3. Deny once      — block this request; no law written`);
+          console.log(`  ║  4. Deny as law    — deny as standing law; always blocked`);
+        } else {
+          // Standard boundary interception
+          console.log(`  ╔═ BOUNDARY INTERCEPTION ══════════════════════════════════════════╗`);
+          console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
+          console.log(`  ║  Target:    ${group.target}`);
+          console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+          if (group.reason) {
+            console.log(`  ║`);
+            console.log(`  ║  Reason:    ${group.reason}`);
+          }
+          if (group.lawIds?.length > 0) {
+            console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+          }
+          console.log(`  ║`);
+          console.log(`  ║  1. Allow once     — proceeds; no law written`);
+          console.log(`  ║  2. Allow as law   — proceeds; standing allow law written`);
+          console.log(`  ║  3. Deny once      — blocked; no law written`);
+          console.log(`  ║  4. Deny as law    — blocked; standing deny law written`);
         }
-        if (group.lawIds?.length > 0) {
-          console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
-        }
-        console.log(`  ║`);
-        console.log(`  ║  1. Allow once     — proceeds; no law written`);
-        console.log(`  ║  2. Allow as law   — proceeds; standing allow law written`);
-        console.log(`  ║  3. Deny once      — blocked; no law written`);
-        console.log(`  ║  4. Deny as law    — blocked; standing deny law written`);
         console.log(`  ║`);
         console.log(`  ║  > 1 / 2 / 3 / 4   or   allow/deny/law/deny-law ${group.groupId}`);
         console.log(`  ╚══════════════════════════════════════════════════════════════════╝`);

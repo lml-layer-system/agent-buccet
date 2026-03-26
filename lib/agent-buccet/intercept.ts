@@ -62,6 +62,7 @@ export type BoundaryInterceptSwarmGroup = {
   target: string;
   reason: string;
   lawIds: string[];
+  nslMoves: NslMove[];
   memberCount: number;
   waitingCount: number;
   requestIds: string[];
