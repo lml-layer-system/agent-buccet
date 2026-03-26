@@ -271,3 +271,26 @@ The doctrine is exact: **existing policy source → Buccet enforcement plane**. 
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
 - macOS privileged containment when `dropToUid` is not configured (root can exceed POSIX rlimit hard limits on Darwin without uid drop; physwrap warns at runtime; Darwin-native sandbox backend is the next-phase mechanism for full containment)
 - Windows Tier 2b I/O rate/IOPS enforcement requires Windows 10 1607+ (`SetIoRateControlInformationJobObject`); physwrap degrades gracefully on older Windows and logs a warning — those two fields are then skipped and recorded in `physwrap_io_boundary_skipped`
+
+---
+
+## Open Source
+
+Agent Buccet is built for the open-source world as much as the closed one.
+
+Open-source builders should not have to choose between freedom and responsibility. With Agent Buccet, open systems can ship with visible boundaries, enforceable consequence control, and durable proof of what was allowed, denied, contained, or stopped.
+
+This means open-source teams can show, not just claim, that their agent deployments are governed:
+
+- what boundaries exist
+- what actions were allowed or denied
+- what payload physics were enforced
+- what input was blocked before the brain woke
+- what output was stopped before consequence landed
+- what the ledger recorded from first input to final consequence
+
+Agent Buccet does not ask the world to blindly trust open systems. It gives open systems a way to demonstrate bounded, auditable, enforceable behavior in the real world.
+
+Build with it. Ship with it. Extend it. Defend your agents with it.
+
+We ask only one thing: let Agent Buccet be your bodyguard.

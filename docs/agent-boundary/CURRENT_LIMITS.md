@@ -457,3 +457,26 @@ Every major architectural claim maps to:
 - Hardware-backed key protection by default
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
 - Input DDoS protection when `admissionConfig` is absent from `BoundaryRuntimeConfig`
+
+---
+
+## Open Source
+
+Agent Buccet is built for the open-source world as much as the closed one.
+
+Open-source builders should not have to choose between freedom and responsibility. With Agent Buccet, open systems can ship with visible boundaries, enforceable consequence control, and durable proof of what was allowed, denied, contained, or stopped.
+
+This means open-source teams can show, not just claim, that their agent deployments are governed:
+
+- what boundaries exist
+- what actions were allowed or denied
+- what payload physics were enforced
+- what input was blocked before the brain woke
+- what output was stopped before consequence landed
+- what the ledger recorded from first input to final consequence
+
+Agent Buccet does not ask the world to blindly trust open systems. It gives open systems a way to demonstrate bounded, auditable, enforceable behavior in the real world.
+
+Build with it. Ship with it. Extend it. Defend your agents with it.
+
+We ask only one thing: let Agent Buccet be your bodyguard.
