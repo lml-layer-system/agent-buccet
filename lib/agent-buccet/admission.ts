@@ -8,10 +8,10 @@
  * The brain must never be the thing that filters attacks whose purpose is to wake the brain.
  *
  * Architecture:
- * - O(1) standing-deny cache check (hot path, no I/O)
+ * - O(1) canyon cache check (hot path, no I/O)
  * - Bounded provenance density tracking (LRU eviction + TTL)
  * - Velocity / Density / Mass laws for inbound traffic
- * - Exactly-once ledger write per promoted hostile provenance (caller responsibility)
+ * - Exactly-once ledger write per canyon promotion (caller responsibility)
  * - Tarpit decision: hold socket, return nothing — do NOT return fast 403/429
  */
 
@@ -33,6 +33,11 @@ export const DEFAULT_ADMISSION_WEIGHT: Record<BoundaryInputWeightClass, number> 
   attachment: 6,
   retrieval_request: 5,
   fanout_request: 8,
+};
+
+export const DEFAULT_ADMISSION_CONFIG: BoundaryAdmissionConfig = {
+  velocity: { maxRpm: 60, windowMs: 60_000 },
+  density: { maxDenyRatio: 0.6, windowSize: 5 },
 };
 
 export function getInputWeight(
@@ -59,7 +64,7 @@ export type BoundaryInputRequest = {
 // Safety floor for weak-strength provenances (IP-based).
 //
 // A weak provenance CANNOT accumulate more than WEAK_PROVENANCE_HARD_BLOCK_CEILING
-// tarpit decisions before being forced to standing deny — regardless of density
+// tarpit decisions before being forced into canyon hold — regardless of density
 // window size or ratio configuration.
 //
 // Density config may make promotion happen SOONER (stricter = faster), but it
@@ -82,9 +87,9 @@ export type BoundaryAdmissionDecision = "admit" | "tarpit";
 export type BoundaryAdmissionResult = {
   decision: BoundaryAdmissionDecision;
   reason: string;
-  dimension?: "velocity" | "density" | "mass" | "standing_deny";
+  dimension?: "velocity" | "density" | "mass" | "canyon";
   lawId?: string;
-  /** True when this evaluation caused standing-deny promotion. Caller must write ledger once. */
+  /** True when this evaluation caused canyon promotion. Caller must write ledger once. */
   promoted: boolean;
   /** How promotion was triggered — only set when promoted=true.
    *  "hard_ceiling": density config was too loose; hard block ceiling fired.
@@ -149,9 +154,21 @@ export function validateAdmissionConfig(config: BoundaryAdmissionConfig): Admiss
 
 export function initialAdmissionState(): BoundaryAdmissionState {
   return {
-    standingDenyProvenances: {},
+    canyonProvenances: {},
+    allowOnceProvenances: {},
+    allowedProvenances: {},
     provenanceRecords: {},
     hostileDeniedCounts: {},
+  };
+}
+
+function normalizeAdmissionState(state: BoundaryAdmissionState): BoundaryAdmissionState {
+  return {
+    canyonProvenances: state.canyonProvenances ?? {},
+    allowOnceProvenances: state.allowOnceProvenances ?? {},
+    allowedProvenances: state.allowedProvenances ?? {},
+    provenanceRecords: state.provenanceRecords ?? {},
+    hostileDeniedCounts: state.hostileDeniedCounts ?? {},
   };
 }
 
@@ -234,8 +251,8 @@ function scaleThreshold(base: number, strength: BoundaryProvenanceStrength): num
 
 // ─── Core evaluation (pure, synchronous) ─────────────────────────────────────
 // Returns { result, state } — state already updated with the new record.
-// If result.promoted === true, caller must write INGRESS_STANDING_LAW_WRITTEN
-// to the ledger exactly once (check standingDenyProvenances[provenance].ledgered).
+// If result.promoted === true, caller must write INGRESS_CANYON_STATE_WRITTEN
+// to the ledger exactly once (check canyonProvenances[provenance].ledgered).
 
 export function evaluateAdmission(args: {
   config: BoundaryAdmissionConfig;
@@ -245,16 +262,51 @@ export function evaluateAdmission(args: {
 }): { result: BoundaryAdmissionResult; state: BoundaryAdmissionState } {
   const { config, request, nowMs } = args;
   const { provenance, provenanceStrength, weightClass } = request;
-  let state = args.state;
+  let state = normalizeAdmissionState(args.state);
 
-  // ── Step 1: O(1) standing-deny cache check ───────────────────────────────
-  if (state.standingDenyProvenances[provenance]) {
+  // ── Step 1: operator ingress overrides + O(1) canyon cache ───────────────
+  if (state.allowedProvenances[provenance]) {
+    return {
+      result: {
+        decision: "admit",
+        reason: `provenance ${provenance} is standing-allowed by Terminal 2`,
+        promoted: false,
+      },
+      state,
+    };
+  }
+
+  const onceOverride = state.allowOnceProvenances[provenance];
+  if (onceOverride && onceOverride.remaining > 0) {
+    const nextAllowOnce = { ...state.allowOnceProvenances };
+    if (onceOverride.remaining <= 1) {
+      delete nextAllowOnce[provenance];
+    } else {
+      nextAllowOnce[provenance] = {
+        ...onceOverride,
+        remaining: onceOverride.remaining - 1,
+      };
+    }
+    return {
+      result: {
+        decision: "admit",
+        reason: `provenance ${provenance} released from canyon once by Terminal 2`,
+        promoted: false,
+      },
+      state: {
+        ...state,
+        allowOnceProvenances: nextAllowOnce,
+      },
+    };
+  }
+
+  if (state.canyonProvenances[provenance]) {
     return {
       result: {
         decision: "tarpit",
-        reason: `provenance ${provenance} is in standing deny — tarpitting without response`,
-        dimension: "standing_deny",
-        lawId: "BOUNDARY.ADMISSION.STANDING_DENY.01",
+        reason: `provenance ${provenance} is canyon-held — tarpitting without response`,
+        dimension: "canyon",
+        lawId: "BOUNDARY.ADMISSION.CANYON.01",
         promoted: false,
       },
       state,
@@ -401,7 +453,7 @@ function promoteIfNew(
   provenance: string,
   kind: "density" | "hard_ceiling" = "density",
 ): { isNew: boolean; kind: "density" | "hard_ceiling" } {
-  if (state.standingDenyProvenances[provenance]) {
+  if (state.canyonProvenances[provenance]) {
     return { isNew: false, kind };
   }
   // Synchronously mark as promoted (ledgered=false until caller writes)
@@ -415,10 +467,10 @@ function promoteIfDensityTripped(
   existing: BoundaryProvenanceRecord,
   provenance: string,
 ): { isNew: boolean; kind: "density" | "hard_ceiling" } {
-  // Standing-deny promotion is DENSITY-DRIVEN ONLY.
+  // Canyon promotion is DENSITY-DRIVEN ONLY.
   // Velocity and mass trips tarpit the current request temporarily but do NOT
-  // write standing law unless the deny-density threshold is also crossed.
-  // This is the Grand Canyon distinction: temporary rate enforcement ≠ permanent ban.
+  // write canyon state unless the deny-density threshold is also crossed.
+  // This is the Grand Canyon distinction: temporary rate enforcement ≠ durable canyon hold.
   if (!config.density) {
     return { isNew: false, kind: "density" };
   }
@@ -456,11 +508,11 @@ function buildUpdatedState(
     lastSeenMs: nowMs,
   };
 
-  const nextStandingDeny = promoted.isNew
+  const nextCanyon = promoted.isNew
     ? {
-        ...state.standingDenyProvenances,
+        ...state.canyonProvenances,
         [provenance]: {
-          deniedAt: nowMs,
+          canyonedAt: nowMs,
           reason: promoted.kind === "hard_ceiling"
             ? `hard block ceiling: accumulated ${newDeniedCount} tarpit decisions for weak provenance`
             : "density threshold crossed",
@@ -468,7 +520,7 @@ function buildUpdatedState(
           promotionKind: promoted.kind ?? "density",
         },
       }
-    : state.standingDenyProvenances;
+    : state.canyonProvenances;
 
   // Update hostileDeniedCounts on every tarpit decision.
   // This map survives provenanceRecord TTL eviction so the ceiling cannot be
@@ -487,28 +539,107 @@ function buildUpdatedState(
   }
 
   return {
-    standingDenyProvenances: nextStandingDeny,
+    canyonProvenances: nextCanyon,
+    allowOnceProvenances: state.allowOnceProvenances,
+    allowedProvenances: state.allowedProvenances,
     provenanceRecords: { ...records, [provenance]: updatedRecord },
     hostileDeniedCounts: nextHostileCounts,
   };
 }
 
-// ─── Standing-deny ledger marking ─────────────────────────────────────────────
-// Call this after writing INGRESS_STANDING_LAW_WRITTEN to the ledger.
+// ─── Canyon ledger marking ────────────────────────────────────────────────────
+// Call this after writing INGRESS_CANYON_STATE_WRITTEN to the ledger.
 // Marks the provenance as durably ledgered so no further writes occur.
 
-export function markStandingDenyLedgered(
+export function markCanyonLedgered(
   state: BoundaryAdmissionState,
   provenance: string,
 ): BoundaryAdmissionState {
-  if (!state.standingDenyProvenances[provenance]) {
+  if (!state.canyonProvenances[provenance]) {
     return state;
   }
   return {
     ...state,
-    standingDenyProvenances: {
-      ...state.standingDenyProvenances,
-      [provenance]: { ...state.standingDenyProvenances[provenance], ledgered: true },
+    canyonProvenances: {
+      ...state.canyonProvenances,
+      [provenance]: { ...state.canyonProvenances[provenance], ledgered: true },
     },
+  };
+}
+
+export function allowIngressOnce(
+  state: BoundaryAdmissionState,
+  provenance: string,
+): BoundaryAdmissionState {
+  const nextCanyon = { ...state.canyonProvenances };
+  delete nextCanyon[provenance];
+  return {
+    ...state,
+    canyonProvenances: nextCanyon,
+    allowOnceProvenances: {
+      ...state.allowOnceProvenances,
+      [provenance]: { grantedAt: Date.now(), remaining: 1 },
+    },
+  };
+}
+
+export function allowIngressAsLaw(
+  state: BoundaryAdmissionState,
+  provenance: string,
+  reason = "standing ingress allow written by Terminal 2",
+): BoundaryAdmissionState {
+  const nextCanyon = { ...state.canyonProvenances };
+  delete nextCanyon[provenance];
+  const nextAllowOnce = { ...state.allowOnceProvenances };
+  delete nextAllowOnce[provenance];
+  return {
+    ...state,
+    canyonProvenances: nextCanyon,
+    allowOnceProvenances: nextAllowOnce,
+    allowedProvenances: {
+      ...state.allowedProvenances,
+      [provenance]: {
+        grantedAt: Date.now(),
+        reason,
+      },
+    },
+  };
+}
+
+export function denyIngressAsLaw(
+  state: BoundaryAdmissionState,
+  provenance: string,
+  reason = "standing canyon hold written by Terminal 2",
+): BoundaryAdmissionState {
+  const nextAllowed = { ...state.allowedProvenances };
+  delete nextAllowed[provenance];
+  const nextAllowOnce = { ...state.allowOnceProvenances };
+  delete nextAllowOnce[provenance];
+  return {
+    ...state,
+    allowedProvenances: nextAllowed,
+    allowOnceProvenances: nextAllowOnce,
+    canyonProvenances: {
+      ...state.canyonProvenances,
+      [provenance]: {
+        canyonedAt: state.canyonProvenances[provenance]?.canyonedAt ?? Date.now(),
+        reason,
+        ledgered: state.canyonProvenances[provenance]?.ledgered ?? true,
+        promotionKind: state.canyonProvenances[provenance]?.promotionKind ?? "density",
+        operatorDisposition: "deny_as_law",
+      },
+    },
+  };
+}
+
+export function releaseIngressFromCanyon(
+  state: BoundaryAdmissionState,
+  provenance: string,
+): BoundaryAdmissionState {
+  const nextCanyon = { ...state.canyonProvenances };
+  delete nextCanyon[provenance];
+  return {
+    ...state,
+    canyonProvenances: nextCanyon,
   };
 }

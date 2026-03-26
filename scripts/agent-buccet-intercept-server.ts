@@ -3,13 +3,17 @@ import { promises as fs } from "node:fs";
 import net from "node:net";
 import readline from "node:readline";
 import {
+  allowIngressAsLaw,
+  allowIngressOnce,
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
   createBoundarySwarmCoordinator,
   daemonRequestId,
+  denyIngressAsLaw,
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
+  appendBoundaryLedger,
 } from "../lib/agent-buccet/index.ts";
 
 type ParsedArgs = {
@@ -193,6 +197,56 @@ async function main() {
               });
               continue;
             }
+            if (parsed.command === "ingress_status") {
+              const admissionState = store.getConfig().admissionState;
+              const canyonProvenances = admissionState?.canyonProvenances ?? {};
+              const hostileDeniedCounts = admissionState?.hostileDeniedCounts ?? {};
+              const allowOnce = admissionState?.allowOnceProvenances ?? {};
+              const allowed = admissionState?.allowedProvenances ?? {};
+              const canyonEntries = Object.entries(canyonProvenances)
+                .map(([provenance, entry]) => ({
+                  provenance,
+                  state: "canyon" as const,
+                  reason: entry.reason,
+                  promotionKind: entry.promotionKind,
+                  operatorDisposition: entry.operatorDisposition,
+                  seenAt: entry.canyonedAt,
+                  ledgered: entry.ledgered,
+                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
+                  allowOnceRemaining: allowOnce[provenance]?.remaining ?? 0,
+                  standingAllowed: Boolean(allowed[provenance]),
+                }))
+                .sort((left, right) => right.seenAt - left.seenAt);
+              const allowOnceEntries = Object.entries(allowOnce)
+                .filter(([, entry]) => entry.remaining > 0)
+                .map(([provenance, entry]) => ({
+                  provenance,
+                  state: "allow_once" as const,
+                  reason: "Terminal 2 released this provenance from canyon once",
+                  seenAt: entry.grantedAt,
+                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
+                  allowOnceRemaining: entry.remaining,
+                  standingAllowed: false,
+                }));
+              const allowLawEntries = Object.entries(allowed)
+                .map(([provenance, entry]) => ({
+                  provenance,
+                  state: "allow_as_law" as const,
+                  reason: entry.reason,
+                  seenAt: entry.grantedAt,
+                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
+                  allowOnceRemaining: 0,
+                  standingAllowed: true,
+                }));
+              const provenances = [...canyonEntries, ...allowOnceEntries, ...allowLawEntries]
+                .sort((left, right) => right.seenAt - left.seenAt);
+              writeOutput(socket, {
+                type: "ingress_status",
+                requestId,
+                provenances,
+              });
+              continue;
+            }
             if (parsed.command === "restart") {
               await supervisor.restart(parsed.reason ?? "server command restart");
               const status = supervisor.getStatus();
@@ -250,6 +304,84 @@ async function main() {
                 command: "swarm_deny",
                 groupId: denied.groupId,
                 reason: parsed.reason ?? "swarm approval denied",
+              });
+              continue;
+            }
+            if (
+              parsed.command === "ingress_allow_once" ||
+              parsed.command === "ingress_allow_as_law" ||
+              parsed.command === "ingress_deny_once" ||
+              parsed.command === "ingress_deny_as_law"
+            ) {
+              const current = store.getConfig();
+              const state = current.admissionState;
+              if (!state) {
+                writeOutput(socket, {
+                  type: "error",
+                  requestId,
+                  error: "admission boundary is not active",
+                });
+                continue;
+              }
+
+              let nextState = state;
+              if (parsed.command === "ingress_allow_once") {
+                nextState = allowIngressOnce(state, parsed.provenance);
+                await appendBoundaryLedger("INGRESS_ALLOW_ONCE", {
+                  sessionId: current.session.sessionId,
+                  actorId: parsed.issuedBy ?? current.session.actorId,
+                  decision: "allow",
+                  target: parsed.provenance,
+                  reason: parsed.reason ?? `Terminal 2 released ${parsed.provenance} from canyon once`,
+                  metadata: { provenance: parsed.provenance },
+                  createdAt: new Date().toISOString(),
+                });
+              } else if (parsed.command === "ingress_allow_as_law") {
+                nextState = allowIngressAsLaw(state, parsed.provenance, parsed.reason);
+                await appendBoundaryLedger("INGRESS_ALLOW_AS_LAW", {
+                  sessionId: current.session.sessionId,
+                  actorId: parsed.issuedBy ?? current.session.actorId,
+                  decision: "allow",
+                  target: parsed.provenance,
+                  reason: parsed.reason ?? `Terminal 2 wrote standing ingress allow for ${parsed.provenance}`,
+                  metadata: { provenance: parsed.provenance },
+                  createdAt: new Date().toISOString(),
+                });
+              } else if (parsed.command === "ingress_deny_once") {
+                await appendBoundaryLedger("INGRESS_DENY_ONCE", {
+                  sessionId: current.session.sessionId,
+                  actorId: parsed.deniedBy ?? current.session.actorId,
+                  decision: "deny",
+                  target: parsed.provenance,
+                  reason: parsed.reason ?? `Terminal 2 kept ${parsed.provenance} in the canyon this time`,
+                  metadata: { provenance: parsed.provenance },
+                  createdAt: new Date().toISOString(),
+                });
+              } else {
+                nextState = denyIngressAsLaw(state, parsed.provenance, parsed.reason);
+                await appendBoundaryLedger("INGRESS_DENY_AS_LAW", {
+                  sessionId: current.session.sessionId,
+                  actorId: parsed.deniedBy ?? current.session.actorId,
+                  decision: "deny",
+                  target: parsed.provenance,
+                  reason: parsed.reason ?? `Terminal 2 wrote standing canyon hold for ${parsed.provenance}`,
+                  metadata: { provenance: parsed.provenance },
+                  createdAt: new Date().toISOString(),
+                });
+              }
+
+              store.replaceConfig({
+                ...current,
+                admissionState: nextState,
+              });
+              await store.persist();
+
+              writeOutput(socket, {
+                type: "ack",
+                requestId,
+                command: parsed.command,
+                provenance: parsed.provenance,
+                reason: parsed.reason,
               });
               continue;
             }

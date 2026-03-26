@@ -61,12 +61,12 @@ const LIOPE_MAX_FILE_SIZE_BYTES = Math.max(
 // Only five high-volume admission observation events go through the queue:
 //   INGRESS_PROVENANCE_BLOCKED, INGRESS_DENIED, INGRESS_VELOCITY_TRIP,
 //   INGRESS_DENSITY_TRIP, INGRESS_MASS_TRIP.
-// INGRESS_STANDING_LAW_WRITTEN is material (exactly-once standing-deny authority
+// INGRESS_CANYON_STATE_WRITTEN is material (exactly-once canyon-state authority
 // record) and bypasses the queue even though it originates from the admission path.
 //
 // The storm scenario: 10M unique IPs hitting the admission boundary generates
 // 10M INGRESS_* observation events — those are queued/shed. Each IP gets at most
-// one INGRESS_STANDING_LAW_WRITTEN (material, immediately durable). Action
+// one INGRESS_CANYON_STATE_WRITTEN (material, immediately durable). Action
 // lifecycle events (PROPOSED, DECIDED, BLOCKED, EXECUTED) are material and must
 // be immediately durable — they are the law boundary record.
 const LIOPE_MATERIAL_EVENTS = new Set<BoundaryLedgerEventType>([
@@ -90,7 +90,8 @@ const LIOPE_MATERIAL_EVENTS = new Set<BoundaryLedgerEventType>([
   "PROCESS_ENV_FILTERED",
   "PROCESS_WALL_CLOCK_KILL",
   "PROCESS_PHYSWRAP_ACTIVE", "PROCESS_PHYSWRAP_FALLBACK", "PROCESS_PHYSWRAP_CAP_WARNING",
-  "INGRESS_STANDING_LAW_WRITTEN",
+  "INGRESS_CANYON_STATE_WRITTEN",
+  "INGRESS_ALLOW_ONCE", "INGRESS_ALLOW_AS_LAW", "INGRESS_DENY_ONCE", "INGRESS_DENY_AS_LAW",
   "LEDGER_STORM_SUMMARY",
   // Queueable (not listed here): INGRESS_PROVENANCE_BLOCKED, INGRESS_DENIED,
   // INGRESS_VELOCITY_TRIP, INGRESS_DENSITY_TRIP, INGRESS_MASS_TRIP

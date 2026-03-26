@@ -198,7 +198,7 @@ Hostile inbound traffic is denied at the admission layer before the brain wakes 
 ### Path
 
 ```
-Inbound → O(1) standing-deny cache → bounded provenance tracking → admission laws → deny/tarpit
+Inbound → O(1) canyon cache → bounded provenance tracking → admission laws → deny/tarpit
 ```
 
 ### Admission Laws
@@ -206,18 +206,18 @@ Inbound → O(1) standing-deny cache → bounded provenance tracking → admissi
 | Law | Dimension | Law ID | Code | Ledger event |
 |---|---|---|---|---|
 | Velocity | Inbound RPM per provenance | `BOUNDARY.ADMISSION.VELOCITY.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
-| Density | Deny ratio → standing deny promotion | `BOUNDARY.ADMISSION.DENSITY.01` | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` (once) |
+| Density | Deny ratio → canyon hold promotion | `BOUNDARY.ADMISSION.DENSITY.01` | `admission.ts` | `INGRESS_CANYON_STATE_WRITTEN` (once) |
 | Mass | Inbound weight horizon | `BOUNDARY.ADMISSION.MASS.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
-| Hard Block Ceiling | Weak provenance tarpit counter | `BOUNDARY.ADMISSION.HARD_CEILING.01` | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` (once, `promotion_kind=hard_ceiling`) |
-| Standing Deny | O(1) cache hit | `BOUNDARY.ADMISSION.STANDING_DENY.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
+| Hard Block Ceiling | Weak provenance tarpit counter | `BOUNDARY.ADMISSION.HARD_CEILING.01` | `admission.ts` | `INGRESS_CANYON_STATE_WRITTEN` (once, `promotion_kind=hard_ceiling`) |
+| Canyon Hold | O(1) cache hit | `BOUNDARY.ADMISSION.CANYON.01` | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` |
 
 ### Hard Block Ceiling
 
 A structural safety floor that cannot be disabled or loosened by operator config.
 
-**Invariant:** A weak-strength provenance (IP/network) accumulating `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions is unconditionally forced to standing deny — regardless of `density.windowSize`, `density.maxDenyRatio`, or the absence of any density config.
+**Invariant:** A weak-strength provenance (IP/network) accumulating `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions is unconditionally forced to canyon hold — regardless of `density.windowSize`, `density.maxDenyRatio`, or the absence of any density config.
 
-**`totalDeniedCount` counts admission-layer tarpit decisions only** (velocity/mass/density trips at the admission boundary). It does NOT count `ACTION_BLOCKED` events from the bodyguard path. These are distinct paths: admission tarpits happen before the brain wakes; `ACTION_BLOCKED` events require the request to pass admission and then fail law evaluation in the bodyguard. The rate of `ACTION_BLOCKED` from admitted IPs is bounded by admission velocity limits (cap on RPM per weak provenance) and LLM inference speed — not by `totalDeniedCount`. The ceiling operates on the admission-tarpit path, which is the right path for forcing standing-deny promotion.
+**`totalDeniedCount` counts admission-layer tarpit decisions only** (velocity/mass/density trips at the admission boundary). It does NOT count `ACTION_BLOCKED` events from the bodyguard path. These are distinct paths: admission tarpits happen before the brain wakes; `ACTION_BLOCKED` events require the request to pass admission and then fail law evaluation in the bodyguard. The rate of `ACTION_BLOCKED` from admitted IPs is bounded by admission velocity limits (cap on RPM per weak provenance) and LLM inference speed — not by `totalDeniedCount`. The ceiling operates on the admission-tarpit path, which is the right path for forcing canyon promotion.
 
 **TTL/LRU churn protection:** `totalDeniedCount` is tracked in two places: `provenanceRecords[ip].totalDeniedCount` (subject to normal TTL/LRU eviction) and `hostileDeniedCounts[ip]` (evicted by LRU size pressure only — NOT TTL-evicted, intentionally). When a provenance record is absent (new IP or evicted), the new record is seeded from `hostileDeniedCounts`. This means an IP cannot reset its ceiling counter by going quiet for `provenanceTtlMs` (5 min) and returning. Once hostile, always accumulating toward the ceiling. `hostileDeniedCounts` evicts by count ascending (lowest-count entries evicted first) to prioritise keeping the most dangerous IPs in memory.
 
@@ -229,7 +229,7 @@ A structural safety floor that cannot be disabled or loosened by operator config
 | **Config seam** | Density config could theoretically be set loose enough that weak provenance accumulates many blocks before density fires | Locked by hard ceiling — density config may make promotion sooner (tighter = faster), but it can NEVER delay promotion past `WEAK_PROVENANCE_HARD_BLOCK_CEILING` for weak provenance. This is enforced in `evaluateAdmission` in `admission.ts`, not in config. |
 
 **`promotionKind` field in ledger:**
-- `INGRESS_STANDING_LAW_WRITTEN` records now carry `promotion_kind: "density"` or `promotion_kind: "hard_ceiling"` in metadata — distinguishing which seam triggered the promotion.
+- `INGRESS_CANYON_STATE_WRITTEN` records now carry `promotion_kind: "density"` or `promotion_kind: "hard_ceiling"` in metadata — distinguishing which seam triggered the promotion.
 
 **`validateAdmissionConfig()` warns on unsafe configs:**
 - `density.windowSize > DENSITY_SAFE_MAX_WINDOW_SIZE` (= 20): density signal threshold exceeds the hard ceiling — density is effectively inert for weak provenances (ceiling fires first).
@@ -241,8 +241,8 @@ These warnings do not disable the ceiling. They surface config drift at startup 
 
 | Layer | Role | I/O behavior |
 |---|---|---|
-| Ledger (`INGRESS_STANDING_LAW_WRITTEN`) | Durable exactly-once authority | Written once per hostile provenance on density trip |
-| Standing-deny cache (`standingDenyProvenances`) | O(1) hot-path enforcement | In-memory, zero I/O |
+| Ledger (`INGRESS_CANYON_STATE_WRITTEN`) | Durable exactly-once authority | Written once per hostile provenance on density trip |
+| Standing-deny cache (`canyonProvenances`) | O(1) hot-path enforcement | In-memory, zero I/O |
 
 A flood of N packets from one provenance produces exactly 1 ledger write. The cache absorbs the rest in total silence.
 
@@ -289,7 +289,7 @@ Three dimensions:
 **How it works:**
 
 - High-volume *admission observation events* (`INGRESS_PROVENANCE_BLOCKED`, `INGRESS_DENIED`, `INGRESS_VELOCITY_TRIP`, `INGRESS_DENSITY_TRIP`, `INGRESS_MASS_TRIP`) are enqueued in memory (O(1) hot path) and flushed in batches. These are the primary botnet storm events.
-- *Material state transitions* (`SESSION_STARTED`, `GRANT_ISSUED`, `ACTION_PROPOSED`, `ACTION_BLOCKED`, `ACTION_EXECUTED`, `DECISION_RETURNED`, `GOVERNOR_TRIP`, `PROCESS_PHYSWRAP_ACTIVE`, `INGRESS_STANDING_LAW_WRITTEN`, etc.) bypass the queue and write immediately — always durable.
+- *Material state transitions* (`SESSION_STARTED`, `GRANT_ISSUED`, `ACTION_PROPOSED`, `ACTION_BLOCKED`, `ACTION_EXECUTED`, `DECISION_RETURNED`, `GOVERNOR_TRIP`, `PROCESS_PHYSWRAP_ACTIVE`, `INGRESS_CANYON_STATE_WRITTEN`, etc.) bypass the queue and write immediately — always durable.
 - When the queue is full, overflow events are shed. The shed count is tracked atomically.
 - On each flush: if shed > 0, one `LEDGER_STORM_SUMMARY` record is prepended to the batch. It carries `shed_count`, `window_ms`, `by_class` (JSON breakdown by event type). It is ed25519-signed and chain-linked like any other record.
 - File rollover: when the ledger file exceeds `BUCCET_LEDGER_MAX_FILE_SIZE_BYTES` (default 10 MB), it is renamed to a timestamped archive and a new file begins. Chain linkage is preserved via `prev_hash`.
@@ -300,7 +300,7 @@ Agent Buccet has two distinct execution paths with different write profiles:
 
 | Path | Entry point | Typical caller | What writes on this path |
 |---|---|---|---|
-| **Intercept path** | `evaluateBoundaryIntercept` | Intercept daemon/server (network-facing) | `INGRESS_PROVENANCE_BLOCKED` (queueable), `INGRESS_STANDING_LAW_WRITTEN` (material, once per IP lifetime) |
+| **Intercept path** | `evaluateBoundaryIntercept` | Intercept daemon/server (network-facing) | `INGRESS_PROVENANCE_BLOCKED` (queueable), `INGRESS_CANYON_STATE_WRITTEN` (material, once per IP lifetime) |
 | **Bodyguard path** | `enforceBodyguardBoundary` | LLM framework adapters (tool-call dispatch) | `ACTION_PROPOSED`, `DECISION_RETURNED`, `ACTION_BLOCKED`, `ACTION_EXECUTED`, `GOVERNOR_TRIP` |
 
 A distributed botnet hits the **intercept path**. The intercept path calls `adjudicateBoundaryRequest` (the core adjudicator) directly — it does NOT pass through the outer bodyguard wrapper that writes `ACTION_PROPOSED` / `DECISION_RETURNED` / `ACTION_BLOCKED`. Those events are only written in the bodyguard path, which is reached via LLM inference (tool call proposals) — inference-speed limited, not IP-rate limited.
@@ -317,14 +317,14 @@ A distributed botnet hits the **intercept path**. The intercept path calls `adju
 | `ACTION_BLOCKED` | Same as ACTION_PROPOSED | Same | Yes — enforcement record |
 | `ACTION_EXECUTED` | Requires passing law eval — harder than block | Very low | Yes |
 | `GOVERNOR_TRIP` | Via bodyguard path only | maxRpm × session count | Yes — enforcement record, velocity-bounded |
-| `INGRESS_STANDING_LAW_WRITTEN` | Structurally once per IP lifetime (`ledgered` flag check in intercept.ts) | One write per unique hostile IP | Yes — standing deny authority record |
+| `INGRESS_CANYON_STATE_WRITTEN` | Structurally once per IP lifetime (`ledgered` flag check in intercept.ts) | One write per unique hostile IP | Yes — canyon hold authority record |
 | `PROCESS_*`, `PROCESS_PHYSWRAP_*` | No — requires passing law eval + actual process spawn | Bounded by OS process limits | Yes |
 | `APPROVAL_*`, `NSL_*`, `USER_CONFIRMED_DENY`, `PROPOSAL_REPLAYED` | No — human/operator gated | Near-zero | Yes |
 | `LEDGER_STORM_SUMMARY` | No — emitted by LIOPE itself | One per flush window (100ms) | Yes — storm audit record |
 
-**Residual dependency (config seam — locked by hard ceiling):** `ACTION_BLOCKED` is bounded by admission density config tightness AND the hard block ceiling. With density window=5, deny_ratio=0.6 (the default), a hostile IP is promoted to standing deny after ~3 blocks. At worst — with no density config at all — the hard ceiling fires at `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions, unconditionally. With 10M unique IPs that each get at most 10 ACTION_BLOCKEDs, that is 100M writes — but these arrive over the time it takes 10M IPs to hit the ceiling (tens of minutes at realistic attack rates). Not a spike. The hard ceiling is a code-level floor, not a config parameter — it cannot be loosened. Density config only makes promotion happen sooner.
+**Residual dependency (config seam — locked by hard ceiling):** `ACTION_BLOCKED` is bounded by admission density config tightness AND the hard block ceiling. With density window=5, deny_ratio=0.6 (the default), a hostile IP is promoted to canyon hold after ~3 blocks. At worst — with no density config at all — the hard ceiling fires at `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions, unconditionally. With 10M unique IPs that each get at most 10 ACTION_BLOCKEDs, that is 100M writes — but these arrive over the time it takes 10M IPs to hit the ceiling (tens of minutes at realistic attack rates). Not a spike. The hard ceiling is a code-level floor, not a config parameter — it cannot be loosened. Density config only makes promotion happen sooner.
 
-**Verdict:** The bypass set cannot be used as the new seam for botnet-scale disk exhaustion. The intercept path is the botnet-facing surface, and it writes only queueable admission events (shed under storm) plus exactly-once-per-IP standing-deny records. Action events (the material set) are gated behind LLM inference, not IP rate.
+**Verdict:** The bypass set cannot be used as the new seam for botnet-scale disk exhaustion. The intercept path is the botnet-facing surface, and it writes only queueable admission events (shed under storm) plus exactly-once-per-IP canyon records. Action events (the material set) are gated behind LLM inference, not IP rate.
 
 **Invariants:**
 
@@ -418,11 +418,11 @@ Every major architectural claim maps to:
 | Physwrap strong path | `process.ts` + `native/physwrap/physwrap.c` | `PROCESS_PHYSWRAP_ACTIVE` | `agent-buccet-physwrap-contract.ts` |
 | Physwrap fallback | `process.ts` | `PROCESS_PHYSWRAP_FALLBACK` | `agent-buccet-physwrap-contract.ts` |
 | Velocity law (inbound) | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` | `agent-buccet-admission-contract.ts` |
-| Density → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` promotion_kind=density | `agent-buccet-admission-contract.ts` |
-| Hard block ceiling → standing deny | `admission.ts` | `INGRESS_STANDING_LAW_WRITTEN` promotion_kind=hard_ceiling | `agent-buccet-admission-hardcap-contract.ts` |
+| Density → canyon hold | `admission.ts` | `INGRESS_CANYON_STATE_WRITTEN` promotion_kind=density | `agent-buccet-admission-contract.ts` |
+| Hard block ceiling → canyon hold | `admission.ts` | `INGRESS_CANYON_STATE_WRITTEN` promotion_kind=hard_ceiling | `agent-buccet-admission-hardcap-contract.ts` |
 | Hard ceiling config seam locked | `admission.ts:WEAK_PROVENANCE_HARD_BLOCK_CEILING` | — | `agent-buccet-admission-hardcap-contract.ts` |
 | Hard ceiling survives TTL/LRU churn | `admission.ts:hostileDeniedCounts` | — | `agent-buccet-admission-hardcap-contract.ts` H7 |
-| O(1) cache hit | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` dim=standing_deny | `agent-buccet-admission-contract.ts` |
+| O(1) cache hit | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` dim=canyon | `agent-buccet-admission-contract.ts` |
 | Mass law (inbound) | `admission.ts` | `INGRESS_PROVENANCE_BLOCKED` | `agent-buccet-admission-contract.ts` |
 | LRU provenance eviction | `admission.ts` | — | `agent-buccet-admission-contract.ts` |
 | Ledger integrity | `ledger.ts` | chain + ed25519 | `agent-buccet-ledger-contract.ts` |

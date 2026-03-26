@@ -3,7 +3,7 @@
  *
  * Proves the hard-ceiling invariants:
  *
- *   H1  Weak provenance hits standing deny after exactly WEAK_PROVENANCE_HARD_BLOCK_CEILING
+ *   H1  Weak provenance hits canyon hold after exactly WEAK_PROVENANCE_HARD_BLOCK_CEILING
  *       tarpit decisions, regardless of density config.
  *   H2  Loose density config (windowSize > safe envelope) does not allow a weak
  *       provenance past the hard ceiling.
@@ -57,7 +57,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     lastSeenMs: nowMs - 100,
   };
   return {
-    standingDenyProvenances: {},
+    canyonProvenances: {},
     provenanceRecords: { [provenance]: record },
     hostileDeniedCounts: { [provenance]: deniedCount },
   };
@@ -112,10 +112,10 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   }
 
   assert(ceilingFired, "H1b: ceiling must fire within 1 request of reaching WEAK_PROVENANCE_HARD_BLOCK_CEILING denials");
-  assert(state.standingDenyProvenances["ip:weak-h1"] !== undefined, "H1c: provenance must be in standing deny");
+  assert(state.canyonProvenances["ip:weak-h1"] !== undefined, "H1c: provenance must be in canyon hold");
   assert(
-    state.standingDenyProvenances["ip:weak-h1"].promotionKind === "hard_ceiling",
-    "H1d: standing deny entry must have promotionKind=hard_ceiling",
+    state.canyonProvenances["ip:weak-h1"].promotionKind === "hard_ceiling",
+    "H1d: canyon hold entry must have promotionKind=hard_ceiling",
   );
 
   console.log(`  [pass] H1: hard ceiling fires at WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING} tarpit decisions`);
@@ -150,13 +150,13 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
       promotionKind = r.result.promotionKind;
       break;
     }
-    if (state.standingDenyProvenances["ip:weak-h2"]) break;
+    if (state.canyonProvenances["ip:weak-h2"]) break;
   }
 
-  assert(state.standingDenyProvenances["ip:weak-h2"] !== undefined, "H2: must be in standing deny");
+  assert(state.canyonProvenances["ip:weak-h2"] !== undefined, "H2: must be in canyon hold");
   assert(
-    promotionKind === "hard_ceiling" || state.standingDenyProvenances["ip:weak-h2"].promotionKind === "hard_ceiling",
-    `H2: loose density config must not prevent ceiling — got promotionKind=${promotionKind ?? state.standingDenyProvenances["ip:weak-h2"]?.promotionKind}`,
+    promotionKind === "hard_ceiling" || state.canyonProvenances["ip:weak-h2"].promotionKind === "hard_ceiling",
+    `H2: loose density config must not prevent ceiling — got promotionKind=${promotionKind ?? state.canyonProvenances["ip:weak-h2"]?.promotionKind}`,
   );
 
   console.log("  [pass] H2: loose density config does not push past hard ceiling");
@@ -192,7 +192,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
       assert(r.result.promotionKind === "hard_ceiling", "H3: promotionKind must be hard_ceiling");
       break;
     }
-    if (state.standingDenyProvenances["ip:weak-h3"]) break;
+    if (state.canyonProvenances["ip:weak-h3"]) break;
   }
 
   assert(found, "H3: hard ceiling must fire within 5 requests of ceiling - 1 denials and expose promotionKind");
@@ -270,7 +270,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
       promotionKind = r.result.promotionKind;
       break;
     }
-    if (state.standingDenyProvenances["ip:weak-h5"]) break;
+    if (state.canyonProvenances["ip:weak-h5"]) break;
   }
 
   assert(promotedAt !== -1, "H5: some promotion must occur with tight density config");
@@ -304,12 +304,12 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
       nowMs: 2_000 + i * 100,
     });
     state = r.state;
-    if (state.standingDenyProvenances["ip:weak-h6"]) break;
+    if (state.canyonProvenances["ip:weak-h6"]) break;
   }
 
-  assert(state.standingDenyProvenances["ip:weak-h6"] !== undefined, "H6: must be in standing deny");
+  assert(state.canyonProvenances["ip:weak-h6"] !== undefined, "H6: must be in canyon hold");
   assert(
-    state.standingDenyProvenances["ip:weak-h6"].promotionKind === "hard_ceiling",
+    state.canyonProvenances["ip:weak-h6"].promotionKind === "hard_ceiling",
     "H6: state promotionKind must be hard_ceiling",
   );
 
@@ -322,10 +322,10 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   });
 
   assert(cacheHit.result.decision === "tarpit", "H6: cache hit must tarpit");
-  assert(cacheHit.result.dimension === "standing_deny", "H6: cache hit dimension must be standing_deny");
+  assert(cacheHit.result.dimension === "canyon", "H6: cache hit dimension must be canyon");
   assert(cacheHit.result.promoted === false, "H6: no re-promotion on cache hit");
   assert(
-    cacheHit.state.standingDenyProvenances["ip:weak-h6"]?.promotionKind === "hard_ceiling",
+    cacheHit.state.canyonProvenances["ip:weak-h6"]?.promotionKind === "hard_ceiling",
     "H6: promotionKind preserved in state after cache hit",
   );
 
@@ -356,8 +356,8 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     state = r.state;
     // Must not be promoted yet
     assert(
-      !state.standingDenyProvenances["ip:weak-h7"],
-      `H7: must not be in standing deny before ceiling (i=${i})`,
+      !state.canyonProvenances["ip:weak-h7"],
+      `H7: must not be in canyon hold before ceiling (i=${i})`,
     );
   }
 
@@ -394,7 +394,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     });
     stateAtExpiry = r.state;
 
-    if (stateAtExpiry.standingDenyProvenances["ip:weak-h7"]) {
+    if (stateAtExpiry.canyonProvenances["ip:weak-h7"]) {
       ceilingFired = true;
       break;
     }
@@ -405,7 +405,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     "H7: ceiling must fire after TTL expiry — hostileDeniedCounts must carry the prior count",
   );
   assert(
-    stateAtExpiry.standingDenyProvenances["ip:weak-h7"]?.promotionKind === "hard_ceiling",
+    stateAtExpiry.canyonProvenances["ip:weak-h7"]?.promotionKind === "hard_ceiling",
     "H7: promotion after TTL expiry must be hard_ceiling (not density reset)",
   );
 

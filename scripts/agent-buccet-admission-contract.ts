@@ -16,7 +16,7 @@ import {
   evaluateAdmission,
   getInputWeight,
   initialAdmissionState,
-  markStandingDenyLedgered,
+  markCanyonLedgered,
 } from "../lib/agent-buccet/index.ts";
 import type {
   BoundaryAdmissionConfig,
@@ -109,7 +109,7 @@ for (let i = 0; i < 4; i++) {
 const s5 = evaluateAdmission({ config: velocityConfig, state: strongState, request: makeRequest("pubkey:abc", { provenanceStrength: "strong", receivedAtMs: 500 }), nowMs: 500 });
 assert(s5.result.decision === "tarpit", "fifth strong-provenance request tarpitted (4x threshold)");
 
-// ─── Unit: density → standing deny promotion ──────────────────────────────────
+// ─── Unit: density → canyon hold promotion ──────────────────────────────────
 
 const densityConfig: BoundaryAdmissionConfig = {
   density: { maxDenyRatio: 0.6, windowSize: 5 },
@@ -121,7 +121,7 @@ let dState = initialAdmissionState();
 // Actually we need to drive it through evaluateAdmission. Let us pre-populate state.
 // Pre-populate a provenance with 3 denied and 2 admitted decisions in its record.
 dState = {
-  standingDenyProvenances: {},
+  canyonProvenances: {},
   provenanceRecords: {
     "session:attacker": {
       requestTimestamps: [1, 2, 3, 4, 5],
@@ -139,28 +139,28 @@ const d1 = evaluateAdmission({ config: densityConfig, state: dState, request: ma
 assert(d1.result.decision === "tarpit", "density trip: 60% denial ratio in window");
 assert(d1.result.dimension === "density", "dimension=density");
 assert(d1.result.lawId === "BOUNDARY.ADMISSION.DENSITY.01", "density law ID");
-assert(d1.result.promoted === true, "density trip promotes to standing deny");
+assert(d1.result.promoted === true, "density trip promotes to canyon hold");
 dState = d1.state;
 
-// Provenance is now in standing deny
-assert(dState.standingDenyProvenances["session:attacker"] !== undefined, "provenance in standing deny after promotion");
-assert(dState.standingDenyProvenances["session:attacker"].ledgered === false, "ledgered=false until caller marks it");
+// Provenance is now in canyon hold
+assert(dState.canyonProvenances["session:attacker"] !== undefined, "provenance in canyon hold after promotion");
+assert(dState.canyonProvenances["session:attacker"].ledgered === false, "ledgered=false until caller marks it");
 
 // Caller marks it ledgered (simulates async ledger write completion)
-dState = markStandingDenyLedgered(dState, "session:attacker");
-assert(dState.standingDenyProvenances["session:attacker"].ledgered === true, "ledgered=true after markStandingDenyLedgered");
+dState = markCanyonLedgered(dState, "session:attacker");
+assert(dState.canyonProvenances["session:attacker"].ledgered === true, "ledgered=true after markCanyonLedgered");
 
-// ─── Unit: O(1) standing-deny cache hit ──────────────────────────────────────
+// ─── Unit: O(1) canyon cache hit ──────────────────────────────────────
 
 // After promotion, subsequent requests hit the O(1) cache — no density evaluation
 const d2 = evaluateAdmission({ config: densityConfig, state: dState, request: makeRequest("session:attacker", { receivedAtMs: 100 }), nowMs: 100 });
-assert(d2.result.decision === "tarpit", "standing deny cache hit → tarpit");
-assert(d2.result.dimension === "standing_deny", "dimension=standing_deny (cache hit, not density)");
+assert(d2.result.decision === "tarpit", "canyon hold cache hit → tarpit");
+assert(d2.result.dimension === "canyon", "dimension=canyon (cache hit, not density)");
 assert(d2.result.promoted === false, "no re-promotion on cache hit");
 
 // Exact same state returned — the cache hit is O(1), does not update records
 assert(
-  d2.state.standingDenyProvenances["session:attacker"]?.ledgered === true,
+  d2.state.canyonProvenances["session:attacker"]?.ledgered === true,
   "ledgered state preserved through cache hit",
 );
 
@@ -233,7 +233,7 @@ console.log(`velocity trip at 3rd request (maxRpm=2): ${v3.result.decision === "
 console.log(`weak provenance threshold halved (trip at 2nd): ${w2.result.decision === "tarpit"}`);
 console.log(`strong provenance threshold doubled (trip at 5th): ${s5.result.decision === "tarpit"}`);
 console.log(`density trip at 60% ratio → promoted: ${d1.result.promoted}`);
-console.log(`O(1) cache hit after promotion: ${d2.result.dimension === "standing_deny"}`);
+console.log(`O(1) cache hit after promotion: ${d2.result.dimension === "canyon"}`);
 console.log(`mass trip (fanout weight 8, ceiling 10): ${m2.result.decision === "tarpit"}`);
 console.log(`empty config always admits: ${r.result.decision === "admit"}`);
 console.log(`LRU eviction (TTL=1s): ip:0 evicted=${lruState.provenanceRecords["ip:0"] === undefined}`);

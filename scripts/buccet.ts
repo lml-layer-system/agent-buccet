@@ -1251,8 +1251,9 @@ async function handleConsole() {
   console.log(`    deny <id>          — deny once`);
   console.log(`    law <id>           — allow as standing law`);
   console.log(`    deny-law <id>      — deny as standing law`);
+  console.log(`    canyon [prov]      — inspect canyon-held ingress or list all`);
+  console.log(`    canyon <1-4> <prov> — decide a canyon-held ingress provenance`);
   console.log(`    laws               — list active scope laws for this session`);
-  console.log(`    unblock [prov]     — show or clear a standing ingress block`);
   console.log(`    nsl [n]            — list or select a pending bodyguard move`);
   console.log(`    status             — session status`);
   console.log(`    logs [n]           — last n ledger entries (default 10)`);
@@ -1281,8 +1282,21 @@ async function handleConsole() {
   let feedEnabled = true;
   // Ledger position — seeded to current length so we don't replay old events on startup.
   let lastSeenCount = 0;
-  // Standing blocked provenances observed this session (from feed).
-  const blockedProvenances = new Set<string>();
+  // Canyon-held ingress state observed this session.
+  const canyonProvenances = new Set<string>();
+  const reportedCanyonProvenances = new Set<string>();
+  let currentCanyonEntries: Array<{
+    provenance: string;
+    state: "canyon" | "allow_once" | "allow_as_law";
+    reason: string;
+    promotionKind?: "density" | "hard_ceiling";
+    operatorDisposition?: "deny_as_law";
+    seenAt: number;
+    ledgered?: boolean;
+    deniedCount: number;
+    allowOnceRemaining: number;
+    standingAllowed: boolean;
+  }> = [];
   // Pending bodyguard move suggestions from the live feed.
   const nslSuggestions: Array<{ reason: string; timestamp: string }> = [];
 
@@ -1329,11 +1343,15 @@ async function handleConsole() {
     if (et === "INGRESS_PROVENANCE_BLOCKED") {
       return `  ✗ INGRESS BLOCKED  ${String(meta["provenance"] ?? target)}`;
     }
-    if (et === "INGRESS_STANDING_LAW_WRITTEN") {
+    if (et === "INGRESS_CANYON_STATE_WRITTEN") {
       const prov = String(meta["provenance"] ?? target);
       const kind = meta["promotion_kind"] ? `  [${String(meta["promotion_kind"])}]` : "";
-      return `  ⚑ STANDING LAW     ${prov}${kind}`;
+      return `  ⚑ CANYON HOLD      ${prov}${kind}`;
     }
+    if (et === "INGRESS_ALLOW_ONCE")       return `  ✓ CANYON RELEASE    ${target}  [once]`;
+    if (et === "INGRESS_ALLOW_AS_LAW")     return `  ✓ CANYON RELEASE    ${target}  [standing]`;
+    if (et === "INGRESS_DENY_ONCE")        return `  ✗ CANYON KEEP       ${target}  [once]`;
+    if (et === "INGRESS_DENY_AS_LAW")      return `  ✗ CANYON KEEP       ${target}  [standing]`;
     if (et === "INGRESS_VELOCITY_TRIP")    return `  ✗ VELOCITY TRIP    ${String(meta["provenance"] ?? target)}`;
     if (et === "INGRESS_DENSITY_TRIP")     return `  ✗ DENSITY TRIP     ${String(meta["provenance"] ?? target)}`;
     if (et === "INGRESS_MASS_TRIP")        return `  ✗ MASS TRIP        ${String(meta["provenance"] ?? target)}`;
@@ -1361,10 +1379,16 @@ async function handleConsole() {
       for (const record of newRecords as Parameters<typeof formatLedgerEvent>[0][]) {
         const et = record.META.event_type;
         const meta = record.META.metadata ?? {};
-        // Track standing ingress blocks for `unblock` command.
-        if (et === "INGRESS_PROVENANCE_BLOCKED" || et === "INGRESS_STANDING_LAW_WRITTEN") {
+        if (et === "INGRESS_PROVENANCE_BLOCKED" || et === "INGRESS_CANYON_STATE_WRITTEN") {
           const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
-          if (prov && prov !== "-") blockedProvenances.add(prov);
+          if (prov && prov !== "-") canyonProvenances.add(prov);
+        }
+        if (et === "INGRESS_ALLOW_ONCE" || et === "INGRESS_ALLOW_AS_LAW") {
+          const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
+          if (prov && prov !== "-") {
+            canyonProvenances.delete(prov);
+            reportedCanyonProvenances.delete(prov);
+          }
         }
         // Track bodyguard move suggestions for `nsl` command.
         if (et === "BODYGUARD_MOVE_SUGGESTED") {
@@ -1377,6 +1401,52 @@ async function handleConsole() {
         }
       }
     } catch { /* silent */ }
+  }
+
+  async function pollIngress() {
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: { command: "ingress_status" },
+      });
+      if (out.type !== "ingress_status") return;
+      currentCanyonEntries = out.provenances.filter((entry) => entry.state === "canyon");
+
+      for (const entry of currentCanyonEntries) {
+        canyonProvenances.add(entry.provenance);
+        if (reportedCanyonProvenances.has(entry.provenance)) {
+          continue;
+        }
+        reportedCanyonProvenances.add(entry.provenance);
+        console.log(``);
+        console.log(`  ╔═ INGRESS CANYON HOLD ═════════════════════════════════════════════════╗`);
+        console.log(`  ║  Provenance: ${entry.provenance}`);
+        console.log(`  ║  State:      canyon-held  [${entry.promotionKind}]`);
+        console.log(`  ║  Pressure:   ${entry.deniedCount} tarpit decision(s) recorded`);
+        console.log(`  ║`);
+        console.log(`  ║  Reason:     ${entry.reason}`);
+        console.log(`  ║`);
+        console.log(`  ║  1. Allow once     — release this provenance once`);
+        console.log(`  ║  2. Allow as law   — standing ingress allow`);
+        console.log(`  ║  3. Deny once      — keep this provenance in the canyon`);
+        console.log(`  ║  4. Deny as law    — standing canyon hold`);
+        console.log(`  ║`);
+        console.log(`  ║  > canyon 1 ${entry.provenance}   /   canyon 2 ${entry.provenance}`);
+        console.log(`  ║  > canyon 3 ${entry.provenance}   /   canyon 4 ${entry.provenance}`);
+        console.log(`  ╚═══════════════════════════════════════════════════════════════════════╝`);
+        console.log(``);
+      }
+
+      const live = new Set(currentCanyonEntries.map((entry) => entry.provenance));
+      for (const prov of [...reportedCanyonProvenances]) {
+        if (!live.has(prov)) {
+          reportedCanyonProvenances.delete(prov);
+          canyonProvenances.delete(prov);
+        }
+      }
+    } catch {
+      // Intercept daemon may be offline. Silent.
+    }
   }
 
   async function pollApprovals() {
@@ -1464,10 +1534,12 @@ async function handleConsole() {
   const pollHandle = setInterval(() => {
     void pollApprovals();
     void pollLedger();
+    void pollIngress();
   }, 1_000);
 
   // Initial approval poll.
   await pollApprovals();
+  await pollIngress();
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -1555,7 +1627,8 @@ async function handleConsole() {
           console.log(`  Scopes:     ${scopes.length}`);
           console.log(`  Grants:     ${grants.length}`);
           console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
-          console.log(`  Pending:    ${currentWaitingGroups.length} group(s) waiting`);
+          console.log(`  Pending:    ${currentWaitingGroups.length} action group(s) waiting`);
+          console.log(`  Canyon:     ${currentCanyonEntries.length} provenance(s) held`);
           console.log(``);
           rl.prompt();
           return;
@@ -1624,33 +1697,74 @@ async function handleConsole() {
           return;
         }
 
-        if (cmd === "unblock") {
-          if (!arg1) {
+        if (cmd === "canyon" || cmd === "unblock") {
+          const canyonChoice = (cmd === "unblock") ? "1" : arg1;
+          const provenanceArg = (cmd === "unblock") ? arg1 : parts[2];
+          if (!canyonChoice || (canyonChoice !== "1" && canyonChoice !== "2" && canyonChoice !== "3" && canyonChoice !== "4")) {
+            const targetProv = cmd === "canyon" ? arg1 : undefined;
+            const entries = targetProv
+              ? currentCanyonEntries.filter((entry) => entry.provenance === targetProv)
+              : currentCanyonEntries;
             console.log(``);
-            if (blockedProvenances.size === 0) {
-              console.log(`  No canyon-held ingress provenances recorded this session.`);
+            if (entries.length === 0) {
+              console.log(`  No canyon-held ingress provenances.`);
             } else {
-              console.log(`  Canyon-held ingress provenances this session:`);
-              for (const prov of blockedProvenances) {
-                console.log(`    ${prov}`);
+              console.log(`  Canyon-held ingress provenances:`);
+              for (const entry of entries) {
+                console.log(`  ${entry.provenance}`);
+                console.log(`    state:    canyon-held [${entry.promotionKind}]`);
+                console.log(`    reason:   ${entry.reason}`);
+                console.log(`    pressure: ${entry.deniedCount} tarpit decision(s)`);
+                if (entry.operatorDisposition) {
+                  console.log(`    operator: ${entry.operatorDisposition}`);
+                }
               }
-              console.log(`  Use: unblock <provenance>`);
+              console.log(`  Use: canyon <1-4> <provenance>`);
             }
             console.log(``);
             rl.prompt();
             return;
           }
-          // Restart the intercept daemon — this clears the in-memory canyon cache
-          // for ingress reflex state in Terminal 1.
-          try {
-            await boundary.sendBoundaryInterceptServerInput({
-              target: interceptTarget,
-              input: { command: "restart", reason: `console: unblock ${arg1}` } as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
-            });
-            blockedProvenances.delete(arg1);
-            console.log(`  Intercept restarted — canyon state cleared for '${arg1}'.`);
-          } catch {
-            console.log(`  Intercept daemon unreachable. Run 'buccet hook start' first.`);
+          if (!provenanceArg) {
+            console.log(`  Usage: canyon <1-4> <provenance>`);
+            rl.prompt();
+            return;
+          }
+          const entry = currentCanyonEntries.find((item) => item.provenance === provenanceArg);
+          if (!entry) {
+            console.log(`  No canyon-held ingress provenance '${provenanceArg}'.`);
+            rl.prompt();
+            return;
+          }
+          const ingressCommand =
+            canyonChoice === "1" ? "ingress_allow_once" :
+            canyonChoice === "2" ? "ingress_allow_as_law" :
+            canyonChoice === "3" ? "ingress_deny_once" :
+            "ingress_deny_as_law";
+          const reason =
+            canyonChoice === "1" ? `console: release ${provenanceArg} from canyon once` :
+            canyonChoice === "2" ? `console: standing ingress allow for ${provenanceArg}` :
+            canyonChoice === "3" ? `console: keep ${provenanceArg} in canyon once` :
+            `console: standing canyon hold for ${provenanceArg}`;
+          const out = await boundary.sendBoundaryInterceptServerInput({
+            target: interceptTarget,
+            input: {
+              command: ingressCommand,
+              provenance: provenanceArg,
+              issuedBy: config.actorId,
+              deniedBy: config.actorId,
+              reason,
+            } as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+          });
+          if (out.type === "error") {
+            console.log(`  Error: ${out.error}`);
+          } else {
+            if (canyonChoice === "1" || canyonChoice === "2") {
+              canyonProvenances.delete(provenanceArg);
+              reportedCanyonProvenances.delete(provenanceArg);
+            }
+            await pollIngress();
+            console.log(`  canyon ${canyonChoice}: ${provenanceArg} — done`);
           }
           rl.prompt();
           return;

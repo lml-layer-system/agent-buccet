@@ -96,7 +96,7 @@ async function main() {
   const expectedMaterial: string[] = [
     "SESSION_STARTED", "SESSION_ENDED", "GRANT_ISSUED", "GRANT_REVOKED",
     "ACTION_BLOCKED", "ACTION_EXECUTED", "GOVERNOR_TRIP",
-    "PROCESS_PHYSWRAP_ACTIVE", "INGRESS_STANDING_LAW_WRITTEN", "LEDGER_STORM_SUMMARY",
+    "PROCESS_PHYSWRAP_ACTIVE", "INGRESS_CANYON_STATE_WRITTEN", "LEDGER_STORM_SUMMARY",
   ];
   for (const ev of expectedMaterial) {
     assert(

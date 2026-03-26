@@ -168,20 +168,31 @@ export type BoundaryProvenanceRecord = {
   windowWeightTimestamps: Array<{ ts: number; weight: number }>;
   lastSeenMs: number;
   /** Cumulative count of tarpit decisions for this provenance.
-   *  Feeds the hard block ceiling: weak provenances are forced to standing deny
+   *  Feeds the hard block ceiling: weak provenances are forced into canyon hold
    *  after WEAK_PROVENANCE_HARD_BLOCK_CEILING tarpit decisions, regardless of density config. */
   totalDeniedCount: number;
 };
 
 export type BoundaryAdmissionState = {
-  /** O(1) standing-deny cache: provenances denied for the session lifetime. */
-  standingDenyProvenances: Record<string, {
-    deniedAt: number;
+  /** O(1) canyon cache: provenances held at the front line for the session lifetime. */
+  canyonProvenances: Record<string, {
+    canyonedAt: number;
     reason: string;
     ledgered: boolean;
-    /** How standing-deny was triggered. "hard_ceiling" means the hard block ceiling
+    /** How canyon hold was triggered. "hard_ceiling" means the hard block ceiling
      *  fired — density config was too loose to catch it first. */
     promotionKind: "density" | "hard_ceiling";
+    operatorDisposition?: "deny_as_law";
+  }>;
+  /** One-shot ingress releases written by Terminal 2. */
+  allowOnceProvenances: Record<string, {
+    grantedAt: number;
+    remaining: number;
+  }>;
+  /** Standing ingress allows written by Terminal 2. */
+  allowedProvenances: Record<string, {
+    grantedAt: number;
+    reason: string;
   }>;
   /** Bounded density tracking — evicted by TTL/LRU. */
   provenanceRecords: Record<string, BoundaryProvenanceRecord>;
@@ -375,7 +386,11 @@ export type BoundaryLedgerEventType =
   | "INGRESS_DENSITY_TRIP"
   | "INGRESS_MASS_TRIP"
   | "INGRESS_PROVENANCE_BLOCKED"
-  | "INGRESS_STANDING_LAW_WRITTEN"
+  | "INGRESS_CANYON_STATE_WRITTEN"
+  | "INGRESS_ALLOW_ONCE"
+  | "INGRESS_ALLOW_AS_LAW"
+  | "INGRESS_DENY_ONCE"
+  | "INGRESS_DENY_AS_LAW"
   | "PROCESS_PHYSWRAP_ACTIVE"
   | "PROCESS_PHYSWRAP_FALLBACK"
   | "PROCESS_PHYSWRAP_CAP_WARNING"
@@ -584,6 +599,7 @@ export type BoundaryPersistedSessionState = {
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds: string[];
   processPolicy?: BoundaryProcessPolicy;
+  admissionState?: BoundaryAdmissionState;
   savedAt: string;
 };
 

@@ -278,7 +278,7 @@ The same four kinetic dimensions govern inbound traffic per provenance. All are 
 | Velocity | RPM ceiling per provenance per window | Request rate | `BOUNDARY.ADMISSION.VELOCITY.01` |
 | Density | Deny ratio in sliding window → canyon promotion | Pathological repetition | `BOUNDARY.ADMISSION.DENSITY.01` |
 | Mass | Inbound weight horizon per provenance per window | Total cost of admitted work | `BOUNDARY.ADMISSION.MASS.01` |
-| Standing Deny | O(1) cache check | Exact provenance match after promotion | `BOUNDARY.ADMISSION.STANDING_DENY.01` |
+| Canyon Hold | O(1) cache check | Exact provenance match after promotion | `BOUNDARY.ADMISSION.CANYON.01` |
 
 Velocity and Mass trips tarpit the current request but do **not** promote to canyon cache alone — density is the promotion seam. The distinction: temporary rate enforcement ≠ durable canyon hold.
 
@@ -313,10 +313,10 @@ Provenance density tracking is bounded by LRU eviction and TTL:
 
 This prevents an attacker from converting compute DDoS into memory DDoS by spraying fake provenances.
 
-### Standing-Deny Promotion: Ledger vs. Cache
+### Canyon Hold Promotion: Ledger vs. Cache
 
-- **Ledger** — durable exactly-once authority: `INGRESS_STANDING_LAW_WRITTEN` written once per hostile provenance when density threshold is crossed
-- **Cache** — O(1) hot-path enforcement: in-memory `standingDenyProvenances` checked before any law evaluation
+- **Ledger** — durable exactly-once authority: `INGRESS_CANYON_STATE_WRITTEN` written once per hostile provenance when density threshold is crossed
+- **Cache** — O(1) hot-path enforcement: in-memory `canyonProvenances` checked before any law evaluation
 
 Flood traffic never creates flood disk writes. The state update is synchronous (exactly-once in the single-threaded Node.js event loop) before the async ledger write. `ledgered: false → true` flag prevents re-write under any concurrent evaluation.
 
@@ -325,20 +325,20 @@ Flood traffic never creates flood disk writes. The state update is synchronous (
 ```
 Inbound request
   │
-  ├─► O(1) standing-deny cache check       ← zero I/O, zero allocation
+  ├─► O(1) canyon cache check       ← zero I/O, zero allocation
   │     hit → TARPIT (hold socket, return nothing)
   │
   ├─► Bounded provenance record lookup
   │     (LRU/TTL eviction on miss)
   │
   ├─► Velocity check (per-provenance RPM)
-  │     trip → TARPIT (+ density check for standing-deny promotion)
+  │     trip → TARPIT (+ density check for canyon promotion)
   │
   ├─► Mass check (per-provenance inbound weight)
-  │     trip → TARPIT (+ density check for standing-deny promotion)
+  │     trip → TARPIT (+ density check for canyon promotion)
   │
   ├─► Density check (deny ratio in sliding window)
-  │     trip → standing-deny promotion → INGRESS_STANDING_LAW_WRITTEN (once)
+  │     trip → canyon promotion → INGRESS_CANYON_STATE_WRITTEN (once)
   │          → TARPIT
   │
   └─► ADMIT → law evaluation, routing, model path
@@ -356,7 +356,7 @@ To activate: supply `admissionConfig` and `admissionState` in `BoundaryRuntimeCo
 
 | Event | When emitted |
 |---|---|
-| `INGRESS_STANDING_LAW_WRITTEN` | Once per hostile provenance at density trip (durable canyon/cache record; not UPL) |
+| `INGRESS_CANYON_STATE_WRITTEN` | Once per hostile provenance at density trip (durable canyon/cache record; not UPL) |
 | `INGRESS_PROVENANCE_BLOCKED` | On each tarpit decision (per-call, not per-packet) |
 | `INGRESS_DENIED` | Reserved for explicit deny path |
 | `INGRESS_VELOCITY_TRIP` | Reserved |
@@ -373,7 +373,7 @@ INBOUND DIRECTION
     ├── Velocity: RPM ceiling per provenance
     ├── Density: deny ratio → canyon promotion → O(1) cache
     ├── Mass: inbound weight horizon
-    └── Standing Deny: O(1) cache check — brain never wakes
+    └── Canyon Hold: O(1) cache check — brain never wakes
 
 MOTION (OUTBOUND)
   Boundary Laws (Tier 1)

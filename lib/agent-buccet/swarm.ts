@@ -5,6 +5,7 @@ import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryI
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryActionKind,
+  BoundaryAdmissionState,
   BoundaryActionRequest,
   BoundaryResourceKind,
   BodyguardMove,
@@ -184,6 +185,16 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
   const pendingGroups = new Map<string, BoundarySwarmPendingGroup>();
   const recentGroups = new Map<string, BoundarySwarmGroup>();
 
+  function applyInterceptState(result: BoundaryInterceptResult & { admissionState?: BoundaryAdmissionState }) {
+    if (!result.admissionState) {
+      return;
+    }
+    store.replaceConfig({
+      ...store.getConfig(),
+      admissionState: result.admissionState,
+    });
+  }
+
   function snapshotGroup(group: BoundarySwarmPendingGroup | BoundarySwarmGroup): BoundarySwarmGroup {
     return {
       groupId: group.groupId,
@@ -307,6 +318,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       config: enableBodyguardControl(store.getConfig()),
       request,
     });
+    applyInterceptState(result);
     if (result.decision !== "require_approval") {
       return result;
     }

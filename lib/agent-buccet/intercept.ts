@@ -3,7 +3,7 @@ import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./bodygu
 import {
   evaluateAdmission,
   initialAdmissionState,
-  markStandingDenyLedgered,
+  markCanyonLedgered,
 } from "./admission.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
@@ -173,11 +173,11 @@ export async function evaluateBoundaryIntercept(args: {
     });
 
     if (admResult.decision === "tarpit") {
-      // Exactly-once ledger write for standing-deny promotion.
+      // Exactly-once ledger write for canyon promotion.
       // Check ledgered flag before writing — prevents duplicate I/O under flood.
       let finalAdmState = nextAdmState;
-      if (admResult.promoted && !nextAdmState.standingDenyProvenances[admission.provenance]?.ledgered) {
-        await appendBoundaryLedger("INGRESS_STANDING_LAW_WRITTEN", {
+      if (admResult.promoted && !nextAdmState.canyonProvenances[admission.provenance]?.ledgered) {
+        await appendBoundaryLedger("INGRESS_CANYON_STATE_WRITTEN", {
           sessionId: args.config.session.sessionId,
           actorId: args.config.session.actorId,
           decision: "deny",
@@ -186,12 +186,12 @@ export async function evaluateBoundaryIntercept(args: {
           metadata: {
             provenance: admission.provenance,
             provenance_strength: admission.provenanceStrength,
-            dimension: admResult.dimension ?? "standing_deny",
+            dimension: admResult.dimension ?? "canyon",
             promotion_kind: admResult.promotionKind ?? "density",
           },
           createdAt: new Date().toISOString(),
         });
-        finalAdmState = markStandingDenyLedgered(nextAdmState, admission.provenance);
+        finalAdmState = markCanyonLedgered(nextAdmState, admission.provenance);
       }
 
       // Log tarpit (not every drop — only the first block per provenance per call)
@@ -203,7 +203,7 @@ export async function evaluateBoundaryIntercept(args: {
         lawIds: admResult.lawId ? [admResult.lawId] : [],
         metadata: {
           provenance: admission.provenance,
-          dimension: admResult.dimension ?? "standing_deny",
+          dimension: admResult.dimension ?? "canyon",
         },
         createdAt: new Date().toISOString(),
       });
@@ -214,7 +214,7 @@ export async function evaluateBoundaryIntercept(args: {
         // responsible for applying actual socket-level tarpit behavior.
         decision: "deny",
         reason: admResult.reason,
-        lawIds: admResult.lawId ? [admResult.lawId] : ["BOUNDARY.ADMISSION.STANDING_DENY.01"],
+        lawIds: admResult.lawId ? [admResult.lawId] : ["BOUNDARY.ADMISSION.CANYON.01"],
         bodyguardMoves: [],
         requestId: randomUUID(),
         actionKind: mapInterceptToBoundaryAction(args.request),
@@ -282,8 +282,13 @@ export type BoundaryInterceptDaemonCommand =
   | { command: "restart"; requestId?: string; reason?: string }
   | { command: "shutdown"; requestId?: string }
   | { command: "swarm_status"; requestId?: string }
+  | { command: "ingress_status"; requestId?: string }
   | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string; asLaw?: boolean }
-  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean };
+  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean }
+  | { command: "ingress_allow_once"; requestId?: string; provenance: string; issuedBy?: string; reason?: string }
+  | { command: "ingress_allow_as_law"; requestId?: string; provenance: string; issuedBy?: string; reason?: string }
+  | { command: "ingress_deny_once"; requestId?: string; provenance: string; deniedBy?: string; reason?: string }
+  | { command: "ingress_deny_as_law"; requestId?: string; provenance: string; deniedBy?: string; reason?: string };
 
 export type BoundaryInterceptDaemonInput =
   | ({ requestId?: string } & BoundaryInterceptRequest)
@@ -320,13 +325,38 @@ export type BoundaryInterceptDaemonOutput =
         tracked: number;
       };
     }
+    | {
+      type: "ingress_status";
+      requestId: string;
+      provenances: Array<{
+        provenance: string;
+        state: "canyon" | "allow_once" | "allow_as_law";
+        reason: string;
+        promotionKind?: "density" | "hard_ceiling";
+        operatorDisposition?: "deny_as_law";
+        seenAt: number;
+        ledgered?: boolean;
+        deniedCount: number;
+        allowOnceRemaining: number;
+        standingAllowed: boolean;
+      }>;
+    }
   | {
       type: "ack";
       requestId: string;
-      command: "restart" | "shutdown" | "swarm_approve" | "swarm_deny";
+      command:
+        | "restart"
+        | "shutdown"
+        | "swarm_approve"
+        | "swarm_deny"
+        | "ingress_allow_once"
+        | "ingress_allow_as_law"
+        | "ingress_deny_once"
+        | "ingress_deny_as_law";
       restartCount?: number;
       reason?: string;
       groupId?: string;
+      provenance?: string;
     }
   | {
       type: "error";
