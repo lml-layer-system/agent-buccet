@@ -36,17 +36,17 @@ function usage(): never {
   console.error([
     "Usage:",
     "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
-    "  buccet console                                            — open the bodyguard console (Terminal 2)",
+    "  buccet console                                            — open the command center (Terminal 2)",
     "  buccet doctor                                             — health check: platform, backend, intercept, ledger",
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
     "  buccet logs [--limit <n>] [--json]",
-    "  buccet ledger [--limit <n>] [--json] [--follow]          — open the ledger surface (Terminal 3)",
+    "  buccet ledger [--limit <n>] [--json] [--follow]          — open the witness ledger (Terminal 3, optional)",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
     "  buccet hook build",
     "  buccet hook start",
-    "  buccet hook status [--json] [--watch]",
+    "  buccet hook status [--json] [--watch]                     — Terminal 1 live shield / heartbeat",
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
@@ -524,9 +524,9 @@ async function handleInit(rest: string[]) {
   console.log(`  Session:          ${nextConfig.sessionId}`);
   console.log(`  Scopes:           ${nextConfig.defaultScopes.length}`);
   console.log(``);
-  console.log(`  This terminal is now your protected execution lane.`);
+  console.log(`  This terminal is now Terminal 1: the protected execution lane.`);
   console.log(``);
-  console.log(`  Open a second terminal and run:`);
+  console.log(`  Open Terminal 2 and Terminal 3 like this:`);
   console.log(``);
   console.log(`    buccet console`);
   console.log(`    buccet ledger --follow`);
@@ -1152,7 +1152,7 @@ async function handleHook(rest: string[]) {
         console.log(`Buccet live | ${payload.running && payload.interceptReachable ? "protected" : "disconnected"} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`);
         console.log(``);
       } else {
-        console.log(`Agent Buccet hook status`);
+        console.log(`Agent Buccet hook status — Terminal 1`);
       }
       console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
       console.log(`running: ${payload.running ? "yes" : "no"}`);
@@ -1406,14 +1406,14 @@ async function handleConsole() {
 
   // Print the header once.
   console.log(``);
-  console.log(`  Agent Buccet — Bodyguard Console`);
+  console.log(`  Agent Buccet — Command Center`);
   console.log(`  ─────────────────────────────────────`);
   console.log(`  Platform:         ${platformLabel}`);
   console.log(`  Backend:          ${backendLabel}`);
   console.log(`  Protection mode:  ${protectionMode}`);
   console.log(`  Session:          ${config.sessionId}`);
   console.log(``);
-  console.log(`  This is the bodyguard console. Terminal 1 is the protected execution lane.`);
+  console.log(`  This is Terminal 2: the command center. Terminal 1 is the protected execution lane.`);
   console.log(``);
   console.log(`  Commands:`);
   console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
@@ -1430,6 +1430,7 @@ async function handleConsole() {
   console.log(`    feed               — toggle live event feed on/off`);
   console.log(`    upl                — active UPL laws`);
   console.log(`    doctor             — health check`);
+  console.log(`    ledger --follow    — open Terminal 3 witness stream from another terminal`);
   console.log(`    quit               — exit`);
   console.log(``);
 

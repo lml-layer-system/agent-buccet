@@ -100,7 +100,7 @@ async function main() {
 
   const consoleResult = await runCli(["console"], env, "quit\n");
   assert.equal(consoleResult.code, 0, consoleResult.stderr);
-  assert.match(consoleResult.stdout, /Bodyguard Console/);
+  assert.match(consoleResult.stdout, /Command Center/);
 
   const runResult = await runCli(["run", "--", "/bin/echo", "protected"], env);
   assert.equal(runResult.code, 0, runResult.stderr);
