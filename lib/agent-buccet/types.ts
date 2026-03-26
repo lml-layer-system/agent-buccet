@@ -286,7 +286,7 @@ export type BoundaryLaw = {
   }) => BoundaryLawResult | null;
 };
 
-export type NslMoveKind =
+export type BodyguardMoveKind =
   | "open_path"
   | "open_as_law"
   | "grant_write"
@@ -300,9 +300,9 @@ export type NslMoveKind =
   | "deny_and_explain"
   | "dry_run_preview";
 
-export type NslMove = {
+export type BodyguardMove = {
   moveId: string;
-  kind: NslMoveKind;
+  kind: BodyguardMoveKind;
   title: string;
   description: string;
   target?: string;
@@ -310,9 +310,10 @@ export type NslMove = {
   metadata?: Record<string, string | number | boolean>;
 };
 
-export type BodyguardMoveKind = NslMoveKind;
-
-export type BodyguardMove = NslMove;
+/** @deprecated use BodyguardMoveKind */
+export type NslMoveKind = BodyguardMoveKind;
+/** @deprecated use BodyguardMove */
+export type NslMove = BodyguardMove;
 
 export type BoundaryReviewContext = {
   surface: "action" | "chat";
@@ -347,7 +348,7 @@ export type BoundaryLedgerEventType =
   | "UPL_DENY_RECORDED"
   | "ACTION_EXECUTED"
   | "ACTION_BLOCKED"
-  | "NSL_GRANT_OFFERED"
+  | "BODYGUARD_GRANT_OFFERED"
   | "USER_CONFIRMED_DENY"
   | "RECIPIENT_OPENED"
   | "RECIPIENT_LAW_INSTANTIATED"
@@ -365,8 +366,8 @@ export type BoundaryLedgerEventType =
   | "PROCESS_EXITED"
   | "PROCESS_BLOCKED"
   | "PROCESS_ENV_FILTERED"
-  | "NSL_MOVE_SUGGESTED"
-  | "NSL_MOVE_CHOSEN"
+  | "BODYGUARD_MOVE_SUGGESTED"
+  | "BODYGUARD_MOVE_CHOSEN"
   | "GOVERNOR_TRIP"
   | "PROCESS_WALL_CLOCK_KILL"
   | "INGRESS_DENIED"
@@ -591,7 +592,7 @@ export type BoundaryApprovalRequest = {
   request: BoundaryActionRequest;
   reason: string;
   lawIds: string[];
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   prompt: BoundaryApprovalPrompt;
 };
 

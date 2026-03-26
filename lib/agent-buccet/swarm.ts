@@ -7,7 +7,7 @@ import type {
   BoundaryActionKind,
   BoundaryActionRequest,
   BoundaryResourceKind,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 
@@ -24,7 +24,7 @@ export type BoundarySwarmGroup = {
   target: string;
   reason: string;
   lawIds: string[];
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   memberCount: number;
   waitingCount: number;
   requestIds: string[];
@@ -195,7 +195,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       target: group.target,
       reason: group.reason,
       lawIds: [...group.lawIds],
-      nslMoves: [...group.nslMoves],
+      bodyguardMoves: [...group.bodyguardMoves],
       memberCount: group.memberCount,
       waitingCount: group.waitingCount,
       requestIds: [...group.requestIds],
@@ -238,7 +238,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       target: normalizeTarget(request),
       reason: result.reason,
       lawIds: [...result.lawIds],
-      nslMoves: [...result.nslMoves],
+      bodyguardMoves: [...result.bodyguardMoves],
       memberCount: 1,
       waitingCount: 1,
       requestIds: [result.requestId],

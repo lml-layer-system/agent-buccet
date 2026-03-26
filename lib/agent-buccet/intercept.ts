@@ -13,7 +13,7 @@ import type {
   BoundaryProvenanceStrength,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export type BoundaryInterceptActionClass =
@@ -62,7 +62,7 @@ export type BoundaryInterceptSwarmGroup = {
   target: string;
   reason: string;
   lawIds: string[];
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   memberCount: number;
   waitingCount: number;
   requestIds: string[];
@@ -72,7 +72,7 @@ export type BoundaryInterceptResult = {
   decision: BoundaryInterceptDecision;
   reason: string;
   lawIds: string[];
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   requestId: string;
   actionKind: BoundaryActionKind;
 };
@@ -214,7 +214,7 @@ export async function evaluateBoundaryIntercept(args: {
         decision: "deny",
         reason: admResult.reason,
         lawIds: admResult.lawId ? [admResult.lawId] : ["BOUNDARY.ADMISSION.STANDING_DENY.01"],
-        nslMoves: [],
+        bodyguardMoves: [],
         requestId: randomUUID(),
         actionKind: mapInterceptToBoundaryAction(args.request),
         admissionState: finalAdmState,
@@ -242,7 +242,7 @@ export async function evaluateBoundaryIntercept(args: {
       decision: adjudication.result.decision,
       reason: adjudication.result.reason,
       lawIds: adjudication.result.triggeredLawIds,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
       requestId: adjudication.request.requestId,
       actionKind: adjudication.request.actionKind,
       admissionState: nextAdmState,
@@ -269,7 +269,7 @@ export async function evaluateBoundaryIntercept(args: {
     decision: adjudication.result.decision,
     reason: adjudication.result.reason,
     lawIds: adjudication.result.triggeredLawIds,
-    nslMoves: adjudication.nslMoves,
+    bodyguardMoves: adjudication.bodyguardMoves,
     requestId: adjudication.request.requestId,
     actionKind: adjudication.request.actionKind,
   };

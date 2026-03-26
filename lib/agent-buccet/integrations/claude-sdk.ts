@@ -43,7 +43,7 @@
  *   if (block.type === "tool_use") {
  *     const result = await guard.evaluate(block.name, block.input);
  *     if (result.decision !== "allow") {
- *       // Surface result.reason + result.nslMoves to the user
+ *       // Surface result.reason + result.bodyguardMoves to the user
  *       // Return tool_result with the boundary decision
  *       continue;
  *     }
@@ -97,7 +97,7 @@ export async function guardClaudeToolUse(args: {
       decision: "deny",
       reason: `Tool "${args.toolName}" is not registered in the boundary tool registry. Unknown tools are denied.`,
       lawIds: ["BOUNDARY.TOOL.UNMAPPED"],
-      nslMoves: [],
+      bodyguardMoves: [],
       requestId: `unmapped:${args.toolName}:${Date.now()}`,
       actionKind: "tool.exec",
     };

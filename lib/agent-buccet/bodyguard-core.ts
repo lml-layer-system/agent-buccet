@@ -19,12 +19,12 @@ import type {
   BoundaryLedgerRecord,
   BoundaryLegacyApprovalDecision,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export type BodyguardAdjudication = {
   result: BoundaryLawResult;
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
 };
 
 export type BodyguardHeldDecision = BodyguardAdjudication | null;
@@ -32,7 +32,7 @@ export type BodyguardHeldDecision = BodyguardAdjudication | null;
 export type BodyguardRequestAdjudication = BodyguardAdjudication & {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
-  grantOffer?: Extract<BoundaryGravityEnforcement, { outcome: "nsl_grant_offer" }>;
+  grantOffer?: Extract<BoundaryGravityEnforcement, { outcome: "bodyguard_grant_offer" }>;
 };
 
 export function attachBodyguardControl(
@@ -150,7 +150,7 @@ export async function resolveBodyguardHeldRequest(args: {
     };
     return {
       result,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -163,7 +163,7 @@ export async function resolveBodyguardHeldRequest(args: {
     };
     return {
       result,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -171,7 +171,7 @@ export async function resolveBodyguardHeldRequest(args: {
   if (standingLaw) {
     return {
       result: standingLaw,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -186,7 +186,7 @@ export function evaluateBodyguardAction(args: {
   if (standingLaw) {
     return {
       result: standingLaw,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -201,7 +201,7 @@ export function evaluateBodyguardAction(args: {
 
   return {
     result: expandedResult,
-    nslMoves: buildBoundaryBodyguardMoves(args.request, expandedResult),
+    bodyguardMoves: buildBoundaryBodyguardMoves(args.request, expandedResult),
   };
 }
 
@@ -235,11 +235,11 @@ export async function adjudicateBodyguardRequest(args: {
           triggeredLawIds: gravity.lawIds,
           requiresApproval: false,
         },
-        nslMoves: gravity.nslMoves,
+        bodyguardMoves: gravity.bodyguardMoves,
       };
     }
 
-    if (gravity.outcome === "nsl_grant_offer") {
+    if (gravity.outcome === "bodyguard_grant_offer") {
       return {
         config: gravity.config,
         request: gravity.request,
@@ -249,7 +249,7 @@ export async function adjudicateBodyguardRequest(args: {
           triggeredLawIds: gravity.lawIds,
           requiresApproval: true,
         },
-        nslMoves: gravity.nslMoves,
+        bodyguardMoves: gravity.bodyguardMoves,
         grantOffer: gravity,
       };
     }

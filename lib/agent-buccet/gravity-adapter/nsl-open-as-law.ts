@@ -2,8 +2,8 @@ import {
   buildGrantFromOffer,
   buildOpenAsLawStep,
   LEDGER_EVENTS,
-  type NslGrantOffer,
-  type NslOpenAsLawStep,
+  type BodyguardGrantOffer,
+  type BodyguardOpenAsLawStep,
 } from "../gravity-core/index.ts";
 import { appendBoundaryLedger } from "../ledger.ts";
 import { issueBoundaryGrant, openBoundaryPath } from "../runtime.ts";
@@ -12,14 +12,14 @@ import type {
   BoundaryActionRequest,
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "../types.ts";
 
 function actionForRequest(request: BoundaryActionRequest): BoundaryActionKind[] {
   return [request.actionKind];
 }
 
-export function buildGravityNslMoves(step: NslOpenAsLawStep): NslMove[] {
+export function buildGravityBodyguardMoves(step: BodyguardOpenAsLawStep): BodyguardMove[] {
   return [
     {
       moveId: `open_as_law:${step.scopeKind}:${step.scopeIdentifier}`,
@@ -45,9 +45,9 @@ export function buildGravityNslMoves(step: NslOpenAsLawStep): NslMove[] {
 export async function ledgerGrantOffer(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
-  offer: NslGrantOffer;
+  offer: BodyguardGrantOffer;
 }) {
-  await appendBoundaryLedger("NSL_GRANT_OFFERED", {
+  await appendBoundaryLedger("BODYGUARD_GRANT_OFFERED", {
     sessionId: args.config.session.sessionId,
     actorId: args.config.session.actorId,
     requestId: args.request.requestId,
@@ -67,7 +67,7 @@ export async function ledgerGrantOffer(args: {
 export async function applyOpenAsLawGrant(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
-  offer: NslGrantOffer;
+  offer: BodyguardGrantOffer;
   issuedBy: string;
   expiresAt?: number;
 }): Promise<BoundaryRuntimeConfig> {
@@ -149,7 +149,7 @@ export async function applyOpenAsLawGrant(args: {
 export async function ledgerUserConfirmedDeny(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
-  offer: NslGrantOffer;
+  offer: BodyguardGrantOffer;
 }) {
   await appendBoundaryLedger("USER_CONFIRMED_DENY", {
     sessionId: args.config.session.sessionId,
@@ -164,8 +164,8 @@ export async function ledgerUserConfirmedDeny(args: {
   });
 }
 
-export function buildOpenAsLawNslStep(args: {
-  offer: NslGrantOffer;
+export function buildOpenAsLawBodyguardStep(args: {
+  offer: BodyguardGrantOffer;
   request: BoundaryActionRequest;
 }) {
   return buildOpenAsLawStep(args.offer, {

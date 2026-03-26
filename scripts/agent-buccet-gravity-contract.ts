@@ -36,8 +36,8 @@ async function main() {
     config,
     request: outOfScope,
   });
-  assert(outOfScopeResult.outcome === "nsl_grant_offer", "expected out-of-scope request to yield a Bodyguard grant offer");
-  assert(outOfScopeResult.nslMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law Bodyguard move");
+  assert(outOfScopeResult.outcome === "bodyguard_grant_offer", "expected out-of-scope request to yield a Bodyguard grant offer");
+  assert(outOfScopeResult.bodyguardMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law Bodyguard move");
 
   const authorityClaim = createBoundaryActionRequest({
     config,
@@ -71,7 +71,7 @@ async function main() {
     request: brokenLedger,
   });
   assert(
-    brokenLedgerResult.outcome === "nsl_grant_offer",
+    brokenLedgerResult.outcome === "bodyguard_grant_offer",
     "expected missing ledger history not to become a live authorization deny",
   );
 

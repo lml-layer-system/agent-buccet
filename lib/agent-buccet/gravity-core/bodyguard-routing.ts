@@ -8,19 +8,19 @@ import { allViolationsGrantable } from "./types.ts";
 
 /**
  * Result of mapping an EnforcementResult to a bodyguard routing decision.
- * Bodyguard branches on outcome and never silently says "no"; blocked becomes ledger + NSL.
+ * Bodyguard branches on outcome and never silently says "no"; blocked becomes ledger + bodyguard grant offer.
  */
 export type BodyguardOutcome =
   | { outcome: "allow"; result: EnforcementResult }
   | { outcome: "transform"; result: EnforcementResult }
-  | { outcome: "nsl_grant_offer"; result: EnforcementResult; grantOffer: NslGrantOffer }
+  | { outcome: "bodyguard_grant_offer"; result: EnforcementResult; grantOffer: BodyguardGrantOffer }
   | { outcome: "deny"; result: EnforcementResult };
 
 /**
- * Structured data for the NSL scope-law choice step.
+ * Structured data for the bodyguard scope-law choice step.
  * Built from grantable violations so Bodyguard can ledger blocked, show the four-way prompt surface, and replay when the user allows scope as law.
  */
-export interface NslGrantOffer {
+export interface BodyguardGrantOffer {
   /** First grantable violation's scope (exact path/recipient/domain/tool). */
   scopeIdentifier: string;
   scopeKind: DynamicLawGrant["kind"];
@@ -39,7 +39,7 @@ export interface NslGrantOffer {
  * Maps gravity EnforcementResult to a bodyguard routing decision.
  * - allow: proceed to boundary checks and execution.
  * - transform: use result.proposal if present and proceed.
- * - null (only grantable violations): ledger blocked + emit NSL grant offer; replay only if the user selects allow as law.
+ * - null (only grantable violations): ledger blocked + emit bodyguard grant offer; replay only if the user selects allow as law.
  * - deny (any non-grantable violation): block and show diagnostics; no grant offer.
  */
 export function mapEnforcementResultToOutcome(
@@ -55,7 +55,7 @@ export function mapEnforcementResultToOutcome(
   if (result.decision === "null" && result.violations.length > 0) {
     const first = result.violations[0];
     const payload = proposal?.payload as { actionLabel?: string } | undefined;
-    const grantOffer: NslGrantOffer = {
+    const grantOffer: BodyguardGrantOffer = {
       scopeIdentifier: first.scopeIdentifier ?? "",
       scopeKind: first.scopeKind ?? "other",
       lawId: first.lawId,
@@ -64,14 +64,14 @@ export function mapEnforcementResultToOutcome(
       actionLabel: payload?.actionLabel,
       violations: result.violations,
     };
-    return { outcome: "nsl_grant_offer", result, grantOffer };
+    return { outcome: "bodyguard_grant_offer", result, grantOffer };
   }
   return { outcome: "deny", result };
 }
 
 /**
- * Returns true if the result should drive an NSL grant offer (user can open scope as law).
+ * Returns true if the result should drive a bodyguard grant offer (user can open scope as law).
  */
-export function shouldOfferNslGrant(result: EnforcementResult): boolean {
+export function shouldOfferBodyguardGrant(result: EnforcementResult): boolean {
   return result.decision === "null" && allViolationsGrantable(result.violations);
 }

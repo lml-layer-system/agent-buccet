@@ -219,7 +219,7 @@ async function runIntegration() {
   assert(!result.allowed, "governor velocity trip should deny the action");
   assert(!result.executed, "governor-denied action should not execute");
   assert(
-    result.nslMoves.some((m) => m.kind === "deny_and_explain"),
+    result.bodyguardMoves.some((m) => m.kind === "deny_and_explain"),
     "governor trip should produce deny_and_explain move",
   );
 

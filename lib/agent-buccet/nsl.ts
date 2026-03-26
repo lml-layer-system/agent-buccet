@@ -1,11 +1,11 @@
 import type {
   BoundaryActionRequest,
   BoundaryLawResult,
-  NslMove,
-  NslMoveKind,
+  BodyguardMove,
+  BodyguardMoveKind,
 } from "./types.ts";
 
-function buildMove(kind: NslMoveKind, title: string, description: string, target?: string): NslMove {
+function buildMove(kind: BodyguardMoveKind, title: string, description: string, target?: string): BodyguardMove {
   return {
     moveId: `${kind}:${target ?? "global"}`,
     kind,
@@ -15,7 +15,7 @@ function buildMove(kind: NslMoveKind, title: string, description: string, target
   };
 }
 
-export function buildBoundaryNslMoves(request: BoundaryActionRequest, result: BoundaryLawResult): NslMove[] {
+export function buildBoundaryBodyguardMoves(request: BoundaryActionRequest, result: BoundaryLawResult): BodyguardMove[] {
   if (result.decision === "allow") {
     return [];
   }

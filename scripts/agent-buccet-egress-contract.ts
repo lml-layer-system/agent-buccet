@@ -119,7 +119,7 @@ async function main() {
   assert(!piiResult.allowed, "network.send with PII flag should be denied");
   assert(!piiResult.executed, "network.send with PII flag should not execute");
   assert(
-    piiResult.nslMoves.some((m) => m.kind === "deny_and_explain"),
+    piiResult.bodyguardMoves.some((m) => m.kind === "deny_and_explain"),
     "expected deny_and_explain move for blocked egress",
   );
 

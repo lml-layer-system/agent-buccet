@@ -31,7 +31,7 @@ import type {
   BoundaryRequestProvenance,
   BoundaryReviewContext,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export {
@@ -53,7 +53,7 @@ export type BoundaryExecutionResult<T = void> = {
   executed: boolean;
   requiresApproval: boolean;
   reason: string;
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   value?: T;
 };
 
@@ -949,7 +949,7 @@ export async function runBoundaryControlledAction<T>(args: {
         executed: false,
         requiresApproval: false,
         reason: govResult.reason,
-        nslMoves: [{
+        bodyguardMoves: [{
           moveId: randomUUID(),
           kind: "deny_and_explain",
           title: "Boundary governor tripped",
@@ -997,8 +997,8 @@ export async function runBoundaryControlledAction<T>(args: {
       adjudication.result.triggeredLawIds,
     );
 
-    for (const move of adjudication.nslMoves) {
-      await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
+    for (const move of adjudication.bodyguardMoves) {
+      await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
         sessionId: activeConfig.session.sessionId,
         actorId: activeConfig.session.actorId,
         requestId: activeRequest.requestId,
@@ -1018,7 +1018,7 @@ export async function runBoundaryControlledAction<T>(args: {
       executed: false,
       requiresApproval: false,
       reason: adjudication.result.reason,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
     };
   }
 
@@ -1030,7 +1030,7 @@ export async function runBoundaryControlledAction<T>(args: {
         request: activeRequest,
         reason: adjudication.result.reason,
         lawIds: adjudication.result.triggeredLawIds,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
         prompt: buildBoundaryApprovalPrompt({
           request: activeRequest,
           reason: adjudication.result.reason,
@@ -1062,7 +1062,7 @@ export async function runBoundaryControlledAction<T>(args: {
         executed: false,
         requiresApproval: true,
         reason: adjudication.result.reason,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
       };
     }
 
@@ -1072,7 +1072,7 @@ export async function runBoundaryControlledAction<T>(args: {
         request: activeRequest,
         reason: adjudication.result.reason,
         lawIds: adjudication.result.triggeredLawIds,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
         prompt: buildBoundaryApprovalPrompt({
           request: activeRequest,
           reason: adjudication.result.reason,
@@ -1120,7 +1120,7 @@ export async function runBoundaryControlledAction<T>(args: {
           executed: false,
           requiresApproval: false,
           reason: adjudication.result.reason,
-          nslMoves: adjudication.nslMoves,
+          bodyguardMoves: adjudication.bodyguardMoves,
         };
       }
       continue;
@@ -1152,7 +1152,7 @@ export async function runBoundaryControlledAction<T>(args: {
         executed: false,
         requiresApproval: false,
         reason: adjudication.result.reason,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
       };
     }
   }
@@ -1164,7 +1164,7 @@ export async function runBoundaryControlledAction<T>(args: {
       executed: false,
       requiresApproval: adjudication.result.requiresApproval,
       reason: args.successReason,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
     };
   }
 
@@ -1179,7 +1179,7 @@ export async function runBoundaryControlledAction<T>(args: {
       executed: false,
       requiresApproval: adjudication.result.requiresApproval,
       reason,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
     };
   }
 
@@ -1192,7 +1192,7 @@ export async function runBoundaryControlledAction<T>(args: {
     executed: true,
     requiresApproval: adjudication.result.requiresApproval,
     reason: args.successReason,
-    nslMoves: adjudication.nslMoves,
+    bodyguardMoves: adjudication.bodyguardMoves,
     value,
   };
 }

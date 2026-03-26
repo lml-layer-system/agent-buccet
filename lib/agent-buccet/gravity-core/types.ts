@@ -60,16 +60,16 @@ export type LawId = string;
 export interface LawViolation {
   lawId: LawId;
   /**
-   * Machine-readable code for violation subtype. Required for Bodyguard/NSL branching.
+   * Machine-readable code for violation subtype. Required for Bodyguard branching.
    */
   code?: string;
   /**
-   * Human-oriented description for NSL/UI and ledger.
+   * Human-oriented description for bodyguard UI and ledger.
    */
   message?: string;
   /**
    * For grantable scope violations: the exact path/recipient/domain/tool to offer as law.
-   * Bodyguard uses this to build the NSL law-choice surface and to replay after a user allows scope as law.
+   * Bodyguard uses this to build the law-choice surface and to replay after a user allows scope as law.
    */
   scopeIdentifier?: string;
   /**
@@ -79,7 +79,7 @@ export interface LawViolation {
 }
 
 /**
- * Violation codes that are user-fixable by opening scope as law (NSL grant offer).
+ * Violation codes that are user-fixable by opening scope as law (bodyguard grant offer).
  * All other codes are non-grantable: Bodyguard should hard-deny and show diagnostics only.
  */
 export const GRANTABLE_VIOLATION_CODES = new Set<string>([
@@ -177,13 +177,13 @@ export interface GravityState {
 
 /**
  * Optional payload shape for proposals that have a grantable scope.
- * Executor and scope law-skill use this to evaluate and to build NSL grant offers.
+ * Executor and scope law-skill use this to evaluate and to build bodyguard grant offers.
  */
 export interface ScopePayload {
   /** Exact path (filesystem), recipient id (email/channel), domain (host), or tool id. */
   scopeIdentifier: string;
   scopeKind: DynamicLawGrant["kind"];
-  /** Optional action label for NSL message, e.g. "read", "delete", "send to". */
+  /** Optional action label for bodyguard message, e.g. "read", "delete", "send to". */
   actionLabel?: string;
 }
 
@@ -264,7 +264,7 @@ export type GravityEvent =
 
 /**
  * - allow: No violations; proposal is eligible for execution.
- * - null: Only grantable scope violations (e.g. path/recipient/tool out of scope). Bodyguard must ledger blocked and surface the four-way NSL law choice.
+ * - null: Only grantable scope violations (e.g. path/recipient/tool out of scope). Bodyguard must ledger blocked and surface the four-way bodyguard law choice.
  * - deny: At least one non-grantable violation (meta-law, ledger, etc.). Bodyguard must block and show diagnostics; no grant offer.
  * - transform: Proposal was normalized to a lawful shape (e.g. path clamped); Bodyguard may use the transformed proposal.
  */

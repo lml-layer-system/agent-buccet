@@ -1,8 +1,8 @@
 import type { DynamicLawGrant, GravityProposal } from "./types.ts";
-import type { NslGrantOffer } from "./bodyguard-routing.ts";
+import type { BodyguardGrantOffer } from "./bodyguard-routing.ts";
 
 /**
- * Ledger event names for grant and NSL flow.
+ * Ledger event names for grant and bodyguard flow.
  * Executor/ledger layer records these so traces are complete and reconstructible.
  */
 export const LEDGER_EVENTS = {
@@ -19,14 +19,14 @@ export const LEDGER_EVENTS = {
   DATABASE_LAW_INSTANTIATED: "DATABASE_LAW_INSTANTIATED",
   SYSTEM_OPENED: "SYSTEM_OPENED",
   SYSTEM_LAW_INSTANTIATED: "SYSTEM_LAW_INSTANTIATED",
-  NSL_GRANT_OFFERED: "NSL_GRANT_OFFERED",
+  NSL_GRANT_OFFERED: "BODYGUARD_GRANT_OFFERED",
   USER_CONFIRMED_DENY: "USER_CONFIRMED_DENY",
   GRANT_ISSUED: "GRANT_ISSUED",
   PROPOSAL_REPLAYED: "PROPOSAL_REPLAYED",
 } as const;
 
 /**
- * Input to grant issuance when the user selects allow as law on the NSL scope prompt.
+ * Input to grant issuance when the user selects allow as law on the bodyguard scope prompt.
  * Bodyguard creates a DynamicLawGrant and ledgers PATH_OPENED / PATH_LAW_INSTANTIATED (or equivalent).
  */
 export interface GrantIssuanceInput {
@@ -46,11 +46,11 @@ export interface GrantIssuanceResult {
 }
 
 /**
- * Builds a new grant and ledger event names from NslGrantOffer + optional expiry.
+ * Builds a new grant and ledger event names from BodyguardGrantOffer + optional expiry.
  * Caller persists the grant into state.dynamicLaws.grants and ledger.
  */
 export function buildGrantFromOffer(
-  offer: NslGrantOffer,
+  offer: BodyguardGrantOffer,
   expiresAt?: number,
 ): GrantIssuanceResult {
   const now = Date.now();
@@ -89,10 +89,10 @@ export function buildGrantFromOffer(
 }
 
 /**
- * Contract for the NSL scope-law choice step.
+ * Contract for the bodyguard scope-law choice step.
  * Bodyguard presents this through the four-way approval surface and replays only when the user allows scope as law.
  */
-export interface NslOpenAsLawStep {
+export interface BodyguardOpenAsLawStep {
   kind: "open_as_law";
   /** Message explaining that the attempted scope is outside current law. */
   message: string;
@@ -102,16 +102,16 @@ export interface NslOpenAsLawStep {
   lawCode: string;
   /** Original proposal to replay after allow-as-law grant issuance. */
   proposal: GravityProposal;
-  offer: NslGrantOffer;
+  offer: BodyguardGrantOffer;
 }
 
 /**
  * Builds the scope-law choice step from a grant offer and the original proposal for replay after allow-as-law.
  */
 export function buildOpenAsLawStep(
-  offer: NslGrantOffer,
+  offer: BodyguardGrantOffer,
   proposal: GravityProposal,
-): NslOpenAsLawStep {
+): BodyguardOpenAsLawStep {
   const actionLabel = offer.actionLabel ?? "use";
   const targetLabel =
     offer.scopeKind === "path"

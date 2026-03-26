@@ -23,7 +23,7 @@ export const META_LEDGER_01: LawId = "META.LEDGER.01";
 
 /**
  * Scope law: path/recipient/domain/tool must be in dynamic laws (opened as law).
- * Violations from this skill are grantable: executor surfaces NSL "open as law? yes/no".
+ * Violations from this skill are grantable: executor surfaces bodyguard "open as law? yes/no".
  */
 export const SCOPE_GRANT_CLOSED: LawId = "SCOPE.GRANT.CLOSED";
 const SCOPE_VIOLATION_CODES: Record<DynamicLawGrant["kind"], string> = {
@@ -247,7 +247,7 @@ export function createMetaLedgerSkill(): LawSkill {
 /**
  * SCOPE.GRANT.CLOSED
  * Proposal targets a path/recipient/domain/tool that is not in the session's granted scope.
- * Violations are grantable: executor must ledger blocked + emit NSL "open this and make it law? yes/no".
+ * Violations are grantable: executor must ledger blocked + emit bodyguard "open this and make it law? yes/no".
  */
 export function createScopeGrantSkill(): LawSkill {
   return {

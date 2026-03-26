@@ -13,12 +13,12 @@ import type {
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
   BoundaryLawResult,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export type BoundaryEvaluation = {
   result: BoundaryLawResult;
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
 };
 
 export type OpenPathResult = {
@@ -266,8 +266,8 @@ export async function evaluateBoundaryAction(
     createdAt: new Date().toISOString(),
   });
 
-  for (const move of adjudication.nslMoves) {
-    await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
+  for (const move of adjudication.bodyguardMoves) {
+    await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
       sessionId: activeConfig.session.sessionId,
       actorId: activeConfig.session.actorId,
       requestId: request.requestId,

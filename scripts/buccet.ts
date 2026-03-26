@@ -1253,7 +1253,7 @@ async function handleConsole() {
   console.log(`    deny-law <id>      — deny as standing law`);
   console.log(`    laws               — list active scope laws for this session`);
   console.log(`    unblock [prov]     — show or clear a standing ingress block`);
-  console.log(`    nsl [n]            — list or select a pending NSL move`);
+  console.log(`    nsl [n]            — list or select a pending bodyguard move`);
   console.log(`    status             — session status`);
   console.log(`    logs [n]           — last n ledger entries (default 10)`);
   console.log(`    feed               — toggle live event feed on/off`);
@@ -1273,7 +1273,7 @@ async function handleConsole() {
     target: string;
     reason: string;
     lawIds: string[];
-    nslMoves: Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+    bodyguardMoves: Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
     memberCount: number;
     waitingCount: number;
   }> = [];
@@ -1283,7 +1283,7 @@ async function handleConsole() {
   let lastSeenCount = 0;
   // Standing blocked provenances observed this session (from feed).
   const blockedProvenances = new Set<string>();
-  // Pending NSL move suggestions from the live feed.
+  // Pending bodyguard move suggestions from the live feed.
   const nslSuggestions: Array<{ reason: string; timestamp: string }> = [];
 
   // Format a notable ledger event for the live feed. Returns null for noisy events.
@@ -1338,9 +1338,9 @@ async function handleConsole() {
     if (et === "INGRESS_DENSITY_TRIP")     return `  ✗ DENSITY TRIP     ${String(meta["provenance"] ?? target)}`;
     if (et === "INGRESS_MASS_TRIP")        return `  ✗ MASS TRIP        ${String(meta["provenance"] ?? target)}`;
     if (et === "INGRESS_DENIED")           return `  ✗ INGRESS DENIED   ${target}`;
-    if (et === "NSL_GRANT_OFFERED")        return `  → NSL OFFER        ${action} → ${target}`;
-    if (et === "NSL_MOVE_SUGGESTED")       return `  → NSL MOVE         ${reason}`;
-    if (et === "NSL_MOVE_CHOSEN")          return `  ✓ NSL CHOSEN       ${reason}`;
+    if (et === "BODYGUARD_GRANT_OFFERED")        return `  → BODYGUARD OFFER        ${action} → ${target}`;
+    if (et === "BODYGUARD_MOVE_SUGGESTED")       return `  → BODYGUARD MOVE         ${reason}`;
+    if (et === "BODYGUARD_MOVE_CHOSEN")          return `  ✓ BODYGUARD CHOSEN       ${reason}`;
     if (et === "UPL_ALLOW_RECORDED")       return `  ⚑ UPL ALLOW LAW    ${target}`;
     if (et === "UPL_DENY_RECORDED")        return `  ⚑ UPL DENY LAW     ${target}`;
     if (et === "USER_CONFIRMED_DENY")      return `  ✗ USER DENY        ${target}`;
@@ -1366,8 +1366,8 @@ async function handleConsole() {
           const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
           if (prov && prov !== "-") blockedProvenances.add(prov);
         }
-        // Track NSL move suggestions for `nsl` command.
-        if (et === "NSL_MOVE_SUGGESTED") {
+        // Track bodyguard move suggestions for `nsl` command.
+        if (et === "BODYGUARD_MOVE_SUGGESTED") {
           nslSuggestions.push({ reason: record.DECISION.reason ?? "", timestamp: String(record.META.timestamp ?? "") });
           if (nslSuggestions.length > 20) nslSuggestions.shift();
         }
@@ -1396,13 +1396,13 @@ async function handleConsole() {
         if (reportedGroupIds.has(group.groupId)) continue;
         reportedGroupIds.add(group.groupId);
         console.log(``);
-        const nslMoves = (group.nslMoves ?? []) as Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
-        const isNslGrantOffer = nslMoves.some((m) => m.kind === "open_as_law");
-        const openAsLawMove = nslMoves.find((m) => m.kind === "open_as_law");
+        const bodyguardMoves = (group.bodyguardMoves ?? []) as Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+        const isBodyguardGrantOffer = bodyguardMoves.some((m) => m.kind === "open_as_law");
+        const openAsLawMove = bodyguardMoves.find((m) => m.kind === "open_as_law");
 
-        if (isNslGrantOffer && openAsLawMove) {
-          // NSL grant offer — show the full negotiation surface
-          console.log(`  ╔═ NSL GRANT OFFER ═════════════════════════════════════════════════╗`);
+        if (isBodyguardGrantOffer && openAsLawMove) {
+          // bodyguard grant offer — show the full negotiation surface
+          console.log(`  ╔═ BODYGUARD GRANT OFFER ═════════════════════════════════════════════════╗`);
           console.log(`  ║  ${openAsLawMove.title}`);
           console.log(`  ║  ${openAsLawMove.description}`);
           console.log(`  ║`);
@@ -1662,43 +1662,43 @@ async function handleConsole() {
             // User picked a move by index (1-based).
             const pick = nslSuggestions[indexArg - 1];
             if (!pick) {
-              console.log(`  No NSL suggestion at index ${indexArg}. Use 'nsl' to list.`);
+              console.log(`  No bodyguard move suggestion at index ${indexArg}. Use 'nsl' to list.`);
               rl.prompt();
               return;
             }
-            // NSL move selection maps to the corresponding waiting swarm group.
+            // Bodyguard move selection maps to the corresponding waiting swarm group.
             // Find a waiting group whose reason matches the suggestion.
             const match = currentWaitingGroups.find((g) => g.reason === pick.reason);
             if (match) {
               const out = await boundary.sendBoundaryInterceptServerInput({
                 target: interceptTarget,
-                input: { command: "swarm_approve", groupId: match.groupId, issuedBy: config.actorId, reason: `console: nsl pick ${indexArg}` },
+                input: { command: "swarm_approve", groupId: match.groupId, issuedBy: config.actorId, reason: `console: bodyguard pick ${indexArg}` },
               });
               if (out.type === "error") {
                 console.log(`  Error: ${out.error}`);
               } else {
                 nslSuggestions.splice(indexArg - 1, 1);
                 reportedGroupIds.delete(match.groupId);
-                console.log(`  NSL move ${indexArg} selected — ${pick.reason}`);
+                console.log(`  bodyguard move ${indexArg} selected — ${pick.reason}`);
               }
             } else {
-              console.log(`  No matching intercept group for NSL move ${indexArg}.`);
+              console.log(`  No matching intercept group for bodyguard move ${indexArg}.`);
               console.log(`  Use allow/deny <group-id> if the group is still pending.`);
             }
             rl.prompt();
             return;
           }
-          // Show pending NSL suggestions.
+          // Show pending bodyguard suggestions.
           console.log(``);
           if (nslSuggestions.length === 0) {
-            console.log(`  No pending NSL move suggestions.`);
+            console.log(`  No pending bodyguard move suggestions.`);
           } else {
-            console.log(`  Pending NSL move suggestions:`);
+            console.log(`  Pending bodyguard move suggestions:`);
             for (let i = 0; i < nslSuggestions.length; i++) {
               const s = nslSuggestions[i];
               console.log(`  [${i + 1}] ${s.reason}  (${s.timestamp})`);
             }
-            console.log(`  Use: nsl <n>  to select a move`);
+            console.log(`  Use: nsl <n>  to select a bodyguard move`);
           }
           console.log(``);
           rl.prompt();

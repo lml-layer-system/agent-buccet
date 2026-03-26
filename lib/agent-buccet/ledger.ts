@@ -82,7 +82,7 @@ const LIOPE_MATERIAL_EVENTS = new Set<BoundaryLedgerEventType>([
   "ACTION_PROPOSED", "DECISION_RETURNED",
   "ACTION_BLOCKED", "ACTION_EXECUTED",
   "APPROVAL_REQUESTED", "APPROVAL_GRANTED", "APPROVAL_DENIED",
-  "NSL_GRANT_OFFERED", "NSL_MOVE_SUGGESTED", "NSL_MOVE_CHOSEN",
+  "BODYGUARD_GRANT_OFFERED", "BODYGUARD_MOVE_SUGGESTED", "BODYGUARD_MOVE_CHOSEN",
   "USER_CONFIRMED_DENY",
   "PROPOSAL_REPLAYED",
   "GOVERNOR_TRIP",
@@ -318,7 +318,7 @@ function decisionToVerdict(decision?: BoundaryDecision): BoundaryLedgerDecisionV
 }
 
 function defaultDecisionForEvent(eventType: BoundaryLedgerEventType): BoundaryLedgerDecisionVerdict {
-  if (eventType === "APPROVAL_REQUESTED" || eventType === "NSL_GRANT_OFFERED") {
+  if (eventType === "APPROVAL_REQUESTED" || eventType === "BODYGUARD_GRANT_OFFERED") {
     return "PENDING";
   }
   if (eventType === "ACTION_EXECUTED" || eventType === "SESSION_STARTED" || eventType === "SESSION_RESTORED") {
@@ -351,7 +351,7 @@ function defaultOutcomeForEvent(eventType: BoundaryLedgerEventType): BoundaryLed
   ) {
     return "BLOCKED";
   }
-  if (eventType === "APPROVAL_REQUESTED" || eventType === "NSL_GRANT_OFFERED") {
+  if (eventType === "APPROVAL_REQUESTED" || eventType === "BODYGUARD_GRANT_OFFERED") {
     return "WAITING";
   }
   return "QUEUED";
