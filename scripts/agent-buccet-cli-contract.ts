@@ -21,26 +21,31 @@ const scriptPath = await (async () => {
   throw new Error("unable to locate buccet CLI script");
 })();
 
-function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string; code: number | null }> {
+function runCli(args: string[], env: NodeJS.ProcessEnv, stdinInput?: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], {
       cwd: repoRoot,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [stdinInput !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
     });
 
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk) => {
+    child.stdout?.on("data", (chunk) => {
       stdout += chunk.toString();
     });
-    child.stderr.on("data", (chunk) => {
+    child.stderr?.on("data", (chunk) => {
       stderr += chunk.toString();
     });
     child.on("error", reject);
     child.on("close", (code) => {
       resolve({ stdout, stderr, code });
     });
+
+    if (stdinInput !== undefined) {
+      child.stdin!.write(stdinInput);
+      child.stdin!.end();
+    }
   });
 }
 
@@ -81,6 +86,14 @@ async function main() {
   const scopes = JSON.parse(scopeListResult.stdout) as Array<{ rootPath: string }>;
   assert.ok(scopes.some((scope) => scope.rootPath === workspacePath));
 
+  const doctorResult = await runCli(["doctor"], env);
+  assert.equal(doctorResult.code, 0, doctorResult.stderr);
+  assert.match(doctorResult.stdout, /Doctor/);
+
+  const consoleResult = await runCli(["console"], env, "quit\n");
+  assert.equal(consoleResult.code, 0, consoleResult.stderr);
+  assert.match(consoleResult.stdout, /Bodyguard Console/);
+
   const runResult = await runCli(["run", "--", "/bin/echo", "protected"], env);
   assert.equal(runResult.code, 0, runResult.stderr);
   assert.match(runResult.stdout, /exit code: 0/);
@@ -97,6 +110,8 @@ async function main() {
 
   console.log(`cli status scopes: ${status.scopes.length}`);
   console.log(`cli log tail: ${logs.length}`);
+  console.log(`cli doctor: ok`);
+  console.log(`cli console: ok`);
 }
 
 main().catch((error) => {

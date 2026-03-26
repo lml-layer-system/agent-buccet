@@ -1251,6 +1251,9 @@ async function handleConsole() {
   console.log(`    deny <id>          — deny once`);
   console.log(`    law <id>           — allow as standing law`);
   console.log(`    deny-law <id>      — deny as standing law`);
+  console.log(`    laws               — list active scope laws for this session`);
+  console.log(`    unblock [prov]     — show or clear a standing ingress block`);
+  console.log(`    nsl [n]            — list or select a pending NSL move`);
   console.log(`    status             — session status`);
   console.log(`    logs [n]           — last n ledger entries (default 10)`);
   console.log(`    feed               — toggle live event feed on/off`);
@@ -1277,10 +1280,14 @@ async function handleConsole() {
   let feedEnabled = true;
   // Ledger position — seeded to current length so we don't replay old events on startup.
   let lastSeenCount = 0;
+  // Standing blocked provenances observed this session (from feed).
+  const blockedProvenances = new Set<string>();
+  // Pending NSL move suggestions from the live feed.
+  const nslSuggestions: Array<{ reason: string; timestamp: string }> = [];
 
   // Format a notable ledger event for the live feed. Returns null for noisy events.
   function formatLedgerEvent(record: {
-    META: { event_type: string; metadata?: Record<string, unknown> };
+    META: { event_type: string; timestamp?: string; metadata?: Record<string, unknown> };
     INPUT: { action?: string; target?: string };
     DECISION: { reason?: string };
   }): string | null {
@@ -1343,7 +1350,6 @@ async function handleConsole() {
   }
 
   async function pollLedger() {
-    if (!feedEnabled) return;
     try {
       // config is guaranteed non-null — checked at function entry before pollLedger is defined.
       const sessionId = (config as NonNullable<typeof config>).sessionId;
@@ -1351,9 +1357,23 @@ async function handleConsole() {
       if (records.length <= lastSeenCount) return;
       const newRecords = records.slice(lastSeenCount);
       lastSeenCount = records.length;
-      for (const record of newRecords) {
-        const line = formatLedgerEvent(record as Parameters<typeof formatLedgerEvent>[0]);
-        if (line) console.log(line);
+      for (const record of newRecords as Parameters<typeof formatLedgerEvent>[0][]) {
+        const et = record.META.event_type;
+        const meta = record.META.metadata ?? {};
+        // Track standing ingress blocks for `unblock` command.
+        if (et === "INGRESS_PROVENANCE_BLOCKED" || et === "INGRESS_STANDING_LAW_WRITTEN") {
+          const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
+          if (prov && prov !== "-") blockedProvenances.add(prov);
+        }
+        // Track NSL move suggestions for `nsl` command.
+        if (et === "NSL_MOVE_SUGGESTED") {
+          nslSuggestions.push({ reason: record.DECISION.reason ?? "", timestamp: String(record.META.timestamp ?? "") });
+          if (nslSuggestions.length > 20) nslSuggestions.shift();
+        }
+        if (feedEnabled) {
+          const line = formatLedgerEvent(record);
+          if (line) console.log(line);
+        }
       }
     } catch { /* silent */ }
   }
@@ -1546,6 +1566,114 @@ async function handleConsole() {
 
         if (cmd === "doctor") {
           await handleDoctor();
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "laws") {
+          const sessionState = await boundary.loadBoundarySessionState({
+            sessionId: config.sessionId,
+            sessionsDir: home.sessionsDir,
+          });
+          const pathLaws = (sessionState?.pathLaws ?? []).filter(
+            (l: { revokedAt?: string }) => !l.revokedAt,
+          );
+          console.log(``);
+          console.log(`  Active scope laws — ${config.sessionId}`);
+          console.log(`  ─────────────────────────────────────`);
+          if (pathLaws.length === 0) {
+            console.log(`  No active path laws.`);
+          } else {
+            for (const law of pathLaws) {
+              const l = law as { lawId: string; rootPath: string; grantedActions: string[]; issuedBy: string };
+              console.log(`  ${l.lawId}`);
+              console.log(`    path:    ${l.rootPath}`);
+              console.log(`    actions: ${l.grantedActions.join(", ")}`);
+              console.log(`    issued:  ${l.issuedBy}`);
+            }
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "unblock") {
+          if (!arg1) {
+            console.log(``);
+            if (blockedProvenances.size === 0) {
+              console.log(`  No standing ingress blocks recorded this session.`);
+            } else {
+              console.log(`  Standing ingress blocks this session:`);
+              for (const prov of blockedProvenances) {
+                console.log(`    ${prov}`);
+              }
+              console.log(`  Use: unblock <provenance>`);
+            }
+            console.log(``);
+            rl.prompt();
+            return;
+          }
+          // Restart the intercept daemon — this clears all in-memory admission state
+          // including standing density/velocity deny entries.
+          try {
+            await boundary.sendBoundaryInterceptServerInput({
+              target: interceptTarget,
+              input: { command: "restart", reason: `console: unblock ${arg1}` } as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+            });
+            blockedProvenances.delete(arg1);
+            console.log(`  Intercept restarted — admission state cleared for '${arg1}'.`);
+          } catch {
+            console.log(`  Intercept daemon unreachable. Run 'buccet hook start' first.`);
+          }
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "nsl") {
+          const indexArg = arg1 ? Number(arg1) : NaN;
+          if (!isNaN(indexArg) && nslSuggestions.length > 0) {
+            // User picked a move by index (1-based).
+            const pick = nslSuggestions[indexArg - 1];
+            if (!pick) {
+              console.log(`  No NSL suggestion at index ${indexArg}. Use 'nsl' to list.`);
+              rl.prompt();
+              return;
+            }
+            // NSL move selection maps to the corresponding waiting swarm group.
+            // Find a waiting group whose reason matches the suggestion.
+            const match = currentWaitingGroups.find((g) => g.reason === pick.reason);
+            if (match) {
+              const out = await boundary.sendBoundaryInterceptServerInput({
+                target: interceptTarget,
+                input: { command: "swarm_approve", groupId: match.groupId, issuedBy: config.actorId, reason: `console: nsl pick ${indexArg}` },
+              });
+              if (out.type === "error") {
+                console.log(`  Error: ${out.error}`);
+              } else {
+                nslSuggestions.splice(indexArg - 1, 1);
+                reportedGroupIds.delete(match.groupId);
+                console.log(`  NSL move ${indexArg} selected — ${pick.reason}`);
+              }
+            } else {
+              console.log(`  No matching intercept group for NSL move ${indexArg}.`);
+              console.log(`  Use allow/deny <group-id> if the group is still pending.`);
+            }
+            rl.prompt();
+            return;
+          }
+          // Show pending NSL suggestions.
+          console.log(``);
+          if (nslSuggestions.length === 0) {
+            console.log(`  No pending NSL move suggestions.`);
+          } else {
+            console.log(`  Pending NSL move suggestions:`);
+            for (let i = 0; i < nslSuggestions.length; i++) {
+              const s = nslSuggestions[i];
+              console.log(`  [${i + 1}] ${s.reason}  (${s.timestamp})`);
+            }
+            console.log(`  Use: nsl <n>  to select a move`);
+          }
+          console.log(``);
           rl.prompt();
           return;
         }
