@@ -290,6 +290,27 @@ export type BoundaryLawResult = {
   reason: string;
   triggeredLawIds: string[];
   requiresApproval: boolean;
+  /** Set when this allow/require_approval result came from a UPL entry that has a track constraint. */
+  uplTrackId?: string;
+  /** Set when the UPL entry was found (allow) but the track constraint rejected the request. */
+  uplTrackViolated?: true;
+};
+
+/**
+ * A track constraint auto-bound to a UPL approved-law entry when the user chooses allow_as_law.
+ * Narrows execution to the exact specialist corridor that was approved — prevents the model
+ * from reopening general agency after law is set.
+ */
+export type BoundaryUplTrackConstraint = {
+  /** Only these action kinds are lawful within this track. */
+  allowedActionKinds: BoundaryActionKind[];
+  /**
+   * Required prefix (or exact value) for the target string.
+   * Absent means any target is permitted as long as actionKind matches.
+   */
+  targetPattern?: string;
+  /** Human-readable description of the corridor. */
+  description: string;
 };
 
 export type BoundaryLaw = {
@@ -363,6 +384,8 @@ export type BoundaryLedgerEventType =
   | "APPROVAL_DENIED"
   | "UPL_ALLOW_RECORDED"
   | "UPL_DENY_RECORDED"
+  | "UPL_TRACK_ACTIVATED"
+  | "UPL_TRACK_VIOLATED"
   | "ACTION_EXECUTED"
   | "ACTION_BLOCKED"
   | "BODYGUARD_GRANT_OFFERED"
@@ -535,6 +558,12 @@ export type BoundaryUplEntry = {
   notes?: string | null;
   sessionId?: string;
   domain?: string;
+  /**
+   * UPL Track corridor: present on GLOBAL/SESSION-scoped approved entries.
+   * Constrains execution to the exact specialist corridor that was approved.
+   * Absent on DOMAIN-scoped entries and denied entries.
+   */
+  trackConstraint?: BoundaryUplTrackConstraint;
 };
 
 export type BoundaryUserPathLedger = {

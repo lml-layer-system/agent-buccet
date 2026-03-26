@@ -1053,6 +1053,26 @@ export async function runBoundaryControlledAction<T>(args: {
   }
 
   while (adjudication.result.decision === "require_approval") {
+    // When the require_approval was triggered by a UPL track corridor violation,
+    // ledger the event so the operator can see which corridor was exited and why.
+    if (adjudication.result.uplTrackViolated) {
+      await appendBoundaryLedger("UPL_TRACK_VIOLATED", {
+        sessionId: activeConfig.session.sessionId,
+        actorId: activeConfig.session.actorId,
+        requestId: activeRequest.requestId,
+        actionKind: activeRequest.actionKind,
+        target: activeRequest.target,
+        reason: adjudication.result.reason,
+        lawIds: adjudication.result.triggeredLawIds,
+        metadata: {
+          ...(adjudication.result.uplTrackId
+            ? { upl_entry_id: adjudication.result.uplTrackId }
+            : {}),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     const approvalResult = await requestApproval(
       activeConfig,
       {

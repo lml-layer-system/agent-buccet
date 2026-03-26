@@ -12,6 +12,7 @@ import type {
   BoundaryUplStatus,
   BoundaryUserPathLedger,
 } from "./types.ts";
+import { buildAutoTrackConstraint, checkTrackConstraint } from "./upl-tracks.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const UPL_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "user-path-ledger.json");
@@ -222,6 +223,32 @@ export function lookupUserPathDecision(args: {
   return winner ? { entry: winner.entry, decision: winner.decision } : null;
 }
 
+/**
+ * Fallback lookup for requests that do not have an exact UPL pathHash match.
+ * Scans active approved entries whose trackConstraint covers the incoming
+ * actionKind. Returns the first match found with a allow/track-violation verdict.
+ *
+ * This enables track corridors to admit requests with different payloadSummaries
+ * (or slightly different targets) that still fall inside the approved corridor.
+ */
+export function lookupUserPathTrackDecision(args: {
+  ledger: BoundaryUserPathLedger;
+  session: BoundarySession;
+  request: BoundaryActionRequest;
+}): { entry: BoundaryUplEntry; decision: "allow" | "track_violation"; violation?: string } | null {
+  for (const entry of args.ledger.userApprovedLawPaths) {
+    if (!isEntryActiveForSession(entry, args.session)) continue;
+    if (!entry.trackConstraint) continue;
+    if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
+    const violation = checkTrackConstraint(entry.trackConstraint, args.request);
+    if (violation) {
+      return { entry, decision: "track_violation", violation };
+    }
+    return { entry, decision: "allow" };
+  }
+  return null;
+}
+
 function normalizeScope(args: {
   decision?: BoundaryApprovalDecision;
   defaultScope?: BoundaryUplScope;
@@ -250,6 +277,13 @@ function createEntry(args: {
   decision?: BoundaryApprovalDecision;
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
+  // Attach a track constraint to GLOBAL/SESSION-scoped approved entries.
+  // DOMAIN-scoped entries already coarse-grain the corridor via domain; no track needed.
+  // Denied entries have no execution corridor.
+  const trackConstraint =
+    args.type === "APPROVED" && scope !== "DOMAIN"
+      ? buildAutoTrackConstraint(args.request)
+      : undefined;
   return {
     id: makeEntryId(args.ledger),
     type: args.type,
@@ -263,6 +297,7 @@ function createEntry(args: {
     notes: args.decision?.notes ?? null,
     ...(scope === "SESSION" ? { sessionId: args.session.sessionId } : {}),
     ...(scope === "DOMAIN" ? { domain: args.decision?.domain ?? classifyUserPathDomain(args.request) } : {}),
+    ...(trackConstraint ? { trackConstraint } : {}),
   };
 }
 

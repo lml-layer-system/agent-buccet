@@ -8,9 +8,11 @@ import { evaluateBoundaryLaws } from "./laws.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
+  lookupUserPathTrackDecision,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
 } from "./user-path-ledger.ts";
+import { checkTrackConstraint } from "./upl-tracks.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -59,20 +61,72 @@ export function resolveBodyguardStandingLaw(args: {
     : null;
 
   if (!standingUserLaw) {
+    // No exact UPL pathHash match. Check if any active approved entry has a
+    // track corridor that covers this request's actionKind family.
+    if (args.config.upl) {
+      const trackMatch = lookupUserPathTrackDecision({
+        ledger: args.config.upl,
+        session: args.config.session,
+        request: args.request,
+      });
+      if (trackMatch) {
+        const triggeredLawIds = [
+          trackMatch.entry.id,
+          ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
+        ];
+        if (trackMatch.decision === "track_violation") {
+          return {
+            decision: "require_approval",
+            reason: `action exits approved execution corridor: ${trackMatch.violation}`,
+            triggeredLawIds,
+            requiresApproval: true,
+            uplTrackId: trackMatch.entry.id,
+            uplTrackViolated: true,
+          };
+        }
+        return {
+          decision: "allow",
+          reason: `allowed by UPL track corridor ${trackMatch.entry.id}`,
+          triggeredLawIds,
+          requiresApproval: false,
+          uplTrackId: trackMatch.entry.id,
+        };
+      }
+    }
     return null;
   }
 
   if (standingUserLaw.decision === "allow") {
+    const entry = standingUserLaw.entry;
+    const triggeredLawIds = [
+      entry.id,
+      ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
+    ];
+
+    // UPL Track enforcement: if this entry has a track constraint, validate the
+    // incoming request against it. A violation means the model is trying to exit the
+    // approved execution corridor — surface as require_approval so Terminal 2 can
+    // consciously expand the corridor if the user intends that.
+    if (entry.trackConstraint) {
+      const trackViolation = checkTrackConstraint(entry.trackConstraint, args.request);
+      if (trackViolation) {
+        return {
+          decision: "require_approval",
+          reason: `action exits approved execution corridor: ${trackViolation}`,
+          triggeredLawIds,
+          requiresApproval: true,
+          uplTrackId: entry.id,
+          uplTrackViolated: true,
+        };
+      }
+    }
+
     return {
       decision: "allow",
-      reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
-      triggeredLawIds: [
-        standingUserLaw.entry.id,
-        ...(
-          args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []
-        ),
-      ],
+      reason: `allowed by standing UPL approval ${entry.id}`,
+      triggeredLawIds,
       requiresApproval: false,
+      uplTrackId: entry.trackConstraint ? entry.id : undefined,
     };
   }
 
@@ -290,6 +344,7 @@ export async function applyBodyguardUserLawDecision(args: {
       session: args.config.session,
       decision: args.decision,
     });
+    const newEntry = upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1];
     await appendBoundaryLedger("UPL_ALLOW_RECORDED", {
       sessionId: args.config.session.sessionId,
       actorId: args.config.session.actorId,
@@ -298,13 +353,34 @@ export async function applyBodyguardUserLawDecision(args: {
       target: args.request.target,
       decision: "allow",
       reason: "user recorded standing UPL approval",
-      lawIds: [upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1]?.id].filter(Boolean),
+      lawIds: [newEntry?.id].filter(Boolean),
       metadata: {
         witness_record: args.witness.META.id,
         upl_scope: args.decision.scope ?? "GLOBAL",
       },
       createdAt: new Date().toISOString(),
     });
+    // If a track corridor was auto-bound to this entry, ledger its activation.
+    if (newEntry?.trackConstraint) {
+      await appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        requestId: args.request.requestId,
+        actionKind: args.request.actionKind,
+        target: args.request.target,
+        reason: `UPL track corridor bound: ${newEntry.trackConstraint.description}`,
+        lawIds: [newEntry.id],
+        metadata: {
+          upl_entry_id: newEntry.id,
+          track_description: newEntry.trackConstraint.description,
+          track_allowed_kinds: newEntry.trackConstraint.allowedActionKinds.join(","),
+          ...(newEntry.trackConstraint.targetPattern
+            ? { track_target_pattern: newEntry.trackConstraint.targetPattern }
+            : {}),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
   } else if (choice === "deny_as_law") {
     upl = await writeDeniedUserPathLaw({
       ledger: upl,

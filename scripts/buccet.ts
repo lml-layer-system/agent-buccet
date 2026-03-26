@@ -1424,6 +1424,7 @@ async function handleConsole() {
   console.log(`    canyon [prov]      — inspect ingress control state or list all`);
   console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
   console.log(`    laws               — list active scope laws for this session`);
+  console.log(`    tracks             — list active UPL track corridors`);
   console.log(`    nsl [n]            — list or select a pending bodyguard move`);
   console.log(`    status             — session status`);
   console.log(`    logs [n]           — last n ledger entries (default 10)`);
@@ -1945,6 +1946,32 @@ async function handleConsole() {
               console.log(`    path:    ${l.rootPath}`);
               console.log(`    actions: ${l.grantedActions.join(", ")}`);
               console.log(`    issued:  ${l.issuedBy}`);
+            }
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "tracks") {
+          const upl = await boundary.loadUserPathLedger();
+          const tracked = (upl.userApprovedLawPaths ?? []).filter(
+            (l) => l.status === "ACTIVE" && l.trackConstraint,
+          );
+          console.log(``);
+          console.log(`  Active UPL track corridors`);
+          console.log(`  ─────────────────────────────────────`);
+          if (tracked.length === 0) {
+            console.log(`  No active track corridors.`);
+          } else {
+            for (const entry of tracked) {
+              const tc = entry.trackConstraint!;
+              console.log(`  ${entry.id}  ${tc.description}`);
+              console.log(`    kinds:   ${tc.allowedActionKinds.join(", ")}`);
+              if (tc.targetPattern) {
+                console.log(`    target:  ${tc.targetPattern}`);
+              }
+              console.log(`    scope:   ${entry.scope}`);
             }
           }
           console.log(``);
