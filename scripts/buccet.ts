@@ -339,7 +339,7 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
         input: { command: "status" },
       });
       interceptReachable = status.type === "status";
-      if (interceptReachable) {
+      if (status.type === "status") {
         pendingApprovals = status.swarm?.pending ?? 0;
       }
       const ingress = await boundary.sendBoundaryInterceptServerInput({

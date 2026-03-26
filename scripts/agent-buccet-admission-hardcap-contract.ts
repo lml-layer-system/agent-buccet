@@ -58,6 +58,8 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   };
   return {
     canyonProvenances: {},
+    allowOnceProvenances: {},
+    allowedProvenances: {},
     provenanceRecords: { [provenance]: record },
     hostileDeniedCounts: { [provenance]: deniedCount },
   };

@@ -122,6 +122,8 @@ let dState = initialAdmissionState();
 // Pre-populate a provenance with 3 denied and 2 admitted decisions in its record.
 dState = {
   canyonProvenances: {},
+  allowOnceProvenances: {},
+  allowedProvenances: {},
   provenanceRecords: {
     "session:attacker": {
       requestTimestamps: [1, 2, 3, 4, 5],
