@@ -288,10 +288,7 @@ export function evaluateAdmission(args: {
   // or loosened by density config. Density can promote sooner; it cannot push
   // promotion past WEAK_PROVENANCE_HARD_BLOCK_CEILING for weak provenances.
   if (provenanceStrength === "weak" && existing.totalDeniedCount >= WEAK_PROVENANCE_HARD_BLOCK_CEILING) {
-    const promoted = promoteIfNew(state, provenance, nowMs,
-      `hard block ceiling: ${existing.totalDeniedCount} tarpit decisions for weak provenance (ceiling=${WEAK_PROVENANCE_HARD_BLOCK_CEILING})`,
-      "hard_ceiling",
-    );
+    const promoted = promoteIfNew(state, provenance, "hard_ceiling");
     const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
     return {
       result: {
@@ -316,9 +313,7 @@ export function evaluateAdmission(args: {
 
     if (inWindow >= maxPerWindow) {
       // Density check: has this provenance crossed the deny threshold?
-      const promoted = promoteIfDensityTripped(state, config, existing, provenance, nowMs,
-        `velocity ceiling: ${inWindow} requests in ${windowMs}ms window (max ${maxPerWindow})`,
-      );
+      const promoted = promoteIfDensityTripped(state, config, existing, provenance);
       const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
       return {
         result: {
@@ -344,9 +339,7 @@ export function evaluateAdmission(args: {
     const maxMass = scaleThreshold(config.mass.maxInboundWeight, provenanceStrength);
 
     if (windowWeight + weight > maxMass) {
-      const promoted = promoteIfDensityTripped(state, config, existing, provenance, nowMs,
-        `mass ceiling: inbound weight ${windowWeight} + ${weight} > ${maxMass}`,
-      );
+      const promoted = promoteIfDensityTripped(state, config, existing, provenance);
       const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
       return {
         result: {
@@ -372,10 +365,7 @@ export function evaluateAdmission(args: {
       const maxRatio = config.density.maxDenyRatio / (provenanceStrength === "weak" ? 2 : provenanceStrength === "strong" ? 1 : 1);
 
       if (ratio >= maxRatio) {
-        const promoted = promoteIfNew(state, provenance, nowMs,
-          `density: ${Math.round(ratio * 100)}% denied in last ${recent.length} inputs`,
-          "density",
-        );
+        const promoted = promoteIfNew(state, provenance, "density");
         const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
         return {
           result: {
@@ -409,8 +399,6 @@ export function evaluateAdmission(args: {
 function promoteIfNew(
   state: BoundaryAdmissionState,
   provenance: string,
-  nowMs: number,
-  reason: string,
   kind: "density" | "hard_ceiling" = "density",
 ): { isNew: boolean; kind: "density" | "hard_ceiling" } {
   if (state.standingDenyProvenances[provenance]) {
@@ -426,8 +414,6 @@ function promoteIfDensityTripped(
   config: BoundaryAdmissionConfig,
   existing: BoundaryProvenanceRecord,
   provenance: string,
-  nowMs: number,
-  reason: string,
 ): { isNew: boolean; kind: "density" | "hard_ceiling" } {
   // Standing-deny promotion is DENSITY-DRIVEN ONLY.
   // Velocity and mass trips tarpit the current request temporarily but do NOT
@@ -444,7 +430,7 @@ function promoteIfDensityTripped(
   const deniedCount = recent.filter((admitted) => !admitted).length;
   const ratio = deniedCount / recent.length;
   if (ratio >= config.density.maxDenyRatio) {
-    return promoteIfNew(state, provenance, nowMs, reason, "density");
+    return promoteIfNew(state, provenance, "density");
   }
   return { isNew: false, kind: "density" };
 }
@@ -491,13 +477,11 @@ function buildUpdatedState(
   if (!wasAdmitted) {
     const prev = nextHostileCounts[provenance] ?? 0;
     if (newDeniedCount > prev) {
-      // Only write when the count genuinely increased (monotone)
-      const maxSize = Object.keys(records).length > 0
-        ? Math.max(Object.keys(records).length, 10_000)
-        : 10_000;
+      // Monotone update only. Size cap matches default provenanceMaxSize so the
+      // hostile history is bounded by the same order-of-magnitude as the record map.
       nextHostileCounts = evictHostileDeniedCounts(
         { ...nextHostileCounts, [provenance]: newDeniedCount },
-        maxSize,
+        10_000,
       );
     }
   }

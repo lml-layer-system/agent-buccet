@@ -58,12 +58,17 @@ const LIOPE_MAX_FILE_SIZE_BYTES = Math.max(
 );
 
 // Material state transitions bypass LIOPE and are written immediately.
-// Only high-volume admission boundary observation events go through the queue.
+// Only five high-volume admission observation events go through the queue:
+//   INGRESS_PROVENANCE_BLOCKED, INGRESS_DENIED, INGRESS_VELOCITY_TRIP,
+//   INGRESS_DENSITY_TRIP, INGRESS_MASS_TRIP.
+// INGRESS_STANDING_LAW_WRITTEN is material (exactly-once standing-deny authority
+// record) and bypasses the queue even though it originates from the admission path.
 //
 // The storm scenario: 10M unique IPs hitting the admission boundary generates
-// 10M INGRESS_* events. Those are the events that must be queued/shed.
-// Action lifecycle events (PROPOSED, DECIDED, BLOCKED, EXECUTED) are material
-// and must be immediately durable — they are the law boundary record.
+// 10M INGRESS_* observation events — those are queued/shed. Each IP gets at most
+// one INGRESS_STANDING_LAW_WRITTEN (material, immediately durable). Action
+// lifecycle events (PROPOSED, DECIDED, BLOCKED, EXECUTED) are material and must
+// be immediately durable — they are the law boundary record.
 const LIOPE_MATERIAL_EVENTS = new Set<BoundaryLedgerEventType>([
   "SESSION_STARTED", "SESSION_RESTORED", "SESSION_PERSISTED", "SESSION_ENDED",
   "PATH_OPENED", "PATH_LAW_INSTANTIATED",
