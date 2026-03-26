@@ -242,7 +242,7 @@ These warnings do not disable the ceiling. They surface config drift at startup 
 | Layer | Role | I/O behavior |
 |---|---|---|
 | Ledger (`INGRESS_CANYON_STATE_WRITTEN`) | Durable exactly-once authority | Written once per hostile provenance on density trip |
-| Standing-deny cache (`canyonProvenances`) | O(1) hot-path enforcement | In-memory, zero I/O |
+| Canyon cache (`canyonProvenances`) | O(1) hot-path enforcement | In-memory, zero I/O |
 
 A flood of N packets from one provenance produces exactly 1 ledger write. The cache absorbs the rest in total silence.
 

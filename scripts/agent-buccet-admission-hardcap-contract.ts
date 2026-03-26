@@ -10,7 +10,7 @@
  *   H3  Hard-ceiling promotion is ledger-visible with promotionKind = "hard_ceiling".
  *   H4  validateAdmissionConfig() returns warnings for unsafe density configs.
  *   H5  Density promotion still fires before the ceiling when config is tight.
- *   H6  Standing-deny cache hit (O(1)) after hard-ceiling promotion —
+ *   H6  Canyon cache hit (O(1)) after hard-ceiling promotion —
  *       promotionKind preserved in state.
  */
 
@@ -59,6 +59,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   return {
     canyonProvenances: {},
     allowOnceProvenances: {},
+    denyOnceProvenances: {},
     allowedProvenances: {},
     provenanceRecords: { [provenance]: record },
     hostileDeniedCounts: { [provenance]: deniedCount },

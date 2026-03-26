@@ -156,6 +156,7 @@ export function initialAdmissionState(): BoundaryAdmissionState {
   return {
     canyonProvenances: {},
     allowOnceProvenances: {},
+    denyOnceProvenances: {},
     allowedProvenances: {},
     provenanceRecords: {},
     hostileDeniedCounts: {},
@@ -166,10 +167,46 @@ function normalizeAdmissionState(state: BoundaryAdmissionState): BoundaryAdmissi
   return {
     canyonProvenances: state.canyonProvenances ?? {},
     allowOnceProvenances: state.allowOnceProvenances ?? {},
+    denyOnceProvenances: state.denyOnceProvenances ?? {},
     allowedProvenances: state.allowedProvenances ?? {},
     provenanceRecords: state.provenanceRecords ?? {},
     hostileDeniedCounts: state.hostileDeniedCounts ?? {},
   };
+}
+
+function trimTimedOverrideMap<T extends { grantedAt: number }>(
+  entries: Record<string, T>,
+  maxSize: number,
+): Record<string, T> {
+  const keys = Object.keys(entries);
+  if (keys.length <= maxSize) return entries;
+  const sorted = keys.sort((left, right) => entries[right].grantedAt - entries[left].grantedAt);
+  const kept: Record<string, T> = {};
+  for (const key of sorted.slice(0, maxSize)) {
+    kept[key] = entries[key];
+  }
+  return kept;
+}
+
+function trimCanyonProvenances(
+  entries: BoundaryAdmissionState["canyonProvenances"],
+  maxSize: number,
+): BoundaryAdmissionState["canyonProvenances"] {
+  const keys = Object.keys(entries);
+  if (keys.length <= maxSize) return entries;
+  const sorted = keys.sort((left, right) => {
+    const leftPinned = entries[left].operatorDisposition === "deny_as_law" ? 1 : 0;
+    const rightPinned = entries[right].operatorDisposition === "deny_as_law" ? 1 : 0;
+    if (leftPinned !== rightPinned) {
+      return leftPinned - rightPinned;
+    }
+    return entries[left].canyonedAt - entries[right].canyonedAt;
+  });
+  const next = { ...entries };
+  for (let index = 0; index < sorted.length - maxSize; index += 1) {
+    delete next[sorted[index]];
+  }
+  return next;
 }
 
 function emptyProvenanceRecord(nowMs: number): BoundaryProvenanceRecord {
@@ -263,16 +300,32 @@ export function evaluateAdmission(args: {
   const { config, request, nowMs } = args;
   const { provenance, provenanceStrength, weightClass } = request;
   let state = normalizeAdmissionState(args.state);
+  const maxSize = config.provenanceMaxSize ?? 10_000;
 
   // ── Step 1: operator ingress overrides + O(1) canyon cache ───────────────
-  if (state.allowedProvenances[provenance]) {
+  const denyOnceOverride = state.denyOnceProvenances[provenance];
+  if (denyOnceOverride && denyOnceOverride.remaining > 0) {
+    const nextDenyOnce = { ...state.denyOnceProvenances };
+    if (denyOnceOverride.remaining <= 1) {
+      delete nextDenyOnce[provenance];
+    } else {
+      nextDenyOnce[provenance] = {
+        ...denyOnceOverride,
+        remaining: denyOnceOverride.remaining - 1,
+      };
+    }
     return {
       result: {
-        decision: "admit",
-        reason: `provenance ${provenance} is standing-allowed by Terminal 2`,
+        decision: "tarpit",
+        reason: denyOnceOverride.reason,
+        dimension: "canyon",
+        lawId: "BOUNDARY.ADMISSION.CANYON.01",
         promoted: false,
       },
-      state,
+      state: {
+        ...state,
+        denyOnceProvenances: nextDenyOnce,
+      },
     };
   }
 
@@ -300,6 +353,17 @@ export function evaluateAdmission(args: {
     };
   }
 
+  if (state.allowedProvenances[provenance]) {
+    return {
+      result: {
+        decision: "admit",
+        reason: `provenance ${provenance} is standing-allowed by Terminal 2`,
+        promoted: false,
+      },
+      state,
+    };
+  }
+
   if (state.canyonProvenances[provenance]) {
     return {
       result: {
@@ -314,7 +378,6 @@ export function evaluateAdmission(args: {
   }
 
   // ── Step 2: Eviction + record lookup ─────────────────────────────────────
-  const maxSize = config.provenanceMaxSize ?? 10_000;
   const ttlMs = config.provenanceTtlMs ?? 300_000; // 5 min default
 
   let records = state.provenanceRecords;
@@ -341,7 +404,7 @@ export function evaluateAdmission(args: {
   // promotion past WEAK_PROVENANCE_HARD_BLOCK_CEILING for weak provenances.
   if (provenanceStrength === "weak" && existing.totalDeniedCount >= WEAK_PROVENANCE_HARD_BLOCK_CEILING) {
     const promoted = promoteIfNew(state, provenance, "hard_ceiling");
-    const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
+    const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
     return {
       result: {
         decision: "tarpit",
@@ -366,7 +429,7 @@ export function evaluateAdmission(args: {
     if (inWindow >= maxPerWindow) {
       // Density check: has this provenance crossed the deny threshold?
       const promoted = promoteIfDensityTripped(state, config, existing, provenance);
-      const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
+      const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
       return {
         result: {
           decision: "tarpit",
@@ -392,7 +455,7 @@ export function evaluateAdmission(args: {
 
     if (windowWeight + weight > maxMass) {
       const promoted = promoteIfDensityTripped(state, config, existing, provenance);
-      const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
+      const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
       return {
         result: {
           decision: "tarpit",
@@ -418,7 +481,7 @@ export function evaluateAdmission(args: {
 
       if (ratio >= maxRatio) {
         const promoted = promoteIfNew(state, provenance, "density");
-        const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted);
+        const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
         return {
           result: {
             decision: "tarpit",
@@ -435,7 +498,7 @@ export function evaluateAdmission(args: {
   }
 
   // ── Step 6: Admit ─────────────────────────────────────────────────────────
-  const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, true, { isNew: false, kind: "density" });
+  const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, true, { isNew: false, kind: "density" }, maxSize);
   return {
     result: {
       decision: "admit",
@@ -496,6 +559,7 @@ function buildUpdatedState(
   nowMs: number,
   wasAdmitted: boolean,
   promoted: { isNew: boolean; kind?: "density" | "hard_ceiling" },
+  maxSize: number,
 ): BoundaryAdmissionState {
   const velocityWindowMs = 60_000; // default; caller's config not threaded here — trimmed conservatively
   const newDeniedCount = wasAdmitted ? (existing.totalDeniedCount ?? 0) : (existing.totalDeniedCount ?? 0) + 1;
@@ -539,8 +603,9 @@ function buildUpdatedState(
   }
 
   return {
-    canyonProvenances: nextCanyon,
-    allowOnceProvenances: state.allowOnceProvenances,
+    canyonProvenances: trimCanyonProvenances(nextCanyon, maxSize),
+    allowOnceProvenances: trimTimedOverrideMap(state.allowOnceProvenances, maxSize),
+    denyOnceProvenances: trimTimedOverrideMap(state.denyOnceProvenances, maxSize),
     allowedProvenances: state.allowedProvenances,
     provenanceRecords: { ...records, [provenance]: updatedRecord },
     hostileDeniedCounts: nextHostileCounts,
@@ -571,14 +636,35 @@ export function allowIngressOnce(
   state: BoundaryAdmissionState,
   provenance: string,
 ): BoundaryAdmissionState {
-  const nextCanyon = { ...state.canyonProvenances };
-  delete nextCanyon[provenance];
+  const nextDenyOnce = { ...state.denyOnceProvenances };
+  delete nextDenyOnce[provenance];
   return {
     ...state,
-    canyonProvenances: nextCanyon,
+    denyOnceProvenances: nextDenyOnce,
     allowOnceProvenances: {
       ...state.allowOnceProvenances,
       [provenance]: { grantedAt: Date.now(), remaining: 1 },
+    },
+  };
+}
+
+export function denyIngressOnce(
+  state: BoundaryAdmissionState,
+  provenance: string,
+  reason = `Terminal 2 kept ${provenance} in the canyon once`,
+): BoundaryAdmissionState {
+  const nextAllowOnce = { ...state.allowOnceProvenances };
+  delete nextAllowOnce[provenance];
+  return {
+    ...state,
+    allowOnceProvenances: nextAllowOnce,
+    denyOnceProvenances: {
+      ...state.denyOnceProvenances,
+      [provenance]: {
+        grantedAt: Date.now(),
+        remaining: 1,
+        reason,
+      },
     },
   };
 }
@@ -592,10 +678,13 @@ export function allowIngressAsLaw(
   delete nextCanyon[provenance];
   const nextAllowOnce = { ...state.allowOnceProvenances };
   delete nextAllowOnce[provenance];
+  const nextDenyOnce = { ...state.denyOnceProvenances };
+  delete nextDenyOnce[provenance];
   return {
     ...state,
     canyonProvenances: nextCanyon,
     allowOnceProvenances: nextAllowOnce,
+    denyOnceProvenances: nextDenyOnce,
     allowedProvenances: {
       ...state.allowedProvenances,
       [provenance]: {
@@ -615,10 +704,13 @@ export function denyIngressAsLaw(
   delete nextAllowed[provenance];
   const nextAllowOnce = { ...state.allowOnceProvenances };
   delete nextAllowOnce[provenance];
+  const nextDenyOnce = { ...state.denyOnceProvenances };
+  delete nextDenyOnce[provenance];
   return {
     ...state,
     allowedProvenances: nextAllowed,
     allowOnceProvenances: nextAllowOnce,
+    denyOnceProvenances: nextDenyOnce,
     canyonProvenances: {
       ...state.canyonProvenances,
       [provenance]: {

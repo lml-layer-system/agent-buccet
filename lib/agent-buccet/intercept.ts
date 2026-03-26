@@ -12,6 +12,7 @@ import type {
   BoundaryInputWeightClass,
   BoundaryProvenanceStrength,
   BoundaryRequestProvenance,
+  BoundaryReviewContext,
   BoundaryRuntimeConfig,
   BodyguardMove,
 } from "./types.ts";
@@ -29,6 +30,7 @@ export type BoundaryInterceptRequest = {
   operation: string;
   target: string;
   payloadSummary?: string;
+  reviewContext?: BoundaryReviewContext;
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
@@ -61,6 +63,8 @@ export type BoundaryInterceptSwarmGroup = {
   operation: string;
   target: string;
   reason: string;
+  payloadSummary?: string;
+  reviewContext?: BoundaryReviewContext;
   lawIds: string[];
   bodyguardMoves: BodyguardMove[];
   memberCount: number;
@@ -231,6 +235,7 @@ export async function evaluateBoundaryIntercept(args: {
       actionKind,
       target: args.request.target,
       payloadSummary: args.request.payloadSummary,
+      reviewContext: args.request.reviewContext,
       provenance: args.request.provenance,
       flags: args.request.flags,
     });
@@ -258,6 +263,7 @@ export async function evaluateBoundaryIntercept(args: {
     actionKind,
     target: args.request.target,
     payloadSummary: args.request.payloadSummary,
+    reviewContext: args.request.reviewContext,
     provenance: args.request.provenance,
     flags: args.request.flags,
   });
@@ -330,7 +336,7 @@ export type BoundaryInterceptDaemonOutput =
       requestId: string;
       provenances: Array<{
         provenance: string;
-        state: "canyon" | "allow_once" | "allow_as_law";
+        state: "canyon" | "allow_once" | "deny_once" | "allow_as_law";
         reason: string;
         promotionKind?: "density" | "hard_ceiling";
         operatorDisposition?: "deny_as_law";

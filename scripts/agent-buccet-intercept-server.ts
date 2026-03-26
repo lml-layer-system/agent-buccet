@@ -9,6 +9,7 @@ import {
   createPersistentBoundaryRuntimeStore,
   createBoundarySwarmCoordinator,
   daemonRequestId,
+  denyIngressOnce,
   denyIngressAsLaw,
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
@@ -202,8 +203,53 @@ async function main() {
               const canyonProvenances = admissionState?.canyonProvenances ?? {};
               const hostileDeniedCounts = admissionState?.hostileDeniedCounts ?? {};
               const allowOnce = admissionState?.allowOnceProvenances ?? {};
+              const denyOnce = admissionState?.denyOnceProvenances ?? {};
               const allowed = admissionState?.allowedProvenances ?? {};
+              const seen = new Set<string>();
+              const denyOnceEntries = Object.entries(denyOnce)
+                .filter(([, entry]) => entry.remaining > 0)
+                .map(([provenance, entry]) => ({
+                  provenance,
+                  state: "deny_once" as const,
+                  reason: entry.reason,
+                  seenAt: entry.grantedAt,
+                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
+                  allowOnceRemaining: 0,
+                  standingAllowed: Boolean(allowed[provenance]),
+                }));
+              for (const entry of denyOnceEntries) {
+                seen.add(entry.provenance);
+              }
+              const allowOnceEntries = Object.entries(allowOnce)
+                .filter(([provenance, entry]) => entry.remaining > 0 && !seen.has(provenance))
+                .map(([provenance, entry]) => ({
+                  provenance,
+                  state: "allow_once" as const,
+                  reason: "Terminal 2 released this provenance from canyon once",
+                  seenAt: entry.grantedAt,
+                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
+                  allowOnceRemaining: entry.remaining,
+                  standingAllowed: false,
+                }));
+              for (const entry of allowOnceEntries) {
+                seen.add(entry.provenance);
+              }
+              const allowLawEntries = Object.entries(allowed)
+                .filter(([provenance]) => !seen.has(provenance))
+                .map(([provenance, entry]) => ({
+                  provenance,
+                  state: "allow_as_law" as const,
+                  reason: entry.reason,
+                  seenAt: entry.grantedAt,
+                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
+                  allowOnceRemaining: 0,
+                  standingAllowed: true,
+                }));
+              for (const entry of allowLawEntries) {
+                seen.add(entry.provenance);
+              }
               const canyonEntries = Object.entries(canyonProvenances)
+                .filter(([provenance]) => !seen.has(provenance))
                 .map(([provenance, entry]) => ({
                   provenance,
                   state: "canyon" as const,
@@ -215,30 +261,8 @@ async function main() {
                   deniedCount: hostileDeniedCounts[provenance] ?? 0,
                   allowOnceRemaining: allowOnce[provenance]?.remaining ?? 0,
                   standingAllowed: Boolean(allowed[provenance]),
-                }))
-                .sort((left, right) => right.seenAt - left.seenAt);
-              const allowOnceEntries = Object.entries(allowOnce)
-                .filter(([, entry]) => entry.remaining > 0)
-                .map(([provenance, entry]) => ({
-                  provenance,
-                  state: "allow_once" as const,
-                  reason: "Terminal 2 released this provenance from canyon once",
-                  seenAt: entry.grantedAt,
-                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
-                  allowOnceRemaining: entry.remaining,
-                  standingAllowed: false,
                 }));
-              const allowLawEntries = Object.entries(allowed)
-                .map(([provenance, entry]) => ({
-                  provenance,
-                  state: "allow_as_law" as const,
-                  reason: entry.reason,
-                  seenAt: entry.grantedAt,
-                  deniedCount: hostileDeniedCounts[provenance] ?? 0,
-                  allowOnceRemaining: 0,
-                  standingAllowed: true,
-                }));
-              const provenances = [...canyonEntries, ...allowOnceEntries, ...allowLawEntries]
+              const provenances = [...canyonEntries, ...allowOnceEntries, ...denyOnceEntries, ...allowLawEntries]
                 .sort((left, right) => right.seenAt - left.seenAt);
               writeOutput(socket, {
                 type: "ingress_status",
@@ -348,6 +372,11 @@ async function main() {
                   createdAt: new Date().toISOString(),
                 });
               } else if (parsed.command === "ingress_deny_once") {
+                nextState = denyIngressOnce(
+                  state,
+                  parsed.provenance,
+                  parsed.reason ?? `Terminal 2 kept ${parsed.provenance} in the canyon once`,
+                );
                 await appendBoundaryLedger("INGRESS_DENY_ONCE", {
                   sessionId: current.session.sessionId,
                   actorId: parsed.deniedBy ?? current.session.actorId,
@@ -398,11 +427,10 @@ async function main() {
           const result = await swarm.evaluateOrWait(parsed);
 
           if (result.tarpitActive) {
-            // Canyon behavior for hostile ingress: hold the socket briefly and
-            // then close it without a response so the caller does not get a
-            // fast deny oracle.
-            await new Promise((resolve) => setTimeout(resolve, 1500));
-            socket.end();
+            // Cheap canyon behavior for hostile ingress: drop the payload and
+            // close without a response so the caller gets no approval oracle
+            // and the front line does not retain per-connection state.
+            socket.destroy();
             continue;
           }
 

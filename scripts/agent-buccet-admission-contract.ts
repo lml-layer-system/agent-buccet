@@ -123,6 +123,7 @@ let dState = initialAdmissionState();
 dState = {
   canyonProvenances: {},
   allowOnceProvenances: {},
+  denyOnceProvenances: {},
   allowedProvenances: {},
   provenanceRecords: {
     "session:attacker": {

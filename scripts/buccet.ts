@@ -1421,8 +1421,8 @@ async function handleConsole() {
   console.log(`    deny <id>          — deny once`);
   console.log(`    law <id>           — allow as standing law`);
   console.log(`    deny-law <id>      — deny as standing law`);
-  console.log(`    canyon [prov]      — inspect canyon-held ingress or list all`);
-  console.log(`    canyon <1-4> <prov> — decide a canyon-held ingress provenance`);
+  console.log(`    canyon [prov]      — inspect ingress control state or list all`);
+  console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
   console.log(`    laws               — list active scope laws for this session`);
   console.log(`    nsl [n]            — list or select a pending bodyguard move`);
   console.log(`    status             — session status`);
@@ -1444,6 +1444,20 @@ async function handleConsole() {
     operation: string;
     target: string;
     reason: string;
+    payloadSummary?: string;
+    reviewContext?: {
+      surface: "action" | "chat";
+      title?: string;
+      question?: string;
+      actorLabel?: string;
+      invariantLawId?: string;
+      invariantLabel?: string;
+      userInput?: string;
+      attemptedOutput?: string;
+      attemptLines?: string[];
+      evidence?: string[];
+      violations?: string[];
+    };
     lawIds: string[];
     bodyguardMoves: Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
     memberCount: number;
@@ -1456,9 +1470,9 @@ async function handleConsole() {
   // Canyon-held ingress state observed this session.
   const canyonProvenances = new Set<string>();
   const reportedCanyonProvenances = new Set<string>();
-  let currentCanyonEntries: Array<{
+  let currentIngressEntries: Array<{
     provenance: string;
-    state: "canyon" | "allow_once" | "allow_as_law";
+    state: "canyon" | "allow_once" | "deny_once" | "allow_as_law";
     reason: string;
     promotionKind?: "density" | "hard_ceiling";
     operatorDisposition?: "deny_as_law";
@@ -1468,8 +1482,79 @@ async function handleConsole() {
     allowOnceRemaining: number;
     standingAllowed: boolean;
   }> = [];
-  // Pending bodyguard move suggestions from the live feed.
-  const nslSuggestions: Array<{ reason: string; timestamp: string }> = [];
+  type ConsoleBodyguardSuggestion = {
+    groupId: string;
+    moveId: string;
+    kind: string;
+    title: string;
+    description: string;
+    target?: string;
+  };
+  const nslSuggestions: ConsoleBodyguardSuggestion[] = [];
+
+  function ingressStateLabel(entry: typeof currentIngressEntries[number]): string {
+    if (entry.state === "canyon") {
+      return `canyon-held${entry.promotionKind ? ` [${entry.promotionKind}]` : ""}`;
+    }
+    if (entry.state === "allow_once") {
+      return `allow-once (${entry.allowOnceRemaining} remaining)`;
+    }
+    if (entry.state === "deny_once") {
+      return "deny-once";
+    }
+    return "allow-as-law";
+  }
+
+  function renderBoundaryEventDetails(group: typeof currentWaitingGroups[number]) {
+    const context = group.reviewContext;
+    if (context?.surface === "chat") {
+      if (context.userInput) console.log(`  ║  User input: ${context.userInput}`);
+      if (context.attemptedOutput) console.log(`  ║  Attempted:  ${context.attemptedOutput}`);
+      if (context.evidence?.length) {
+        console.log(`  ║  Evidence:`);
+        for (const line of context.evidence) {
+          console.log(`  ║    - ${line}`);
+        }
+      }
+      if (context.violations?.length) {
+        console.log(`  ║  Violations:`);
+        for (const line of context.violations) {
+          console.log(`  ║    - ${line}`);
+        }
+      }
+      return;
+    }
+
+    const attemptLines = context?.attemptLines ?? (group.payloadSummary ? [group.payloadSummary] : []);
+    if (attemptLines.length) {
+      console.log(`  ║  Attempt:`);
+      for (const line of attemptLines) {
+        console.log(`  ║    ${line}`);
+      }
+    }
+    if (context?.violations?.length) {
+      console.log(`  ║  Violations:`);
+      for (const line of context.violations) {
+        console.log(`  ║    - ${line}`);
+      }
+    }
+  }
+
+  function syncNslSuggestions(waitingGroups: typeof currentWaitingGroups) {
+    nslSuggestions.length = 0;
+    for (const group of waitingGroups) {
+      for (const move of group.bodyguardMoves) {
+        nslSuggestions.push({
+          groupId: group.groupId,
+          moveId: move.moveId,
+          kind: move.kind,
+          title: move.title,
+          description: move.description,
+          target: move.target,
+        });
+      }
+    }
+  }
 
   // Format a notable ledger event for the live feed. Returns null for noisy events.
   function formatLedgerEvent(record: {
@@ -1561,11 +1646,6 @@ async function handleConsole() {
             reportedCanyonProvenances.delete(prov);
           }
         }
-        // Track bodyguard move suggestions for `nsl` command.
-        if (et === "BODYGUARD_MOVE_SUGGESTED") {
-          nslSuggestions.push({ reason: record.DECISION.reason ?? "", timestamp: String(record.META.timestamp ?? "") });
-          if (nslSuggestions.length > 20) nslSuggestions.shift();
-        }
         if (feedEnabled) {
           const line = formatLedgerEvent(record);
           if (line) console.log(line);
@@ -1581,7 +1661,8 @@ async function handleConsole() {
         input: { command: "ingress_status" },
       });
       if (out.type !== "ingress_status") return;
-      currentCanyonEntries = out.provenances.filter((entry) => entry.state === "canyon");
+      currentIngressEntries = out.provenances;
+      const currentCanyonEntries = currentIngressEntries.filter((entry) => entry.state === "canyon");
 
       for (const entry of currentCanyonEntries) {
         canyonProvenances.add(entry.provenance);
@@ -1632,6 +1713,7 @@ async function handleConsole() {
         (g: { state: string; waitingCount: number }) => g.state === "waiting" || g.waitingCount > 0,
       );
       currentWaitingGroups = waitingGroups;
+      syncNslSuggestions(waitingGroups);
 
       for (const group of waitingGroups) {
         if (reportedGroupIds.has(group.groupId)) continue;
@@ -1655,6 +1737,7 @@ async function handleConsole() {
           if (group.lawIds?.length > 0) {
             console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
           }
+          renderBoundaryEventDetails(group);
           console.log(`  ║`);
           console.log(`  ║  1. Allow once     — proceed this time; no law written`);
           console.log(`  ║  2. Open as law    — open scope as standing law; always allowed`);
@@ -1670,6 +1753,7 @@ async function handleConsole() {
             console.log(`  ║`);
             console.log(`  ║  Reason:    ${group.reason}`);
           }
+          renderBoundaryEventDetails(group);
           if (group.lawIds?.length > 0) {
             console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
           }
@@ -1799,7 +1883,7 @@ async function handleConsole() {
           console.log(`  Grants:     ${grants.length}`);
           console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
           console.log(`  Pending:    ${currentWaitingGroups.length} action group(s) waiting`);
-          console.log(`  Canyon:     ${currentCanyonEntries.length} provenance(s) held`);
+          console.log(`  Canyon:     ${currentIngressEntries.filter((entry) => entry.state === "canyon").length} provenance(s) held`);
           console.log(``);
           rl.prompt();
           return;
@@ -1874,16 +1958,16 @@ async function handleConsole() {
           if (!canyonChoice || (canyonChoice !== "1" && canyonChoice !== "2" && canyonChoice !== "3" && canyonChoice !== "4")) {
             const targetProv = cmd === "canyon" ? arg1 : undefined;
             const entries = targetProv
-              ? currentCanyonEntries.filter((entry) => entry.provenance === targetProv)
-              : currentCanyonEntries;
+              ? currentIngressEntries.filter((entry) => entry.provenance === targetProv)
+              : currentIngressEntries;
             console.log(``);
             if (entries.length === 0) {
-              console.log(`  No canyon-held ingress provenances.`);
+              console.log(`  No ingress control entries.`);
             } else {
-              console.log(`  Canyon-held ingress provenances:`);
+              console.log(`  Ingress control entries:`);
               for (const entry of entries) {
                 console.log(`  ${entry.provenance}`);
-                console.log(`    state:    canyon-held [${entry.promotionKind}]`);
+                console.log(`    state:    ${ingressStateLabel(entry)}`);
                 console.log(`    reason:   ${entry.reason}`);
                 console.log(`    pressure: ${entry.deniedCount} tarpit decision(s)`);
                 if (entry.operatorDisposition) {
@@ -1901,9 +1985,9 @@ async function handleConsole() {
             rl.prompt();
             return;
           }
-          const entry = currentCanyonEntries.find((item) => item.provenance === provenanceArg);
+          const entry = currentIngressEntries.find((item) => item.provenance === provenanceArg);
           if (!entry) {
-            console.log(`  No canyon-held ingress provenance '${provenanceArg}'.`);
+            console.log(`  No ingress control entry '${provenanceArg}'.`);
             rl.prompt();
             return;
           }
@@ -1930,7 +2014,7 @@ async function handleConsole() {
           if (out.type === "error") {
             console.log(`  Error: ${out.error}`);
           } else {
-            if (canyonChoice === "1" || canyonChoice === "2") {
+            if (canyonChoice === "1" || canyonChoice === "2" || canyonChoice === "3") {
               canyonProvenances.delete(provenanceArg);
               reportedCanyonProvenances.delete(provenanceArg);
             }
@@ -1944,31 +2028,36 @@ async function handleConsole() {
         if (cmd === "nsl") {
           const indexArg = arg1 ? Number(arg1) : NaN;
           if (!isNaN(indexArg) && nslSuggestions.length > 0) {
-            // User picked a move by index (1-based).
             const pick = nslSuggestions[indexArg - 1];
             if (!pick) {
               console.log(`  No bodyguard move suggestion at index ${indexArg}. Use 'nsl' to list.`);
               rl.prompt();
               return;
             }
-            // Bodyguard move selection maps to the corresponding waiting swarm group.
-            // Find a waiting group whose reason matches the suggestion.
-            const match = currentWaitingGroups.find((g) => g.reason === pick.reason);
-            if (match) {
-              const out = await boundary.sendBoundaryInterceptServerInput({
-                target: interceptTarget,
-                input: { command: "swarm_approve", groupId: match.groupId, issuedBy: config.actorId, reason: `console: bodyguard pick ${indexArg}`, asLaw: true },
-              });
-              if (out.type === "error") {
-                console.log(`  Error: ${out.error}`);
-              } else {
-                nslSuggestions.splice(indexArg - 1, 1);
-                reportedGroupIds.delete(match.groupId);
-                console.log(`  bodyguard move ${indexArg} selected — ${pick.reason}`);
-              }
+            let input: Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"] | null = null;
+            if (pick.kind === "open_as_law" || pick.kind === "open_path") {
+              input = { command: "swarm_approve", groupId: pick.groupId, issuedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: true };
+            } else if (pick.kind.startsWith("grant_")) {
+              input = { command: "swarm_approve", groupId: pick.groupId, issuedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: false };
+            } else if (pick.kind === "deny_and_explain") {
+              input = { command: "swarm_deny", groupId: pick.groupId, deniedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: false };
+            }
+
+            if (!input) {
+              console.log(`  Bodyguard move ${indexArg} is advisory only: ${pick.title}`);
+              console.log(`  Use explicit allow/deny/law/deny-law commands for this group.`);
+              rl.prompt();
+              return;
+            }
+            const out = await boundary.sendBoundaryInterceptServerInput({
+              target: interceptTarget,
+              input,
+            });
+            if (out.type === "error") {
+              console.log(`  Error: ${out.error}`);
             } else {
-              console.log(`  No matching intercept group for bodyguard move ${indexArg}.`);
-              console.log(`  Use allow/deny <group-id> if the group is still pending.`);
+              reportedGroupIds.delete(pick.groupId);
+              console.log(`  bodyguard move ${indexArg} selected — ${pick.title}`);
             }
             rl.prompt();
             return;
@@ -1981,7 +2070,8 @@ async function handleConsole() {
             console.log(`  Pending bodyguard move suggestions:`);
             for (let i = 0; i < nslSuggestions.length; i++) {
               const s = nslSuggestions[i];
-              console.log(`  [${i + 1}] ${s.reason}  (${s.timestamp})`);
+              console.log(`  [${i + 1}] ${s.title}  [${s.kind}]  group=${s.groupId}`);
+              console.log(`      ${s.description}`);
             }
             console.log(`  Use: nsl <n>  to select a bodyguard move`);
           }

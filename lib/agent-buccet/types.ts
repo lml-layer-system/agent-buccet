@@ -189,6 +189,12 @@ export type BoundaryAdmissionState = {
     grantedAt: number;
     remaining: number;
   }>;
+  /** One-shot ingress holds written by Terminal 2. Overrides standing allow once. */
+  denyOnceProvenances: Record<string, {
+    grantedAt: number;
+    remaining: number;
+    reason: string;
+  }>;
   /** Standing ingress allows written by Terminal 2. */
   allowedProvenances: Record<string, {
     grantedAt: number;
