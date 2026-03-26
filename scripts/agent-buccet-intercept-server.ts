@@ -210,6 +210,7 @@ async function main() {
                 groupId: parsed.groupId,
                 issuedBy: parsed.issuedBy ?? store.getConfig().session.actorId,
                 reason: parsed.reason,
+                asLaw: parsed.asLaw,
               });
               if (!approved) {
                 writeOutput(socket, {
@@ -263,6 +264,15 @@ async function main() {
           }
 
           const result = await swarm.evaluateOrWait(parsed);
+
+          if (result.tarpitActive) {
+            // Canyon behavior for hostile ingress: hold the socket briefly and
+            // then close it without a response so the caller does not get a
+            // fast deny oracle.
+            await new Promise((resolve) => setTimeout(resolve, 1500));
+            socket.end();
+            continue;
+          }
 
           writeOutput(socket, {
             type: "decision",

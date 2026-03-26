@@ -32,6 +32,7 @@ export type BoundarySwarmGroup = {
 
 type BoundarySwarmResolution =
   | { kind: "retry" }
+  | { kind: "allow_once"; reason: string }
   | { kind: "deny"; reason: string };
 
 type BoundarySwarmWaiter = {
@@ -290,6 +291,14 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       };
     }
 
+    if (resolution.kind === "allow_once") {
+      return {
+        ...result,
+        decision: "allow",
+        reason: resolution.reason,
+      };
+    }
+
     return evaluateOrWait(request);
   }
 
@@ -308,38 +317,44 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     groupId: string;
     issuedBy: string;
     reason?: string;
+    asLaw?: boolean;
   }) {
     const group = [...pendingGroups.values()].find((entry) => entry.groupId === args.groupId);
     if (!group) {
       return null;
     }
 
-    const grant = approvalGrantShape(group.representative);
-    if (grant.resourceKind === "path") {
-      await store.openPath({
-        rootPath: grant.resourceValue,
-        grantedActions: [grant.actionKind],
-        issuedBy: args.issuedBy,
-      });
-    } else {
-      await store.issueGrant({
-        resourceKind: grant.resourceKind,
-        resourceValue: grant.resourceValue,
-        grantedActions: [grant.actionKind],
-        issuedBy: args.issuedBy,
-      });
+    if (args.asLaw) {
+      const grant = approvalGrantShape(group.representative);
+      if (grant.resourceKind === "path") {
+        await store.openPath({
+          rootPath: grant.resourceValue,
+          grantedActions: [grant.actionKind],
+          issuedBy: args.issuedBy,
+        });
+      } else {
+        await store.issueGrant({
+          resourceKind: grant.resourceKind,
+          resourceValue: grant.resourceValue,
+          grantedActions: [grant.actionKind],
+          issuedBy: args.issuedBy,
+        });
+      }
     }
 
     group.state = "approved";
     group.updatedAt = new Date().toISOString();
     pendingGroups.delete(group.key);
 
+    const approveReason = args.reason ?? (args.asLaw
+      ? "swarm approval granted and lawful scope updated"
+      : "swarm approval granted once without changing standing law");
     const witness = await appendSwarmLedger({
       store,
       eventType: "APPROVAL_GRANTED",
       requestId: requestIdForGroup(group),
       request: group.representative,
-      reason: args.reason ?? "swarm approval granted and lawful scope updated",
+      reason: approveReason,
       lawIds: group.lawIds,
       groupId: group.groupId,
       memberCount: group.memberCount,
@@ -347,7 +362,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       actorId: args.issuedBy,
     });
     const config = store.getConfig();
-    if (config.upl) {
+    if (args.asLaw && config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
       const nextConfig = await recordBodyguardUserLawDecision({
         config,
@@ -359,7 +374,9 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     }
 
     for (const waiter of group.waiters) {
-      waiter.settle({ kind: "retry" });
+      waiter.settle(args.asLaw
+        ? { kind: "retry" }
+        : { kind: "allow_once", reason: approveReason });
     }
     rememberRecent(group);
     return snapshotGroup(group);

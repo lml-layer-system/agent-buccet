@@ -21,7 +21,7 @@ Four kinetic dimensions govern how the agent crosses the action boundary per ses
 
 Maximum boundary crossings per minute.
 
-Agent actions cross the boundary constantly. Without a ceiling, an agent can fire thousands of actions per minute — either as a runaway loop or as a deliberate overwhelm attempt. Velocity applies a sliding-window RPM ceiling. Actions that arrive above the ceiling are denied before law evaluation.
+Agent actions cross the boundary constantly. Without a ceiling, an agent can fire thousands of actions per minute — either as a runaway loop or as a deliberate overwhelm attempt. Velocity applies a sliding-window RPM ceiling. Actions that arrive above the ceiling are frozen and surfaced through Terminal 2 before law evaluation continues.
 
 ```ts
 governorConfig: {
@@ -108,7 +108,7 @@ Weight is not a separate law dimension — it is the cost scale applied when com
 
 ### Fail Behavior
 
-Governor trips before `evaluateBoundaryLaws` is called. No law evaluation, no approval prompt, no execution. The ledger records a `GOVERNOR_TRIP` event with the dimension, law ID, and reason. A `deny_and_explain` recovery move is returned. Fail closed — no fallback, no retry.
+Governor trips before `evaluateBoundaryLaws` is called. Terminal 1 freezes the action, records `GOVERNOR_TRIP`, and surfaces the event through the normal approval path. Terminal 2 still decides the outcome. No execution happens while the event is held. Fail closed — no silent continuation.
 
 ---
 
@@ -276,11 +276,11 @@ The same four kinetic dimensions govern inbound traffic per provenance. All are 
 | Law | Dimension | What it governs | Law ID |
 |---|---|---|---|
 | Velocity | RPM ceiling per provenance per window | Request rate | `BOUNDARY.ADMISSION.VELOCITY.01` |
-| Density | Deny ratio in sliding window → standing deny | Pathological repetition | `BOUNDARY.ADMISSION.DENSITY.01` |
+| Density | Deny ratio in sliding window → canyon promotion | Pathological repetition | `BOUNDARY.ADMISSION.DENSITY.01` |
 | Mass | Inbound weight horizon per provenance per window | Total cost of admitted work | `BOUNDARY.ADMISSION.MASS.01` |
 | Standing Deny | O(1) cache check | Exact provenance match after promotion | `BOUNDARY.ADMISSION.STANDING_DENY.01` |
 
-Velocity and Mass trips tarpit the current request but do **not** promote to standing deny alone — standing deny promotion is density-driven only. The distinction: temporary rate enforcement ≠ permanent ban.
+Velocity and Mass trips tarpit the current request but do **not** promote to canyon cache alone — density is the promotion seam. The distinction: temporary rate enforcement ≠ durable canyon hold.
 
 ### Inbound Weight Table
 
@@ -356,7 +356,7 @@ To activate: supply `admissionConfig` and `admissionState` in `BoundaryRuntimeCo
 
 | Event | When emitted |
 |---|---|
-| `INGRESS_STANDING_LAW_WRITTEN` | Once per hostile provenance at density trip (durable) |
+| `INGRESS_STANDING_LAW_WRITTEN` | Once per hostile provenance at density trip (durable canyon/cache record; not UPL) |
 | `INGRESS_PROVENANCE_BLOCKED` | On each tarpit decision (per-call, not per-packet) |
 | `INGRESS_DENIED` | Reserved for explicit deny path |
 | `INGRESS_VELOCITY_TRIP` | Reserved |
@@ -371,7 +371,7 @@ To activate: supply `admissionConfig` and `admissionState` in `BoundaryRuntimeCo
 INBOUND DIRECTION
   Input Admission Boundary
     ├── Velocity: RPM ceiling per provenance
-    ├── Density: deny ratio → standing deny → O(1) cache
+    ├── Density: deny ratio → canyon promotion → O(1) cache
     ├── Mass: inbound weight horizon
     └── Standing Deny: O(1) cache check — brain never wakes
 

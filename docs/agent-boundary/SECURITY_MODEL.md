@@ -48,10 +48,11 @@ The main Agent Buccet runtime owns:
 1. motion is intercepted at the action boundary
 2. hook freezes it — the action does not execute
 3. **Input Admission Boundary fires** (when `admissionConfig` is configured):
-   - O(1) standing-deny cache check — brain never wakes for known-hostile provenances
+   - O(1) canyon cache check — brain never wakes for known-hostile provenances
    - Bounded provenance density tracking
-   - Velocity / Density / Mass laws for inbound traffic
+   - Velocity / Density / Mass reflex thresholds for inbound traffic
    - Tarpit decision: hold socket, return nothing (not a fast 403/429)
+   - Ledger the event and surface it to Terminal 2
    - Only if admitted → continue
 4. hook signals the Buccet brain that a frozen proposal is waiting
 5. Buccet brain evaluates while the action stays frozen:
@@ -163,7 +164,7 @@ Release flows publish witness checkpoints by default and require explicit break-
 
 ## Resource Governor
 
-The resource governor fires before law evaluation. It is not a law; it is a pre-law rate and volume control layer.
+The resource governor fires before law evaluation. It is not a second government; it is a pre-law kinetic control layer that can hold an event before Bodyguard decides it.
 
 Two tiers:
 

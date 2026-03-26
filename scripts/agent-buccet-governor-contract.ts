@@ -204,20 +204,23 @@ async function runIntegration() {
     ...store.getConfig(),
     governorConfig: { velocity: { maxRpm: 1, windowMs: 60_000 } },
     governorState: seededState,
+    approvalHandler: async () => ({ choice: "deny_once" }),
   });
 
   const bodyguard = createBoundaryBodyguard(store);
 
-  // First enforceProposal: governor pre-check finds 1 crossing in window >= maxRpm 1 → TRIP.
-  // Returns immediately before adjudication — no approval queue hang.
+  // First enforceProposal: governor pre-check finds 1 crossing in window >= maxRpm 1.
+  // The action is held for approval. The contract auto-denies that approval so
+  // the result remains blocked without hanging the approval queue.
   const result = await bodyguard.enforceProposal({
     actionKind: "network.send",
     target: "https://api.example.com/submit",
     successReason: "network send admitted",
   });
 
-  assert(!result.allowed, "governor velocity trip should deny the action");
-  assert(!result.executed, "governor-denied action should not execute");
+  assert(!result.allowed, "governor velocity trip should block the action");
+  assert(!result.executed, "governor-held action should not execute");
+  assert(result.requiresApproval, "governor trip should surface through approval");
   assert(
     result.bodyguardMoves.some((m) => m.kind === "deny_and_explain"),
     "governor trip should produce deny_and_explain move",
@@ -242,5 +245,5 @@ console.log(`velocity trip at crossing 3: ${velTrip.tripped}`);
 console.log(`density trip at 60% failure: ${densTrip.tripped}`);
 console.log(`mass trip at second tool.exec (weight 10): ${massTrip.tripped}`);
 console.log(`empty config no trip: ${!noConfigResult.tripped}`);
-console.log(`integration: governor velocity trip: ${!integration.result.allowed}`);
+console.log(`integration: governor velocity trip held for approval: ${!integration.result.allowed && integration.result.requiresApproval}`);
 console.log(`integration: governor state preserved after trip: ${integration.govStateAfterTrip?.totalWeightedCrossings === 5}`);

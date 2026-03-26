@@ -1513,13 +1513,13 @@ async function handleConsole() {
           const choiceCmd = cmd === "1" ? "allow" : cmd === "2" ? "law" : cmd === "3" ? "deny" : "deny-law";
           let input: Record<string, unknown>;
           if (choiceCmd === "allow") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once" };
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once", asLaw: false };
           } else if (choiceCmd === "law") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law" };
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law", asLaw: true };
           } else if (choiceCmd === "deny-law") {
             input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
           } else {
-            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once" };
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once", asLaw: false };
           }
           const out = await boundary.sendBoundaryInterceptServerInput({
             target: interceptTarget,
@@ -1628,9 +1628,9 @@ async function handleConsole() {
           if (!arg1) {
             console.log(``);
             if (blockedProvenances.size === 0) {
-              console.log(`  No standing ingress blocks recorded this session.`);
+              console.log(`  No canyon-held ingress provenances recorded this session.`);
             } else {
-              console.log(`  Standing ingress blocks this session:`);
+              console.log(`  Canyon-held ingress provenances this session:`);
               for (const prov of blockedProvenances) {
                 console.log(`    ${prov}`);
               }
@@ -1640,15 +1640,15 @@ async function handleConsole() {
             rl.prompt();
             return;
           }
-          // Restart the intercept daemon — this clears all in-memory admission state
-          // including standing density/velocity deny entries.
+          // Restart the intercept daemon — this clears the in-memory canyon cache
+          // for ingress reflex state in Terminal 1.
           try {
             await boundary.sendBoundaryInterceptServerInput({
               target: interceptTarget,
               input: { command: "restart", reason: `console: unblock ${arg1}` } as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
             });
             blockedProvenances.delete(arg1);
-            console.log(`  Intercept restarted — admission state cleared for '${arg1}'.`);
+            console.log(`  Intercept restarted — canyon state cleared for '${arg1}'.`);
           } catch {
             console.log(`  Intercept daemon unreachable. Run 'buccet hook start' first.`);
           }
@@ -1672,7 +1672,7 @@ async function handleConsole() {
             if (match) {
               const out = await boundary.sendBoundaryInterceptServerInput({
                 target: interceptTarget,
-                input: { command: "swarm_approve", groupId: match.groupId, issuedBy: config.actorId, reason: `console: bodyguard pick ${indexArg}` },
+                input: { command: "swarm_approve", groupId: match.groupId, issuedBy: config.actorId, reason: `console: bodyguard pick ${indexArg}`, asLaw: true },
               });
               if (out.type === "error") {
                 console.log(`  Error: ${out.error}`);
@@ -1714,13 +1714,13 @@ async function handleConsole() {
           const groupId = arg1;
           let input: Record<string, unknown>;
           if (cmd === "allow") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once" };
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once", asLaw: false };
           } else if (cmd === "law") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law" };
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law", asLaw: true };
           } else if (cmd === "deny-law") {
             input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
           } else {
-            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once" };
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once", asLaw: false };
           }
           const out = await boundary.sendBoundaryInterceptServerInput({
             target: interceptTarget,

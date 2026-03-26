@@ -75,6 +75,7 @@ export type BoundaryInterceptResult = {
   bodyguardMoves: BodyguardMove[];
   requestId: string;
   actionKind: BoundaryActionKind;
+  tarpitActive?: boolean;
 };
 
 function mapFileOperation(operation: string): BoundaryActionKind {
@@ -217,6 +218,7 @@ export async function evaluateBoundaryIntercept(args: {
         bodyguardMoves: [],
         requestId: randomUUID(),
         actionKind: mapInterceptToBoundaryAction(args.request),
+        tarpitActive: true,
         admissionState: finalAdmState,
       };
     }
@@ -280,7 +282,7 @@ export type BoundaryInterceptDaemonCommand =
   | { command: "restart"; requestId?: string; reason?: string }
   | { command: "shutdown"; requestId?: string }
   | { command: "swarm_status"; requestId?: string }
-  | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string }
+  | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string; asLaw?: boolean }
   | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean };
 
 export type BoundaryInterceptDaemonInput =

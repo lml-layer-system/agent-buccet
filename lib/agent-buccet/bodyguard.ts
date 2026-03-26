@@ -919,10 +919,16 @@ export async function runBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
+  let governorHold:
+    | {
+      lawId: string;
+      reason: string;
+      bodyguardMoves: BodyguardMove[];
+    }
+    | null = null;
 
-  // Governor pre-check — runs before any law evaluation or ledger entry.
-  // If the session has exceeded a kinetic limit (velocity/density/mass), the
-  // action is denied immediately without reaching the law engine.
+  // Governor pre-check — kinetic reflex only. It can freeze and hold the
+  // action before law evaluation, but Terminal 2 still owns the decision.
   if (activeConfig.governorConfig) {
     const govState = activeConfig.governorState ?? initialGovernorState();
     const govResult = evaluateBoundaryGovernor({
@@ -943,11 +949,23 @@ export async function runBoundaryControlledAction<T>(args: {
         lawIds: [govResult.lawId],
         createdAt: new Date().toISOString(),
       });
-      return {
-        config: activeConfig,
-        allowed: false,
-        executed: false,
-        requiresApproval: false,
+
+      const existingViolations = activeRequest.reviewContext?.violations ?? [];
+      activeRequest = {
+        ...activeRequest,
+        reviewContext: {
+          surface: "action",
+          ...activeRequest.reviewContext,
+          title: activeRequest.reviewContext?.title ?? "Boundary governor held the action",
+          question: activeRequest.reviewContext?.question ?? "Does this held boundary event match your intent?",
+          violations: [
+            ...existingViolations,
+            `kinetic ceiling tripped: ${govResult.dimension}`,
+          ],
+        },
+      };
+      governorHold = {
+        lawId: govResult.lawId,
         reason: govResult.reason,
         bodyguardMoves: [{
           moveId: randomUUID(),
@@ -960,17 +978,29 @@ export async function runBoundaryControlledAction<T>(args: {
   }
 
   await logProposedAction(activeConfig, activeRequest);
-  let adjudication = await adjudicateBoundaryRequest({
-    config: activeConfig,
-    request: activeRequest,
-  });
+  let adjudication = governorHold
+    ? {
+      config: activeConfig,
+      request: activeRequest,
+      result: {
+        decision: "require_approval" as const,
+        reason: governorHold.reason,
+        triggeredLawIds: [governorHold.lawId],
+        requiresApproval: true,
+      },
+      bodyguardMoves: governorHold.bodyguardMoves,
+    }
+    : await adjudicateBoundaryRequest({
+      config: activeConfig,
+      request: activeRequest,
+    });
   activeConfig = adjudication.config;
   activeRequest = adjudication.request;
 
   // Record the boundary crossing in governor state after the first adjudication.
   // wasLawful = true if the decision is allow or require_approval (the action is
   // not denied outright by law); false if denied — this feeds the density window.
-  if (activeConfig.governorConfig) {
+  if (activeConfig.governorConfig && !governorHold) {
     const updatedGovState = recordGovernorCrossing({
       state: activeConfig.governorState ?? initialGovernorState(),
       config: activeConfig.governorConfig,
@@ -1232,9 +1262,10 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   const gravityService = createBoundaryGravityService();
 
   function getGuardedConfig() {
-    return enableBodyguardControl(store.getConfig(), {
-      approvalHandler: approvals.handler,
-      gravityService,
+    const config = store.getConfig();
+    return enableBodyguardControl(config, {
+      approvalHandler: config.approvalHandler ?? approvals.handler,
+      gravityService: config.gravityService ?? gravityService,
     });
   }
 

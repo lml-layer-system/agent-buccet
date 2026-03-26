@@ -184,7 +184,7 @@ const config: BoundaryRuntimeConfig = {
 };
 ```
 
-The governor pre-check fires before law evaluation. When any dimension trips, the action is denied with `GOVERNOR_TRIP` ledger event and a `deny_and_explain` NSL move. State flows back automatically via `BoundaryExecutionResult.config` — callers using `createBoundaryBodyguard` need no changes.
+The governor pre-check fires before law evaluation. When any dimension trips, Terminal 1 holds the action, records `GOVERNOR_TRIP`, and surfaces the event through the normal Bodyguard approval path. Terminal 2 still decides whether to allow once, allow as law, deny once, or deny as law. State flows back automatically via `BoundaryExecutionResult.config` — callers using `createBoundaryBodyguard` need no changes.
 
 Default weight table (full): `tool.exec=10`, `fs.delete=8`, `sys.credential.use/read=8`, `sys.config.write/sys.env.write=6`, `network.send/comm.send=5`, `db.delete=8`, `db.update=4`, `db.insert=3`, `db.query=2`, `fs.write/append/move=2`, `fs.mkdir/fs.read/chat.emit/sys.env.read/sys.config.read=1`.
 
@@ -315,7 +315,7 @@ Other agent frameworks use recursive skill search: the agent is asked to do some
 
 In this architecture, **UPL is skills**:
 - First time the agent proposes an action → goes through Bodyguard admission → user approves or denies
-- Approval/denial is written to the UPL as standing law with a SHA256 path hash key
+- `allow_as_law` / `deny_as_law` writes the standing UPL entry with a SHA256 path hash key
 - Every subsequent identical action → O(1) UPL lookup → instant allow or deny, no re-prompt, no LLM evaluation
 - The agent's approved action space is pre-indexed and self-building through normal use
 
