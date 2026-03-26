@@ -8,6 +8,7 @@ import type {
   BoundaryAdmissionState,
   BoundaryActionRequest,
   BoundaryResourceKind,
+  BoundaryReviewContext,
   BodyguardMove,
 } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
@@ -24,6 +25,8 @@ export type BoundarySwarmGroup = {
   operation: string;
   target: string;
   reason: string;
+  payloadSummary?: string;
+  reviewContext?: BoundaryReviewContext;
   lawIds: string[];
   bodyguardMoves: BodyguardMove[];
   memberCount: number;
