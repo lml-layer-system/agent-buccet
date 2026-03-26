@@ -1246,19 +1246,117 @@ async function handleConsole() {
   console.log(`  This is the bodyguard console. Terminal 1 is the protected execution lane.`);
   console.log(``);
   console.log(`  Commands:`);
-  console.log(`    status             — show session status`);
-  console.log(`    allow <id>         — allow once (swarm group)`);
+  console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
+  console.log(`    allow <id>         — allow once`);
   console.log(`    deny <id>          — deny once`);
   console.log(`    law <id>           — allow as standing law`);
   console.log(`    deny-law <id>      — deny as standing law`);
-  console.log(`    logs [n]           — show last n ledger entries (default 10)`);
-  console.log(`    upl                — show active UPL laws`);
-  console.log(`    doctor             — run health check`);
-  console.log(`    quit               — exit console`);
+  console.log(`    status             — session status`);
+  console.log(`    logs [n]           — last n ledger entries (default 10)`);
+  console.log(`    feed               — toggle live event feed on/off`);
+  console.log(`    upl                — active UPL laws`);
+  console.log(`    doctor             — health check`);
+  console.log(`    quit               — exit`);
   console.log(``);
 
-  // Track which groups have already been reported so we don't repeat them.
+  // Track which groups have already been reported.
   const reportedGroupIds = new Set<string>();
+  // Current waiting groups — updated on every approval poll for numbered shorthand.
+  let currentWaitingGroups: Array<{
+    groupId: string;
+    state: string;
+    actionClass: string;
+    operation: string;
+    target: string;
+    reason: string;
+    lawIds: string[];
+    memberCount: number;
+    waitingCount: number;
+  }> = [];
+  // Live feed toggle.
+  let feedEnabled = true;
+  // Ledger position — seeded to current length so we don't replay old events on startup.
+  let lastSeenCount = 0;
+
+  // Format a notable ledger event for the live feed. Returns null for noisy events.
+  function formatLedgerEvent(record: {
+    META: { event_type: string; metadata?: Record<string, unknown> };
+    INPUT: { action?: string; target?: string };
+    DECISION: { reason?: string };
+  }): string | null {
+    const et = record.META.event_type;
+    const action = record.INPUT.action ?? "-";
+    const target = record.INPUT.target ?? "-";
+    const reason = record.DECISION.reason ?? "";
+    const meta = record.META.metadata ?? {};
+
+    // Infrastructure / noisy events — skip entirely.
+    const skip = new Set([
+      "ACTION_PROPOSED", "DECISION_RETURNED",
+      "SESSION_STARTED", "SESSION_RESTORED", "SESSION_PERSISTED", "SESSION_ENDED",
+      "PATH_OPENED", "PATH_LAW_INSTANTIATED",
+      "RECIPIENT_OPENED", "RECIPIENT_LAW_INSTANTIATED",
+      "DOMAIN_OPENED", "DOMAIN_LAW_INSTANTIATED",
+      "TOOL_OPENED", "TOOL_LAW_INSTANTIATED",
+      "DATABASE_OPENED", "DATABASE_LAW_INSTANTIATED",
+      "SYSTEM_OPENED", "SYSTEM_LAW_INSTANTIATED",
+      "GRANT_ISSUED", "GRANT_REVOKED", "GRANT_EXPIRED",
+      "PROPOSAL_REPLAYED", "APPROVAL_REQUESTED",
+      "PROCESS_LAUNCH_REQUESTED", "PROCESS_SPAWNED", "PROCESS_EXITED",
+      "PROCESS_ENV_FILTERED", "PROCESS_PHYSWRAP_ACTIVE", "PROCESS_PHYSWRAP_FALLBACK",
+    ]);
+    if (skip.has(et)) return null;
+
+    if (et === "ACTION_BLOCKED") {
+      return action === "chat.emit"
+        ? `  ✗ CHAT BLOCKED     ${reason}`
+        : `  ✗ BLOCKED          ${action} → ${target}  [${reason}]`;
+    }
+    if (et === "ACTION_EXECUTED")          return `  ✓ ALLOWED          ${action} → ${target}`;
+    if (et === "APPROVAL_GRANTED")         return `  ✓ APPROVED         ${action} → ${target}`;
+    if (et === "APPROVAL_DENIED")          return `  ✗ DENIED           ${action} → ${target}`;
+    if (et === "PROCESS_WALL_CLOCK_KILL")  return `  ⚡ WALL-CLOCK KILL  ${target}`;
+    if (et === "GOVERNOR_TRIP")            return `  ⚡ GOVERNOR TRIP    ${reason}`;
+    if (et === "PROCESS_PHYSWRAP_CAP_WARNING") return `  ⚠  PHYSWRAP WARN    ${reason}`;
+    if (et === "INGRESS_PROVENANCE_BLOCKED") {
+      return `  ✗ INGRESS BLOCKED  ${String(meta["provenance"] ?? target)}`;
+    }
+    if (et === "INGRESS_STANDING_LAW_WRITTEN") {
+      const prov = String(meta["provenance"] ?? target);
+      const kind = meta["promotion_kind"] ? `  [${String(meta["promotion_kind"])}]` : "";
+      return `  ⚑ STANDING LAW     ${prov}${kind}`;
+    }
+    if (et === "INGRESS_VELOCITY_TRIP")    return `  ✗ VELOCITY TRIP    ${String(meta["provenance"] ?? target)}`;
+    if (et === "INGRESS_DENSITY_TRIP")     return `  ✗ DENSITY TRIP     ${String(meta["provenance"] ?? target)}`;
+    if (et === "INGRESS_MASS_TRIP")        return `  ✗ MASS TRIP        ${String(meta["provenance"] ?? target)}`;
+    if (et === "INGRESS_DENIED")           return `  ✗ INGRESS DENIED   ${target}`;
+    if (et === "NSL_GRANT_OFFERED")        return `  → NSL OFFER        ${action} → ${target}`;
+    if (et === "NSL_MOVE_SUGGESTED")       return `  → NSL MOVE         ${reason}`;
+    if (et === "NSL_MOVE_CHOSEN")          return `  ✓ NSL CHOSEN       ${reason}`;
+    if (et === "UPL_ALLOW_RECORDED")       return `  ⚑ UPL ALLOW LAW    ${target}`;
+    if (et === "UPL_DENY_RECORDED")        return `  ⚑ UPL DENY LAW     ${target}`;
+    if (et === "USER_CONFIRMED_DENY")      return `  ✗ USER DENY        ${target}`;
+    if (et === "LEDGER_STORM_SUMMARY") {
+      return `  ⚡ STORM SUMMARY    shed ${String(meta["shed_count"] ?? "?")} events`;
+    }
+    return null; // unknown — skip
+  }
+
+  async function pollLedger() {
+    if (!feedEnabled) return;
+    try {
+      // config is guaranteed non-null — checked at function entry before pollLedger is defined.
+      const sessionId = (config as NonNullable<typeof config>).sessionId;
+      const records = await boundary.readBoundaryLedgerBySession(sessionId);
+      if (records.length <= lastSeenCount) return;
+      const newRecords = records.slice(lastSeenCount);
+      lastSeenCount = records.length;
+      for (const record of newRecords) {
+        const line = formatLedgerEvent(record as Parameters<typeof formatLedgerEvent>[0]);
+        if (line) console.log(line);
+      }
+    } catch { /* silent */ }
+  }
 
   async function pollApprovals() {
     try {
@@ -1268,39 +1366,60 @@ async function handleConsole() {
       });
       if (out.type !== "swarm_status") return;
 
-      const pendingGroups = out.groups.filter(
-        (g: { state: string; waitingCount: number }) => g.state === "pending" || g.waitingCount > 0,
+      const waitingGroups = out.groups.filter(
+        (g: { state: string; waitingCount: number }) => g.state === "waiting" || g.waitingCount > 0,
       );
+      currentWaitingGroups = waitingGroups;
 
-      for (const group of pendingGroups) {
+      for (const group of waitingGroups) {
         if (reportedGroupIds.has(group.groupId)) continue;
         reportedGroupIds.add(group.groupId);
         console.log(``);
-        console.log(`  ┌─ APPROVAL REQUIRED ──────────────────────`);
-        console.log(`  │  id:      ${group.groupId}`);
-        console.log(`  │  action:  ${group.actionClass}.${group.operation}`);
-        console.log(`  │  target:  ${group.target}`);
-        console.log(`  │  waiting: ${group.waitingCount} request(s)`);
-        console.log(`  └──────────────────────────────────────────`);
-        console.log(`  > allow ${group.groupId}  /  deny ${group.groupId}  /  law ${group.groupId}`);
+        console.log(`  ╔═ BOUNDARY INTERCEPTION ══════════════════════════════════════════╗`);
+        console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
+        console.log(`  ║  Target:    ${group.target}`);
+        console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+        if (group.reason) {
+          console.log(`  ║`);
+          console.log(`  ║  Reason:    ${group.reason}`);
+        }
+        if (group.lawIds?.length > 0) {
+          console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+        }
+        console.log(`  ║`);
+        console.log(`  ║  1. Allow once     — proceeds; no law written`);
+        console.log(`  ║  2. Allow as law   — proceeds; standing allow law written`);
+        console.log(`  ║  3. Deny once      — blocked; no law written`);
+        console.log(`  ║  4. Deny as law    — blocked; standing deny law written`);
+        console.log(`  ║`);
+        console.log(`  ║  > 1 / 2 / 3 / 4   or   allow/deny/law/deny-law ${group.groupId}`);
+        console.log(`  ╚══════════════════════════════════════════════════════════════════╝`);
         console.log(``);
       }
 
-      // Clear resolved groups from the reported set so they can appear again if they re-enter pending.
+      // Clear resolved groups from reported set.
       for (const id of reportedGroupIds) {
-        const stillPending = pendingGroups.some((g: { groupId: string }) => g.groupId === id);
-        if (!stillPending) reportedGroupIds.delete(id);
+        if (!waitingGroups.some((g: { groupId: string }) => g.groupId === id)) {
+          reportedGroupIds.delete(id);
+        }
       }
     } catch {
       // Intercept socket not reachable — daemon may not be running. Silent.
     }
   }
 
+  // Seed lastSeenCount to avoid replaying old events on startup.
+  try {
+    const existing = await boundary.readBoundaryLedgerBySession(config.sessionId);
+    lastSeenCount = existing.length;
+  } catch { /* silent */ }
+
   const pollHandle = setInterval(() => {
     void pollApprovals();
+    void pollLedger();
   }, 1_000);
 
-  // Initial poll immediately.
+  // Initial approval poll.
   await pollApprovals();
 
   const rl = readline.createInterface({
@@ -1331,6 +1450,51 @@ async function handleConsole() {
           process.exit(0);
         }
 
+        // Numbered shorthand: 1/2/3/4 when exactly one group is waiting.
+        if (cmd === "1" || cmd === "2" || cmd === "3" || cmd === "4") {
+          if (currentWaitingGroups.length === 0) {
+            console.log(`  No pending approvals.`);
+            rl.prompt();
+            return;
+          }
+          if (currentWaitingGroups.length > 1) {
+            console.log(`  ${currentWaitingGroups.length} groups pending — use allow/deny/law/deny-law <id>`);
+            rl.prompt();
+            return;
+          }
+          const groupId = currentWaitingGroups[0].groupId;
+          const choiceCmd = cmd === "1" ? "allow" : cmd === "2" ? "law" : cmd === "3" ? "deny" : "deny-law";
+          let input: Record<string, unknown>;
+          if (choiceCmd === "allow") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once" };
+          } else if (choiceCmd === "law") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law" };
+          } else if (choiceCmd === "deny-law") {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
+          } else {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once" };
+          }
+          const out = await boundary.sendBoundaryInterceptServerInput({
+            target: interceptTarget,
+            input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+          });
+          if (out.type === "error") {
+            console.log(`  Error: ${out.error}`);
+          } else {
+            console.log(`  ${choiceCmd}: ${groupId} — done`);
+            reportedGroupIds.delete(groupId);
+          }
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "feed") {
+          feedEnabled = !feedEnabled;
+          console.log(`  Event feed: ${feedEnabled ? "on" : "off"}`);
+          rl.prompt();
+          return;
+        }
+
         if (cmd === "status") {
           const sessionState = await boundary.loadBoundarySessionState({
             sessionId: config.sessionId,
@@ -1343,6 +1507,8 @@ async function handleConsole() {
           console.log(`  Status:     ${sessionState?.session.status ?? "missing"}`);
           console.log(`  Scopes:     ${scopes.length}`);
           console.log(`  Grants:     ${grants.length}`);
+          console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
+          console.log(`  Pending:    ${currentWaitingGroups.length} group(s) waiting`);
           console.log(``);
           rl.prompt();
           return;
