@@ -99,7 +99,7 @@ async function main() {
   });
 
   console.log("Out-of-scope target (/etc/passwd):");
-  console.log(`  decision : ${outOfScopeResult.decision}`);   // require_approval (NSL offer)
+  console.log(`  decision : ${outOfScopeResult.decision}`);   // require_approval (bodyguard grant offer)
   console.log(`  laws     : ${outOfScopeResult.lawIds.join(", ")}`);
   console.log(`  reason   : ${outOfScopeResult.reason}`);
   console.log();

@@ -89,7 +89,7 @@ Use:
 Gravity is the deeper no-leak enforcement layer under the bodyguard path.
 It can:
 - allow lawful motion
-- null unlawful but grantable motion into NSL recovery
+- null unlawful but grantable motion into bodyguard recovery
 - deny non-grantable unlawful motion
 
 For proof:

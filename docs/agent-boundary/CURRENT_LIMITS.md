@@ -85,7 +85,7 @@ The uncovered paths are documented, not hidden. They represent the honest bounda
 
 - `chat.emit` — subject to boundary law evaluation (scope, grants, UPL, base laws)
 - `network.send` — subject to boundary law evaluation (domain allowlist, scope); enforced at the `connect()` interception level in the libc hook
-- Egress structural validity (NSL/gravity) applies to all outbound action proposals before execution
+- Egress structural validity (bodyguard/gravity) applies to all outbound action proposals before execution
 
 ---
 
@@ -319,7 +319,7 @@ A distributed botnet hits the **intercept path**. The intercept path calls `adju
 | `GOVERNOR_TRIP` | Via bodyguard path only | maxRpm × session count | Yes — enforcement record, velocity-bounded |
 | `INGRESS_CANYON_STATE_WRITTEN` | Structurally once per IP lifetime (`ledgered` flag check in intercept.ts) | One write per unique hostile IP | Yes — canyon hold authority record |
 | `PROCESS_*`, `PROCESS_PHYSWRAP_*` | No — requires passing law eval + actual process spawn | Bounded by OS process limits | Yes |
-| `APPROVAL_*`, `NSL_*`, `USER_CONFIRMED_DENY`, `PROPOSAL_REPLAYED` | No — human/operator gated | Near-zero | Yes |
+| `APPROVAL_*`, `BODYGUARD_*`, `USER_CONFIRMED_DENY`, `PROPOSAL_REPLAYED` | No — human/operator gated | Near-zero | Yes |
 | `LEDGER_STORM_SUMMARY` | No — emitted by LIOPE itself | One per flush window (100ms) | Yes — storm audit record |
 
 **Residual dependency (config seam — locked by hard ceiling):** `ACTION_BLOCKED` is bounded by admission density config tightness AND the hard block ceiling. With density window=5, deny_ratio=0.6 (the default), a hostile IP is promoted to canyon hold after ~3 blocks. At worst — with no density config at all — the hard ceiling fires at `WEAK_PROVENANCE_HARD_BLOCK_CEILING` (= 10) tarpit decisions, unconditionally. With 10M unique IPs that each get at most 10 ACTION_BLOCKEDs, that is 100M writes — but these arrive over the time it takes 10M IPs to hit the ceiling (tens of minutes at realistic attack rates). Not a spike. The hard ceiling is a code-level floor, not a config parameter — it cannot be loosened. Density config only makes promotion happen sooner.

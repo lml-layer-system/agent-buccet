@@ -233,7 +233,7 @@ The runtime now includes:
 - remote prompt hardening
 - ledger completeness auditing
 - Agent Buccet Gravity enforcement
-- null -> NSL open-as-law recovery
+- null -> bodyguard open-as-law recovery
 - wrapper process policy
 - process lifecycle ledgering
 - one-brain swarm coordination for matching frozen requests
@@ -278,7 +278,7 @@ npm run demo:agent-buccet
 
 It exercises:
 - allowed in-scope write
-- out-of-scope write -> NSL open-as-law offer
+- out-of-scope write -> bodyguard open-as-law offer
 - approval-gated delete
 - persistent restore
 - post-end-session denial
@@ -303,7 +303,7 @@ npm run test:agent-buccet:gravity-contract
 ```
 
 It proves:
-- out-of-scope -> `nsl_grant_offer`
+- out-of-scope -> `bodyguard_grant_offer`
 - authority claim -> `deny`
 
 Run the ledger contract harness with:
@@ -512,7 +512,7 @@ If a request or session is not properly ledgered, it should not be trusted.
 That means:
 - missing trace -> non-authoritative
 - incomplete trace -> non-authoritative
-- lawful recovery should go through NSL / approval / re-issuance
+- lawful recovery should go through bodyguard / approval / re-issuance
 
 ## Read Next
 

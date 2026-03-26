@@ -55,7 +55,7 @@
 
 import { evaluateBoundaryIntercept } from "../intercept.ts";
 import type { BoundaryInterceptActionClass, BoundaryInterceptResult } from "../intercept.ts";
-import type { BoundaryRequestProvenance, BoundaryRuntimeConfig } from "../types.ts";
+import type { BoundaryRequestProvenance, BoundaryReviewContext, BoundaryRuntimeConfig } from "../types.ts";
 
 export type BoundaryClaudeToolMapping = {
   /** The boundary action class for this tool (file, shell, network, database, system, communication). */
@@ -66,6 +66,8 @@ export type BoundaryClaudeToolMapping = {
   describeTarget: (toolInput: unknown) => string;
   /** Optional: extract a human-readable payload summary for the ledger. */
   describePayload?: (toolInput: unknown) => string | undefined;
+  /** Optional: provide rich review context (surface, title, question, evidence) for the approval prompt. */
+  reviewContext?: (toolInput: unknown) => BoundaryReviewContext | undefined;
   /** Override the provenance for this tool. Defaults to "agent_inference". */
   provenance?: BoundaryRequestProvenance;
 };
@@ -110,6 +112,7 @@ export async function guardClaudeToolUse(args: {
       operation: mapping.operation,
       target: mapping.describeTarget(args.toolInput),
       payloadSummary: mapping.describePayload?.(args.toolInput),
+      reviewContext: mapping.reviewContext?.(args.toolInput),
       provenance: args.provenance ?? mapping.provenance ?? "agent_inference",
     },
   });

@@ -53,7 +53,7 @@ for (const block of response.content) {
   const result = await guard.evaluate(block.name, block.input);
 
   if (result.decision !== "allow") {
-    // Surface result.reason + result.nslMoves to the user
+    // Surface result.reason + result.bodyguardMoves to the user
     // Return a tool_result block with the boundary decision
     console.log(`Blocked: ${result.reason}`);
     console.log(`Laws: ${result.lawIds.join(", ")}`);

@@ -196,7 +196,7 @@ npm run test:agent-buccet:gravity-contract
 ```
 
 This asserts the deeper gravity contract:
-- out-of-scope -> `nsl_grant_offer`
+- out-of-scope -> `bodyguard_grant_offer`
 - authority claim -> `deny`
 
 ## 10.4 Run the swarm contract harness

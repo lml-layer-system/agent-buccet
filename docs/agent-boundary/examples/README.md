@@ -68,7 +68,7 @@ That script lives at:
 - [scripts/agent-buccet-gravity-contract.ts](../../../scripts/agent-buccet-gravity-contract.ts)
 
 It proves:
-- out-of-scope -> `nsl_grant_offer`
+- out-of-scope -> `bodyguard_grant_offer`
 - authority claim -> `deny`
 
 ## Swarm contract harness

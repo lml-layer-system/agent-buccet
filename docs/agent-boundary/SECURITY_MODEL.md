@@ -18,7 +18,7 @@ The hook does not:
 - decide scope
 - decide approval
 - write the ledger as a source of truth
-- run NSL reasoning
+- run bodyguard reasoning
 
 ### Supervisor
 
@@ -38,7 +38,7 @@ The main Agent Buccet runtime owns:
 - base laws
 - defensive meta laws
 - scope and grants
-- NSL
+- bodyguard
 - gravity
 - ledger
 - final allow / deny / require-approval decisions
@@ -61,7 +61,7 @@ The main Agent Buccet runtime owns:
    - scope and grants
    - gravity
    - UPL (User Path Ledger — the user's own runtime laws, same enforcement class as base laws)
-   - NSL if needed
+   - bodyguard if needed
    - swarm coordination if many matching requests are waiting
    - ledger
 6. verdict returns: allow / deny / require_approval
@@ -150,8 +150,7 @@ The ledger now provides:
 - inspectable public signing identity
 - signed checkpoints
 
-Optional witness publication can publish checkpoints outside the local runtime.
-Release flows publish witness checkpoints by default and require explicit break-glass opt-out to skip that step.
+Optional witness publication can publish checkpoints outside the local runtime. Set `BUCCET_WITNESS_URL` to enable remote anchoring.
 
 ## What Agent Buccet Guarantees
 
@@ -160,7 +159,7 @@ Release flows publish witness checkpoints by default and require explicit break-
 - prompt content does not become authority
 - ledger bypass is denied
 - hook does not become a second brain
-- release artifacts carry a witness decision trail by default
+- signed local decision trail in every ledger; optional remote witness anchoring when `BUCCET_WITNESS_URL` is configured
 
 ## Resource Governor
 
