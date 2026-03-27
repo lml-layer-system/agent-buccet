@@ -83,6 +83,7 @@ Current Buccet-native shape:
 - `reviewInvariantLawId`
 - `actionCorridor`
 - `outputCorridor`
+- `completionCorridor`
 - `expressionCorridor`
 - `allowedActionKinds`
 - `targetPattern`
@@ -90,6 +91,7 @@ Current Buccet-native shape:
 - `requiredTextPatterns`
 - `forbiddenTextPatterns`
 - `outputShape`
+- `completionGrammar`
 - `expressionProfile`
 - `description`
 
@@ -156,6 +158,8 @@ Current runtime truth on this branch:
 - expression law materializes into structured expression corridors and is
   enforced at runtime
 - output/content law materializes into structured output corridors and is
+  enforced at runtime
+- completion law materializes into structured completion corridors and is
   enforced at runtime
 - action law materializes into structured action corridors and is enforced at
   runtime

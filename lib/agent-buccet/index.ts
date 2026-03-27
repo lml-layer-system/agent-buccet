@@ -12,6 +12,7 @@ export * from "./bodyguard-moves.ts";
 export * from "./runtime.ts";
 export * from "./state.ts";
 export * from "./policy.ts";
+export * from "./policy-binding.ts";
 export * from "./approval.ts";
 export * from "./store.ts";
 export * from "./filesystem.ts";

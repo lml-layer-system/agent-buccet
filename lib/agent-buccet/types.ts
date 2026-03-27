@@ -308,10 +308,24 @@ export type BoundaryExpressionCorridor = {
   maxSentenceWords?: number;
 };
 
+export type BoundaryCompletionGrammar =
+  | "json"
+  | "bullets"
+  | "numbered"
+  | "paragraph"
+  | "single_sentence"
+  | "short_answer";
+
 export type BoundaryOutputCorridor = {
   requiredTextPatterns?: string[];
   forbiddenTextPatterns?: string[];
   outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+};
+
+export type BoundaryCompletionCorridor = {
+  grammar: BoundaryCompletionGrammar;
+  maxLines?: number;
+  maxWords?: number;
 };
 
 export type BoundaryActionCorridor = {
@@ -348,6 +362,10 @@ export type BoundaryUplTrackConstraint = {
   outputShape?: "bullets" | "numbered" | "json" | "paragraph";
   /** Structured output/content corridor for task-independent output enforcement. */
   outputCorridor?: BoundaryOutputCorridor;
+  /** Human-readable completion grammar label for this track. */
+  completionGrammar?: BoundaryCompletionGrammar;
+  /** Structured completion corridor for task-independent completion enforcement. */
+  completionCorridor?: BoundaryCompletionCorridor;
   /** Human-readable expression/profile label for this track. */
   expressionProfile?: string;
   /** Structured expression corridor for task-independent expression enforcement. */
@@ -638,6 +656,13 @@ export type CompiledDocumentLaw = {
   requestBasis: BoundaryUplRequestBasis;
   trackConstraint?: BoundaryUplTrackConstraint;
 };
+
+export type BoundaryPolicySourceKind =
+  | "rlhf"
+  | "constitutional"
+  | "guardrail"
+  | "domain_specific"
+  | "regulator_business";
 
 export type BoundaryRuntimeMuscleManifest = {
   generatedAt: string;

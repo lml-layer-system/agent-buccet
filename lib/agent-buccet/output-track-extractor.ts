@@ -1,13 +1,20 @@
 import type { DocumentLawBlock } from "./track-extractor-types.ts";
-import type { BoundaryOutputCorridor, BoundaryUplTrackConstraint } from "./types.ts";
+import type {
+  BoundaryCompletionCorridor,
+  BoundaryCompletionGrammar,
+  BoundaryOutputCorridor,
+  BoundaryUplTrackConstraint,
+} from "./types.ts";
 import { normalizeDelimitedList, stripTrailingPunctuation } from "./track-extractor-entropy.ts";
 import { canonicalizeTrackLiteral, passesTrackMeaningGate } from "./track-extractor-negative.ts";
 
 export type OutputTrackMeaning = {
   corridor?: BoundaryOutputCorridor;
+  completionCorridor?: BoundaryCompletionCorridor;
   requiredTextPatterns: string[];
   forbiddenTextPatterns: string[];
   outputShape?: BoundaryUplTrackConstraint["outputShape"];
+  completionGrammar?: BoundaryCompletionGrammar;
   invariantLabel?: string;
 };
 
@@ -17,6 +24,17 @@ export function detectOutputShape(raw: string): BoundaryUplTrackConstraint["outp
   if (value.includes("bullet")) return "bullets";
   if (value.includes("number")) return "numbered";
   if (value.includes("paragraph")) return "paragraph";
+  return undefined;
+}
+
+export function detectCompletionGrammar(raw: string): BoundaryCompletionGrammar | undefined {
+  const value = raw.trim().toLowerCase();
+  if (value.includes("json")) return "json";
+  if (value.includes("bullet")) return "bullets";
+  if (value.includes("number")) return "numbered";
+  if (value.includes("paragraph")) return "paragraph";
+  if (value.includes("single sentence") || value.includes("one sentence")) return "single_sentence";
+  if (value.includes("short answer") || value.includes("brief answer")) return "short_answer";
   return undefined;
 }
 
@@ -54,15 +72,36 @@ export function collapseOutputTrackMeaning(args: {
   requiredValues: string[];
   forbiddenValues: string[];
   outputShape?: BoundaryUplTrackConstraint["outputShape"];
+  completionGrammar?: BoundaryCompletionGrammar;
 }): OutputTrackMeaning {
   const requiredTextPatterns = dedupePatterns(args.requiredValues);
   const forbiddenTextPatterns = dedupePatterns(args.forbiddenValues);
+  const completionGrammar = args.completionGrammar ?? (
+    args.outputShape === "json"
+      ? "json"
+      : args.outputShape === "bullets"
+        ? "bullets"
+        : args.outputShape === "numbered"
+          ? "numbered"
+          : args.outputShape === "paragraph"
+            ? "paragraph"
+            : undefined
+  );
+  const completionCorridor = completionGrammar
+    ? {
+        grammar: completionGrammar,
+        ...(completionGrammar === "single_sentence" ? { maxLines: 1 } : {}),
+        ...(completionGrammar === "short_answer" ? { maxLines: 1, maxWords: 12 } : {}),
+      }
+    : undefined;
   const explicit = args.block.fields.invariant?.find(Boolean)?.trim();
   let invariantLabel: string | undefined;
   if (explicit) {
     invariantLabel = explicit;
   } else if (args.block.heading) {
     invariantLabel = args.block.heading;
+  } else if (completionGrammar) {
+    invariantLabel = `Completion grammar must remain ${completionGrammar}`;
   } else if (args.outputShape) {
     invariantLabel = `Output shape must remain ${args.outputShape}`;
   } else if (requiredTextPatterns.length > 0) {
@@ -79,9 +118,11 @@ export function collapseOutputTrackMeaning(args: {
             ...(args.outputShape ? { outputShape: args.outputShape } : {}),
           }
         : undefined,
+    completionCorridor,
     requiredTextPatterns,
     forbiddenTextPatterns,
     outputShape: args.outputShape,
+    completionGrammar,
     invariantLabel,
   };
 }
@@ -170,6 +211,88 @@ export function checkOutputCorridor(
     return (
       `output exits the approved execution corridor ` +
       `(required shape: ${describeOutputShape(outputShape)})`
+    );
+  }
+
+  return null;
+}
+
+export function checkCompletionCorridor(
+  corridor: BoundaryCompletionCorridor | undefined,
+  fallbackConstraint: BoundaryUplTrackConstraint,
+  text: string,
+): string | null {
+  const active = corridor ?? (
+    fallbackConstraint.completionGrammar
+      ? {
+          grammar: fallbackConstraint.completionGrammar,
+          ...(fallbackConstraint.completionGrammar === "single_sentence" ? { maxLines: 1 } : {}),
+          ...(fallbackConstraint.completionGrammar === "short_answer" ? { maxLines: 1, maxWords: 12 } : {}),
+        }
+      : undefined
+  );
+  if (!active) {
+    return null;
+  }
+
+  const trimmed = text.trim();
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const words = trimmed.split(/\s+/).filter(Boolean);
+
+  if (active.maxLines && lines.length > active.maxLines) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(completion exceeds ${active.maxLines} lines)`
+    );
+  }
+  if (active.maxWords && words.length > active.maxWords) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(completion exceeds ${active.maxWords} words)`
+    );
+  }
+
+  if (active.grammar === "single_sentence") {
+    const sentences = trimmed.split(/(?<=[.!?])\s+/).filter(Boolean);
+    if (sentences.length > 1 || lines.length > 1) {
+      return (
+        `output exits the approved execution corridor ` +
+        `(completion grammar requires a single sentence)`
+      );
+    }
+  }
+
+  if (active.grammar === "short_answer") {
+    if (lines.length > 1 || words.length > 12) {
+      return (
+        `output exits the approved execution corridor ` +
+        `(completion grammar requires a short answer)`
+      );
+    }
+  }
+
+  if (active.grammar === "json" && !isOutputShapeSatisfied("json", text)) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(completion grammar requires json)`
+    );
+  }
+  if (active.grammar === "bullets" && !isOutputShapeSatisfied("bullets", text)) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(completion grammar requires bullets)`
+    );
+  }
+  if (active.grammar === "numbered" && !isOutputShapeSatisfied("numbered", text)) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(completion grammar requires numbered output)`
+    );
+  }
+  if (active.grammar === "paragraph" && !isOutputShapeSatisfied("paragraph", text)) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(completion grammar requires paragraph output)`
     );
   }
 
