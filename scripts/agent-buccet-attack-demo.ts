@@ -227,10 +227,10 @@ async function main() {
 
   await fs.writeFile(path.join(workspace, "legitimate.txt"), "baseline", "utf8");
 
-  // ── Baseline: Legitimate action succeeds ─────────────────────────────────
-  banner("Baseline — Legitimate Action (no attack flags)");
+  // ── Baseline: Legitimate action with no standing law is held for approval ──
+  banner("Baseline — Legitimate Action (no standing law)");
   console.log("  Action: trusted user reads a file inside the opened workspace.");
-  console.log("  Expected: allow (no laws triggered, action in scope).");
+  console.log("  Expected: require_approval (caught, frozen, held, ask user).");
 
   const legitimateEval = await evaluateBoundaryIntercept({
     config,
@@ -246,12 +246,12 @@ async function main() {
     legitimateEval.decision,
     legitimateEval.lawIds,
   );
-  assert(legitimateEval.decision === "allow", "legitimate action must be allowed");
+  assert(legitimateEval.decision === "require_approval", "ungoverned action must be held for approval");
 
   // ── Summary ───────────────────────────────────────────────────────────────
   banner("Summary");
   console.log("  6 attack patterns tested. All blocked.");
-  console.log("  1 legitimate action tested. Allowed.");
+  console.log("  1 legitimate action tested. Held for approval.");
   console.log("  Laws that fired:");
   console.log("    TIME.AUTHORITY.01 — authority claims are non-authoritative");
   console.log("    TIME.SCOPE.01     — scope expansion from prompt is denied");

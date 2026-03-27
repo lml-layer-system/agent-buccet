@@ -485,18 +485,19 @@ test("target outside opened paths → deny (scope check)", () => {
   assert.ok(result.triggeredLawIds.includes("BOUNDARY.DEFAULT_SCOPE.01"));
 });
 
-test("target inside opened path → law evaluation proceeds (not scope-denied)", () => {
+test("target inside opened path → law evaluation proceeds and defaults to ask-first", () => {
   const result = evaluateBoundaryLaws({
     session: makeSession(),
     request: makeRequest({ actionKind: "fs.write", target: "/home/alice/project/out.txt" }),
-    laws: [],  // no laws — clean allow
+    laws: [],
     grants: [makePathGrant("/home/alice/project", ["fs.write"])],
     approvalRequiredFor: [],
   });
-  assert.equal(result.decision, "allow");
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.triggeredLawIds.includes("BOUNDARY.DEFAULT.ASK.01"));
 });
 
-test("approvalRequiredFor override always triggers approval", () => {
+test("approvalRequiredFor override remains approval on ungoverned action", () => {
   const result = evaluateBoundaryLaws({
     session: makeSession(),
     request: makeRequest({ actionKind: "fs.write", target: "/home/alice/project/out.txt" }),
@@ -505,7 +506,7 @@ test("approvalRequiredFor override always triggers approval", () => {
     approvalRequiredFor: ["fs.write"],
   });
   assert.equal(result.decision, "require_approval");
-  assert.ok(result.triggeredLawIds.includes("BOUNDARY.APPROVAL.01"));
+  assert.ok(result.triggeredLawIds.includes("BOUNDARY.DEFAULT.ASK.01"));
 });
 
 // ─── evaluateBoundaryLaws — law precedence and ordering ──────────────────────
@@ -534,7 +535,7 @@ test("deny law wins over require_approval law (deny is terminal)", () => {
   assert.ok(result.triggeredLawIds.includes("BOUNDARY.EXEC.01"));
 });
 
-test("no laws + in-scope target → allow", () => {
+test("no laws + in-scope target → require_approval", () => {
   const result = evaluateBoundaryLaws({
     session: makeSession(),
     request: makeRequest({ actionKind: "fs.read", target: "/home/alice/project/file.txt" }),
@@ -542,7 +543,8 @@ test("no laws + in-scope target → allow", () => {
     grants: [makePathGrant("/home/alice/project", ["fs.read"])],
     approvalRequiredFor: [],
   });
-  assert.equal(result.decision, "allow");
+  assert.equal(result.decision, "require_approval");
+  assert.ok(result.triggeredLawIds.includes("BOUNDARY.DEFAULT.ASK.01"));
 });
 
 test("fs.delete inside scope → require_approval (BOUNDARY.DELETE.01)", () => {

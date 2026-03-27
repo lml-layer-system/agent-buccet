@@ -32,8 +32,8 @@ export function evaluateBoundaryLaws(args: {
   }
 
   const triggeredLawIds: string[] = [];
-  let decision: BoundaryDecision = "allow";
-  let reason = "action admitted by boundary runtime";
+  let decision: BoundaryDecision = "require_approval";
+  let reason = "no standing law authorizes this action; approval required";
 
   for (const law of args.laws) {
     const appliesToAll = law.appliesTo[0] === "*";
@@ -78,7 +78,9 @@ export function evaluateBoundaryLaws(args: {
   return {
     decision,
     reason,
-    triggeredLawIds,
+    triggeredLawIds: decision === "require_approval" && triggeredLawIds.length === 0
+      ? ["BOUNDARY.DEFAULT.ASK.01"]
+      : triggeredLawIds,
     requiresApproval: decision === "require_approval",
   };
 }
