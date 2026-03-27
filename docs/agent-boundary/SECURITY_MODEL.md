@@ -88,6 +88,25 @@ The Bodyguard enforces that by turning every user decision into a standing UPL l
 
 The agent cannot write to the UPL. The agent cannot read the UPL to understand its limits. The agent proposes. The user's laws decide.
 
+## UPL Tracks
+
+UPL laws do not stop at storage.
+
+On track-eligible surfaces, Buccet can bind standing UPL law into track corridors:
+- `actionCorridor`
+- `outputCorridor`
+- `completionCorridor`
+- `expressionCorridor`
+
+These corridors are the execution form of law.
+
+Meaning:
+- approved motion can continue inside the snapped corridor
+- motion that exits the corridor returns to Terminal 2 or is blocked
+- repeated denied motion can be stopped on contact without re-prompt
+
+This is how Buccet turns standing law into law-in-motion.
+
 ## Swarm Mode
 
 When many protected processes hit the same unresolved target:

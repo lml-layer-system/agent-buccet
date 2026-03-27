@@ -77,7 +77,7 @@ Scope is not path-only:
 
 Use:
 - `createBoundaryActionRequest(...)`
-- `executeBoundaryControlledAction(...)`
+- `enforceBoundaryProposal(...)`
 
 This is the shared action admission path through Bodyguard.
 

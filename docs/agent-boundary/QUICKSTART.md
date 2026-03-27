@@ -102,6 +102,17 @@ Use:
 
 The agent never self-approves.
 
+## 4b. UPL Tracks
+
+When a user approves or denies as law, Buccet can bind that decision into a standing track corridor.
+
+That means:
+- approved motion can continue inside the exact corridor without re-prompting
+- out-of-corridor motion returns to Terminal 2
+- denied corridors block repeated motion on contact
+
+This is law in motion, not just stored approval state.
+
 ## 5. Ledger
 
 Every meaningful action must be ledgered.

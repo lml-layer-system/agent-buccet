@@ -711,6 +711,7 @@ export type BoundaryRuntimeConfig = {
   governorState?: BoundaryGovernorState;
   admissionConfig?: BoundaryAdmissionConfig;
   admissionState?: BoundaryAdmissionState;
+  drainPendingApprovals?: (reason?: string) => number | Promise<number>;
 };
 
 export type BoundaryPersistenceConfig = {

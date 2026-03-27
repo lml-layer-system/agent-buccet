@@ -425,6 +425,7 @@ export async function endPersistentBoundarySession(args: {
   reason?: string;
 }): Promise<BoundaryRuntimeConfig> {
   const endedAt = new Date().toISOString();
+  const drainedPendingApprovals = await args.config.drainPendingApprovals?.("session ended");
   const nextConfig: BoundaryRuntimeConfig = {
     ...args.config,
     session: {
@@ -440,6 +441,7 @@ export async function endPersistentBoundarySession(args: {
     reason: args.reason ?? "persistent boundary session ended by user",
     metadata: {
       persistent: nextConfig.session.persistent,
+      pending_approvals_drained: drainedPendingApprovals ?? 0,
     },
     createdAt: endedAt,
   });

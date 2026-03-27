@@ -112,7 +112,9 @@ async function resolveUserPathLedgerPath(): Promise<string> {
 async function writeLedger(ledger: BoundaryUserPathLedger): Promise<void> {
   const ledgerPath = await resolveUserPathLedgerPath();
   await fs.mkdir(path.dirname(ledgerPath), { recursive: true });
-  await fs.writeFile(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+  const tempPath = `${ledgerPath}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tempPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+  await fs.rename(tempPath, ledgerPath);
 }
 
 function normalizeEntry(rawEntry: BoundaryUplEntry): BoundaryUplEntry {
@@ -357,6 +359,24 @@ export function lookupUserPathTrackDecision(args: {
         specificity: entrySpecificity(entry),
       });
     }
+  }
+
+  const validAllows = candidates.filter((candidate) => candidate.decision === "allow");
+  if (validAllows.length > 0) {
+    validAllows.sort((left, right) => {
+      if (right.specificity !== left.specificity) {
+        return right.specificity - left.specificity;
+      }
+      if (left.entry.createdAt !== right.entry.createdAt) {
+        return right.entry.createdAt.localeCompare(left.entry.createdAt);
+      }
+      return left.entry.id.localeCompare(right.entry.id);
+    });
+    const winner = validAllows[0];
+    return {
+      entry: winner.entry,
+      decision: winner.decision,
+    };
   }
 
   candidates.sort((left, right) => {
