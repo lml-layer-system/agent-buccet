@@ -164,10 +164,8 @@ Current runtime truth on this branch:
 
 Not yet complete:
 
-- arbitrary free-form prose does not yet produce perfect universal track
-  extraction
-- expression/output/action extraction is stronger now, but still not perfect
-  universal corridor derivation from every possible lawful phrasing
+- the remaining work is not a second parser or a second law system
+- the remaining work is richer corridor materialization from lawful meaning
 - completion grammar is still narrower than the full long-term vision
 
 ## Success condition

@@ -52,7 +52,7 @@ function resolveTarget(releaseDir: string, env: NodeJS.ProcessEnv): { mode: "fil
   if (env.AGENT_BUCCET_WITNESS_FILE) {
     return { mode: "file", target: env.AGENT_BUCCET_WITNESS_FILE };
   }
-  // Default: local file. 100% offline. No network call.
+  // Default: local file. Local-first, no network call unless operator-configured.
   // Set BUCCET_WITNESS_URL to point to your own witness server for off-machine anchoring.
   return {
     mode: "file",
