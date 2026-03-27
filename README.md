@@ -2,9 +2,9 @@
 Building Ultimate Containment Constraints Every Time
 ![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
-Persistent, CPU-friendly law and scope enforcement for AI agents.
+Persistent, CPU-friendly enforcement for AI agents.
 
-Agent Buccet is the containment layer you add to the agent stack you already run.
+Agent Buccet is the protection layer you add to the agent stack you already run.
 
 Core of Agent Buccet:
 - Agents can propose. They cannot authorize.
@@ -60,11 +60,13 @@ The active Agent Buccet law body in this repo is documented here:
 
 That catalog covers:
 - Buccet base laws
-- Buccet meta laws
+- Buccet Time laws
 - Agent action boundary laws
 - Agent Buccet session and grant lifecycle laws
 - Buccet ledger laws
-
+- Buccet ingress and egress protection
+- Buccet User path laws
+- 2 Terminal Must use 3rd is optional ledger 
 To see exactly what Agent Buccet is enforcing, use `\LAW_REFERENCE.md.`
 
 ## Hosted Install
