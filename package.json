@@ -56,6 +56,7 @@
     "test:agent-buccet:chat-boundary": "node scripts/agent-buccet-chat-boundary-contract.ts",
     "test:agent-buccet:upl-governance": "node scripts/agent-buccet-upl-governance-contract.ts",
     "test:agent-buccet:upl-tracks": "node scripts/agent-buccet-upl-tracks-contract.ts",
+    "test:agent-buccet:document-law": "node scripts/agent-buccet-document-law-contract.ts",
     "test:agent-buccet:egress-contract": "node scripts/agent-buccet-egress-contract.ts",
     "test:agent-buccet:governor-contract": "node scripts/agent-buccet-governor-contract.ts",
     "test:agent-buccet:payload-physics-contract": "node scripts/agent-buccet-payload-physics-contract.ts",

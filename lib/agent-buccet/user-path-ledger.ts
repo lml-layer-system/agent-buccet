@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
+  CompiledDocumentLaw,
   BoundaryLedgerRecord,
   BoundarySession,
   BoundaryUplEntry,
@@ -408,15 +409,18 @@ function createEntry(args: {
   type: "APPROVED" | "DENIED";
   session: BoundarySession;
   decision?: BoundaryApprovalDecision;
+  trackConstraintOverride?: BoundaryUplEntry["trackConstraint"];
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
   // Attach a track constraint to every UPL entry that lives on a tracked surface.
   // That keeps standing user law from reopening into broad general agency after
   // the law is set in motion. Admission and Physics surfaces are excluded.
   const trackConstraint =
-    isTrackSurface(args.request.actionKind)
+    args.trackConstraintOverride ?? (
+      isTrackSurface(args.request.actionKind)
       ? buildAutoTrackConstraint(args.request)
-      : undefined;
+      : undefined
+    );
   return {
     id: makeEntryId(args.ledger),
     type: args.type,
@@ -492,6 +496,47 @@ export async function writeDeniedUserPathLaw(args: {
     ...nextLedger,
     userDeniedLawPaths: [...nextLedger.userDeniedLawPaths, entry],
   };
+  return saveUserPathLedger(next);
+}
+
+export async function writeCompiledUserPathLaw(args: {
+  ledger: BoundaryUserPathLedger;
+  compiledLaw: CompiledDocumentLaw;
+  witness: BoundaryLedgerRecord;
+  session: BoundarySession;
+}): Promise<BoundaryUserPathLedger> {
+  const request = requestFromBasis(args.compiledLaw.requestBasis, args.session.sessionId);
+  const decision: BoundaryApprovalDecision = {
+    choice: args.compiledLaw.type === "APPROVED" ? "allow_as_law" : "deny_as_law",
+    scope: args.compiledLaw.scope ?? "GLOBAL",
+    notes: args.compiledLaw.notes ?? undefined,
+  };
+  const scope = normalizeScope({ decision });
+  const nextLedger = applyUserLawReplacement({
+    ledger: args.ledger,
+    request,
+    session: args.session,
+    scope,
+    modifiedAt: args.witness.META.timestamp,
+  });
+  const entry = createEntry({
+    ledger: nextLedger,
+    request,
+    witness: args.witness,
+    type: args.compiledLaw.type,
+    session: args.session,
+    decision: withNormalizedScope(decision, scope),
+    trackConstraintOverride: args.compiledLaw.trackConstraint,
+  });
+  const next = args.compiledLaw.type === "APPROVED"
+    ? {
+      ...nextLedger,
+      userApprovedLawPaths: [...nextLedger.userApprovedLawPaths, entry],
+    }
+    : {
+      ...nextLedger,
+      userDeniedLawPaths: [...nextLedger.userDeniedLawPaths, entry],
+    };
   return saveUserPathLedger(next);
 }
 

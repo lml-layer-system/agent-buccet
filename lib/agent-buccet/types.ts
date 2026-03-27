@@ -315,6 +315,14 @@ export type BoundaryUplTrackConstraint = {
   reviewSurface?: BoundaryReviewContext["surface"];
   /** Optional invariant binding for chat tracks. */
   reviewInvariantLawId?: string;
+  /** Chat/output must include each of these phrases or patterns. */
+  requiredTextPatterns?: string[];
+  /** Chat/output must not include any of these phrases or patterns. */
+  forbiddenTextPatterns?: string[];
+  /** Optional output-shape corridor for chat/output. */
+  outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+  /** Human-readable expression/profile label for this track. */
+  expressionProfile?: string;
   /** Human-readable description of the corridor. */
   description: string;
 };
@@ -590,6 +598,14 @@ export type BoundaryUserPathLedger = {
   specVersion: 1;
   userApprovedLawPaths: BoundaryUplEntry[];
   userDeniedLawPaths: BoundaryUplEntry[];
+};
+
+export type CompiledDocumentLaw = {
+  type: BoundaryUplEntryType;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  requestBasis: BoundaryUplRequestBasis;
+  trackConstraint?: BoundaryUplTrackConstraint;
 };
 
 export type BoundaryRuntimeMuscleManifest = {

@@ -164,6 +164,7 @@ export function buildAutoTrackConstraint(
         allowedActionKinds: ["chat.emit"],
         reviewSurface: "chat",
         reviewInvariantLawId: request.reviewContext?.invariantLawId,
+        outputShape: inferChatOutputShape(request.reviewContext?.attemptedOutput),
         description: request.reviewContext?.invariantLawId
           ? `chat emission under ${request.reviewContext.invariantLawId}`
           : "chat emission only",
@@ -215,6 +216,81 @@ export function buildAutoTrackConstraint(
       // TRACK_SURFACE_ACTION_KINDS and add a case here.
       return undefined;
   }
+}
+
+function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConstraint["outputShape"] | undefined {
+  if (!output) {
+    return undefined;
+  }
+  const trimmed = output.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if ((trimmed.startsWith("{") || trimmed.startsWith("["))) {
+    try {
+      JSON.parse(trimmed);
+      return "json";
+    } catch {
+      // ignore
+    }
+  }
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.every((line) => /^[-*]\s+/.test(line))) {
+    return "bullets";
+  }
+  if (lines.length > 1 && lines.every((line) => /^\d+\.\s+/.test(line))) {
+    return "numbered";
+  }
+  return "paragraph";
+}
+
+function textMatchesPattern(text: string, pattern: string): boolean {
+  const trimmedPattern = pattern.trim();
+  if (!trimmedPattern) {
+    return true;
+  }
+  const regexLiteral = trimmedPattern.match(/^\/(.+)\/([a-z]*)$/i);
+  if (regexLiteral) {
+    try {
+      return new RegExp(regexLiteral[1], regexLiteral[2]).test(text);
+    } catch {
+      return text.toLowerCase().includes(trimmedPattern.toLowerCase());
+    }
+  }
+  return text.toLowerCase().includes(trimmedPattern.toLowerCase());
+}
+
+function describeOutputShape(shape: BoundaryUplTrackConstraint["outputShape"]): string {
+  return shape ?? "unspecified";
+}
+
+function isOutputShapeSatisfied(shape: BoundaryUplTrackConstraint["outputShape"], output: string): boolean {
+  const trimmed = output.trim();
+  if (!shape) {
+    return true;
+  }
+  if (shape === "json") {
+    if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) {
+      return false;
+    }
+    try {
+      JSON.parse(trimmed);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (shape === "bullets") {
+    return lines.length > 0 && lines.every((line) => /^[-*]\s+/.test(line));
+  }
+  if (shape === "numbered") {
+    return lines.length > 0 && lines.every((line) => /^\d+\.\s+/.test(line));
+  }
+  if (shape === "paragraph") {
+    return lines.length <= 1 || lines.every((line) => !/^[-*]\s+/.test(line) && !/^\d+\.\s+/.test(line));
+  }
+  return true;
 }
 
 /**
@@ -281,6 +357,36 @@ export function checkTrackConstraint(
     }
   }
 
+  const text = request.reviewContext?.attemptedOutput ?? request.payloadSummary ?? "";
+  if (constraint.requiredTextPatterns?.length) {
+    for (const pattern of constraint.requiredTextPatterns) {
+      if (!textMatchesPattern(text, pattern)) {
+        return (
+          `output exits the approved execution corridor ` +
+          `(required pattern missing: ${pattern})`
+        );
+      }
+    }
+  }
+
+  if (constraint.forbiddenTextPatterns?.length) {
+    for (const pattern of constraint.forbiddenTextPatterns) {
+      if (textMatchesPattern(text, pattern)) {
+        return (
+          `output exits the approved execution corridor ` +
+          `(forbidden pattern present: ${pattern})`
+        );
+      }
+    }
+  }
+
+  if (constraint.outputShape && !isOutputShapeSatisfied(constraint.outputShape, text)) {
+    return (
+      `output exits the approved execution corridor ` +
+      `(required shape: ${describeOutputShape(constraint.outputShape)})`
+    );
+  }
+
   return null;
 }
 
@@ -295,5 +401,13 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const invariantPart = constraint.reviewInvariantLawId
     ? ` | invariant: ${constraint.reviewInvariantLawId}`
     : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}`;
+  const requiredPart = constraint.requiredTextPatterns?.length
+    ? ` | require: ${constraint.requiredTextPatterns.join(" ; ")}`
+    : "";
+  const forbiddenPart = constraint.forbiddenTextPatterns?.length
+    ? ` | forbid: ${constraint.forbiddenTextPatterns.join(" ; ")}`
+    : "";
+  const shapePart = constraint.outputShape ? ` | shape: ${constraint.outputShape}` : "";
+  const profilePart = constraint.expressionProfile ? ` | expression: ${constraint.expressionProfile}` : "";
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${profilePart}`;
 }
