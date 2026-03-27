@@ -81,17 +81,20 @@ Track Extractor emits track-ready structure only.
 Current Buccet-native shape:
 
 - `reviewInvariantLawId`
+- `actionCorridor`
+- `outputCorridor`
+- `expressionCorridor`
 - `allowedActionKinds`
 - `targetPattern`
 - `targetMatchMode`
-- `actionCorridor`
 - `requiredTextPatterns`
 - `forbiddenTextPatterns`
 - `outputShape`
-- `outputCorridor`
 - `expressionProfile`
-- `expressionCorridor`
 - `description`
+
+Structured corridors are the primary enforcement surface.
+The flat fields remain for compatibility and display.
 
 This is not a summary layer.
 This is the minimal operational payload required to enforce the law in motion.
@@ -136,8 +139,8 @@ That is not a preference.
 That is an output corridor.
 
 Track Extractor must convert that into enforceable rails, not a display-only
-label. Known expression profiles are only shortcuts. The real enforcement
-surface is the structured `expressionCorridor`.
+label. Known expression profiles are only shortcuts into the structured
+`expressionCorridor`.
 
 ## Current implementation truth
 
