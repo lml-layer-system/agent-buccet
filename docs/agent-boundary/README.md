@@ -65,6 +65,7 @@ Core docs:
 - [Launch Proof](LAUNCH_PROOF.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
 - [Security Model](SECURITY_MODEL.md)
+- [Buccet System Substrate](BUCCET_SYSTEM_SUBSTRATE.md)
 - [Current Limits](CURRENT_LIMITS.md)
 - [Law Catalog](LAW_CATALOG.md)
 - [Law Reference](LAW_REFERENCE.md)
