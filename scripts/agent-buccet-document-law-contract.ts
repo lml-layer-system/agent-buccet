@@ -48,9 +48,17 @@ async function main() {
     await fs.writeFile(documentPath, [
       "# Response policy",
       "",
-      "- output shape: bullets",
-      "- do not say: 2000s",
-      "- must include: 1999",
+      "Invariant: Return only 1999 material.",
+      "Enforcement: Keep the answer in bullets and reject any 2000s phrasing.",
+      "Output shape: bullets",
+      "Must include: 1999",
+      "Do not say: 2000s",
+      "Expression: archival",
+      "",
+      "Decision: deny",
+      "Invariant: Never mention spoilers.",
+      "Enforcement: Reject spoiler phrasing entirely.",
+      "Forbid: spoilers",
     ].join("\n"));
 
     const env = {
@@ -71,15 +79,18 @@ async function main() {
     };
     assert.equal(imported.scope, "GLOBAL");
     assert.equal(imported.imported.length, 1);
-    assert.equal(imported.imported[0].imported, 3, "expected three document-law directives to import");
+    assert.equal(imported.imported[0].imported, 2, "expected two invariant blocks to compile into two laws");
 
     const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
     const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
     const activeDenied = upl.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE");
     const activeApproved = upl.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE");
-    assert.ok(activeDenied.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("2000s")));
+    assert.equal(activeDenied.length, 1);
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("2000s")));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputShape === "bullets"));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("1999")));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "archival"));
+    assert.ok(activeDenied.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("spoilers")));
 
     const sessionId = `agent-buccet-document-law-${Date.now()}`;
     const actorId = "user:document-law-contract";
@@ -99,6 +110,14 @@ async function main() {
     });
     assert.equal(blocked.allowed, false, "expected forbidden imported phrase to block output");
 
+    const spoilerBlocked = await bodyguard.chat.emit({
+      userInput: "describe the film without spoilers",
+      attemptedOutput: "- 1999 Batman spoilers summary",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after document law",
+    });
+    assert.equal(spoilerBlocked.allowed, false, "expected denied spoiler corridor to block output");
+
     const allowed = await bodyguard.chat.emit({
       userInput: "only return 1999 material",
       attemptedOutput: "- Batman 1999 run",
@@ -108,10 +127,11 @@ async function main() {
     assert.equal(allowed.allowed, true, "expected compliant imported output to pass");
 
     console.log("Agent Buccet document-law contract");
-    console.log(`imported directives: ${imported.imported[0].imported}`);
+    console.log(`imported invariant laws: ${imported.imported[0].imported}`);
     console.log(`active approved tracks: ${activeApproved.length}`);
     console.log(`active denied tracks: ${activeDenied.length}`);
     console.log(`forbidden output blocked: ${!blocked.allowed}`);
+    console.log(`spoiler output blocked: ${!spoilerBlocked.allowed}`);
     console.log(`compliant output allowed: ${allowed.allowed}`);
   } finally {
     await saveUserPathLedger(originalLedger);

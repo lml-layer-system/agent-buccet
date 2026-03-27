@@ -505,39 +505,67 @@ export async function writeCompiledUserPathLaw(args: {
   witness: BoundaryLedgerRecord;
   session: BoundarySession;
 }): Promise<BoundaryUserPathLedger> {
-  const request = requestFromBasis(args.compiledLaw.requestBasis, args.session.sessionId);
-  const decision: BoundaryApprovalDecision = {
-    choice: args.compiledLaw.type === "APPROVED" ? "allow_as_law" : "deny_as_law",
-    scope: args.compiledLaw.scope ?? "GLOBAL",
-    notes: args.compiledLaw.notes ?? undefined,
-  };
-  const scope = normalizeScope({ decision });
-  const nextLedger = applyUserLawReplacement({
+  return writeCompiledUserPathLaws({
     ledger: args.ledger,
-    request,
+    compiledLaws: [{ compiledLaw: args.compiledLaw, witness: args.witness }],
     session: args.session,
-    scope,
-    modifiedAt: args.witness.META.timestamp,
   });
-  const entry = createEntry({
-    ledger: nextLedger,
-    request,
-    witness: args.witness,
-    type: args.compiledLaw.type,
-    session: args.session,
-    decision: withNormalizedScope(decision, scope),
-    trackConstraintOverride: args.compiledLaw.trackConstraint,
-  });
-  const next = args.compiledLaw.type === "APPROVED"
-    ? {
-      ...nextLedger,
-      userApprovedLawPaths: [...nextLedger.userApprovedLawPaths, entry],
-    }
-    : {
-      ...nextLedger,
-      userDeniedLawPaths: [...nextLedger.userDeniedLawPaths, entry],
+}
+
+export async function writeCompiledUserPathLaws(args: {
+  ledger: BoundaryUserPathLedger;
+  compiledLaws: Array<{
+    compiledLaw: CompiledDocumentLaw;
+    witness: BoundaryLedgerRecord;
+  }>;
+  session: BoundarySession;
+}): Promise<BoundaryUserPathLedger> {
+  let nextLedger = args.ledger;
+  let approvedEntries = nextLedger.userApprovedLawPaths;
+  let deniedEntries = nextLedger.userDeniedLawPaths;
+
+  for (const item of args.compiledLaws) {
+    const request = requestFromBasis(item.compiledLaw.requestBasis, args.session.sessionId);
+    const decision: BoundaryApprovalDecision = {
+      choice: item.compiledLaw.type === "APPROVED" ? "allow_as_law" : "deny_as_law",
+      scope: item.compiledLaw.scope ?? "GLOBAL",
+      notes: item.compiledLaw.notes ?? undefined,
     };
-  return saveUserPathLedger(next);
+    const scope = normalizeScope({ decision });
+    nextLedger = applyUserLawReplacement({
+      ledger: {
+        ...nextLedger,
+        userApprovedLawPaths: approvedEntries,
+        userDeniedLawPaths: deniedEntries,
+      },
+      request,
+      session: args.session,
+      scope,
+      modifiedAt: item.witness.META.timestamp,
+    });
+    const entry = createEntry({
+      ledger: nextLedger,
+      request,
+      witness: item.witness,
+      type: item.compiledLaw.type,
+      session: args.session,
+      decision: withNormalizedScope(decision, scope),
+      trackConstraintOverride: item.compiledLaw.trackConstraint,
+    });
+    approvedEntries = nextLedger.userApprovedLawPaths;
+    deniedEntries = nextLedger.userDeniedLawPaths;
+    if (item.compiledLaw.type === "APPROVED") {
+      approvedEntries = [...approvedEntries, entry];
+    } else {
+      deniedEntries = [...deniedEntries, entry];
+    }
+  }
+
+  return saveUserPathLedger({
+    ...nextLedger,
+    userApprovedLawPaths: approvedEntries,
+    userDeniedLawPaths: deniedEntries,
+  });
 }
 
 export async function pruneSessionScopedUserPathLaws(args: {

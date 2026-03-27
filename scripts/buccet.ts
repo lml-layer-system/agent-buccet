@@ -861,42 +861,58 @@ async function handleUpl(rest: string[]) {
       }));
 
       const entryIds: string[] = [];
-      for (const law of compiled) {
-        const request = {
-          ...law.requestBasis,
-          requestId: `upl-import-${createHash("sha256").update(`${filePath}:${law.requestBasis.payloadSummary ?? law.requestBasis.target}:${law.type}`).digest("hex").slice(0, 12)}`,
-          sessionId: config.sessionId,
-          requestedAt: new Date().toISOString(),
-        };
+      const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof boundary.appendBoundaryLedger>>>();
+      for (const lawType of ["APPROVED", "DENIED"] as const) {
+        const matching = compiled.filter((entry) => entry.type === lawType);
+        if (matching.length === 0) {
+          continue;
+        }
+        const requestId = `upl-import-${createHash("sha256").update(`${filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`).digest("hex").slice(0, 12)}`;
+        const representative = matching[0];
         const witness = await boundary.appendBoundaryLedger(
-          law.type === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
+          lawType === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
           {
             sessionId: config.sessionId,
             actorId: config.actorId,
-            requestId: request.requestId,
-            actionKind: request.actionKind,
-            target: request.target,
-            decision: law.type === "APPROVED" ? "allow" : "deny",
-            reason: `document law imported from ${path.basename(filePath)}`,
+            requestId,
+            actionKind: representative.requestBasis.actionKind,
+            target: representative.requestBasis.target,
+            decision: lawType === "APPROVED" ? "allow" : "deny",
+            reason: `document law imported from ${path.basename(filePath)} (${matching.length} compiled laws)`,
             lawIds: [],
             metadata: {
               source_document: filePath,
               upl_scope: scope,
+              compiled_law_count: matching.length,
+              imported_invariant_batch: createHash("sha256")
+                .update(matching
+                  .map((entry) => entry.requestBasis.reviewContext?.invariantLawId ?? entry.requestBasis.payloadSummary ?? "unknown")
+                  .join("|"))
+                .digest("hex")
+                .slice(0, 16),
             },
             createdAt: new Date().toISOString(),
           },
         );
-        upl = await boundary.writeCompiledUserPathLaw({
-          ledger: upl,
-          compiledLaw: law,
-          witness,
-          session: store.getConfig().session,
-        });
-        const activeEntries = law.type === "APPROVED" ? upl.userApprovedLawPaths : upl.userDeniedLawPaths;
-        const newEntry = activeEntries[activeEntries.length - 1];
-        if (newEntry) {
-          entryIds.push(newEntry.id);
-        }
+        witnessByType.set(lawType, witness);
+      }
+
+      const batch = compiled.flatMap((law) => {
+        const witness = witnessByType.get(law.type);
+        return witness ? [{ compiledLaw: law, witness }] : [];
+      });
+      const approvedCountBefore = upl.userApprovedLawPaths.length;
+      const deniedCountBefore = upl.userDeniedLawPaths.length;
+      upl = await boundary.writeCompiledUserPathLaws({
+        ledger: upl,
+        compiledLaws: batch,
+        session: store.getConfig().session,
+      });
+      for (const entry of upl.userApprovedLawPaths.slice(approvedCountBefore)) {
+        entryIds.push(entry.id);
+      }
+      for (const entry of upl.userDeniedLawPaths.slice(deniedCountBefore)) {
+        entryIds.push(entry.id);
       }
 
       imported.push({

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type {
   CompiledDocumentLaw,
@@ -13,6 +14,24 @@ type ParsedDirective = {
   trackConstraint: BoundaryUplTrackConstraint;
   reviewContext: BoundaryReviewContext;
 };
+
+type DocumentLawBlock = {
+  startLine: number;
+  endLine: number;
+  heading?: string;
+  fields: Record<string, string[]>;
+};
+
+const CHAT_TARGET = "chat:primary";
+const FIELD_ALIASES: Array<{ pattern: RegExp; key: string }> = [
+  { pattern: /^(?:decision|disposition|status)$/i, key: "decision" },
+  { pattern: /^(?:invariant|rule|constraint|law)$/i, key: "invariant" },
+  { pattern: /^(?:enforcement|enforced by|guard|mechanism)$/i, key: "enforcement" },
+  { pattern: /^(?:speak this way|speak like|respond like|expression|tone|style)$/i, key: "expression" },
+  { pattern: /^(?:output shape|return shape|completion grammar|format|schema)$/i, key: "output_shape" },
+  { pattern: /^(?:must include|must say|say this|only say|respond with|required|require)$/i, key: "require" },
+  { pattern: /^(?:must not include|do not say|never say|must not say|forbid phrase|forbid|forbidden)$/i, key: "forbid" },
+];
 
 function sanitizeLawSlug(input: string): string {
   return input
@@ -44,135 +63,216 @@ function buildInvariantId(sourcePath: string, lineNumber: number, label: string)
   return `UPL.DOC.${docName}.${String(lineNumber).padStart(3, "0")}.${labelSlug}`;
 }
 
-function compileDirective(args: {
-  sourcePath: string;
-  lineNumber: number;
-  type: "APPROVED" | "DENIED";
-  label: string;
-  requiredTextPatterns?: string[];
-  forbiddenTextPatterns?: string[];
-  outputShape?: BoundaryUplTrackConstraint["outputShape"];
-  expressionProfile?: string;
-}): ParsedDirective {
-  const invariantLawId = buildInvariantId(args.sourcePath, args.lineNumber, args.label);
-  const description = args.expressionProfile
-    ? `${args.type === "APPROVED" ? "approved" : "denied"} chat corridor: ${args.expressionProfile}`
-    : `${args.type === "APPROVED" ? "approved" : "denied"} chat corridor from ${path.basename(args.sourcePath)}`;
-  const trackConstraint: BoundaryUplTrackConstraint = {
-    allowedActionKinds: ["chat.emit"],
-    reviewSurface: "chat",
-    reviewInvariantLawId: invariantLawId,
-    ...(args.requiredTextPatterns?.length ? { requiredTextPatterns: args.requiredTextPatterns } : {}),
-    ...(args.forbiddenTextPatterns?.length ? { forbiddenTextPatterns: args.forbiddenTextPatterns } : {}),
-    ...(args.outputShape ? { outputShape: args.outputShape } : {}),
-    ...(args.expressionProfile ? { expressionProfile: args.expressionProfile } : {}),
-    description,
-  };
-  return {
-    type: args.type,
-    invariantLawId,
-    invariantLabel: args.label,
-    notes: `document-law import: ${path.basename(args.sourcePath)}:${args.lineNumber}`,
-    trackConstraint,
-    reviewContext: {
-      surface: "chat",
-      invariantLawId,
-      invariantLabel: args.label,
-    },
-  };
+function normalizeFieldKey(rawKey: string): string | null {
+  const cleaned = rawKey.trim().replace(/^[-*]\s*/, "");
+  for (const alias of FIELD_ALIASES) {
+    if (alias.pattern.test(cleaned)) {
+      return alias.key;
+    }
+  }
+  return null;
 }
 
-export function compileMarkdownDocumentToLaws(args: {
-  sourcePath: string;
-  markdown: string;
-}): CompiledDocumentLaw[] {
-  const lines = args.markdown.split(/\r?\n/);
-  const compiled: CompiledDocumentLaw[] = [];
+function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
+  const lines = markdown.split(/\r?\n/);
+  const blocks: DocumentLawBlock[] = [];
   let inFence = false;
+  let active: DocumentLawBlock | null = null;
+  let currentHeading: string | undefined;
+
+  const flush = () => {
+    if (!active) return;
+    if (Object.keys(active.fields).length > 0) {
+      blocks.push(active);
+    }
+    active = null;
+  };
 
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? "";
-    if (rawLine.trim().startsWith("```")) {
+    const trimmed = rawLine.trim();
+    if (trimmed.startsWith("```")) {
       inFence = !inFence;
       continue;
     }
     if (inFence) {
       continue;
     }
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) {
+    if (!trimmed) {
+      flush();
+      continue;
+    }
+    if (trimmed.startsWith("#")) {
+      flush();
+      currentHeading = trimmed.replace(/^#+\s*/, "").trim() || undefined;
       continue;
     }
 
-    const lineNumber = index + 1;
-    let directive: ParsedDirective | null = null;
-
-    const speakThisWay = line.match(/^(?:[-*]\s*)?(?:speak this way|speak like|respond like|expression|tone)\s*:\s*(.+)$/i);
-    if (speakThisWay) {
-      const profile = speakThisWay[1].trim();
-      directive = compileDirective({
-        sourcePath: args.sourcePath,
-        lineNumber,
-        type: "APPROVED",
-        label: `Use expression profile: ${profile}`,
-        expressionProfile: profile,
-      });
+    const normalized = trimmed.replace(/^[-*]\s*/, "");
+    const match = normalized.match(/^([^:]+):\s*(.+)$/);
+    if (!match) {
+      continue;
     }
-
-    const outputShape = !directive && line.match(/^(?:[-*]\s*)?(?:output shape|return shape|completion grammar)\s*:\s*(.+)$/i);
-    if (outputShape) {
-      const shape = detectOutputShape(outputShape[1]);
-      if (shape) {
-        directive = compileDirective({
-          sourcePath: args.sourcePath,
-          lineNumber,
-          type: "APPROVED",
-          label: `Output shape must remain ${shape}`,
-          outputShape: shape,
-          expressionProfile: shape,
-        });
-      }
+    const key = normalizeFieldKey(match[1] ?? "");
+    if (!key) {
+      continue;
     }
-
-    const mustInclude = !directive && line.match(/^(?:[-*]\s*)?(?:must include|must say|say this|only say|respond with)\s*:\s*(.+)$/i);
-    if (mustInclude) {
-      const required = normalizeDelimitedList(mustInclude[1]);
-      if (required.length > 0) {
-        directive = compileDirective({
-          sourcePath: args.sourcePath,
-          lineNumber,
-          type: "APPROVED",
-          label: `Output must include: ${required.join(", ")}`,
-          requiredTextPatterns: required,
-        });
-      }
+    if (!active) {
+      active = {
+        startLine: index + 1,
+        endLine: index + 1,
+        heading: currentHeading,
+        fields: {},
+      };
     }
+    active.endLine = index + 1;
+    active.fields[key] = [...(active.fields[key] ?? []), match[2].trim()];
+  }
 
-    const mustNotInclude = !directive && line.match(/^(?:[-*]\s*)?(?:must not include|do not say|never say|must not say|forbid phrase)\s*:\s*(.+)$/i);
-    if (mustNotInclude) {
-      const forbidden = normalizeDelimitedList(mustNotInclude[1]);
-      if (forbidden.length > 0) {
-        directive = compileDirective({
-          sourcePath: args.sourcePath,
-          lineNumber,
-          type: "DENIED",
-          label: `Output must not include: ${forbidden.join(", ")}`,
-          forbiddenTextPatterns: forbidden,
-        });
-      }
-    }
+  flush();
+  return blocks;
+}
 
+function inferDecision(block: DocumentLawBlock): "APPROVED" | "DENIED" {
+  const explicit = block.fields.decision?.join(" ").toLowerCase() ?? "";
+  if (/\bdeny\b|\bdenied\b|\bforbid\b|\bforbidden\b|\bblock\b/.test(explicit)) {
+    return "DENIED";
+  }
+  return "APPROVED";
+}
+
+function dedupePatterns(values: string[]): string[] {
+  return [...new Set(values.flatMap((value) => normalizeDelimitedList(value)))];
+}
+
+function buildInvariantLabel(block: DocumentLawBlock, args: {
+  expressionProfile?: string;
+  outputShape?: BoundaryUplTrackConstraint["outputShape"];
+  requiredTextPatterns: string[];
+  forbiddenTextPatterns: string[];
+}): string {
+  const explicit = block.fields.invariant?.find(Boolean)?.trim();
+  if (explicit) {
+    return explicit;
+  }
+  if (block.heading) {
+    return block.heading;
+  }
+  if (args.expressionProfile) {
+    return `Use expression profile: ${args.expressionProfile}`;
+  }
+  if (args.outputShape) {
+    return `Output shape must remain ${args.outputShape}`;
+  }
+  if (args.requiredTextPatterns.length > 0) {
+    return `Output must include: ${args.requiredTextPatterns.join(", ")}`;
+  }
+  return `Output must not include: ${args.forbiddenTextPatterns.join(", ")}`;
+}
+
+function compileBlock(args: {
+  sourcePath: string;
+  block: DocumentLawBlock;
+}): ParsedDirective | null {
+  const requiredTextPatterns = dedupePatterns(args.block.fields.require ?? []);
+  const forbiddenTextPatterns = dedupePatterns(args.block.fields.forbid ?? []);
+  const outputShape = args.block.fields.output_shape
+    ?.map((value) => detectOutputShape(value))
+    .find((value) => value !== undefined);
+  const expressionProfile = args.block.fields.expression?.at(0)?.trim();
+  const enforcement = args.block.fields.enforcement?.join("; ").trim();
+
+  if (
+    requiredTextPatterns.length === 0
+    && forbiddenTextPatterns.length === 0
+    && !outputShape
+    && !expressionProfile
+  ) {
+    return null;
+  }
+
+  const invariantLabel = buildInvariantLabel(args.block, {
+    expressionProfile,
+    outputShape,
+    requiredTextPatterns,
+    forbiddenTextPatterns,
+  });
+  const invariantLawId = buildInvariantId(args.sourcePath, args.block.startLine, invariantLabel);
+  const type = inferDecision(args.block);
+  const descriptionParts = [
+    type === "APPROVED" ? "approved" : "denied",
+    "chat corridor",
+    expressionProfile ? `expression=${expressionProfile}` : null,
+    outputShape ? `shape=${outputShape}` : null,
+    enforcement ? `enforcement=${enforcement}` : null,
+  ].filter(Boolean);
+
+  const trackConstraint: BoundaryUplTrackConstraint = {
+    allowedActionKinds: ["chat.emit"],
+    reviewSurface: "chat",
+    reviewInvariantLawId: invariantLawId,
+    ...(requiredTextPatterns.length ? { requiredTextPatterns } : {}),
+    ...(forbiddenTextPatterns.length ? { forbiddenTextPatterns } : {}),
+    ...(outputShape ? { outputShape } : {}),
+    ...(expressionProfile ? { expressionProfile } : {}),
+    description: descriptionParts.join(" | "),
+  };
+
+  return {
+    type,
+    invariantLawId,
+    invariantLabel,
+    notes: `document-law import: ${path.basename(args.sourcePath)}:${args.block.startLine}-${args.block.endLine}`,
+    trackConstraint,
+    reviewContext: {
+      surface: "chat",
+      invariantLawId,
+      invariantLabel,
+      title: args.block.heading,
+      question: enforcement,
+    },
+  };
+}
+
+function directiveSignature(directive: ParsedDirective): string {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      type: directive.type,
+      invariantLabel: directive.invariantLabel,
+      trackConstraint: directive.trackConstraint,
+      reviewContext: directive.reviewContext,
+    }))
+    .digest("hex");
+}
+
+export function compileMarkdownDocumentToLaws(args: {
+  sourcePath: string;
+  markdown: string;
+}): CompiledDocumentLaw[] {
+  const blocks = parseDocumentBlocks(args.markdown);
+  const compiled = new Map<string, CompiledDocumentLaw>();
+
+  for (const block of blocks) {
+    const directive = compileBlock({
+      sourcePath: args.sourcePath,
+      block,
+    });
     if (!directive) {
       continue;
     }
 
-    compiled.push({
+    const signature = directiveSignature(directive);
+    if (compiled.has(signature)) {
+      continue;
+    }
+
+    compiled.set(signature, {
       type: directive.type,
       scope: "GLOBAL",
       notes: directive.notes,
       requestBasis: {
         actionKind: "chat.emit",
-        target: "chat:primary",
+        target: CHAT_TARGET,
         payloadSummary: `${directive.invariantLawId} :: ${directive.invariantLabel}`,
         provenance: "agent_inference",
         reviewContext: directive.reviewContext,
@@ -181,5 +281,5 @@ export function compileMarkdownDocumentToLaws(args: {
     });
   }
 
-  return compiled;
+  return [...compiled.values()];
 }
