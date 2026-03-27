@@ -25,50 +25,8 @@
 
 import path from "node:path";
 import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./types.ts";
-
-const LOW_ENTROPY_EXPRESSION_PROFILES: Record<string, {
-  forbidden: RegExp[];
-  description: string;
-}> = {
-  archival: {
-    description: "low-entropy archival register",
-    forbidden: [
-      /\b(?:amazing|legendary|obviously|unforgettable|fantastic|awesome|incredible)\b/i,
-      /\b(?:i|we|you|your|our|my)\b/i,
-      /\b(?:like a|as if|as though|phoenix)\b/i,
-      /!/i,
-    ],
-  },
-  formal: {
-    description: "formal register",
-    forbidden: [
-      /\b(?:awesome|super|kinda|sorta|heck|damn)\b/i,
-      /!/i,
-    ],
-  },
-  neutral: {
-    description: "neutral register",
-    forbidden: [
-      /\b(?:amazing|terrible|obviously|clearly|unforgettable)\b/i,
-      /!/i,
-    ],
-  },
-  factual: {
-    description: "factual register",
-    forbidden: [
-      /\b(?:i think|i believe|obviously|clearly|amazing|legendary)\b/i,
-      /\b(?:like a|as if|as though)\b/i,
-      /!/i,
-    ],
-  },
-  technical: {
-    description: "technical register",
-    forbidden: [
-      /\b(?:amazing|awesome|incredible|obviously)\b/i,
-      /!/i,
-    ],
-  },
-};
+import { checkExpressionCorridor } from "./expression-track-extractor.ts";
+import { checkOutputCorridor } from "./output-track-extractor.ts";
 
 /** All filesystem action kinds. */
 const FS_ACTION_KINDS: BoundaryActionKind[] = [
@@ -288,72 +246,6 @@ function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConst
   return "paragraph";
 }
 
-function textMatchesPattern(text: string, pattern: string): boolean {
-  const trimmedPattern = pattern.trim();
-  if (!trimmedPattern) {
-    return true;
-  }
-  const regexLiteral = trimmedPattern.match(/^\/(.+)\/([a-z]*)$/i);
-  if (regexLiteral) {
-    try {
-      return new RegExp(regexLiteral[1], regexLiteral[2]).test(text);
-    } catch {
-      return text.toLowerCase().includes(trimmedPattern.toLowerCase());
-    }
-  }
-  return text.toLowerCase().includes(trimmedPattern.toLowerCase());
-}
-
-function checkExpressionProfile(profile: string, output: string): string | null {
-  const normalized = profile.trim().toLowerCase();
-  const spec = LOW_ENTROPY_EXPRESSION_PROFILES[normalized];
-  if (!spec) {
-    return null;
-  }
-  for (const regex of spec.forbidden) {
-    if (regex.test(output)) {
-      return (
-        `output exits the approved execution corridor ` +
-        `(expression profile '${normalized}' forbids: ${regex})`
-      );
-    }
-  }
-  return null;
-}
-
-function describeOutputShape(shape: BoundaryUplTrackConstraint["outputShape"]): string {
-  return shape ?? "unspecified";
-}
-
-function isOutputShapeSatisfied(shape: BoundaryUplTrackConstraint["outputShape"], output: string): boolean {
-  const trimmed = output.trim();
-  if (!shape) {
-    return true;
-  }
-  if (shape === "json") {
-    if (!(trimmed.startsWith("{") || trimmed.startsWith("["))) {
-      return false;
-    }
-    try {
-      JSON.parse(trimmed);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
-  if (shape === "bullets") {
-    return lines.length > 0 && lines.every((line) => /^[-*]\s+/.test(line));
-  }
-  if (shape === "numbered") {
-    return lines.length > 0 && lines.every((line) => /^\d+\.\s+/.test(line));
-  }
-  if (shape === "paragraph") {
-    return lines.length <= 1 || lines.every((line) => !/^[-*]\s+/.test(line) && !/^\d+\.\s+/.test(line));
-  }
-  return true;
-}
-
 /**
  * Check whether an incoming request satisfies a UPL track constraint.
  *
@@ -367,18 +259,20 @@ export function checkTrackConstraint(
   constraint: BoundaryUplTrackConstraint,
   request: BoundaryActionRequest,
 ): string | null {
+  const allowedActionKinds = constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds;
   // 1. Action kind must be in the allowed set.
-  if (!constraint.allowedActionKinds.includes(request.actionKind)) {
+  if (!allowedActionKinds.includes(request.actionKind)) {
     return (
       `action kind '${request.actionKind}' exits the approved execution corridor ` +
-      `(corridor allows: ${constraint.allowedActionKinds.join(", ")})`
+      `(corridor allows: ${allowedActionKinds.join(", ")})`
     );
   }
 
   // 2. Target must match the pattern (when present).
-  if (constraint.targetPattern) {
+  const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
+  if (targetPattern) {
     const target = request.target;
-    const pattern = constraint.targetPattern;
+    const pattern = targetPattern;
 
     // Path-like targets (start with / or . or contain a path separator): prefix match.
     const isPathLike =
@@ -387,7 +281,8 @@ export function checkTrackConstraint(
       target.startsWith("../") ||
       target.includes(path.sep);
 
-    const matchMode = constraint.targetMatchMode
+    const matchMode = constraint.actionCorridor?.targetMatchMode
+      ?? constraint.targetMatchMode
       ?? (isPathLike ? "prefix" : "exact");
     const matches = matchMode === "exact"
       ? target === pattern
@@ -401,10 +296,11 @@ export function checkTrackConstraint(
     }
   }
 
-  if (constraint.reviewSurface && request.reviewContext?.surface !== constraint.reviewSurface) {
+  const reviewSurface = constraint.actionCorridor?.reviewSurface ?? constraint.reviewSurface;
+  if (reviewSurface && request.reviewContext?.surface !== reviewSurface) {
     return (
       `review surface '${request.reviewContext?.surface ?? "unknown"}' exits the approved execution corridor ` +
-      `(track requires surface: ${constraint.reviewSurface})`
+      `(track requires surface: ${reviewSurface})`
     );
   }
 
@@ -419,37 +315,17 @@ export function checkTrackConstraint(
   }
 
   const text = request.reviewContext?.attemptedOutput ?? request.payloadSummary ?? "";
-  if (constraint.requiredTextPatterns?.length) {
-    for (const pattern of constraint.requiredTextPatterns) {
-      if (!textMatchesPattern(text, pattern)) {
-        return (
-          `output exits the approved execution corridor ` +
-          `(required pattern missing: ${pattern})`
-        );
-      }
-    }
+  const outputViolation = checkOutputCorridor(constraint.outputCorridor, constraint, text);
+  if (outputViolation) {
+    return outputViolation;
   }
 
-  if (constraint.forbiddenTextPatterns?.length) {
-    for (const pattern of constraint.forbiddenTextPatterns) {
-      if (textMatchesPattern(text, pattern)) {
-        return (
-          `output exits the approved execution corridor ` +
-          `(forbidden pattern present: ${pattern})`
-        );
-      }
-    }
-  }
-
-  if (constraint.outputShape && !isOutputShapeSatisfied(constraint.outputShape, text)) {
-    return (
-      `output exits the approved execution corridor ` +
-      `(required shape: ${describeOutputShape(constraint.outputShape)})`
-    );
-  }
-
-  if (constraint.expressionProfile) {
-    const expressionViolation = checkExpressionProfile(constraint.expressionProfile, text);
+  if (constraint.expressionProfile || constraint.expressionCorridor) {
+    const expressionViolation = checkExpressionCorridor({
+      profile: constraint.expressionProfile,
+      corridor: constraint.expressionCorridor,
+      output: text,
+    });
     if (expressionViolation) {
       return expressionViolation;
     }
@@ -462,20 +338,32 @@ export function checkTrackConstraint(
  * Summarise an active track constraint for display in Terminal 2 (buccet console).
  */
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
-  const kinds = constraint.allowedActionKinds.join(", ");
-  const patternPart = constraint.targetPattern
-    ? ` | target${constraint.targetMatchMode === "exact" ? "==" : "^="}: ${constraint.targetPattern}`
+  const kinds = (constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds).join(", ");
+  const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
+  const targetMatchMode = constraint.actionCorridor?.targetMatchMode ?? constraint.targetMatchMode;
+  const outputCorridor = constraint.outputCorridor;
+  const patternPart = targetPattern
+    ? ` | target${targetMatchMode === "exact" ? "==" : "^="}: ${targetPattern}`
     : "";
   const invariantPart = constraint.reviewInvariantLawId
     ? ` | invariant: ${constraint.reviewInvariantLawId}`
     : "";
-  const requiredPart = constraint.requiredTextPatterns?.length
-    ? ` | require: ${constraint.requiredTextPatterns.join(" ; ")}`
+  const requiredPart = (outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.length
+    ? ` | require: ${(outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.join(" ; ")}`
     : "";
-  const forbiddenPart = constraint.forbiddenTextPatterns?.length
-    ? ` | forbid: ${constraint.forbiddenTextPatterns.join(" ; ")}`
+  const forbiddenPart = (outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.length
+    ? ` | forbid: ${(outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.join(" ; ")}`
     : "";
-  const shapePart = constraint.outputShape ? ` | shape: ${constraint.outputShape}` : "";
+  const shapePart = (outputCorridor?.outputShape ?? constraint.outputShape) ? ` | shape: ${outputCorridor?.outputShape ?? constraint.outputShape}` : "";
   const profilePart = constraint.expressionProfile ? ` | expression: ${constraint.expressionProfile}` : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${profilePart}`;
+  const corridorPart = constraint.expressionCorridor
+    ? ` | expression-corridor: ${Object.entries(constraint.expressionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
+    : "";
+  const outputCorridorPart = outputCorridor
+    ? ` | output-corridor: ${Object.entries(outputCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
+    : "";
+  const actionCorridorPart = constraint.actionCorridor
+    ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
+    : "";
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

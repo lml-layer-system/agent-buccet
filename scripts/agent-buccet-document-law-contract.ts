@@ -53,6 +53,15 @@ async function main() {
       "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
       "Like a phoenix rising from the ashes, this response should feel legendary and obviously unforgettable.",
       "",
+      "Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.",
+      "",
+      "Expression: cosmic legendary phoenix storyteller voice",
+      "",
+      "Require: legendary unforgettable phoenix ascension",
+      "",
+      "Action: write",
+      "Target: legendary cosmic somewhere wonderful",
+      "",
       `Only permit fs.write inside "${path.join(actionRailDir, "allowed.txt")}". Never write outside "${path.join(actionRailDir, "allowed.txt")}".`,
       "",
       "Decision: deny",
@@ -79,7 +88,7 @@ async function main() {
     };
     assert.equal(imported.scope, "GLOBAL");
     assert.equal(imported.imported.length, 1);
-    assert.equal(imported.imported[0].imported, 3, "expected three invariant blocks to compile into three laws");
+    assert.equal(imported.imported[0].imported, 4, "expected four invariant blocks to compile into four laws");
 
     const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
     const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
@@ -90,8 +99,17 @@ async function main() {
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputShape === "bullets"));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("1999")));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "archival"));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("1999")));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.outputShape === "bullets"));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.register === "direct"));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.disallowMetaphor === true));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.disallowSubjectivity === true));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.allowedActionKinds.includes("fs.write")));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.targetPattern === actionRailDir));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.actionCorridor?.targetPattern === actionRailDir));
+    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "cosmic legendary phoenix storyteller"));
+    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("legendary unforgettable phoenix ascension")));
+    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.targetPattern === "legendary cosmic somewhere wonderful"));
     assert.ok(activeDenied.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("spoilers")));
 
     const sessionId = `agent-buccet-document-law-${Date.now()}`;
@@ -127,6 +145,14 @@ async function main() {
       successReason: "chat output emitted after document law",
     });
     assert.equal(expressionBlocked.allowed, false, "expected archival expression corridor to block hype output");
+
+    const directExpressionBlocked = await bodyguard.chat.emit({
+      userInput: "respond directly",
+      attemptedOutput: "I think Batman in 1999 is like a legendary phoenix of cinema.",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after document law",
+    });
+    assert.equal(directExpressionBlocked.allowed, false, "expected structural direct expression corridor to block subjective metaphorical output");
 
     const writeAllowed = await bodyguard.enforceProposal({
       actionKind: "fs.write",

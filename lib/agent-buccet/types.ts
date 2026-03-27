@@ -296,6 +296,31 @@ export type BoundaryLawResult = {
   uplTrackViolated?: true;
 };
 
+export type BoundaryExpressionCorridor = {
+  register?: "archival" | "formal" | "neutral" | "factual" | "technical" | "direct";
+  disallowFirstPerson?: boolean;
+  disallowSecondPerson?: boolean;
+  disallowMetaphor?: boolean;
+  disallowSubjectivity?: boolean;
+  disallowHype?: boolean;
+  disallowSlang?: boolean;
+  disallowExclamation?: boolean;
+  maxSentenceWords?: number;
+};
+
+export type BoundaryOutputCorridor = {
+  requiredTextPatterns?: string[];
+  forbiddenTextPatterns?: string[];
+  outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+};
+
+export type BoundaryActionCorridor = {
+  allowedActionKinds: BoundaryActionKind[];
+  targetPattern?: string;
+  targetMatchMode?: "prefix" | "exact";
+  reviewSurface?: BoundaryReviewContext["surface"];
+};
+
 /**
  * A track constraint auto-bound to a UPL approved-law entry when the user chooses allow_as_law.
  * Narrows execution to the exact specialist corridor that was approved — prevents the model
@@ -321,8 +346,14 @@ export type BoundaryUplTrackConstraint = {
   forbiddenTextPatterns?: string[];
   /** Optional output-shape corridor for chat/output. */
   outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+  /** Structured output/content corridor for task-independent output enforcement. */
+  outputCorridor?: BoundaryOutputCorridor;
   /** Human-readable expression/profile label for this track. */
   expressionProfile?: string;
+  /** Structured expression corridor for task-independent expression enforcement. */
+  expressionCorridor?: BoundaryExpressionCorridor;
+  /** Structured action corridor for task-independent action enforcement. */
+  actionCorridor?: BoundaryActionCorridor;
   /** Human-readable description of the corridor. */
   description: string;
 };
