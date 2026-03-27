@@ -225,22 +225,24 @@ async function main() {
   const anyTimeLaw = normalizeLawIdsForDisplay(compoundEval.lawIds).some((id) => id.startsWith("TIME."));
   assert(anyTimeLaw, "at least one TIME law must trigger on compound attack");
 
+  await fs.writeFile(path.join(workspace, "legitimate.txt"), "baseline", "utf8");
+
   // ── Baseline: Legitimate action succeeds ─────────────────────────────────
   banner("Baseline — Legitimate Action (no attack flags)");
-  console.log("  Action: trusted user writes a file inside the opened workspace.");
+  console.log("  Action: trusted user reads a file inside the opened workspace.");
   console.log("  Expected: allow (no laws triggered, action in scope).");
 
   const legitimateEval = await evaluateBoundaryIntercept({
     config,
     request: {
       actionClass: "file",
-      operation: "write",
+      operation: "read",
       target: path.join(workspace, "legitimate.txt"),
       provenance: "trusted_user",
     },
   });
   result(
-    "fs.write from trusted_user inside workspace",
+    "fs.read from trusted_user inside workspace",
     legitimateEval.decision,
     legitimateEval.lawIds,
   );
