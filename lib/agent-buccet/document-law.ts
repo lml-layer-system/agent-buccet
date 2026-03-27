@@ -20,6 +20,7 @@ type DocumentLawBlock = {
   endLine: number;
   heading?: string;
   fields: Record<string, string[]>;
+  source: "structured" | "prose";
 };
 
 const CHAT_TARGET = "chat:primary";
@@ -57,6 +58,12 @@ function detectOutputShape(raw: string): BoundaryUplTrackConstraint["outputShape
   return undefined;
 }
 
+function normalizeExpressionProfile(raw: string): string {
+  return stripTrailingPunctuation(raw)
+    .replace(/\b(?:tone|style|expression|voice)\b$/i, "")
+    .trim();
+}
+
 function buildInvariantId(sourcePath: string, lineNumber: number, label: string): string {
   const docName = sanitizeLawSlug(path.basename(sourcePath, path.extname(sourcePath)));
   const labelSlug = sanitizeLawSlug(label).split(".").slice(0, 4).join(".");
@@ -79,6 +86,8 @@ function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
   let inFence = false;
   let active: DocumentLawBlock | null = null;
   let currentHeading: string | undefined;
+  let proseStartLine: number | null = null;
+  let proseLines: string[] = [];
 
   const flush = () => {
     if (!active) return;
@@ -88,10 +97,36 @@ function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
     active = null;
   };
 
+  const flushProse = () => {
+    if (!proseStartLine || proseLines.length === 0) {
+      proseStartLine = null;
+      proseLines = [];
+      return;
+    }
+    const startLine = proseStartLine;
+    const endLine = startLine + Math.max(0, proseLines.length - 1);
+    const paragraph = proseLines.join(" ").trim();
+    proseStartLine = null;
+    proseLines = [];
+    const fields = extractFieldsFromProse(paragraph);
+    if (Object.keys(fields).length === 0) {
+      return;
+    }
+    blocks.push({
+      startLine,
+      endLine,
+      heading: currentHeading,
+      fields,
+      source: "prose",
+    });
+  };
+
   for (let index = 0; index < lines.length; index += 1) {
     const rawLine = lines[index] ?? "";
     const trimmed = rawLine.trim();
     if (trimmed.startsWith("```")) {
+      flush();
+      flushProse();
       inFence = !inFence;
       continue;
     }
@@ -100,10 +135,12 @@ function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
     }
     if (!trimmed) {
       flush();
+      flushProse();
       continue;
     }
     if (trimmed.startsWith("#")) {
       flush();
+      flushProse();
       currentHeading = trimmed.replace(/^#+\s*/, "").trim() || undefined;
       continue;
     }
@@ -111,10 +148,19 @@ function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
     const normalized = trimmed.replace(/^[-*]\s*/, "");
     const match = normalized.match(/^([^:]+):\s*(.+)$/);
     if (!match) {
+      if (!active) {
+        proseStartLine ??= index + 1;
+        proseLines.push(trimmed);
+      }
       continue;
     }
+    flushProse();
     const key = normalizeFieldKey(match[1] ?? "");
     if (!key) {
+      if (!active) {
+        proseStartLine ??= index + 1;
+        proseLines.push(trimmed);
+      }
       continue;
     }
     if (!active) {
@@ -123,6 +169,7 @@ function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
         endLine: index + 1,
         heading: currentHeading,
         fields: {},
+        source: "structured",
       };
     }
     active.endLine = index + 1;
@@ -130,6 +177,7 @@ function parseDocumentBlocks(markdown: string): DocumentLawBlock[] {
   }
 
   flush();
+  flushProse();
   return blocks;
 }
 
@@ -138,11 +186,41 @@ function inferDecision(block: DocumentLawBlock): "APPROVED" | "DENIED" {
   if (/\bdeny\b|\bdenied\b|\bforbid\b|\bforbidden\b|\bblock\b/.test(explicit)) {
     return "DENIED";
   }
+  const hasOnlyNegativeRail =
+    (block.fields.forbid?.length ?? 0) > 0
+    && (block.fields.require?.length ?? 0) === 0
+    && (block.fields.expression?.length ?? 0) === 0
+    && (block.fields.output_shape?.length ?? 0) === 0;
+  if (hasOnlyNegativeRail) {
+    return "DENIED";
+  }
   return "APPROVED";
 }
 
 function dedupePatterns(values: string[]): string[] {
-  return [...new Set(values.flatMap((value) => normalizeDelimitedList(value)))];
+  return [...new Set(values.flatMap((value) => expandStructuralPatterns(normalizeDelimitedList(value))))];
+}
+
+function expandStructuralPatterns(values: string[]): string[] {
+  const expanded = new Set<string>();
+  for (const value of values) {
+    const trimmed = stripTrailingPunctuation(value);
+    if (!trimmed) {
+      continue;
+    }
+    expanded.add(trimmed);
+    for (const year of trimmed.match(/\b(?:19|20)\d{2}s?\b/g) ?? []) {
+      expanded.add(year);
+    }
+    const onlyMatch = trimmed.match(/^\s*only\s+(.+)$/i);
+    if (onlyMatch?.[1]) {
+      expanded.add(stripTrailingPunctuation(onlyMatch[1]));
+    }
+    for (const quoted of trimmed.match(/"([^"]+)"|'([^']+)'/g) ?? []) {
+      expanded.add(quoted.replace(/^['"]|['"]$/g, "").trim());
+    }
+  }
+  return [...expanded];
 }
 
 function buildInvariantLabel(block: DocumentLawBlock, args: {
@@ -179,7 +257,8 @@ function compileBlock(args: {
   const outputShape = args.block.fields.output_shape
     ?.map((value) => detectOutputShape(value))
     .find((value) => value !== undefined);
-  const expressionProfile = args.block.fields.expression?.at(0)?.trim();
+  const expressionProfileRaw = args.block.fields.expression?.at(0)?.trim();
+  const expressionProfile = expressionProfileRaw ? normalizeExpressionProfile(expressionProfileRaw) : undefined;
   const enforcement = args.block.fields.enforcement?.join("; ").trim();
 
   if (
@@ -243,6 +322,94 @@ function directiveSignature(directive: ParsedDirective): string {
       reviewContext: directive.reviewContext,
     }))
     .digest("hex");
+}
+
+function splitSentences(paragraph: string): string[] {
+  return paragraph
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+}
+
+function stripTrailingPunctuation(value: string): string {
+  return value.trim().replace(/[.?!]+$/g, "").trim();
+}
+
+function extractPatternTail(sentence: string, regexes: RegExp[]): string[] {
+  const results: string[] = [];
+  for (const regex of regexes) {
+    const match = sentence.match(regex);
+    if (!match?.[1]) {
+      continue;
+    }
+    results.push(...normalizeDelimitedList(stripTrailingPunctuation(match[1])));
+  }
+  return results;
+}
+
+function extractFieldsFromProse(paragraph: string): Record<string, string[]> {
+  const fields: Record<string, string[]> = {};
+  const sentences = splitSentences(paragraph);
+  let policySignals = 0;
+
+  for (const sentence of sentences) {
+    const lower = sentence.toLowerCase();
+    const push = (key: string, value: string) => {
+      fields[key] = [...(fields[key] ?? []), value];
+      policySignals += 1;
+    };
+
+    if (/\b(enforce|enforced|reject|block|catch|deny|guard|must stay within)\b/.test(lower)) {
+      push("enforcement", stripTrailingPunctuation(sentence));
+    }
+
+    const shapes = extractPatternTail(sentence, [
+      /\b(?:respond|return|output|format)\s+(?:only\s+)?(?:in|as|using)\s+(.+)/i,
+      /\b(?:the answer|response|output)\s+must\s+be\s+(.+)/i,
+    ]).map((value) => detectOutputShape(value)).filter(Boolean) as Array<NonNullable<BoundaryUplTrackConstraint["outputShape"]>>;
+    for (const shape of shapes) {
+      push("output_shape", shape);
+    }
+
+    const expressions = extractPatternTail(sentence, [
+      /\b(?:speak|respond|write)\s+(?:in|with|like)\s+(.+)/i,
+      /\b(?:tone|style|expression)\s+(?:is|must be|should be)\s+(.+)/i,
+    ]);
+    for (const expression of expressions) {
+      push("expression", expression);
+    }
+
+    const required = extractPatternTail(sentence, [
+      /\b(?:must include|must say|should include|should say|include|contain)\s+(.+)/i,
+      /\b(?:return|respond with|answer with)\s+(.+)/i,
+    ]);
+    for (const requirement of required) {
+      if (/^(?:in|as|with)\b/i.test(requirement)) {
+        continue;
+      }
+      push("require", requirement);
+    }
+
+    const forbidden = extractPatternTail(sentence, [
+      /\b(?:must not include|must not say|do not say|never say|never mention|must not mention|forbid|forbidden|block)\s+(.+)/i,
+      /\bwithout\s+(.+)/i,
+    ]);
+    for (const prohibition of forbidden) {
+      push("forbid", prohibition);
+    }
+
+    if (/\bmust\b|\bshall\b|\bonly\b|\bnever\b|\bdo not\b|\balways\b/.test(lower)) {
+      push("invariant", stripTrailingPunctuation(sentence));
+    }
+    if (/\bdeny\b|\bforbid\b|\bblock\b|\bprohibit\b/.test(lower)) {
+      push("decision", "deny");
+    }
+  }
+
+  if (policySignals < 2) {
+    return {};
+  }
+  return fields;
 }
 
 export function compileMarkdownDocumentToLaws(args: {

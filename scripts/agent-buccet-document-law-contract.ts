@@ -48,12 +48,7 @@ async function main() {
     await fs.writeFile(documentPath, [
       "# Response policy",
       "",
-      "Invariant: Return only 1999 material.",
-      "Enforcement: Keep the answer in bullets and reject any 2000s phrasing.",
-      "Output shape: bullets",
-      "Must include: 1999",
-      "Do not say: 2000s",
-      "Expression: archival",
+      "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
       "",
       "Decision: deny",
       "Invariant: Never mention spoilers.",
