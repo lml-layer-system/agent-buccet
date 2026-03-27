@@ -1080,7 +1080,7 @@ export async function verifyBoundaryLedgerChain(): Promise<{
   if (firstCanonicalIndex === -1) {
     return {
       ok: true,
-      reason: "ledger contains only legacy pre-EFUE entries; no canonical hash chain to verify yet",
+      reason: "ledger contains only legacy pre-canonical entries; no canonical hash chain to verify yet",
       cryptographic_ok: false,
       signed_records: 0,
       unsigned_records: 0,

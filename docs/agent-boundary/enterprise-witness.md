@@ -2,9 +2,9 @@
 
 ## Privacy guarantee
 
-**Agent Buccet is 100% offline, zero-telemetry, and does not phone home — ever. There is no phone-home option or ability. Your data never leaves your machine.**
+**Agent Buccet is local-first, zero-telemetry by default, and does not phone home. No network calls are made unless you explicitly configure your own witness server.**
 
-The default audit ledger is a local cryptographically signed file on disk. No network calls are made. No endpoints are contacted. Nothing is transmitted anywhere unless you explicitly configure it.
+The default audit ledger is a local cryptographically signed file on disk. No endpoints are contacted. Nothing is transmitted anywhere unless you explicitly configure your own witness destination.
 
 ## Who needs this
 

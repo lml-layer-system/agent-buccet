@@ -44,6 +44,8 @@ function usage(): never {
     "  buccet ledger [--limit <n>] [--json] [--follow]          — open the witness ledger (Terminal 3, optional)",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
+    "  buccet upl list [--json]",
+    "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet hook build",
     "  buccet hook start",
     "  buccet hook status [--json] [--watch]                     — Terminal 1 live shield / heartbeat",
@@ -783,6 +785,168 @@ async function handleScope(rest: string[]) {
   };
   await saveConfig(home.configPath, nextConfig);
   console.log(`opened scope: ${scopePath}`);
+}
+
+async function handleUpl(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  const boundary = await importBoundary(homePath);
+  const subcommand = rest[0];
+  const asJson = rest.includes("--json");
+  if (!subcommand) {
+    usage();
+  }
+
+  if (subcommand === "list") {
+    const upl = await boundary.loadUserPathLedger();
+    const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+    const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+    if (asJson) {
+      printJson({ approved, denied });
+      return;
+    }
+    console.log(`Active UPL laws`);
+    console.log(`approved: ${approved.length}`);
+    console.log(`denied: ${denied.length}`);
+    for (const entry of [...approved, ...denied]) {
+      console.log(`${entry.type} | ${entry.id} | ${entry.path}`);
+    }
+    return;
+  }
+
+  if (subcommand === "import") {
+    let scope: "GLOBAL" | "SESSION" = "GLOBAL";
+    const files: string[] = [];
+    const callerCwd = resolveCallerCwd();
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--scope") {
+        const rawScope = (rest[index + 1] ?? usage()).toUpperCase();
+        if (rawScope !== "GLOBAL" && rawScope !== "SESSION") {
+          throw new Error(`unsupported UPL import scope: ${rawScope}`);
+        }
+        scope = rawScope;
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      files.push(path.resolve(callerCwd, token));
+    }
+    if (files.length === 0) {
+      usage();
+    }
+
+    const store = await ensureStore(boundary, {
+      config,
+      sessionsDir: home.sessionsDir,
+    });
+    let upl = await boundary.loadUserPathLedger();
+    const imported: Array<{ file: string; imported: number; entries: string[] }> = [];
+
+    for (const filePath of files) {
+      const markdown = await fs.readFile(filePath, "utf8");
+      const compiled = boundary.compileMarkdownDocumentToLaws({
+        sourcePath: filePath,
+        markdown,
+      }).map((entry: Awaited<ReturnType<typeof boundary.compileMarkdownDocumentToLaws>>[number]) => ({
+        ...entry,
+        scope,
+      }));
+
+      const entryIds: string[] = [];
+      const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof boundary.appendBoundaryLedger>>>();
+      for (const lawType of ["APPROVED", "DENIED"] as const) {
+        const matching = compiled.filter((entry) => entry.type === lawType);
+        if (matching.length === 0) {
+          continue;
+        }
+        const requestId = `upl-import-${createHash("sha256").update(`${filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`).digest("hex").slice(0, 12)}`;
+        const representative = matching[0];
+        const witness = await boundary.appendBoundaryLedger(
+          lawType === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
+          {
+            sessionId: config.sessionId,
+            actorId: config.actorId,
+            requestId,
+            actionKind: representative.requestBasis.actionKind,
+            target: representative.requestBasis.target,
+            decision: lawType === "APPROVED" ? "allow" : "deny",
+            reason: `document law imported from ${path.basename(filePath)} (${matching.length} compiled laws)`,
+            lawIds: [],
+            metadata: {
+              source_document: filePath,
+              upl_scope: scope,
+              compiled_law_count: matching.length,
+              imported_invariant_batch: createHash("sha256")
+                .update(matching
+                  .map((entry) => entry.requestBasis.reviewContext?.invariantLawId ?? entry.requestBasis.payloadSummary ?? "unknown")
+                  .join("|"))
+                .digest("hex")
+                .slice(0, 16),
+            },
+            createdAt: new Date().toISOString(),
+          },
+        );
+        witnessByType.set(lawType, witness);
+      }
+
+      const batch = compiled.flatMap((law) => {
+        const witness = witnessByType.get(law.type);
+        return witness ? [{ compiledLaw: law, witness }] : [];
+      });
+      const approvedCountBefore = upl.userApprovedLawPaths.length;
+      const deniedCountBefore = upl.userDeniedLawPaths.length;
+      upl = await boundary.writeCompiledUserPathLaws({
+        ledger: upl,
+        compiledLaws: batch,
+        session: store.getConfig().session,
+      });
+      for (const entry of upl.userApprovedLawPaths.slice(approvedCountBefore)) {
+        entryIds.push(entry.id);
+      }
+      for (const entry of upl.userDeniedLawPaths.slice(deniedCountBefore)) {
+        entryIds.push(entry.id);
+      }
+
+      imported.push({
+        file: filePath,
+        imported: compiled.length,
+        entries: entryIds,
+      });
+    }
+
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl,
+      userLawIds: [
+        ...new Set([
+          ...(store.getConfig().userLawIds ?? []),
+          ...boundary.getActiveUserLawIds(upl, store.getConfig().session),
+        ]),
+      ],
+    });
+    await store.persist();
+
+    if (asJson) {
+      printJson({ scope, imported });
+      return;
+    }
+    console.log(`Imported document law into UPL`);
+    console.log(`scope: ${scope}`);
+    for (const entry of imported) {
+      console.log(`${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
+    }
+    return;
+  }
+
+  usage();
 }
 
 async function handleRun(rest: string[]) {
@@ -1955,9 +2119,10 @@ async function handleConsole() {
 
         if (cmd === "tracks") {
           const upl = await boundary.loadUserPathLedger();
-          const tracked = (upl.userApprovedLawPaths ?? []).filter(
-            (l) => l.status === "ACTIVE" && l.trackConstraint,
-          );
+          const tracked = [
+            ...(upl.userApprovedLawPaths ?? []),
+            ...(upl.userDeniedLawPaths ?? []),
+          ].filter((l) => l.status === "ACTIVE" && l.trackConstraint);
           console.log(``);
           console.log(`  Active UPL track corridors`);
           console.log(`  ─────────────────────────────────────`);
@@ -1966,10 +2131,13 @@ async function handleConsole() {
           } else {
             for (const entry of tracked) {
               const tc = entry.trackConstraint!;
-              console.log(`  ${entry.id}  ${tc.description}`);
+              console.log(`  ${entry.id}  [${entry.type}] ${tc.description}`);
               console.log(`    kinds:   ${tc.allowedActionKinds.join(", ")}`);
               if (tc.targetPattern) {
                 console.log(`    target:  ${tc.targetPattern}`);
+              }
+              if (tc.reviewInvariantLawId) {
+                console.log(`    track:   invariant ${tc.reviewInvariantLawId}`);
               }
               console.log(`    scope:   ${entry.scope}`);
             }
@@ -2188,6 +2356,10 @@ async function main() {
   }
   if (parsed.command === "scope") {
     await handleScope(parsed.rest);
+    return;
+  }
+  if (parsed.command === "upl") {
+    await handleUpl(parsed.rest);
     return;
   }
   if (parsed.command === "run") {

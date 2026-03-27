@@ -31,9 +31,9 @@ Public guarantees:
 - user can revoke granted authority at any time and the bucket closes immediately
 - expired grants die automatically and stay dead after restart
 - untrusted prompt content remains proposal, never authority
-- every meaningful action must be ledgered in a complete audit chain or it is non-authoritative
+- every boundary action that matters must be ledgered in a complete audit chain or it is non-authoritative
 - dangerous actions require approval
-- all meaningful actions are logged
+- all boundary actions that cross the enforcement surface are logged
 - blocked actions return lawful next moves instead of silent failure
 
 ## Current Runtime Scope Exclusions

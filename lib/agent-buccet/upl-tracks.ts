@@ -2,9 +2,9 @@
  * UPL Tracks — Post-law execution corridor enforcement.
  *
  * Purpose: collapse post-law execution from infinite recursive possibility into
- * finite lawful motion. After allow_as_law is recorded, execution must stay inside
- * the corridor that was approved. The model does not return to open-ended general
- * agency; it enters a narrow lawful channel.
+ * finite lawful motion. Once UPL law is recorded on a tracked surface, execution
+ * must stay inside the corridor that law put into motion. The model does not
+ * return to open-ended general agency; it enters a narrow lawful channel.
  *
  * Surface scope — UPL Tracks apply ONLY to the two post-law continuation surfaces:
  *
@@ -19,12 +19,14 @@
  *                                  semantic execution shaping.
  *
  * Two pure functions:
- *   buildAutoTrackConstraint — auto-derive the track corridor from an approved request
+ *   buildAutoTrackConstraint — auto-derive the track corridor from a UPL-bearing request
  *   checkTrackConstraint     — validate an incoming request against an active corridor
  */
 
 import path from "node:path";
 import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./types.ts";
+import { checkExpressionCorridor } from "./expression-track-extractor.ts";
+import { checkCompletionCorridor, checkOutputCorridor } from "./output-track-extractor.ts";
 
 /** All filesystem action kinds. */
 const FS_ACTION_KINDS: BoundaryActionKind[] = [
@@ -115,9 +117,9 @@ function extractCommandName(raw: string): string {
 /**
  * Build a track constraint automatically from an approved request.
  *
- * Called when allow_as_law is recorded for GLOBAL or SESSION scope.
- * The constraint narrows the active execution corridor to match exactly
- * what was approved — preventing mission creep after law is set.
+ * Called when a tracked UPL entry is written.
+ * The constraint narrows the active execution corridor to match the law
+ * the user just set in motion — preventing mission creep after law is set.
  *
  * Returns undefined for action kinds outside the UPL Tracks surface scope
  * (i.e. anything not in TRACK_SURFACE_ACTION_KINDS). Callers should check
@@ -134,13 +136,13 @@ export function buildAutoTrackConstraint(
 
   switch (domain) {
     case "fs": {
-      // Allow the exact action kind that was approved.
-      // Target pattern = parent directory → sibling files in the same dir are allowed,
-      // but writes to /etc or anywhere else are not.
+      // Keep filesystem tracks action-exact and directory-scoped for now.
+      // This still prevents scope widening out of the approved working lane.
       const parentDir = path.dirname(request.target);
       return {
         allowedActionKinds: [request.actionKind],
         targetPattern: parentDir === "." ? undefined : parentDir,
+        targetMatchMode: "prefix",
         description: `${request.actionKind} within ${parentDir === "." ? "current dir" : parentDir}`,
       };
     }
@@ -151,16 +153,23 @@ export function buildAutoTrackConstraint(
       return {
         allowedActionKinds: ["tool.exec"],
         targetPattern: commandName || undefined,
+        targetMatchMode: "exact",
         description: `tool.exec: ${commandName || request.target}`,
       };
     }
 
     case "chat": {
-      // Allow only chat.emit — prevents scope widening to tool.exec or network.send.
-      // No target pattern; any chat target is fine within the chat corridor.
+      // Chat tracks bind to the chat surface and, when present, the same invariant
+      // law that triggered the review. This narrows post-law motion without claiming
+      // full output-grammar enforcement yet.
       return {
         allowedActionKinds: ["chat.emit"],
-        description: "chat emission only",
+        reviewSurface: "chat",
+        reviewInvariantLawId: request.reviewContext?.invariantLawId,
+        outputShape: inferChatOutputShape(request.reviewContext?.attemptedOutput),
+        description: request.reviewContext?.invariantLawId
+          ? `chat emission under ${request.reviewContext.invariantLawId}`
+          : "chat emission only",
       };
     }
 
@@ -169,26 +178,28 @@ export function buildAutoTrackConstraint(
       return {
         allowedActionKinds: ["network.send"],
         targetPattern: domain,
+        targetMatchMode: "exact",
         description: `network.send to ${domain}`,
       };
     }
 
     case "db": {
-      // Approve all DB operation kinds for this database (INSERT implies SELECT, etc.)
-      // but bind to the exact database target.
+      // Keep DB tracks exact to the approved action kind and database target.
       return {
-        allowedActionKinds: DB_ACTION_KINDS,
+        allowedActionKinds: [request.actionKind],
         targetPattern: request.target,
-        description: `database operations on ${request.target}`,
+        targetMatchMode: "exact",
+        description: `${request.actionKind} on ${request.target}`,
       };
     }
 
     case "sys": {
-      // Approve all sys kinds for this resource — bind to the exact target.
+      // Keep system tracks exact to the approved action kind and target.
       return {
-        allowedActionKinds: SYS_ACTION_KINDS,
+        allowedActionKinds: [request.actionKind],
         targetPattern: request.target,
-        description: `system access: ${request.target}`,
+        targetMatchMode: "exact",
+        description: `${request.actionKind} on ${request.target}`,
       };
     }
 
@@ -196,6 +207,7 @@ export function buildAutoTrackConstraint(
       return {
         allowedActionKinds: ["comm.send"],
         targetPattern: request.target,
+        targetMatchMode: "exact",
         description: `comm.send to ${request.target}`,
       };
     }
@@ -208,31 +220,59 @@ export function buildAutoTrackConstraint(
   }
 }
 
+function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConstraint["outputShape"] | undefined {
+  if (!output) {
+    return undefined;
+  }
+  const trimmed = output.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+  if ((trimmed.startsWith("{") || trimmed.startsWith("["))) {
+    try {
+      JSON.parse(trimmed);
+      return "json";
+    } catch {
+      // ignore
+    }
+  }
+  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (lines.length > 1 && lines.every((line) => /^[-*]\s+/.test(line))) {
+    return "bullets";
+  }
+  if (lines.length > 1 && lines.every((line) => /^\d+\.\s+/.test(line))) {
+    return "numbered";
+  }
+  return "paragraph";
+}
+
 /**
  * Check whether an incoming request satisfies a UPL track constraint.
  *
  * Returns a human-readable violation reason string if the request exits the corridor,
  * or null if the request is within bounds.
  *
- * Target pattern matching uses prefix semantics for path-like targets,
- * exact-match for everything else.
+ * Target pattern matching defaults to path-prefix for path-like targets and
+ * exact-match for everything else, unless targetMatchMode overrides it.
  */
 export function checkTrackConstraint(
   constraint: BoundaryUplTrackConstraint,
   request: BoundaryActionRequest,
 ): string | null {
+  const allowedActionKinds = constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds;
   // 1. Action kind must be in the allowed set.
-  if (!constraint.allowedActionKinds.includes(request.actionKind)) {
+  if (!allowedActionKinds.includes(request.actionKind)) {
     return (
       `action kind '${request.actionKind}' exits the approved execution corridor ` +
-      `(corridor allows: ${constraint.allowedActionKinds.join(", ")})`
+      `(corridor allows: ${allowedActionKinds.join(", ")})`
     );
   }
 
   // 2. Target must match the pattern (when present).
-  if (constraint.targetPattern) {
+  const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
+  if (targetPattern) {
     const target = request.target;
-    const pattern = constraint.targetPattern;
+    const pattern = targetPattern;
 
     // Path-like targets (start with / or . or contain a path separator): prefix match.
     const isPathLike =
@@ -241,15 +281,57 @@ export function checkTrackConstraint(
       target.startsWith("../") ||
       target.includes(path.sep);
 
-    const matches = isPathLike
-      ? target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/")
-      : target === pattern || target.startsWith(pattern);
+    const matchMode = constraint.actionCorridor?.targetMatchMode
+      ?? constraint.targetMatchMode
+      ?? (isPathLike ? "prefix" : "exact");
+    const matches = matchMode === "exact"
+      ? target === pattern
+      : target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/");
 
     if (!matches) {
       return (
         `target '${target}' exits the approved target corridor '${pattern}' ` +
         `(track: ${constraint.description})`
       );
+    }
+  }
+
+  const reviewSurface = constraint.actionCorridor?.reviewSurface ?? constraint.reviewSurface;
+  if (reviewSurface && request.reviewContext?.surface !== reviewSurface) {
+    return (
+      `review surface '${request.reviewContext?.surface ?? "unknown"}' exits the approved execution corridor ` +
+      `(track requires surface: ${reviewSurface})`
+    );
+  }
+
+  if (constraint.reviewInvariantLawId) {
+    const inboundInvariant = request.reviewContext?.invariantLawId;
+    if (inboundInvariant !== constraint.reviewInvariantLawId) {
+      return (
+        `invariant '${inboundInvariant ?? "none"}' exits the approved execution corridor ` +
+        `(track requires: ${constraint.reviewInvariantLawId})`
+      );
+    }
+  }
+
+  const text = request.reviewContext?.attemptedOutput ?? request.payloadSummary ?? "";
+  const outputViolation = checkOutputCorridor(constraint.outputCorridor, constraint, text);
+  if (outputViolation) {
+    return outputViolation;
+  }
+  const completionViolation = checkCompletionCorridor(constraint.completionCorridor, constraint, text);
+  if (completionViolation) {
+    return completionViolation;
+  }
+
+  if (constraint.expressionProfile || constraint.expressionCorridor) {
+    const expressionViolation = checkExpressionCorridor({
+      profile: constraint.expressionProfile,
+      corridor: constraint.expressionCorridor,
+      output: text,
+    });
+    if (expressionViolation) {
+      return expressionViolation;
     }
   }
 
@@ -260,7 +342,35 @@ export function checkTrackConstraint(
  * Summarise an active track constraint for display in Terminal 2 (buccet console).
  */
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
-  const kinds = constraint.allowedActionKinds.join(", ");
-  const patternPart = constraint.targetPattern ? ` | target: ${constraint.targetPattern}` : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}`;
+  const kinds = (constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds).join(", ");
+  const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
+  const targetMatchMode = constraint.actionCorridor?.targetMatchMode ?? constraint.targetMatchMode;
+  const outputCorridor = constraint.outputCorridor;
+  const patternPart = targetPattern
+    ? ` | target${targetMatchMode === "exact" ? "==" : "^="}: ${targetPattern}`
+    : "";
+  const invariantPart = constraint.reviewInvariantLawId
+    ? ` | invariant: ${constraint.reviewInvariantLawId}`
+    : "";
+  const requiredPart = (outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.length
+    ? ` | require: ${(outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.join(" ; ")}`
+    : "";
+  const forbiddenPart = (outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.length
+    ? ` | forbid: ${(outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.join(" ; ")}`
+    : "";
+  const shapePart = (outputCorridor?.outputShape ?? constraint.outputShape) ? ` | shape: ${outputCorridor?.outputShape ?? constraint.outputShape}` : "";
+  const completionPart = constraint.completionCorridor
+    ? ` | completion-corridor: ${Object.entries(constraint.completionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
+    : (constraint.completionGrammar ? ` | completion: ${constraint.completionGrammar}` : "");
+  const profilePart = constraint.expressionProfile ? ` | expression: ${constraint.expressionProfile}` : "";
+  const corridorPart = constraint.expressionCorridor
+    ? ` | expression-corridor: ${Object.entries(constraint.expressionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
+    : "";
+  const outputCorridorPart = outputCorridor
+    ? ` | output-corridor: ${Object.entries(outputCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
+    : "";
+  const actionCorridorPart = constraint.actionCorridor
+    ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
+    : "";
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

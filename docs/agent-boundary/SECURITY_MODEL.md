@@ -221,15 +221,27 @@ Governor trips are ledgered as `GOVERNOR_TRIP`. All physics enforce fail closed 
 
 Agent Buccet is entirely policy-source agnostic.
 
-RLHF-shaped model behavior, constitutional constraints, guardrail outputs, domain-specific rules, and regulator or business policies are **not new boundaries**. They are UPL-ready and boundary-compatible policy sources. Buccet does not invent safety intent. It does not replace the systems that establish it. It carries that intent into enforcement — at the exact moment an agent tries to act.
+RLHF-shaped model behavior, constitutional constraints, external guardrail outputs, domain-specific safety primitives, and regulator or business policies are policy sources. Buccet does not invent that safety intent, and it does not replace the systems that establish it.
 
 **Agent Buccet turns safety intent into boundary-level enforcement.**
 
-Whatever safety primitive your model, business, or regulator already depends on — Buccet can carry that intent to the exact boundaries where agent behavior becomes consequence. The effect is multiplicative, not replacement. Buccet does not compete with your safety stack. It makes your existing safety intent hit the consequence boundary with more force.
+Whatever safety primitive your model, business, or regulator already depends on, Buccet can carry that intent to the exact boundaries where agent behavior becomes consequence.
 
-> Whatever target you already care about, whatever safety intent you already trust — Buccet binds it at consequence time.
+Agent Buccet does not replace your safety stack. It helps your existing safety intent hit the consequence boundary with more force.
 
-**These are the existing enforcement boundaries. Nothing new is added:**
+Whatever target you already care about,
+whatever safety intent you already trust,
+Buccet helps make that intent bind at consequence time.
+
+The effect is multiplicative, not replacement.
+
+It is natively compatible with:
+- RLHF-shaped models
+- constitutional or policy-guided models
+- external guardrail systems
+- domain-specific safety primitives
+
+These are the consequence boundaries where that intent binds:
 
 | Boundary | What it is | What binds here |
 |---|---|---|
@@ -238,18 +250,19 @@ Whatever safety primitive your model, business, or regulator already depends on 
 | **Input Admission Boundary** | Hostile inbound force denied before the brain wakes | Velocity, density, mass laws — brain never wakes for denied provenances |
 | **Payload-Physics Boundary** | What approved processes can become and do | CPU, memory, file descriptors, wall-clock time — kernel-enforced |
 
-**Policy-source compatibility — what external sources become inside Buccet:**
+Policy-source compatibility inside Buccet:
 
 | Source | What it becomes |
 |---|---|
-| RLHF-shaped models | Ready-to-bind policy. Model arrives at Buccet with shaped intent. That intent meets the action boundary — not just at generation time. |
-| Constitutional / policy-guided models | Pre-bound UPL material. Constraints expressed as UPL laws or base laws. Same enforcement class as every other Buccet law. |
-| External guardrail systems | Pre-bound UPL material. Guardrail verdicts expressed as UPL laws. Standing law — not a hint, not a preference. Enforces on contact. |
-| Regulator and business rules | Ready-to-bind policy. Permitted/denied targets and action classes expressed as scope, grants, or UPL. Enforced identically to base laws. |
+| RLHF-shaped models | Existing safety intent presented at runtime. Buccet does not replace RLHF; it makes that intent bind at the boundary where action or output would become consequence. |
+| Constitutional / policy-guided models | Existing policy intent carried into base laws or UPL-ready laws with the same enforcement class as every other Buccet law. |
+| External guardrail systems | Existing guardrail verdicts expressed as standing law on the Buccet enforcement plane. Not a hint. Not a preference. Enforced on contact. |
+| Domain-specific, regulator, or business rules | Existing permitted/denied targets, actions, and payload limits expressed as scope, grants, or UPL law and enforced identically to base laws. |
 
-**UPL is the policy binding surface.** Any safety policy that can be expressed as a boundary decision on an action class and target is UPL-compatible. UPL laws carry the same enforcement weight as base runtime laws. The agent cannot read them, cannot modify them, and cannot route around them.
+UPL is the policy binding surface. Any safety policy that can be expressed as a boundary decision on an action class, target, output condition, admission rule, or payload-physics limit is Buccet-compatible. UPL laws carry the same enforcement weight as base runtime laws. The agent cannot read them, cannot modify them, and cannot route around them.
 
-The doctrine is exact: **existing policy source → Buccet enforcement plane**. No new boundaries. No new safety religion. Your safety intent, bound at the consequence boundaries that already exist.
+The doctrine is exact: existing safety intent -> Buccet enforcement plane -> consequence-boundary enforcement.
+
 
 ## Category Definition
 

@@ -296,6 +296,45 @@ export type BoundaryLawResult = {
   uplTrackViolated?: true;
 };
 
+export type BoundaryExpressionCorridor = {
+  register?: "archival" | "formal" | "neutral" | "factual" | "technical" | "direct";
+  disallowFirstPerson?: boolean;
+  disallowSecondPerson?: boolean;
+  disallowMetaphor?: boolean;
+  disallowSubjectivity?: boolean;
+  disallowHype?: boolean;
+  disallowSlang?: boolean;
+  disallowExclamation?: boolean;
+  maxSentenceWords?: number;
+};
+
+export type BoundaryCompletionGrammar =
+  | "json"
+  | "bullets"
+  | "numbered"
+  | "paragraph"
+  | "single_sentence"
+  | "short_answer";
+
+export type BoundaryOutputCorridor = {
+  requiredTextPatterns?: string[];
+  forbiddenTextPatterns?: string[];
+  outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+};
+
+export type BoundaryCompletionCorridor = {
+  grammar: BoundaryCompletionGrammar;
+  maxLines?: number;
+  maxWords?: number;
+};
+
+export type BoundaryActionCorridor = {
+  allowedActionKinds: BoundaryActionKind[];
+  targetPattern?: string;
+  targetMatchMode?: "prefix" | "exact";
+  reviewSurface?: BoundaryReviewContext["surface"];
+};
+
 /**
  * A track constraint auto-bound to a UPL approved-law entry when the user chooses allow_as_law.
  * Narrows execution to the exact specialist corridor that was approved — prevents the model
@@ -309,8 +348,41 @@ export type BoundaryUplTrackConstraint = {
    * Absent means any target is permitted as long as actionKind matches.
    */
   targetPattern?: string;
+  /** How to compare targetPattern against the incoming target. */
+  targetMatchMode?: "prefix" | "exact";
+  /** Optional review surface binding for chat/action tracks. */
+  reviewSurface?: BoundaryReviewContext["surface"];
+  /** Optional invariant binding for chat tracks. */
+  reviewInvariantLawId?: string;
+  /** Chat/output must include each of these phrases or patterns. */
+  requiredTextPatterns?: string[];
+  /** Chat/output must not include any of these phrases or patterns. */
+  forbiddenTextPatterns?: string[];
+  /** Optional output-shape corridor for chat/output. */
+  outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+  /** Structured output/content corridor for task-independent output enforcement. */
+  outputCorridor?: BoundaryOutputCorridor;
+  /** Human-readable completion grammar label for this track. */
+  completionGrammar?: BoundaryCompletionGrammar;
+  /** Structured completion corridor for task-independent completion enforcement. */
+  completionCorridor?: BoundaryCompletionCorridor;
+  /** Human-readable expression/profile label for this track. */
+  expressionProfile?: string;
+  /** Structured expression corridor for task-independent expression enforcement. */
+  expressionCorridor?: BoundaryExpressionCorridor;
+  /** Structured action corridor for task-independent action enforcement. */
+  actionCorridor?: BoundaryActionCorridor;
   /** Human-readable description of the corridor. */
   description: string;
+};
+
+export type BoundaryUplRequestBasis = {
+  actionKind: BoundaryActionKind;
+  target: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
 };
 
 export type BoundaryLaw = {
@@ -559,9 +631,14 @@ export type BoundaryUplEntry = {
   sessionId?: string;
   domain?: string;
   /**
-   * UPL Track corridor: present on GLOBAL/SESSION-scoped approved entries.
-   * Constrains execution to the exact specialist corridor that was approved.
-   * Absent on DOMAIN-scoped entries and denied entries.
+   * Canonical request basis for this UPL law. When a user/company adds or edits
+   * UPL directly, Buccet can rebuild the track corridor from this basis without
+   * needing the original approval event in memory.
+   */
+  requestBasis?: BoundaryUplRequestBasis;
+  /**
+   * UPL Track corridor: present on track-eligible UPL entries.
+   * Constrains execution to the law-bound corridor that the user set in motion.
    */
   trackConstraint?: BoundaryUplTrackConstraint;
 };
@@ -571,6 +648,21 @@ export type BoundaryUserPathLedger = {
   userApprovedLawPaths: BoundaryUplEntry[];
   userDeniedLawPaths: BoundaryUplEntry[];
 };
+
+export type CompiledDocumentLaw = {
+  type: BoundaryUplEntryType;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  requestBasis: BoundaryUplRequestBasis;
+  trackConstraint?: BoundaryUplTrackConstraint;
+};
+
+export type BoundaryPolicySourceKind =
+  | "rlhf"
+  | "constitutional"
+  | "guardrail"
+  | "domain_specific"
+  | "regulator_business";
 
 export type BoundaryRuntimeMuscleManifest = {
   generatedAt: string;
