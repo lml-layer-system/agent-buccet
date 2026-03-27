@@ -309,6 +309,12 @@ export type BoundaryUplTrackConstraint = {
    * Absent means any target is permitted as long as actionKind matches.
    */
   targetPattern?: string;
+  /** How to compare targetPattern against the incoming target. */
+  targetMatchMode?: "prefix" | "exact";
+  /** Optional review surface binding for chat/action tracks. */
+  reviewSurface?: BoundaryReviewContext["surface"];
+  /** Optional invariant binding for chat tracks. */
+  reviewInvariantLawId?: string;
   /** Human-readable description of the corridor. */
   description: string;
 };
@@ -559,9 +565,8 @@ export type BoundaryUplEntry = {
   sessionId?: string;
   domain?: string;
   /**
-   * UPL Track corridor: present on GLOBAL/SESSION-scoped approved entries.
-   * Constrains execution to the exact specialist corridor that was approved.
-   * Absent on DOMAIN-scoped entries and denied entries.
+   * UPL Track corridor: present on track-eligible UPL entries.
+   * Constrains execution to the law-bound corridor that the user set in motion.
    */
   trackConstraint?: BoundaryUplTrackConstraint;
 };

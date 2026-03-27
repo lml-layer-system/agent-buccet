@@ -60,86 +60,104 @@ export function resolveBodyguardStandingLaw(args: {
     })
     : null;
 
-  if (!standingUserLaw) {
-    // No exact UPL pathHash match. Check if any active approved entry has a
-    // track corridor that covers this request's actionKind family.
-    if (args.config.upl) {
-      const trackMatch = lookupUserPathTrackDecision({
-        ledger: args.config.upl,
-        session: args.config.session,
-        request: args.request,
-      });
-      if (trackMatch) {
-        const triggeredLawIds = [
-          trackMatch.entry.id,
-          ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
-        ];
-        if (trackMatch.decision === "track_violation") {
-          return {
-            decision: "require_approval",
-            reason: `action exits approved execution corridor: ${trackMatch.violation}`,
-            triggeredLawIds,
-            requiresApproval: true,
-            uplTrackId: trackMatch.entry.id,
-            uplTrackViolated: true,
-          };
-        }
-        return {
-          decision: "allow",
-          reason: `allowed by UPL track corridor ${trackMatch.entry.id}`,
-          triggeredLawIds,
-          requiresApproval: false,
-          uplTrackId: trackMatch.entry.id,
-        };
-      }
-    }
-    return null;
-  }
-
-  if (standingUserLaw.decision === "allow") {
+  if (standingUserLaw) {
     const entry = standingUserLaw.entry;
     const triggeredLawIds = [
       entry.id,
       ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
     ];
 
-    // UPL Track enforcement: if this entry has a track constraint, validate the
-    // incoming request against it. A violation means the model is trying to exit the
-    // approved execution corridor — surface as require_approval so Terminal 2 can
-    // consciously expand the corridor if the user intends that.
     if (entry.trackConstraint) {
       const trackViolation = checkTrackConstraint(entry.trackConstraint, args.request);
       if (trackViolation) {
+        if (standingUserLaw.decision === "allow") {
+          return {
+            decision: "require_approval",
+            reason: `action exits approved execution corridor: ${trackViolation}`,
+            triggeredLawIds,
+            requiresApproval: true,
+            uplTrackId: entry.id,
+            uplTrackViolated: true,
+          };
+        }
+      } else if (standingUserLaw.decision === "allow") {
         return {
-          decision: "require_approval",
-          reason: `action exits approved execution corridor: ${trackViolation}`,
+          decision: "allow",
+          reason: `allowed by standing UPL approval ${entry.id}`,
           triggeredLawIds,
-          requiresApproval: true,
+          requiresApproval: false,
           uplTrackId: entry.id,
-          uplTrackViolated: true,
+        };
+      } else {
+        return {
+          decision: "deny",
+          reason: `blocked by standing UPL denial ${entry.id}`,
+          triggeredLawIds,
+          requiresApproval: false,
+          uplTrackId: entry.id,
         };
       }
     }
 
+    if (standingUserLaw.decision === "allow") {
+      return {
+        decision: "allow",
+        reason: `allowed by standing UPL approval ${entry.id}`,
+        triggeredLawIds,
+        requiresApproval: false,
+      };
+    }
+
     return {
-      decision: "allow",
-      reason: `allowed by standing UPL approval ${entry.id}`,
+      decision: "deny",
+      reason: `blocked by standing UPL denial ${entry.id}`,
       triggeredLawIds,
       requiresApproval: false,
-      uplTrackId: entry.trackConstraint ? entry.id : undefined,
     };
   }
 
+  if (!args.config.upl) {
+    return null;
+  }
+
+  const trackMatch = lookupUserPathTrackDecision({
+    ledger: args.config.upl,
+    session: args.config.session,
+    request: args.request,
+  });
+  if (!trackMatch) {
+    return null;
+  }
+
+  const triggeredLawIds = [
+    trackMatch.entry.id,
+    ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
+  ];
+  if (trackMatch.decision === "track_violation") {
+    return {
+      decision: "require_approval",
+      reason: `action exits approved execution corridor: ${trackMatch.violation}`,
+      triggeredLawIds,
+      requiresApproval: true,
+      uplTrackId: trackMatch.entry.id,
+      uplTrackViolated: true,
+    };
+  }
+  if (trackMatch.decision === "deny") {
+    return {
+      decision: "deny",
+      reason: `blocked by UPL track corridor ${trackMatch.entry.id}`,
+      triggeredLawIds,
+      requiresApproval: false,
+      uplTrackId: trackMatch.entry.id,
+    };
+  }
   return {
-    decision: "deny",
-    reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
-    triggeredLawIds: [
-      standingUserLaw.entry.id,
-      ...(
-        args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []
-      ),
-    ],
+    decision: "allow",
+    reason: `allowed by UPL track corridor ${trackMatch.entry.id}`,
+    triggeredLawIds,
     requiresApproval: false,
+    uplTrackId: trackMatch.entry.id,
   };
 }
 
@@ -372,6 +390,7 @@ export async function applyBodyguardUserLawDecision(args: {
         lawIds: [newEntry.id],
         metadata: {
           upl_entry_id: newEntry.id,
+          upl_entry_type: newEntry.type,
           track_description: newEntry.trackConstraint.description,
           track_allowed_kinds: newEntry.trackConstraint.allowedActionKinds.join(","),
           ...(newEntry.trackConstraint.targetPattern
@@ -389,6 +408,7 @@ export async function applyBodyguardUserLawDecision(args: {
       session: args.config.session,
       decision: args.decision,
     });
+    const newEntry = upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1];
     await appendBoundaryLedger("UPL_DENY_RECORDED", {
       sessionId: args.config.session.sessionId,
       actorId: args.config.session.actorId,
@@ -397,13 +417,35 @@ export async function applyBodyguardUserLawDecision(args: {
       target: args.request.target,
       decision: "deny",
       reason: "user recorded standing UPL denial",
-      lawIds: [upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1]?.id].filter(Boolean),
+      lawIds: [newEntry?.id].filter(Boolean),
       metadata: {
         witness_record: args.witness.META.id,
         upl_scope: args.decision.scope ?? "GLOBAL",
       },
       createdAt: new Date().toISOString(),
     });
+    if (newEntry?.trackConstraint) {
+      await appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        requestId: args.request.requestId,
+        actionKind: args.request.actionKind,
+        target: args.request.target,
+        decision: "deny",
+        reason: `UPL track corridor bound: ${newEntry.trackConstraint.description}`,
+        lawIds: [newEntry.id],
+        metadata: {
+          upl_entry_id: newEntry.id,
+          upl_entry_type: newEntry.type,
+          track_description: newEntry.trackConstraint.description,
+          track_allowed_kinds: newEntry.trackConstraint.allowedActionKinds.join(","),
+          ...(newEntry.trackConstraint.targetPattern
+            ? { track_target_pattern: newEntry.trackConstraint.targetPattern }
+            : {}),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
   } else {
     return args.config;
   }

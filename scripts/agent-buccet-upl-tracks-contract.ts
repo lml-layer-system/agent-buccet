@@ -2,10 +2,12 @@
  * UPL Tracks contract.
  *
  * Proves:
- * T1 — after allow_as_law, the UPL entry has a trackConstraint set
- * T2 — a request identical to the approved one is allowed without re-prompting (track satisfied)
- * T3 — a request that exits the approved target corridor returns require_approval (track violated)
+ * T1 — after standing UPL allow is recorded, the approved UPL entry has a trackConstraint set
+ * T2 — a request inside the approved corridor is allowed without re-prompting
+ * T3 — a request that exits the approved target corridor returns require_approval
  * T4 — UPL_TRACK_VIOLATED event appears in the ledger after a corridor exit
+ * T5 — after deny_as_law, the denied UPL entry also has a trackConstraint set
+ * T6 — a request inside the denied corridor is blocked without re-prompting
  */
 
 import assert from "node:assert/strict";
@@ -53,7 +55,7 @@ async function main() {
     let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
 
     // Open the workspace as a scoped path law and require explicit approval for fs.write
-    // so we can exercise the allow_as_law track-binding path.
+    // so we can exercise standing UPL allow track binding.
     const { config: scopedConfig } = await openBoundaryPath({
       config: store.getConfig(),
       rootPath: workspace,
@@ -67,7 +69,7 @@ async function main() {
 
     const bodyguard = createBoundaryBodyguard(store);
 
-    // ─── T1 / T2: allow_as_law binds a track corridor ───────────────────────
+    // ─── T1 / T2: standing UPL allow binds a track corridor ─────────────────
 
     const approvedTarget = path.join(subdir, "output.txt");
     const approvedDir = subdir; // expected trackConstraint.targetPattern
@@ -163,8 +165,8 @@ async function main() {
       "T3: expected violation reason to mention 'exits approved execution corridor'",
     );
 
-    // Deny it (we don't want to expand the corridor in this test).
-    bodyguard.approvals.denyOnce(corridorApproval.approvalId);
+    // Deny it as law so we can prove deny tracks too.
+    bodyguard.approvals.denyAsLaw(corridorApproval.approvalId);
     const escapeResult = await escapeProposal;
     assert.equal(escapeResult.allowed, false, "T3: expected denial after corridor violation");
 
@@ -183,6 +185,34 @@ async function main() {
 
     console.log(`T4 ok: UPL_TRACK_VIOLATED recorded — ${trackViolatedEvent.payload.reason}`);
 
+    // ─── T5 / T6: standing deny also binds a track corridor ───────────────────
+
+    const postDenyLedger = await loadUserPathLedger();
+    const activeDenied = postDenyLedger.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE");
+    assert.ok(activeDenied.length > 0, "T5: expected an active denied UPL entry after deny_as_law");
+    const deniedTrackEntry = activeDenied[activeDenied.length - 1];
+    assert.ok(deniedTrackEntry.trackConstraint, "T5: expected denied UPL entry to carry a trackConstraint");
+    assert.equal(
+      deniedTrackEntry.trackConstraint.targetPattern,
+      path.join(workspace, "other"),
+      "T5: expected denied track targetPattern to bind to the denied corridor",
+    );
+
+    const deniedSibling = path.join(workspace, "other", "again.txt");
+    const deniedSiblingResult = await bodyguard.enforceProposal({
+      actionKind: "fs.write",
+      target: deniedSibling,
+      payloadSummary: "write denied sibling file",
+      provenance: "agent_inference",
+      execute: async () => "should-not-run",
+      successReason: "should not execute inside denied corridor",
+    });
+    assert.equal(deniedSiblingResult.allowed, false, "T6: expected denied corridor request to be blocked");
+    assert.equal(deniedSiblingResult.requiresApproval, false, "T6: expected standing denied corridor to avoid re-prompt");
+
+    console.log("T5 ok: standing deny bound a track corridor");
+    console.log("T6 ok: denied corridor blocked repeat motion without re-prompt");
+
     // ─── Summary ─────────────────────────────────────────────────────────────
     console.log("");
     console.log("Agent Buccet UPL Tracks contract");
@@ -190,6 +220,8 @@ async function main() {
     console.log(`  T2 corridor allow:  ${sameTargetResult.allowed && siblingResult.allowed}`);
     console.log(`  T3 corridor exit:   ${!escapeResult.allowed}`);
     console.log(`  T4 ledger event:    ${!!trackViolatedEvent}`);
+    console.log(`  T5 deny track:      ${!!deniedTrackEntry.trackConstraint}`);
+    console.log(`  T6 deny corridor:   ${!deniedSiblingResult.allowed}`);
 
     await fs.rm(tempRoot, { recursive: true, force: true });
   } finally {

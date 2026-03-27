@@ -2,9 +2,9 @@
  * UPL Tracks — Post-law execution corridor enforcement.
  *
  * Purpose: collapse post-law execution from infinite recursive possibility into
- * finite lawful motion. After allow_as_law is recorded, execution must stay inside
- * the corridor that was approved. The model does not return to open-ended general
- * agency; it enters a narrow lawful channel.
+ * finite lawful motion. Once UPL law is recorded on a tracked surface, execution
+ * must stay inside the corridor that law put into motion. The model does not
+ * return to open-ended general agency; it enters a narrow lawful channel.
  *
  * Surface scope — UPL Tracks apply ONLY to the two post-law continuation surfaces:
  *
@@ -19,7 +19,7 @@
  *                                  semantic execution shaping.
  *
  * Two pure functions:
- *   buildAutoTrackConstraint — auto-derive the track corridor from an approved request
+ *   buildAutoTrackConstraint — auto-derive the track corridor from a UPL-bearing request
  *   checkTrackConstraint     — validate an incoming request against an active corridor
  */
 
@@ -115,9 +115,9 @@ function extractCommandName(raw: string): string {
 /**
  * Build a track constraint automatically from an approved request.
  *
- * Called when allow_as_law is recorded for GLOBAL or SESSION scope.
- * The constraint narrows the active execution corridor to match exactly
- * what was approved — preventing mission creep after law is set.
+ * Called when a tracked UPL entry is written.
+ * The constraint narrows the active execution corridor to match the law
+ * the user just set in motion — preventing mission creep after law is set.
  *
  * Returns undefined for action kinds outside the UPL Tracks surface scope
  * (i.e. anything not in TRACK_SURFACE_ACTION_KINDS). Callers should check
@@ -134,13 +134,13 @@ export function buildAutoTrackConstraint(
 
   switch (domain) {
     case "fs": {
-      // Allow the exact action kind that was approved.
-      // Target pattern = parent directory → sibling files in the same dir are allowed,
-      // but writes to /etc or anywhere else are not.
+      // Keep filesystem tracks action-exact and directory-scoped for now.
+      // This still prevents scope widening out of the approved working lane.
       const parentDir = path.dirname(request.target);
       return {
         allowedActionKinds: [request.actionKind],
         targetPattern: parentDir === "." ? undefined : parentDir,
+        targetMatchMode: "prefix",
         description: `${request.actionKind} within ${parentDir === "." ? "current dir" : parentDir}`,
       };
     }
@@ -151,16 +151,22 @@ export function buildAutoTrackConstraint(
       return {
         allowedActionKinds: ["tool.exec"],
         targetPattern: commandName || undefined,
+        targetMatchMode: "exact",
         description: `tool.exec: ${commandName || request.target}`,
       };
     }
 
     case "chat": {
-      // Allow only chat.emit — prevents scope widening to tool.exec or network.send.
-      // No target pattern; any chat target is fine within the chat corridor.
+      // Chat tracks bind to the chat surface and, when present, the same invariant
+      // law that triggered the review. This narrows post-law motion without claiming
+      // full output-grammar enforcement yet.
       return {
         allowedActionKinds: ["chat.emit"],
-        description: "chat emission only",
+        reviewSurface: "chat",
+        reviewInvariantLawId: request.reviewContext?.invariantLawId,
+        description: request.reviewContext?.invariantLawId
+          ? `chat emission under ${request.reviewContext.invariantLawId}`
+          : "chat emission only",
       };
     }
 
@@ -169,26 +175,28 @@ export function buildAutoTrackConstraint(
       return {
         allowedActionKinds: ["network.send"],
         targetPattern: domain,
+        targetMatchMode: "exact",
         description: `network.send to ${domain}`,
       };
     }
 
     case "db": {
-      // Approve all DB operation kinds for this database (INSERT implies SELECT, etc.)
-      // but bind to the exact database target.
+      // Keep DB tracks exact to the approved action kind and database target.
       return {
-        allowedActionKinds: DB_ACTION_KINDS,
+        allowedActionKinds: [request.actionKind],
         targetPattern: request.target,
-        description: `database operations on ${request.target}`,
+        targetMatchMode: "exact",
+        description: `${request.actionKind} on ${request.target}`,
       };
     }
 
     case "sys": {
-      // Approve all sys kinds for this resource — bind to the exact target.
+      // Keep system tracks exact to the approved action kind and target.
       return {
-        allowedActionKinds: SYS_ACTION_KINDS,
+        allowedActionKinds: [request.actionKind],
         targetPattern: request.target,
-        description: `system access: ${request.target}`,
+        targetMatchMode: "exact",
+        description: `${request.actionKind} on ${request.target}`,
       };
     }
 
@@ -196,6 +204,7 @@ export function buildAutoTrackConstraint(
       return {
         allowedActionKinds: ["comm.send"],
         targetPattern: request.target,
+        targetMatchMode: "exact",
         description: `comm.send to ${request.target}`,
       };
     }
@@ -214,8 +223,8 @@ export function buildAutoTrackConstraint(
  * Returns a human-readable violation reason string if the request exits the corridor,
  * or null if the request is within bounds.
  *
- * Target pattern matching uses prefix semantics for path-like targets,
- * exact-match for everything else.
+ * Target pattern matching defaults to path-prefix for path-like targets and
+ * exact-match for everything else, unless targetMatchMode overrides it.
  */
 export function checkTrackConstraint(
   constraint: BoundaryUplTrackConstraint,
@@ -241,14 +250,33 @@ export function checkTrackConstraint(
       target.startsWith("../") ||
       target.includes(path.sep);
 
-    const matches = isPathLike
-      ? target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/")
-      : target === pattern || target.startsWith(pattern);
+    const matchMode = constraint.targetMatchMode
+      ?? (isPathLike ? "prefix" : "exact");
+    const matches = matchMode === "exact"
+      ? target === pattern
+      : target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/");
 
     if (!matches) {
       return (
         `target '${target}' exits the approved target corridor '${pattern}' ` +
         `(track: ${constraint.description})`
+      );
+    }
+  }
+
+  if (constraint.reviewSurface && request.reviewContext?.surface !== constraint.reviewSurface) {
+    return (
+      `review surface '${request.reviewContext?.surface ?? "unknown"}' exits the approved execution corridor ` +
+      `(track requires surface: ${constraint.reviewSurface})`
+    );
+  }
+
+  if (constraint.reviewInvariantLawId) {
+    const inboundInvariant = request.reviewContext?.invariantLawId;
+    if (inboundInvariant !== constraint.reviewInvariantLawId) {
+      return (
+        `invariant '${inboundInvariant ?? "none"}' exits the approved execution corridor ` +
+        `(track requires: ${constraint.reviewInvariantLawId})`
       );
     }
   }
@@ -261,6 +289,11 @@ export function checkTrackConstraint(
  */
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
   const kinds = constraint.allowedActionKinds.join(", ");
-  const patternPart = constraint.targetPattern ? ` | target: ${constraint.targetPattern}` : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}`;
+  const patternPart = constraint.targetPattern
+    ? ` | target${constraint.targetMatchMode === "exact" ? "==" : "^="}: ${constraint.targetPattern}`
+    : "";
+  const invariantPart = constraint.reviewInvariantLawId
+    ? ` | invariant: ${constraint.reviewInvariantLawId}`
+    : "";
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}`;
 }

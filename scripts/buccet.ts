@@ -1955,9 +1955,10 @@ async function handleConsole() {
 
         if (cmd === "tracks") {
           const upl = await boundary.loadUserPathLedger();
-          const tracked = (upl.userApprovedLawPaths ?? []).filter(
-            (l) => l.status === "ACTIVE" && l.trackConstraint,
-          );
+          const tracked = [
+            ...(upl.userApprovedLawPaths ?? []),
+            ...(upl.userDeniedLawPaths ?? []),
+          ].filter((l) => l.status === "ACTIVE" && l.trackConstraint);
           console.log(``);
           console.log(`  Active UPL track corridors`);
           console.log(`  ─────────────────────────────────────`);
@@ -1966,10 +1967,13 @@ async function handleConsole() {
           } else {
             for (const entry of tracked) {
               const tc = entry.trackConstraint!;
-              console.log(`  ${entry.id}  ${tc.description}`);
+              console.log(`  ${entry.id}  [${entry.type}] ${tc.description}`);
               console.log(`    kinds:   ${tc.allowedActionKinds.join(", ")}`);
               if (tc.targetPattern) {
                 console.log(`    target:  ${tc.targetPattern}`);
+              }
+              if (tc.reviewInvariantLawId) {
+                console.log(`    track:   invariant ${tc.reviewInvariantLawId}`);
               }
               console.log(`    scope:   ${entry.scope}`);
             }

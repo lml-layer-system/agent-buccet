@@ -238,23 +238,68 @@ export function lookupUserPathTrackDecision(args: {
   ledger: BoundaryUserPathLedger;
   session: BoundarySession;
   request: BoundaryActionRequest;
-}): { entry: BoundaryUplEntry; decision: "allow" | "track_violation"; violation?: string } | null {
+}): { entry: BoundaryUplEntry; decision: "allow" | "deny" | "track_violation"; violation?: string } | null {
   // UPL Tracks are scoped to post-law execution surfaces only.
   if (!isTrackSurface(args.request.actionKind)) {
     return null;
   }
+
+  const candidates: Array<{
+    entry: BoundaryUplEntry;
+    decision: "allow" | "deny" | "track_violation";
+    specificity: 0 | 1 | 2;
+    violation?: string;
+  }> = [];
 
   for (const entry of args.ledger.userApprovedLawPaths) {
     if (!isEntryActiveForSession(entry, args.session)) continue;
     if (!entry.trackConstraint) continue;
     if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
     const violation = checkTrackConstraint(entry.trackConstraint, args.request);
-    if (violation) {
-      return { entry, decision: "track_violation", violation };
-    }
-    return { entry, decision: "allow" };
+    candidates.push({
+      entry,
+      decision: violation ? "track_violation" : "allow",
+      specificity: entrySpecificity(entry),
+      ...(violation ? { violation } : {}),
+    });
   }
-  return null;
+
+  for (const entry of args.ledger.userDeniedLawPaths) {
+    if (!isEntryActiveForSession(entry, args.session)) continue;
+    if (!entry.trackConstraint) continue;
+    if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
+    const violation = checkTrackConstraint(entry.trackConstraint, args.request);
+    if (!violation) {
+      candidates.push({
+        entry,
+        decision: "deny",
+        specificity: entrySpecificity(entry),
+      });
+    }
+  }
+
+  candidates.sort((left, right) => {
+    if (right.specificity !== left.specificity) {
+      return right.specificity - left.specificity;
+    }
+    if (left.entry.createdAt !== right.entry.createdAt) {
+      return right.entry.createdAt.localeCompare(left.entry.createdAt);
+    }
+    const precedence = { track_violation: 2, deny: 1, allow: 0 } as const;
+    if (precedence[right.decision] !== precedence[left.decision]) {
+      return precedence[right.decision] - precedence[left.decision];
+    }
+    return left.entry.id.localeCompare(right.entry.id);
+  });
+
+  const winner = candidates[0];
+  return winner
+    ? {
+      entry: winner.entry,
+      decision: winner.decision,
+      ...(winner.violation ? { violation: winner.violation } : {}),
+    }
+    : null;
 }
 
 function normalizeScope(args: {
@@ -285,12 +330,11 @@ function createEntry(args: {
   decision?: BoundaryApprovalDecision;
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
-  // Attach a track constraint only to Tool/Action and Chat/Output surface entries.
-  // DOMAIN-scoped entries already coarse-grain the corridor via domain; no track needed.
-  // Denied entries have no execution corridor.
-  // Admission and Physics surface kinds are excluded via isTrackSurface().
+  // Attach a track constraint to every UPL entry that lives on a tracked surface.
+  // That keeps standing user law from reopening into broad general agency after
+  // the law is set in motion. Admission and Physics surfaces are excluded.
   const trackConstraint =
-    args.type === "APPROVED" && scope !== "DOMAIN" && isTrackSurface(args.request.actionKind)
+    isTrackSurface(args.request.actionKind)
       ? buildAutoTrackConstraint(args.request)
       : undefined;
   return {
