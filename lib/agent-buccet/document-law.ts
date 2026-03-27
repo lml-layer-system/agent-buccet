@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
+import { basename, sep as pathSep } from "node:path";
 import path from "node:path";
 import type {
+  BoundaryActionKind,
   CompiledDocumentLaw,
   BoundaryReviewContext,
   BoundaryUplTrackConstraint,
@@ -11,6 +13,8 @@ type ParsedDirective = {
   invariantLawId: string;
   invariantLabel: string;
   notes: string;
+  actionKind: BoundaryActionKind;
+  target: string;
   trackConstraint: BoundaryUplTrackConstraint;
   reviewContext: BoundaryReviewContext;
 };
@@ -30,10 +34,34 @@ const FIELD_ALIASES: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /^(?:decision|disposition|status)$/i, key: "decision" },
   { pattern: /^(?:invariant|rule|constraint|law)$/i, key: "invariant" },
   { pattern: /^(?:enforcement|enforced by|guard|mechanism)$/i, key: "enforcement" },
+  { pattern: /^(?:action|action kind|surface|move family)$/i, key: "action" },
+  { pattern: /^(?:target|path|scope path|command|domain|recipient|database|system target)$/i, key: "target" },
   { pattern: /^(?:speak this way|speak like|respond like|expression|tone|style)$/i, key: "expression" },
   { pattern: /^(?:output shape|return shape|completion grammar|format|schema)$/i, key: "output_shape" },
   { pattern: /^(?:must include|must say|say this|only say|respond with|required|require)$/i, key: "require" },
   { pattern: /^(?:must not include|do not say|never say|must not say|forbid phrase|forbid|forbidden)$/i, key: "forbid" },
+];
+const ACTION_KIND_ALIASES: Array<{ pattern: RegExp; actionKind: BoundaryActionKind }> = [
+  { pattern: /^(?:chat|chat\.emit|emit)$/i, actionKind: "chat.emit" },
+  { pattern: /^(?:fs\.read|read file|read)$/i, actionKind: "fs.read" },
+  { pattern: /^(?:fs\.write|write file|write)$/i, actionKind: "fs.write" },
+  { pattern: /^(?:fs\.append|append)$/i, actionKind: "fs.append" },
+  { pattern: /^(?:fs\.delete|delete file|delete)$/i, actionKind: "fs.delete" },
+  { pattern: /^(?:fs\.mkdir|mkdir|make dir)$/i, actionKind: "fs.mkdir" },
+  { pattern: /^(?:fs\.move|move|rename)$/i, actionKind: "fs.move" },
+  { pattern: /^(?:tool\.exec|run command|exec|execute|tool)$/i, actionKind: "tool.exec" },
+  { pattern: /^(?:network\.send|network|http|request)$/i, actionKind: "network.send" },
+  { pattern: /^(?:comm\.send|recipient|email|message)$/i, actionKind: "comm.send" },
+  { pattern: /^(?:db\.query|query db|query)$/i, actionKind: "db.query" },
+  { pattern: /^(?:db\.insert|insert)$/i, actionKind: "db.insert" },
+  { pattern: /^(?:db\.update|update db)$/i, actionKind: "db.update" },
+  { pattern: /^(?:db\.delete|delete row)$/i, actionKind: "db.delete" },
+  { pattern: /^(?:sys\.env\.read|read env)$/i, actionKind: "sys.env.read" },
+  { pattern: /^(?:sys\.env\.write|write env)$/i, actionKind: "sys.env.write" },
+  { pattern: /^(?:sys\.config\.read|read config)$/i, actionKind: "sys.config.read" },
+  { pattern: /^(?:sys\.config\.write|write config)$/i, actionKind: "sys.config.write" },
+  { pattern: /^(?:sys\.credential\.read|read credential)$/i, actionKind: "sys.credential.read" },
+  { pattern: /^(?:sys\.credential\.use|use credential)$/i, actionKind: "sys.credential.use" },
 ];
 const SUBJECTIVE_MARKERS = [
   /\bperhaps\b/i,
@@ -130,6 +158,62 @@ function buildInvariantId(sourcePath: string, lineNumber: number, label: string)
   const docName = sanitizeLawSlug(path.basename(sourcePath, path.extname(sourcePath)));
   const labelSlug = sanitizeLawSlug(label).split(".").slice(0, 4).join(".");
   return `UPL.DOC.${docName}.${String(lineNumber).padStart(3, "0")}.${labelSlug}`;
+}
+
+function resolveActionKind(raw: string | undefined): BoundaryActionKind {
+  const normalized = raw?.trim();
+  if (!normalized) {
+    return "chat.emit";
+  }
+  for (const alias of ACTION_KIND_ALIASES) {
+    if (alias.pattern.test(normalized)) {
+      return alias.actionKind;
+    }
+  }
+  return "chat.emit";
+}
+
+function inferTargetPattern(actionKind: BoundaryActionKind, rawTarget: string | undefined): {
+  target: string;
+  targetPattern?: string;
+  targetMatchMode?: BoundaryUplTrackConstraint["targetMatchMode"];
+} {
+  const target = rawTarget?.trim() || (actionKind === "chat.emit" ? CHAT_TARGET : "unspecified");
+  if (actionKind === "chat.emit") {
+    return { target: CHAT_TARGET };
+  }
+  if (actionKind.startsWith("fs.")) {
+    const cleaned = target;
+    const parentDir = path.dirname(cleaned);
+    return {
+      target: cleaned,
+      targetPattern: parentDir === "." ? cleaned : parentDir,
+      targetMatchMode: "prefix",
+    };
+  }
+  if (actionKind === "tool.exec") {
+    return {
+      target,
+      targetPattern: basename(target.split(/\s+/)[0] ?? target),
+      targetMatchMode: "exact",
+    };
+  }
+  if (actionKind === "network.send" || actionKind === "comm.send" || actionKind.startsWith("db.") || actionKind.startsWith("sys.")) {
+    return {
+      target,
+      targetPattern: target,
+      targetMatchMode: "exact",
+    };
+  }
+  const isPathLike = target.startsWith("/") || target.startsWith("./") || target.startsWith("../") || target.includes(pathSep);
+  return {
+    target,
+    ...(isPathLike ? { targetPattern: target, targetMatchMode: "prefix" as const } : { targetPattern: target, targetMatchMode: "exact" as const }),
+  };
+}
+
+function inferReviewSurface(actionKind: BoundaryActionKind): BoundaryReviewContext["surface"] {
+  return actionKind === "chat.emit" ? "chat" : "action";
 }
 
 function normalizeFieldKey(rawKey: string): string | null {
@@ -314,6 +398,9 @@ function compileBlock(args: {
   sourcePath: string;
   block: DocumentLawBlock;
 }): ParsedDirective | null {
+  const actionKind = resolveActionKind(args.block.fields.action?.at(0));
+  const surface = inferReviewSurface(actionKind);
+  const { target, targetPattern, targetMatchMode } = inferTargetPattern(actionKind, args.block.fields.target?.at(0));
   const requiredTextPatterns = dedupePatterns(args.block.fields.require ?? []);
   const forbiddenTextPatterns = dedupePatterns(args.block.fields.forbid ?? []);
   const outputShape = args.block.fields.output_shape
@@ -324,7 +411,9 @@ function compileBlock(args: {
   const enforcement = args.block.fields.enforcement?.join("; ").trim();
 
   if (
-    requiredTextPatterns.length === 0
+    !args.block.fields.action?.length
+    && !args.block.fields.target?.length
+    && requiredTextPatterns.length === 0
     && forbiddenTextPatterns.length === 0
     && !outputShape
     && !expressionProfile
@@ -342,20 +431,24 @@ function compileBlock(args: {
   const type = inferDecision(args.block);
   const descriptionParts = [
     type === "APPROVED" ? "approved" : "denied",
-    "chat corridor",
+    `${surface} corridor`,
+    actionKind !== "chat.emit" ? `action=${actionKind}` : null,
+    targetPattern ? `target=${targetPattern}` : null,
     expressionProfile ? `expression=${expressionProfile}` : null,
     outputShape ? `shape=${outputShape}` : null,
     enforcement ? `enforcement=${enforcement}` : null,
   ].filter(Boolean);
 
   const trackConstraint: BoundaryUplTrackConstraint = {
-    allowedActionKinds: ["chat.emit"],
-    reviewSurface: "chat",
+    allowedActionKinds: [actionKind],
+    ...(targetPattern ? { targetPattern } : {}),
+    ...(targetMatchMode ? { targetMatchMode } : {}),
+    reviewSurface: surface,
     reviewInvariantLawId: invariantLawId,
-    ...(requiredTextPatterns.length ? { requiredTextPatterns } : {}),
-    ...(forbiddenTextPatterns.length ? { forbiddenTextPatterns } : {}),
-    ...(outputShape ? { outputShape } : {}),
-    ...(expressionProfile ? { expressionProfile } : {}),
+    ...(actionKind === "chat.emit" && requiredTextPatterns.length ? { requiredTextPatterns } : {}),
+    ...(actionKind === "chat.emit" && forbiddenTextPatterns.length ? { forbiddenTextPatterns } : {}),
+    ...(actionKind === "chat.emit" && outputShape ? { outputShape } : {}),
+    ...(actionKind === "chat.emit" && expressionProfile ? { expressionProfile } : {}),
     description: descriptionParts.join(" | "),
   };
 
@@ -364,9 +457,11 @@ function compileBlock(args: {
     invariantLawId,
     invariantLabel,
     notes: `document-law import: ${path.basename(args.sourcePath)}:${args.block.startLine}-${args.block.endLine}`,
+    actionKind,
+    target,
     trackConstraint,
     reviewContext: {
-      surface: "chat",
+      surface,
       invariantLawId,
       invariantLabel,
       title: args.block.heading,
@@ -535,8 +630,8 @@ export function compileMarkdownDocumentToLaws(args: {
       scope: "GLOBAL",
       notes: directive.notes,
       requestBasis: {
-        actionKind: "chat.emit",
-        target: CHAT_TARGET,
+        actionKind: directive.actionKind,
+        target: directive.target,
         payloadSummary: `${directive.invariantLawId} :: ${directive.invariantLabel}`,
         provenance: "agent_inference",
         reviewContext: directive.reviewContext,

@@ -44,12 +44,19 @@ async function main() {
     const homePath = path.join(tempRoot, "home");
     const workspacePath = path.join(tempRoot, "workspace");
     await fs.mkdir(workspacePath, { recursive: true });
+    const actionRailDir = path.join(workspacePath, "rail");
+    await fs.mkdir(actionRailDir, { recursive: true });
     const documentPath = path.join(workspacePath, "policy.md");
     await fs.writeFile(documentPath, [
       "# Response policy",
       "",
       "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
       "Like a phoenix rising from the ashes, this response should feel legendary and obviously unforgettable.",
+      "",
+      "Invariant: Writes stay inside the rail directory.",
+      "Enforcement: Only permit fs.write inside the approved rail corridor.",
+      "Action: fs.write",
+      `Target: ${path.join(actionRailDir, "allowed.txt")}`,
       "",
       "Decision: deny",
       "Invariant: Never mention spoilers.",
@@ -75,7 +82,7 @@ async function main() {
     };
     assert.equal(imported.scope, "GLOBAL");
     assert.equal(imported.imported.length, 1);
-    assert.equal(imported.imported[0].imported, 2, "expected two invariant blocks to compile into two laws");
+    assert.equal(imported.imported[0].imported, 3, "expected three invariant blocks to compile into three laws");
 
     const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
     const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
@@ -86,6 +93,8 @@ async function main() {
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputShape === "bullets"));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("1999")));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "archival"));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.allowedActionKinds.includes("fs.write")));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.targetPattern === actionRailDir));
     assert.ok(activeDenied.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("spoilers")));
 
     const sessionId = `agent-buccet-document-law-${Date.now()}`;
@@ -122,6 +131,27 @@ async function main() {
     });
     assert.equal(expressionBlocked.allowed, false, "expected archival expression corridor to block hype output");
 
+    const writeAllowed = await bodyguard.enforceProposal({
+      actionKind: "fs.write",
+      target: path.join(actionRailDir, "inside.txt"),
+      payloadSummary: "write compliant rail file",
+      provenance: "agent_inference",
+      execute: async () => "ok",
+      successReason: "wrote inside rail",
+    });
+    assert.equal(writeAllowed.allowed, true, "expected imported fs.write corridor to allow inside target");
+    assert.equal(writeAllowed.requiresApproval, false, "expected imported fs.write corridor to avoid re-prompt inside rail");
+
+    const writeBlocked = await bodyguard.enforceProposal({
+      actionKind: "fs.write",
+      target: path.join(workspacePath, "outside.txt"),
+      payloadSummary: "write outside rail",
+      provenance: "agent_inference",
+      execute: async () => "should-not-run",
+      successReason: "should not write outside rail",
+    });
+    assert.equal(writeBlocked.allowed, false, "expected imported fs.write corridor to block outside target");
+
     const allowed = await bodyguard.chat.emit({
       userInput: "only return 1999 material",
       attemptedOutput: "- Batman 1999 run",
@@ -137,6 +167,8 @@ async function main() {
     console.log(`forbidden output blocked: ${!blocked.allowed}`);
     console.log(`spoiler output blocked: ${!spoilerBlocked.allowed}`);
     console.log(`expression corridor blocked: ${!expressionBlocked.allowed}`);
+    console.log(`action corridor allowed: ${writeAllowed.allowed}`);
+    console.log(`action corridor blocked: ${!writeBlocked.allowed}`);
     console.log(`compliant output allowed: ${allowed.allowed}`);
   } finally {
     await saveUserPathLedger(originalLedger);
