@@ -72,13 +72,18 @@ export async function bindPolicySourcesIntoConfig(args: {
   witness: BoundaryLedgerRecord;
   decision?: Pick<BoundaryApprovalDecision, "scope" | "notes">;
 }): Promise<BoundaryRuntimeConfig> {
+  const bindings: BoundaryPolicyBinding[] = args.bindings.map((binding) => ({
+    ...binding,
+    scope: binding.scope ?? args.decision?.scope ?? "GLOBAL",
+    ...(binding.notes !== undefined
+      ? { notes: binding.notes }
+      : args.decision?.notes !== undefined
+        ? { notes: args.decision.notes ?? undefined }
+        : {}),
+  }));
   const upl = await writePolicyBindings({
     ledger: args.config.upl,
-    bindings: args.bindings.map((binding) => ({
-      ...binding,
-      scope: binding.scope ?? args.decision?.scope ?? "GLOBAL",
-      notes: binding.notes ?? args.decision?.notes,
-    })),
+    bindings,
     witness: args.witness,
     session: args.config.session,
   });
@@ -87,7 +92,7 @@ export async function bindPolicySourcesIntoConfig(args: {
     upl,
     userLawIds: [
       ...new Set([
-        ...args.config.userLawIds,
+        ...(args.config.userLawIds ?? []),
         ...upl.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE").map((entry) => entry.id),
         ...upl.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE").map((entry) => entry.id),
       ]),
