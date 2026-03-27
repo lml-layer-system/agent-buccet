@@ -99,6 +99,14 @@ The track is a narrow execution corridor derived from exactly what was approved:
 
 The model does not return to open-ended general agency after approval. It enters a finite lawful channel.
 
+On track-eligible surfaces, Buccet binds standing UPL law into corridors:
+- `actionCorridor` — action kind + target shape
+- `outputCorridor` — output format and structure
+- `completionCorridor` — completion grammar and shape
+- `expressionCorridor` — expression register and style
+
+These corridors are the execution form of law — approved motion continues inside the snapped corridor; motion that exits returns to Terminal 2.
+
 **What the track enforces:**
 When a subsequent request matches the UPL entry by action kind family, the track is checked:
 - Request stays within the corridor → allowed, no re-prompt.

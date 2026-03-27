@@ -262,6 +262,9 @@ async function requestApproval(
 
   const decision = normalizeApprovalDecision(await config.approvalHandler(approval));
   const approved = isApprovalAllowed(decision);
+  const deniedReason = approved
+    ? "approval granted by user"
+    : (decision.notes?.trim() || "approval denied or unavailable");
   const witnessRecord = await appendBoundaryLedger(approved ? "APPROVAL_GRANTED" : "APPROVAL_DENIED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
@@ -269,7 +272,7 @@ async function requestApproval(
     actionKind: approval.request.actionKind,
     target: approval.request.target,
     decision: approved ? "allow" : "deny",
-    reason: approved ? "approval granted by user" : "approval denied or unavailable",
+    reason: deniedReason,
     lawIds,
     metadata: {
       approval_choice: decision.choice,
@@ -1116,6 +1119,19 @@ export async function runBoundaryControlledAction<T>(args: {
       };
     }
 
+    if (approvalResult.decision.choice === "allow_once" && !adjudication.grantOffer) {
+      adjudication = {
+        ...adjudication,
+        result: {
+          ...adjudication.result,
+          decision: "allow",
+          reason: "approval granted by user",
+          requiresApproval: false,
+        },
+      };
+      break;
+    }
+
     if (adjudication.grantOffer) {
       const replayApproval: BoundaryApprovalRequest = {
         session: activeConfig.session,
@@ -1283,10 +1299,21 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
 
   function getGuardedConfig() {
     const config = store.getConfig();
-    return enableBodyguardControl(config, {
+    const guarded = enableBodyguardControl(config, {
       approvalHandler: config.approvalHandler ?? approvals.handler,
       gravityService: config.gravityService ?? gravityService,
+      drainPendingApprovals: config.drainPendingApprovals ?? ((reason?: string) => {
+        let drained = 0;
+        for (const pending of approvals.listPending()) {
+          if (approvals.denyOnce(pending.approvalId, { notes: reason ?? "session ended" })) {
+            drained += 1;
+          }
+        }
+        return drained;
+      }),
     });
+    store.replaceConfig(guarded);
+    return guarded;
   }
 
   async function enforceProposal<T>(proposal: BoundaryToolProposal<T>): Promise<BoundaryExecutionResult<T>> {

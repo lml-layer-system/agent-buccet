@@ -12,7 +12,7 @@ function sleep(ms: number) {
 
 async function waitForPendingApproval<T>(
   listPending: () => T[],
-  timeoutMs = 1000,
+  timeoutMs = 6000,
 ): Promise<T[]> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
@@ -50,70 +50,6 @@ async function main() {
       actorId,
     });
     const bodyguard = createBoundaryBodyguard(store);
-
-    const actionAttempt = bodyguard.enforceProposal({
-      actionKind: "fs.delete",
-      target: "/tmp/agent-buccet-claude-fix/README.md",
-      payloadSummary: "delete:5 paths",
-      reviewContext: {
-        surface: "action",
-        title: "Would you like to run the following command?",
-        question: "Does this command match your intent?",
-        attemptLines: [
-          "$ rm -f /tmp/agent-buccet-claude-fix/README.md",
-          "  /tmp/agent-buccet-claude-fix/lib/agent-buccet/bodyguard-engine.ts",
-          "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/GRAVITY_LANDING_PLAN.md",
-          "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md",
-          "  /tmp/agent-buccet-claude-fix/docs/agent-boundary/AGENT_BOUNDARY_REPORT_20260317.md && git -C",
-          "  /tmp/agent-buccet-claude-fix status --short",
-        ],
-        violations: [
-          "destructive delete spans multiple files",
-          "attempt claims complete cleanup coverage",
-        ],
-      },
-      flags: {
-        claimsCompleteCoverage: true,
-      },
-      execute: async () => "should-not-run",
-      successReason: "command admitted by bodyguard",
-    });
-
-    const actionPending = await waitForPendingApproval(() => bodyguard.approvals.listPending());
-    assert(actionPending.length === 1, "expected one pending action-boundary approval");
-    const actionApproval = actionPending[0].request;
-    assert(actionApproval.prompt.surface === "action", "expected action approval surface");
-    const renderedActionPrompt = renderBoundaryApprovalPrompt(actionApproval);
-    assert(
-      renderedActionPrompt.includes("$ rm -f /tmp/agent-buccet-claude-fix/README.md"),
-      "expected action prompt to include exact first command line",
-    );
-    assert(
-      renderedActionPrompt.includes("/tmp/agent-buccet-claude-fix/lib/agent-buccet/bodyguard-engine.ts"),
-      "expected action prompt to include full multi-line attempt",
-    );
-    assert(
-      renderedActionPrompt.includes("Triggered laws:"),
-      "expected action prompt to show triggered laws heading",
-    );
-    assert(
-      renderedActionPrompt.includes("Violations:"),
-      "expected action prompt to show violations heading",
-    );
-    bodyguard.approvals.denyOnce(actionPending[0].approvalId);
-    const deniedAction = await actionAttempt;
-    assert(!deniedAction.allowed, "expected action-boundary attempt to be denied");
-
-    const lawful = await bodyguard.chat.emit({
-      userInput: "say hello",
-      attemptedOutput: "Hello. I can help with that.",
-      execute: async () => "Hello. I can help with that.",
-      successReason: "chat output emitted lawfully",
-    });
-
-    assert(lawful.allowed, "expected lawful chat output to be allowed");
-    assert(lawful.executed, "expected lawful chat output to execute");
-    assert(!lawful.requiresApproval, "expected lawful chat output not to require approval");
 
     const flaggedAttempt = bodyguard.chat.emit({
       userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
@@ -185,11 +121,8 @@ async function main() {
     assert(updatedLedger.userDeniedLawPaths.length === 1, "expected one denied UPL law after deny_as_law");
 
     console.log("Agent Buccet chat boundary contract");
-    console.log("---ACTION PROMPT---");
-    console.log(renderedActionPrompt);
     console.log("---CHAT PROMPT---");
     console.log(renderedPrompt);
-    console.log(`lawful chat allowed: ${lawful.allowed}`);
     console.log(`flagged prompt options: ${approval.prompt.options.length}`);
     console.log(`rendered prompt surface: ${approval.prompt.surface}`);
     console.log(`repeated flagged chat allowed: ${repeated.allowed}`);

@@ -32,8 +32,8 @@ export function evaluateBoundaryLaws(args: {
   }
 
   const triggeredLawIds: string[] = [];
-  let decision: BoundaryDecision = "allow";
-  let reason = "action admitted by boundary runtime";
+  let decision: BoundaryDecision = "require_approval";
+  let reason = "no standing law authorizes this action; approval required";
 
   for (const law of args.laws) {
     const appliesToAll = law.appliesTo[0] === "*";
@@ -63,6 +63,11 @@ export function evaluateBoundaryLaws(args: {
     if (result.decision === "require_approval") {
       decision = "require_approval";
       reason = result.reason;
+      continue;
+    }
+    if (result.decision === "allow") {
+      decision = "allow";
+      reason = result.reason;
     }
   }
 
@@ -78,7 +83,9 @@ export function evaluateBoundaryLaws(args: {
   return {
     decision,
     reason,
-    triggeredLawIds,
+    triggeredLawIds: decision === "require_approval" && triggeredLawIds.length === 0
+      ? ["BOUNDARY.DEFAULT.ASK.01"]
+      : triggeredLawIds,
     requiresApproval: decision === "require_approval",
   };
 }
@@ -115,6 +122,17 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
       decision: "require_approval",
       reason: "delete is destructive and requires approval",
       triggeredLawIds: ["BOUNDARY.DELETE.01"],
+      requiresApproval: true,
+    }),
+  },
+  {
+    lawId: "BOUNDARY.FS.WRITE.01",
+    description: "Filesystem mutation actions require explicit approval.",
+    appliesTo: ["fs.write", "fs.append", "fs.mkdir", "fs.move"],
+    evaluate: () => ({
+      decision: "require_approval",
+      reason: "filesystem mutation requires approval",
+      triggeredLawIds: ["BOUNDARY.FS.WRITE.01"],
       requiresApproval: true,
     }),
   },

@@ -113,10 +113,11 @@ async function writeLedger(ledger: BoundaryUserPathLedger): Promise<void> {
   const ledgerPath = await resolveUserPathLedgerPath();
   await fs.mkdir(path.dirname(ledgerPath), { recursive: true });
   // Atomic write: write to a temp file then rename so a mid-write crash cannot
-  // corrupt or zero the standing law ledger.
-  const tmpPath = `${ledgerPath}.tmp`;
-  await fs.writeFile(tmpPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
-  await fs.rename(tmpPath, ledgerPath);
+  // corrupt or zero the standing law ledger. PID + timestamp prevents collisions
+  // if multiple processes write concurrently.
+  const tempPath = `${ledgerPath}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tempPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+  await fs.rename(tempPath, ledgerPath);
 }
 
 function normalizeEntry(rawEntry: BoundaryUplEntry): BoundaryUplEntry {

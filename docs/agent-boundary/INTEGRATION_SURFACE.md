@@ -78,6 +78,7 @@ Scope is not path-only:
 Use:
 - `createBoundaryActionRequest(...)`
 - `runBoundaryControlledAction(...)`
+- `enforceBoundaryProposal(...)`
 
 `createBoundaryActionRequest` builds a typed `BoundaryActionRequest` from raw parameters.
 `runBoundaryControlledAction` is the shared action admission path through Bodyguard — it

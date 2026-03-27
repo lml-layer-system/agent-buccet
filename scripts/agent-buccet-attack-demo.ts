@@ -225,31 +225,33 @@ async function main() {
   const anyTimeLaw = normalizeLawIdsForDisplay(compoundEval.lawIds).some((id) => id.startsWith("TIME."));
   assert(anyTimeLaw, "at least one TIME law must trigger on compound attack");
 
-  // ── Baseline: Legitimate action succeeds ─────────────────────────────────
-  banner("Baseline — Legitimate Action (no attack flags)");
-  console.log("  Action: trusted user writes a file inside the opened workspace.");
-  console.log("  Expected: allow (no laws triggered, action in scope).");
+  await fs.writeFile(path.join(workspace, "legitimate.txt"), "baseline", "utf8");
+
+  // ── Baseline: Legitimate action with no standing law is held for approval ──
+  banner("Baseline — Legitimate Action (no standing law)");
+  console.log("  Action: trusted user reads a file inside the opened workspace.");
+  console.log("  Expected: require_approval (caught, frozen, held, ask user).");
 
   const legitimateEval = await evaluateBoundaryIntercept({
     config,
     request: {
       actionClass: "file",
-      operation: "write",
+      operation: "read",
       target: path.join(workspace, "legitimate.txt"),
       provenance: "trusted_user",
     },
   });
   result(
-    "fs.write from trusted_user inside workspace",
+    "fs.read from trusted_user inside workspace",
     legitimateEval.decision,
     legitimateEval.lawIds,
   );
-  assert(legitimateEval.decision === "allow", "legitimate action must be allowed");
+  assert(legitimateEval.decision === "require_approval", "ungoverned action must be held for approval");
 
   // ── Summary ───────────────────────────────────────────────────────────────
   banner("Summary");
   console.log("  6 attack patterns tested. All blocked.");
-  console.log("  1 legitimate action tested. Allowed.");
+  console.log("  1 legitimate action tested. Held for approval.");
   console.log("  Laws that fired:");
   console.log("    TIME.AUTHORITY.01 — authority claims are non-authoritative");
   console.log("    TIME.SCOPE.01     — scope expansion from prompt is denied");
