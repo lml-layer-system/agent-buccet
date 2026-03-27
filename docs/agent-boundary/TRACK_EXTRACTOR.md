@@ -84,10 +84,13 @@ Current Buccet-native shape:
 - `allowedActionKinds`
 - `targetPattern`
 - `targetMatchMode`
+- `actionCorridor`
 - `requiredTextPatterns`
 - `forbiddenTextPatterns`
 - `outputShape`
+- `outputCorridor`
 - `expressionProfile`
+- `expressionCorridor`
 - `description`
 
 This is not a summary layer.
@@ -133,8 +136,8 @@ That is not a preference.
 That is an output corridor.
 
 Track Extractor must convert that into enforceable rails, not a display-only
-label. Known expression profiles can be enforced directly. Explicit required and
-forbidden text patterns can also carry the corridor.
+label. Known expression profiles are only shortcuts. The real enforcement
+surface is the structured `expressionCorridor`.
 
 ## Current implementation truth
 
@@ -143,15 +146,21 @@ Current runtime truth on this branch:
 - explicit invariant/enforcement documents compile into tracks
 - policy-like prose can compile into tracks when the prose contains low-entropy
   operational meaning
-- known low-entropy expression profiles are enforced at runtime
-- explicit require/forbid/output-shape rails are enforced at runtime
+- expression law materializes into structured expression corridors and is
+  enforced at runtime
+- output/content law materializes into structured output corridors and is
+  enforced at runtime
+- action law materializes into structured action corridors and is enforced at
+  runtime
+- legacy flat fields still exist for compatibility, but structured corridors are
+  now the primary track surface
 
 Not yet complete:
 
 - arbitrary free-form prose does not yet produce perfect universal track
   extraction
-- every possible expression profile is not yet materialized into a complete
-  corridor library
+- expression/output/action extraction is stronger now, but still not perfect
+  universal corridor derivation from every possible lawful phrasing
 - completion grammar is still narrower than the full long-term vision
 
 ## Success condition
