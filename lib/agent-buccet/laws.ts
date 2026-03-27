@@ -63,6 +63,11 @@ export function evaluateBoundaryLaws(args: {
     if (result.decision === "require_approval") {
       decision = "require_approval";
       reason = result.reason;
+      continue;
+    }
+    if (result.decision === "allow") {
+      decision = "allow";
+      reason = result.reason;
     }
   }
 
