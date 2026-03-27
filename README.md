@@ -72,6 +72,7 @@ Let Agent Buccet be your bodyguard.
 - [Launch Proof](docs/agent-boundary/LAUNCH_PROOF.md)
 - [Release Checklist](docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](docs/agent-boundary/SECURITY_MODEL.md)
+- [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
 - [Threat Model Traceability](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
 - [Examples](docs/agent-boundary/examples/README.md)
