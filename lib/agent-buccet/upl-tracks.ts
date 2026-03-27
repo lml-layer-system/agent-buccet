@@ -26,7 +26,7 @@
 import path from "node:path";
 import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./types.ts";
 import { checkExpressionCorridor } from "./expression-track-extractor.ts";
-import { checkOutputCorridor } from "./output-track-extractor.ts";
+import { checkCompletionCorridor, checkOutputCorridor } from "./output-track-extractor.ts";
 
 /** All filesystem action kinds. */
 const FS_ACTION_KINDS: BoundaryActionKind[] = [
@@ -319,6 +319,10 @@ export function checkTrackConstraint(
   if (outputViolation) {
     return outputViolation;
   }
+  const completionViolation = checkCompletionCorridor(constraint.completionCorridor, constraint, text);
+  if (completionViolation) {
+    return completionViolation;
+  }
 
   if (constraint.expressionProfile || constraint.expressionCorridor) {
     const expressionViolation = checkExpressionCorridor({
@@ -355,6 +359,9 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
     ? ` | forbid: ${(outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.join(" ; ")}`
     : "";
   const shapePart = (outputCorridor?.outputShape ?? constraint.outputShape) ? ` | shape: ${outputCorridor?.outputShape ?? constraint.outputShape}` : "";
+  const completionPart = constraint.completionCorridor
+    ? ` | completion-corridor: ${Object.entries(constraint.completionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
+    : (constraint.completionGrammar ? ` | completion: ${constraint.completionGrammar}` : "");
   const profilePart = constraint.expressionProfile ? ` | expression: ${constraint.expressionProfile}` : "";
   const corridorPart = constraint.expressionCorridor
     ? ` | expression-corridor: ${Object.entries(constraint.expressionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
@@ -365,5 +372,5 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const actionCorridorPart = constraint.actionCorridor
     ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
     : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

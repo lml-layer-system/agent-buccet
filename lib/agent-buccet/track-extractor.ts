@@ -21,6 +21,7 @@ import {
 } from "./track-extractor-action.ts";
 import {
   collapseOutputTrackMeaning,
+  detectCompletionGrammar,
   detectOutputShape,
 } from "./output-track-extractor.ts";
 import {
@@ -38,7 +39,8 @@ const FIELD_ALIASES: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /^(?:action|action kind|surface|move family)$/i, key: "action" },
   { pattern: /^(?:target|path|scope path|command|domain|recipient|database|system target)$/i, key: "target" },
   { pattern: /^(?:speak this way|speak like|respond like|expression|tone|style)$/i, key: "expression" },
-  { pattern: /^(?:output shape|return shape|completion grammar|format|schema)$/i, key: "output_shape" },
+  { pattern: /^(?:output shape|return shape|format|schema)$/i, key: "output_shape" },
+  { pattern: /^(?:completion grammar|completion shape|completion)$/i, key: "completion_grammar" },
   { pattern: /^(?:must include|must say|say this|only say|respond with|required|require)$/i, key: "require" },
   { pattern: /^(?:must not include|do not say|never say|must not say|forbid phrase|forbid|forbidden)$/i, key: "forbid" },
 ];
@@ -109,12 +111,18 @@ function extractFieldsFromProse(paragraph: string): Record<string, string[]> {
       push("target", target);
     }
 
-    const shapes = extractPatternTail(sentence, [
+    const shapeTails = extractPatternTail(sentence, [
       /\b(?:respond|return|output|format)\s+(?:only\s+)?(?:in|as|using)\s+(.+)/i,
       /\b(?:the answer|response|output)\s+must\s+be\s+(.+)/i,
-    ]).map((value) => detectOutputShape(value)).filter(Boolean) as Array<NonNullable<BoundaryUplTrackConstraint["outputShape"]>>;
+    ]);
+    const shapes = shapeTails
+      .map((value) => detectOutputShape(value))
+      .filter(Boolean) as Array<NonNullable<BoundaryUplTrackConstraint["outputShape"]>>;
     for (const shape of shapes) {
       push("output_shape", shape);
+    }
+    for (const grammar of shapeTails.map((value) => detectCompletionGrammar(value)).filter(Boolean) as string[]) {
+      push("completion_grammar", grammar);
     }
 
     const expressions = extractExpressionFieldsFromSentence(sentence);
@@ -275,6 +283,9 @@ function compileBlock(args: {
   const outputShape = args.block.fields.output_shape
     ?.map((value) => detectOutputShape(value))
     .find((value) => value !== undefined);
+  const completionGrammar = args.block.fields.completion_grammar
+    ?.map((value) => detectCompletionGrammar(value))
+    .find((value) => value !== undefined);
   const expressionProfileRaw = args.block.fields.expression?.at(0)?.trim();
   const expressionMeaning = collapseExpressionTrackMeaning({
     block: args.block,
@@ -288,21 +299,28 @@ function compileBlock(args: {
     requiredValues: args.block.fields.require ?? [],
     forbiddenValues: args.block.fields.forbid ?? [],
     outputShape,
+    completionGrammar,
   });
-  const { corridor: outputCorridor, requiredTextPatterns, forbiddenTextPatterns } = outputMeaning;
+  const {
+    corridor: outputCorridor,
+    completionCorridor,
+    requiredTextPatterns,
+    forbiddenTextPatterns,
+  } = outputMeaning;
   const hasMaterializedActionCorridor = Boolean(actionCorridor);
   const requestedExpressionCorridor = (args.block.fields.expression?.length ?? 0) > 0;
   const requestedOutputCorridor =
     (args.block.fields.require?.length ?? 0) > 0
     || (args.block.fields.forbid?.length ?? 0) > 0
-    || (args.block.fields.output_shape?.length ?? 0) > 0;
+    || (args.block.fields.output_shape?.length ?? 0) > 0
+    || (args.block.fields.completion_grammar?.length ?? 0) > 0;
   const requestedActionCorridor =
     (args.block.fields.action?.length ?? 0) > 0
     || (args.block.fields.target?.length ?? 0) > 0;
 
   const snapIntegritySatisfied =
     (!requestedExpressionCorridor || Boolean(expressionCorridor))
-    && (!requestedOutputCorridor || Boolean(outputCorridor))
+    && (!requestedOutputCorridor || Boolean(outputCorridor) || Boolean(completionCorridor))
     && (!requestedActionCorridor || hasMaterializedActionCorridor);
 
   if (
@@ -312,6 +330,7 @@ function compileBlock(args: {
     && requiredTextPatterns.length === 0
     && forbiddenTextPatterns.length === 0
     && !outputShape
+    && !completionCorridor
     && !expressionCorridor
     )
   ) {
@@ -332,6 +351,7 @@ function compileBlock(args: {
     expressionProfile ? `expression=${expressionProfile}` : null,
     expressionCorridor && !expressionProfile ? `expression=structured` : null,
     outputShape ? `shape=${outputShape}` : null,
+    completionCorridor ? `completion=${completionCorridor.grammar}` : null,
     enforcement ? `enforcement=${enforcement}` : null,
   ].filter(Boolean);
 
@@ -345,6 +365,8 @@ function compileBlock(args: {
     ...(actionKind === "chat.emit" && forbiddenTextPatterns.length ? { forbiddenTextPatterns } : {}),
     ...(actionKind === "chat.emit" && outputShape ? { outputShape } : {}),
     ...(actionKind === "chat.emit" && outputCorridor ? { outputCorridor } : {}),
+    ...(actionKind === "chat.emit" && outputMeaning.completionGrammar ? { completionGrammar: outputMeaning.completionGrammar } : {}),
+    ...(actionKind === "chat.emit" && completionCorridor ? { completionCorridor } : {}),
     ...(actionKind === "chat.emit" && expressionProfile ? { expressionProfile } : {}),
     ...(actionKind === "chat.emit" && expressionCorridor ? { expressionCorridor } : {}),
     ...(hasMaterializedActionCorridor ? { actionCorridor } : {}),

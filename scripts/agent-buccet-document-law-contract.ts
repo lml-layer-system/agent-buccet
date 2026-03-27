@@ -55,6 +55,9 @@ async function main() {
       "",
       "Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.",
       "",
+      "Invariant: Completion must stay single sentence.",
+      "Completion grammar: single sentence",
+      "",
       "Invariant: Mixed block must not partially snap.",
       "Expression: cosmic legendary phoenix storyteller voice",
       "Require: canon-sigil-42",
@@ -92,7 +95,7 @@ async function main() {
     };
     assert.equal(imported.scope, "GLOBAL");
     assert.equal(imported.imported.length, 1);
-    assert.equal(imported.imported[0].imported, 4, "expected four invariant blocks to compile into four laws");
+    assert.equal(imported.imported[0].imported, 5, "expected five invariant blocks to compile into five laws");
 
     const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
     const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
@@ -105,6 +108,8 @@ async function main() {
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "archival"));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("1999")));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.outputShape === "bullets"));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.completionGrammar === "single_sentence"));
+    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.completionCorridor?.grammar === "single_sentence"));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.register === "direct"));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.disallowMetaphor === true));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.disallowSubjectivity === true));
@@ -160,6 +165,14 @@ async function main() {
     });
     assert.equal(directExpressionBlocked.allowed, false, "expected structural direct expression corridor to block subjective metaphorical output");
 
+    const completionBlocked = await bodyguard.chat.emit({
+      userInput: "answer in one sentence",
+      attemptedOutput: "Batman 1999 matters. It reset the corridor.",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after document law",
+    });
+    assert.equal(completionBlocked.allowed, false, "expected completion corridor to block multi-sentence output");
+
     const writeAllowed = await bodyguard.enforceProposal({
       actionKind: "fs.write",
       target: path.join(actionRailDir, "inside.txt"),
@@ -196,6 +209,7 @@ async function main() {
     console.log(`forbidden output blocked: ${!blocked.allowed}`);
     console.log(`spoiler output blocked: ${!spoilerBlocked.allowed}`);
     console.log(`expression corridor blocked: ${!expressionBlocked.allowed}`);
+    console.log(`completion corridor blocked: ${!completionBlocked.allowed}`);
     console.log(`action corridor allowed: ${writeAllowed.allowed}`);
     console.log(`action corridor blocked: ${!writeBlocked.allowed}`);
     console.log(`compliant output allowed: ${allowed.allowed}`);
