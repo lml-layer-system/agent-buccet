@@ -1320,8 +1320,19 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     approvalHandler: approvals.handler,
   });
 
+  // Wrap the store's endSession to drain pending approvals before tearing down.
+  // Without this, any code awaiting an approval promise would hang after the
+  // session ends — the promise would never resolve and would leak.
+  const wrappedStore: typeof store = {
+    ...store,
+    endSession: async (args) => {
+      approvals.drainAll();
+      return store.endSession(args);
+    },
+  };
+
   return {
-    store,
+    store: wrappedStore,
     approvals,
     gravity,
     enforceProposal,

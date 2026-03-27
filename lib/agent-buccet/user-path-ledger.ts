@@ -82,7 +82,11 @@ async function resolveUserPathLedgerPath(): Promise<string> {
 async function writeLedger(ledger: BoundaryUserPathLedger): Promise<void> {
   const ledgerPath = await resolveUserPathLedgerPath();
   await fs.mkdir(path.dirname(ledgerPath), { recursive: true });
-  await fs.writeFile(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+  // Atomic write: write to a temp file then rename so a mid-write crash cannot
+  // corrupt or zero the standing law ledger.
+  const tmpPath = `${ledgerPath}.tmp`;
+  await fs.writeFile(tmpPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
+  await fs.rename(tmpPath, ledgerPath);
 }
 
 export async function loadUserPathLedger(): Promise<BoundaryUserPathLedger> {
@@ -226,10 +230,16 @@ export function lookupUserPathDecision(args: {
 /**
  * Fallback lookup for requests that do not have an exact UPL pathHash match.
  * Scans active approved entries whose trackConstraint covers the incoming
- * actionKind. Returns the first match found with a allow/track-violation verdict.
+ * actionKind and applies any-match semantics:
  *
- * This enables track corridors to admit requests with different payloadSummaries
- * (or slightly different targets) that still fall inside the approved corridor.
+ *   - If ANY covering track passes → allow (with that entry).
+ *   - If ALL covering tracks reject → require_approval (track_violation with the
+ *     most-recently-created violating entry so the reason is as specific as possible).
+ *   - If no covering tracks exist → null (fall through to normal law evaluation).
+ *
+ * Any-match is correct when a user has approved multiple corridors for the same
+ * action kind (e.g. "tool.exec npm" and "tool.exec git"). A request that satisfies
+ * either corridor must be allowed without a second prompt.
  *
  * Surface scope: only Tool/Action and Chat/Output kinds are eligible.
  * Returns null immediately for Admission or Physics surface kinds.
@@ -244,15 +254,24 @@ export function lookupUserPathTrackDecision(args: {
     return null;
   }
 
+  let lastViolation: { entry: BoundaryUplEntry; violation: string } | null = null;
+
   for (const entry of args.ledger.userApprovedLawPaths) {
     if (!isEntryActiveForSession(entry, args.session)) continue;
     if (!entry.trackConstraint) continue;
     if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
+
     const violation = checkTrackConstraint(entry.trackConstraint, args.request);
-    if (violation) {
-      return { entry, decision: "track_violation", violation };
+    if (!violation) {
+      // At least one corridor allows this request — admit immediately.
+      return { entry, decision: "allow" };
     }
-    return { entry, decision: "allow" };
+    // Remember this violation; keep scanning for a passing corridor.
+    lastViolation = { entry, violation };
+  }
+
+  if (lastViolation) {
+    return { entry: lastViolation.entry, decision: "track_violation", violation: lastViolation.violation };
   }
   return null;
 }

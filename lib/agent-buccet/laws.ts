@@ -97,6 +97,17 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
     }),
   },
   {
+    lawId: "BOUNDARY.FS.WRITE.01",
+    description: "Filesystem write, append, mkdir, and move actions require explicit approval.",
+    appliesTo: ["fs.write", "fs.append", "fs.mkdir", "fs.move"],
+    evaluate: () => ({
+      decision: "require_approval",
+      reason: "filesystem mutations require approval",
+      triggeredLawIds: ["BOUNDARY.FS.WRITE.01"],
+      requiresApproval: true,
+    }),
+  },
+  {
     lawId: "BOUNDARY.DELETE.01",
     description: "Destructive delete actions require explicit approval.",
     appliesTo: ["fs.delete"],

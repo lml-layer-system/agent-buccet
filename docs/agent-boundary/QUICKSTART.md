@@ -169,6 +169,8 @@ After `DENY`, the Bodyguard checks the UPL — if there is a standing user law f
 
 If the user makes it a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
+When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in Terminal 2 with `tracks`.
+
 That is the whole point.
 
 ## 9. Run the end-to-end example

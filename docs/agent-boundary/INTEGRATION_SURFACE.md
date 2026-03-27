@@ -77,9 +77,14 @@ Scope is not path-only:
 
 Use:
 - `createBoundaryActionRequest(...)`
-- `executeBoundaryControlledAction(...)`
+- `runBoundaryControlledAction(...)`
 
-This is the shared action admission path through Bodyguard.
+`createBoundaryActionRequest` builds a typed `BoundaryActionRequest` from raw parameters.
+`runBoundaryControlledAction` is the shared action admission path through Bodyguard — it
+handles governor pre-check, law evaluation, approval loop, and ledgering.
+
+For most callers `enforceBoundaryProposal(...)` (see Generic tool adapters below) is simpler
+and wraps this path automatically.
 
 ### Gravity service
 

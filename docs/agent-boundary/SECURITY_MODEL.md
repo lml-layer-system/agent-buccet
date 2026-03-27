@@ -88,6 +88,32 @@ The Bodyguard enforces that by turning every user decision into a standing UPL l
 
 The agent cannot write to the UPL. The agent cannot read the UPL to understand its limits. The agent proposes. The user's laws decide.
 
+## UPL Tracks — Execution Corridor Enforcement
+
+When a user records `allow_as_law`, a **UPL Track** is automatically bound to that approval.
+
+The track is a narrow execution corridor derived from exactly what was approved:
+- `fs.write /workspace/subdir/output.txt` → track binds `fs.write` within `/workspace/subdir` (parent directory)
+- `tool.exec git commit` → track binds `tool.exec git` (command name prefix)
+- `network.send https://api.example.com/v1` → track binds `network.send` to `https://api.example.com`
+
+The model does not return to open-ended general agency after approval. It enters a finite lawful channel.
+
+**What the track enforces:**
+When a subsequent request matches the UPL entry by action kind family, the track is checked:
+- Request stays within the corridor → allowed, no re-prompt.
+- Request exits the corridor (different directory, different command, different domain) → `require_approval` surfaces to Terminal 2. Not a hard deny — the user can consciously expand the corridor.
+
+**What tracks are not:**
+- Not a new boundary layer. They run inside the existing UPL enforcement gate.
+- Not a new brain or replacement runtime. Post-law motion shaping only.
+- Not applied to `allow_once` decisions — ephemeral approvals have no standing corridor.
+- Not applied to DOMAIN-scoped UPL entries — domain scope is already coarse-grain by action class.
+
+**Surface scope:** Tracks apply only to Tool/Action and Chat/Output surfaces. Input Admission and Payload-Physics surfaces are excluded — ingress is front-line catch/freeze/deny, not a post-law continuation corridor; physics is hard ceiling enforcement, not semantic shaping.
+
+View active track corridors from Terminal 2: `tracks`
+
 ## Swarm Mode
 
 When many protected processes hit the same unresolved target:
