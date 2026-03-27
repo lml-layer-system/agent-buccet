@@ -90,6 +90,7 @@
     "clean:agent-buccet:artifacts": "node scripts/agent-buccet-artifact-clean.ts",
     "test:agent-buccet:doc-links": "node scripts/agent-buccet-doc-links-contract.ts",
     "test:agent-buccet:artifact-hygiene": "node scripts/agent-buccet-artifact-hygiene-contract.ts",
+    "test:agent-buccet:system-substrate": "node scripts/agent-buccet-system-substrate-contract.ts",
     "agent-buccet:gravity-daemon": "node scripts/agent-buccet-gravity-daemon.ts",
     "agent-buccet:intercept-daemon": "node scripts/agent-buccet-intercept-daemon.ts",
     "agent-buccet:intercept-server": "node scripts/agent-buccet-intercept-server.ts",
