@@ -49,6 +49,7 @@ async function main() {
       "# Response policy",
       "",
       "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
+      "Like a phoenix rising from the ashes, this response should feel legendary and obviously unforgettable.",
       "",
       "Decision: deny",
       "Invariant: Never mention spoilers.",
@@ -113,6 +114,14 @@ async function main() {
     });
     assert.equal(spoilerBlocked.allowed, false, "expected denied spoiler corridor to block output");
 
+    const expressionBlocked = await bodyguard.chat.emit({
+      userInput: "only return 1999 material",
+      attemptedOutput: "- Amazing, legendary Batman 1999 revival!",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after document law",
+    });
+    assert.equal(expressionBlocked.allowed, false, "expected archival expression corridor to block hype output");
+
     const allowed = await bodyguard.chat.emit({
       userInput: "only return 1999 material",
       attemptedOutput: "- Batman 1999 run",
@@ -127,6 +136,7 @@ async function main() {
     console.log(`active denied tracks: ${activeDenied.length}`);
     console.log(`forbidden output blocked: ${!blocked.allowed}`);
     console.log(`spoiler output blocked: ${!spoilerBlocked.allowed}`);
+    console.log(`expression corridor blocked: ${!expressionBlocked.allowed}`);
     console.log(`compliant output allowed: ${allowed.allowed}`);
   } finally {
     await saveUserPathLedger(originalLedger);

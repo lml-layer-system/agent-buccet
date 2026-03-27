@@ -24,6 +24,8 @@ type DocumentLawBlock = {
 };
 
 const CHAT_TARGET = "chat:primary";
+const POLICY_MIN_SIGNAL_COUNT = 2;
+const POLICY_ENTROPY_THRESHOLD = 0.34;
 const FIELD_ALIASES: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /^(?:decision|disposition|status)$/i, key: "decision" },
   { pattern: /^(?:invariant|rule|constraint|law)$/i, key: "invariant" },
@@ -32,6 +34,66 @@ const FIELD_ALIASES: Array<{ pattern: RegExp; key: string }> = [
   { pattern: /^(?:output shape|return shape|completion grammar|format|schema)$/i, key: "output_shape" },
   { pattern: /^(?:must include|must say|say this|only say|respond with|required|require)$/i, key: "require" },
   { pattern: /^(?:must not include|do not say|never say|must not say|forbid phrase|forbid|forbidden)$/i, key: "forbid" },
+];
+const SUBJECTIVE_MARKERS = [
+  /\bperhaps\b/i,
+  /\bmaybe\b/i,
+  /\bprobably\b/i,
+  /\barguably\b/i,
+  /\bclearly\b/i,
+  /\bobviously\b/i,
+  /\bi think\b/i,
+  /\bi believe\b/i,
+  /\bwe believe\b/i,
+  /\bfeels?\b/i,
+  /\bseems?\b/i,
+];
+const METAPHOR_MARKERS = [
+  /\blike a\b/i,
+  /\bas if\b/i,
+  /\bas though\b/i,
+  /\bphoenix\b/i,
+  /\bopens the door\b/i,
+  /\bsheds light\b/i,
+  /\bgame over\b/i,
+];
+const PERSPECTIVE_MARKERS = [
+  /\bi\b/i,
+  /\bwe\b/i,
+  /\bour\b/i,
+  /\byou\b/i,
+  /\byour\b/i,
+];
+const ORDERING_MARKERS = [
+  /\bfirst\b/i,
+  /\bthen\b/i,
+  /\bnext\b/i,
+  /\bfinally\b/i,
+  /\bafter that\b/i,
+  /\btherefore\b/i,
+];
+const POLICY_MARKERS = [
+  /\bmust\b/i,
+  /\bmust not\b/i,
+  /\bnever\b/i,
+  /\bonly\b/i,
+  /\bdo not\b/i,
+  /\bshould\b/i,
+  /\bshall\b/i,
+  /\brequire\b/i,
+  /\bforbid\b/i,
+  /\bdeny\b/i,
+  /\bblock\b/i,
+  /\bspeak\b/i,
+  /\bwrite\b/i,
+  /\btone\b/i,
+  /\bstyle\b/i,
+  /\bexpression\b/i,
+  /\brespond\b/i,
+  /\breturn\b/i,
+  /\boutput\b/i,
+  /\binclude\b/i,
+  /\bmention\b/i,
 ];
 
 function sanitizeLawSlug(input: string): string {
@@ -335,6 +397,39 @@ function stripTrailingPunctuation(value: string): string {
   return value.trim().replace(/[.?!]+$/g, "").trim();
 }
 
+function segmentPolicyClaims(paragraph: string): string[] {
+  return paragraph
+    .split(/(?<=[.!?])\s+|\s*;\s*/)
+    .map((sentence) => stripTrailingPunctuation(sentence))
+    .filter(Boolean);
+}
+
+function computePolicyEntropy(text: string): number {
+  const markers = [
+    ...SUBJECTIVE_MARKERS,
+    ...METAPHOR_MARKERS,
+    ...PERSPECTIVE_MARKERS,
+    ...ORDERING_MARKERS,
+  ];
+  let score = 0;
+  for (const marker of markers) {
+    if (marker.test(text)) {
+      score += 0.12;
+    }
+  }
+  if ((text.match(/,/g) ?? []).length >= 3) {
+    score += 0.08;
+  }
+  if (text.split(/\s+/).length > 28) {
+    score += 0.08;
+  }
+  return Math.min(score, 1);
+}
+
+function isPolicyClaim(text: string): boolean {
+  return POLICY_MARKERS.some((marker) => marker.test(text));
+}
+
 function extractPatternTail(sentence: string, regexes: RegExp[]): string[] {
   const results: string[] = [];
   for (const regex of regexes) {
@@ -349,7 +444,9 @@ function extractPatternTail(sentence: string, regexes: RegExp[]): string[] {
 
 function extractFieldsFromProse(paragraph: string): Record<string, string[]> {
   const fields: Record<string, string[]> = {};
-  const sentences = splitSentences(paragraph);
+  const sentences = segmentPolicyClaims(paragraph)
+    .filter((sentence) => isPolicyClaim(sentence))
+    .filter((sentence) => computePolicyEntropy(sentence) <= POLICY_ENTROPY_THRESHOLD);
   let policySignals = 0;
 
   for (const sentence of sentences) {
@@ -406,7 +503,7 @@ function extractFieldsFromProse(paragraph: string): Record<string, string[]> {
     }
   }
 
-  if (policySignals < 2) {
+  if (policySignals < POLICY_MIN_SIGNAL_COUNT) {
     return {};
   }
   return fields;

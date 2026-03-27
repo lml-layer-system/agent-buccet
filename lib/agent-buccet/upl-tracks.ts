@@ -26,6 +26,50 @@
 import path from "node:path";
 import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./types.ts";
 
+const LOW_ENTROPY_EXPRESSION_PROFILES: Record<string, {
+  forbidden: RegExp[];
+  description: string;
+}> = {
+  archival: {
+    description: "low-entropy archival register",
+    forbidden: [
+      /\b(?:amazing|legendary|obviously|unforgettable|fantastic|awesome|incredible)\b/i,
+      /\b(?:i|we|you|your|our|my)\b/i,
+      /\b(?:like a|as if|as though|phoenix)\b/i,
+      /!/i,
+    ],
+  },
+  formal: {
+    description: "formal register",
+    forbidden: [
+      /\b(?:awesome|super|kinda|sorta|heck|damn)\b/i,
+      /!/i,
+    ],
+  },
+  neutral: {
+    description: "neutral register",
+    forbidden: [
+      /\b(?:amazing|terrible|obviously|clearly|unforgettable)\b/i,
+      /!/i,
+    ],
+  },
+  factual: {
+    description: "factual register",
+    forbidden: [
+      /\b(?:i think|i believe|obviously|clearly|amazing|legendary)\b/i,
+      /\b(?:like a|as if|as though)\b/i,
+      /!/i,
+    ],
+  },
+  technical: {
+    description: "technical register",
+    forbidden: [
+      /\b(?:amazing|awesome|incredible|obviously)\b/i,
+      /!/i,
+    ],
+  },
+};
+
 /** All filesystem action kinds. */
 const FS_ACTION_KINDS: BoundaryActionKind[] = [
   "fs.read",
@@ -260,6 +304,23 @@ function textMatchesPattern(text: string, pattern: string): boolean {
   return text.toLowerCase().includes(trimmedPattern.toLowerCase());
 }
 
+function checkExpressionProfile(profile: string, output: string): string | null {
+  const normalized = profile.trim().toLowerCase();
+  const spec = LOW_ENTROPY_EXPRESSION_PROFILES[normalized];
+  if (!spec) {
+    return null;
+  }
+  for (const regex of spec.forbidden) {
+    if (regex.test(output)) {
+      return (
+        `output exits the approved execution corridor ` +
+        `(expression profile '${normalized}' forbids: ${regex})`
+      );
+    }
+  }
+  return null;
+}
+
 function describeOutputShape(shape: BoundaryUplTrackConstraint["outputShape"]): string {
   return shape ?? "unspecified";
 }
@@ -385,6 +446,13 @@ export function checkTrackConstraint(
       `output exits the approved execution corridor ` +
       `(required shape: ${describeOutputShape(constraint.outputShape)})`
     );
+  }
+
+  if (constraint.expressionProfile) {
+    const expressionViolation = checkExpressionProfile(constraint.expressionProfile, text);
+    if (expressionViolation) {
+      return expressionViolation;
+    }
   }
 
   return null;
