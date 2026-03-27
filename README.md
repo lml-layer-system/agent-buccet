@@ -60,6 +60,21 @@ Build with it. Ship with it. Extend it. Defend your agents with it.
 We ask only one thing:
 Let Agent Buccet be your bodyguard.
 
+## Closed-Source World
+
+Closed-source teams should not have to choose between capability and control.
+With Agent Buccet, private systems can bind internal policy, compliance rules, operating procedures, and business constraints at the same consequence boundaries where agent behavior becomes real.
+
+This means closed-source teams can keep their own stack, their own models, and their own internal policies while still making those constraints enforceable:
+	•	internal policy can become standing law through UPL
+	•	private operating rules can snap into tracks
+	•	approval and denial can be carried as durable runtime law
+	•	output, action, input-admission, and payload-physics boundaries can all be governed without exposing internal systems
+	•	the ledger can prove what was allowed, denied, contained, or stopped inside private deployments
+
+Agent Buccet does not ask closed teams to replace their existing safety stack.
+It gives them a way to bind their own safety intent at consequence time, inside the systems they already own.
+
 
 ## Start Here
 
