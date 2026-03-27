@@ -291,13 +291,29 @@ function compileBlock(args: {
   });
   const { corridor: outputCorridor, requiredTextPatterns, forbiddenTextPatterns } = outputMeaning;
   const hasMaterializedActionCorridor = Boolean(actionCorridor);
+  const requestedExpressionCorridor = (args.block.fields.expression?.length ?? 0) > 0;
+  const requestedOutputCorridor =
+    (args.block.fields.require?.length ?? 0) > 0
+    || (args.block.fields.forbid?.length ?? 0) > 0
+    || (args.block.fields.output_shape?.length ?? 0) > 0;
+  const requestedActionCorridor =
+    (args.block.fields.action?.length ?? 0) > 0
+    || (args.block.fields.target?.length ?? 0) > 0;
+
+  const snapIntegritySatisfied =
+    (!requestedExpressionCorridor || Boolean(expressionCorridor))
+    && (!requestedOutputCorridor || Boolean(outputCorridor))
+    && (!requestedActionCorridor || hasMaterializedActionCorridor);
 
   if (
+    !snapIntegritySatisfied
+    || (
     !hasMaterializedActionCorridor
     && requiredTextPatterns.length === 0
     && forbiddenTextPatterns.length === 0
     && !outputShape
     && !expressionCorridor
+    )
   ) {
     return null;
   }

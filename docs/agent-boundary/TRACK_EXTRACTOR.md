@@ -111,6 +111,10 @@ Meaning:
 4. UUIS materializes the track
 5. runtime enforces that track
 
+If any operative part of a law block cannot be materialized into a real
+enforceable corridor, the block is refused. Track Extractor does not partially
+snap law.
+
 ## Chat / Tool scope
 
 UPL Tracks apply to:

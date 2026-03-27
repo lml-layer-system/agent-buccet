@@ -55,6 +55,10 @@ async function main() {
       "",
       "Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.",
       "",
+      "Invariant: Mixed block must not partially snap.",
+      "Expression: cosmic legendary phoenix storyteller voice",
+      "Require: canon-sigil-42",
+      "",
       "Expression: cosmic legendary phoenix storyteller voice",
       "",
       "Require: legendary unforgettable phoenix ascension",
@@ -107,6 +111,8 @@ async function main() {
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.allowedActionKinds.includes("fs.write")));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.targetPattern === actionRailDir));
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.actionCorridor?.targetPattern === actionRailDir));
+    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("canon-sigil-42")));
+    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("canon-sigil-42")));
     assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "cosmic legendary phoenix storyteller"));
     assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("legendary unforgettable phoenix ascension")));
     assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.targetPattern === "legendary cosmic somewhere wonderful"));
