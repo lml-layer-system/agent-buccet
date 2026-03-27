@@ -319,6 +319,15 @@ export type BoundaryUplTrackConstraint = {
   description: string;
 };
 
+export type BoundaryUplRequestBasis = {
+  actionKind: BoundaryActionKind;
+  target: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
+};
+
 export type BoundaryLaw = {
   lawId: string;
   description: string;
@@ -564,6 +573,12 @@ export type BoundaryUplEntry = {
   notes?: string | null;
   sessionId?: string;
   domain?: string;
+  /**
+   * Canonical request basis for this UPL law. When a user/company adds or edits
+   * UPL directly, Buccet can rebuild the track corridor from this basis without
+   * needing the original approval event in memory.
+   */
+  requestBasis?: BoundaryUplRequestBasis;
   /**
    * UPL Track corridor: present on track-eligible UPL entries.
    * Constrains execution to the law-bound corridor that the user set in motion.

@@ -120,10 +120,75 @@ async function main() {
     assert.equal(allowed.allowed, true, "expected later standing allow to override previous deny");
     assert.equal(allowed.requiresApproval, false, "expected later standing allow to short-circuit approval");
 
+    const manualLedger = await saveUserPathLedger({
+      specVersion: 1,
+      userApprovedLawPaths: [],
+      userDeniedLawPaths: [
+        {
+          id: "UPL-MANUAL-TRACK-001",
+          type: "DENIED",
+          path: "",
+          pathHash: "",
+          createdAt: new Date().toISOString(),
+          scope: "GLOBAL",
+          status: "ACTIVE",
+          witness: "manual:uplt",
+          modifiedAt: null,
+          notes: "manually authored company policy",
+          requestBasis: {
+            actionKind: "chat.emit",
+            target: "chat:primary",
+            payloadSummary: "BOUNDARY.CHAT.USER_CONSTRAINT.01 :: Batman 2003 run is the best answer for that request.",
+            provenance: "agent_inference",
+            flags: {
+              violatesUserConstraint: true,
+            },
+            reviewContext: {
+              surface: "chat",
+              invariantLawId: "BOUNDARY.CHAT.USER_CONSTRAINT.01",
+              invariantLabel: "Output conflicts with the user time constraint.",
+              userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+              attemptedOutput: "Batman 2003 run is the best answer for that request.",
+              evidence: ["Attempted output references 2003."],
+            },
+          },
+        },
+      ],
+    });
+    const reloadedManualLedger = await loadUserPathLedger();
+    assert.equal(manualLedger.userDeniedLawPaths.length, 1, "expected one manual denied law");
+    assert.ok(
+      reloadedManualLedger.userDeniedLawPaths[0].trackConstraint,
+      "expected manual UPL entry to materialize a track from requestBasis",
+    );
+
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl: reloadedManualLedger,
+      userLawIds: [
+        ...new Set([
+          ...getActiveUserLawIds(reloadedManualLedger, store.getConfig().session),
+        ]),
+      ],
+    });
+
+    const manualBlocked = await bodyguard.chat.emit({
+      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      attemptedOutput: "Batman 2001 run is the best answer for that request.",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after manual UPL policy",
+      invariantLawId: "BOUNDARY.CHAT.USER_CONSTRAINT.01",
+    });
+
+    assert.equal(manualBlocked.allowed, false, "expected manual UPL deny track to block same invariant corridor");
+    assert.equal(manualBlocked.requiresApproval, false, "expected manual UPL deny track to avoid re-prompt");
+
     console.log("Agent Buccet UPL governance contract");
     console.log(`replaced denied laws: ${replacedDenied.length}`);
     console.log(`active approved laws: ${activeApproved.length}`);
     console.log(`later standing allow admitted: ${allowed.allowed}`);
+    console.log(`manual UPL track materialized: ${!!reloadedManualLedger.userDeniedLawPaths[0].trackConstraint}`);
+    console.log(`manual UPL corridor blocked: ${!manualBlocked.allowed}`);
   } finally {
     await saveUserPathLedger(originalLedger);
   }

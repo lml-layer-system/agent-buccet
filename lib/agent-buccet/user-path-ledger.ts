@@ -8,6 +8,7 @@ import type {
   BoundaryLedgerRecord,
   BoundarySession,
   BoundaryUplEntry,
+  BoundaryUplRequestBasis,
   BoundaryUplScope,
   BoundaryUplStatus,
   BoundaryUserPathLedger,
@@ -42,6 +43,34 @@ function stablePathDescriptor(request: BoundaryActionRequest) {
     claimsUserApproval: request.flags?.claimsUserApproval ?? false,
     reviewSurface: request.reviewContext?.surface ?? null,
     reviewInvariantLawId: request.reviewContext?.invariantLawId ?? null,
+  };
+}
+
+function toRequestBasis(request: BoundaryActionRequest): BoundaryUplRequestBasis {
+  return {
+    actionKind: request.actionKind,
+    target: request.target,
+    payloadSummary: request.payloadSummary,
+    provenance: request.provenance,
+    flags: request.flags,
+    reviewContext: request.reviewContext,
+  };
+}
+
+function requestFromBasis(
+  basis: BoundaryUplRequestBasis,
+  sessionId: string,
+): BoundaryActionRequest {
+  return {
+    requestId: "upl-basis-materialize",
+    sessionId,
+    actionKind: basis.actionKind,
+    target: basis.target,
+    payloadSummary: basis.payloadSummary,
+    requestedAt: new Date(0).toISOString(),
+    provenance: basis.provenance ?? "agent_inference",
+    flags: basis.flags,
+    reviewContext: basis.reviewContext,
   };
 }
 
@@ -85,11 +114,61 @@ async function writeLedger(ledger: BoundaryUserPathLedger): Promise<void> {
   await fs.writeFile(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`, "utf8");
 }
 
+function normalizeEntry(rawEntry: BoundaryUplEntry): BoundaryUplEntry {
+  let entry = { ...rawEntry };
+  if (!entry.requestBasis) {
+    return entry;
+  }
+
+  const basisRequest = requestFromBasis(entry.requestBasis, entry.sessionId ?? "upl-materialize");
+  if (!entry.path) {
+    entry = {
+      ...entry,
+      path: describeUserPath(basisRequest),
+    };
+  }
+  if (!entry.pathHash) {
+    entry = {
+      ...entry,
+      pathHash: hashUserPath(basisRequest),
+    };
+  }
+  if (entry.scope === "DOMAIN" && !entry.domain) {
+    entry = {
+      ...entry,
+      domain: classifyUserPathDomain(basisRequest),
+    };
+  }
+  if (!entry.trackConstraint && isTrackSurface(basisRequest.actionKind)) {
+    const trackConstraint = buildAutoTrackConstraint(basisRequest);
+    if (trackConstraint) {
+      entry = {
+        ...entry,
+        trackConstraint,
+      };
+    }
+  }
+  return entry;
+}
+
+function normalizeLedger(ledger: BoundaryUserPathLedger): BoundaryUserPathLedger {
+  return {
+    ...ledger,
+    userApprovedLawPaths: ledger.userApprovedLawPaths.map(normalizeEntry),
+    userDeniedLawPaths: ledger.userDeniedLawPaths.map(normalizeEntry),
+  };
+}
+
 export async function loadUserPathLedger(): Promise<BoundaryUserPathLedger> {
   const ledgerPath = await resolveUserPathLedgerPath();
   try {
     const raw = await fs.readFile(ledgerPath, "utf8");
-    return JSON.parse(raw) as BoundaryUserPathLedger;
+    const parsed = JSON.parse(raw) as BoundaryUserPathLedger;
+    const normalized = normalizeLedger(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      await writeLedger(normalized);
+    }
+    return normalized;
   } catch {
     const ledger = getDefaultLedger();
     await writeLedger(ledger);
@@ -98,8 +177,9 @@ export async function loadUserPathLedger(): Promise<BoundaryUserPathLedger> {
 }
 
 export async function saveUserPathLedger(ledger: BoundaryUserPathLedger): Promise<BoundaryUserPathLedger> {
-  await writeLedger(ledger);
-  return ledger;
+  const normalized = normalizeLedger(ledger);
+  await writeLedger(normalized);
+  return normalized;
 }
 
 function makeEntryId(ledger: BoundaryUserPathLedger): string {
@@ -350,6 +430,7 @@ function createEntry(args: {
     notes: args.decision?.notes ?? null,
     ...(scope === "SESSION" ? { sessionId: args.session.sessionId } : {}),
     ...(scope === "DOMAIN" ? { domain: args.decision?.domain ?? classifyUserPathDomain(args.request) } : {}),
+    requestBasis: toRequestBasis(args.request),
     ...(trackConstraint ? { trackConstraint } : {}),
   };
 }
