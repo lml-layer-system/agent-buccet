@@ -1119,6 +1119,19 @@ export async function runBoundaryControlledAction<T>(args: {
       };
     }
 
+    if (approvalResult.decision.choice === "allow_once" && !adjudication.grantOffer) {
+      adjudication = {
+        ...adjudication,
+        result: {
+          ...adjudication.result,
+          decision: "allow",
+          reason: "approval granted by user",
+          requiresApproval: false,
+        },
+      };
+      break;
+    }
+
     if (adjudication.grantOffer) {
       const replayApproval: BoundaryApprovalRequest = {
         session: activeConfig.session,

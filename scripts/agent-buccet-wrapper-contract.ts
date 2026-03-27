@@ -1,5 +1,8 @@
+import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   prepareBoundaryProcess,
   runBoundaryWrappedCommand,
@@ -26,10 +29,37 @@ async function assertRejects(fn: () => Promise<unknown>, expected: string) {
 }
 
 async function main() {
-  const runId = new Date().toISOString().replace(/[:.]/g, "-");
-  const sessionId = `agent-buccet-wrapper-contract-${runId}`;
+  if (process.env.AGENT_BUCCET_WRAPPER_CONTRACT_ISOLATED !== "1") {
+    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "abwc-"));
+    const scriptPath = fileURLToPath(import.meta.url);
+    const exitCode = await new Promise<number>((resolve, reject) => {
+      const child = spawn(process.execPath, [scriptPath], {
+        cwd: tempRoot,
+        env: {
+          ...process.env,
+          AGENT_BUCCET_WRAPPER_CONTRACT_ISOLATED: "1",
+        },
+        stdio: "inherit",
+      });
+      child.once("error", reject);
+      child.once("exit", (code, signal) => {
+        if (signal) {
+          reject(new Error(`wrapper contract child terminated by signal ${signal}`));
+          return;
+        }
+        resolve(code ?? 1);
+      });
+    });
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+    return;
+  }
+
+  const runId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const sessionId = `abwc-${runId}`;
   const actorId = "user:wrapper-contract";
-  const demoRoot = path.join(process.cwd(), "data", "agent-boundary", "wrapper-contract", sessionId);
+  const demoRoot = path.join(process.cwd(), "data", "abwc", sessionId);
   const scopedRoot = path.join(demoRoot, "workspace");
   const outsideRoot = path.join(demoRoot, "outside");
   await fs.mkdir(scopedRoot, { recursive: true });
