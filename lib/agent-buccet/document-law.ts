@@ -216,6 +216,42 @@ function inferReviewSurface(actionKind: BoundaryActionKind): BoundaryReviewConte
   return actionKind === "chat.emit" ? "chat" : "action";
 }
 
+function inferActionKindFromSentence(sentence: string): BoundaryActionKind | null {
+  const normalized = stripTrailingPunctuation(sentence);
+  for (const alias of ACTION_KIND_ALIASES) {
+    if (alias.pattern.test(normalized)) {
+      return alias.actionKind;
+    }
+  }
+  if (/\bwrite\b/i.test(normalized)) return "fs.write";
+  if (/\bread\b/i.test(normalized)) return "fs.read";
+  if (/\bappend\b/i.test(normalized)) return "fs.append";
+  if (/\bdelete\b/i.test(normalized)) return "fs.delete";
+  if (/\bmove\b|\brename\b/i.test(normalized)) return "fs.move";
+  if (/\bmkdir\b|\bmake dir\b/i.test(normalized)) return "fs.mkdir";
+  if (/\bquery\b/i.test(normalized)) return "db.query";
+  if (/\bexecute\b|\brun\b|\bcommand\b/i.test(normalized)) return "tool.exec";
+  if (/\bnetwork\b|\brequest\b|\bhttp\b/i.test(normalized)) return "network.send";
+  if (/\brecipient\b|\bemail\b|\bmessage\b/i.test(normalized)) return "comm.send";
+  return null;
+}
+
+function inferTargetFromSentence(sentence: string): string | null {
+  const quoted = sentence.match(/["']([^"']+)["']/);
+  if (quoted?.[1]) {
+    return quoted[1].trim();
+  }
+  const fsPath = sentence.match(/((?:\/|\.\/|\.\.\/)[^\s,;]+)/);
+  if (fsPath?.[1]) {
+    return stripTrailingPunctuation(fsPath[1]);
+  }
+  const domainTarget = sentence.match(/\b(?:to|within|inside|on)\s+([a-z0-9._:-]+\.[a-z]{2,}(?:\/[^\s,;]+)?)/i);
+  if (domainTarget?.[1]) {
+    return stripTrailingPunctuation(domainTarget[1]);
+  }
+  return null;
+}
+
 function normalizeFieldKey(rawKey: string): string | null {
   const cleaned = rawKey.trim().replace(/^[-*]\s*/, "");
   for (const alias of FIELD_ALIASES) {
@@ -553,6 +589,15 @@ function extractFieldsFromProse(paragraph: string): Record<string, string[]> {
 
     if (/\b(enforce|enforced|reject|block|catch|deny|guard|must stay within)\b/.test(lower)) {
       push("enforcement", stripTrailingPunctuation(sentence));
+    }
+
+    const actionKind = inferActionKindFromSentence(sentence);
+    if (actionKind) {
+      push("action", actionKind);
+    }
+    const target = inferTargetFromSentence(sentence);
+    if (target) {
+      push("target", target);
     }
 
     const shapes = extractPatternTail(sentence, [
