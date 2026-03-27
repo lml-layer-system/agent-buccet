@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_BUCCET_TIME_LAW_REFERENCES } from "./time.ts";
@@ -43,8 +42,6 @@ const AGENT_BUCCET_BASE_LAW_IDS = [
 ] as const;
 
 export const AGENT_BUCCET_ACTIVE_FOUNDATION_EXCLUDED_LAW_IDS = [165, 166, 167, 169, 243] as const;
-const require = createRequire(import.meta.url);
-
 type RuntimeSubstrateModule = {
   loadRuntimeSubstrate: (options?: { substratePath?: string; repoRoot?: string }) => unknown;
   materializeRuntimeLawBody: (substrate: unknown) => Array<{ projectedLawId: string; gate?: string; category?: string }>;
@@ -111,7 +108,7 @@ async function resolveRuntimeModulePath(): Promise<string> {
 
 async function loadRuntimeSubstrateModule(): Promise<RuntimeSubstrateModule> {
   const modulePath = await resolveRuntimeModulePath();
-  return require(modulePath) as RuntimeSubstrateModule;
+  return import(modulePath) as Promise<RuntimeSubstrateModule>;
 }
 
 function buildTimeIndexes(rows: Array<{ projectedLawId: string; gate?: string; category?: string }>) {

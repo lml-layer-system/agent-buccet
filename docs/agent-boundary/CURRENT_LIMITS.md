@@ -473,6 +473,33 @@ Every major architectural claim maps to:
 
 ---
 
+## Known Behavioral Defaults
+
+### Process Policy: empty allowedCommands = allow-all
+
+`BoundaryProcessPolicy.allowedCommands` controls which commands the boundary will let `tool.exec` run. If `allowedCommands` is absent or empty, **any command in PATH is allowed** — no allowlist enforcement.
+
+This is intentional: operators who have not configured an allowlist have not expressed a restriction. The `BOUNDARY.EXEC.01` base law still requires approval for any `tool.exec` action. A user who approves `tool.exec` without specifying a command is consciously opening `tool.exec` broadly — that intent is honored.
+
+**If you want an explicit command allowlist:**
+
+```typescript
+processPolicy: {
+  allowedCommands: ["git", "npm", "node"], // only these run
+  blockedCommands: ["rm", "curl"],          // always blocked, even if in allowedCommands
+}
+```
+
+**What you cannot claim:** "allowedCommands is empty therefore nothing can run." Empty allowlist = no restriction on command name. The higher-level `BOUNDARY.EXEC.01` gate still fires.
+
+### Schema Versioning: v1 only, no migration path
+
+Persisted session state is stamped `schemaVersion: 1`. There is no migration function for v1 → v2. If the schema changes in a future release, old session files will not load — the runtime will create a fresh session (fail-safe, not fail-open). No data from the old session will carry forward silently.
+
+**If your deployment depends on session continuity across upgrades**, check for schema version changes in release notes. Migration utilities will be added when a schema-breaking change ships.
+
+---
+
 ## Open Source
 
 Agent Buccet is built for the open-source world as much as the closed one.
