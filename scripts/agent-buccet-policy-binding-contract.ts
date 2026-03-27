@@ -86,10 +86,7 @@ async function main() {
     const spoilerBlocked = await bodyguard.chat.emit({
       userInput: "summarize without spoilers",
       attemptedOutput: "Batman spoilers summary",
-      reviewContext: {
-        surface: "chat",
-        invariantLawId: "UPL.POLICY.GUARDRAIL.SPOILERS",
-      },
+      invariantLawId: "UPL.POLICY.GUARDRAIL.SPOILERS",
       execute: async () => "should-not-run",
       successReason: "guardrail-bound chat output emitted",
     });
