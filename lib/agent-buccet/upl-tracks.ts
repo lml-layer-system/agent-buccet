@@ -6,6 +6,18 @@
  * the corridor that was approved. The model does not return to open-ended general
  * agency; it enters a narrow lawful channel.
  *
+ * Surface scope — UPL Tracks apply ONLY to the two post-law continuation surfaces:
+ *
+ *   • Tool / Action Boundary  — fs.*, tool.exec, network.send, comm.send, db.*, sys.*
+ *   • Chat / Output Boundary  — chat.emit
+ *
+ * UPL Tracks do NOT apply to:
+ *
+ *   • Input Admission Boundary  — ingress is a catch/freeze/hold/deny front-line,
+ *                                  not a post-law continuation corridor.
+ *   • Payload-Physics Boundary  — hard containment / ceiling enforcement, not
+ *                                  semantic execution shaping.
+ *
  * Two pure functions:
  *   buildAutoTrackConstraint — auto-derive the track corridor from an approved request
  *   checkTrackConstraint     — validate an incoming request against an active corridor
@@ -43,6 +55,35 @@ const SYS_ACTION_KINDS: BoundaryActionKind[] = [
 ];
 
 /**
+ * All action kinds that belong to the two post-law execution surfaces where
+ * UPL Tracks are in scope:
+ *
+ *   Tool / Action Boundary  — all fs.*, tool.exec, network.send, comm.send, db.*, sys.*
+ *   Chat / Output Boundary  — chat.emit
+ *
+ * Admission and Physics surfaces are excluded by design.
+ */
+export const TRACK_SURFACE_ACTION_KINDS = new Set<BoundaryActionKind>([
+  ...FS_ACTION_KINDS,
+  "tool.exec",
+  "network.send",
+  "comm.send",
+  ...DB_ACTION_KINDS,
+  ...SYS_ACTION_KINDS,
+  "chat.emit",
+]);
+
+/**
+ * Returns true if the action kind belongs to a UPL-Track-eligible execution surface.
+ *
+ * Only Tool/Action and Chat/Output surface kinds are eligible.
+ * Admission and Physics surface kinds are never tracked.
+ */
+export function isTrackSurface(actionKind: BoundaryActionKind): boolean {
+  return TRACK_SURFACE_ACTION_KINDS.has(actionKind);
+}
+
+/**
  * Extract the domain prefix from a network/URL target.
  * "https://api.example.com/v1/data" → "https://api.example.com"
  * "api.example.com" → "api.example.com"
@@ -77,10 +118,18 @@ function extractCommandName(raw: string): string {
  * Called when allow_as_law is recorded for GLOBAL or SESSION scope.
  * The constraint narrows the active execution corridor to match exactly
  * what was approved — preventing mission creep after law is set.
+ *
+ * Returns undefined for action kinds outside the UPL Tracks surface scope
+ * (i.e. anything not in TRACK_SURFACE_ACTION_KINDS). Callers should check
+ * isTrackSurface() before calling, but this function is safe to call directly.
  */
 export function buildAutoTrackConstraint(
   request: BoundaryActionRequest,
-): BoundaryUplTrackConstraint {
+): BoundaryUplTrackConstraint | undefined {
+  if (!isTrackSurface(request.actionKind)) {
+    return undefined;
+  }
+
   const [domain] = request.actionKind.split(".");
 
   switch (domain) {
@@ -151,14 +200,11 @@ export function buildAutoTrackConstraint(
       };
     }
 
-    default: {
-      // Generic fallback: exact action kind, exact target.
-      return {
-        allowedActionKinds: [request.actionKind],
-        targetPattern: request.target,
-        description: `${request.actionKind}: ${request.target}`,
-      };
-    }
+    default:
+      // Should be unreachable: isTrackSurface() guards above cover all known
+      // track-eligible action kinds. If a new surface kind is added, extend
+      // TRACK_SURFACE_ACTION_KINDS and add a case here.
+      return undefined;
   }
 }
 

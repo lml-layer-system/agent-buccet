@@ -12,7 +12,7 @@ import type {
   BoundaryUplStatus,
   BoundaryUserPathLedger,
 } from "./types.ts";
-import { buildAutoTrackConstraint, checkTrackConstraint } from "./upl-tracks.ts";
+import { buildAutoTrackConstraint, checkTrackConstraint, isTrackSurface } from "./upl-tracks.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const UPL_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "user-path-ledger.json");
@@ -230,12 +230,20 @@ export function lookupUserPathDecision(args: {
  *
  * This enables track corridors to admit requests with different payloadSummaries
  * (or slightly different targets) that still fall inside the approved corridor.
+ *
+ * Surface scope: only Tool/Action and Chat/Output kinds are eligible.
+ * Returns null immediately for Admission or Physics surface kinds.
  */
 export function lookupUserPathTrackDecision(args: {
   ledger: BoundaryUserPathLedger;
   session: BoundarySession;
   request: BoundaryActionRequest;
 }): { entry: BoundaryUplEntry; decision: "allow" | "track_violation"; violation?: string } | null {
+  // UPL Tracks are scoped to post-law execution surfaces only.
+  if (!isTrackSurface(args.request.actionKind)) {
+    return null;
+  }
+
   for (const entry of args.ledger.userApprovedLawPaths) {
     if (!isEntryActiveForSession(entry, args.session)) continue;
     if (!entry.trackConstraint) continue;
@@ -277,11 +285,12 @@ function createEntry(args: {
   decision?: BoundaryApprovalDecision;
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
-  // Attach a track constraint to GLOBAL/SESSION-scoped approved entries.
+  // Attach a track constraint only to Tool/Action and Chat/Output surface entries.
   // DOMAIN-scoped entries already coarse-grain the corridor via domain; no track needed.
   // Denied entries have no execution corridor.
+  // Admission and Physics surface kinds are excluded via isTrackSurface().
   const trackConstraint =
-    args.type === "APPROVED" && scope !== "DOMAIN"
+    args.type === "APPROVED" && scope !== "DOMAIN" && isTrackSurface(args.request.actionKind)
       ? buildAutoTrackConstraint(args.request)
       : undefined;
   return {
