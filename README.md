@@ -2,6 +2,73 @@
 Building Ultimate Containment Constraints Every Time
 ![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
+**Agent Buccet is a boundary enforcement layer for AI agents.**
+
+Your model is aligned. But alignment doesn't enforce — it shapes.
+Buccet enforces, at the exact action boundaries where agent behavior becomes consequence.
+
+## 5-Minute Quickstart
+
+```bash
+# Install
+npm install agent-buccet
+
+# See it work
+npm run demo:agent-buccet
+```
+
+Or from source:
+
+```typescript
+import {
+  createBoundaryBodyguard,
+  createBoundaryHeadlessApprovalHandler,
+  createPersistentBoundaryRuntimeStore,
+  openBoundaryPath,
+} from "agent-buccet";
+
+// 1. Create a session
+const store = await createPersistentBoundaryRuntimeStore({
+  sessionId: "my-agent",
+  actorId: "agent:demo",
+});
+
+// 2. Open a lawful scope
+const { config } = await openBoundaryPath({
+  config: store.getConfig(),
+  rootPath: "/tmp/workspace",
+  grantedActions: ["fs.write", "fs.read"],
+  issuedBy: "user:operator",
+});
+store.replaceConfig({
+  ...config,
+  approvalHandler: createBoundaryHeadlessApprovalHandler({ mode: "deny_all" }),
+});
+
+// 3. Every agent action goes through the bodyguard
+const bodyguard = createBoundaryBodyguard(store);
+
+const result = await bodyguard.enforceProposal({
+  actionKind: "fs.write",
+  target: "/tmp/workspace/output.txt",   // inside scope → ALLOW
+  successReason: "wrote output",
+  execute: async () => { /* write the file */ },
+});
+
+console.log(result.allowed); // true
+
+const blocked = await bodyguard.enforceProposal({
+  actionKind: "fs.write",
+  target: "/etc/hosts",                  // outside scope → DENY
+  successReason: "wrote hosts",
+  execute: async () => { /* never runs */ },
+});
+
+console.log(blocked.allowed); // false
+```
+
+---
+
 Persistent, CPU-friendly law and scope enforcement for AI agents.
 
 Agent Buccet is the containment layer you add to the agent stack you already run.

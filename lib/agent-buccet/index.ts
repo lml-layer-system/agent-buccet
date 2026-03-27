@@ -14,6 +14,7 @@ export * from "./state.ts";
 export * from "./policy.ts";
 export * from "./policy-binding.ts";
 export * from "./approval.ts";
+export * from "./headless.ts";
 export * from "./store.ts";
 export * from "./filesystem.ts";
 export * from "./actions.ts";

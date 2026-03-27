@@ -402,6 +402,109 @@ function directiveSignature(directive: ParsedDirective): string {
     .digest("hex");
 }
 
+export type DocumentLawDiagnosticEntry = {
+  startLine: number;
+  endLine: number;
+  heading: string | undefined;
+  source: "structured" | "prose";
+  confidence: "HIGH" | "MEDIUM";
+  corridorType: "action" | "output" | "expression" | "completion" | null;
+  invariantLawId: string | null;
+  description: string | null;
+  compiled: boolean;
+  skipReason: string | null;
+};
+
+function inferConfidence(block: DocumentLawBlock): "HIGH" | "MEDIUM" {
+  if (block.source === "structured") {
+    const fieldTypes = Object.keys(block.fields).length;
+    return fieldTypes >= 2 ? "HIGH" : "MEDIUM";
+  }
+  // prose — signal count is reflected in how many field buckets were filled
+  const signalCount = Object.values(block.fields).reduce((sum, v) => sum + v.length, 0);
+  return signalCount >= 2 ? "HIGH" : "MEDIUM";
+}
+
+function inferCorridorType(
+  directive: ParsedDirective,
+): "action" | "output" | "expression" | "completion" | null {
+  if (directive.trackConstraint.actionCorridor) return "action";
+  if (directive.trackConstraint.expressionCorridor || directive.trackConstraint.expressionProfile) return "expression";
+  if (directive.trackConstraint.completionCorridor) return "completion";
+  if (directive.trackConstraint.outputCorridor) return "output";
+  return null;
+}
+
+export type DocumentLawExtractionResult = {
+  laws: CompiledDocumentLaw[];
+  diagnostics: DocumentLawDiagnosticEntry[];
+};
+
+export function extractDocumentLawsWithDiagnostics(args: {
+  sourcePath: string;
+  markdown: string;
+}): DocumentLawExtractionResult {
+  const blocks = parseDocumentBlocks(args.markdown);
+  const compiled = new Map<string, CompiledDocumentLaw>();
+  const diagnostics: DocumentLawDiagnosticEntry[] = [];
+
+  for (const block of blocks) {
+    const directive = compileBlock({ sourcePath: args.sourcePath, block });
+    const confidence = inferConfidence(block);
+
+    if (!directive) {
+      diagnostics.push({
+        startLine: block.startLine,
+        endLine: block.endLine,
+        heading: block.heading,
+        source: block.source,
+        confidence,
+        corridorType: null,
+        invariantLawId: null,
+        description: null,
+        compiled: false,
+        skipReason: "snap-integrity check failed — corridors requested but not materialised",
+      });
+      continue;
+    }
+
+    const corridorType = inferCorridorType(directive);
+    const signature = directiveSignature(directive);
+    const isDuplicate = compiled.has(signature);
+
+    if (!isDuplicate) {
+      compiled.set(signature, {
+        type: directive.type,
+        scope: "GLOBAL",
+        notes: directive.notes,
+        requestBasis: {
+          actionKind: directive.actionKind,
+          target: directive.target,
+          payloadSummary: `${directive.invariantLawId} :: ${directive.invariantLabel}`,
+          provenance: "agent_inference",
+          reviewContext: directive.reviewContext,
+        },
+        trackConstraint: directive.trackConstraint,
+      });
+    }
+
+    diagnostics.push({
+      startLine: block.startLine,
+      endLine: block.endLine,
+      heading: block.heading,
+      source: block.source,
+      confidence,
+      corridorType,
+      invariantLawId: directive.invariantLawId,
+      description: directive.trackConstraint.description ?? null,
+      compiled: !isDuplicate,
+      skipReason: isDuplicate ? "duplicate directive (same signature as earlier block)" : null,
+    });
+  }
+
+  return { laws: [...compiled.values()], diagnostics };
+}
+
 export function compileMarkdownDocumentToLaws(args: {
   sourcePath: string;
   markdown: string;

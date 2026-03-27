@@ -56,6 +56,7 @@ function usage(): never {
     "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
     "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
     "  buccet uninstall",
+  "  buccet extract-laws <file.md> [--json]             — extract and inspect law directives from a markdown document",
   ].join("\n"));
   process.exit(1);
 }
@@ -2325,6 +2326,76 @@ async function handleConsole() {
   });
 }
 
+// ─── extract-laws ──────────────────────────────────────────────────────────
+
+async function handleExtractLaws(rest: string[]) {
+  const { promises: fsp } = await import("node:fs");
+  const { extractDocumentLawsWithDiagnostics } = await import(
+    "../lib/agent-buccet/index.ts"
+  );
+
+  const jsonFlag = rest.includes("--json");
+  const filePath = rest.find((a) => !a.startsWith("--"));
+  if (!filePath) {
+    console.error("Usage: buccet extract-laws <file.md> [--json]");
+    process.exit(1);
+  }
+
+  const resolvedPath = path.resolve(filePath);
+  let markdown: string;
+  try {
+    markdown = await fsp.readFile(resolvedPath, "utf8");
+  } catch {
+    console.error(`Cannot read file: ${resolvedPath}`);
+    process.exit(1);
+  }
+
+  const { laws, diagnostics } = extractDocumentLawsWithDiagnostics({
+    sourcePath: resolvedPath,
+    markdown,
+  });
+
+  if (jsonFlag) {
+    console.log(JSON.stringify({ laws, diagnostics }, null, 2));
+    return;
+  }
+
+  const compiled = diagnostics.filter((d) => d.compiled);
+  const skipped = diagnostics.filter((d) => !d.compiled);
+
+  console.log(`\nDocument: ${path.basename(resolvedPath)}`);
+  console.log(`Extracted ${compiled.length} law directive${compiled.length === 1 ? "" : "s"}:\n`);
+
+  for (let i = 0; i < compiled.length; i++) {
+    const d = compiled[i]!;
+    const source = d.source === "structured" ? "structured" : "prose";
+    const corridorLabel = d.corridorType ? `${d.corridorType}Corridor` : "track";
+    const location = d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
+    console.log(`  [${i + 1}] ${corridorLabel}  ${d.description ?? d.invariantLawId ?? "—"}`);
+    if (d.heading) {
+      console.log(`      section: "${d.heading}"`);
+    }
+    console.log(`      source: ${location} (${source})`);
+    console.log(`      id: ${d.invariantLawId}`);
+    console.log(`      confidence: ${d.confidence}`);
+    console.log();
+  }
+
+  if (skipped.length > 0) {
+    console.log(`  [!] ${skipped.length} block${skipped.length === 1 ? "" : "s"} below threshold or failed snap-integrity (skipped):`);
+    for (const d of skipped) {
+      const location = d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
+      const label = d.heading ? `"${d.heading}"` : `(no heading)`;
+      console.log(`      ${location}: ${label} — ${d.skipReason ?? "skipped"}`);
+    }
+    console.log();
+  }
+
+  if (compiled.length === 0 && skipped.length === 0) {
+    console.log("  No law blocks found in this document.\n");
+  }
+}
+
 // ─── main ──────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -2376,6 +2447,10 @@ async function main() {
   }
   if (parsed.command === "uninstall") {
     await handleUninstall();
+    return;
+  }
+  if (parsed.command === "extract-laws") {
+    await handleExtractLaws(parsed.rest);
     return;
   }
   usage();

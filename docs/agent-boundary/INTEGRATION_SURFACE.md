@@ -133,8 +133,36 @@ Use:
 - `createStaticApprovalHandler(...)`
 - `createPredicateApprovalHandler(...)`
 - `createApprovalQueueAdapter(...)`
+- `createBoundaryHeadlessApprovalHandler(...)`
 
 The queue adapter is the bridge for remote approval surfaces like Telegram, Slack, Discord, web UI, or custom control panels.
+
+The **headless handler** is for fully automated pipelines — no human at Terminal 2. It resolves approval requests automatically according to a policy:
+
+```typescript
+// Maximum safety — deny every approval request
+const handler = createBoundaryHeadlessApprovalHandler({ mode: "deny_all" });
+
+// Deny safety-law violations; allow pure scope expansions
+const handler = createBoundaryHeadlessApprovalHandler({ mode: "allow_if_law_clear" });
+
+// Re-apply UPL standing laws from a prior interactive session
+const handler = createBoundaryHeadlessApprovalHandler({
+  mode: "follow_upl",
+  getLedger: () => loadUserPathLedger(),
+});
+
+// Allow everything — dev/test only, never production
+const handler = createBoundaryHeadlessApprovalHandler({ mode: "allow_all" });
+```
+
+Inject via `BoundaryRuntimeConfig.approvalHandler`:
+
+```typescript
+store.replaceConfig({ ...store.getConfig(), approvalHandler: handler });
+```
+
+Contract: `agent-buccet-headless-contract.ts`
 
 ### Ledger queries
 
