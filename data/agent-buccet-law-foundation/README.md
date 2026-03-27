@@ -1,8 +1,9 @@
 # Agent Buccet Base Laws
 
-A verifiable, open corpus of defensive behavioral laws for Agent Buccet — an AI agent built
-on an interceptor-first architecture where every action-boundary crossing is lawful, traceable,
-and user-mediated.
+A verifiable, open corpus of defensive behavioral laws for Agent Buccet.
+
+This workspace is a foundation and transfer surface. It is not the live runtime proof surface for
+current interception, enforcement, or boundary guarantees.
 
 ---
 
