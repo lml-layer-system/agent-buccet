@@ -8,9 +8,11 @@ import { evaluateBoundaryLaws } from "./laws.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
+  lookupUserPathTrackDecision,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
 } from "./user-path-ledger.ts";
+import { checkTrackConstraint } from "./upl-tracks.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -19,12 +21,12 @@ import type {
   BoundaryLedgerRecord,
   BoundaryLegacyApprovalDecision,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export type BodyguardAdjudication = {
   result: BoundaryLawResult;
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
 };
 
 export type BodyguardHeldDecision = BodyguardAdjudication | null;
@@ -32,7 +34,7 @@ export type BodyguardHeldDecision = BodyguardAdjudication | null;
 export type BodyguardRequestAdjudication = BodyguardAdjudication & {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
-  grantOffer?: Extract<BoundaryGravityEnforcement, { outcome: "nsl_grant_offer" }>;
+  grantOffer?: Extract<BoundaryGravityEnforcement, { outcome: "bodyguard_grant_offer" }>;
 };
 
 export function attachBodyguardControl(
@@ -58,34 +60,104 @@ export function resolveBodyguardStandingLaw(args: {
     })
     : null;
 
-  if (!standingUserLaw) {
-    return null;
-  }
+  if (standingUserLaw) {
+    const entry = standingUserLaw.entry;
+    const triggeredLawIds = [
+      entry.id,
+      ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
+    ];
 
-  if (standingUserLaw.decision === "allow") {
+    if (entry.trackConstraint) {
+      const trackViolation = checkTrackConstraint(entry.trackConstraint, args.request);
+      if (trackViolation) {
+        if (standingUserLaw.decision === "allow") {
+          return {
+            decision: "require_approval",
+            reason: `action exits approved execution corridor: ${trackViolation}`,
+            triggeredLawIds,
+            requiresApproval: true,
+            uplTrackId: entry.id,
+            uplTrackViolated: true,
+          };
+        }
+      } else if (standingUserLaw.decision === "allow") {
+        return {
+          decision: "allow",
+          reason: `allowed by standing UPL approval ${entry.id}`,
+          triggeredLawIds,
+          requiresApproval: false,
+          uplTrackId: entry.id,
+        };
+      } else {
+        return {
+          decision: "deny",
+          reason: `blocked by standing UPL denial ${entry.id}`,
+          triggeredLawIds,
+          requiresApproval: false,
+          uplTrackId: entry.id,
+        };
+      }
+    }
+
+    if (standingUserLaw.decision === "allow") {
+      return {
+        decision: "allow",
+        reason: `allowed by standing UPL approval ${entry.id}`,
+        triggeredLawIds,
+        requiresApproval: false,
+      };
+    }
+
     return {
-      decision: "allow",
-      reason: `allowed by standing UPL approval ${standingUserLaw.entry.id}`,
-      triggeredLawIds: [
-        standingUserLaw.entry.id,
-        ...(
-          args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []
-        ),
-      ],
+      decision: "deny",
+      reason: `blocked by standing UPL denial ${entry.id}`,
+      triggeredLawIds,
       requiresApproval: false,
     };
   }
 
+  if (!args.config.upl) {
+    return null;
+  }
+
+  const trackMatch = lookupUserPathTrackDecision({
+    ledger: args.config.upl,
+    session: args.config.session,
+    request: args.request,
+  });
+  if (!trackMatch) {
+    return null;
+  }
+
+  const triggeredLawIds = [
+    trackMatch.entry.id,
+    ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
+  ];
+  if (trackMatch.decision === "track_violation") {
+    return {
+      decision: "require_approval",
+      reason: `action exits approved execution corridor: ${trackMatch.violation}`,
+      triggeredLawIds,
+      requiresApproval: true,
+      uplTrackId: trackMatch.entry.id,
+      uplTrackViolated: true,
+    };
+  }
+  if (trackMatch.decision === "deny") {
+    return {
+      decision: "deny",
+      reason: `blocked by UPL track corridor ${trackMatch.entry.id}`,
+      triggeredLawIds,
+      requiresApproval: false,
+      uplTrackId: trackMatch.entry.id,
+    };
+  }
   return {
-    decision: "deny",
-    reason: `blocked by standing UPL denial ${standingUserLaw.entry.id}`,
-    triggeredLawIds: [
-      standingUserLaw.entry.id,
-      ...(
-        args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []
-      ),
-    ],
+    decision: "allow",
+    reason: `allowed by UPL track corridor ${trackMatch.entry.id}`,
+    triggeredLawIds,
     requiresApproval: false,
+    uplTrackId: trackMatch.entry.id,
   };
 }
 
@@ -150,7 +222,7 @@ export async function resolveBodyguardHeldRequest(args: {
     };
     return {
       result,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -163,7 +235,7 @@ export async function resolveBodyguardHeldRequest(args: {
     };
     return {
       result,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -171,7 +243,7 @@ export async function resolveBodyguardHeldRequest(args: {
   if (standingLaw) {
     return {
       result: standingLaw,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -186,7 +258,7 @@ export function evaluateBodyguardAction(args: {
   if (standingLaw) {
     return {
       result: standingLaw,
-      nslMoves: [],
+      bodyguardMoves: [],
     };
   }
 
@@ -201,7 +273,7 @@ export function evaluateBodyguardAction(args: {
 
   return {
     result: expandedResult,
-    nslMoves: buildBoundaryBodyguardMoves(args.request, expandedResult),
+    bodyguardMoves: buildBoundaryBodyguardMoves(args.request, expandedResult),
   };
 }
 
@@ -235,11 +307,11 @@ export async function adjudicateBodyguardRequest(args: {
           triggeredLawIds: gravity.lawIds,
           requiresApproval: false,
         },
-        nslMoves: gravity.nslMoves,
+        bodyguardMoves: gravity.bodyguardMoves,
       };
     }
 
-    if (gravity.outcome === "nsl_grant_offer") {
+    if (gravity.outcome === "bodyguard_grant_offer") {
       return {
         config: gravity.config,
         request: gravity.request,
@@ -249,7 +321,7 @@ export async function adjudicateBodyguardRequest(args: {
           triggeredLawIds: gravity.lawIds,
           requiresApproval: true,
         },
-        nslMoves: gravity.nslMoves,
+        bodyguardMoves: gravity.bodyguardMoves,
         grantOffer: gravity,
       };
     }
@@ -290,6 +362,7 @@ export async function applyBodyguardUserLawDecision(args: {
       session: args.config.session,
       decision: args.decision,
     });
+    const newEntry = upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1];
     await appendBoundaryLedger("UPL_ALLOW_RECORDED", {
       sessionId: args.config.session.sessionId,
       actorId: args.config.session.actorId,
@@ -298,13 +371,35 @@ export async function applyBodyguardUserLawDecision(args: {
       target: args.request.target,
       decision: "allow",
       reason: "user recorded standing UPL approval",
-      lawIds: [upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1]?.id].filter(Boolean),
+      lawIds: [newEntry?.id].filter(Boolean),
       metadata: {
         witness_record: args.witness.META.id,
         upl_scope: args.decision.scope ?? "GLOBAL",
       },
       createdAt: new Date().toISOString(),
     });
+    // If a track corridor was auto-bound to this entry, ledger its activation.
+    if (newEntry?.trackConstraint) {
+      await appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        requestId: args.request.requestId,
+        actionKind: args.request.actionKind,
+        target: args.request.target,
+        reason: `UPL track corridor bound: ${newEntry.trackConstraint.description}`,
+        lawIds: [newEntry.id],
+        metadata: {
+          upl_entry_id: newEntry.id,
+          upl_entry_type: newEntry.type,
+          track_description: newEntry.trackConstraint.description,
+          track_allowed_kinds: newEntry.trackConstraint.allowedActionKinds.join(","),
+          ...(newEntry.trackConstraint.targetPattern
+            ? { track_target_pattern: newEntry.trackConstraint.targetPattern }
+            : {}),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
   } else if (choice === "deny_as_law") {
     upl = await writeDeniedUserPathLaw({
       ledger: upl,
@@ -313,6 +408,7 @@ export async function applyBodyguardUserLawDecision(args: {
       session: args.config.session,
       decision: args.decision,
     });
+    const newEntry = upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1];
     await appendBoundaryLedger("UPL_DENY_RECORDED", {
       sessionId: args.config.session.sessionId,
       actorId: args.config.session.actorId,
@@ -321,13 +417,35 @@ export async function applyBodyguardUserLawDecision(args: {
       target: args.request.target,
       decision: "deny",
       reason: "user recorded standing UPL denial",
-      lawIds: [upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1]?.id].filter(Boolean),
+      lawIds: [newEntry?.id].filter(Boolean),
       metadata: {
         witness_record: args.witness.META.id,
         upl_scope: args.decision.scope ?? "GLOBAL",
       },
       createdAt: new Date().toISOString(),
     });
+    if (newEntry?.trackConstraint) {
+      await appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        requestId: args.request.requestId,
+        actionKind: args.request.actionKind,
+        target: args.request.target,
+        decision: "deny",
+        reason: `UPL track corridor bound: ${newEntry.trackConstraint.description}`,
+        lawIds: [newEntry.id],
+        metadata: {
+          upl_entry_id: newEntry.id,
+          upl_entry_type: newEntry.type,
+          track_description: newEntry.trackConstraint.description,
+          track_allowed_kinds: newEntry.trackConstraint.allowedActionKinds.join(","),
+          ...(newEntry.trackConstraint.targetPattern
+            ? { track_target_pattern: newEntry.trackConstraint.targetPattern }
+            : {}),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
   } else {
     return args.config;
   }

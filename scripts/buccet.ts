@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
+import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type { BoundaryActionKind } from "../lib/agent-buccet/index.ts";
@@ -35,14 +36,19 @@ function usage(): never {
   console.error([
     "Usage:",
     "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
+    "  buccet console                                            — open the command center (Terminal 2)",
+    "  buccet doctor                                             — health check: platform, backend, intercept, ledger",
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
     "  buccet logs [--limit <n>] [--json]",
+    "  buccet ledger [--limit <n>] [--json] [--follow]          — open the witness ledger (Terminal 3, optional)",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
+    "  buccet upl list [--json]",
+    "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet hook build",
     "  buccet hook start",
-    "  buccet hook status [--json]",
+    "  buccet hook status [--json] [--watch]                     — Terminal 1 live shield / heartbeat",
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
@@ -293,6 +299,93 @@ function printLogRecord(record: {
   ].join(" | "));
 }
 
+function summarizeInterceptedAttempts(records: Array<{ META: { event_type: string } }>): number {
+  const intercepted = new Set([
+    "ACTION_BLOCKED",
+    "APPROVAL_DENIED",
+    "GOVERNOR_TRIP",
+    "INGRESS_PROVENANCE_BLOCKED",
+    "INGRESS_CANYON_STATE_WRITTEN",
+  ]);
+  return records.reduce((sum, record) => sum + (intercepted.has(record.META.event_type) ? 1 : 0), 0);
+}
+
+async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
+  home: ReturnType<typeof resolveHomePaths>;
+  config: BuccetConfig | null;
+}): Promise<HookStatusPayload> {
+  const hookState = await readJsonIfExists<{
+    state?: string;
+    sessionId?: string;
+    actorId?: string;
+    interceptSocketPath?: string;
+    gravityBridgeSocketPath?: string;
+    brainStatusPath?: string;
+    restartCount?: number;
+    lastError?: string;
+    pid?: number;
+  }>(args.home.brainStatusPath);
+  const pid = await fs.readFile(args.home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+  const running = pid ? await pidAlive(pid) : false;
+
+  let interceptReachable = false;
+  let ledgerEntries = 0;
+  let interceptedAttempts = 0;
+  let canyonHeld = 0;
+  let pendingApprovals = 0;
+
+  if (args.config && running) {
+    try {
+      const status = await boundary.sendBoundaryInterceptServerInput({
+        target: { socketPath: args.home.interceptSocketPath },
+        input: { command: "status" },
+      });
+      interceptReachable = status.type === "status";
+      if (status.type === "status") {
+        pendingApprovals = status.swarm?.pending ?? 0;
+      }
+      const ingress = await boundary.sendBoundaryInterceptServerInput({
+        target: { socketPath: args.home.interceptSocketPath },
+        input: { command: "ingress_status" },
+      });
+      if (ingress.type === "ingress_status") {
+        canyonHeld = ingress.provenances.filter((entry: { state: string }) => entry.state === "canyon").length;
+      }
+    } catch {
+      interceptReachable = false;
+    }
+
+    try {
+      const records = await boundary.readBoundaryLedgerBySession(args.config.sessionId);
+      ledgerEntries = records.length;
+      interceptedAttempts = summarizeInterceptedAttempts(records);
+    } catch {
+      ledgerEntries = 0;
+      interceptedAttempts = 0;
+    }
+  }
+
+  return {
+    initialized: Boolean(args.config),
+    running,
+    pid: pid || undefined,
+    state: hookState?.state,
+    sessionId: hookState?.sessionId ?? args.config?.sessionId,
+    actorId: hookState?.actorId ?? args.config?.actorId,
+    interceptSocketPath: hookState?.interceptSocketPath ?? args.home.interceptSocketPath,
+    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
+    brainStatusPath: hookState?.brainStatusPath ?? args.home.brainStatusPath,
+    nativeLibraryPath: args.home.nativeLibraryPath,
+    restarts: hookState?.restartCount,
+    lastError: hookState?.lastError,
+    interceptReachable,
+    ledgerEntries,
+    interceptedAttempts,
+    canyonHeld,
+    pendingApprovals,
+  };
+}
+
 async function handleInit(rest: string[]) {
   const homePath = resolveHome();
   const callerCwd = resolveCallerCwd();
@@ -364,11 +457,82 @@ async function handleInit(rest: string[]) {
   await store.persist();
   await saveConfig(home.configPath, nextConfig);
 
-  console.log(`Agent Buccet initialized.`);
-  console.log(`home: ${home.homePath}`);
-  console.log(`session: ${nextConfig.sessionId}`);
-  console.log(`actor: ${nextConfig.actorId}`);
-  console.log(`scopes: ${nextConfig.defaultScopes.length}`);
+  const platformLabel = detectPlatformLabel();
+  const backendLabel = detectBackendLabel();
+  const nativeReady = await pathExists(home.nativeLibraryPath);
+  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+
+  console.log(``);
+  console.log(`  Agent Buccet`);
+  console.log(`  ─────────────────────────────────────`);
+  console.log(`  Platform:         ${platformLabel}`);
+  console.log(`  Backend:          ${backendLabel}`);
+  console.log(`  Protection mode:  ${protectionMode}`);
+
+  // Auto-enable the libc-level intercept layer.
+  // If a C compiler is available, build the native hook library and start the
+  // hook daemon so that LD_PRELOAD / DYLD_INSERT_LIBRARIES interception is
+  // active immediately after init — no separate `buccet hook build && buccet hook start` needed.
+  // If the compiler is not found, Agent Buccet continues in user-space bridge mode.
+  let interceptLine = "compatibility_path (run 'buccet hook build' after installing gcc)";
+  try {
+    await ensureDir(home.nativeBuildDir);
+    await ensureDir(home.runDir);
+    const nativeSourceDir = await resolveNativeSourceDir(home);
+    const compileArgs = process.platform === "darwin"
+      ? ["-dynamiclib", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"]
+      : ["-shared", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"];
+    const buildResult = await runSubprocess({
+      command: process.env.CC ?? "cc",
+      args: compileArgs,
+      cwd: home.homePath,
+    });
+    if (buildResult.code !== 0) {
+      interceptLine = "compatibility_path (native build failed; run 'buccet hook build' after installing gcc)";
+    } else {
+      const existingPid = await fs.readFile(home.hookPidPath, "utf8")
+        .then((raw) => Number(raw.trim()))
+        .catch(() => 0);
+      if (existingPid && await pidAlive(existingPid)) {
+        interceptLine = `strong_path (libc-level, pid ${existingPid})`;
+      } else {
+        const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+        const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+        const hookChild = spawn(daemonExec, [
+          daemonScriptPath,
+          "--session-id", nextConfig.sessionId,
+          "--actor-id", nextConfig.actorId,
+          "--sessions-dir", home.sessionsDir,
+          "--intercept-socket", home.interceptSocketPath,
+          "--bridge-socket", home.gravityBridgeSocketPath,
+          "--brain-status-file", home.brainStatusPath,
+          "--pid-file", home.hookPidPath,
+        ], {
+          cwd: home.homePath,
+          detached: true,
+          stdio: "ignore",
+          env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
+        });
+        hookChild.unref();
+        interceptLine = "strong_path (libc-level)";
+      }
+    }
+  } catch {
+    interceptLine = "compatibility_path (cc not found; run 'buccet hook build' after installing gcc)";
+  }
+
+  console.log(`  Intercept:        ${interceptLine}`);
+  console.log(`  Ledger:           active`);
+  console.log(`  Session:          ${nextConfig.sessionId}`);
+  console.log(`  Scopes:           ${nextConfig.defaultScopes.length}`);
+  console.log(``);
+  console.log(`  This terminal is now Terminal 1: the protected execution lane.`);
+  console.log(``);
+  console.log(`  Open Terminal 2 and Terminal 3 like this:`);
+  console.log(``);
+  console.log(`    buccet console`);
+  console.log(`    buccet ledger --follow`);
+  console.log(``);
 }
 
 async function handleStatus(rest: string[]) {
@@ -399,6 +563,13 @@ async function handleStatus(rest: string[]) {
   const ledgerVerify = await boundary.verifyBoundaryLedgerChain();
   const ledgerEntries = await boundary.readBoundaryLedgerBySession(config.sessionId);
 
+  // Read witness status from the installed release manifest (written at build time).
+  const releaseManifestPath = path.join(home.homePath, "current", "releases", "latest.json");
+  const releaseManifest = await fs.readFile(releaseManifestPath, "utf8")
+    .then((raw) => JSON.parse(raw) as { witness?: { status?: string; mode?: string; target?: string; fallback?: boolean; generated_at?: string } })
+    .catch(() => null);
+  const witnessStatus = releaseManifest?.witness ?? null;
+
   const payload = {
     initialized: true,
     home: home.homePath,
@@ -412,6 +583,15 @@ async function handleStatus(rest: string[]) {
       chainOk: ledgerVerify.ok,
       checkedFrom: ledgerVerify.checkedFrom,
     },
+    witness: witnessStatus
+      ? {
+          status: witnessStatus.status ?? "unknown",
+          mode: witnessStatus.mode ?? "unknown",
+          target: witnessStatus.target ?? "unknown",
+          fallback: witnessStatus.fallback ?? false,
+          published_at: witnessStatus.generated_at ?? null,
+        }
+      : null,
   };
 
   if (asJson) {
@@ -428,6 +608,16 @@ async function handleStatus(rest: string[]) {
   console.log(`active grants: ${payload.grants}`);
   console.log(`ledger entries: ${payload.ledger.entries}`);
   console.log(`ledger chain: ${payload.ledger.chainOk ? "ok" : "broken"}`);
+  if (payload.witness) {
+    console.log(`witness: ${payload.witness.target}`);
+    console.log(`witness.mode: ${payload.witness.mode}`);
+    console.log(`witness.status: ${payload.witness.status}${payload.witness.fallback ? " (fallback: local file)" : ""}`);
+    if (payload.witness.published_at) {
+      console.log(`witness.published: ${payload.witness.published_at}`);
+    }
+  } else {
+    console.log(`witness: unavailable (run package build to generate)`);
+  }
 }
 
 async function handleLogs(rest: string[]) {
@@ -459,6 +649,74 @@ async function handleLogs(rest: string[]) {
   for (const record of tail) {
     printLogRecord(record);
   }
+}
+
+async function handleLedger(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const boundary = await importBoundary(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  let limit = 20;
+  const asJson = rest.includes("--json");
+  const follow = rest.includes("--follow");
+  for (let index = 0; index < rest.length; index += 1) {
+    if (rest[index] === "--limit") {
+      limit = Number(rest[index + 1] ?? usage());
+      index += 1;
+    }
+  }
+
+  const render = async (fromCount = 0) => {
+    const records = await boundary.readBoundaryLedgerBySession(config.sessionId);
+    const slice = follow ? records.slice(fromCount) : records.slice(-limit);
+    if (!follow && asJson) {
+      printJson(slice);
+      return records.length;
+    }
+    if (!follow) {
+      console.log(``);
+      console.log(`  Agent Buccet — Witness Ledger`);
+      console.log(`  ─────────────────────────────────────`);
+      console.log(`  Session: ${config.sessionId}`);
+      console.log(`  Entries: ${records.length}`);
+      console.log(``);
+    }
+    for (const record of slice) {
+      printLogRecord(record);
+    }
+    return records.length;
+  };
+
+  if (!follow) {
+    await render();
+    return;
+  }
+
+  let lastSeen = 0;
+  console.log(``);
+  console.log(`  Agent Buccet — Witness Ledger`);
+  console.log(`  ─────────────────────────────────────`);
+  console.log(`  Session: ${config.sessionId}`);
+  console.log(`  Following live ledger stream. Ctrl-C to exit.`);
+  console.log(``);
+  lastSeen = await render(0);
+  const interval = setInterval(() => {
+    void render(lastSeen).then((next) => {
+      lastSeen = next;
+    }).catch(() => undefined);
+  }, 1_000);
+  await new Promise<void>((resolve) => {
+    const stop = () => {
+      clearInterval(interval);
+      resolve();
+    };
+    process.once("SIGINT", stop);
+    process.once("SIGTERM", stop);
+  });
 }
 
 async function handleScope(rest: string[]) {
@@ -527,6 +785,168 @@ async function handleScope(rest: string[]) {
   };
   await saveConfig(home.configPath, nextConfig);
   console.log(`opened scope: ${scopePath}`);
+}
+
+async function handleUpl(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  const boundary = await importBoundary(homePath);
+  const subcommand = rest[0];
+  const asJson = rest.includes("--json");
+  if (!subcommand) {
+    usage();
+  }
+
+  if (subcommand === "list") {
+    const upl = await boundary.loadUserPathLedger();
+    const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+    const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+    if (asJson) {
+      printJson({ approved, denied });
+      return;
+    }
+    console.log(`Active UPL laws`);
+    console.log(`approved: ${approved.length}`);
+    console.log(`denied: ${denied.length}`);
+    for (const entry of [...approved, ...denied]) {
+      console.log(`${entry.type} | ${entry.id} | ${entry.path}`);
+    }
+    return;
+  }
+
+  if (subcommand === "import") {
+    let scope: "GLOBAL" | "SESSION" = "GLOBAL";
+    const files: string[] = [];
+    const callerCwd = resolveCallerCwd();
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--scope") {
+        const rawScope = (rest[index + 1] ?? usage()).toUpperCase();
+        if (rawScope !== "GLOBAL" && rawScope !== "SESSION") {
+          throw new Error(`unsupported UPL import scope: ${rawScope}`);
+        }
+        scope = rawScope;
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      files.push(path.resolve(callerCwd, token));
+    }
+    if (files.length === 0) {
+      usage();
+    }
+
+    const store = await ensureStore(boundary, {
+      config,
+      sessionsDir: home.sessionsDir,
+    });
+    let upl = await boundary.loadUserPathLedger();
+    const imported: Array<{ file: string; imported: number; entries: string[] }> = [];
+
+    for (const filePath of files) {
+      const markdown = await fs.readFile(filePath, "utf8");
+      const compiled = boundary.compileMarkdownDocumentToLaws({
+        sourcePath: filePath,
+        markdown,
+      }).map((entry: Awaited<ReturnType<typeof boundary.compileMarkdownDocumentToLaws>>[number]) => ({
+        ...entry,
+        scope,
+      }));
+
+      const entryIds: string[] = [];
+      const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof boundary.appendBoundaryLedger>>>();
+      for (const lawType of ["APPROVED", "DENIED"] as const) {
+        const matching = compiled.filter((entry) => entry.type === lawType);
+        if (matching.length === 0) {
+          continue;
+        }
+        const requestId = `upl-import-${createHash("sha256").update(`${filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`).digest("hex").slice(0, 12)}`;
+        const representative = matching[0];
+        const witness = await boundary.appendBoundaryLedger(
+          lawType === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
+          {
+            sessionId: config.sessionId,
+            actorId: config.actorId,
+            requestId,
+            actionKind: representative.requestBasis.actionKind,
+            target: representative.requestBasis.target,
+            decision: lawType === "APPROVED" ? "allow" : "deny",
+            reason: `document law imported from ${path.basename(filePath)} (${matching.length} compiled laws)`,
+            lawIds: [],
+            metadata: {
+              source_document: filePath,
+              upl_scope: scope,
+              compiled_law_count: matching.length,
+              imported_invariant_batch: createHash("sha256")
+                .update(matching
+                  .map((entry) => entry.requestBasis.reviewContext?.invariantLawId ?? entry.requestBasis.payloadSummary ?? "unknown")
+                  .join("|"))
+                .digest("hex")
+                .slice(0, 16),
+            },
+            createdAt: new Date().toISOString(),
+          },
+        );
+        witnessByType.set(lawType, witness);
+      }
+
+      const batch = compiled.flatMap((law) => {
+        const witness = witnessByType.get(law.type);
+        return witness ? [{ compiledLaw: law, witness }] : [];
+      });
+      const approvedCountBefore = upl.userApprovedLawPaths.length;
+      const deniedCountBefore = upl.userDeniedLawPaths.length;
+      upl = await boundary.writeCompiledUserPathLaws({
+        ledger: upl,
+        compiledLaws: batch,
+        session: store.getConfig().session,
+      });
+      for (const entry of upl.userApprovedLawPaths.slice(approvedCountBefore)) {
+        entryIds.push(entry.id);
+      }
+      for (const entry of upl.userDeniedLawPaths.slice(deniedCountBefore)) {
+        entryIds.push(entry.id);
+      }
+
+      imported.push({
+        file: filePath,
+        imported: compiled.length,
+        entries: entryIds,
+      });
+    }
+
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl,
+      userLawIds: [
+        ...new Set([
+          ...(store.getConfig().userLawIds ?? []),
+          ...boundary.getActiveUserLawIds(upl, store.getConfig().session),
+        ]),
+      ],
+    });
+    await store.persist();
+
+    if (asJson) {
+      printJson({ scope, imported });
+      return;
+    }
+    console.log(`Imported document law into UPL`);
+    console.log(`scope: ${scope}`);
+    for (const entry of imported) {
+      console.log(`${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
+    }
+    return;
+  }
+
+  usage();
 }
 
 async function handleRun(rest: string[]) {
@@ -631,6 +1051,20 @@ async function handleRun(rest: string[]) {
 async function handleUninstall() {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
+
+  // Stop the hook daemon before removing home so it cannot recreate run-dir files.
+  const hookPid = await fs.readFile(home.hookPidPath, "utf8")
+    .then((raw) => Number(raw.trim())).catch(() => 0);
+  if (hookPid && await pidAlive(hookPid)) {
+    try {
+      process.kill(hookPid, "SIGTERM");
+      // Give the daemon a moment to exit before we rm the directory.
+      await new Promise<void>((resolve) => setTimeout(resolve, 150));
+    } catch {
+      // already dead — fine
+    }
+  }
+
   const launcherCandidates = uniquePaths([
     home.launcherPath,
     path.join(home.homePath, "bin", "buccet"),
@@ -659,6 +1093,11 @@ type HookStatusPayload = {
   nativeLibraryPath?: string;
   restarts?: number;
   lastError?: string;
+  interceptReachable?: boolean;
+  ledgerEntries?: number;
+  interceptedAttempts?: number;
+  canyonHeld?: number;
+  pendingApprovals?: number;
 };
 
 async function handleSwarm(rest: string[]) {
@@ -830,7 +1269,8 @@ async function handleHook(rest: string[]) {
       console.log(`hook daemon already running: ${existingPid}`);
       return;
     }
-    const child = spawn(process.execPath, [
+    const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+    const child = spawn(daemonExec, [
       daemonScriptPath,
       "--session-id",
       config.sessionId,
@@ -862,46 +1302,54 @@ async function handleHook(rest: string[]) {
   }
 
   if (subcommand === "status") {
+    const boundary = await importBoundary(homePath);
     const asJson = rest.includes("--json");
-    const hookState = await readJsonIfExists<{
-      state?: string;
-      sessionId?: string;
-      actorId?: string;
-      interceptSocketPath?: string;
-      gravityBridgeSocketPath?: string;
-      brainStatusPath?: string;
-      restartCount?: number;
-      lastError?: string;
-      pid?: number;
-    }>(home.brainStatusPath);
-    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
-    const running = pid ? await pidAlive(pid) : false;
-    const payload: HookStatusPayload = {
-      initialized: Boolean(config),
-      running,
-      pid: pid || undefined,
-      state: hookState?.state,
-      sessionId: hookState?.sessionId ?? config?.sessionId,
-      actorId: hookState?.actorId ?? config?.actorId,
-      interceptSocketPath: hookState?.interceptSocketPath ?? home.interceptSocketPath,
-      gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? home.gravityBridgeSocketPath,
-      brainStatusPath: hookState?.brainStatusPath ?? home.brainStatusPath,
-      nativeLibraryPath: home.nativeLibraryPath,
-      restarts: hookState?.restartCount,
-      lastError: hookState?.lastError,
+    const watch = rest.includes("--watch");
+    const render = async () => {
+      const payload = await buildHookStatusPayload(boundary, { home, config });
+      if (asJson && !watch) {
+        printJson(payload);
+        return payload;
+      }
+      if (watch) {
+        process.stdout.write("\x1Bc");
+        console.log(`Buccet live | ${payload.running && payload.interceptReachable ? "protected" : "disconnected"} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`);
+        console.log(``);
+      } else {
+        console.log(`Agent Buccet hook status — Terminal 1`);
+      }
+      console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
+      console.log(`running: ${payload.running ? "yes" : "no"}`);
+      console.log(`state: ${payload.state ?? "missing"}`);
+      console.log(`pid: ${payload.pid ?? "-"}`);
+      console.log(`intercept socket: ${payload.interceptReachable ? "reachable" : "unreachable"}`);
+      console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
+      console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
+      console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
+      console.log(`bridge socket: ${payload.gravityBridgeSocketPath}`);
+      console.log(`brain status: ${payload.brainStatusPath}`);
+      console.log(`native library: ${payload.nativeLibraryPath}`);
+      if (!watch && !payload.running) {
+        console.log(`re-arm: buccet hook start`);
+      }
+      return payload;
     };
-    if (asJson) {
-      printJson(payload);
+    if (!watch) {
+      await render();
       return;
     }
-    console.log(`Agent Buccet hook status`);
-    console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
-    console.log(`running: ${payload.running ? "yes" : "no"}`);
-    console.log(`state: ${payload.state ?? "missing"}`);
-    console.log(`pid: ${payload.pid ?? "-"}`);
-    console.log(`bridge socket: ${payload.gravityBridgeSocketPath}`);
-    console.log(`brain status: ${payload.brainStatusPath}`);
-    console.log(`native library: ${payload.nativeLibraryPath}`);
+    await render();
+    const interval = setInterval(() => {
+      void render();
+    }, 1_000);
+    await new Promise<void>((resolve) => {
+      const stop = () => {
+        clearInterval(interval);
+        resolve();
+      };
+      process.once("SIGINT", stop);
+      process.once("SIGTERM", stop);
+    });
     return;
   }
 
@@ -1003,11 +1451,895 @@ async function handleHook(rest: string[]) {
   usage();
 }
 
+// ─── platform helpers ──────────────────────────────────────────────────────
+
+function detectPlatformLabel(): string {
+  const arch = process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "x64" : process.arch;
+  const platform = process.platform === "darwin" ? "macOS"
+    : process.platform === "linux" ? "Linux"
+    : process.platform === "win32" ? "Windows"
+    : process.platform;
+  return `${platform} ${arch}`;
+}
+
+function detectBackendLabel(): string {
+  if (process.platform === "darwin") return "darwin_physwrap";
+  if (process.platform === "linux") return "linux_physwrap";
+  if (process.platform === "win32") return "windows_physwrap";
+  return "user_space";
+}
+
+// ─── buccet doctor ─────────────────────────────────────────────────────────
+
+async function handleDoctor() {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+
+  const platformLabel = detectPlatformLabel();
+  const backendLabel = detectBackendLabel();
+  const nativeReady = await pathExists(home.nativeLibraryPath);
+  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+
+  const hookPid = await fs.readFile(home.hookPidPath, "utf8")
+    .then((raw) => Number(raw.trim())).catch(() => 0);
+  const hookAlive = hookPid ? await pidAlive(hookPid) : false;
+
+  let interceptReachable = false;
+  if (hookAlive) {
+    try {
+      const boundary = await importBoundary(homePath);
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: { socketPath: home.interceptSocketPath },
+        input: { command: "status" },
+      });
+      interceptReachable = out.type === "status";
+    } catch {
+      interceptReachable = false;
+    }
+  }
+
+  let ledgerChainOk: boolean | null = null;
+  let ledgerEntries = 0;
+  if (config) {
+    try {
+      const boundary = await importBoundary(homePath);
+      const verify = await boundary.verifyBoundaryLedgerChain();
+      const entries = await boundary.readBoundaryLedgerBySession(config.sessionId);
+      ledgerChainOk = verify.ok;
+      ledgerEntries = entries.length;
+    } catch {
+      ledgerChainOk = null;
+    }
+  }
+
+  const sessionStatus = config ? "initialized" : "not initialized";
+
+  const passIcon = "ok";
+  const failIcon = "FAIL";
+  const warnIcon = "warn";
+
+  const lines: string[] = [
+    ``,
+    `  Agent Buccet — Doctor`,
+    `  ─────────────────────────────────────`,
+    `  Platform:         ${platformLabel}`,
+    `  Backend:          ${backendLabel}`,
+    `  Native library:   ${nativeReady ? `${passIcon} (${protectionMode})` : `${warnIcon} (${protectionMode} — run 'buccet hook build')`}`,
+    `  Hook daemon:      ${hookAlive ? `${passIcon} (pid ${hookPid})` : `${failIcon} (not running — run 'buccet hook start')`}`,
+    `  Intercept socket: ${interceptReachable ? passIcon : hookAlive ? `${failIcon} (daemon alive but socket unreachable)` : `${warnIcon} (daemon not running)`}`,
+    `  Ledger chain:     ${ledgerChainOk === null ? `${warnIcon} (not checked)` : ledgerChainOk ? `${passIcon} (${ledgerEntries} entries)` : `${failIcon} (chain broken — run 'buccet ledger repair')`}`,
+    `  Session:          ${sessionStatus}`,
+    ``,
+  ];
+
+  for (const line of lines) {
+    console.log(line);
+  }
+
+  const critical = !hookAlive || (hookAlive && !interceptReachable) || ledgerChainOk === false;
+  if (critical) {
+    console.log(`  One or more checks require attention.`);
+    console.log(`  Run 'buccet hook start' to re-arm the protected execution lane.`);
+    console.log(``);
+  } else {
+    console.log(`  All systems active. This machine is guarded.`);
+    console.log(``);
+  }
+}
+
+// ─── buccet console ────────────────────────────────────────────────────────
+
+async function handleConsole() {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+
+  if (!config) {
+    console.error(`Agent Buccet is not initialized. Run 'buccet init' first.`);
+    process.exit(1);
+  }
+
+  const boundary = await importBoundary(homePath);
+  const interceptTarget = { socketPath: home.interceptSocketPath };
+
+  const platformLabel = detectPlatformLabel();
+  const backendLabel = detectBackendLabel();
+  const nativeReady = await pathExists(home.nativeLibraryPath);
+  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+
+  // Print the header once.
+  console.log(``);
+  console.log(`  Agent Buccet — Command Center`);
+  console.log(`  ─────────────────────────────────────`);
+  console.log(`  Platform:         ${platformLabel}`);
+  console.log(`  Backend:          ${backendLabel}`);
+  console.log(`  Protection mode:  ${protectionMode}`);
+  console.log(`  Session:          ${config.sessionId}`);
+  console.log(``);
+  console.log(`  This is Terminal 2: the command center. Terminal 1 is the protected execution lane.`);
+  console.log(``);
+  console.log(`  Commands:`);
+  console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
+  console.log(`    allow <id>         — allow once`);
+  console.log(`    deny <id>          — deny once`);
+  console.log(`    law <id>           — allow as standing law`);
+  console.log(`    deny-law <id>      — deny as standing law`);
+  console.log(`    canyon [prov]      — inspect ingress control state or list all`);
+  console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
+  console.log(`    laws               — list active scope laws for this session`);
+  console.log(`    tracks             — list active UPL track corridors`);
+  console.log(`    nsl [n]            — list or select a pending bodyguard move`);
+  console.log(`    status             — session status`);
+  console.log(`    logs [n]           — last n ledger entries (default 10)`);
+  console.log(`    feed               — toggle live event feed on/off`);
+  console.log(`    upl                — active UPL laws`);
+  console.log(`    doctor             — health check`);
+  console.log(`    ledger --follow    — open Terminal 3 witness stream from another terminal`);
+  console.log(`    quit               — exit`);
+  console.log(``);
+
+  // Track which groups have already been reported.
+  const reportedGroupIds = new Set<string>();
+  // Current waiting groups — updated on every approval poll for numbered shorthand.
+  let currentWaitingGroups: Array<{
+    groupId: string;
+    state: string;
+    actionClass: string;
+    operation: string;
+    target: string;
+    reason: string;
+    payloadSummary?: string;
+    reviewContext?: {
+      surface: "action" | "chat";
+      title?: string;
+      question?: string;
+      actorLabel?: string;
+      invariantLawId?: string;
+      invariantLabel?: string;
+      userInput?: string;
+      attemptedOutput?: string;
+      attemptLines?: string[];
+      evidence?: string[];
+      violations?: string[];
+    };
+    lawIds: string[];
+    bodyguardMoves: Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+    memberCount: number;
+    waitingCount: number;
+  }> = [];
+  // Live feed toggle.
+  let feedEnabled = true;
+  // Ledger position — seeded to current length so we don't replay old events on startup.
+  let lastSeenCount = 0;
+  // Canyon-held ingress state observed this session.
+  const canyonProvenances = new Set<string>();
+  const reportedCanyonProvenances = new Set<string>();
+  let currentIngressEntries: Array<{
+    provenance: string;
+    state: "canyon" | "allow_once" | "deny_once" | "allow_as_law";
+    reason: string;
+    promotionKind?: "density" | "hard_ceiling";
+    operatorDisposition?: "deny_as_law";
+    seenAt: number;
+    ledgered?: boolean;
+    deniedCount: number;
+    allowOnceRemaining: number;
+    standingAllowed: boolean;
+  }> = [];
+  type ConsoleBodyguardSuggestion = {
+    groupId: string;
+    moveId: string;
+    kind: string;
+    title: string;
+    description: string;
+    target?: string;
+  };
+  const nslSuggestions: ConsoleBodyguardSuggestion[] = [];
+
+  function ingressStateLabel(entry: typeof currentIngressEntries[number]): string {
+    if (entry.state === "canyon") {
+      return `canyon-held${entry.promotionKind ? ` [${entry.promotionKind}]` : ""}`;
+    }
+    if (entry.state === "allow_once") {
+      return `allow-once (${entry.allowOnceRemaining} remaining)`;
+    }
+    if (entry.state === "deny_once") {
+      return "deny-once";
+    }
+    return "allow-as-law";
+  }
+
+  function renderBoundaryEventDetails(group: typeof currentWaitingGroups[number]) {
+    const context = group.reviewContext;
+    if (context?.surface === "chat") {
+      if (context.userInput) console.log(`  ║  User input: ${context.userInput}`);
+      if (context.attemptedOutput) console.log(`  ║  Attempted:  ${context.attemptedOutput}`);
+      if (context.evidence?.length) {
+        console.log(`  ║  Evidence:`);
+        for (const line of context.evidence) {
+          console.log(`  ║    - ${line}`);
+        }
+      }
+      if (context.violations?.length) {
+        console.log(`  ║  Violations:`);
+        for (const line of context.violations) {
+          console.log(`  ║    - ${line}`);
+        }
+      }
+      return;
+    }
+
+    const attemptLines = context?.attemptLines ?? (group.payloadSummary ? [group.payloadSummary] : []);
+    if (attemptLines.length) {
+      console.log(`  ║  Attempt:`);
+      for (const line of attemptLines) {
+        console.log(`  ║    ${line}`);
+      }
+    }
+    if (context?.violations?.length) {
+      console.log(`  ║  Violations:`);
+      for (const line of context.violations) {
+        console.log(`  ║    - ${line}`);
+      }
+    }
+  }
+
+  function syncNslSuggestions(waitingGroups: typeof currentWaitingGroups) {
+    nslSuggestions.length = 0;
+    for (const group of waitingGroups) {
+      for (const move of group.bodyguardMoves) {
+        nslSuggestions.push({
+          groupId: group.groupId,
+          moveId: move.moveId,
+          kind: move.kind,
+          title: move.title,
+          description: move.description,
+          target: move.target,
+        });
+      }
+    }
+  }
+
+  // Format a notable ledger event for the live feed. Returns null for noisy events.
+  function formatLedgerEvent(record: {
+    META: { event_type: string; timestamp?: string; metadata?: Record<string, unknown> };
+    INPUT: { action?: string; target?: string };
+    DECISION: { reason?: string };
+  }): string | null {
+    const et = record.META.event_type;
+    const action = record.INPUT.action ?? "-";
+    const target = record.INPUT.target ?? "-";
+    const reason = record.DECISION.reason ?? "";
+    const meta = record.META.metadata ?? {};
+
+    // Infrastructure / noisy events — skip entirely.
+    const skip = new Set([
+      "ACTION_PROPOSED", "DECISION_RETURNED",
+      "SESSION_STARTED", "SESSION_RESTORED", "SESSION_PERSISTED", "SESSION_ENDED",
+      "PATH_OPENED", "PATH_LAW_INSTANTIATED",
+      "RECIPIENT_OPENED", "RECIPIENT_LAW_INSTANTIATED",
+      "DOMAIN_OPENED", "DOMAIN_LAW_INSTANTIATED",
+      "TOOL_OPENED", "TOOL_LAW_INSTANTIATED",
+      "DATABASE_OPENED", "DATABASE_LAW_INSTANTIATED",
+      "SYSTEM_OPENED", "SYSTEM_LAW_INSTANTIATED",
+      "GRANT_ISSUED", "GRANT_REVOKED", "GRANT_EXPIRED",
+      "PROPOSAL_REPLAYED", "APPROVAL_REQUESTED",
+      "PROCESS_LAUNCH_REQUESTED", "PROCESS_SPAWNED", "PROCESS_EXITED",
+      "PROCESS_ENV_FILTERED", "PROCESS_PHYSWRAP_ACTIVE", "PROCESS_PHYSWRAP_FALLBACK",
+    ]);
+    if (skip.has(et)) return null;
+
+    if (et === "ACTION_BLOCKED") {
+      return action === "chat.emit"
+        ? `  ✗ CHAT BLOCKED     ${reason}`
+        : `  ✗ BLOCKED          ${action} → ${target}  [${reason}]`;
+    }
+    if (et === "ACTION_EXECUTED")          return `  ✓ ALLOWED          ${action} → ${target}`;
+    if (et === "APPROVAL_GRANTED")         return `  ✓ APPROVED         ${action} → ${target}`;
+    if (et === "APPROVAL_DENIED")          return `  ✗ DENIED           ${action} → ${target}`;
+    if (et === "PROCESS_WALL_CLOCK_KILL")  return `  ⚡ WALL-CLOCK KILL  ${target}`;
+    if (et === "GOVERNOR_TRIP")            return `  ⚡ GOVERNOR TRIP    ${reason}`;
+    if (et === "PROCESS_PHYSWRAP_CAP_WARNING") return `  ⚠  PHYSWRAP WARN    ${reason}`;
+    if (et === "INGRESS_PROVENANCE_BLOCKED") {
+      return `  ✗ INGRESS BLOCKED  ${String(meta["provenance"] ?? target)}`;
+    }
+    if (et === "INGRESS_CANYON_STATE_WRITTEN") {
+      const prov = String(meta["provenance"] ?? target);
+      const kind = meta["promotion_kind"] ? `  [${String(meta["promotion_kind"])}]` : "";
+      return `  ⚑ CANYON HOLD      ${prov}${kind}`;
+    }
+    if (et === "INGRESS_ALLOW_ONCE")       return `  ✓ CANYON RELEASE    ${target}  [once]`;
+    if (et === "INGRESS_ALLOW_AS_LAW")     return `  ✓ CANYON RELEASE    ${target}  [standing]`;
+    if (et === "INGRESS_DENY_ONCE")        return `  ✗ CANYON KEEP       ${target}  [once]`;
+    if (et === "INGRESS_DENY_AS_LAW")      return `  ✗ CANYON KEEP       ${target}  [standing]`;
+    if (et === "INGRESS_VELOCITY_TRIP")    return `  ✗ VELOCITY TRIP    ${String(meta["provenance"] ?? target)}`;
+    if (et === "INGRESS_DENSITY_TRIP")     return `  ✗ DENSITY TRIP     ${String(meta["provenance"] ?? target)}`;
+    if (et === "INGRESS_MASS_TRIP")        return `  ✗ MASS TRIP        ${String(meta["provenance"] ?? target)}`;
+    if (et === "INGRESS_DENIED")           return `  ✗ INGRESS DENIED   ${target}`;
+    if (et === "BODYGUARD_GRANT_OFFERED")        return `  → BODYGUARD OFFER        ${action} → ${target}`;
+    if (et === "BODYGUARD_MOVE_SUGGESTED")       return `  → BODYGUARD MOVE         ${reason}`;
+    if (et === "BODYGUARD_MOVE_CHOSEN")          return `  ✓ BODYGUARD CHOSEN       ${reason}`;
+    if (et === "UPL_ALLOW_RECORDED")       return `  ⚑ UPL ALLOW LAW    ${target}`;
+    if (et === "UPL_DENY_RECORDED")        return `  ⚑ UPL DENY LAW     ${target}`;
+    if (et === "USER_CONFIRMED_DENY")      return `  ✗ USER DENY        ${target}`;
+    if (et === "LEDGER_STORM_SUMMARY") {
+      return `  ⚡ STORM SUMMARY    shed ${String(meta["shed_count"] ?? "?")} events`;
+    }
+    return null; // unknown — skip
+  }
+
+  async function pollLedger() {
+    try {
+      // config is guaranteed non-null — checked at function entry before pollLedger is defined.
+      const sessionId = (config as NonNullable<typeof config>).sessionId;
+      const records = await boundary.readBoundaryLedgerBySession(sessionId);
+      if (records.length <= lastSeenCount) return;
+      const newRecords = records.slice(lastSeenCount);
+      lastSeenCount = records.length;
+      for (const record of newRecords as Parameters<typeof formatLedgerEvent>[0][]) {
+        const et = record.META.event_type;
+        const meta = record.META.metadata ?? {};
+        if (et === "INGRESS_PROVENANCE_BLOCKED" || et === "INGRESS_CANYON_STATE_WRITTEN") {
+          const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
+          if (prov && prov !== "-") canyonProvenances.add(prov);
+        }
+        if (et === "INGRESS_ALLOW_ONCE" || et === "INGRESS_ALLOW_AS_LAW") {
+          const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
+          if (prov && prov !== "-") {
+            canyonProvenances.delete(prov);
+            reportedCanyonProvenances.delete(prov);
+          }
+        }
+        if (feedEnabled) {
+          const line = formatLedgerEvent(record);
+          if (line) console.log(line);
+        }
+      }
+    } catch { /* silent */ }
+  }
+
+  async function pollIngress() {
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: { command: "ingress_status" },
+      });
+      if (out.type !== "ingress_status") return;
+      currentIngressEntries = out.provenances;
+      const currentCanyonEntries = currentIngressEntries.filter((entry) => entry.state === "canyon");
+
+      for (const entry of currentCanyonEntries) {
+        canyonProvenances.add(entry.provenance);
+        if (reportedCanyonProvenances.has(entry.provenance)) {
+          continue;
+        }
+        reportedCanyonProvenances.add(entry.provenance);
+        console.log(``);
+        console.log(`  ╔═ INGRESS CANYON HOLD ═════════════════════════════════════════════════╗`);
+        console.log(`  ║  Provenance: ${entry.provenance}`);
+        console.log(`  ║  State:      canyon-held  [${entry.promotionKind}]`);
+        console.log(`  ║  Pressure:   ${entry.deniedCount} tarpit decision(s) recorded`);
+        console.log(`  ║`);
+        console.log(`  ║  Reason:     ${entry.reason}`);
+        console.log(`  ║`);
+        console.log(`  ║  1. Allow once     — release this provenance once`);
+        console.log(`  ║  2. Allow as law   — standing ingress allow`);
+        console.log(`  ║  3. Deny once      — keep this provenance in the canyon`);
+        console.log(`  ║  4. Deny as law    — standing canyon hold`);
+        console.log(`  ║`);
+        console.log(`  ║  > canyon 1 ${entry.provenance}   /   canyon 2 ${entry.provenance}`);
+        console.log(`  ║  > canyon 3 ${entry.provenance}   /   canyon 4 ${entry.provenance}`);
+        console.log(`  ╚═══════════════════════════════════════════════════════════════════════╝`);
+        console.log(``);
+      }
+
+      const live = new Set(currentCanyonEntries.map((entry) => entry.provenance));
+      for (const prov of [...reportedCanyonProvenances]) {
+        if (!live.has(prov)) {
+          reportedCanyonProvenances.delete(prov);
+          canyonProvenances.delete(prov);
+        }
+      }
+    } catch {
+      // Intercept daemon may be offline. Silent.
+    }
+  }
+
+  async function pollApprovals() {
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: { command: "swarm_status" },
+      });
+      if (out.type !== "swarm_status") return;
+
+      const waitingGroups = out.groups.filter(
+        (g: { state: string; waitingCount: number }) => g.state === "waiting" || g.waitingCount > 0,
+      );
+      currentWaitingGroups = waitingGroups;
+      syncNslSuggestions(waitingGroups);
+
+      for (const group of waitingGroups) {
+        if (reportedGroupIds.has(group.groupId)) continue;
+        reportedGroupIds.add(group.groupId);
+        console.log(``);
+        const bodyguardMoves = (group.bodyguardMoves ?? []) as Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+        const isBodyguardGrantOffer = bodyguardMoves.some((m) => m.kind === "open_as_law");
+        const openAsLawMove = bodyguardMoves.find((m) => m.kind === "open_as_law");
+
+        if (isBodyguardGrantOffer && openAsLawMove) {
+          // bodyguard grant offer — show the full negotiation surface
+          console.log(`  ╔═ BODYGUARD GRANT OFFER ═════════════════════════════════════════════════╗`);
+          console.log(`  ║  ${openAsLawMove.title}`);
+          console.log(`  ║  ${openAsLawMove.description}`);
+          console.log(`  ║`);
+          console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
+          if (openAsLawMove.target ?? group.target) {
+            console.log(`  ║  Scope:     ${openAsLawMove.target ?? group.target}`);
+          }
+          console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+          if (group.lawIds?.length > 0) {
+            console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+          }
+          renderBoundaryEventDetails(group);
+          console.log(`  ║`);
+          console.log(`  ║  1. Allow once     — proceed this time; no law written`);
+          console.log(`  ║  2. Open as law    — open scope as standing law; always allowed`);
+          console.log(`  ║  3. Deny once      — block this request; no law written`);
+          console.log(`  ║  4. Deny as law    — deny as standing law; always blocked`);
+        } else {
+          // Standard boundary interception
+          console.log(`  ╔═ BOUNDARY INTERCEPTION ══════════════════════════════════════════╗`);
+          console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
+          console.log(`  ║  Target:    ${group.target}`);
+          console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+          if (group.reason) {
+            console.log(`  ║`);
+            console.log(`  ║  Reason:    ${group.reason}`);
+          }
+          renderBoundaryEventDetails(group);
+          if (group.lawIds?.length > 0) {
+            console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+          }
+          console.log(`  ║`);
+          console.log(`  ║  1. Allow once     — proceeds; no law written`);
+          console.log(`  ║  2. Allow as law   — proceeds; standing allow law written`);
+          console.log(`  ║  3. Deny once      — blocked; no law written`);
+          console.log(`  ║  4. Deny as law    — blocked; standing deny law written`);
+        }
+        console.log(`  ║`);
+        console.log(`  ║  > 1 / 2 / 3 / 4   or   allow/deny/law/deny-law ${group.groupId}`);
+        console.log(`  ╚══════════════════════════════════════════════════════════════════╝`);
+        console.log(``);
+      }
+
+      // Clear resolved groups from reported set.
+      for (const id of reportedGroupIds) {
+        if (!waitingGroups.some((g: { groupId: string }) => g.groupId === id)) {
+          reportedGroupIds.delete(id);
+        }
+      }
+    } catch {
+      // Intercept socket not reachable — daemon may not be running. Silent.
+    }
+  }
+
+  // Seed lastSeenCount to avoid replaying old events on startup.
+  try {
+    const existing = await boundary.readBoundaryLedgerBySession(config.sessionId);
+    lastSeenCount = existing.length;
+  } catch { /* silent */ }
+
+  const pollHandle = setInterval(() => {
+    void pollApprovals();
+    void pollLedger();
+    void pollIngress();
+  }, 1_000);
+
+  // Initial approval poll.
+  await pollApprovals();
+  await pollIngress();
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    prompt: "buccet> ",
+    terminal: true,
+  });
+
+  rl.prompt();
+
+  rl.on("line", (rawLine) => {
+    const line = rawLine.trim();
+    if (!line) {
+      rl.prompt();
+      return;
+    }
+
+    const parts = line.split(/\s+/);
+    const cmd = parts[0];
+    const arg1 = parts[1];
+
+    void (async () => {
+      try {
+        if (cmd === "quit" || cmd === "q" || cmd === "exit") {
+          clearInterval(pollHandle);
+          rl.close();
+          process.exit(0);
+        }
+
+        // Numbered shorthand: 1/2/3/4 when exactly one group is waiting.
+        if (cmd === "1" || cmd === "2" || cmd === "3" || cmd === "4") {
+          if (currentWaitingGroups.length === 0) {
+            console.log(`  No pending approvals.`);
+            rl.prompt();
+            return;
+          }
+          if (currentWaitingGroups.length > 1) {
+            console.log(`  ${currentWaitingGroups.length} groups pending — use allow/deny/law/deny-law <id>`);
+            rl.prompt();
+            return;
+          }
+          const groupId = currentWaitingGroups[0].groupId;
+          const choiceCmd = cmd === "1" ? "allow" : cmd === "2" ? "law" : cmd === "3" ? "deny" : "deny-law";
+          let input: Record<string, unknown>;
+          if (choiceCmd === "allow") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once", asLaw: false };
+          } else if (choiceCmd === "law") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law", asLaw: true };
+          } else if (choiceCmd === "deny-law") {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
+          } else {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once", asLaw: false };
+          }
+          const out = await boundary.sendBoundaryInterceptServerInput({
+            target: interceptTarget,
+            input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+          });
+          if (out.type === "error") {
+            console.log(`  Error: ${out.error}`);
+          } else {
+            console.log(`  ${choiceCmd}: ${groupId} — done`);
+            reportedGroupIds.delete(groupId);
+          }
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "feed") {
+          feedEnabled = !feedEnabled;
+          console.log(`  Event feed: ${feedEnabled ? "on" : "off"}`);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "status") {
+          const sessionState = await boundary.loadBoundarySessionState({
+            sessionId: config.sessionId,
+            sessionsDir: home.sessionsDir,
+          });
+          const scopes = (sessionState?.pathLaws ?? []).filter((l: { revokedAt?: string }) => !l.revokedAt);
+          const grants = (sessionState?.grants ?? []).filter((g: { revokedAt?: string }) => !g.revokedAt);
+          console.log(``);
+          console.log(`  Session:    ${config.sessionId}`);
+          console.log(`  Status:     ${sessionState?.session.status ?? "missing"}`);
+          console.log(`  Scopes:     ${scopes.length}`);
+          console.log(`  Grants:     ${grants.length}`);
+          console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
+          console.log(`  Pending:    ${currentWaitingGroups.length} action group(s) waiting`);
+          console.log(`  Canyon:     ${currentIngressEntries.filter((entry) => entry.state === "canyon").length} provenance(s) held`);
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "logs") {
+          const limit = arg1 ? Number(arg1) : 10;
+          const records = await boundary.readBoundaryLedgerBySession(config.sessionId);
+          const tail = records.slice(-limit);
+          console.log(``);
+          for (const record of tail) {
+            printLogRecord(record);
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "upl") {
+          const upl = await boundary.loadUserPathLedger();
+          const approved = (upl.userApprovedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
+          const denied = (upl.userDeniedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
+          console.log(``);
+          console.log(`  UPL: ${approved.length} approved laws / ${denied.length} denied laws`);
+          for (const law of approved.slice(-8)) {
+            console.log(`  allow | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
+          }
+          for (const law of denied.slice(-5)) {
+            console.log(`  deny  | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "doctor") {
+          await handleDoctor();
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "laws") {
+          const sessionState = await boundary.loadBoundarySessionState({
+            sessionId: config.sessionId,
+            sessionsDir: home.sessionsDir,
+          });
+          const pathLaws = (sessionState?.pathLaws ?? []).filter(
+            (l: { revokedAt?: string }) => !l.revokedAt,
+          );
+          console.log(``);
+          console.log(`  Active scope laws — ${config.sessionId}`);
+          console.log(`  ─────────────────────────────────────`);
+          if (pathLaws.length === 0) {
+            console.log(`  No active path laws.`);
+          } else {
+            for (const law of pathLaws) {
+              const l = law as { lawId: string; rootPath: string; grantedActions: string[]; issuedBy: string };
+              console.log(`  ${l.lawId}`);
+              console.log(`    path:    ${l.rootPath}`);
+              console.log(`    actions: ${l.grantedActions.join(", ")}`);
+              console.log(`    issued:  ${l.issuedBy}`);
+            }
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "tracks") {
+          const upl = await boundary.loadUserPathLedger();
+          const tracked = [
+            ...(upl.userApprovedLawPaths ?? []),
+            ...(upl.userDeniedLawPaths ?? []),
+          ].filter((l) => l.status === "ACTIVE" && l.trackConstraint);
+          console.log(``);
+          console.log(`  Active UPL track corridors`);
+          console.log(`  ─────────────────────────────────────`);
+          if (tracked.length === 0) {
+            console.log(`  No active track corridors.`);
+          } else {
+            for (const entry of tracked) {
+              const tc = entry.trackConstraint!;
+              console.log(`  ${entry.id}  [${entry.type}] ${tc.description}`);
+              console.log(`    kinds:   ${tc.allowedActionKinds.join(", ")}`);
+              if (tc.targetPattern) {
+                console.log(`    target:  ${tc.targetPattern}`);
+              }
+              if (tc.reviewInvariantLawId) {
+                console.log(`    track:   invariant ${tc.reviewInvariantLawId}`);
+              }
+              console.log(`    scope:   ${entry.scope}`);
+            }
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "canyon" || cmd === "unblock") {
+          const canyonChoice = (cmd === "unblock") ? "1" : arg1;
+          const provenanceArg = (cmd === "unblock") ? arg1 : parts[2];
+          if (!canyonChoice || (canyonChoice !== "1" && canyonChoice !== "2" && canyonChoice !== "3" && canyonChoice !== "4")) {
+            const targetProv = cmd === "canyon" ? arg1 : undefined;
+            const entries = targetProv
+              ? currentIngressEntries.filter((entry) => entry.provenance === targetProv)
+              : currentIngressEntries;
+            console.log(``);
+            if (entries.length === 0) {
+              console.log(`  No ingress control entries.`);
+            } else {
+              console.log(`  Ingress control entries:`);
+              for (const entry of entries) {
+                console.log(`  ${entry.provenance}`);
+                console.log(`    state:    ${ingressStateLabel(entry)}`);
+                console.log(`    reason:   ${entry.reason}`);
+                console.log(`    pressure: ${entry.deniedCount} tarpit decision(s)`);
+                if (entry.operatorDisposition) {
+                  console.log(`    operator: ${entry.operatorDisposition}`);
+                }
+              }
+              console.log(`  Use: canyon <1-4> <provenance>`);
+            }
+            console.log(``);
+            rl.prompt();
+            return;
+          }
+          if (!provenanceArg) {
+            console.log(`  Usage: canyon <1-4> <provenance>`);
+            rl.prompt();
+            return;
+          }
+          const entry = currentIngressEntries.find((item) => item.provenance === provenanceArg);
+          if (!entry) {
+            console.log(`  No ingress control entry '${provenanceArg}'.`);
+            rl.prompt();
+            return;
+          }
+          const ingressCommand =
+            canyonChoice === "1" ? "ingress_allow_once" :
+            canyonChoice === "2" ? "ingress_allow_as_law" :
+            canyonChoice === "3" ? "ingress_deny_once" :
+            "ingress_deny_as_law";
+          const reason =
+            canyonChoice === "1" ? `console: release ${provenanceArg} from canyon once` :
+            canyonChoice === "2" ? `console: standing ingress allow for ${provenanceArg}` :
+            canyonChoice === "3" ? `console: keep ${provenanceArg} in canyon once` :
+            `console: standing canyon hold for ${provenanceArg}`;
+          const out = await boundary.sendBoundaryInterceptServerInput({
+            target: interceptTarget,
+            input: {
+              command: ingressCommand,
+              provenance: provenanceArg,
+              issuedBy: config.actorId,
+              deniedBy: config.actorId,
+              reason,
+            } as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+          });
+          if (out.type === "error") {
+            console.log(`  Error: ${out.error}`);
+          } else {
+            if (canyonChoice === "1" || canyonChoice === "2" || canyonChoice === "3") {
+              canyonProvenances.delete(provenanceArg);
+              reportedCanyonProvenances.delete(provenanceArg);
+            }
+            await pollIngress();
+            console.log(`  canyon ${canyonChoice}: ${provenanceArg} — done`);
+          }
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "nsl") {
+          const indexArg = arg1 ? Number(arg1) : NaN;
+          if (!isNaN(indexArg) && nslSuggestions.length > 0) {
+            const pick = nslSuggestions[indexArg - 1];
+            if (!pick) {
+              console.log(`  No bodyguard move suggestion at index ${indexArg}. Use 'nsl' to list.`);
+              rl.prompt();
+              return;
+            }
+            let input: Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"] | null = null;
+            if (pick.kind === "open_as_law" || pick.kind === "open_path") {
+              input = { command: "swarm_approve", groupId: pick.groupId, issuedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: true };
+            } else if (pick.kind.startsWith("grant_")) {
+              input = { command: "swarm_approve", groupId: pick.groupId, issuedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: false };
+            } else if (pick.kind === "deny_and_explain") {
+              input = { command: "swarm_deny", groupId: pick.groupId, deniedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: false };
+            }
+
+            if (!input) {
+              console.log(`  Bodyguard move ${indexArg} is advisory only: ${pick.title}`);
+              console.log(`  Use explicit allow/deny/law/deny-law commands for this group.`);
+              rl.prompt();
+              return;
+            }
+            const out = await boundary.sendBoundaryInterceptServerInput({
+              target: interceptTarget,
+              input,
+            });
+            if (out.type === "error") {
+              console.log(`  Error: ${out.error}`);
+            } else {
+              reportedGroupIds.delete(pick.groupId);
+              console.log(`  bodyguard move ${indexArg} selected — ${pick.title}`);
+            }
+            rl.prompt();
+            return;
+          }
+          // Show pending bodyguard suggestions.
+          console.log(``);
+          if (nslSuggestions.length === 0) {
+            console.log(`  No pending bodyguard move suggestions.`);
+          } else {
+            console.log(`  Pending bodyguard move suggestions:`);
+            for (let i = 0; i < nslSuggestions.length; i++) {
+              const s = nslSuggestions[i];
+              console.log(`  [${i + 1}] ${s.title}  [${s.kind}]  group=${s.groupId}`);
+              console.log(`      ${s.description}`);
+            }
+            console.log(`  Use: nsl <n>  to select a bodyguard move`);
+          }
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "allow" || cmd === "deny" || cmd === "law" || cmd === "deny-law") {
+          if (!arg1) {
+            console.log(`  Usage: ${cmd} <group-id>`);
+            rl.prompt();
+            return;
+          }
+          const groupId = arg1;
+          let input: Record<string, unknown>;
+          if (cmd === "allow") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once", asLaw: false };
+          } else if (cmd === "law") {
+            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law", asLaw: true };
+          } else if (cmd === "deny-law") {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
+          } else {
+            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once", asLaw: false };
+          }
+          const out = await boundary.sendBoundaryInterceptServerInput({
+            target: interceptTarget,
+            input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+          });
+          if (out.type === "error") {
+            console.log(`  Error: ${out.error}`);
+          } else {
+            console.log(`  ${cmd}: ${groupId} — done`);
+            reportedGroupIds.delete(groupId);
+          }
+          rl.prompt();
+          return;
+        }
+
+        console.log(`  Unknown command: ${cmd}. Type 'quit' to exit.`);
+      } catch (error) {
+        console.log(`  Error: ${error instanceof Error ? error.message : String(error)}`);
+      }
+      rl.prompt();
+    })();
+  });
+
+  rl.on("close", () => {
+    clearInterval(pollHandle);
+    process.exit(0);
+  });
+
+  // Keep alive until rl closes.
+  await new Promise<void>((resolve) => {
+    rl.on("close", resolve);
+  });
+}
+
+// ─── main ──────────────────────────────────────────────────────────────────
+
 async function main() {
   const parsed = parseGlobal(process.argv.slice(2));
 
   if (parsed.command === "init") {
     await handleInit(parsed.rest);
+    return;
+  }
+  if (parsed.command === "console") {
+    await handleConsole();
+    return;
+  }
+  if (parsed.command === "doctor") {
+    await handleDoctor();
     return;
   }
   if (parsed.command === "status") {
@@ -1018,8 +2350,16 @@ async function main() {
     await handleLogs(parsed.rest);
     return;
   }
+  if (parsed.command === "ledger") {
+    await handleLedger(parsed.rest);
+    return;
+  }
   if (parsed.command === "scope") {
     await handleScope(parsed.rest);
+    return;
+  }
+  if (parsed.command === "upl") {
+    await handleUpl(parsed.rest);
     return;
   }
   if (parsed.command === "run") {

@@ -37,6 +37,224 @@ const SIGNING_PRIVATE_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-private.pem
 const SIGNING_PUBLIC_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-public.pem");
 const LOCK_STALE_MS = 5_000;
 
+// ─── LIOPE — Ledger I/O Physics Envelope ──────────────────────────────────────
+// Three dimensions:
+//   Q1.8 — Atomic Shedding Ring Buffer: bounded queue, O(1) hot path, shed overflow
+//   D2.8 — Max-IOPS Background Daemon: fixed-interval flush with file rollover
+//   A3.8 — Signed Magnitude Storm Events: signed LEDGER_STORM_SUMMARY when shed > 0
+//
+// Invariants:
+//   Hot path O(1) — never blocks on disk/memory
+//   Physical disk flushes bounded to floor(1000 / LIOPE_FLUSH_INTERVAL_MS) per second
+//   Memory bounded to LIOPE_MAX_QUEUE_SIZE entries
+//   Material state transitions bypass the queue and write immediately
+//   Shed repetition collapses into a single signed LEDGER_STORM_SUMMARY per flush window
+
+const LIOPE_MAX_QUEUE_SIZE = Math.max(1, parseInt(process.env.BUCCET_LEDGER_MAX_QUEUE_SIZE ?? "10000", 10));
+const LIOPE_FLUSH_INTERVAL_MS = Math.max(10, parseInt(process.env.BUCCET_LEDGER_FLUSH_INTERVAL_MS ?? "100", 10));
+const LIOPE_MAX_FILE_SIZE_BYTES = Math.max(
+  1024 * 1024,
+  parseInt(process.env.BUCCET_LEDGER_MAX_FILE_SIZE_BYTES ?? String(10 * 1024 * 1024), 10),
+);
+
+// Material state transitions bypass LIOPE and are written immediately.
+// Only five high-volume admission observation events go through the queue:
+//   INGRESS_PROVENANCE_BLOCKED, INGRESS_DENIED, INGRESS_VELOCITY_TRIP,
+//   INGRESS_DENSITY_TRIP, INGRESS_MASS_TRIP.
+// INGRESS_CANYON_STATE_WRITTEN is material (exactly-once canyon-state authority
+// record) and bypasses the queue even though it originates from the admission path.
+//
+// The storm scenario: 10M unique IPs hitting the admission boundary generates
+// 10M INGRESS_* observation events — those are queued/shed. Each IP gets at most
+// one INGRESS_CANYON_STATE_WRITTEN (material, immediately durable). Action
+// lifecycle events (PROPOSED, DECIDED, BLOCKED, EXECUTED) are material and must
+// be immediately durable — they are the law boundary record.
+const LIOPE_MATERIAL_EVENTS = new Set<BoundaryLedgerEventType>([
+  "SESSION_STARTED", "SESSION_RESTORED", "SESSION_PERSISTED", "SESSION_ENDED",
+  "PATH_OPENED", "PATH_LAW_INSTANTIATED",
+  "RECIPIENT_OPENED", "RECIPIENT_LAW_INSTANTIATED",
+  "DOMAIN_OPENED", "DOMAIN_LAW_INSTANTIATED",
+  "TOOL_OPENED", "TOOL_LAW_INSTANTIATED",
+  "DATABASE_OPENED", "DATABASE_LAW_INSTANTIATED",
+  "SYSTEM_OPENED", "SYSTEM_LAW_INSTANTIATED",
+  "GRANT_ISSUED", "GRANT_REVOKED", "GRANT_EXPIRED",
+  "UPL_ALLOW_RECORDED", "UPL_DENY_RECORDED", "UPL_TRACK_ACTIVATED", "UPL_TRACK_VIOLATED",
+  "ACTION_PROPOSED", "DECISION_RETURNED",
+  "ACTION_BLOCKED", "ACTION_EXECUTED",
+  "APPROVAL_REQUESTED", "APPROVAL_GRANTED", "APPROVAL_DENIED",
+  "BODYGUARD_GRANT_OFFERED", "BODYGUARD_MOVE_SUGGESTED", "BODYGUARD_MOVE_CHOSEN",
+  "USER_CONFIRMED_DENY",
+  "PROPOSAL_REPLAYED",
+  "GOVERNOR_TRIP",
+  "PROCESS_LAUNCH_REQUESTED", "PROCESS_SPAWNED", "PROCESS_EXITED", "PROCESS_BLOCKED",
+  "PROCESS_ENV_FILTERED",
+  "PROCESS_WALL_CLOCK_KILL",
+  "PROCESS_PHYSWRAP_ACTIVE", "PROCESS_PHYSWRAP_FALLBACK", "PROCESS_PHYSWRAP_CAP_WARNING",
+  "INGRESS_CANYON_STATE_WRITTEN",
+  "INGRESS_ALLOW_ONCE", "INGRESS_ALLOW_AS_LAW", "INGRESS_DENY_ONCE", "INGRESS_DENY_AS_LAW",
+  "LEDGER_STORM_SUMMARY",
+  // Queueable (not listed here): INGRESS_PROVENANCE_BLOCKED, INGRESS_DENIED,
+  // INGRESS_VELOCITY_TRIP, INGRESS_DENSITY_TRIP, INGRESS_MASS_TRIP
+]);
+
+type LiopeQueueEntry = {
+  eventType: BoundaryLedgerEventType;
+  payload: BoundaryLedgerPayload;
+};
+
+// Q1.8: pre-allocated bounded ring buffer
+const liopeQueue: LiopeQueueEntry[] = [];
+let liopeShedCount = 0;
+const liopeShedByClass = new Map<string, number>();
+let liopeWindowStartMs = Date.now();
+
+function liopeEnqueue(eventType: BoundaryLedgerEventType, payload: BoundaryLedgerPayload): void {
+  if (liopeQueue.length >= LIOPE_MAX_QUEUE_SIZE) {
+    // Shed: O(1) counter increment + class tracking
+    liopeShedCount++;
+    liopeShedByClass.set(eventType, (liopeShedByClass.get(eventType) ?? 0) + 1);
+    return;
+  }
+  liopeQueue.push({ eventType, payload });
+}
+
+// D2.8: max-IOPS background daemon
+let liopeDaemonHandle: ReturnType<typeof setInterval> | undefined;
+let liopeFlushActive = false;
+let liopeDaemonDisabled = false; // set by stopLiopeDaemon(); prevents restart after stop
+
+function ensureLiopeDaemonRunning(): void {
+  if (liopeDaemonDisabled) return; // permanently stopped (e.g. during contract tests)
+  if (liopeDaemonHandle !== undefined) return;
+  liopeDaemonHandle = setInterval(() => {
+    if (liopeFlushActive) return; // skip if previous flush still running
+    liopeFlushActive = true;
+    liopeFlush().finally(() => { liopeFlushActive = false; });
+  }, LIOPE_FLUSH_INTERVAL_MS);
+  // unref: daemon must not prevent process exit
+  if (typeof (liopeDaemonHandle as unknown as { unref?: () => void }).unref === "function") {
+    (liopeDaemonHandle as unknown as { unref: () => void }).unref();
+  }
+}
+
+async function liopeFlush(): Promise<void> {
+  const pendingCount = liopeQueue.length;
+  if (pendingCount === 0 && liopeShedCount === 0) return;
+
+  // Drain queue snapshot
+  const batch = liopeQueue.splice(0, pendingCount);
+  const shedCount = liopeShedCount;
+  const shedByClass = new Map(liopeShedByClass);
+  const windowMs = Date.now() - liopeWindowStartMs;
+
+  // Reset shed state for next window
+  liopeShedCount = 0;
+  liopeShedByClass.clear();
+  liopeWindowStartMs = Date.now();
+
+  if (batch.length === 0 && shedCount === 0) return;
+
+  // A3.8: when shed > 0, prepend a signed LEDGER_STORM_SUMMARY event
+  if (shedCount > 0) {
+    const byClassObj: Record<string, number> = {};
+    for (const [k, v] of shedByClass) byClassObj[k] = v;
+    const firstEntry = batch[0];
+    const stormPayload: BoundaryLedgerPayload = {
+      sessionId: firstEntry?.payload.sessionId ?? "liope-storm",
+      actorId: "ledger.liope",
+      reason: `LIOPE: ${shedCount} events shed in ${windowMs}ms window`,
+      createdAt: new Date().toISOString(),
+      metadata: {
+        shed_count: shedCount,
+        window_ms: windowMs,
+        by_class: JSON.stringify(byClassObj),
+      },
+    };
+    batch.unshift({ eventType: "LEDGER_STORM_SUMMARY", payload: stormPayload });
+  }
+
+  await appendBoundaryLedgerBatch(batch);
+}
+
+async function rolloverLedgerFileIfNeeded(): Promise<void> {
+  try {
+    const stats = await fs.stat(BOUNDARY_LEDGER_FILE);
+    if (stats.size >= LIOPE_MAX_FILE_SIZE_BYTES) {
+      const timestamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
+      const archivePath = path.join(LEDGER_DIR, `agent-boundary-ledger.${timestamp}.jsonl`);
+      await fs.rename(BOUNDARY_LEDGER_FILE, archivePath);
+    }
+  } catch {
+    // file does not exist yet — no rollover needed
+  }
+}
+
+/** Force an immediate LIOPE flush (drains the queue now, outside the daemon schedule). */
+export async function flushLiopeQueue(): Promise<void> {
+  return liopeFlush();
+}
+
+/** Stop the LIOPE background daemon and prevent it from restarting.
+ *  Used in contract tests — once called, ensureLiopeDaemonRunning() is a no-op
+ *  for the lifetime of the process, so daemon cannot restart via enqueue calls. */
+export function stopLiopeDaemon(): void {
+  liopeDaemonDisabled = true;
+  if (liopeDaemonHandle !== undefined) {
+    clearInterval(liopeDaemonHandle);
+    liopeDaemonHandle = undefined;
+  }
+}
+
+/** Current LIOPE queue depth + shed counter — for observability and contract tests. */
+export function getLiopeStats(): { queueDepth: number; shedCount: number; shedByClass: Record<string, number> } {
+  const shedByClass: Record<string, number> = {};
+  for (const [k, v] of liopeShedByClass) shedByClass[k] = v;
+  return { queueDepth: liopeQueue.length, shedCount: liopeShedCount, shedByClass };
+}
+
+export { LIOPE_MAX_QUEUE_SIZE, LIOPE_FLUSH_INTERVAL_MS, LIOPE_MAX_FILE_SIZE_BYTES, LIOPE_MATERIAL_EVENTS };
+
+async function appendBoundaryLedgerBatch(entries: LiopeQueueEntry[]): Promise<void> {
+  if (entries.length === 0) return;
+  const release = await acquireBoundaryLedgerLock();
+  try {
+    await ensureLedgerDir();
+    await replayLedgerWal();
+    await rolloverLedgerFileIfNeeded();
+    const signer = await ensureBoundaryLedgerSigningIdentity();
+    const existing = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+    const latest = existing.at(-1);
+    let nextIndex = (latest?.index ?? -1) + 1;
+    let prevHash = latest?.META.hash ?? "sha256:genesis";
+
+    const lines: string[] = [];
+    const records: BoundaryLedgerRecord[] = [];
+    for (const entry of entries) {
+      const record = buildBoundaryLedgerRecord({
+        index: nextIndex,
+        prevHash,
+        eventType: entry.eventType,
+        payload: entry.payload,
+        signer,
+      });
+      lines.push(JSON.stringify(record));
+      records.push(record);
+      prevHash = record.META.hash;
+      nextIndex++;
+    }
+
+    const batchContent = `${lines.join("\n")}\n`;
+    await appendLineAtomic(BOUNDARY_LEDGER_WAL_FILE, batchContent);
+    await appendLineAtomic(BOUNDARY_LEDGER_FILE, batchContent);
+    await writeAtomic(BOUNDARY_LEDGER_WAL_FILE, "");
+    for (const record of records) {
+      await updateBoundaryLedgerIndexes(record);
+    }
+  } finally {
+    await release();
+  }
+}
+
 export type BoundaryLedgerWriterTarget =
   | { socketPath: string }
   | { host: string; port: number };
@@ -101,7 +319,7 @@ function decisionToVerdict(decision?: BoundaryDecision): BoundaryLedgerDecisionV
 }
 
 function defaultDecisionForEvent(eventType: BoundaryLedgerEventType): BoundaryLedgerDecisionVerdict {
-  if (eventType === "APPROVAL_REQUESTED" || eventType === "NSL_GRANT_OFFERED") {
+  if (eventType === "APPROVAL_REQUESTED" || eventType === "BODYGUARD_GRANT_OFFERED") {
     return "PENDING";
   }
   if (eventType === "ACTION_EXECUTED" || eventType === "SESSION_STARTED" || eventType === "SESSION_RESTORED") {
@@ -134,7 +352,7 @@ function defaultOutcomeForEvent(eventType: BoundaryLedgerEventType): BoundaryLed
   ) {
     return "BLOCKED";
   }
-  if (eventType === "APPROVAL_REQUESTED" || eventType === "NSL_GRANT_OFFERED") {
+  if (eventType === "APPROVAL_REQUESTED" || eventType === "BODYGUARD_GRANT_OFFERED") {
     return "WAITING";
   }
   return "QUEUED";
@@ -693,27 +911,54 @@ export async function appendBoundaryLedger(
   payload: BoundaryLedgerPayload,
 ): Promise<BoundaryLedgerRecord> {
   const writerTarget = resolveLedgerWriterTargetFromEnv();
-  if (!writerTarget) {
+  if (writerTarget) {
+    const response = await sendBoundaryLedgerWriterInput({
+      target: writerTarget,
+      input: {
+        command: "append",
+        eventType,
+        payload,
+      },
+    });
+
+    if (response.type === "error") {
+      throw new Error(response.error);
+    }
+    if (response.type !== "append_ok") {
+      throw new Error(`unexpected ledger writer response: ${response.type}`);
+    }
+
+    return normalizeBoundaryLedgerRecord(response.record);
+  }
+
+  // LIOPE local routing:
+  // Material state transitions bypass the queue — always written immediately.
+  // Observation events go through the Q1.8 ring buffer (O(1) hot path).
+  if (LIOPE_MATERIAL_EVENTS.has(eventType)) {
     return appendBoundaryLedgerLocal(eventType, payload);
   }
 
-  const response = await sendBoundaryLedgerWriterInput({
-    target: writerTarget,
-    input: {
-      command: "append",
-      eventType,
-      payload,
+  // Observation event: O(1) enqueue, D2.8 daemon flushes in background
+  ensureLiopeDaemonRunning();
+  liopeEnqueue(eventType, payload);
+
+  // Return a lightweight pending placeholder — the event is durably written
+  // by the next daemon flush. Callers that require immediate durability should
+  // use a material event type so the bypass path is taken above.
+  return normalizeBoundaryLedgerRecord({
+    index: -1,
+    eventType,
+    payload,
+    META: {
+      id: "liope:pending",
+      timestamp: payload.createdAt,
+      hash: "sha256:pending",
+      prev_hash: "sha256:pending",
+      session_id: payload.sessionId,
+      depth: 0,
+      event_type: eventType,
     },
   });
-
-  if (response.type === "error") {
-    throw new Error(response.error);
-  }
-  if (response.type !== "append_ok") {
-    throw new Error(`unexpected ledger writer response: ${response.type}`);
-  }
-
-  return normalizeBoundaryLedgerRecord(response.record);
 }
 
 export async function readBoundaryLedgerBySession(sessionId: string): Promise<BoundaryLedgerRecord[]> {
@@ -835,7 +1080,7 @@ export async function verifyBoundaryLedgerChain(): Promise<{
   if (firstCanonicalIndex === -1) {
     return {
       ok: true,
-      reason: "ledger contains only legacy pre-EFUE entries; no canonical hash chain to verify yet",
+      reason: "ledger contains only legacy pre-canonical entries; no canonical hash chain to verify yet",
       cryptographic_ok: false,
       signed_records: 0,
       unsigned_records: 0,

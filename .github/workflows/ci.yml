@@ -1,0 +1,135 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - buccet-base-time-law-transfer
+      - 'claude/**'
+  pull_request:
+    branches:
+      - main
+      - buccet-base-time-law-transfer
+
+jobs:
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run typecheck
+
+  contracts-core:
+    name: Core contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Foundation contract
+        run: npm run test:agent-buccet:foundation
+      - name: Time-runtime contract
+        run: npm run test:agent-buccet:time-runtime
+      - name: Law unit tests
+        run: npm run test:agent-buccet:law-unit
+      - name: Gravity contract
+        run: npm run test:agent-buccet:gravity-contract
+      - name: Ledger contract
+        run: npm run test:agent-buccet:ledger-contract
+      - name: LIOPE contract
+        run: npm run test:agent-buccet:liope-contract
+      - name: Wrapper contract
+        run: npm run test:agent-buccet:wrapper-contract
+      - name: Intercept daemon contract
+        run: npm run test:agent-buccet:intercept-daemon
+      - name: Release witness contract
+        run: npm run test:agent-buccet:release-witness
+        env:
+          AGENT_BUCCET_WITNESS_FILE: /tmp/buccet-ci-witness.checkpoints.jsonl
+      - name: Chat boundary contract
+        run: npm run test:agent-buccet:chat-boundary
+      - name: UPL governance contract
+        run: npm run test:agent-buccet:upl-governance
+      - name: Egress classification contract
+        run: npm run test:agent-buccet:egress-contract
+      - name: Resource governor contract
+        run: npm run test:agent-buccet:governor-contract
+      - name: Input admission boundary contract
+        run: npm run test:agent-buccet:admission-contract
+      - name: Admission hard block ceiling contract
+        run: npm run test:agent-buccet:admission-hardcap-contract
+
+  contracts-ledger:
+    name: Ledger contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Ledger rollup contract
+        run: npm run test:agent-buccet:ledger-rollup
+      - name: Ledger writer contract
+        run: npm run test:agent-buccet:ledger-writer
+      - name: Ledger witness contract
+        run: npm run test:agent-buccet:ledger-witness
+
+  contracts-runtime:
+    name: Runtime contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Compile native intercept layer
+        run: sh native/deep-intercept/build.sh native/deep-intercept/build
+      - name: Compile native physwrap enforcer
+        run: npm run build:native:physwrap
+      - name: Action classes contract
+        run: npm run test:agent-buccet:action-classes
+      - name: Swarm contract
+        run: npm run test:agent-buccet:swarm
+      - name: Gravity supervisor contract
+        run: npm run test:agent-buccet:gravity-supervisor
+      - name: CLI contract
+        run: npm run test:agent-buccet:cli
+      - name: Payload physics contract
+        run: npm run test:agent-buccet:payload-physics-contract
+      - name: Native physwrap contract
+        run: npm run test:agent-buccet:physwrap-contract
+      - name: Attack demo
+        run: npm run demo:agent-buccet:attacks
+
+  contracts-docs:
+    name: Docs and hygiene contracts
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Doc links contract
+        run: npm run test:agent-buccet:doc-links
+      - name: Artifact hygiene contract
+        run: npm run test:agent-buccet:artifact-hygiene
+      - name: Quickstart example
+        run: npm run demo:quickstart

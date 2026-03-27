@@ -44,6 +44,28 @@ async function sendJson(socketPath: string, payload: object): Promise<unknown> {
   throw new Error("socket closed before response");
 }
 
+async function sendJsonOrNull(socketPath: string, payload: object): Promise<unknown | null> {
+  const socket = net.createConnection(socketPath);
+  await once(socket, "connect");
+  socket.write(`${JSON.stringify(payload)}\n`);
+  let buffer = "";
+  for await (const chunk of socket) {
+    buffer += chunk.toString();
+    const newline = buffer.indexOf("\n");
+    if (newline === -1) {
+      continue;
+    }
+    const line = buffer.slice(0, newline).trim();
+    if (!line) {
+      buffer = buffer.slice(newline + 1);
+      continue;
+    }
+    socket.end();
+    return JSON.parse(line);
+  }
+  return null;
+}
+
 async function main() {
   console.log("Agent Buccet intercept server contract");
 
@@ -81,6 +103,61 @@ async function main() {
   assert.equal(status.type, "status");
   assert.equal(status.running, true);
   console.log(`initial status running: ${status.running}`);
+
+  const denyAsLaw = await sendJson(socketPath, {
+    command: "ingress_deny_as_law",
+    provenance: "ip:9.9.9.9",
+    requestId: "ingress-deny-as-law",
+  }) as { type: string; command: string };
+  assert.equal(denyAsLaw.type, "ack");
+  assert.equal(denyAsLaw.command, "ingress_deny_as_law");
+
+  const ingressStatus = await sendJson(socketPath, {
+    command: "ingress_status",
+    requestId: "ingress-status-1",
+  }) as {
+    type: string;
+    provenances: Array<{ provenance: string; state: string; operatorDisposition?: string }>;
+  };
+  assert.equal(ingressStatus.type, "ingress_status");
+  const deniedEntry = ingressStatus.provenances.find((entry) => entry.provenance === "ip:9.9.9.9");
+  assert.ok(deniedEntry, "canyon-held provenance should appear in ingress status");
+  assert.equal(deniedEntry?.state, "canyon");
+  assert.equal(deniedEntry?.operatorDisposition, "deny_as_law");
+
+  const tarpitted = await sendJsonOrNull(socketPath, {
+    actionClass: "network",
+    operation: "send",
+    target: "attacker.example",
+    provenance: "external_content",
+    requestId: "ingress-tarpit",
+    admission: {
+      provenance: "ip:9.9.9.9",
+      provenanceStrength: "weak",
+      weightClass: "standard",
+    },
+  });
+  assert.equal(tarpitted, null, "canyon-held ingress should be tarpitted without a fast response");
+
+  const allowOnce = await sendJson(socketPath, {
+    command: "ingress_allow_once",
+    provenance: "ip:9.9.9.9",
+    requestId: "ingress-allow-once",
+  }) as { type: string; command: string };
+  assert.equal(allowOnce.type, "ack");
+  assert.equal(allowOnce.command, "ingress_allow_once");
+
+  const ingressStatus2 = await sendJson(socketPath, {
+    command: "ingress_status",
+    requestId: "ingress-status-2",
+  }) as {
+    type: string;
+    provenances: Array<{ provenance: string; state: string; allowOnceRemaining?: number }>;
+  };
+  const allowOnceEntry = ingressStatus2.provenances.find((entry) => entry.provenance === "ip:9.9.9.9");
+  assert.ok(allowOnceEntry, "allow once should expose a one-shot ingress release");
+  assert.equal(allowOnceEntry?.state, "allow_once");
+  assert.equal(allowOnceEntry?.allowOnceRemaining, 1);
 
   child.kill("SIGTERM");
   await wait(250);

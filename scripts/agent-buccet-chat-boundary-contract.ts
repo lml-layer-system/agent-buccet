@@ -170,6 +170,17 @@ async function main() {
     assert(!repeated.executed, "expected standing UPL deny to skip execution");
     assert(!repeated.requiresApproval, "expected standing UPL deny to avoid re-prompt");
 
+    const nearMatch = await bodyguard.chat.emit({
+      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      attemptedOutput: "Batman 2001 run is the best answer for that request.",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after review",
+    });
+
+    assert(!nearMatch.allowed, "expected denied chat track to block near-match output");
+    assert(!nearMatch.executed, "expected denied chat track to skip execution");
+    assert(!nearMatch.requiresApproval, "expected denied chat track to avoid re-prompt for same invariant corridor");
+
     const updatedLedger = await loadUserPathLedger();
     assert(updatedLedger.userDeniedLawPaths.length === 1, "expected one denied UPL law after deny_as_law");
 
@@ -182,6 +193,7 @@ async function main() {
     console.log(`flagged prompt options: ${approval.prompt.options.length}`);
     console.log(`rendered prompt surface: ${approval.prompt.surface}`);
     console.log(`repeated flagged chat allowed: ${repeated.allowed}`);
+    console.log(`near-match flagged chat allowed: ${nearMatch.allowed}`);
     console.log(`standing denied laws: ${updatedLedger.userDeniedLawPaths.length}`);
   } finally {
     await saveUserPathLedger(originalLedger);

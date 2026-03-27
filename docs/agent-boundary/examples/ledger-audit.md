@@ -34,7 +34,7 @@ Meaning:
 Trust:
 - do not trust the request
 - deny further action
-- route to NSL / user intervention
+- route to bodyguard / user intervention
 
 ### `missing`
 
@@ -61,7 +61,7 @@ Possible results:
 
 Meaning:
 - if the session trace is incomplete, the bucket should tighten
-- the shared executor already treats incomplete session traces as non-authoritative
+- the bodyguard already treats incomplete session traces as non-authoritative
 
 ## Formatting
 
@@ -80,5 +80,5 @@ This gives a clear human-readable audit chain line-by-line.
 If the audit is not complete:
 - do not trust the request/session
 - deny or null the motion
-- surface NSL recovery
+- surface bodyguard recovery
 - ask the user to restore the lawful path

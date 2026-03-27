@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { createApprovalQueueAdapter } from "./approval.ts";
 import {
+  evaluateBoundaryGovernor,
+  initialGovernorState,
+  recordGovernorCrossing,
+} from "./governor.ts";
+import {
   adjudicateBodyguardRequest,
   applyBodyguardUserLawDecision,
   attachBodyguardControl,
@@ -26,7 +31,7 @@ import type {
   BoundaryRequestProvenance,
   BoundaryReviewContext,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export {
@@ -48,7 +53,7 @@ export type BoundaryExecutionResult<T = void> = {
   executed: boolean;
   requiresApproval: boolean;
   reason: string;
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   value?: T;
 };
 
@@ -341,6 +346,15 @@ function describeFlagViolations(request: BoundaryActionRequest): string[] {
   if (flags.claimsActionCompletionWithoutWitness) {
     violations.push("attempt claims completion without witness evidence");
   }
+  if (flags.payloadContainsPii) {
+    violations.push("payload contains personally identifiable information (PII)");
+  }
+  if (flags.payloadContainsCredential) {
+    violations.push("payload contains credentials or secrets");
+  }
+  if (flags.payloadContainsFinancialData) {
+    violations.push("payload contains financial data (card number or similar)");
+  }
   return violations;
 }
 
@@ -557,6 +571,179 @@ export function inferBoundaryChatFlagsFromOutput(text: string): BoundaryActionRe
   };
 }
 
+// ─── Structural Generators ────────────────────────────────────────────────────
+// The defense is the finite structural generator that makes a string valid in the
+// real world — not surface regex. A fake credit card fails Luhn. A fake IP fails
+// the 8-bit octet constraint. A fake IBAN fails MOD-97. Structural generators
+// cannot be juked by AI hallucination or prompt-injection mockdata.
+
+function isValidIpv4Structural(candidate: string): boolean {
+  const parts = candidate.split(".");
+  if (parts.length !== 4) return false;
+  return parts.every((part) => {
+    if (!/^\d{1,3}$/.test(part)) return false;
+    const n = Number(part);
+    return n >= 0 && n <= 255;
+  });
+}
+
+function ibanMod97Check(iban: string): boolean {
+  const cleaned = iban.replace(/[\s-]/g, "").toUpperCase();
+  if (cleaned.length < 5 || cleaned.length > 34) return false;
+  const rearranged = cleaned.slice(4) + cleaned.slice(0, 4);
+  const numeric = rearranged.replace(/[A-Z]/g, (ch) => String(ch.charCodeAt(0) - 55));
+  let remainder = 0n;
+  for (const ch of numeric) {
+    remainder = (remainder * 10n + BigInt(ch)) % 97n;
+  }
+  return remainder === 1n;
+}
+
+function shannonEntropy(str: string): number {
+  const freq: Record<string, number> = {};
+  for (const ch of str) freq[ch] = (freq[ch] ?? 0) + 1;
+  const len = str.length;
+  return Object.values(freq).reduce((acc, count) => {
+    const p = count / len;
+    return acc - p * Math.log2(p);
+  }, 0);
+}
+
+function isHighEntropyToken(str: string): boolean {
+  return str.length >= 32 && shannonEntropy(str) >= 3.5;
+}
+
+function abaRoutingCheck(routing: string): boolean {
+  if (!/^\d{9}$/.test(routing)) return false;
+  const d = routing.split("").map(Number);
+  return (3 * (d[0]! + d[3]! + d[6]!) + 7 * (d[1]! + d[4]! + d[7]!) + (d[2]! + d[5]! + d[8]!)) % 10 === 0;
+}
+
+// ─── PII Patterns (direct: no additional structural validation) ───────────────
+
+const EGRESS_PII_PATTERNS: RegExp[] = [
+  // Email address
+  /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/,
+  // US phone (NANP)
+  /\b(\+?1[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/,
+  // US SSN (dashed)
+  /\b\d{3}-\d{2}-\d{4}\b/,
+  // International phone E.164
+  /\+\d{1,3}[-.\s]?\(?\d{1,4}\)?[-.\s]?\d{3,5}[-.\s]?\d{4,9}\b/,
+  // IPv6 full (8 hex groups)
+  /\b(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}\b/,
+  // IPv6 compressed (requires at least two colons adjacent or separated)
+  /\b(?:[0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}\b/,
+  // Date of birth with context keyword
+  /\b(?:dob|date[_\s]of[_\s]birth|born)\b[:\s]+\d{2,4}[-/]\d{2}[-/]\d{2,4}/i,
+  // ISO date (YYYY-MM-DD — strong DOB signal in outbound context)
+  /\b(19|20)\d{2}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])\b/,
+  // US passport number with keyword
+  /\bpassport[:\s#]+[A-Z]\d{8}\b/i,
+  // Medical record number
+  /\b(?:mrn|medical[_\s]record|patient[_\s]id)[:\s#]+\d{6,10}\b/i,
+  // SWIFT/BIC code with context keyword (context-bounded to prevent all-caps word false positives)
+  /\b(?:swift|bic|bank[_\s]code)[:\s]+[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}(?:[A-Z0-9]{3})?\b/i,
+  // National ID / government ID with context
+  /\b(?:national[_\s]id|gov(?:ernment)?[_\s]id|id[_\s]number)[:\s#]+[A-Z0-9\-]{6,20}\b/i,
+];
+
+// ─── Credential Patterns ──────────────────────────────────────────────────────
+
+const EGRESS_CREDENTIAL_PATTERNS: RegExp[] = [
+  // Generic sk-/pk-/api-key prefix
+  /\b(sk-|pk-|api[_-]?key[_-]?)[a-zA-Z0-9]{16,}/i,
+  // PEM private key
+  /-----BEGIN (?:RSA |EC |DSA |OPENSSH )?PRIVATE KEY-----/,
+  // PEM certificate
+  /-----BEGIN CERTIFICATE-----/,
+  // Password / secret / token assignment
+  /\b(password|passwd|secret|token)\s*[:=]\s*\S{6,}/i,
+  // AWS access key ID
+  /\bAKIA[0-9A-Z]{16}\b/,
+  // GitHub PAT (vendor namespace: ghp_ + exactly 36 alphanum)
+  /\bghp_[A-Za-z0-9]{36}\b/,
+  // GitHub fine-grained PAT
+  /\bgithub_pat_[A-Za-z0-9_]{82}\b/,
+  // Google API key (AIza + exactly 35 chars)
+  /\bAIza[A-Za-z0-9_\-]{35}\b/,
+  // Stripe secret/publishable key
+  /\bsk_(?:live|test)_[A-Za-z0-9]{24,}\b/,
+  // Slack token
+  /\bxox[bpoa]-[A-Za-z0-9\-]{10,}\b/,
+  // JWT (all three segments present: eyJheader.eyJpayload.signature)
+  /\beyJ[A-Za-z0-9_\-]+\.eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+/,
+];
+
+// ─── Financial Patterns ───────────────────────────────────────────────────────
+
+const EGRESS_FINANCIAL_PATTERNS: RegExp[] = [
+  // Visa (13 or 16 digits)
+  /\b4[0-9]{12}(?:[0-9]{3})?\b/,
+  // Mastercard (16 digits, BINs 51-55)
+  /\b5[1-5][0-9]{14}\b/,
+  // Amex (15 digits)
+  /\b3[47][0-9]{13}\b/,
+  // Discover (16 digits)
+  /\b6(?:011|5[0-9]{2})[0-9]{12}\b/,
+  // UnionPay (16-19 digits, BIN 62)
+  /\b62[0-9]{14,17}\b/,
+];
+
+function luhnCheck(value: string): boolean {
+  const digits = value.replace(/\D/g, "");
+  let sum = 0;
+  let isEven = false;
+  for (let i = digits.length - 1; i >= 0; i--) {
+    let d = parseInt(digits[i]!, 10);
+    if (isEven) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    isEven = !isEven;
+  }
+  return sum % 10 === 0 && digits.length >= 13;
+}
+
+export function inferBoundaryEgressFlagsFromPayload(payload: string): BoundaryActionRequest["flags"] {
+  // Lane A — structural generators: regex catches candidates, generator confirms validity
+  let hasPii = EGRESS_PII_PATTERNS.some((p) => p.test(payload));
+  if (!hasPii) {
+    // IPv4 byte-boundary: 256.0.0.0 fails, 255.255.255.255 passes
+    const ipv4Candidates = [...payload.matchAll(/\b(?:\d{1,3}\.){3}\d{1,3}\b/g)];
+    hasPii = ipv4Candidates.some((m) => isValidIpv4Structural(m[0]));
+  }
+  if (!hasPii) {
+    // IBAN MOD-97: structurally invalid IBANs are not real PII
+    const ibanCandidates = [...payload.matchAll(/\b[A-Z]{2}\d{2}[A-Z0-9]{4,30}\b/g)];
+    hasPii = ibanCandidates.some((m) => ibanMod97Check(m[0]));
+  }
+
+  // Lane B — credential patterns + structural entropy check
+  let hasCredential = EGRESS_CREDENTIAL_PATTERNS.some((p) => p.test(payload));
+  if (!hasCredential) {
+    // Bearer token: high-entropy suffix confirms it is not hallucinated test data
+    const bearerMatch = /\bBearer\s+([A-Za-z0-9+/=_\-]{32,})/i.exec(payload);
+    hasCredential = bearerMatch?.[1] ? isHighEntropyToken(bearerMatch[1]) : false;
+  }
+
+  // Financial: Luhn on card pattern candidates
+  const financialCardMatch = EGRESS_FINANCIAL_PATTERNS.reduce<RegExpExecArray | null>(
+    (found, p) => found ?? p.exec(payload),
+    null,
+  );
+  let hasFinancial = financialCardMatch ? luhnCheck(financialCardMatch[0]) : false;
+  if (!hasFinancial) {
+    // ABA routing number: 9-digit weighted checksum (3-7-1 mod 10)
+    const abaCandidates = [...payload.matchAll(/\b(\d{9})\b/g)];
+    hasFinancial = abaCandidates.some((m) => abaRoutingCheck(m[1] ?? ""));
+  }
+
+  return {
+    payloadContainsPii: hasPii || undefined,
+    payloadContainsCredential: hasCredential || undefined,
+    payloadContainsFinancialData: hasFinancial || undefined,
+  };
+}
+
 function extractYears(text: string | undefined): number[] {
   if (!text) {
     return [];
@@ -732,13 +919,98 @@ export async function runBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
+  let governorHold:
+    | {
+      lawId: string;
+      reason: string;
+      bodyguardMoves: BodyguardMove[];
+    }
+    | null = null;
+
+  // Governor pre-check — kinetic reflex only. It can freeze and hold the
+  // action before law evaluation, but Terminal 2 still owns the decision.
+  if (activeConfig.governorConfig) {
+    const govState = activeConfig.governorState ?? initialGovernorState();
+    const govResult = evaluateBoundaryGovernor({
+      config: activeConfig.governorConfig,
+      state: govState,
+      request: activeRequest,
+      nowMs: Date.now(),
+    });
+    if (govResult.tripped) {
+      await appendBoundaryLedger("GOVERNOR_TRIP", {
+        sessionId: activeConfig.session.sessionId,
+        actorId: activeConfig.session.actorId,
+        requestId: activeRequest.requestId,
+        actionKind: activeRequest.actionKind,
+        target: activeRequest.target,
+        decision: "deny",
+        reason: govResult.reason,
+        lawIds: [govResult.lawId],
+        createdAt: new Date().toISOString(),
+      });
+
+      const existingViolations = activeRequest.reviewContext?.violations ?? [];
+      activeRequest = {
+        ...activeRequest,
+        reviewContext: {
+          surface: "action",
+          ...activeRequest.reviewContext,
+          title: activeRequest.reviewContext?.title ?? "Boundary governor held the action",
+          question: activeRequest.reviewContext?.question ?? "Does this held boundary event match your intent?",
+          violations: [
+            ...existingViolations,
+            `kinetic ceiling tripped: ${govResult.dimension}`,
+          ],
+        },
+      };
+      governorHold = {
+        lawId: govResult.lawId,
+        reason: govResult.reason,
+        bodyguardMoves: [{
+          moveId: randomUUID(),
+          kind: "deny_and_explain",
+          title: "Boundary governor tripped",
+          description: govResult.reason,
+        }],
+      };
+    }
+  }
+
   await logProposedAction(activeConfig, activeRequest);
-  let adjudication = await adjudicateBoundaryRequest({
-    config: activeConfig,
-    request: activeRequest,
-  });
+  let adjudication = governorHold
+    ? {
+      config: activeConfig,
+      request: activeRequest,
+      result: {
+        decision: "require_approval" as const,
+        reason: governorHold.reason,
+        triggeredLawIds: [governorHold.lawId],
+        requiresApproval: true,
+      },
+      bodyguardMoves: governorHold.bodyguardMoves,
+    }
+    : await adjudicateBoundaryRequest({
+      config: activeConfig,
+      request: activeRequest,
+    });
   activeConfig = adjudication.config;
   activeRequest = adjudication.request;
+
+  // Record the boundary crossing in governor state after the first adjudication.
+  // wasLawful = true if the decision is allow or require_approval (the action is
+  // not denied outright by law); false if denied — this feeds the density window.
+  if (activeConfig.governorConfig && !governorHold) {
+    const updatedGovState = recordGovernorCrossing({
+      state: activeConfig.governorState ?? initialGovernorState(),
+      config: activeConfig.governorConfig,
+      actionKind: activeRequest.actionKind,
+      wasLawful: adjudication.result.decision !== "deny",
+      nowMs: Date.now(),
+    });
+    activeConfig = { ...activeConfig, governorState: updatedGovState };
+  }
+
   await logDecisionReturned(
     activeConfig,
     activeRequest,
@@ -755,8 +1027,8 @@ export async function runBoundaryControlledAction<T>(args: {
       adjudication.result.triggeredLawIds,
     );
 
-    for (const move of adjudication.nslMoves) {
-      await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
+    for (const move of adjudication.bodyguardMoves) {
+      await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
         sessionId: activeConfig.session.sessionId,
         actorId: activeConfig.session.actorId,
         requestId: activeRequest.requestId,
@@ -776,11 +1048,31 @@ export async function runBoundaryControlledAction<T>(args: {
       executed: false,
       requiresApproval: false,
       reason: adjudication.result.reason,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
     };
   }
 
   while (adjudication.result.decision === "require_approval") {
+    // When the require_approval was triggered by a UPL track corridor violation,
+    // ledger the event so the operator can see which corridor was exited and why.
+    if (adjudication.result.uplTrackViolated) {
+      await appendBoundaryLedger("UPL_TRACK_VIOLATED", {
+        sessionId: activeConfig.session.sessionId,
+        actorId: activeConfig.session.actorId,
+        requestId: activeRequest.requestId,
+        actionKind: activeRequest.actionKind,
+        target: activeRequest.target,
+        reason: adjudication.result.reason,
+        lawIds: adjudication.result.triggeredLawIds,
+        metadata: {
+          ...(adjudication.result.uplTrackId
+            ? { upl_entry_id: adjudication.result.uplTrackId }
+            : {}),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     const approvalResult = await requestApproval(
       activeConfig,
       {
@@ -788,7 +1080,7 @@ export async function runBoundaryControlledAction<T>(args: {
         request: activeRequest,
         reason: adjudication.result.reason,
         lawIds: adjudication.result.triggeredLawIds,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
         prompt: buildBoundaryApprovalPrompt({
           request: activeRequest,
           reason: adjudication.result.reason,
@@ -820,7 +1112,7 @@ export async function runBoundaryControlledAction<T>(args: {
         executed: false,
         requiresApproval: true,
         reason: adjudication.result.reason,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
       };
     }
 
@@ -830,7 +1122,7 @@ export async function runBoundaryControlledAction<T>(args: {
         request: activeRequest,
         reason: adjudication.result.reason,
         lawIds: adjudication.result.triggeredLawIds,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
         prompt: buildBoundaryApprovalPrompt({
           request: activeRequest,
           reason: adjudication.result.reason,
@@ -878,7 +1170,7 @@ export async function runBoundaryControlledAction<T>(args: {
           executed: false,
           requiresApproval: false,
           reason: adjudication.result.reason,
-          nslMoves: adjudication.nslMoves,
+          bodyguardMoves: adjudication.bodyguardMoves,
         };
       }
       continue;
@@ -910,7 +1202,7 @@ export async function runBoundaryControlledAction<T>(args: {
         executed: false,
         requiresApproval: false,
         reason: adjudication.result.reason,
-        nslMoves: adjudication.nslMoves,
+        bodyguardMoves: adjudication.bodyguardMoves,
       };
     }
   }
@@ -922,7 +1214,7 @@ export async function runBoundaryControlledAction<T>(args: {
       executed: false,
       requiresApproval: adjudication.result.requiresApproval,
       reason: args.successReason,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
     };
   }
 
@@ -937,7 +1229,7 @@ export async function runBoundaryControlledAction<T>(args: {
       executed: false,
       requiresApproval: adjudication.result.requiresApproval,
       reason,
-      nslMoves: adjudication.nslMoves,
+      bodyguardMoves: adjudication.bodyguardMoves,
     };
   }
 
@@ -950,7 +1242,7 @@ export async function runBoundaryControlledAction<T>(args: {
     executed: true,
     requiresApproval: adjudication.result.requiresApproval,
     reason: args.successReason,
-    nslMoves: adjudication.nslMoves,
+    bodyguardMoves: adjudication.bodyguardMoves,
     value,
   };
 }
@@ -990,9 +1282,10 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
   const gravityService = createBoundaryGravityService();
 
   function getGuardedConfig() {
-    return enableBodyguardControl(store.getConfig(), {
-      approvalHandler: approvals.handler,
-      gravityService,
+    const config = store.getConfig();
+    return enableBodyguardControl(config, {
+      approvalHandler: config.approvalHandler ?? approvals.handler,
+      gravityService: config.gravityService ?? gravityService,
     });
   }
 

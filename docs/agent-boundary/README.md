@@ -23,11 +23,33 @@ That is why the same Agent Buccet Interceptor and Agent Buccet Gravity path can 
 - LangGraph
 - similar tool-using agent systems
 
+## Open-Source World
+
+Agent Buccet is built for the open-source world as much as the closed one.
+
+Open-source builders should not have to choose between freedom and responsibility.
+With Agent Buccet, open systems can ship with visible boundaries, enforceable consequence control, and durable proof of what was allowed, denied, contained, or stopped.
+
+This means open-source teams can show, not just claim, that their agent deployments are governed:
+	•	what boundaries exist
+	•	what actions were allowed or denied
+	•	what payload physics were enforced
+	•	what input was blocked before the brain woke
+	•	what output was stopped before consequence landed
+	•	what the ledger recorded from first input to final consequence
+
+Agent Buccet does not ask the world to blindly trust open systems.
+It gives open systems a way to demonstrate bounded, auditable, enforceable behavior in the real world.
+
+Build with it. Ship with it. Extend it. Defend your agents with it.
+
+We ask only one thing:
+Let Agent Buccet be your bodyguard.
+
 Core docs:
 - [Launch Proof](LAUNCH_PROOF.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
 - [Security Model](SECURITY_MODEL.md)
-- [Threat Model Traceability](THREAT_MODEL_TRACEABILITY.md)
 - [Current Limits](CURRENT_LIMITS.md)
 - [Law Catalog](LAW_CATALOG.md)
 - [Law Reference](LAW_REFERENCE.md)
@@ -234,7 +256,7 @@ The runtime now includes:
 - remote prompt hardening
 - ledger completeness auditing
 - Agent Buccet Gravity enforcement
-- null -> NSL open-as-law recovery
+- null -> bodyguard open-as-law recovery
 - wrapper process policy
 - process lifecycle ledgering
 - one-brain swarm coordination for matching frozen requests
@@ -279,13 +301,13 @@ npm run demo:agent-buccet
 
 It exercises:
 - allowed in-scope write
-- out-of-scope write -> NSL open-as-law offer
+- out-of-scope write -> bodyguard open-as-law offer
 - approval-gated delete
 - persistent restore
 - post-end-session denial
 - session and request ledger audits
 
-Run the executor-integrated gravity example with:
+Run the bodyguard-integrated gravity example with:
 
 ```bash
 npm run demo:agent-buccet:gravity
@@ -304,9 +326,8 @@ npm run test:agent-buccet:gravity-contract
 ```
 
 It proves:
-- out-of-scope -> `nsl_grant_offer`
+- out-of-scope -> `bodyguard_grant_offer`
 - authority claim -> `deny`
-- incomplete ledger session -> `deny`
 
 Run the ledger contract harness with:
 
@@ -514,7 +535,7 @@ If a request or session is not properly ledgered, it should not be trusted.
 That means:
 - missing trace -> non-authoritative
 - incomplete trace -> non-authoritative
-- lawful recovery should go through NSL / approval / re-issuance
+- lawful recovery should go through bodyguard / approval / re-issuance
 
 ## Read Next
 
@@ -526,5 +547,3 @@ That means:
 - [Ledger Audit Example](examples/ledger-audit.md)
 - [PUBLIC_PRIVATE_BOUNDARY.md](PUBLIC_PRIVATE_BOUNDARY.md)
 - [PACKAGING_PLAN.md](PACKAGING_PLAN.md)
-- [GRAVITY_LANDING_PLAN.md](GRAVITY_LANDING_PLAN.md)
-- [AGENT_BOUNDARY_REPORT_20260317.md](AGENT_BOUNDARY_REPORT_20260317.md)

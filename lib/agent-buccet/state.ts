@@ -8,6 +8,8 @@ import {
   buildActiveAgentBuccetLawIds,
   loadAgentBuccetRuntimeMuscle,
 } from "./foundation.ts";
+import { DEFAULT_ADMISSION_CONFIG } from "./admission.ts";
+import { initialAdmissionState } from "./admission.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
 import { instantiateBoundaryGrant } from "./orchestrator.ts";
 import {
@@ -48,6 +50,7 @@ function toPersistedState(config: BoundaryRuntimeConfig): BoundaryPersistedSessi
     approvalRequiredFor: config.approvalRequiredFor,
     userLawIds: config.userLawIds ?? [],
     processPolicy: config.processPolicy,
+    admissionState: config.admissionState,
     savedAt: new Date().toISOString(),
   };
 }
@@ -313,6 +316,8 @@ export async function startPersistentBoundarySession(args: {
       executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
     }),
     processPolicy: undefined,
+    admissionConfig: DEFAULT_ADMISSION_CONFIG,
+    admissionState: initialAdmissionState(),
     persistence: {
       enabled: true,
       sessionsDir: args.sessionsDir,
@@ -381,6 +386,8 @@ export async function restorePersistentBoundarySession(args: {
     approvalRequiredFor: state.approvalRequiredFor,
     userLawIds: [],
     processPolicy: state.processPolicy as BoundaryProcessPolicy | undefined,
+    admissionConfig: DEFAULT_ADMISSION_CONFIG,
+    admissionState: state.admissionState ?? initialAdmissionState(),
     persistence: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),

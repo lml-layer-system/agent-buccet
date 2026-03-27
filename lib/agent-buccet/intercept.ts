@@ -1,10 +1,20 @@
 import { randomUUID } from "node:crypto";
 import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./bodyguard.ts";
+import {
+  evaluateAdmission,
+  initialAdmissionState,
+  markCanyonLedgered,
+} from "./admission.ts";
+import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryActionKind,
+  BoundaryAdmissionState,
+  BoundaryInputWeightClass,
+  BoundaryProvenanceStrength,
   BoundaryRequestProvenance,
+  BoundaryReviewContext,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export type BoundaryInterceptActionClass =
@@ -20,6 +30,7 @@ export type BoundaryInterceptRequest = {
   operation: string;
   target: string;
   payloadSummary?: string;
+  reviewContext?: BoundaryReviewContext;
   provenance?: BoundaryRequestProvenance;
   flags?: {
     authorityClaimed?: boolean;
@@ -28,6 +39,13 @@ export type BoundaryInterceptRequest = {
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
+  };
+  /** Admission boundary metadata — used for inbound DDoS / prompt-spam defense. */
+  admission?: {
+    /** Provenance key: strongest available (pubkey > session > IP). */
+    provenance: string;
+    provenanceStrength: BoundaryProvenanceStrength;
+    weightClass: BoundaryInputWeightClass;
   };
 };
 
@@ -45,7 +63,10 @@ export type BoundaryInterceptSwarmGroup = {
   operation: string;
   target: string;
   reason: string;
+  payloadSummary?: string;
+  reviewContext?: BoundaryReviewContext;
   lawIds: string[];
+  bodyguardMoves: BodyguardMove[];
   memberCount: number;
   waitingCount: number;
   requestIds: string[];
@@ -55,9 +76,10 @@ export type BoundaryInterceptResult = {
   decision: BoundaryInterceptDecision;
   reason: string;
   lawIds: string[];
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
   requestId: string;
   actionKind: BoundaryActionKind;
+  tarpitActive?: boolean;
 };
 
 function mapFileOperation(operation: string): BoundaryActionKind {
@@ -134,13 +156,114 @@ export function mapInterceptToBoundaryAction(request: BoundaryInterceptRequest):
 export async function evaluateBoundaryIntercept(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryInterceptRequest;
-}): Promise<BoundaryInterceptResult> {
+}): Promise<BoundaryInterceptResult & { admissionState?: BoundaryAdmissionState }> {
+  // ── Admission Boundary: fires BEFORE adjudication, tokenization, or any
+  //    application-layer processing. Hostile inbound traffic is tarpitted here.
+  if (args.config.admissionConfig && args.request.admission) {
+    const { admission } = args.request;
+    const admState = args.config.admissionState ?? initialAdmissionState();
+
+    const { result: admResult, state: nextAdmState } = evaluateAdmission({
+      config: args.config.admissionConfig,
+      state: admState,
+      request: {
+        requestId: randomUUID(),
+        provenance: admission.provenance,
+        provenanceStrength: admission.provenanceStrength,
+        weightClass: admission.weightClass,
+        receivedAtMs: Date.now(),
+      },
+      nowMs: Date.now(),
+    });
+
+    if (admResult.decision === "tarpit") {
+      // Exactly-once ledger write for canyon promotion.
+      // Check ledgered flag before writing — prevents duplicate I/O under flood.
+      let finalAdmState = nextAdmState;
+      if (admResult.promoted && !nextAdmState.canyonProvenances[admission.provenance]?.ledgered) {
+        await appendBoundaryLedger("INGRESS_CANYON_STATE_WRITTEN", {
+          sessionId: args.config.session.sessionId,
+          actorId: args.config.session.actorId,
+          decision: "deny",
+          reason: admResult.reason,
+          lawIds: admResult.lawId ? [admResult.lawId] : [],
+          metadata: {
+            provenance: admission.provenance,
+            provenance_strength: admission.provenanceStrength,
+            dimension: admResult.dimension ?? "canyon",
+            promotion_kind: admResult.promotionKind ?? "density",
+          },
+          createdAt: new Date().toISOString(),
+        });
+        finalAdmState = markCanyonLedgered(nextAdmState, admission.provenance);
+      }
+
+      // Log tarpit (not every drop — only the first block per provenance per call)
+      await appendBoundaryLedger("INGRESS_PROVENANCE_BLOCKED", {
+        sessionId: args.config.session.sessionId,
+        actorId: args.config.session.actorId,
+        decision: "deny",
+        reason: admResult.reason,
+        lawIds: admResult.lawId ? [admResult.lawId] : [],
+        metadata: {
+          provenance: admission.provenance,
+          dimension: admResult.dimension ?? "canyon",
+        },
+        createdAt: new Date().toISOString(),
+      });
+
+      return {
+        // Tarpit — not a fast "deny". At socket layer this means: hold the connection,
+        // drop the payload, return nothing. The caller (intercept daemon/server) is
+        // responsible for applying actual socket-level tarpit behavior.
+        decision: "deny",
+        reason: admResult.reason,
+        lawIds: admResult.lawId ? [admResult.lawId] : ["BOUNDARY.ADMISSION.CANYON.01"],
+        bodyguardMoves: [],
+        requestId: randomUUID(),
+        actionKind: mapInterceptToBoundaryAction(args.request),
+        tarpitActive: true,
+        admissionState: finalAdmState,
+      };
+    }
+
+    // Admitted by admission boundary — continue to law/gravity adjudication
+    // Pass updated admission state back to caller via result
+    const actionKind = mapInterceptToBoundaryAction(args.request);
+    const boundaryRequest = createBoundaryActionRequest({
+      config: args.config,
+      actionKind,
+      target: args.request.target,
+      payloadSummary: args.request.payloadSummary,
+      reviewContext: args.request.reviewContext,
+      provenance: args.request.provenance,
+      flags: args.request.flags,
+    });
+
+    const adjudication = await adjudicateBoundaryRequest({
+      config: args.config,
+      request: boundaryRequest,
+    });
+
+    return {
+      decision: adjudication.result.decision,
+      reason: adjudication.result.reason,
+      lawIds: adjudication.result.triggeredLawIds,
+      bodyguardMoves: adjudication.bodyguardMoves,
+      requestId: adjudication.request.requestId,
+      actionKind: adjudication.request.actionKind,
+      admissionState: nextAdmState,
+    };
+  }
+
+  // No admission config — standard intercept path (no change to existing behavior)
   const actionKind = mapInterceptToBoundaryAction(args.request);
   const boundaryRequest = createBoundaryActionRequest({
     config: args.config,
     actionKind,
     target: args.request.target,
     payloadSummary: args.request.payloadSummary,
+    reviewContext: args.request.reviewContext,
     provenance: args.request.provenance,
     flags: args.request.flags,
   });
@@ -154,7 +277,7 @@ export async function evaluateBoundaryIntercept(args: {
     decision: adjudication.result.decision,
     reason: adjudication.result.reason,
     lawIds: adjudication.result.triggeredLawIds,
-    nslMoves: adjudication.nslMoves,
+    bodyguardMoves: adjudication.bodyguardMoves,
     requestId: adjudication.request.requestId,
     actionKind: adjudication.request.actionKind,
   };
@@ -165,8 +288,13 @@ export type BoundaryInterceptDaemonCommand =
   | { command: "restart"; requestId?: string; reason?: string }
   | { command: "shutdown"; requestId?: string }
   | { command: "swarm_status"; requestId?: string }
-  | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string }
-  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean };
+  | { command: "ingress_status"; requestId?: string }
+  | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string; asLaw?: boolean }
+  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean }
+  | { command: "ingress_allow_once"; requestId?: string; provenance: string; issuedBy?: string; reason?: string }
+  | { command: "ingress_allow_as_law"; requestId?: string; provenance: string; issuedBy?: string; reason?: string }
+  | { command: "ingress_deny_once"; requestId?: string; provenance: string; deniedBy?: string; reason?: string }
+  | { command: "ingress_deny_as_law"; requestId?: string; provenance: string; deniedBy?: string; reason?: string };
 
 export type BoundaryInterceptDaemonInput =
   | ({ requestId?: string } & BoundaryInterceptRequest)
@@ -203,13 +331,38 @@ export type BoundaryInterceptDaemonOutput =
         tracked: number;
       };
     }
+    | {
+      type: "ingress_status";
+      requestId: string;
+      provenances: Array<{
+        provenance: string;
+        state: "canyon" | "allow_once" | "deny_once" | "allow_as_law";
+        reason: string;
+        promotionKind?: "density" | "hard_ceiling";
+        operatorDisposition?: "deny_as_law";
+        seenAt: number;
+        ledgered?: boolean;
+        deniedCount: number;
+        allowOnceRemaining: number;
+        standingAllowed: boolean;
+      }>;
+    }
   | {
       type: "ack";
       requestId: string;
-      command: "restart" | "shutdown" | "swarm_approve" | "swarm_deny";
+      command:
+        | "restart"
+        | "shutdown"
+        | "swarm_approve"
+        | "swarm_deny"
+        | "ingress_allow_once"
+        | "ingress_allow_as_law"
+        | "ingress_deny_once"
+        | "ingress_deny_as_law";
       restartCount?: number;
       reason?: string;
       groupId?: string;
+      provenance?: string;
     }
   | {
       type: "error";

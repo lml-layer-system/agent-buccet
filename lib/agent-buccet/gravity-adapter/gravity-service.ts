@@ -2,7 +2,7 @@ import {
   getDefaultLawSkills,
   mapEnforcementResultToOutcome,
   type EnforcementResult,
-  type ExecutorOutcome,
+  type BodyguardOutcome,
   type GravityEvent,
   type GravityState,
   type LawSkill,
@@ -20,7 +20,7 @@ import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "../types.ts";
 
 export type BoundaryGravityEnforcement =
@@ -29,16 +29,16 @@ export type BoundaryGravityEnforcement =
       result: EnforcementResult;
       reason: string;
       lawIds: string[];
-      nslMoves: NslMove[];
+      bodyguardMoves: BodyguardMove[];
       request: BoundaryActionRequest;
       config: BoundaryRuntimeConfig;
     }
   | {
-      outcome: "nsl_grant_offer";
+      outcome: "bodyguard_grant_offer";
       result: EnforcementResult;
       reason: string;
       lawIds: string[];
-      nslMoves: NslMove[];
+      bodyguardMoves: BodyguardMove[];
       request: BoundaryActionRequest;
       config: BoundaryRuntimeConfig;
       applyGrant: (approval?: BoundaryApprovalRequest) => Promise<{ config: BoundaryRuntimeConfig; request: BoundaryActionRequest }>;
@@ -141,18 +141,18 @@ export function createBoundaryGravityService(skills: readonly LawSkill[] = getDe
         ts: Date.now(),
         proposal,
       });
-      const outcome: ExecutorOutcome = mapEnforcementResultToOutcome(result, proposal);
+      const outcome: BodyguardOutcome = mapEnforcementResultToOutcome(result, proposal);
       const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
 
-      if (outcome.outcome === "nsl_grant_offer") {
+      if (outcome.outcome === "bodyguard_grant_offer") {
         await ledgerBodyguardGrantOffer({ config, request, offer: outcome.grantOffer });
         const step = buildOpenAsLawBodyguardStep({ offer: outcome.grantOffer, request });
         return {
-          outcome: "nsl_grant_offer",
+          outcome: "bodyguard_grant_offer",
           result,
           reason: step.message,
           lawIds,
-          nslMoves: buildGravityBodyguardMoves(step),
+          bodyguardMoves: buildGravityBodyguardMoves(step),
           request,
           config,
           applyGrant: async (approval) => {
@@ -183,7 +183,7 @@ export function createBoundaryGravityService(skills: readonly LawSkill[] = getDe
         result,
         reason,
         lawIds,
-        nslMoves: [],
+        bodyguardMoves: [],
         request,
         config,
       };
