@@ -213,6 +213,64 @@ async function main() {
     console.log("T5 ok: standing deny bound a track corridor");
     console.log("T6 ok: denied corridor blocked repeat motion without re-prompt");
 
+    // ─── T7: closed segment on the same road blocks motion ──────────────────
+
+    const secretsDir = path.join(workspace, "secrets");
+    await fs.mkdir(secretsDir, { recursive: true });
+    const deniedSecret = path.join(secretsDir, "blocked.txt");
+    const denySecretProposal = bodyguard.enforceProposal({
+      actionKind: "fs.write",
+      target: deniedSecret,
+      payloadSummary: "write blocked secret",
+      provenance: "agent_inference",
+      execute: async () => "should-not-run",
+      successReason: "should not execute inside secret wall",
+    });
+
+    const secretPending = await waitForPending(() => bodyguard.approvals.listPending());
+    assert.ok(secretPending.length > 0, "T7 setup: expected approval request for secret wall");
+    bodyguard.approvals.denyAsLaw(secretPending[0].approvalId);
+    const deniedSecretResult = await denySecretProposal;
+    assert.equal(deniedSecretResult.allowed, false, "T7 setup: expected secret wall to be recorded");
+
+    const rootAllowed = path.join(workspace, "root-allowed.txt");
+    const rootProposal = bodyguard.enforceProposal({
+      actionKind: "fs.write",
+      target: rootAllowed,
+      payloadSummary: "write root file",
+      provenance: "agent_inference",
+      execute: async () => "root-allowed",
+      successReason: "wrote root-allowed.txt",
+    });
+
+    const rootPendingApprovals = await waitForPending(() => bodyguard.approvals.listPending());
+    assert.ok(rootPendingApprovals.length > 0, "T7 setup: expected approval for broad root corridor");
+    bodyguard.approvals.allowAsLaw(rootPendingApprovals[0].approvalId);
+    const rootResult = await rootProposal;
+    assert.equal(rootResult.allowed, true, "T7 setup: expected broad root corridor to be approved");
+
+    const deniedInsideBroadRoad = path.join(secretsDir, "still-blocked.txt");
+    const deniedInsideBroadRoadResult = await bodyguard.enforceProposal({
+      actionKind: "fs.write",
+      target: deniedInsideBroadRoad,
+      payloadSummary: "write secret after wall",
+      provenance: "agent_inference",
+      execute: async () => "should-not-run",
+      successReason: "should not execute through closed segment",
+    });
+    assert.equal(
+      deniedInsideBroadRoadResult.allowed,
+      false,
+      "T7: expected closed secret segment to block motion even when broad workspace corridor exists",
+    );
+    assert.equal(
+      deniedInsideBroadRoadResult.requiresApproval,
+      false,
+      "T7: expected closed secret segment to deny without re-prompt",
+    );
+
+    console.log("T7 ok: closed segment on the same road blocked motion inside broad approved corridor");
+
     // ─── Summary ─────────────────────────────────────────────────────────────
     console.log("");
     console.log("Agent Buccet UPL Tracks contract");
@@ -222,6 +280,7 @@ async function main() {
     console.log(`  T4 ledger event:    ${!!trackViolatedEvent}`);
     console.log(`  T5 deny track:      ${!!deniedTrackEntry.trackConstraint}`);
     console.log(`  T6 deny corridor:   ${!deniedSiblingResult.allowed}`);
+    console.log(`  T7 closed segment:  ${!deniedInsideBroadRoadResult.allowed}`);
 
     await fs.rm(tempRoot, { recursive: true, force: true });
   } finally {

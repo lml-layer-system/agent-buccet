@@ -4,7 +4,8 @@
  * Proves:
  * H1 — deny_all auto-denies every approval request (full enforcement stack)
  * H2 — allow_if_law_clear denies when a BOUNDARY.* safety law is in lawIds
- * H3 — allow_if_law_clear allows when no BOUNDARY.* law is in lawIds
+ * H3 — allow_if_law_clear allows only pure scope expansion
+ * H3b — allow_if_law_clear denies track-violation re-prompts
  * H4 — follow_upl applies existing UPL standing law; denies when no match
  * H5 — allow_all auto-allows every approval request (full enforcement stack)
  * H6 — headless denial is recorded in the ledger as APPROVAL_DENIED
@@ -138,8 +139,7 @@ async function main() {
       check("H2: allow_if_law_clear denies when BOUNDARY.FS.WRITE.01 in lawIds", choice === "deny_once");
     }
 
-    // ── H3: allow_if_law_clear — allows when no BOUNDARY.* in lawIds ─────────
-    // Direct handler unit test with a mock approval carrying only SCOPE.* law.
+    // ── H3: allow_if_law_clear — allows pure SCOPE.* expansion only ──────────
 
     {
       const sessionId = `headless-h3-${Date.now()}`;
@@ -154,6 +154,21 @@ async function main() {
       const decision = await handler(approval);
       const choice = typeof decision === "boolean" ? (decision ? "allow_once" : "deny_once") : (decision as { choice: string }).choice;
       check("H3: allow_if_law_clear allows when only SCOPE.GRANT.CLOSED in lawIds", choice === "allow_once");
+    }
+
+    {
+      const sessionId = `headless-h3b-${Date.now()}`;
+      const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
+      const session = store.getConfig().session;
+
+      const handler = createBoundaryHeadlessApprovalHandler({ mode: "allow_if_law_clear" });
+      const approval = makeMockApproval({
+        session,
+        lawIds: ["UPL-000123"], // track-wall / standing corridor id, not pure scope
+      });
+      const decision = await handler(approval);
+      const choice = typeof decision === "boolean" ? (decision ? "allow_once" : "deny_once") : (decision as { choice: string }).choice;
+      check("H3b: allow_if_law_clear denies track-wall approval requests", choice === "deny_once");
     }
 
     // ── H4: follow_upl — applies standing law; denies on no match ────────────
@@ -302,7 +317,8 @@ async function main() {
   console.log(`\nAgent Buccet headless approval contract`);
   console.log(`  H1 deny_all:           ${allPassed ? "auto-deny" : "FAILED"}`);
   console.log(`  H2 allow_if_law_clear: deny on BOUNDARY.* law`);
-  console.log(`  H3 allow_if_law_clear: allow on scope-only law`);
+  console.log(`  H3 allow_if_law_clear: allow on pure scope-only law`);
+  console.log(`  H3b allow_if_law_clear: deny on track-wall approval`);
   console.log(`  H4 follow_upl:         follow standing UPL law`);
   console.log(`  H5 allow_all:          auto-allow`);
   console.log(`  H6 ledger:             APPROVAL_DENIED recorded`);

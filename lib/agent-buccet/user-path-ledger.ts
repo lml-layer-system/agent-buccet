@@ -89,6 +89,13 @@ export function classifyUserPathDomain(request: BoundaryActionRequest): string {
 }
 
 async function resolveUserPathLedgerPath(): Promise<string> {
+  const explicitPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH?.trim();
+  if (explicitPath) {
+    const resolved = path.resolve(explicitPath);
+    await fs.mkdir(path.dirname(resolved), { recursive: true });
+    return resolved;
+  }
+
   const candidates = [
     path.join(moduleDir, "../../../", UPL_RELATIVE_PATH),
     path.join(moduleDir, "../", UPL_RELATIVE_PATH),
@@ -336,7 +343,16 @@ export function lookupUserPathTrackDecision(args: {
     return null;
   }
 
-  let lastViolation: { entry: BoundaryUplEntry; violation: string } | null = null;
+  type TrackMatch = {
+    entry: BoundaryUplEntry;
+    decision: "allow" | "deny" | "track_violation";
+    violation?: string;
+    specificity: 0 | 1 | 2;
+  };
+
+  const allowMatches: TrackMatch[] = [];
+  const denyMatches: TrackMatch[] = [];
+  const violations: TrackMatch[] = [];
 
   for (const entry of args.ledger.userApprovedLawPaths) {
     if (!isEntryActiveForSession(entry, args.session)) continue;
@@ -345,29 +361,73 @@ export function lookupUserPathTrackDecision(args: {
 
     const violation = checkTrackConstraint(entry.trackConstraint, args.request);
     if (!violation) {
-      // At least one approved corridor allows this request — admit immediately.
-      // Any-match: a passing corridor wins even if other corridors for the same
-      // kind would have violated (e.g. user approved both "npm" and "git" tracks).
-      return { entry, decision: "allow" };
+      allowMatches.push({
+        entry,
+        decision: "allow",
+        specificity: entrySpecificity(entry),
+      });
+      continue;
     }
-    // Remember this violation; keep scanning for a passing corridor.
-    lastViolation = { entry, violation };
+    violations.push({
+      entry,
+      decision: "track_violation",
+      violation,
+      specificity: entrySpecificity(entry),
+    });
   }
 
-  // Check denied-path tracks: a standing deny whose track covers this request
-  // overrides a violation and surfaces as an explicit deny.
   for (const entry of args.ledger.userDeniedLawPaths) {
     if (!isEntryActiveForSession(entry, args.session)) continue;
     if (!entry.trackConstraint) continue;
     if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
     const violation = checkTrackConstraint(entry.trackConstraint, args.request);
     if (!violation) {
-      return { entry, decision: "deny" };
+      denyMatches.push({
+        entry,
+        decision: "deny",
+        specificity: entrySpecificity(entry),
+      });
     }
   }
 
-  if (lastViolation) {
-    return { entry: lastViolation.entry, decision: "track_violation", violation: lastViolation.violation };
+  const rankTrackMatch = (left: TrackMatch, right: TrackMatch) => {
+    if (right.specificity !== left.specificity) {
+      return right.specificity - left.specificity;
+    }
+    if (left.entry.createdAt !== right.entry.createdAt) {
+      return right.entry.createdAt.localeCompare(left.entry.createdAt);
+    }
+    return left.entry.id.localeCompare(right.entry.id);
+  };
+
+  denyMatches.sort(rankTrackMatch);
+  allowMatches.sort(rankTrackMatch);
+  violations.sort(rankTrackMatch);
+
+  const bestDeny = denyMatches[0];
+  const bestAllow = allowMatches[0];
+
+  if (bestDeny && bestAllow) {
+    // Same road: a closed segment must wall the request point if it applies
+    // at equal-or-greater specificity than an open segment.
+    if (bestDeny.specificity >= bestAllow.specificity) {
+      return { entry: bestDeny.entry, decision: "deny" };
+    }
+    return { entry: bestAllow.entry, decision: "allow" };
+  }
+
+  if (bestDeny) {
+    return { entry: bestDeny.entry, decision: "deny" };
+  }
+  if (bestAllow) {
+    return { entry: bestAllow.entry, decision: "allow" };
+  }
+  if (violations[0]) {
+    return {
+      entry: violations[0].entry,
+      decision: "track_violation",
+      violation: violations[0].violation,
+    };
   }
   return null;
 }

@@ -61,14 +61,17 @@ async function main() {
   console.log(`\n${C.bold}${C.cyan}Agent Buccet — Live Demo${C.reset}`);
   console.log(`${C.dim}Mechanical boundary enforcement for AI agents${C.reset}`);
   console.log(`${C.dim}${line()}${C.reset}`);
-
-  // Preserve existing UPL ledger state
-  const originalLedger = await loadUserPathLedger();
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-demo-"));
+  const previousLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+  process.env.AGENT_BUCCET_UPL_LEDGER_PATH = path.join(
+    tempRoot,
+    "data",
+    "agent-buccet-law-foundation",
+    "user-path-ledger.json",
+  );
 
   try {
     await saveUserPathLedger({ specVersion: 1, userApprovedLawPaths: [], userDeniedLawPaths: [] });
-
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-demo-"));
     const workspace = path.join(tempRoot, "workspace");
     const subdir = path.join(workspace, "outputs");
     const outsideDir = path.join(tempRoot, "outside");
@@ -281,7 +284,11 @@ async function main() {
     await fs.rm(tempRoot, { recursive: true, force: true });
 
   } finally {
-    await saveUserPathLedger(originalLedger);
+    if (previousLedgerPath === undefined) {
+      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+    } else {
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousLedgerPath;
+    }
   }
 }
 

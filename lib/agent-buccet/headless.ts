@@ -79,13 +79,13 @@ export function createBoundaryHeadlessApprovalHandler(
         // the action is structurally legal but the target is outside current grants.
         // A headless agent can safely allow these to expand scope as the agent operates.
         //
-        // If no BOUNDARY.* law fired → this is a pure scope expansion → allow once.
-        // If any BOUNDARY.* law fired → safety motivation → deny.
-        const safetyLawId = approval.lawIds.find((id) => id.startsWith("BOUNDARY."));
-        if (safetyLawId) {
+        // Only pure scope-expansion prompts are auto-allowed here.
+        // Track-wall collisions and other non-scope approval reasons must deny.
+        const scopeOnly = approval.lawIds.length > 0 && approval.lawIds.every((id) => id.startsWith("SCOPE."));
+        if (!scopeOnly) {
           return {
             choice: "deny_once",
-            notes: `headless:allow_if_law_clear — safety law: ${safetyLawId}`,
+            notes: "headless:allow_if_law_clear — non-scope approval required",
           };
         }
         return {
