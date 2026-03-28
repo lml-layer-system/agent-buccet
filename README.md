@@ -10,11 +10,19 @@ Buccet enforces, at the exact action boundaries where agent behavior becomes con
 ## 5-Minute Quickstart
 
 ```bash
-# Install
-npm install agent-buccet
+# From this repo
+npm install
 
 # See it work
 npm run demo:agent-buccet
+```
+
+Packaged release surface:
+
+```bash
+npm run package:agent-buccet
+sh dist/releases/install.sh
+buccet status
 ```
 
 Or from source:
@@ -163,6 +171,7 @@ To see exactly what Agent Buccet is enforcing, see [`LAW_REFERENCE.md`](docs/age
 ## Hosted Install
 
 Hosted-ready release assets are generated under `dist/releases/`.
+The standalone npm publish surface is generated under `dist/agent-buccet/`.
 
 Example hosted flow:
 

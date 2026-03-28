@@ -126,17 +126,6 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
     }),
   },
   {
-    lawId: "BOUNDARY.FS.WRITE.01",
-    description: "Filesystem mutation actions require explicit approval.",
-    appliesTo: ["fs.write", "fs.append", "fs.mkdir", "fs.move"],
-    evaluate: () => ({
-      decision: "require_approval",
-      reason: "filesystem mutation requires approval",
-      triggeredLawIds: ["BOUNDARY.FS.WRITE.01"],
-      requiresApproval: true,
-    }),
-  },
-  {
     lawId: "BOUNDARY.EXEC.01",
     description: "Shell execution is denied by default.",
     appliesTo: ["tool.exec"],

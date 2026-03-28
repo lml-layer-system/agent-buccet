@@ -114,11 +114,40 @@ async function readPackageVersion(): Promise<string> {
 }
 
 async function writeStandalonePackageJson() {
+  const version = await readPackageVersion();
   const pkg = {
     name: "agent-buccet",
-    version: "0.1.0",
-    private: true,
+    version,
+    description: "Persistent law and scope enforcement for AI agents. Agents can propose. They cannot authorize.",
+    keywords: [
+      "ai-agents",
+      "safety",
+      "containment",
+      "boundary",
+      "llm",
+      "policy",
+      "audit",
+      "ledger",
+      "enforcement",
+      "authorization",
+    ],
+    license: "Apache-2.0",
+    repository: {
+      type: "git",
+      url: "https://github.com/lml-layer-system/agent-buccet",
+    },
+    homepage: "https://github.com/lml-layer-system/agent-buccet#readme",
+    bugs: {
+      url: "https://github.com/lml-layer-system/agent-buccet/issues",
+    },
     type: "module",
+    main: "./src/index.ts",
+    exports: {
+      ".": "./src/index.ts",
+    },
+    bin: {
+      buccet: "./bin/buccet.ts",
+    },
     scripts: {
       "demo:agent-buccet": "node examples/agent-buccet-e2e.ts",
       "demo:agent-buccet:gravity": "node examples/agent-buccet-gravity-e2e.ts",
