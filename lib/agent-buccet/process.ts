@@ -38,6 +38,14 @@ const DEFAULT_BLOCKED_ENV_VARS = [
   "SSH_AUTH_SOCK",
 ];
 
+const REQUIRED_HOOK_ENV_VARS = new Set([
+  "BUCCET_SOCKET_PATH",
+  "BUCCET_BRAIN_STATUS_PATH",
+  "LD_PRELOAD",
+  "DYLD_INSERT_LIBRARIES",
+  "DYLD_FORCE_FLAT_NAMESPACE",
+]);
+
 export type BoundaryPreparedProcess = {
   commandTarget: string;
   cwd: string;
@@ -97,6 +105,9 @@ function shouldKeepEnvVar(args: {
   policy?: BoundaryProcessPolicy;
 }): boolean {
   const { key, policy } = args;
+  if (REQUIRED_HOOK_ENV_VARS.has(key)) {
+    return true;
+  }
   if ((policy?.blockedEnvVars ?? DEFAULT_BLOCKED_ENV_VARS).includes(key)) {
     return false;
   }

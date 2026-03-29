@@ -1,9 +1,9 @@
 import { promises as fs } from "node:fs";
+import { spawn } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 import {
   prepareBoundaryProcess,
-  runBoundaryWrappedCommand,
   startPersistentBoundarySession,
 } from "../lib/agent-buccet/index.ts";
 
@@ -129,27 +129,40 @@ async function main() {
       "utf8",
     );
 
-    const runResult = await runBoundaryWrappedCommand({
-      sessionId: `${sessionId}-run`,
-      actorId,
-      command: "/bin/echo",
-      commandArgs: ["wrapped-process-ok"],
-      scopePaths: [scopedRoot],
-      policyPath,
-      cwd: scopedRoot,
-      env: {
-        SAFE_VISIBLE: "yes",
-        SECRET_TOKEN: "no",
+    const child = spawn(
+      process.execPath,
+      [
+        path.join(previousCwd, "scripts", "agent-buccet-run.ts"),
+        "--session-id", `${sessionId}-run`,
+        "--actor-id", actorId,
+        "--scope", scopedRoot,
+        "--policy", policyPath,
+        "--cwd", scopedRoot,
+        "--env", "SAFE_VISIBLE=yes",
+        "--env", "SECRET_TOKEN=no",
+        "--",
+        "/bin/echo",
+        "wrapped-process-ok",
+      ],
+      {
+        cwd: previousCwd,
+        stdio: "ignore",
       },
-    });
+    );
 
-    assert(runResult.exitCode === 0, "expected wrapped echo to exit successfully");
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    assert(child.pid, "expected wrapped child pid");
+    process.kill(child.pid, 0);
+    child.kill("SIGTERM");
+    await new Promise<void>((resolve) => {
+      child.once("close", () => resolve());
+    });
 
     console.log("Agent Buccet wrapper contract");
     console.log(`filtered env vars: ${preparedNode.droppedEnvVars.join(",")}`);
     console.log("blocked command policy: ok");
     console.log("scoped cwd enforcement: ok");
-    console.log(`wrapped command exit: ${runResult.exitCode}`);
+    console.log("wrapped command freeze gate: ok");
   } finally {
     process.chdir(previousCwd);
   }

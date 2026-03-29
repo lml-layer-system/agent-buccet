@@ -165,7 +165,6 @@ function resolveHomePaths(homePath: string) {
     launcherPath: process.env.AGENT_BUCCET_LAUNCHER_PATH ?? path.join(os.homedir(), ".local", "bin", "buccet"),
     runDir,
     interceptSocketPath: shortSocketPath(homePath, "intercept"),
-    gravityBridgeSocketPath: shortSocketPath(homePath, "bridge"),
     brainStatusPath: path.join(runDir, "brain-status.json"),
     hookPidPath: path.join(runDir, "hook-daemon.pid"),
     installedNativeSourceDir,
@@ -374,7 +373,7 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
     sessionId: hookState?.sessionId ?? args.config?.sessionId,
     actorId: hookState?.actorId ?? args.config?.actorId,
     interceptSocketPath: hookState?.interceptSocketPath ?? args.home.interceptSocketPath,
-    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
+    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath,
     brainStatusPath: hookState?.brainStatusPath ?? args.home.brainStatusPath,
     nativeLibraryPath: args.home.nativeLibraryPath,
     restarts: hookState?.restartCount,
@@ -505,7 +504,6 @@ async function handleInit(rest: string[]) {
           "--actor-id", nextConfig.actorId,
           "--sessions-dir", home.sessionsDir,
           "--intercept-socket", home.interceptSocketPath,
-          "--bridge-socket", home.gravityBridgeSocketPath,
           "--brain-status-file", home.brainStatusPath,
           "--pid-file", home.hookPidPath,
         ], {
@@ -1281,11 +1279,9 @@ async function handleHook(rest: string[]) {
       home.sessionsDir,
       "--intercept-socket",
       home.interceptSocketPath,
-      "--bridge-socket",
-      home.gravityBridgeSocketPath,
-      "--brain-status-file",
-      home.brainStatusPath,
-      "--pid-file",
+          "--brain-status-file",
+          home.brainStatusPath,
+          "--pid-file",
       home.hookPidPath,
     ], {
       cwd: home.homePath,
@@ -1298,7 +1294,6 @@ async function handleHook(rest: string[]) {
     });
     child.unref();
     console.log(`hook daemon started`);
-    console.log(`bridge socket: ${home.gravityBridgeSocketPath}`);
     return;
   }
 
@@ -1327,7 +1322,6 @@ async function handleHook(rest: string[]) {
       console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
       console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
       console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
-      console.log(`bridge socket: ${payload.gravityBridgeSocketPath}`);
       console.log(`brain status: ${payload.brainStatusPath}`);
       console.log(`native library: ${payload.nativeLibraryPath}`);
       if (!watch && !payload.running) {
@@ -1358,7 +1352,7 @@ async function handleHook(rest: string[]) {
     const asJson = rest.includes("--json");
     const isMac = process.platform === "darwin";
     const payload = {
-      BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+      BUCCET_SOCKET_PATH: home.interceptSocketPath,
       BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
       ...(isMac
         ? {
@@ -1409,7 +1403,7 @@ async function handleHook(rest: string[]) {
     const env = {
       ...process.env,
       AGENT_BUCCET_HOME: home.homePath,
-      BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+      BUCCET_SOCKET_PATH: home.interceptSocketPath,
       BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
       ...(process.platform === "darwin"
         ? {

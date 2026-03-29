@@ -13,6 +13,18 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const result = await fn();
+    if (result !== null) {
+      return result;
+    }
+    await wait(stepMs);
+  }
+  throw new Error(`timed out after ${timeoutMs}ms`);
+}
+
 async function main() {
   console.log("Agent Buccet system intercept contract");
 
@@ -48,7 +60,7 @@ async function main() {
   assert.equal(status.type, "status");
   console.log(`status transport: ${status.type}`);
 
-  const deleteDecision = await evaluateSystemInterceptEvent({
+  const deleteDecisionPromise = evaluateSystemInterceptEvent({
     target: { socketPath },
     event: {
       requestId: "file-delete-1",
@@ -59,8 +71,38 @@ async function main() {
       cwd,
     },
   });
+
+  const pendingGroupId = await waitFor(async () => {
+    const swarmStatus = await sendBoundaryInterceptServerInput({
+      target: { socketPath },
+      input: { command: "swarm_status", requestId: "swarm-status-1" },
+    });
+    if (swarmStatus.type !== "swarm_status") {
+      return null;
+    }
+    const pending = swarmStatus.groups.find((group) =>
+      group.state === "waiting"
+      && group.actionClass === "file"
+      && group.operation === "delete"
+      && group.target === "/tmp/outside-scope.txt"
+    );
+    return pending?.groupId ?? null;
+  }, 5_000, 100);
+
+  const deleteDenied = await sendBoundaryInterceptServerInput({
+    target: { socketPath },
+    input: {
+      command: "swarm_deny",
+      groupId: pendingGroupId,
+      requestId: "swarm-deny-1",
+      reason: "system-intercept-contract deny",
+    },
+  });
+  assert.equal(deleteDenied.type, "ack");
+
+  const deleteDecision = await deleteDecisionPromise;
   assert.equal(deleteDecision.type, "decision");
-  assert.equal(deleteDecision.decision, "require_approval");
+  assert.equal(deleteDecision.decision, "deny");
   console.log(`file delete decision: ${deleteDecision.decision}`);
 
   const credentialDecision = await evaluateSystemInterceptEvent({

@@ -14,6 +14,7 @@ import {
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
+  type BoundaryInterceptRequest,
   appendBoundaryLedger,
 } from "../lib/agent-buccet/index.ts";
 
@@ -26,6 +27,19 @@ type ParsedArgs = {
   host: string;
   port?: number;
   socketPath?: string;
+};
+
+type GravitySocketPayload = {
+  action: string;
+  target: string;
+  pid?: string;
+  extra?: string;
+};
+
+type GravityPayloadHints = {
+  payloadSummary?: string;
+  provenance?: BoundaryInterceptRequest["provenance"];
+  flags?: BoundaryInterceptRequest["flags"];
 };
 
 function usage(): never {
@@ -116,8 +130,235 @@ function parseArgs(argv: string[]): ParsedArgs {
   };
 }
 
-function writeOutput(socket: net.Socket, output: BoundaryInterceptDaemonOutput) {
+function writeJsonOutput(socket: net.Socket, output: BoundaryInterceptDaemonOutput) {
   socket.write(`${JSON.stringify(output)}\n`);
+}
+
+function writeGravityDecision(socket: net.Socket, output: BoundaryInterceptDaemonOutput | Error) {
+  if (output instanceof Error) {
+    socket.write("0");
+    return;
+  }
+  socket.write(output.type === "decision" && output.decision === "allow" ? "1" : "0");
+}
+
+function parseGravityPayload(line: string): GravitySocketPayload {
+  const parts = line.trim().split("|");
+  if (parts.length < 3) {
+    throw new Error("malformed gravity payload");
+  }
+  return {
+    action: parts[0] ?? "",
+    target: parts[1] ?? "",
+    pid: parts[2] ?? "",
+    extra: parts.slice(3).join("|"),
+  };
+}
+
+function parseGravityPayloadHints(payload: GravitySocketPayload): GravityPayloadHints {
+  const flags: NonNullable<BoundaryInterceptRequest["flags"]> = {};
+  const extraTokens = (payload.extra ?? "")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const payloadSummaryTokens: string[] = [];
+  let provenance: BoundaryInterceptRequest["provenance"] | undefined;
+
+  for (const token of extraTokens) {
+    if (token.startsWith("prov=")) {
+      provenance = token.slice("prov=".length) as BoundaryInterceptRequest["provenance"];
+      continue;
+    }
+    if (token.startsWith("flags=")) {
+      for (const flagName of token.slice("flags=".length).split(",")) {
+        if (flagName === "authorityClaimed") flags.authorityClaimed = true;
+        if (flagName === "claimsCompleteCoverage") flags.claimsCompleteCoverage = true;
+        if (flagName === "requestsScopeExpansion") flags.requestsScopeExpansion = true;
+        if (flagName === "requestsLawMutation") flags.requestsLawMutation = true;
+        if (flagName === "requestsSessionRevival") flags.requestsSessionRevival = true;
+        if (flagName === "requestsLedgerBypass") flags.requestsLedgerBypass = true;
+      }
+      continue;
+    }
+    payloadSummaryTokens.push(token);
+  }
+
+  return {
+    payloadSummary: [
+      payload.pid ? `pid=${payload.pid}` : "",
+      payloadSummaryTokens.join(" "),
+    ].filter(Boolean).join(" "),
+    provenance,
+    flags: Object.keys(flags).length > 0 ? flags : undefined,
+  };
+}
+
+function mapGravityPayloadToInterceptRequest(payload: GravitySocketPayload): BoundaryInterceptRequest {
+  const hints = parseGravityPayloadHints(payload);
+
+  switch (payload.action) {
+    case "read":
+      return {
+        actionClass: "file",
+        operation: "read",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "write":
+    case "create":
+    case "chmod":
+    case "chown":
+      return {
+        actionClass: "file",
+        operation: "write",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "delete":
+    case "rmdir":
+      return {
+        actionClass: "file",
+        operation: "delete",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "mkdir":
+      return {
+        actionClass: "file",
+        operation: "mkdir",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "rename":
+    case "link":
+    case "symlink":
+      return {
+        actionClass: "file",
+        operation: "move",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "exec":
+      return {
+        actionClass: "shell",
+        operation: "exec",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "database.query":
+      return {
+        actionClass: "database",
+        operation: "query",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "database.insert":
+      return {
+        actionClass: "database",
+        operation: "insert",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "database.update":
+      return {
+        actionClass: "database",
+        operation: "update",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "database.delete":
+      return {
+        actionClass: "database",
+        operation: "delete",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "system.env.read":
+      return {
+        actionClass: "system",
+        operation: "env.read",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "system.env.write":
+      return {
+        actionClass: "system",
+        operation: "env.write",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "system.config.read":
+      return {
+        actionClass: "system",
+        operation: "config.read",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "system.config.write":
+      return {
+        actionClass: "system",
+        operation: "config.write",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "system.credential.read":
+      return {
+        actionClass: "system",
+        operation: "credential.read",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "system.credential.use":
+      return {
+        actionClass: "system",
+        operation: "credential.use",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    case "connect":
+      return {
+        actionClass: "network",
+        operation: "send",
+        target: payload.target,
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      };
+    default:
+      throw new Error(`unsupported gravity action: ${payload.action}`);
+  }
 }
 
 async function main() {
@@ -161,18 +402,16 @@ async function main() {
           continue;
         }
 
-        let parsed: BoundaryInterceptDaemonInput;
+        let parsed: BoundaryInterceptDaemonInput | BoundaryInterceptRequest;
         let requestId = "";
+        let rawGravityClient = false;
         try {
           parsed = JSON.parse(trimmed) as BoundaryInterceptDaemonInput;
           requestId = daemonRequestId(parsed.requestId);
-        } catch (error) {
-          writeOutput(socket, {
-            type: "error",
-            requestId: daemonRequestId(),
-            error: error instanceof Error ? error.message : "invalid daemon input",
-          });
-          continue;
+        } catch {
+          rawGravityClient = true;
+          parsed = mapGravityPayloadToInterceptRequest(parseGravityPayload(trimmed));
+          requestId = daemonRequestId();
         }
 
         try {
@@ -180,7 +419,7 @@ async function main() {
             if (parsed.command === "status") {
               const status = supervisor.getStatus();
               const swarmStatus = swarm.listGroups();
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "status",
                 requestId,
                 ...status,
@@ -190,7 +429,7 @@ async function main() {
             }
             if (parsed.command === "swarm_status") {
               const swarmStatus = swarm.listGroups();
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "swarm_status",
                 requestId,
                 groups: swarmStatus.groups,
@@ -264,7 +503,7 @@ async function main() {
                 }));
               const provenances = [...canyonEntries, ...allowOnceEntries, ...denyOnceEntries, ...allowLawEntries]
                 .sort((left, right) => right.seenAt - left.seenAt);
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "ingress_status",
                 requestId,
                 provenances,
@@ -274,7 +513,7 @@ async function main() {
             if (parsed.command === "restart") {
               await supervisor.restart(parsed.reason ?? "server command restart");
               const status = supervisor.getStatus();
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "ack",
                 requestId,
                 command: "restart",
@@ -291,14 +530,14 @@ async function main() {
                 asLaw: parsed.asLaw,
               });
               if (!approved) {
-                writeOutput(socket, {
+                writeJsonOutput(socket, {
                   type: "error",
                   requestId,
                   error: `unknown swarm group: ${parsed.groupId}`,
                 });
                 continue;
               }
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "ack",
                 requestId,
                 command: "swarm_approve",
@@ -315,14 +554,14 @@ async function main() {
                 asLaw: parsed.asLaw,
               });
               if (!denied) {
-                writeOutput(socket, {
+                writeJsonOutput(socket, {
                   type: "error",
                   requestId,
                   error: `unknown swarm group: ${parsed.groupId}`,
                 });
                 continue;
               }
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "ack",
                 requestId,
                 command: "swarm_deny",
@@ -340,7 +579,7 @@ async function main() {
               const current = store.getConfig();
               const state = current.admissionState;
               if (!state) {
-                writeOutput(socket, {
+                writeJsonOutput(socket, {
                   type: "error",
                   requestId,
                   error: "admission boundary is not active",
@@ -405,7 +644,7 @@ async function main() {
               });
               await store.persist();
 
-              writeOutput(socket, {
+              writeJsonOutput(socket, {
                 type: "ack",
                 requestId,
                 command: parsed.command,
@@ -415,7 +654,7 @@ async function main() {
               continue;
             }
             await supervisor.stop();
-            writeOutput(socket, {
+            writeJsonOutput(socket, {
               type: "ack",
               requestId,
               command: "shutdown",
@@ -434,18 +673,28 @@ async function main() {
             continue;
           }
 
-          writeOutput(socket, {
+          const output: BoundaryInterceptDaemonOutput = {
             type: "decision",
             ...result,
             requestId,
             internalRequestId: result.requestId,
-          });
+          };
+          if (rawGravityClient) {
+            writeGravityDecision(socket, output);
+            continue;
+          }
+          writeJsonOutput(socket, output);
         } catch (error) {
-          writeOutput(socket, {
+          const output: BoundaryInterceptDaemonOutput = {
             type: "error",
             requestId,
             error: error instanceof Error ? error.message : "server evaluation failed",
-          });
+          };
+          if (rawGravityClient) {
+            writeGravityDecision(socket, error instanceof Error ? error : new Error(output.error));
+            continue;
+          }
+          writeJsonOutput(socket, output);
         }
       }
     })().catch((error) => {
