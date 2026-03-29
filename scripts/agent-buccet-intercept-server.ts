@@ -406,8 +406,9 @@ async function main() {
         let requestId = "";
         let rawGravityClient = false;
         try {
-          parsed = JSON.parse(trimmed) as BoundaryInterceptDaemonInput;
-          requestId = daemonRequestId(parsed.requestId);
+          const daemonInput = JSON.parse(trimmed) as BoundaryInterceptDaemonInput;
+          parsed = daemonInput;
+          requestId = daemonRequestId(daemonInput.requestId);
         } catch {
           rawGravityClient = true;
           parsed = mapGravityPayloadToInterceptRequest(parseGravityPayload(trimmed));
