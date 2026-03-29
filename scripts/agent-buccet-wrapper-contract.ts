@@ -36,6 +36,7 @@ async function main() {
     const sessionId = `abwc-${runId}`;
     const actorId = "user:wrapper-contract";
     const demoRoot = path.join(process.cwd(), "data", "abwc", sessionId);
+    const interceptSocketPath = path.join(tempRoot, "wrapper-intercept.sock");
     const scopedRoot = path.join(demoRoot, "workspace");
     const outsideRoot = path.join(demoRoot, "outside");
     await fs.mkdir(scopedRoot, { recursive: true });
@@ -129,6 +130,34 @@ async function main() {
       "utf8",
     );
 
+    const interceptServer = spawn(
+      process.execPath,
+      [
+        path.join(previousCwd, "scripts", "agent-buccet-intercept-server.ts"),
+        "--session-id", `${sessionId}-intercept`,
+        "--actor-id", actorId,
+        "--socket", interceptSocketPath,
+      ],
+      {
+        cwd: previousCwd,
+        stdio: ["ignore", "ignore", "pipe"],
+      },
+    );
+    let interceptReady = false;
+    let interceptStderr = "";
+    interceptServer.stderr.setEncoding("utf8");
+    interceptServer.stderr.on("data", (chunk) => {
+      interceptStderr += chunk;
+      if (chunk.includes("intercept server running")) {
+        interceptReady = true;
+      }
+    });
+
+    for (let attempt = 0; attempt < 50 && !interceptReady; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    assert(interceptReady, `expected intercept server ready\n${interceptStderr}`);
+
     const child = spawn(
       process.execPath,
       [
@@ -147,6 +176,10 @@ async function main() {
       {
         cwd: previousCwd,
         stdio: "ignore",
+        env: {
+          ...process.env,
+          BUCCET_SOCKET_PATH: interceptSocketPath,
+        },
       },
     );
 
@@ -156,6 +189,10 @@ async function main() {
     child.kill("SIGTERM");
     await new Promise<void>((resolve) => {
       child.once("close", () => resolve());
+    });
+    interceptServer.kill("SIGTERM");
+    await new Promise<void>((resolve) => {
+      interceptServer.once("close", () => resolve());
     });
 
     console.log("Agent Buccet wrapper contract");

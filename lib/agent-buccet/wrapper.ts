@@ -4,6 +4,7 @@ import { enableBodyguardControl, enforceBoundaryProposal } from "./bodyguard.ts"
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
 import { loadBoundaryPolicyConfig, applyBoundaryPolicyConfig } from "./policy.ts";
 import { prepareBoundaryProcess, runBoundaryProcess } from "./process.ts";
+import { sendBoundaryInterceptServerInput } from "./system-intercept.ts";
 import { createPersistentBoundaryRuntimeStore, restoreBoundaryRuntimeStore } from "./store.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import type {
@@ -77,6 +78,25 @@ async function getOrCreateStore(args: {
   });
 }
 
+async function assertDirectInterceptPathActive() {
+  const socketPath = process.env.BUCCET_SOCKET_PATH;
+  if (!socketPath) {
+    throw new Error("direct intercept path is not active: BUCCET_SOCKET_PATH is missing");
+  }
+
+  const status = await sendBoundaryInterceptServerInput({
+    target: { socketPath },
+    input: { command: "status", requestId: "wrapper-strict-path-status" },
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`direct intercept path is not active: ${message}`);
+  });
+
+  if (status.type !== "status" || status.running !== true) {
+    throw new Error("direct intercept path is not active: intercept server did not report ready");
+  }
+}
+
 export async function runBoundaryWrappedCommand(args: {
   sessionId: string;
   actorId: string;
@@ -133,6 +153,7 @@ export async function runBoundaryWrappedCommand(args: {
   });
 
   const config = enableBodyguardControl(store.getConfig());
+  await assertDirectInterceptPathActive();
 
   try {
     await prepareBoundaryProcess({
