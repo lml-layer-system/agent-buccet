@@ -14,7 +14,7 @@ export type BoundaryGravityResult<T = unknown> = {
   executed: boolean;
   requiresApproval: boolean;
   reason: string;
-  nslMoves: Awaited<ReturnType<typeof enforceBoundaryProposal<T>>>["nslMoves"];
+  bodyguardMoves: Awaited<ReturnType<typeof enforceBoundaryProposal<T>>>["bodyguardMoves"];
   value?: T;
 };
 
@@ -201,7 +201,7 @@ export async function runBoundaryGravityLoop(deps: BoundaryGravityDeps): Promise
         executed: result.executed,
         requiresApproval: result.requiresApproval,
         reason: result.reason,
-        nslMoves: result.nslMoves,
+        bodyguardMoves: result.bodyguardMoves,
         value: result.value,
       });
     } catch (error) {

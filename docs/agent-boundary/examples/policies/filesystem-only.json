@@ -19,12 +19,12 @@
     }
   ],
   "laws": [
-    "META.TRUST.01",
-    "META.AUTHORITY.01",
-    "META.SCOPE.01",
-    "META.LAW.01",
-    "META.SESSION.01",
-    "META.LEDGER.01",
+    "TIME.TRUST.01",
+    "TIME.AUTHORITY.01",
+    "TIME.SCOPE.01",
+    "TIME.LAW.01",
+    "TIME.SESSION.01",
+    "TIME.LEDGER.01",
     "BOUNDARY.DELETE.01",
     "BOUNDARY.EXEC.01",
     "BOUNDARY.NETWORK.01"

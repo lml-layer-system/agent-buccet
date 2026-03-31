@@ -15,12 +15,41 @@ else
   MANIFEST_URL="$BASE_URL/latest.json"
 fi
 
-for command in node curl tar; do
+for command in curl tar; do
   if ! command -v "$command" >/dev/null 2>&1; then
     echo "Agent Buccet hosted install requires $command on PATH." >&2
     exit 1
   fi
 done
+
+# Detect a JS runtime: prefer bun, fall back to node, auto-install bun if neither found.
+detect_or_install_runtime() {
+  if command -v bun >/dev/null 2>&1; then
+    echo "bun"
+    return 0
+  fi
+  if command -v node >/dev/null 2>&1; then
+    echo "node"
+    return 0
+  fi
+  # Neither found — install bun automatically (single static binary, no root needed).
+  echo "Agent Buccet: neither bun nor node found. Installing bun automatically..." >&2
+  if ! curl -fsSL https://bun.sh/install | sh >/dev/null 2>&1; then
+    echo "Agent Buccet: automatic bun install failed. Install node or bun and retry." >&2
+    exit 1
+  fi
+  # Add bun to PATH for the rest of this session.
+  BUN_BIN="$HOME/.bun/bin"
+  if [ -x "$BUN_BIN/bun" ]; then
+    export PATH="$BUN_BIN:$PATH"
+    echo "bun"
+    return 0
+  fi
+  echo "Agent Buccet: bun installed but not found at $BUN_BIN/bun. Add ~/.bun/bin to PATH and retry." >&2
+  exit 1
+}
+
+BUCCET_RUNTIME=$(detect_or_install_runtime)
 
 TMP_ROOT=$(mktemp -d "${TMPDIR:-/tmp}/agent-buccet-hosted-install.XXXXXX")
 cleanup() {
@@ -33,19 +62,19 @@ ARCHIVE_PATH="$TMP_ROOT/agent-buccet.tar.gz"
 
 curl -fsSL "$MANIFEST_URL" -o "$MANIFEST_PATH"
 
-VERSION=$(node -e '
+VERSION=$("$BUCCET_RUNTIME" -e '
   const fs = require("node:fs");
   const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   process.stdout.write(manifest.version || "");
 ' "$MANIFEST_PATH")
 
-SHA256=$(node -e '
+SHA256=$("$BUCCET_RUNTIME" -e '
   const fs = require("node:fs");
   const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
   process.stdout.write(manifest.sha256 || "");
 ' "$MANIFEST_PATH")
 
-ARCHIVE_URL=$(node -e '
+ARCHIVE_URL=$("$BUCCET_RUNTIME" -e '
   const fs = require("node:fs");
   const manifestUrl = process.argv[2];
   const manifest = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
@@ -57,7 +86,7 @@ ARCHIVE_URL=$(node -e '
 
 curl -fsSL "$ARCHIVE_URL" -o "$ARCHIVE_PATH"
 
-node -e '
+"$BUCCET_RUNTIME" -e '
   const fs = require("node:fs");
   const crypto = require("node:crypto");
   const expected = process.argv[2];
@@ -76,7 +105,7 @@ if [ ! -f "$PACKAGE_ROOT/install.sh" ]; then
   exit 1
 fi
 
-AGENT_BUCCET_HOME="$BUCCET_HOME" AGENT_BUCCET_LAUNCHER_DIR="$LAUNCHER_DIR" sh "$PACKAGE_ROOT/install.sh"
+AGENT_BUCCET_HOME="$BUCCET_HOME" AGENT_BUCCET_LAUNCHER_DIR="$LAUNCHER_DIR" AGENT_BUCCET_RUNTIME="$BUCCET_RUNTIME" sh "$PACKAGE_ROOT/install.sh"
 
 if [ "$AUTO_INIT" = "1" ]; then
   LAUNCHER_PATH="$LAUNCHER_DIR/buccet"

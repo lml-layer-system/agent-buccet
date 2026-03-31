@@ -56,7 +56,7 @@ Prevents:
 - orchestration layers quietly becoming permission systems
 
 Lawful recovery:
-- boundary executor decides
+- Bodyguard decides
 
 ### `BUCCET.BASE.04` Opened Paths Become Law
 
@@ -100,11 +100,11 @@ Lawful recovery:
 - review ledger
 - re-establish lawful path through NSL/approval
 
-## Defensive Meta Laws
+## Defensive Meta Laws (TIME body)
 
-These are the public anti-injection / anti-authority-drift laws.
+These are the public anti-injection / anti-authority-drift laws from the transferred time law body.
 
-### `META.TRUST.01`
+### `TIME.TRUST.01`
 
 Meaning:
 - untrusted content may propose high-risk actions
@@ -116,7 +116,7 @@ Prevents:
 Lawful recovery:
 - explicit approval
 
-### `META.AUTHORITY.01`
+### `TIME.AUTHORITY.01`
 
 Meaning:
 - prompt content or model output cannot self-approve or claim authority
@@ -129,7 +129,7 @@ Prevents:
 Lawful recovery:
 - explicit user or approved channel approval
 
-### `META.SCOPE.01`
+### `TIME.SCOPE.01`
 
 Meaning:
 - prompt content cannot widen reachable scope on its own
@@ -142,7 +142,7 @@ Lawful recovery:
 - explicit grant issuance
 - explicit path opening
 
-### `META.LAW.01`
+### `TIME.LAW.01`
 
 Meaning:
 - prompt content cannot mutate or disable law
@@ -155,7 +155,7 @@ Prevents:
 Lawful recovery:
 - law changes must happen through explicit trusted runtime paths, not prompt content
 
-### `META.SESSION.01`
+### `TIME.SESSION.01`
 
 Meaning:
 - prompt content cannot revive or reopen ended sessions
@@ -167,7 +167,7 @@ Prevents:
 Lawful recovery:
 - create a new session or explicitly restore lawful persisted state
 
-### `META.LEDGER.01`
+### `TIME.LEDGER.01`
 
 Meaning:
 - prompt content cannot suppress, bypass, or rewrite the ledger
@@ -193,6 +193,49 @@ Lawful recovery:
 - review ledger
 - restore lawful trace
 - ask user / NSL before continuing
+
+## Resource Governor Laws
+
+These laws fire **before** base law evaluation. They are pre-law rate and volume controls, not law-body extensions. They are stateful (state carried in `BoundaryRuntimeConfig.governorState`), evaluated by pure functions in `governor.ts`, and always fail closed.
+
+### `BOUNDARY.GOVERNOR.VELOCITY.01`
+
+Meaning:
+- the request rate for this session has exceeded the declared RPM ceiling
+
+Prevents:
+- runaway agent loops burning through actions at machine speed
+- bulk exfiltration attempts disguised as many small requests
+
+Lawful recovery:
+- reduce request frequency
+- raise `velocity.maxRpm` if the higher rate is intentional and scoped
+
+### `BOUNDARY.GOVERNOR.DENSITY.01`
+
+Meaning:
+- the ratio of denied to total recent decisions has exceeded the declared failure ratio threshold
+
+Prevents:
+- persistent probing of the boundary law surface
+- an agent retrying denied-class actions in a tight loop to find a passing variant
+
+Lawful recovery:
+- stop issuing requests that are being denied
+- investigate why the denial ratio is elevated before resuming
+
+### `BOUNDARY.GOVERNOR.MASS.01`
+
+Meaning:
+- the cumulative weighted action horizon for this session has exceeded the declared mass ceiling
+
+Prevents:
+- sessions that are individually lawful but collectively excessive in scope
+- high-weight action classes (`tool.exec=10`, `fs.delete=8`, `sys.credential.*=8`) consuming the horizon quickly and creating budget pressure that reveals scope problems early
+
+Lawful recovery:
+- end the session and start fresh
+- raise `mass.maxCrossings` if the higher horizon is intentional and scoped
 
 ## Action Boundary Laws
 

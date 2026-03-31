@@ -33,7 +33,7 @@ async function main() {
     metadata: {
       raw_request: "write a file",
       scope_result: "IN_SCOPE",
-      path_through_system: "intercept > executor > ledger",
+      path_through_system: "intercept > bodyguard > ledger",
     },
   });
 
@@ -49,7 +49,7 @@ async function main() {
     createdAt: new Date().toISOString(),
     metadata: {
       scope_result: "IN_SCOPE",
-      path_through_system: "intercept > executor > law-engine > ledger",
+      path_through_system: "intercept > bodyguard > law-engine > ledger",
       total_eval_ms: 0.04,
       outcome: "EXECUTED",
       next_state: "ready",

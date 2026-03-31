@@ -54,13 +54,25 @@ Each pending approval gives:
 - reason
 - creation time
 
-## Approve or deny
+## Four-way approval surface
+
+Every approval decision has four options:
 
 ```ts
-bodyguard.approvals.approve(pending[0].approvalId);
-// or
-bodyguard.approvals.deny(pending[0].approvalId);
+// Allow once — one-time admission, not persisted to UPL
+bodyguard.approvals.allowOnce(pending[0].approvalId);
+
+// Allow as law — persisted to standing UPL, same class allowed automatically from now on
+bodyguard.approvals.allowAsLaw(pending[0].approvalId, { scope: "GLOBAL" });
+
+// Deny once — one-time denial, not persisted to UPL
+bodyguard.approvals.denyOnce(pending[0].approvalId);
+
+// Deny as law — persisted to standing UPL, same class denied automatically from now on
+bodyguard.approvals.denyAsLaw(pending[0].approvalId, { scope: "GLOBAL" });
 ```
+
+The user controls what becomes law. Bodyguard reflects that user-directed mutation.
 
 ## Ledger result
 

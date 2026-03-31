@@ -8,40 +8,35 @@ Goal:
 - run one guarded action
 - understand where approval and ledger fit
 
-## 0. Install the shell
+## 0. Install
 
-Hosted-ready release install:
-
-```bash
-sh dist/releases/install.sh
-```
-
-If you are working directly from the repo root:
+One command:
 
 ```bash
-sh scripts/install-agent-buccet.sh
+curl -fsSL https://buccet.lml.dev/install | sh
 ```
 
 Then:
 
 ```bash
-buccet status
+buccet init
 buccet scope add .
 buccet run -- /bin/echo protected
+buccet status
 buccet logs
-```
-
-The hosted installer auto-initializes the runtime without opening default scope.
-The local repo installer leaves initialization explicit:
-
-```bash
-buccet init
 ```
 
 To remove it cleanly:
 
 ```bash
 buccet uninstall
+```
+
+**For repo contributors** (working directly from source):
+
+```bash
+sh scripts/install-agent-buccet.sh
+buccet init
 ```
 
 ## 1. Start a persistent session
@@ -107,6 +102,17 @@ Use:
 
 The agent never self-approves.
 
+## 4b. UPL Tracks
+
+When a user approves or denies as law, Buccet can bind that decision into a standing track corridor.
+
+That means:
+- approved motion can continue inside the exact corridor without re-prompting
+- out-of-corridor motion returns to Terminal 2
+- denied corridors block repeated motion on contact
+
+This is law in motion, not just stored approval state.
+
 ## 5. Ledger
 
 Every meaningful action must be ledgered.
@@ -119,7 +125,7 @@ Use:
 
 If the trace is incomplete:
 - do not trust the action
-- route back to user / NSL / lawful recovery
+- route back to user via Bodyguard / lawful recovery
 
 ## 6. Remote / async control
 
@@ -149,26 +155,34 @@ This keeps authority reversible.
 
 ## 8. The minimum mental model
 
+The chain:
+
+```
+INTERCEPT  freezes it.   Motion stops. Nothing crosses without being seen.
+GRAVITY    holds it.     Keeps the proposal frozen inside the boundary.
+BODYGUARD  decides.      Checks the UPL and the live law field every time.
+  → UPL match:    user's law decides on contact. Always.
+  → No match:     user is asked. Their answer becomes a new UPL law.
+LEDGER     signs it all. Every step, chained. The agent cannot erase it.
+```
+
 Someone says:
 - “clean up the temp files”
 
 The agent proposes an action.
 
-Before anything becomes real:
-- Buccet checks law
-- Buccet checks scope
-- Buccet checks ledger state
-- Buccet decides:
-  - `ALLOW`
-  - `DENY`
-  - after `DENY`, Buccet can ask one more question:
-    - make this denial a law?
-    - or keep it as a regular deny?
-  - `REQUIRE_APPROVAL`
+Before anything becomes real, Buccet decides:
+- `ALLOW`
+- `DENY`
+- `REQUIRE_APPROVAL`
+
+After `DENY`, the Bodyguard checks the UPL — if there is a standing user law for this target, it applies on contact. If not, the human is asked: make this a law, or keep it as a one-time deny?
+
+If the user makes it a law, the same class of motion is denied on contact instead of recurring as the same problem again.
+
+When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in Terminal 2 with `tracks`.
 
 That is the whole point.
-
-If the user makes that denial a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
 ## 9. Run the end-to-end example
 
@@ -195,9 +209,8 @@ npm run test:agent-buccet:gravity-contract
 ```
 
 This asserts the deeper gravity contract:
-- out-of-scope -> `nsl_grant_offer`
+- out-of-scope -> `bodyguard_grant_offer`
 - authority claim -> `deny`
-- incomplete ledger session -> `deny`
 
 ## 10.4 Run the swarm contract harness
 

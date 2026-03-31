@@ -3,19 +3,20 @@ export {
 } from "./default-skills.ts";
 export {
   mapEnforcementResultToOutcome,
-  shouldOfferNslGrant,
-  type ExecutorOutcome,
-  type NslGrantOffer,
-} from "./executor-mapping.ts";
-export { runGravityLoop } from "./kernel.ts";
+  shouldOfferBodyguardGrant,
+  type BodyguardOutcome,
+  type BodyguardGrantOffer,
+} from "./bodyguard-routing.ts";
+export { evaluateGravityEvent, runGravityLoop } from "./kernel.ts";
 export {
   buildGrantFromOffer,
   buildOpenAsLawStep,
   LEDGER_EVENTS,
   type GrantIssuanceInput,
   type GrantIssuanceResult,
+  type BodyguardOpenAsLawStep,
   type NslOpenAsLawStep,
-} from "./nsl-grant.ts";
+} from "./bodyguard-grant.ts";
 export { startGravityKernel, type GravityClient } from "./integration.ts";
 export {
   createMetaAuthoritySkill,

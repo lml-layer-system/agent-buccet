@@ -108,7 +108,8 @@ async function main() {
       command: "swarm_approve",
       groupId: pendingGroup.groupId,
       issuedBy: "user:swarm-contract",
-      reason: "allow shared swarm target once and make it law",
+      reason: "allow shared swarm target once",
+      asLaw: false,
     },
   });
   assert.equal(approve.type, "ack");

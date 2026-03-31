@@ -43,7 +43,8 @@ async function main() {
     .then(() => "bin/agent-buccet-intercept-daemon.ts")
     .catch(() => "scripts/agent-buccet-intercept-daemon.ts");
   const command = `cat ${JSON.stringify(inputPath)} | node ${daemonPath} --session-id ${JSON.stringify(sessionId)} --heartbeat-ms 250 --heartbeat-timeout-ms 3000`;
-  const { stdout } = await execFileAsync("/bin/zsh", ["-lc", command], cwd);
+  const shell = await fs.access("/bin/bash").then(() => "/bin/bash").catch(() => "/bin/sh");
+  const { stdout } = await execFileAsync(shell, ["-c", command], cwd);
   const outputs = stdout
     .split(/\n+/)
     .map((line) => line.trim())

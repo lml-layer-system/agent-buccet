@@ -14,6 +14,18 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const result = await fn();
+    if (result !== null) {
+      return result;
+    }
+    await wait(stepMs);
+  }
+  throw new Error(`timed out after ${timeoutMs}ms`);
+}
+
 async function sendGravityPayload(target: { host: string; port: number }, payload: string): Promise<string> {
   const socket = net.createConnection(target.port, target.host);
   await once(socket, "connect");
@@ -98,22 +110,40 @@ async function main() {
   }
   assert.equal(bridgeReady, true, `gravity bridge should be ready\n${bridgeStderr}`);
 
-  const approvalDecision = await sendBoundaryInterceptServerInput({
-    target: { host: "127.0.0.1", port: interceptPort },
-    input: {
-      actionClass: "file",
-      operation: "write",
-      target: path.join(tempRoot, "candidate.txt"),
-      payloadSummary: `pid=${process.pid} from-contract`,
-    },
-  });
-  assert.equal(approvalDecision.type, "decision");
-  assert.equal(approvalDecision.decision, "require_approval");
-
-  const approvalBlocked = await sendGravityPayload(
+  const approvalBlockedPromise = sendGravityPayload(
     { host: "127.0.0.1", port: gravityPort },
     `write|${path.join(tempRoot, "candidate.txt")}|${process.pid}|from-contract`,
   );
+
+  const pendingGroupId = await waitFor(async () => {
+    const swarmStatus = await sendBoundaryInterceptServerInput({
+      target: { host: "127.0.0.1", port: interceptPort },
+      input: { command: "swarm_status", requestId: "swarm-status-1" },
+    });
+    if (swarmStatus.type !== "swarm_status") {
+      return null;
+    }
+    const pending = swarmStatus.groups.find((group) =>
+      group.state === "waiting"
+      && group.actionClass === "file"
+      && group.operation === "write"
+      && group.target === path.join(tempRoot, "candidate.txt")
+    );
+    return pending?.groupId ?? null;
+  }, 5_000, 100);
+
+  const approvalDenied = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_deny",
+      groupId: pendingGroupId,
+      requestId: "swarm-deny-1",
+      reason: "gravity-bridge-contract deny",
+    },
+  });
+  assert.equal(approvalDenied.type, "ack");
+
+  const approvalBlocked = await approvalBlockedPromise;
   assert.equal(
     approvalBlocked,
     "0",

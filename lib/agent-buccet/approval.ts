@@ -22,6 +22,8 @@ export type BoundaryApprovalQueueAdapter = {
   approve(approvalId: string, options?: { scope?: BoundaryUplScope; notes?: string | null; domain?: string }): boolean;
   deny(approvalId: string): boolean;
   denyAsLaw(approvalId: string, options?: { scope?: BoundaryUplScope; notes?: string | null; domain?: string }): boolean;
+  /** Deny all pending approvals — called on session end so no promises leak. */
+  drainAll(): string[];
 };
 
 export function createStaticApprovalHandler(approved: boolean): BoundaryApprovalHandler {
@@ -90,5 +92,13 @@ export function createApprovalQueueAdapter(): BoundaryApprovalQueueAdapter {
     approve: (approvalId: string, options) => settle(approvalId, makeDecision("allow_as_law", options)),
     deny: (approvalId: string) => settle(approvalId, makeDecision("deny_once")),
     denyAsLaw: (approvalId: string, options) => settle(approvalId, makeDecision("deny_as_law", options)),
+    drainAll: () => {
+      const drained: string[] = [];
+      for (const [approvalId] of pending) {
+        settle(approvalId, makeDecision("deny_once"));
+        drained.push(approvalId);
+      }
+      return drained;
+    },
   };
 }

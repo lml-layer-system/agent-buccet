@@ -1,8 +1,9 @@
 import {
   getDefaultLawSkills,
   mapEnforcementResultToOutcome,
+  evaluateGravityEvent,
   type EnforcementResult,
-  type ExecutorOutcome,
+  type BodyguardOutcome,
   type GravityEvent,
   type GravityState,
   type LawSkill,
@@ -16,11 +17,12 @@ import {
   ledgerBodyguardConfirmedDeny,
   ledgerBodyguardGrantOffer,
 } from "./bodyguard-open-as-law.ts";
+import { appendBoundaryLedger } from "../ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
   BoundaryRuntimeConfig,
-  NslMove,
+  BodyguardMove,
 } from "../types.ts";
 
 export type BoundaryGravityEnforcement =
@@ -29,16 +31,16 @@ export type BoundaryGravityEnforcement =
       result: EnforcementResult;
       reason: string;
       lawIds: string[];
-      nslMoves: NslMove[];
+      bodyguardMoves: BodyguardMove[];
       request: BoundaryActionRequest;
       config: BoundaryRuntimeConfig;
     }
   | {
-      outcome: "nsl_grant_offer";
+      outcome: "bodyguard_grant_offer";
       result: EnforcementResult;
       reason: string;
       lawIds: string[];
-      nslMoves: NslMove[];
+      bodyguardMoves: BodyguardMove[];
       request: BoundaryActionRequest;
       config: BoundaryRuntimeConfig;
       applyGrant: (approval?: BoundaryApprovalRequest) => Promise<{ config: BoundaryRuntimeConfig; request: BoundaryActionRequest }>;
@@ -78,46 +80,205 @@ function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessio
   };
 }
 
-function normalizeState(skills: readonly LawSkill[], state: GravityState, event: GravityEvent) {
-  let violations: EnforcementResult["violations"] = [];
-  for (const skill of skills) {
-    const next = skill.validate(state, event);
-    if (next.length > 0) {
-      violations = violations.concat(next);
+type GravityKernelJob = {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+  resolve: (value: BoundaryGravityEnforcement) => void;
+  reject: (error: unknown) => void;
+};
+
+type GravityKernelRuntime = {
+  key: string;
+  serviceId: number;
+  sessionId: string;
+  skills: readonly LawSkill[];
+  currentState?: GravityState;
+  queue: GravityKernelJob[];
+  waiters: Array<() => void>;
+  running: boolean;
+  stopped: boolean;
+  lastUsedAt: number;
+};
+
+const gravityKernelRuntimes = new Map<string, GravityKernelRuntime>();
+let nextGravityServiceId = 1;
+
+function stopRuntime(runtime: GravityKernelRuntime) {
+  if (runtime.stopped) {
+    return;
+  }
+  runtime.stopped = true;
+  gravityKernelRuntimes.delete(runtime.key);
+  while (runtime.waiters.length > 0) {
+    const waiter = runtime.waiters.shift();
+    waiter?.();
+  }
+}
+
+function getOrCreateRuntime(serviceId: number, sessionId: string, skills: readonly LawSkill[]) {
+  const key = `${serviceId}::${sessionId}`;
+  const existing = gravityKernelRuntimes.get(key);
+  if (existing) {
+    return existing;
+  }
+  const runtime: GravityKernelRuntime = {
+    key,
+    serviceId,
+    sessionId,
+    skills,
+    queue: [],
+    waiters: [],
+    running: false,
+    stopped: false,
+    lastUsedAt: Date.now(),
+  };
+  gravityKernelRuntimes.set(key, runtime);
+  return runtime;
+}
+
+function wakeRuntime(runtime: GravityKernelRuntime) {
+  const waiter = runtime.waiters.shift();
+  if (waiter) {
+    waiter();
+  }
+}
+
+function enqueueRuntimeJob(runtime: GravityKernelRuntime, job: GravityKernelJob) {
+  runtime.queue.push(job);
+  runtime.lastUsedAt = Date.now();
+  wakeRuntime(runtime);
+}
+
+async function nextRuntimeJob(runtime: GravityKernelRuntime): Promise<GravityKernelJob | null> {
+  const existing = runtime.queue.shift();
+  if (existing) {
+    return existing;
+  }
+  if (runtime.stopped) {
+    return null;
+  }
+  await new Promise<void>((resolve) => {
+    runtime.waiters.push(resolve);
+  });
+  if (runtime.stopped) {
+    return null;
+  }
+  return nextRuntimeJob(runtime);
+}
+
+async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
+  if (runtime.running) {
+    return;
+  }
+  runtime.running = true;
+
+  while (true) {
+    const job = await nextRuntimeJob(runtime);
+    if (!job) {
+      runtime.running = false;
+      return;
+    }
+    try {
+      const proposal = mapBoundaryRequestToGravityProposal(job.request);
+      const ledger = await mapBoundaryLedgerToGravityView({
+        sessionId: job.config.session.sessionId,
+        requestId: job.request.requestId,
+      });
+      const baseState = mapConfigToGravityState(job.config, ledger);
+      const currentState = runtime.currentState
+        ? {
+            ...runtime.currentState,
+            identity: baseState.identity,
+            staticLaws: baseState.staticLaws,
+            dynamicLaws: baseState.dynamicLaws,
+            memory: baseState.memory,
+            context: baseState.context,
+          }
+        : baseState;
+      const event: GravityEvent = {
+        kind: "ProposalReceived",
+        ts: Date.now(),
+        proposal,
+      };
+      const evaluated = evaluateGravityEvent({
+        state: currentState,
+        event,
+        skills: runtime.skills,
+        onSkillError: ({ phase, lawId, error }) => {
+          void appendBoundaryLedger("GRAVITY_SKILL_ERROR", {
+            sessionId: job.config.session.sessionId,
+            actorId: job.config.session.actorId,
+            requestId: job.request.requestId,
+            actionKind: job.request.actionKind,
+            target: job.request.target,
+            reason: error instanceof Error ? error.message : String(error),
+            lawIds: [lawId],
+            metadata: {
+              phase,
+              service_id: runtime.serviceId,
+            },
+            createdAt: new Date().toISOString(),
+          }).catch(() => undefined);
+        },
+      });
+      runtime.currentState = evaluated.state;
+      const result = evaluated.result;
+      const outcome: BodyguardOutcome = mapEnforcementResultToOutcome(result, proposal);
+      const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
+
+      if (outcome.outcome === "bodyguard_grant_offer") {
+        await ledgerBodyguardGrantOffer({ config: job.config, request: job.request, offer: outcome.grantOffer });
+        const step = buildOpenAsLawBodyguardStep({ offer: outcome.grantOffer, request: job.request });
+        job.resolve({
+          outcome: "bodyguard_grant_offer",
+          result,
+          reason: step.message,
+          lawIds,
+          bodyguardMoves: buildGravityBodyguardMoves(step),
+          request: job.request,
+          config: job.config,
+          applyGrant: async (approval) => {
+            const nextConfig = await applyOpenAsLawBodyguardGrant({
+              config: job.config,
+              request: job.request,
+              offer: outcome.grantOffer,
+              issuedBy: approval?.session.actorId ?? job.config.session.actorId,
+            });
+            return {
+              config: nextConfig,
+              request: job.request,
+            };
+          },
+          denyGrant: async () => {
+            await ledgerBodyguardConfirmedDeny({ config: job.config, request: job.request, offer: outcome.grantOffer });
+          },
+        });
+        continue;
+      }
+
+      const reason =
+        outcome.outcome === "deny"
+          ? result.violations[0]?.message ?? "gravity denied proposal"
+          : result.violations[0]?.message ?? "gravity admitted proposal";
+
+      job.resolve({
+        outcome: outcome.outcome,
+        result,
+        reason,
+        lawIds,
+        bodyguardMoves: [],
+        request: job.request,
+        config: job.config,
+      });
+    } catch (error) {
+      job.reject(error);
+    } finally {
+      runtime.lastUsedAt = Date.now();
+      if (job.config.session.status !== "active" && runtime.queue.length === 0) {
+        stopRuntime(runtime);
+      }
     }
   }
-
-  if (violations.length === 0) {
-    return {
-      decision: "allow" as const,
-      state,
-      violations,
-    } satisfies EnforcementResult;
-  }
-
-  let nextState = state;
-  for (const skill of skills) {
-    const relevant = violations.filter((violation) => violation.lawId === skill.id);
-    if (relevant.length === 0) continue;
-    nextState = skill.normalize(nextState, relevant);
-  }
-
-  const allGrantable = violations.length > 0 && violations.every((violation) => {
-    return [
-      "PATH_OUT_OF_SCOPE",
-      "RECIPIENT_OUT_OF_SCOPE",
-      "DOMAIN_OUT_OF_SCOPE",
-      "TOOL_OUT_OF_SCOPE",
-      "DATABASE_OUT_OF_SCOPE",
-      "SYSTEM_OUT_OF_SCOPE",
-    ].includes(violation.code ?? "");
-  });
-
-  return {
-    decision: allGrantable ? "null" : "deny",
-    state: nextState,
-    violations,
-  } satisfies EnforcementResult;
 }
 
 export type BoundaryGravityService = {
@@ -128,65 +289,19 @@ export type BoundaryGravityService = {
 };
 
 export function createBoundaryGravityService(skills: readonly LawSkill[] = getDefaultLawSkills()): BoundaryGravityService {
+  const serviceId = nextGravityServiceId++;
   return {
     async enforceRequest({ config, request }) {
-      const proposal = mapBoundaryRequestToGravityProposal(request);
-      const ledger = await mapBoundaryLedgerToGravityView({
-        sessionId: config.session.sessionId,
-        requestId: request.requestId,
-      });
-      const state = mapConfigToGravityState(config, ledger);
-      const result = normalizeState(state ? skills : skills, state, {
-        kind: "ProposalReceived",
-        ts: Date.now(),
-        proposal,
-      });
-      const outcome: ExecutorOutcome = mapEnforcementResultToOutcome(result, proposal);
-      const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
-
-      if (outcome.outcome === "nsl_grant_offer") {
-        await ledgerBodyguardGrantOffer({ config, request, offer: outcome.grantOffer });
-        const step = buildOpenAsLawBodyguardStep({ offer: outcome.grantOffer, request });
-        return {
-          outcome: "nsl_grant_offer",
-          result,
-          reason: step.message,
-          lawIds,
-          nslMoves: buildGravityBodyguardMoves(step),
-          request,
+      const runtime = getOrCreateRuntime(serviceId, config.session.sessionId, skills);
+      void runRuntimeLoop(runtime);
+      return await new Promise<BoundaryGravityEnforcement>((resolve, reject) => {
+        enqueueRuntimeJob(runtime, {
           config,
-          applyGrant: async (approval) => {
-            const nextConfig = await applyOpenAsLawBodyguardGrant({
-              config,
-              request,
-              offer: outcome.grantOffer,
-              issuedBy: approval?.session.actorId ?? config.session.actorId,
-            });
-            return {
-              config: nextConfig,
-              request,
-            };
-          },
-          denyGrant: async () => {
-            await ledgerBodyguardConfirmedDeny({ config, request, offer: outcome.grantOffer });
-          },
-        };
-      }
-
-      const reason =
-        outcome.outcome === "deny"
-          ? result.violations[0]?.message ?? "gravity denied proposal"
-          : result.violations[0]?.message ?? "gravity admitted proposal";
-
-      return {
-        outcome: outcome.outcome,
-        result,
-        reason,
-        lawIds,
-        nslMoves: [],
-        request,
-        config,
-      };
+          request,
+          resolve,
+          reject,
+        });
+      });
     },
   };
 }

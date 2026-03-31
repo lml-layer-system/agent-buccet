@@ -2,6 +2,81 @@
 Building Ultimate Containment Constraints Every Time
 ![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
+**Agent Buccet is a boundary enforcement layer for AI agents.**
+
+Your model is aligned. But alignment doesn't enforce — it shapes.
+Buccet enforces, at the exact action boundaries where agent behavior becomes consequence.
+
+## 5-Minute Quickstart
+
+```bash
+# From this repo
+npm install
+
+# See it work
+npm run demo:agent-buccet
+```
+
+Packaged release surface:
+
+```bash
+npm run package:agent-buccet
+sh dist/releases/install.sh
+buccet status
+```
+
+Or from source:
+
+```typescript
+import {
+  createBoundaryBodyguard,
+  createBoundaryHeadlessApprovalHandler,
+  createPersistentBoundaryRuntimeStore,
+  openBoundaryPath,
+} from "agent-buccet";
+
+// 1. Create a session
+const store = await createPersistentBoundaryRuntimeStore({
+  sessionId: "my-agent",
+  actorId: "agent:demo",
+});
+
+// 2. Open a lawful scope
+const { config } = await openBoundaryPath({
+  config: store.getConfig(),
+  rootPath: "/tmp/workspace",
+  grantedActions: ["fs.write", "fs.read"],
+  issuedBy: "user:operator",
+});
+store.replaceConfig({
+  ...config,
+  approvalHandler: createBoundaryHeadlessApprovalHandler({ mode: "deny_all" }),
+});
+
+// 3. Every agent action goes through the bodyguard
+const bodyguard = createBoundaryBodyguard(store);
+
+const result = await bodyguard.enforceProposal({
+  actionKind: "fs.write",
+  target: "/tmp/workspace/output.txt",   // inside scope → ALLOW
+  successReason: "wrote output",
+  execute: async () => { /* write the file */ },
+});
+
+console.log(result.allowed); // true
+
+const blocked = await bodyguard.enforceProposal({
+  actionKind: "fs.write",
+  target: "/etc/hosts",                  // outside scope → DENY
+  successReason: "wrote hosts",
+  execute: async () => { /* never runs */ },
+});
+
+console.log(blocked.allowed); // false
+```
+
+---
+
 Persistent, CPU-friendly law and scope enforcement for AI agents.
 
 Agent Buccet is the containment layer you add to the agent stack you already run.
@@ -37,6 +112,29 @@ Agent Buccet is built to attach there.
 The public repo is centered on the shared Buccet brain.
 Additional deep kernel OS-level Agent Buccet interception can be added later for private environments without changing that core model.
 
+## Open-Source World
+
+Agent Buccet is built for the open-source world as much as the closed one.
+
+Open-source builders should not have to choose between freedom and responsibility.
+With Agent Buccet, open systems can ship with visible boundaries, enforceable consequence control, and durable proof of what was allowed, denied, contained, or stopped.
+
+This means open-source teams can show, not just claim, that their agent deployments are governed:
+	•	what boundaries exist
+	•	what actions were allowed or denied
+	•	what payload physics were enforced
+	•	what input was blocked before the brain woke
+	•	what output was stopped before consequence landed
+	•	what the ledger recorded from first input to final consequence
+
+Agent Buccet does not ask the world to blindly trust open systems.
+It gives open systems a way to demonstrate bounded, auditable, enforceable behavior in the real world.
+
+Build with it. Ship with it. Extend it. Defend your agents with it.
+
+We ask only one thing:
+Let Agent Buccet be your bodyguard.
+
 
 ## Start Here
 
@@ -49,6 +147,7 @@ Additional deep kernel OS-level Agent Buccet interception can be added later for
 - [Launch Proof](docs/agent-boundary/LAUNCH_PROOF.md)
 - [Release Checklist](docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](docs/agent-boundary/SECURITY_MODEL.md)
+- [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
 - [Threat Model Traceability](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
 - [Examples](docs/agent-boundary/examples/README.md)
@@ -67,11 +166,12 @@ That catalog covers:
 - Agent Buccet session and grant lifecycle laws
 - Buccet ledger laws
 
-To see exactly what Agent Buccet is enforcing, use `\LAW_REFERENCE.md.`
+To see exactly what Agent Buccet is enforcing, see [`LAW_REFERENCE.md`](docs/agent-boundary/LAW_REFERENCE.md).
 
 ## Hosted Install
 
 Hosted-ready release assets are generated under `dist/releases/`.
+The standalone npm publish surface is generated under `dist/agent-buccet/`.
 
 Example hosted flow:
 

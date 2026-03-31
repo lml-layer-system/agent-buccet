@@ -87,13 +87,11 @@ Confirm the top-level repo still reads as:
 - deeper kernel-level nets are deployment depth, not the public core
 
 Confirm these docs are present and current:
-- `README.md`
 - `docs/agent-boundary/README.md`
 - `docs/agent-boundary/QUICKSTART.md`
 - `docs/agent-boundary/LAUNCH_BOUNDARY.md`
 - `docs/agent-boundary/LAUNCH_PROOF.md`
 - `docs/agent-boundary/SECURITY_MODEL.md`
-- `docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md`
 - `docs/agent-boundary/CURRENT_LIMITS.md`
 
 ## Claim Discipline
