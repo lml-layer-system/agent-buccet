@@ -29,6 +29,14 @@ type GravityPayloadHints = {
   flags?: BoundaryInterceptRequest["flags"];
 };
 
+function decodeGravityComponent(component: string): string {
+  try {
+    return decodeURIComponent(component);
+  } catch {
+    return component;
+  }
+}
+
 function usage(): never {
   console.error(
     [
@@ -117,15 +125,18 @@ function parseArgs(argv: string[]): ParsedArgs {
 }
 
 function parseGravityPayload(line: string): GravitySocketPayload {
-  const parts = line.trim().split("|");
-  if (parts.length < 3) {
+  const trimmed = line.trim();
+  const first = trimmed.indexOf("|");
+  const second = first >= 0 ? trimmed.indexOf("|", first + 1) : -1;
+  const third = second >= 0 ? trimmed.indexOf("|", second + 1) : -1;
+  if (first < 0 || second < 0 || third < 0) {
     throw new Error("malformed gravity payload");
   }
   return {
-    action: parts[0] ?? "",
-    target: parts[1] ?? "",
-    pid: parts[2] ?? "",
-    extra: parts.slice(3).join("|"),
+    action: trimmed.slice(0, first),
+    target: decodeGravityComponent(trimmed.slice(first + 1, second)),
+    pid: trimmed.slice(second + 1, third),
+    extra: decodeGravityComponent(trimmed.slice(third + 1)),
   };
 }
 
@@ -337,11 +348,11 @@ function mapGravityPayloadToInterceptRequest(payload: GravitySocketPayload): Bou
 }
 
 function buildSplitMoveRequests(payload: GravitySocketPayload): BoundaryInterceptRequest[] | null {
-  if (payload.action !== "rename" && payload.action !== "link") {
+  if (payload.action !== "rename" && payload.action !== "link" && payload.action !== "symlink") {
     return null;
   }
 
-  const counterpart = (payload.extra ?? "").trim();
+  const counterpart = payload.extra ?? "";
   if (!counterpart) {
     return null;
   }

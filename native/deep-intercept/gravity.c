@@ -42,6 +42,13 @@
 
 static int (*real_open)(const char*, int, ...) = NULL;
 static int (*real_openat)(int, const char*, int, ...) = NULL;
+static int (*real_renameat)(int, const char*, int, const char*) = NULL;
+static int (*real_unlinkat)(int, const char*, int) = NULL;
+static int (*real_mkdirat)(int, const char*, mode_t) = NULL;
+static int (*real_fchmodat)(int, const char*, mode_t, int) = NULL;
+static int (*real_fchownat)(int, const char*, uid_t, gid_t, int) = NULL;
+static int (*real_linkat)(int, const char*, int, const char*, int) = NULL;
+static int (*real_symlinkat)(const char*, int, const char*) = NULL;
 static FILE* (*real_fopen)(const char*, const char*) = NULL;
 static int (*real_creat)(const char*, mode_t) = NULL;
 static int (*real_unlink)(const char*) = NULL;
@@ -62,6 +69,11 @@ static int (*real_posix_spawnp)(pid_t*, const char*, const posix_spawn_file_acti
 static int (*real_system)(const char*) = NULL;
 static int (*real_connect)(int, const struct sockaddr*, socklen_t) = NULL;
 static ssize_t (*real_sendto)(int, const void*, size_t, int, const struct sockaddr*, socklen_t) = NULL;
+static ssize_t (*real_sendmsg)(int, const struct msghdr*, int) = NULL;
+#ifdef __linux__
+static int (*real_execvpe)(const char*, char* const[], char* const[]) = NULL;
+static int (*real_sendmmsg)(int, struct mmsghdr*, unsigned int, int) = NULL;
+#endif
 static ssize_t (*real_read)(int, void*, size_t) = NULL;
 static int (*real_close)(int) = NULL;
 static int (*real_socket)(int, int, int) = NULL;
@@ -143,6 +155,13 @@ static int brain_is_dead(void) {
 static buccet_rebinding_t g_buccet_rebindings[] = {
     { "open", (void*)open, (void**)&real_open },
     { "openat", (void*)openat, (void**)&real_openat },
+    { "renameat", (void*)renameat, (void**)&real_renameat },
+    { "unlinkat", (void*)unlinkat, (void**)&real_unlinkat },
+    { "mkdirat", (void*)mkdirat, (void**)&real_mkdirat },
+    { "fchmodat", (void*)fchmodat, (void**)&real_fchmodat },
+    { "fchownat", (void*)fchownat, (void**)&real_fchownat },
+    { "linkat", (void*)linkat, (void**)&real_linkat },
+    { "symlinkat", (void*)symlinkat, (void**)&real_symlinkat },
     { "fopen", (void*)fopen, (void**)&real_fopen },
     { "creat", (void*)creat, (void**)&real_creat },
     { "unlink", (void*)unlink, (void**)&real_unlink },
@@ -162,6 +181,11 @@ static buccet_rebinding_t g_buccet_rebindings[] = {
     { "system", (void*)system, (void**)&real_system },
     { "connect", (void*)connect, (void**)&real_connect },
     { "sendto", (void*)sendto, (void**)&real_sendto },
+    { "sendmsg", (void*)sendmsg, (void**)&real_sendmsg },
+#ifdef __linux__
+    { "execvpe", (void*)execvpe, (void**)&real_execvpe },
+    { "sendmmsg", (void*)sendmmsg, (void**)&real_sendmmsg },
+#endif
 };
 
 static size_t g_buccet_rebinding_count = sizeof(g_buccet_rebindings) / sizeof(g_buccet_rebindings[0]);
@@ -293,6 +317,13 @@ static void gravity_init(void) {
 
     real_open = dlsym(RTLD_NEXT, "open");
     real_openat = dlsym(RTLD_NEXT, "openat");
+    real_renameat = dlsym(RTLD_NEXT, "renameat");
+    real_unlinkat = dlsym(RTLD_NEXT, "unlinkat");
+    real_mkdirat = dlsym(RTLD_NEXT, "mkdirat");
+    real_fchmodat = dlsym(RTLD_NEXT, "fchmodat");
+    real_fchownat = dlsym(RTLD_NEXT, "fchownat");
+    real_linkat = dlsym(RTLD_NEXT, "linkat");
+    real_symlinkat = dlsym(RTLD_NEXT, "symlinkat");
     real_fopen = dlsym(RTLD_NEXT, "fopen");
     real_creat = dlsym(RTLD_NEXT, "creat");
     real_unlink = dlsym(RTLD_NEXT, "unlink");
@@ -313,6 +344,11 @@ static void gravity_init(void) {
     real_system = dlsym(RTLD_NEXT, "system");
     real_connect = dlsym(RTLD_NEXT, "connect");
     real_sendto = dlsym(RTLD_NEXT, "sendto");
+    real_sendmsg = dlsym(RTLD_NEXT, "sendmsg");
+#ifdef __linux__
+    real_execvpe = dlsym(RTLD_NEXT, "execvpe");
+    real_sendmmsg = dlsym(RTLD_NEXT, "sendmmsg");
+#endif
     real_read = dlsym(RTLD_NEXT, "read");
     real_close = dlsym(RTLD_NEXT, "close");
     real_socket = dlsym(RTLD_NEXT, "socket");
@@ -328,15 +364,53 @@ static void gravity_constructor(void) {
 #endif
 }
 
+static int is_payload_safe_char(unsigned char ch) {
+    return ch >= 0x20 && ch <= 0x7E && ch != '%' && ch != '|';
+}
+
+static void encode_payload_component(const char* input, char* output, size_t size) {
+    if (!output || size == 0) {
+        return;
+    }
+    output[0] = '\0';
+    if (!input) {
+        return;
+    }
+
+    size_t out = 0;
+    for (size_t index = 0; input[index] != '\0'; index += 1) {
+        unsigned char ch = (unsigned char)input[index];
+        if (is_payload_safe_char(ch)) {
+            if (out + 1 >= size) {
+                break;
+            }
+            output[out++] = (char)ch;
+            continue;
+        }
+
+        if (out + 3 >= size) {
+            break;
+        }
+        snprintf(output + out, size - out, "%%%02X", ch);
+        out += 3;
+    }
+    output[out] = '\0';
+}
+
 static int ask_buccet(const char* action, const char* target, const char* extra) {
     struct sockaddr_un addr;
     char payload[BUCCET_MAX_PAYLOAD];
+    char encoded_target[BUCCET_MAX_PAYLOAD];
+    char encoded_extra[BUCCET_MAX_PAYLOAD];
     pid_t pid = getpid();
 
-    if (extra && extra[0]) {
-        snprintf(payload, sizeof(payload), "%s|%s|%d|%s\n", action, target, pid, extra);
+    encode_payload_component(target ? target : "", encoded_target, sizeof(encoded_target));
+    encode_payload_component(extra ? extra : "", encoded_extra, sizeof(encoded_extra));
+
+    if (encoded_extra[0]) {
+        snprintf(payload, sizeof(payload), "%s|%s|%d|%s\n", action, encoded_target, pid, encoded_extra);
     } else {
-        snprintf(payload, sizeof(payload), "%s|%s|%d|\n", action, target, pid);
+        snprintf(payload, sizeof(payload), "%s|%s|%d|\n", action, encoded_target, pid);
     }
 
     memset(&addr, 0, sizeof(addr));
@@ -470,6 +544,30 @@ static void join_path(const char* base, const char* leaf, char* resolved, size_t
     }
 }
 
+static void resolve_parent_dir(const char* path, char* resolved, size_t size) {
+    if (!resolved || size == 0) return;
+    resolved[0] = '\0';
+    if (!path || !path[0]) {
+        return;
+    }
+
+    strncpy(resolved, path, size - 1);
+    resolved[size - 1] = '\0';
+    char* slash = strrchr(resolved, '/');
+    if (!slash) {
+        if (getcwd(resolved, size) == NULL) {
+            resolved[0] = '.';
+            resolved[1] = '\0';
+        }
+        return;
+    }
+    if (slash == resolved) {
+        slash[1] = '\0';
+        return;
+    }
+    *slash = '\0';
+}
+
 static int resolve_dirfd_base(int dirfd, char* resolved, size_t size) {
     if (!resolved || size == 0) return 0;
     resolved[0] = '\0';
@@ -516,6 +614,71 @@ static void resolve_path_at(int dirfd, const char* pathname, char* resolved, siz
     join_path(base, pathname, resolved, size);
 }
 
+static void resolve_symlink_target(const char* target, const char* resolved_linkpath, char* resolved, size_t size) {
+    if (!target || !resolved) return;
+
+    if (target[0] == '/') {
+        resolve_path(target, resolved, size);
+        return;
+    }
+
+    char parent[PATH_MAX];
+    memset(parent, 0, sizeof(parent));
+    resolve_parent_dir(resolved_linkpath, parent, sizeof(parent));
+    if (!parent[0]) {
+        resolve_path(target, resolved, size);
+        return;
+    }
+    join_path(parent, target, resolved, size);
+}
+
+static int resolve_executable_path(const char* file, char* resolved, size_t size) {
+    if (!file || !file[0] || !resolved || size == 0) {
+        return 0;
+    }
+
+    if (strchr(file, '/')) {
+        resolve_path(file, resolved, size);
+        return 1;
+    }
+
+    const char* path_env = getenv("PATH");
+    if (!path_env || !path_env[0]) {
+        strncpy(resolved, file, size - 1);
+        resolved[size - 1] = '\0';
+        return 0;
+    }
+
+    char* path_copy = strdup(path_env);
+    if (!path_copy) {
+        strncpy(resolved, file, size - 1);
+        resolved[size - 1] = '\0';
+        return 0;
+    }
+
+    int found = 0;
+    char* cursor = path_copy;
+    char candidate[PATH_MAX];
+    while (1) {
+        char* entry = strsep(&cursor, ":");
+        if (!entry) break;
+        const char* base = entry[0] ? entry : ".";
+        join_path(base, file, candidate, sizeof(candidate));
+        if (access(candidate, X_OK) == 0) {
+            resolve_path(candidate, resolved, size);
+            found = 1;
+            break;
+        }
+    }
+
+    free(path_copy);
+    if (!found) {
+        strncpy(resolved, file, size - 1);
+        resolved[size - 1] = '\0';
+    }
+    return found;
+}
+
 static void format_socket_target(const struct sockaddr* addr, char* target, size_t size) {
     strncpy(target, "unknown", size - 1);
     target[size - 1] = '\0';
@@ -542,6 +705,23 @@ static void format_socket_target(const struct sockaddr* addr, char* target, size
         const struct sockaddr_un* addr_un = (const struct sockaddr_un*)addr;
         snprintf(target, size, "unix:%s", addr_un->sun_path);
     }
+}
+
+static int is_buccet_socket_addr(const struct sockaddr* addr) {
+    if (!addr || addr->sa_family != AF_UNIX) {
+        return 0;
+    }
+    const struct sockaddr_un* addr_un = (const struct sockaddr_un*)addr;
+    return strcmp(addr_un->sun_path, gravity_socket_path()) == 0;
+}
+
+static int resolve_peer_socket_addr(int sockfd, struct sockaddr_storage* storage, socklen_t* size) {
+    if (!storage || !size) {
+        return 0;
+    }
+    memset(storage, 0, sizeof(*storage));
+    *size = sizeof(*storage);
+    return getpeername(sockfd, (struct sockaddr*)storage, size) == 0;
 }
 
 int open(const char* pathname, int flags, ...) {
@@ -618,6 +798,134 @@ int openat(int dirfd, const char* pathname, int flags, ...) {
     }
 
     return real_openat(dirfd, pathname, flags, mode);
+}
+
+int renameat(int olddirfd, const char* oldpath, int newdirfd, const char* newpath) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_renameat(olddirfd, oldpath, newdirfd, newpath);
+    }
+
+    char resolved_old[PATH_MAX], resolved_new[PATH_MAX];
+    resolve_path_at(olddirfd, oldpath, resolved_old, sizeof(resolved_old));
+    resolve_path_at(newdirfd, newpath, resolved_new, sizeof(resolved_new));
+
+    if (!ask_buccet("rename", resolved_old, resolved_new)) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_renameat(olddirfd, oldpath, newdirfd, newpath);
+}
+
+int unlinkat(int dirfd, const char* pathname, int flags) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_unlinkat(dirfd, pathname, flags);
+    }
+
+    char resolved[PATH_MAX];
+    resolve_path_at(dirfd, pathname, resolved, sizeof(resolved));
+    const char* action = (flags & AT_REMOVEDIR) ? "rmdir" : "delete";
+
+    if (!ask_buccet(action, resolved, "")) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_unlinkat(dirfd, pathname, flags);
+}
+
+int mkdirat(int dirfd, const char* pathname, mode_t mode) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_mkdirat(dirfd, pathname, mode);
+    }
+
+    char resolved[PATH_MAX];
+    resolve_path_at(dirfd, pathname, resolved, sizeof(resolved));
+
+    if (!ask_buccet("mkdir", resolved, "")) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_mkdirat(dirfd, pathname, mode);
+}
+
+int fchmodat(int dirfd, const char* pathname, mode_t mode, int flags) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_fchmodat(dirfd, pathname, mode, flags);
+    }
+
+    char resolved[PATH_MAX];
+    resolve_path_at(dirfd, pathname, resolved, sizeof(resolved));
+    char extra[32];
+    snprintf(extra, sizeof(extra), "%o", mode);
+
+    if (!ask_buccet("chmod", resolved, extra)) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_fchmodat(dirfd, pathname, mode, flags);
+}
+
+int fchownat(int dirfd, const char* pathname, uid_t owner, gid_t group, int flags) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_fchownat(dirfd, pathname, owner, group, flags);
+    }
+
+    char resolved[PATH_MAX];
+    resolve_path_at(dirfd, pathname, resolved, sizeof(resolved));
+    char extra[64];
+    snprintf(extra, sizeof(extra), "%d:%d", owner, group);
+
+    if (!ask_buccet("chown", resolved, extra)) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_fchownat(dirfd, pathname, owner, group, flags);
+}
+
+int linkat(int olddirfd, const char* oldpath, int newdirfd, const char* newpath, int flags) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_linkat(olddirfd, oldpath, newdirfd, newpath, flags);
+    }
+
+    char resolved_old[PATH_MAX], resolved_new[PATH_MAX];
+    resolve_path_at(olddirfd, oldpath, resolved_old, sizeof(resolved_old));
+    resolve_path_at(newdirfd, newpath, resolved_new, sizeof(resolved_new));
+
+    if (!ask_buccet("link", resolved_old, resolved_new)) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_linkat(olddirfd, oldpath, newdirfd, newpath, flags);
+}
+
+int symlinkat(const char* target, int newdirfd, const char* linkpath) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_symlinkat(target, newdirfd, linkpath);
+    }
+
+    char resolved_link[PATH_MAX];
+    char resolved_target[PATH_MAX];
+    resolve_path_at(newdirfd, linkpath, resolved_link, sizeof(resolved_link));
+    resolve_symlink_target(target, resolved_link, resolved_target, sizeof(resolved_target));
+
+    if (!ask_buccet("symlink", resolved_link, resolved_target)) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_symlinkat(target, newdirfd, linkpath);
 }
 
 FILE* fopen(const char* pathname, const char* mode) {
@@ -807,10 +1115,12 @@ int symlink(const char* target, const char* linkpath) {
         return real_symlink(target, linkpath);
     }
 
-    char resolved[PATH_MAX];
-    resolve_path(linkpath, resolved, sizeof(resolved));
+    char resolved_link[PATH_MAX];
+    char resolved_target[PATH_MAX];
+    resolve_path(linkpath, resolved_link, sizeof(resolved_link));
+    resolve_symlink_target(target, resolved_link, resolved_target, sizeof(resolved_target));
 
-    if (!ask_buccet("symlink", resolved, target)) {
+    if (!ask_buccet("symlink", resolved_link, resolved_target)) {
         errno = EACCES;
         return -1;
     }
@@ -868,13 +1178,15 @@ int execvp(const char* file, char* const argv[]) {
         return real_execvp(file, argv);
     }
 
+    char resolved[PATH_MAX];
+    resolve_executable_path(file, resolved, sizeof(resolved));
     char cmdline[BUCCET_MAX_PAYLOAD] = "";
     for (int i = 0; argv[i] && strlen(cmdline) < BUCCET_MAX_PAYLOAD - 256; i++) {
         if (i > 0) strcat(cmdline, " ");
         strncat(cmdline, argv[i], 255);
     }
 
-    if (!ask_buccet("exec", file, cmdline)) {
+    if (!ask_buccet("exec", resolved, cmdline)) {
         errno = EACCES;
         return -1;
     }
@@ -923,18 +1235,44 @@ int posix_spawnp(
         return real_posix_spawnp(pid, file, file_actions, attrp, argv, envp);
     }
 
+    char resolved[PATH_MAX];
+    resolve_executable_path(file, resolved, sizeof(resolved));
     char cmdline[BUCCET_MAX_PAYLOAD] = "";
     for (int i = 0; argv && argv[i] && strlen(cmdline) < BUCCET_MAX_PAYLOAD - 256; i++) {
         if (i > 0) strcat(cmdline, " ");
         strncat(cmdline, argv[i], 255);
     }
 
-    if (!ask_buccet("exec", file, cmdline)) {
+    if (!ask_buccet("exec", resolved, cmdline)) {
         return EACCES;
     }
 
     return real_posix_spawnp(pid, file, file_actions, attrp, argv, envp);
 }
+
+#ifdef __linux__
+int execvpe(const char* file, char* const argv[], char* const envp[]) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_execvpe(file, argv, envp);
+    }
+
+    char resolved[PATH_MAX];
+    resolve_executable_path(file, resolved, sizeof(resolved));
+    char cmdline[BUCCET_MAX_PAYLOAD] = "";
+    for (int i = 0; argv && argv[i] && strlen(cmdline) < BUCCET_MAX_PAYLOAD - 256; i++) {
+        if (i > 0) strcat(cmdline, " ");
+        strncat(cmdline, argv[i], 255);
+    }
+
+    if (!ask_buccet("exec", resolved, cmdline)) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_execvpe(file, argv, envp);
+}
+#endif
 
 int system(const char* command) {
     gravity_init();
@@ -959,11 +1297,8 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
 
     char target[256];
     format_socket_target(addr, target, sizeof(target));
-    if (addr && addr->sa_family == AF_UNIX) {
-        struct sockaddr_un* addr_un = (struct sockaddr_un*)addr;
-        if (strcmp(addr_un->sun_path, gravity_socket_path()) == 0) {
-            return real_connect(sockfd, addr, addrlen);
-        }
+    if (is_buccet_socket_addr(addr)) {
+        return real_connect(sockfd, addr, addrlen);
     }
 
     if (!ask_buccet("connect", target, "")) {
@@ -974,23 +1309,40 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
     return real_connect(sockfd, addr, addrlen);
 }
 
+static int resolve_send_target(int sockfd, const struct sockaddr* addr, char* target, size_t size) {
+    if (addr) {
+        if (is_buccet_socket_addr(addr)) {
+            return -1;
+        }
+        format_socket_target(addr, target, size);
+        return 1;
+    }
+
+    struct sockaddr_storage peer;
+    socklen_t peer_size = 0;
+    if (!resolve_peer_socket_addr(sockfd, &peer, &peer_size)) {
+        return 0;
+    }
+    if (is_buccet_socket_addr((const struct sockaddr*)&peer)) {
+        return -1;
+    }
+    format_socket_target((const struct sockaddr*)&peer, target, size);
+    return 1;
+}
+
 ssize_t sendto(int sockfd, const void* buf, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t addrlen) {
     gravity_init();
     if (g_buccet_internal) {
         return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
     }
 
-    if (!dest_addr) {
+    char target[256];
+    int target_state = resolve_send_target(sockfd, dest_addr, target, sizeof(target));
+    if (target_state < 0) {
         return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
     }
-
-    char target[256];
-    format_socket_target(dest_addr, target, sizeof(target));
-    if (dest_addr->sa_family == AF_UNIX) {
-        const struct sockaddr_un* addr_un = (const struct sockaddr_un*)dest_addr;
-        if (strcmp(addr_un->sun_path, gravity_socket_path()) == 0) {
-            return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
-        }
+    if (target_state == 0) {
+        return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
     }
 
     if (!ask_buccet("connect", target, "transport=sendto")) {
@@ -1000,6 +1352,58 @@ ssize_t sendto(int sockfd, const void* buf, size_t len, int flags, const struct 
 
     return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
 }
+
+ssize_t sendmsg(int sockfd, const struct msghdr* msg, int flags) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_sendmsg(sockfd, msg, flags);
+    }
+
+    const struct sockaddr* dest_addr = msg && msg->msg_name && msg->msg_namelen > 0
+        ? (const struct sockaddr*)msg->msg_name
+        : NULL;
+    char target[256];
+    int target_state = resolve_send_target(sockfd, dest_addr, target, sizeof(target));
+    if (target_state < 0 || target_state == 0) {
+        return real_sendmsg(sockfd, msg, flags);
+    }
+
+    if (!ask_buccet("connect", target, "transport=sendmsg")) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_sendmsg(sockfd, msg, flags);
+}
+
+#ifdef __linux__
+int sendmmsg(int sockfd, struct mmsghdr* msgvec, unsigned int vlen, int flags) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_sendmmsg(sockfd, msgvec, vlen, flags);
+    }
+
+    if (!msgvec || vlen == 0) {
+        return real_sendmmsg(sockfd, msgvec, vlen, flags);
+    }
+
+    const struct sockaddr* dest_addr = msgvec[0].msg_hdr.msg_name && msgvec[0].msg_hdr.msg_namelen > 0
+        ? (const struct sockaddr*)msgvec[0].msg_hdr.msg_name
+        : NULL;
+    char target[256];
+    int target_state = resolve_send_target(sockfd, dest_addr, target, sizeof(target));
+    if (target_state < 0 || target_state == 0) {
+        return real_sendmmsg(sockfd, msgvec, vlen, flags);
+    }
+
+    if (!ask_buccet("connect", target, "transport=sendmmsg")) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_sendmmsg(sockfd, msgvec, vlen, flags);
+}
+#endif
 
 #ifdef __APPLE__
 typedef struct {
@@ -1029,6 +1433,23 @@ static int buccet_openat(int dirfd, const char* pathname, int flags, ...) {
     return openat(dirfd, pathname, flags);
 }
 
+static int buccet_renameat(int olddirfd, const char* oldpath, int newdirfd, const char* newpath) {
+    return renameat(olddirfd, oldpath, newdirfd, newpath);
+}
+static int buccet_unlinkat(int dirfd, const char* pathname, int flags) { return unlinkat(dirfd, pathname, flags); }
+static int buccet_mkdirat(int dirfd, const char* pathname, mode_t mode) { return mkdirat(dirfd, pathname, mode); }
+static int buccet_fchmodat(int dirfd, const char* pathname, mode_t mode, int flags) {
+    return fchmodat(dirfd, pathname, mode, flags);
+}
+static int buccet_fchownat(int dirfd, const char* pathname, uid_t owner, gid_t group, int flags) {
+    return fchownat(dirfd, pathname, owner, group, flags);
+}
+static int buccet_linkat(int olddirfd, const char* oldpath, int newdirfd, const char* newpath, int flags) {
+    return linkat(olddirfd, oldpath, newdirfd, newpath, flags);
+}
+static int buccet_symlinkat(const char* target, int newdirfd, const char* linkpath) {
+    return symlinkat(target, newdirfd, linkpath);
+}
 static FILE* buccet_fopen(const char* pathname, const char* mode) { return fopen(pathname, mode); }
 static int buccet_creat(const char* pathname, mode_t mode) { return creat(pathname, mode); }
 static int buccet_unlink(const char* pathname) { return unlink(pathname); }
@@ -1056,6 +1477,7 @@ static int buccet_connect(int sockfd, const struct sockaddr* addr, socklen_t add
 static ssize_t buccet_sendto(int sockfd, const void* buf, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t addrlen) {
     return sendto(sockfd, buf, len, flags, dest_addr, addrlen);
 }
+static ssize_t buccet_sendmsg(int sockfd, const struct msghdr* msg, int flags) { return sendmsg(sockfd, msg, flags); }
 
 #define BUCCET_INTERPOSE(replacement, replacee) \
     __attribute__((used)) static const buccet_interpose_t interpose_##replacee \
@@ -1066,6 +1488,13 @@ static ssize_t buccet_sendto(int sockfd, const void* buf, size_t len, int flags,
 
 BUCCET_INTERPOSE(buccet_open, open)
 BUCCET_INTERPOSE(buccet_openat, openat)
+BUCCET_INTERPOSE(buccet_renameat, renameat)
+BUCCET_INTERPOSE(buccet_unlinkat, unlinkat)
+BUCCET_INTERPOSE(buccet_mkdirat, mkdirat)
+BUCCET_INTERPOSE(buccet_fchmodat, fchmodat)
+BUCCET_INTERPOSE(buccet_fchownat, fchownat)
+BUCCET_INTERPOSE(buccet_linkat, linkat)
+BUCCET_INTERPOSE(buccet_symlinkat, symlinkat)
 BUCCET_INTERPOSE(buccet_fopen, fopen)
 BUCCET_INTERPOSE(buccet_creat, creat)
 BUCCET_INTERPOSE(buccet_unlink, unlink)
@@ -1085,4 +1514,5 @@ BUCCET_INTERPOSE(buccet_posix_spawnp, posix_spawnp)
 BUCCET_INTERPOSE(buccet_system, system)
 BUCCET_INTERPOSE(buccet_connect, connect)
 BUCCET_INTERPOSE(buccet_sendto, sendto)
+BUCCET_INTERPOSE(buccet_sendmsg, sendmsg)
 #endif

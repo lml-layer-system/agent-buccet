@@ -266,6 +266,63 @@ async function main() {
     `expected rename payload to block if the destination-side hold is denied\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
   );
 
+  const symlinkPath = path.join(tempRoot, "alias-link.txt");
+  const symlinkTarget = path.join(tempRoot, "alias-target.txt");
+  let symlinkSettled = false;
+  const symlinkPromise = sendGravityPayload(
+    { host: "127.0.0.1", port: gravityPort },
+    `symlink|${symlinkPath}|${process.pid}|${symlinkTarget}`,
+  );
+  void symlinkPromise.finally(() => {
+    symlinkSettled = true;
+  });
+
+  const symlinkPathGroup = await waitForPendingGroup({
+    interceptPort,
+    label: "symlink path group",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "move"
+      && group.target === symlinkPath,
+  });
+  assert.equal(symlinkSettled, false, "symlink payload should remain frozen on the link-path hold");
+  const symlinkPathAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_approve",
+      groupId: symlinkPathGroup.groupId,
+      issuedBy: "user:gravity-bridge-contract",
+      reason: "release symlink path hold",
+    },
+  });
+  assert.equal(symlinkPathAck.type, "ack");
+
+  const symlinkTargetGroup = await waitForPendingGroup({
+    interceptPort,
+    label: "symlink target group",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "move"
+      && group.target === symlinkTarget,
+  });
+  const symlinkTargetAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_deny",
+      groupId: symlinkTargetGroup.groupId,
+      deniedBy: "user:gravity-bridge-contract",
+      reason: "deny symlink target hold",
+    },
+  });
+  assert.equal(symlinkTargetAck.type, "ack");
+
+  const symlinkBlocked = await symlinkPromise;
+  assert.equal(
+    symlinkBlocked,
+    "0",
+    `expected symlink payload to block if the target-side hold is denied\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
+  );
+
   gravityBridge.kill("SIGTERM");
   interceptServer.kill("SIGTERM");
   await once(gravityBridge, "exit");
@@ -274,6 +331,7 @@ async function main() {
   console.log(`gravity bridge released approval-required payload: ${approvalReleased}`);
   console.log(`gravity bridge blocked hard-deny payload: ${denyBlocked}`);
   console.log(`gravity bridge held rename source and destination separately: ${renameBlocked}`);
+  console.log(`gravity bridge held symlink path and target separately: ${symlinkBlocked}`);
 }
 
 main().catch((error) => {

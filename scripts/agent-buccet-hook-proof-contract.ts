@@ -420,6 +420,60 @@ async function compileUdpSendHelper(tempRoot: string): Promise<string> {
   return helperBinaryPath;
 }
 
+async function compileSystemPipeHelper(tempRoot: string): Promise<string> {
+  const helperSourcePath = path.join(tempRoot, "system-pipe-helper.c");
+  const helperBinaryPath = path.join(tempRoot, "system-pipe-helper");
+  const helperSource = [
+    "#include <stdio.h>",
+    "#include <stdlib.h>",
+    "",
+    "int main(int argc, char** argv) {",
+    "  if (argc != 2) {",
+    "    fprintf(stderr, \"usage: %s <command>\\n\", argv[0]);",
+    "    return 64;",
+    "  }",
+    "  return system(argv[1]);",
+    "}",
+    "",
+  ].join("\n");
+  await fs.writeFile(helperSourcePath, helperSource, "utf8");
+  const compileResult = await runCommand("cc", [
+    helperSourcePath,
+    "-o",
+    helperBinaryPath,
+  ]);
+  assert.equal(compileResult.code, 0, compileResult.stderr);
+  return helperBinaryPath;
+}
+
+async function compileExecvpHelper(tempRoot: string): Promise<string> {
+  const helperSourcePath = path.join(tempRoot, "execvp-helper.c");
+  const helperBinaryPath = path.join(tempRoot, "execvp-helper");
+  const helperSource = [
+    "#include <stdio.h>",
+    "#include <unistd.h>",
+    "",
+    "int main(int argc, char** argv) {",
+    "  if (argc < 2) {",
+    "    fprintf(stderr, \"usage: %s <tool> [args...]\\n\", argv[0]);",
+    "    return 64;",
+    "  }",
+    "  execvp(argv[1], &argv[1]);",
+    "  perror(\"execvp\");",
+    "  return 127;",
+    "}",
+    "",
+  ].join("\n");
+  await fs.writeFile(helperSourcePath, helperSource, "utf8");
+  const compileResult = await runCommand("cc", [
+    helperSourcePath,
+    "-o",
+    helperBinaryPath,
+  ]);
+  assert.equal(compileResult.code, 0, compileResult.stderr);
+  return helperBinaryPath;
+}
+
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-hook-proof-"));
   const homePath = path.join(tempRoot, "home");
@@ -427,6 +481,11 @@ async function main() {
   await fs.mkdir(workspacePath, { recursive: true });
   const openAtHelperPath = await compileOpenAtHelper(tempRoot);
   const udpSendHelperPath = await compileUdpSendHelper(tempRoot);
+  const systemPipeHelperPath = await compileSystemPipeHelper(tempRoot);
+  const execvpHelperPath = await compileExecvpHelper(tempRoot);
+  const shellPathResult = await runCommand("sh", ["-c", "command -v sh"]);
+  assert.equal(shellPathResult.code, 0, shellPathResult.stderr);
+  const shellPath = shellPathResult.stdout.trim();
 
   const runtimeEnv = {
     ...process.env,
@@ -576,6 +635,55 @@ async function main() {
   });
   assert.notEqual(deniedExecResult.code, 0, "expected denied child exec to fail");
 
+  const pipedSystemCommand = "printf buccet-pipe | cat >/dev/null";
+  const deniedSystemPipe = startCli([
+    "hook",
+    "run",
+    "--",
+    systemPipeHelperPath,
+    pipedSystemCommand,
+  ], envs.runtimeEnv);
+  const deniedSystemGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
+    env: envs.controlEnv,
+    label: "system pipe freeze",
+    predicate: (group) =>
+      group.actionClass === "shell"
+      && group.operation === "exec"
+      && group.target === pipedSystemCommand,
+  });
+  await denySwarmGroup(envs.controlEnv, deniedSystemGroup.groupId, "deny piped system command");
+  const deniedSystemResult = await waitForCliWithRuntimeSupportApprovals({
+    running: deniedSystemPipe,
+    env: envs.controlEnv,
+    label: "system pipe denial completion",
+  });
+  assert.notEqual(deniedSystemResult.code, 0, "expected denied piped system command to fail");
+
+  const deniedExecvp = startCli([
+    "hook",
+    "run",
+    "--",
+    execvpHelperPath,
+    "sh",
+    "-c",
+    "echo execvp-path >/dev/null",
+  ], envs.runtimeEnv);
+  const deniedExecvpGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
+    env: envs.controlEnv,
+    label: "execvp path freeze",
+    predicate: (group) =>
+      group.actionClass === "shell"
+      && group.operation === "exec"
+      && group.target === shellPath,
+  });
+  await denySwarmGroup(envs.controlEnv, deniedExecvpGroup.groupId, "deny execvp resolved shell");
+  const deniedExecvpResult = await waitForCliWithRuntimeSupportApprovals({
+    running: deniedExecvp,
+    env: envs.controlEnv,
+    label: "execvp path denial completion",
+  });
+  assert.notEqual(deniedExecvpResult.code, 0, "expected denied execvp shell to fail");
+
   const networkServer = net.createServer((socket) => {
     socket.end("ok");
   });
@@ -682,6 +790,8 @@ async function main() {
   console.log("hook out-of-scope write: freeze -> deny");
   console.log("hook openat dirfd write: freeze -> deny");
   console.log("hook nested exec: freeze -> deny");
+  console.log("hook system pipe command: freeze -> deny");
+  console.log("hook execvp resolved path: freeze -> deny");
   console.log("hook network connect: freeze -> deny");
   console.log("hook udp sendto: freeze -> deny");
   console.log("hook in-scope write: allow");
