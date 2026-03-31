@@ -11,10 +11,25 @@ export function evaluateGravityEvent(args: {
   state: GravityState;
   event: GravityEvent;
   skills: readonly LawSkill[];
+  onSkillError?: (error: {
+    phase: "validate" | "normalize";
+    lawId: string;
+    error: unknown;
+  }) => void;
 }): { result: EnforcementResult; state: GravityState } {
   let violations = [] as ReturnType<LawSkill["validate"]>;
   for (const skill of args.skills) {
-    const next = skill.validate(args.state, args.event);
+    let next: ReturnType<LawSkill["validate"]>;
+    try {
+      next = skill.validate(args.state, args.event);
+    } catch (error) {
+      args.onSkillError?.({
+        phase: "validate",
+        lawId: skill.id,
+        error,
+      });
+      continue;
+    }
     if (next.length > 0) {
       violations = violations.concat(next);
     }
@@ -37,7 +52,15 @@ export function evaluateGravityEvent(args: {
     if (relevant.length === 0) {
       continue;
     }
-    nextState = skill.normalize(nextState, relevant);
+    try {
+      nextState = skill.normalize(nextState, relevant);
+    } catch (error) {
+      args.onSkillError?.({
+        phase: "normalize",
+        lawId: skill.id,
+        error,
+      });
+    }
   }
 
   return {
@@ -89,6 +112,13 @@ export async function runGravityLoop(
         state,
         event,
         skills,
+        onSkillError: ({ phase, lawId, error }) => {
+          deps.emitPanic?.({
+            kind: phase === "validate" ? "law-skill-validate-error" : "law-skill-normalize-error",
+            lawId,
+            error,
+          });
+        },
       });
       result = evaluated.result;
       state = evaluated.state;

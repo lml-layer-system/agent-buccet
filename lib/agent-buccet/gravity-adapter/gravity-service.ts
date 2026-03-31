@@ -87,29 +87,68 @@ type GravityKernelJob = {
 };
 
 type GravityKernelRuntime = {
+  key: string;
   sessionId: string;
   skills: readonly LawSkill[];
+  skillSignature: string;
   currentState?: GravityState;
   queue: GravityKernelJob[];
   waiters: Array<() => void>;
   running: boolean;
+  stopped: boolean;
+  lastUsedAt: number;
 };
 
 const gravityKernelRuntimes = new Map<string, GravityKernelRuntime>();
+const GRAVITY_RUNTIME_IDLE_TTL_MS = 5 * 60_000;
+
+function skillSignature(skills: readonly LawSkill[]): string {
+  return skills.map((skill) => skill.id).join("|");
+}
+
+function stopRuntime(runtime: GravityKernelRuntime) {
+  if (runtime.stopped) {
+    return;
+  }
+  runtime.stopped = true;
+  gravityKernelRuntimes.delete(runtime.key);
+  while (runtime.waiters.length > 0) {
+    const waiter = runtime.waiters.shift();
+    waiter?.();
+  }
+}
+
+function pruneIdleRuntimes(nowMs = Date.now()) {
+  for (const runtime of gravityKernelRuntimes.values()) {
+    if (runtime.stopped || runtime.queue.length > 0) {
+      continue;
+    }
+    if (nowMs - runtime.lastUsedAt >= GRAVITY_RUNTIME_IDLE_TTL_MS) {
+      stopRuntime(runtime);
+    }
+  }
+}
 
 function getOrCreateRuntime(sessionId: string, skills: readonly LawSkill[]) {
-  const existing = gravityKernelRuntimes.get(sessionId);
+  pruneIdleRuntimes();
+  const signature = skillSignature(skills);
+  const key = `${sessionId}::${signature}`;
+  const existing = gravityKernelRuntimes.get(key);
   if (existing) {
     return existing;
   }
   const runtime: GravityKernelRuntime = {
+    key,
     sessionId,
     skills,
+    skillSignature: signature,
     queue: [],
     waiters: [],
     running: false,
+    stopped: false,
+    lastUsedAt: Date.now(),
   };
-  gravityKernelRuntimes.set(sessionId, runtime);
+  gravityKernelRuntimes.set(key, runtime);
   return runtime;
 }
 
@@ -122,17 +161,24 @@ function wakeRuntime(runtime: GravityKernelRuntime) {
 
 function enqueueRuntimeJob(runtime: GravityKernelRuntime, job: GravityKernelJob) {
   runtime.queue.push(job);
+  runtime.lastUsedAt = Date.now();
   wakeRuntime(runtime);
 }
 
-async function nextRuntimeJob(runtime: GravityKernelRuntime): Promise<GravityKernelJob> {
+async function nextRuntimeJob(runtime: GravityKernelRuntime): Promise<GravityKernelJob | null> {
   const existing = runtime.queue.shift();
   if (existing) {
     return existing;
   }
+  if (runtime.stopped) {
+    return null;
+  }
   await new Promise<void>((resolve) => {
     runtime.waiters.push(resolve);
   });
+  if (runtime.stopped) {
+    return null;
+  }
   return nextRuntimeJob(runtime);
 }
 
@@ -144,6 +190,10 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
 
   while (true) {
     const job = await nextRuntimeJob(runtime);
+    if (!job) {
+      runtime.running = false;
+      return;
+    }
     try {
       const proposal = mapBoundaryRequestToGravityProposal(job.request);
       const ledger = await mapBoundaryLedgerToGravityView({
@@ -170,6 +220,10 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
         state: currentState,
         event,
         skills: runtime.skills,
+        onSkillError: () => {
+          // The persistent adapter path does not expose a panic bus.
+          // Keep one bad law skill from aborting the whole request.
+        },
       });
       runtime.currentState = evaluated.state;
       const result = evaluated.result;
@@ -222,6 +276,11 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
       });
     } catch (error) {
       job.reject(error);
+    } finally {
+      runtime.lastUsedAt = Date.now();
+      if (job.config.session.status !== "active" && runtime.queue.length === 0) {
+        stopRuntime(runtime);
+      }
     }
   }
 }
