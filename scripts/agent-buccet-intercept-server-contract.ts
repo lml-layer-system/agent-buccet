@@ -119,6 +119,27 @@ async function main() {
   assert.equal(decision.decision, "deny");
   console.log(`meta-law intercept decision: ${decision.decision}`);
 
+  const deniedSwarmStatus = await waitFor(async () => {
+    const status = await sendJson(socketPath, {
+      command: "swarm_status",
+      requestId: "swarm-status-meta-deny",
+    }) as {
+      type: string;
+      groups: Array<{ state: string; target: string; actionClass?: string; operation?: string }>;
+    };
+    if (status.type !== "swarm_status") {
+      return null;
+    }
+    const deniedGroup = status.groups.find((group) =>
+      group.state === "denied"
+      && group.actionClass === "file"
+      && group.operation === "write"
+      && group.target === "/tmp/agent-buccet-intercept-contract.txt"
+    );
+    return deniedGroup ? status : null;
+  }, 5_000, 100);
+  assert.equal(deniedSwarmStatus.type, "swarm_status");
+
   const restart = await sendJson(socketPath, {
     command: "restart",
     requestId: "restart-1",

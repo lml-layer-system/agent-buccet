@@ -230,6 +230,38 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     }
   }
 
+  function rememberImmediateResolution(
+    request: BoundaryInterceptRequest,
+    result: BoundaryInterceptResult,
+  ) {
+    const now = new Date().toISOString();
+    const resolvedGroup: BoundarySwarmGroup = {
+      groupId: `swarm-${randomUUID()}`,
+      key: buildSwarmKey(request),
+      state: result.decision === "allow" ? "approved" : "denied",
+      createdAt: now,
+      updatedAt: now,
+      actionClass: request.actionClass,
+      operation: request.operation,
+      target: normalizeTarget(request),
+      reason: result.reason,
+      payloadSummary: request.payloadSummary,
+      reviewContext: request.reviewContext,
+      lawIds: [...result.lawIds],
+      bodyguardMoves: [...result.bodyguardMoves],
+      memberCount: 1,
+      waitingCount: 0,
+      requestIds: [result.requestId],
+    };
+    recentGroups.set(resolvedGroup.groupId, resolvedGroup);
+    const resolved = [...recentGroups.values()]
+      .filter((entry) => entry.state !== "waiting")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    for (const stale of resolved.slice(50)) {
+      recentGroups.delete(stale.groupId);
+    }
+  }
+
   function ensurePendingGroup(request: BoundaryInterceptRequest, result: BoundaryInterceptResult) {
     const key = buildSwarmKey(request);
     const now = new Date().toISOString();
@@ -326,6 +358,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     });
     applyInterceptState(result);
     if (result.decision !== "require_approval") {
+      rememberImmediateResolution(request, result);
       return result;
     }
     return waitForResolution(request, result);

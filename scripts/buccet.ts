@@ -1309,6 +1309,7 @@ async function handleRun(rest: string[]) {
   const hookEnv = {
     AGENT_BUCCET_HOME: home.homePath,
     AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+    AGENT_BUCCET_WRAPPER_MODE: "true",
     BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
     BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
     ...(process.platform === "darwin"
@@ -1712,6 +1713,7 @@ async function handleHook(rest: string[]) {
       ...process.env,
       AGENT_BUCCET_HOME: home.homePath,
       AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+      AGENT_BUCCET_WRAPPER_MODE: "true",
       BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
       BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
       ...(process.platform === "darwin"

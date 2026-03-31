@@ -5,7 +5,6 @@ import {
 } from "./gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
-import { grantsForAction, targetMatchesGrant } from "./orchestrator.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
@@ -113,44 +112,6 @@ export function resolveBodyguardStandingLaw(args: {
       decision: "deny",
       reason: `blocked by standing UPL denial ${entry.id}`,
       triggeredLawIds,
-      requiresApproval: false,
-    };
-  }
-
-  const reachableFilesystemGrant = args.request.actionKind.startsWith("fs.")
-    ? grantsForAction(
-      args.config.session,
-      args.request.actionKind,
-      args.config.grants,
-    ).find((grant) => grant.resourceKind === "path" && targetMatchesGrant(args.request, grant))
-    : null;
-
-  if (reachableFilesystemGrant) {
-    return {
-      decision: "allow",
-      reason: `allowed by opened path scope ${reachableFilesystemGrant.resourceValue}`,
-      triggeredLawIds: [
-        typeof reachableFilesystemGrant.metadata?.law_id === "string"
-          ? reachableFilesystemGrant.metadata.law_id
-          : "BOUNDARY.PATH_SCOPE.01",
-      ],
-      requiresApproval: false,
-    };
-  }
-
-  const runtimeSupportGrant = grantsForAction(
-    args.config.session,
-    args.request.actionKind,
-    args.config.grants,
-  ).find((grant) =>
-    grant.metadata?.runtime_support === true && targetMatchesGrant(args.request, grant)
-  );
-
-  if (runtimeSupportGrant) {
-    return {
-      decision: "allow",
-      reason: `allowed by runtime support grant for ${runtimeSupportGrant.resourceValue}`,
-      triggeredLawIds: ["BOUNDARY.RUNTIME_SUPPORT.01"],
       requiresApproval: false,
     };
   }
