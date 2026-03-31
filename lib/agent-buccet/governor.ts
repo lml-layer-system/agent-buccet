@@ -5,35 +5,39 @@ import type {
   BoundaryGovernorState,
 } from "./types.ts";
 
-export const DEFAULT_GOVERNOR_WEIGHT: Partial<Record<BoundaryActionKind, number>> = {
-  "tool.exec": 10,
-  "fs.delete": 8,
-  "sys.credential.use": 8,
-  "sys.credential.read": 8,
-  "sys.config.write": 6,
-  "sys.env.write": 6,
-  "network.send": 5,
-  "comm.send": 5,
-  "db.delete": 8,
-  "db.update": 4,
-  "db.insert": 3,
-  "db.query": 2,
-  "fs.write": 2,
-  "fs.append": 2,
-  "fs.move": 2,
-  "fs.mkdir": 1,
+export const DEFAULT_GOVERNOR_WEIGHT: Record<BoundaryActionKind, number> = {
   "fs.read": 1,
+  "fs.write": 4,
+  "fs.append": 3,
+  "fs.delete": 8,
+  "fs.mkdir": 3,
+  "fs.move": 4,
   "chat.emit": 1,
-  "sys.env.read": 1,
-  "sys.config.read": 1,
+  "comm.send": 5,
+  "tool.exec": 10,
+  "network.send": 5,
+  "db.query": 2,
+  "db.insert": 4,
+  "db.update": 5,
+  "db.delete": 7,
+  "sys.env.read": 3,
+  "sys.env.write": 6,
+  "sys.config.read": 3,
+  "sys.config.write": 7,
+  "sys.credential.read": 8,
+  "sys.credential.use": 8,
 };
 
-export function getActionWeight(
-  actionKind: BoundaryActionKind,
-  weight?: Partial<Record<BoundaryActionKind, number>>,
-): number {
-  return (weight ?? DEFAULT_GOVERNOR_WEIGHT)[actionKind] ?? 1;
-}
+export type BoundaryGovernorTrip =
+  | {
+      tripped: false;
+    }
+  | {
+      tripped: true;
+      dimension: "velocity" | "density" | "mass";
+      lawId: string;
+      reason: string;
+    };
 
 export function initialGovernorState(): BoundaryGovernorState {
   return {
@@ -43,61 +47,75 @@ export function initialGovernorState(): BoundaryGovernorState {
   };
 }
 
-export type BoundaryGovernorEvaluation =
-  | { tripped: false }
-  | { tripped: true; dimension: "velocity" | "density" | "mass"; lawId: string; reason: string };
+function pruneVelocityWindow(
+  timestamps: number[],
+  windowMs: number,
+  nowMs: number,
+): number[] {
+  const cutoff = nowMs - windowMs;
+  return timestamps.filter((timestamp) => timestamp >= cutoff);
+}
+
+function decisionWindow(
+  decisions: boolean[],
+  windowSize: number,
+): boolean[] {
+  return decisions.slice(-windowSize);
+}
+
+function actionWeight(
+  actionKind: BoundaryActionKind,
+  config: BoundaryGovernorConfig,
+): number {
+  return config.weight?.[actionKind] ?? DEFAULT_GOVERNOR_WEIGHT[actionKind];
+}
 
 export function evaluateBoundaryGovernor(args: {
   config: BoundaryGovernorConfig;
   state: BoundaryGovernorState;
-  request: BoundaryActionRequest;
+  request: Pick<BoundaryActionRequest, "actionKind">;
   nowMs: number;
-}): BoundaryGovernorEvaluation {
+}): BoundaryGovernorTrip {
   const { config, state, request, nowMs } = args;
 
-  // Velocity: max boundary crossings per minute
   if (config.velocity) {
     const windowMs = config.velocity.windowMs ?? 60_000;
-    const windowStart = nowMs - windowMs;
-    const crossingsInWindow = state.crossingTimestamps.filter((t) => t >= windowStart).length;
-    const maxPerWindow = Math.ceil((config.velocity.maxRpm * windowMs) / 60_000);
-    if (crossingsInWindow >= maxPerWindow) {
+    const activeCrossings = pruneVelocityWindow(state.crossingTimestamps, windowMs, nowMs);
+    if (activeCrossings.length >= config.velocity.maxRpm) {
       return {
         tripped: true,
         dimension: "velocity",
         lawId: "BOUNDARY.GOVERNOR.VELOCITY.01",
-        reason: `action rate ceiling reached: ${crossingsInWindow} crossings in ${windowMs}ms window (max ${maxPerWindow})`,
+        reason: `boundary governor velocity ceiling tripped (${activeCrossings.length}/${config.velocity.maxRpm} in ${windowMs}ms)`,
       };
     }
   }
 
-  // Density: pathological unlawful-to-lawful ratio in sliding window
   if (config.density) {
     const windowSize = config.density.windowSize ?? 20;
-    const recent = state.recentDecisions.slice(-windowSize);
-    if (recent.length >= Math.ceil(windowSize / 2)) {
-      const deniedCount = recent.filter((lawful) => !lawful).length;
-      const ratio = deniedCount / recent.length;
-      if (ratio >= config.density.maxFailureRatio) {
+    const recent = decisionWindow(state.recentDecisions, windowSize);
+    if (recent.length > 0) {
+      const denied = recent.filter((decision) => !decision).length;
+      const denyRatio = denied / recent.length;
+      if (denyRatio >= config.density.maxFailureRatio) {
         return {
           tripped: true,
           dimension: "density",
           lawId: "BOUNDARY.GOVERNOR.DENSITY.01",
-          reason: `pathological denial density: ${Math.round(ratio * 100)}% unlawful crossings in last ${recent.length} actions (max ${Math.round(config.density.maxFailureRatio * 100)}%)`,
+          reason: `boundary governor density ceiling tripped (${denied}/${recent.length} denied, ratio ${denyRatio.toFixed(2)})`,
         };
       }
     }
   }
 
-  // Mass: absolute weighted action horizon per session
   if (config.mass) {
-    const weight = getActionWeight(request.actionKind, config.weight);
-    if (state.totalWeightedCrossings + weight > config.mass.maxCrossings) {
+    const nextMass = state.totalWeightedCrossings + actionWeight(request.actionKind, config);
+    if (nextMass > config.mass.maxCrossings) {
       return {
         tripped: true,
         dimension: "mass",
         lawId: "BOUNDARY.GOVERNOR.MASS.01",
-        reason: `session action horizon reached: ${state.totalWeightedCrossings} weighted crossings (max ${config.mass.maxCrossings})`,
+        reason: `boundary governor mass ceiling tripped (${nextMass} > ${config.mass.maxCrossings})`,
       };
     }
   }
@@ -112,20 +130,22 @@ export function recordGovernorCrossing(args: {
   wasLawful: boolean;
   nowMs: number;
 }): BoundaryGovernorState {
-  const { state, config, actionKind, wasLawful, nowMs } = args;
-
-  const velocityWindowMs = config.velocity?.windowMs ?? 60_000;
-  const windowStart = nowMs - velocityWindowMs;
-  const trimmedTimestamps = [...state.crossingTimestamps.filter((t) => t >= windowStart), nowMs];
-
-  const densityWindowSize = (config.density?.windowSize ?? 20) * 2;
-  const trimmedDecisions = [...state.recentDecisions, wasLawful].slice(-densityWindowSize);
-
-  const weight = getActionWeight(actionKind, config.weight);
+  const windowMs = args.config.velocity?.windowMs ?? 60_000;
+  const nextTimestamps = pruneVelocityWindow(
+    [...args.state.crossingTimestamps, args.nowMs],
+    windowMs,
+    args.nowMs,
+  );
+  const densityWindow = args.config.density?.windowSize ?? 20;
+  const nextDecisions = decisionWindow(
+    [...args.state.recentDecisions, args.wasLawful],
+    densityWindow,
+  );
 
   return {
-    crossingTimestamps: trimmedTimestamps,
-    totalWeightedCrossings: state.totalWeightedCrossings + weight,
-    recentDecisions: trimmedDecisions,
+    crossingTimestamps: nextTimestamps,
+    totalWeightedCrossings:
+      args.state.totalWeightedCrossings + actionWeight(args.actionKind, args.config),
+    recentDecisions: nextDecisions,
   };
 }
