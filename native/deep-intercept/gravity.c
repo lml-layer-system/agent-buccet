@@ -328,27 +328,10 @@ static void gravity_constructor(void) {
 static int ask_buccet(const char* action, const char* target, const char* extra) {
     struct sockaddr_un addr;
     char payload[BUCCET_MAX_PAYLOAD];
-    char merged_extra[BUCCET_MAX_PAYLOAD];
     pid_t pid = getpid();
-    const char* wrapper_mode = getenv("AGENT_BUCCET_WRAPPER_MODE");
-    int trusted_wrapper = wrapper_mode && strcmp(wrapper_mode, "true") == 0;
 
-    merged_extra[0] = '\0';
     if (extra && extra[0]) {
-        snprintf(merged_extra, sizeof(merged_extra), "%s", extra);
-    }
-    if (trusted_wrapper) {
-        size_t used = strlen(merged_extra);
-        snprintf(
-            merged_extra + used,
-            sizeof(merged_extra) - used,
-            "%sprov=trusted_user",
-            used > 0 ? " " : ""
-        );
-    }
-
-    if (merged_extra[0]) {
-        snprintf(payload, sizeof(payload), "%s|%s|%d|%s\n", action, target, pid, merged_extra);
+        snprintf(payload, sizeof(payload), "%s|%s|%d|%s\n", action, target, pid, extra);
     } else {
         snprintf(payload, sizeof(payload), "%s|%s|%d|\n", action, target, pid);
     }

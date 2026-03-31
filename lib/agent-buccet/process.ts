@@ -154,7 +154,6 @@ function buildProcessEnv(args: {
   merged.AGENT_BUCCET_SESSION_ID = args.sessionId;
   merged.AGENT_BUCCET_SCOPE_PATHS = JSON.stringify(args.scopePaths);
   merged.AGENT_BUCCET_POLICY_PATH = args.policyPath ?? "";
-  merged.AGENT_BUCCET_WRAPPER_MODE = "true";
   merged.AGENT_BUCCET_WRAPPER_CWD = args.cwd;
 
   return {

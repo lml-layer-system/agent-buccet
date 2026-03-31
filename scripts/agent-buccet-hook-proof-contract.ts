@@ -145,6 +145,34 @@ async function waitForSwarmGroup(args: {
   }, args.label);
 }
 
+async function waitForSwarmGroupWithRuntimeSupportApprovals(args: {
+  env: NodeJS.ProcessEnv;
+  label: string;
+  predicate: (group: {
+    groupId: string;
+    actionClass: string;
+    operation: string;
+    target: string;
+    waitingCount: number;
+    memberCount: number;
+  }) => boolean;
+}) {
+  return await waitFor(async () => {
+    const groups = await activeSwarmGroups(args.env);
+    const runtimeReadGroup = groups.find(isRuntimeSupportReadGroup);
+    if (runtimeReadGroup) {
+      await approveSwarmGroup(
+        args.env,
+        runtimeReadGroup.groupId,
+        `approve runtime support read for ${runtimeReadGroup.target}`,
+      );
+      await sleep(100);
+      return null;
+    }
+    return groups.find(args.predicate) ?? null;
+  }, args.label);
+}
+
 async function denySwarmGroup(env: NodeJS.ProcessEnv, groupId: string, reason: string): Promise<void> {
   const result = await runCli(["swarm", "deny", groupId, "--reason", reason], env);
   assert.equal(result.code, 0, result.stderr);
@@ -165,9 +193,22 @@ function isRuntimeSupportReadGroup(group: {
   operation: string;
   target: string;
 }): boolean {
-  if (!(group.actionClass === "file" && group.operation === "read")) {
+  if (group.actionClass !== "file") {
     return false;
   }
+
+  if (group.target === "/") {
+    return group.operation === "read";
+  }
+
+  if (group.target === "/dev/null") {
+    return ["read", "write", "append"].includes(group.operation);
+  }
+
+  if (group.operation !== "read") {
+    return false;
+  }
+
   return [
     "/usr/local/etc/openssl@3/",
     "/opt/homebrew/etc/openssl@3/",
@@ -181,6 +222,24 @@ async function waitForCliWithRuntimeSupportApprovals(args: {
   env: NodeJS.ProcessEnv;
   label: string;
   timeoutMs?: number;
+  alsoApprove?: {
+    predicate: (group: {
+      groupId: string;
+      actionClass: string;
+      operation: string;
+      target: string;
+      waitingCount: number;
+      memberCount: number;
+    }) => boolean;
+    reason: (group: {
+      groupId: string;
+      actionClass: string;
+      operation: string;
+      target: string;
+      waitingCount: number;
+      memberCount: number;
+    }) => string;
+  };
 }): Promise<CliResult> {
   const timeoutMs = args.timeoutMs ?? 15_000;
   const startedAt = Date.now();
@@ -202,6 +261,19 @@ async function waitForCliWithRuntimeSupportApprovals(args: {
         args.env,
         runtimeReadGroup.groupId,
         `approve runtime support read for ${runtimeReadGroup.target}`,
+      );
+      await sleep(100);
+      continue;
+    }
+
+    const releasableGroup = args.alsoApprove
+      ? groups.find(args.alsoApprove.predicate)
+      : undefined;
+    if (releasableGroup) {
+      await approveSwarmGroup(
+        args.env,
+        releasableGroup.groupId,
+        args.alsoApprove!.reason(releasableGroup),
       );
       await sleep(100);
       continue;
@@ -258,6 +330,13 @@ async function main() {
     running: autoRun,
     env: envs.controlEnv,
     label: "auto-wired buccet run in-scope write",
+    alsoApprove: {
+      predicate: (group) =>
+        group.actionClass === "file"
+        && group.operation === "write"
+        && group.target === autoRunFile,
+      reason: () => "release caught in-scope write after front hold",
+    },
   });
   assert.equal(autoRunResult.code, 0, autoRunResult.stderr);
   assert.equal(await fs.readFile(autoRunFile, "utf8"), "auto-run-ok\n");
@@ -285,7 +364,7 @@ async function main() {
     `require('node:fs').writeFileSync(${JSON.stringify(deniedWriteTarget)}, 'blocked\\n')`,
   ], envs.runtimeEnv);
 
-  const deniedWriteGroup = await waitForSwarmGroup({
+  const deniedWriteGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "out-of-scope file write freeze",
     predicate: (group) =>
@@ -294,7 +373,11 @@ async function main() {
       && group.target === deniedWriteTarget,
   });
   await denySwarmGroup(envs.controlEnv, deniedWriteGroup.groupId, "deny out-of-scope file write");
-  const deniedWriteResult = await deniedWrite.completed;
+  const deniedWriteResult = await waitForCliWithRuntimeSupportApprovals({
+    running: deniedWrite,
+    env: envs.controlEnv,
+    label: "out-of-scope file write denial completion",
+  });
   assert.notEqual(deniedWriteResult.code, 0, "expected denied out-of-scope write to fail");
   const deniedWriteExists = await fs.access(deniedWriteTarget).then(() => true).catch(() => false);
   assert.equal(deniedWriteExists, false, "denied out-of-scope file write should not create a file");
@@ -308,7 +391,7 @@ async function main() {
     `require('node:child_process').execFileSync(${JSON.stringify(process.execPath)}, ['-e', 'console.log("nested")'], { stdio: 'inherit' })`,
   ], envs.runtimeEnv);
 
-  const deniedExecGroup = await waitForSwarmGroup({
+  const deniedExecGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "child exec freeze",
     predicate: (group) =>
@@ -316,7 +399,11 @@ async function main() {
       && group.operation === "exec",
   });
   await denySwarmGroup(envs.controlEnv, deniedExecGroup.groupId, "deny nested exec");
-  const deniedExecResult = await deniedExec.completed;
+  const deniedExecResult = await waitForCliWithRuntimeSupportApprovals({
+    running: deniedExec,
+    env: envs.controlEnv,
+    label: "child exec denial completion",
+  });
   assert.notEqual(deniedExecResult.code, 0, "expected denied child exec to fail");
 
   const networkServer = net.createServer((socket) => {
@@ -341,7 +428,7 @@ async function main() {
     `const net = require('node:net'); const socket = net.createConnection({host:'127.0.0.1', port:${networkAddress.port}}); socket.on('connect', () => process.exit(0)); socket.on('error', (error) => { console.error(String(error && error.message || error)); process.exit(1); });`,
   ], envs.runtimeEnv);
 
-  const deniedConnectGroup = await waitForSwarmGroup({
+  const deniedConnectGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "network connect freeze",
     predicate: (group) =>
@@ -350,7 +437,11 @@ async function main() {
       && group.target === networkTarget,
   });
   await denySwarmGroup(envs.controlEnv, deniedConnectGroup.groupId, "deny network connect");
-  const deniedConnectResult = await deniedConnect.completed;
+  const deniedConnectResult = await waitForCliWithRuntimeSupportApprovals({
+    running: deniedConnect,
+    env: envs.controlEnv,
+    label: "network connect denial completion",
+  });
   assert.notEqual(deniedConnectResult.code, 0, "expected denied network connect to fail");
   await new Promise<void>((resolve) => networkServer.close(() => resolve()));
 
@@ -367,6 +458,13 @@ async function main() {
     running: allowedWrite,
     env: envs.controlEnv,
     label: "hook in-scope write",
+    alsoApprove: {
+      predicate: (group) =>
+        group.actionClass === "file"
+        && group.operation === "write"
+        && group.target === allowedWriteTarget,
+      reason: () => "release caught hook write after front hold",
+    },
   });
   assert.equal(allowedWriteResult.code, 0, allowedWriteResult.stderr);
   assert.equal(await fs.readFile(allowedWriteTarget, "utf8"), "hook-allowed\n");

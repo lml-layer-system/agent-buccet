@@ -758,11 +758,14 @@ async function handleInit(rest: string[]) {
     if (buildResult.code !== 0) {
       interceptLine = "compatibility_path (native build failed; run 'buccet hook build' after installing gcc)";
     } else {
-      const existingPid = await fs.readFile(home.hookPidPath, "utf8")
-        .then((raw) => Number(raw.trim()))
-        .catch(() => 0);
+      const existingPid = await readHookPid(home.hookPidPath);
       if (existingPid && await pidAlive(existingPid)) {
-        interceptLine = `strong_path (libc-level, pid ${existingPid})`;
+        const health = await getHookRuntimeHealth(boundary, home);
+        if (health.healthy) {
+          interceptLine = `strong_path (libc-level, pid ${existingPid})`;
+        } else {
+          interceptLine = "compatibility_path (hook runtime unhealthy; run 'buccet hook start')";
+        }
       } else {
         const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
         const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
@@ -782,7 +785,12 @@ async function handleInit(rest: string[]) {
           env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
         });
         hookChild.unref();
-        interceptLine = "strong_path (libc-level)";
+        try {
+          await waitForHookRuntimeHealthy(boundary, home);
+          interceptLine = "strong_path (libc-level)";
+        } catch {
+          interceptLine = "compatibility_path (hook runtime failed to become healthy; run 'buccet hook start')";
+        }
       }
     }
   } catch {
@@ -1309,7 +1317,6 @@ async function handleRun(rest: string[]) {
   const hookEnv = {
     AGENT_BUCCET_HOME: home.homePath,
     AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
-    AGENT_BUCCET_WRAPPER_MODE: "true",
     BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
     BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
     ...(process.platform === "darwin"
@@ -1713,7 +1720,6 @@ async function handleHook(rest: string[]) {
       ...process.env,
       AGENT_BUCCET_HOME: home.homePath,
       AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
-      AGENT_BUCCET_WRAPPER_MODE: "true",
       BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
       BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
       ...(process.platform === "darwin"
