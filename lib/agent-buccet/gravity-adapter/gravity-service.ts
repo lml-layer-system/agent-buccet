@@ -17,6 +17,7 @@ import {
   ledgerBodyguardConfirmedDeny,
   ledgerBodyguardGrantOffer,
 } from "./bodyguard-open-as-law.ts";
+import { appendBoundaryLedger } from "../ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
@@ -88,9 +89,9 @@ type GravityKernelJob = {
 
 type GravityKernelRuntime = {
   key: string;
+  serviceId: number;
   sessionId: string;
   skills: readonly LawSkill[];
-  skillSignature: string;
   currentState?: GravityState;
   queue: GravityKernelJob[];
   waiters: Array<() => void>;
@@ -100,11 +101,7 @@ type GravityKernelRuntime = {
 };
 
 const gravityKernelRuntimes = new Map<string, GravityKernelRuntime>();
-const GRAVITY_RUNTIME_IDLE_TTL_MS = 5 * 60_000;
-
-function skillSignature(skills: readonly LawSkill[]): string {
-  return skills.map((skill) => skill.id).join("|");
-}
+let nextGravityServiceId = 1;
 
 function stopRuntime(runtime: GravityKernelRuntime) {
   if (runtime.stopped) {
@@ -118,30 +115,17 @@ function stopRuntime(runtime: GravityKernelRuntime) {
   }
 }
 
-function pruneIdleRuntimes(nowMs = Date.now()) {
-  for (const runtime of gravityKernelRuntimes.values()) {
-    if (runtime.stopped || runtime.queue.length > 0) {
-      continue;
-    }
-    if (nowMs - runtime.lastUsedAt >= GRAVITY_RUNTIME_IDLE_TTL_MS) {
-      stopRuntime(runtime);
-    }
-  }
-}
-
-function getOrCreateRuntime(sessionId: string, skills: readonly LawSkill[]) {
-  pruneIdleRuntimes();
-  const signature = skillSignature(skills);
-  const key = `${sessionId}::${signature}`;
+function getOrCreateRuntime(serviceId: number, sessionId: string, skills: readonly LawSkill[]) {
+  const key = `${serviceId}::${sessionId}`;
   const existing = gravityKernelRuntimes.get(key);
   if (existing) {
     return existing;
   }
   const runtime: GravityKernelRuntime = {
     key,
+    serviceId,
     sessionId,
     skills,
-    skillSignature: signature,
     queue: [],
     waiters: [],
     running: false,
@@ -220,9 +204,21 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
         state: currentState,
         event,
         skills: runtime.skills,
-        onSkillError: () => {
-          // The persistent adapter path does not expose a panic bus.
-          // Keep one bad law skill from aborting the whole request.
+        onSkillError: ({ phase, lawId, error }) => {
+          void appendBoundaryLedger("GRAVITY_SKILL_ERROR", {
+            sessionId: job.config.session.sessionId,
+            actorId: job.config.session.actorId,
+            requestId: job.request.requestId,
+            actionKind: job.request.actionKind,
+            target: job.request.target,
+            reason: error instanceof Error ? error.message : String(error),
+            lawIds: [lawId],
+            metadata: {
+              phase,
+              service_id: runtime.serviceId,
+            },
+            createdAt: new Date().toISOString(),
+          }).catch(() => undefined);
         },
       });
       runtime.currentState = evaluated.state;
@@ -293,9 +289,10 @@ export type BoundaryGravityService = {
 };
 
 export function createBoundaryGravityService(skills: readonly LawSkill[] = getDefaultLawSkills()): BoundaryGravityService {
+  const serviceId = nextGravityServiceId++;
   return {
     async enforceRequest({ config, request }) {
-      const runtime = getOrCreateRuntime(config.session.sessionId, skills);
+      const runtime = getOrCreateRuntime(serviceId, config.session.sessionId, skills);
       void runRuntimeLoop(runtime);
       return await new Promise<BoundaryGravityEnforcement>((resolve, reject) => {
         enqueueRuntimeJob(runtime, {
