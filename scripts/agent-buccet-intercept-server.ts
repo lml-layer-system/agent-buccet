@@ -14,6 +14,7 @@ import {
   restoreBoundaryRuntimeStore,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
+  type BoundaryInterceptResult,
   type BoundaryInterceptRequest,
   appendBoundaryLedger,
 } from "../lib/agent-buccet/index.ts";
@@ -361,6 +362,53 @@ function mapGravityPayloadToInterceptRequest(payload: GravitySocketPayload): Bou
   }
 }
 
+function buildSplitMoveRequests(payload: GravitySocketPayload): BoundaryInterceptRequest[] | null {
+  if (payload.action !== "rename" && payload.action !== "link") {
+    return null;
+  }
+
+  const counterpart = (payload.extra ?? "").trim();
+  if (!counterpart) {
+    return null;
+  }
+
+  return [
+    {
+      actionClass: "file",
+      operation: "move",
+      target: payload.target,
+      payloadSummary: `move-destination:${counterpart}`,
+    },
+    {
+      actionClass: "file",
+      operation: "move",
+      target: counterpart,
+      payloadSummary: `move-source:${payload.target}`,
+    },
+  ];
+}
+
+async function evaluateGravityPayloadWithSwarm(args: {
+  payload: GravitySocketPayload;
+  swarm: ReturnType<typeof createBoundarySwarmCoordinator>;
+}): Promise<BoundaryInterceptResult> {
+  const requests = buildSplitMoveRequests(args.payload) ?? [mapGravityPayloadToInterceptRequest(args.payload)];
+  let lastResult: BoundaryInterceptResult | null = null;
+
+  for (const request of requests) {
+    lastResult = await args.swarm.evaluateOrWait(request);
+    if (lastResult.decision !== "allow") {
+      return lastResult;
+    }
+  }
+
+  if (!lastResult) {
+    throw new Error("intercept server produced no gravity decision");
+  }
+
+  return lastResult;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const restored = await restoreBoundaryRuntimeStore({
@@ -664,7 +712,12 @@ async function main() {
             return;
           }
 
-          const result = await swarm.evaluateOrWait(parsed);
+          const result = rawGravityClient
+            ? await evaluateGravityPayloadWithSwarm({
+              payload: parseGravityPayload(trimmed),
+              swarm,
+            })
+            : await swarm.evaluateOrWait(parsed);
 
           if (result.tarpitActive) {
             // Cheap canyon behavior for hostile ingress: drop the payload and

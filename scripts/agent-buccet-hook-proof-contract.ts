@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createSocket } from "node:dgram";
 import net from "node:net";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
@@ -24,6 +25,33 @@ type ProofEnvSet = {
 
 const repoRoot = process.cwd();
 const cliPath = path.join(repoRoot, "scripts", "buccet.ts");
+
+function runCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env): Promise<CliResult> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(command, args, {
+      cwd: repoRoot,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({
+        code: code ?? 1,
+        stdout,
+        stderr,
+      });
+    });
+  });
+}
 
 function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<CliResult> {
   return new Promise((resolve, reject) => {
@@ -292,11 +320,113 @@ async function waitForCliWithRuntimeSupportApprovals(args: {
   throw new Error(`timed out waiting for ${args.label}`);
 }
 
+async function compileOpenAtHelper(tempRoot: string): Promise<string> {
+  const helperSourcePath = path.join(tempRoot, "openat-helper.c");
+  const helperBinaryPath = path.join(tempRoot, "openat-helper");
+  const helperSource = [
+    "#include <errno.h>",
+    "#include <fcntl.h>",
+    "#include <stdio.h>",
+    "#include <string.h>",
+    "#include <unistd.h>",
+    "",
+    "int main(int argc, char** argv) {",
+    "  if (argc != 3) {",
+    "    fprintf(stderr, \"usage: %s <dir> <leaf>\\n\", argv[0]);",
+    "    return 64;",
+    "  }",
+    "  int dirfd = open(argv[1], O_RDONLY | O_DIRECTORY);",
+    "  if (dirfd < 0) {",
+    "    perror(\"open-dir\");",
+    "    return 2;",
+    "  }",
+    "  int fd = openat(dirfd, argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);",
+    "  if (fd < 0) {",
+    "    perror(\"openat\");",
+    "    close(dirfd);",
+    "    return 1;",
+    "  }",
+    "  const char* payload = \"dirfd-write\\n\";",
+    "  if (write(fd, payload, strlen(payload)) < 0) {",
+    "    perror(\"write\");",
+    "    close(fd);",
+    "    close(dirfd);",
+    "    return 3;",
+    "  }",
+    "  close(fd);",
+    "  close(dirfd);",
+    "  return 0;",
+    "}",
+    "",
+  ].join("\n");
+  await fs.writeFile(helperSourcePath, helperSource, "utf8");
+  const compileResult = await runCommand("cc", [
+    helperSourcePath,
+    "-o",
+    helperBinaryPath,
+  ]);
+  assert.equal(compileResult.code, 0, compileResult.stderr);
+  return helperBinaryPath;
+}
+
+async function compileUdpSendHelper(tempRoot: string): Promise<string> {
+  const helperSourcePath = path.join(tempRoot, "udp-send-helper.c");
+  const helperBinaryPath = path.join(tempRoot, "udp-send-helper");
+  const helperSource = [
+    "#include <arpa/inet.h>",
+    "#include <stdio.h>",
+    "#include <stdlib.h>",
+    "#include <string.h>",
+    "#include <sys/socket.h>",
+    "#include <unistd.h>",
+    "",
+    "int main(int argc, char** argv) {",
+    "  if (argc != 3) {",
+    "    fprintf(stderr, \"usage: %s <host> <port>\\n\", argv[0]);",
+    "    return 64;",
+    "  }",
+    "  int sock = socket(AF_INET, SOCK_DGRAM, 0);",
+    "  if (sock < 0) {",
+    "    perror(\"socket\");",
+    "    return 2;",
+    "  }",
+    "  struct sockaddr_in addr;",
+    "  memset(&addr, 0, sizeof(addr));",
+    "  addr.sin_family = AF_INET;",
+    "  addr.sin_port = htons((unsigned short)atoi(argv[2]));",
+    "  if (inet_pton(AF_INET, argv[1], &addr.sin_addr) != 1) {",
+    "    fprintf(stderr, \"bad host\\n\");",
+    "    close(sock);",
+    "    return 3;",
+    "  }",
+    "  const char* payload = \"udp-blocked\";",
+    "  if (sendto(sock, payload, strlen(payload), 0, (struct sockaddr*)&addr, sizeof(addr)) < 0) {",
+    "    perror(\"sendto\");",
+    "    close(sock);",
+    "    return 1;",
+    "  }",
+    "  close(sock);",
+    "  return 0;",
+    "}",
+    "",
+  ].join("\n");
+  await fs.writeFile(helperSourcePath, helperSource, "utf8");
+  const compileResult = await runCommand("cc", [
+    helperSourcePath,
+    "-o",
+    helperBinaryPath,
+  ]);
+  assert.equal(compileResult.code, 0, compileResult.stderr);
+  return helperBinaryPath;
+}
+
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-hook-proof-"));
   const homePath = path.join(tempRoot, "home");
   const workspacePath = path.join(tempRoot, "workspace");
   await fs.mkdir(workspacePath, { recursive: true });
+  const openAtHelperPath = await compileOpenAtHelper(tempRoot);
+  const udpSendHelperPath = await compileUdpSendHelper(tempRoot);
 
   const runtimeEnv = {
     ...process.env,
@@ -382,6 +512,46 @@ async function main() {
   const deniedWriteExists = await fs.access(deniedWriteTarget).then(() => true).catch(() => false);
   assert.equal(deniedWriteExists, false, "denied out-of-scope file write should not create a file");
 
+  const dirfdOutsideDir = path.join(tempRoot, "dirfd-outside");
+  await fs.mkdir(dirfdOutsideDir, { recursive: true });
+  const dirfdLeaf = "dirfd-target.txt";
+  const dirfdRealOutsideDir = await fs.realpath(dirfdOutsideDir);
+  const dirfdTarget = path.join(dirfdRealOutsideDir, dirfdLeaf);
+  const dirfdWrite = startCli([
+    "hook",
+    "run",
+    "--",
+    openAtHelperPath,
+    dirfdOutsideDir,
+    dirfdLeaf,
+  ], envs.runtimeEnv);
+  const dirfdReadGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
+    env: envs.controlEnv,
+    label: "openat dirfd read freeze",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "read"
+      && group.target === dirfdOutsideDir,
+  });
+  await approveSwarmGroup(envs.controlEnv, dirfdReadGroup.groupId, "release openat dirfd directory read");
+  const dirfdWriteGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
+    env: envs.controlEnv,
+    label: "openat dirfd freeze",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "write"
+      && group.target === dirfdTarget,
+  });
+  await denySwarmGroup(envs.controlEnv, dirfdWriteGroup.groupId, "deny openat dirfd write");
+  const dirfdWriteResult = await waitForCliWithRuntimeSupportApprovals({
+    running: dirfdWrite,
+    env: envs.controlEnv,
+    label: "openat dirfd denial completion",
+  });
+  assert.notEqual(dirfdWriteResult.code, 0, "expected denied openat dirfd write to fail");
+  const dirfdTargetExists = await fs.access(dirfdTarget).then(() => true).catch(() => false);
+  assert.equal(dirfdTargetExists, false, "denied openat dirfd write should not create a file");
+
   const deniedExec = startCli([
     "hook",
     "run",
@@ -445,6 +615,42 @@ async function main() {
   assert.notEqual(deniedConnectResult.code, 0, "expected denied network connect to fail");
   await new Promise<void>((resolve) => networkServer.close(() => resolve()));
 
+  const udpServer = createSocket("udp4");
+  await new Promise<void>((resolve) => {
+    udpServer.bind(0, "127.0.0.1", () => resolve());
+  });
+  const udpAddress = udpServer.address();
+  if (!udpAddress || typeof udpAddress === "string") {
+    throw new Error("expected UDP AddressInfo from local proof server");
+  }
+  const udpTarget = `127.0.0.1:${udpAddress.port}`;
+
+  const deniedUdpSend = startCli([
+    "hook",
+    "run",
+    "--",
+    udpSendHelperPath,
+    "127.0.0.1",
+    String(udpAddress.port),
+  ], envs.runtimeEnv);
+
+  const deniedUdpGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
+    env: envs.controlEnv,
+    label: "udp send freeze",
+    predicate: (group) =>
+      group.actionClass === "network"
+      && group.operation === "send"
+      && group.target === udpTarget,
+  });
+  await denySwarmGroup(envs.controlEnv, deniedUdpGroup.groupId, "deny udp send");
+  const deniedUdpResult = await waitForCliWithRuntimeSupportApprovals({
+    running: deniedUdpSend,
+    env: envs.controlEnv,
+    label: "udp send denial completion",
+  });
+  assert.notEqual(deniedUdpResult.code, 0, "expected denied udp send to fail");
+  await new Promise<void>((resolve) => udpServer.close(() => resolve()));
+
   const allowedWriteTarget = path.join(workspacePath, "hook-allowed.txt");
   const allowedWrite = startCli([
     "hook",
@@ -474,8 +680,10 @@ async function main() {
   console.log("Agent Buccet hook proof contract");
   console.log("auto-run in-scope write: allow");
   console.log("hook out-of-scope write: freeze -> deny");
+  console.log("hook openat dirfd write: freeze -> deny");
   console.log("hook nested exec: freeze -> deny");
   console.log("hook network connect: freeze -> deny");
+  console.log("hook udp sendto: freeze -> deny");
   console.log("hook in-scope write: allow");
 }
 

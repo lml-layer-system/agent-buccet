@@ -61,6 +61,7 @@ static int (*real_posix_spawn)(pid_t*, const char*, const posix_spawn_file_actio
 static int (*real_posix_spawnp)(pid_t*, const char*, const posix_spawn_file_actions_t*, const posix_spawnattr_t*, char* const[], char* const[]) = NULL;
 static int (*real_system)(const char*) = NULL;
 static int (*real_connect)(int, const struct sockaddr*, socklen_t) = NULL;
+static ssize_t (*real_sendto)(int, const void*, size_t, int, const struct sockaddr*, socklen_t) = NULL;
 static ssize_t (*real_read)(int, void*, size_t) = NULL;
 static int (*real_close)(int) = NULL;
 static int (*real_socket)(int, int, int) = NULL;
@@ -160,6 +161,7 @@ static buccet_rebinding_t g_buccet_rebindings[] = {
     { "posix_spawnp", (void*)posix_spawnp, (void**)&real_posix_spawnp },
     { "system", (void*)system, (void**)&real_system },
     { "connect", (void*)connect, (void**)&real_connect },
+    { "sendto", (void*)sendto, (void**)&real_sendto },
 };
 
 static size_t g_buccet_rebinding_count = sizeof(g_buccet_rebindings) / sizeof(g_buccet_rebindings[0]);
@@ -310,6 +312,7 @@ static void gravity_init(void) {
     real_posix_spawnp = dlsym(RTLD_NEXT, "posix_spawnp");
     real_system = dlsym(RTLD_NEXT, "system");
     real_connect = dlsym(RTLD_NEXT, "connect");
+    real_sendto = dlsym(RTLD_NEXT, "sendto");
     real_read = dlsym(RTLD_NEXT, "read");
     real_close = dlsym(RTLD_NEXT, "close");
     real_socket = dlsym(RTLD_NEXT, "socket");
@@ -448,6 +451,99 @@ static void resolve_path(const char* path, char* resolved, size_t size) {
     }
 }
 
+static void join_path(const char* base, const char* leaf, char* resolved, size_t size) {
+    if (!resolved || size == 0) return;
+    if (!base || !base[0]) {
+        strncpy(resolved, leaf ? leaf : "", size - 1);
+        resolved[size - 1] = '\0';
+        return;
+    }
+    if (!leaf || !leaf[0]) {
+        strncpy(resolved, base, size - 1);
+        resolved[size - 1] = '\0';
+        return;
+    }
+    if (base[strlen(base) - 1] == '/') {
+        snprintf(resolved, size, "%s%s", base, leaf);
+    } else {
+        snprintf(resolved, size, "%s/%s", base, leaf);
+    }
+}
+
+static int resolve_dirfd_base(int dirfd, char* resolved, size_t size) {
+    if (!resolved || size == 0) return 0;
+    resolved[0] = '\0';
+
+    if (dirfd == AT_FDCWD) {
+        return getcwd(resolved, size) != NULL;
+    }
+
+#ifdef __APPLE__
+    g_buccet_internal += 1;
+    int status = fcntl(dirfd, F_GETPATH, resolved);
+    g_buccet_internal -= 1;
+    return status == 0 && resolved[0] != '\0';
+#else
+    char proc_path[64];
+    snprintf(proc_path, sizeof(proc_path), "/proc/self/fd/%d", dirfd);
+    g_buccet_internal += 1;
+    ssize_t count = readlink(proc_path, resolved, size - 1);
+    g_buccet_internal -= 1;
+    if (count <= 0) {
+        resolved[0] = '\0';
+        return 0;
+    }
+    resolved[count] = '\0';
+    return 1;
+#endif
+}
+
+static void resolve_path_at(int dirfd, const char* pathname, char* resolved, size_t size) {
+    if (!pathname || !resolved) return;
+
+    if (pathname[0] == '/' || dirfd == AT_FDCWD) {
+        resolve_path(pathname, resolved, size);
+        return;
+    }
+
+    char base[PATH_MAX];
+    memset(base, 0, sizeof(base));
+    if (!resolve_dirfd_base(dirfd, base, sizeof(base))) {
+        resolve_path(pathname, resolved, size);
+        return;
+    }
+
+    join_path(base, pathname, resolved, size);
+}
+
+static void format_socket_target(const struct sockaddr* addr, char* target, size_t size) {
+    strncpy(target, "unknown", size - 1);
+    target[size - 1] = '\0';
+
+    if (!addr) {
+        return;
+    }
+
+    if (addr->sa_family == AF_INET) {
+        const struct sockaddr_in* addr_in = (const struct sockaddr_in*)addr;
+        snprintf(target, size, "%s:%d", inet_ntoa(addr_in->sin_addr), ntohs(addr_in->sin_port));
+        return;
+    }
+
+    if (addr->sa_family == AF_INET6) {
+        const struct sockaddr_in6* addr_in6 = (const struct sockaddr_in6*)addr;
+        char ip6[INET6_ADDRSTRLEN];
+        inet_ntop(AF_INET6, &addr_in6->sin6_addr, ip6, sizeof(ip6));
+        snprintf(target, size, "[%s]:%d", ip6, ntohs(addr_in6->sin6_port));
+        return;
+    }
+
+    if (addr->sa_family == AF_UNIX) {
+        const struct sockaddr_un* addr_un = (const struct sockaddr_un*)addr;
+        snprintf(target, size, "unix:%s", addr_un->sun_path);
+    }
+}
+
 int open(const char* pathname, int flags, ...) {
     gravity_init();
     if (g_buccet_internal) {
@@ -509,7 +605,7 @@ int openat(int dirfd, const char* pathname, int flags, ...) {
     }
 
     char resolved[PATH_MAX];
-    resolve_path(pathname, resolved, sizeof(resolved));
+    resolve_path_at(dirfd, pathname, resolved, sizeof(resolved));
 
     const char* action = "read";
     if (flags & (O_WRONLY | O_RDWR | O_CREAT | O_TRUNC | O_APPEND)) {
@@ -861,21 +957,13 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
         return real_connect(sockfd, addr, addrlen);
     }
 
-    char target[256] = "unknown";
-    if (addr->sa_family == AF_INET) {
-        struct sockaddr_in* addr_in = (struct sockaddr_in*)addr;
-        snprintf(target, sizeof(target), "%s:%d", inet_ntoa(addr_in->sin_addr), ntohs(addr_in->sin_port));
-    } else if (addr->sa_family == AF_INET6) {
-        struct sockaddr_in6* addr_in6 = (struct sockaddr_in6*)addr;
-        char ip6[INET6_ADDRSTRLEN];
-        inet_ntop(AF_INET6, &addr_in6->sin6_addr, ip6, sizeof(ip6));
-        snprintf(target, sizeof(target), "[%s]:%d", ip6, ntohs(addr_in6->sin6_port));
-    } else if (addr->sa_family == AF_UNIX) {
+    char target[256];
+    format_socket_target(addr, target, sizeof(target));
+    if (addr && addr->sa_family == AF_UNIX) {
         struct sockaddr_un* addr_un = (struct sockaddr_un*)addr;
         if (strcmp(addr_un->sun_path, gravity_socket_path()) == 0) {
             return real_connect(sockfd, addr, addrlen);
         }
-        snprintf(target, sizeof(target), "unix:%s", addr_un->sun_path);
     }
 
     if (!ask_buccet("connect", target, "")) {
@@ -884,6 +972,33 @@ int connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) {
     }
 
     return real_connect(sockfd, addr, addrlen);
+}
+
+ssize_t sendto(int sockfd, const void* buf, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t addrlen) {
+    gravity_init();
+    if (g_buccet_internal) {
+        return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+    }
+
+    if (!dest_addr) {
+        return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+    }
+
+    char target[256];
+    format_socket_target(dest_addr, target, sizeof(target));
+    if (dest_addr->sa_family == AF_UNIX) {
+        const struct sockaddr_un* addr_un = (const struct sockaddr_un*)dest_addr;
+        if (strcmp(addr_un->sun_path, gravity_socket_path()) == 0) {
+            return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+        }
+    }
+
+    if (!ask_buccet("connect", target, "transport=sendto")) {
+        errno = EACCES;
+        return -1;
+    }
+
+    return real_sendto(sockfd, buf, len, flags, dest_addr, addrlen);
 }
 
 #ifdef __APPLE__
@@ -938,6 +1053,9 @@ static int buccet_posix_spawnp(pid_t* pid, const char* file, const posix_spawn_f
 }
 static int buccet_system(const char* command) { return system(command); }
 static int buccet_connect(int sockfd, const struct sockaddr* addr, socklen_t addrlen) { return connect(sockfd, addr, addrlen); }
+static ssize_t buccet_sendto(int sockfd, const void* buf, size_t len, int flags, const struct sockaddr* dest_addr, socklen_t addrlen) {
+    return sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+}
 
 #define BUCCET_INTERPOSE(replacement, replacee) \
     __attribute__((used)) static const buccet_interpose_t interpose_##replacee \
@@ -966,4 +1084,5 @@ BUCCET_INTERPOSE(buccet_posix_spawn, posix_spawn)
 BUCCET_INTERPOSE(buccet_posix_spawnp, posix_spawnp)
 BUCCET_INTERPOSE(buccet_system, system)
 BUCCET_INTERPOSE(buccet_connect, connect)
+BUCCET_INTERPOSE(buccet_sendto, sendto)
 #endif

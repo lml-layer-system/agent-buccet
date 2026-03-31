@@ -336,6 +336,59 @@ function mapGravityPayloadToInterceptRequest(payload: GravitySocketPayload): Bou
   }
 }
 
+function buildSplitMoveRequests(payload: GravitySocketPayload): BoundaryInterceptRequest[] | null {
+  if (payload.action !== "rename" && payload.action !== "link") {
+    return null;
+  }
+
+  const counterpart = (payload.extra ?? "").trim();
+  if (!counterpart) {
+    return null;
+  }
+
+  return [
+    {
+      actionClass: "file",
+      operation: "move",
+      target: payload.target,
+      payloadSummary: `move-destination:${counterpart}`,
+    },
+    {
+      actionClass: "file",
+      operation: "move",
+      target: counterpart,
+      payloadSummary: `move-source:${payload.target}`,
+    },
+  ];
+}
+
+async function forwardGravityPayload(args: {
+  payload: GravitySocketPayload;
+  target: ParsedArgs;
+}): Promise<BoundaryInterceptDaemonOutput> {
+  const requests = buildSplitMoveRequests(args.payload) ?? [mapGravityPayloadToInterceptRequest(args.payload)];
+  let lastOutput: BoundaryInterceptDaemonOutput | null = null;
+
+  for (const request of requests) {
+    lastOutput = await sendBoundaryInterceptServerInput({
+      target: args.target.upstreamSocketPath
+        ? { socketPath: args.target.upstreamSocketPath }
+        : { host: args.target.upstreamHost!, port: args.target.upstreamPort! },
+      input: request,
+    });
+
+    if (lastOutput.type !== "decision" || lastOutput.decision !== "allow") {
+      return lastOutput;
+    }
+  }
+
+  if (!lastOutput) {
+    throw new Error("gravity bridge produced no intercept output");
+  }
+
+  return lastOutput;
+}
+
 function writeDecision(socket: net.Socket, output: BoundaryInterceptDaemonOutput | Error) {
   if (output instanceof Error) {
     socket.write("0");
@@ -368,12 +421,9 @@ async function main() {
         }
         try {
           const payload = parseGravityPayload(trimmed);
-          const request = mapGravityPayloadToInterceptRequest(payload);
-          const output = await sendBoundaryInterceptServerInput({
-            target: args.upstreamSocketPath
-              ? { socketPath: args.upstreamSocketPath }
-              : { host: args.upstreamHost!, port: args.upstreamPort! },
-            input: request,
+          const output = await forwardGravityPayload({
+            payload,
+            target: args,
           });
 
           if (output.type === "error") {
