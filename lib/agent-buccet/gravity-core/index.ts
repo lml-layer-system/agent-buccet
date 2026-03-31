@@ -7,7 +7,7 @@ export {
   type BodyguardOutcome,
   type BodyguardGrantOffer,
 } from "./bodyguard-routing.ts";
-export { runGravityLoop } from "./kernel.ts";
+export { evaluateGravityEvent, runGravityLoop } from "./kernel.ts";
 export {
   buildGrantFromOffer,
   buildOpenAsLawStep,
