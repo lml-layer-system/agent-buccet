@@ -86,6 +86,7 @@
     "test:agent-buccet:gravity-bridge": "node scripts/agent-buccet-gravity-bridge-contract.ts",
     "test:agent-buccet:swarm": "node scripts/agent-buccet-swarm-contract.ts",
     "test:agent-buccet:hook-runtime": "node scripts/agent-buccet-hook-runtime-contract.ts",
+    "test:agent-buccet:hook-proof": "node scripts/agent-buccet-hook-proof-contract.ts",
     "test:agent-buccet:cli": "node scripts/agent-buccet-cli-contract.ts",
     "test:agent-buccet:install": "node scripts/agent-buccet-install-contract.ts",
     "test:agent-buccet:hosted-install": "npm run build && node scripts/agent-buccet-hosted-install-contract.ts",

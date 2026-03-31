@@ -223,6 +223,7 @@ function mapGravityPayloadToInterceptRequest(payload: GravitySocketPayload): Bou
         flags: hints.flags,
       };
     case "exec":
+    case "system":
       return {
         actionClass: "shell",
         operation: "exec",
@@ -357,11 +358,16 @@ async function main() {
 
     void (async () => {
       for await (const line of rl) {
-        if (!line.trim()) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          continue;
+        }
+        if (trimmed === "__health__") {
+          socket.write("1");
           continue;
         }
         try {
-          const payload = parseGravityPayload(line);
+          const payload = parseGravityPayload(trimmed);
           const request = mapGravityPayloadToInterceptRequest(payload);
           const output = await sendBoundaryInterceptServerInput({
             target: args.upstreamSocketPath

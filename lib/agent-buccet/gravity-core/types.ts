@@ -119,6 +119,7 @@ export interface DynamicLawGrant {
   id: string;
   kind: "path" | "recipient" | "domain" | "tool" | "database" | "system" | "other";
   scope: string;
+  exactOnly?: boolean;
   issuedAt: number;
   expiresAt?: number;
   revokedAt?: number;

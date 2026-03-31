@@ -70,7 +70,7 @@ async function main() {
   console.log("Agent Buccet intercept server contract");
 
   const sessionId = `intercept-server-contract-${randomUUID()}`;
-  const socketPath = path.join("/tmp", `agent-buccet-intercept-${randomUUID()}.sock`);
+  const socketPath = path.join("/tmp", `ab-is-${randomUUID().slice(0, 12)}.sock`);
   const cwd = process.cwd();
   const scriptPath = path.join(cwd, "bin", "agent-buccet-intercept-server.ts");
   const fallbackPath = path.join(cwd, "scripts", "agent-buccet-intercept-server.ts");
@@ -103,6 +103,38 @@ async function main() {
   assert.equal(status.type, "status");
   assert.equal(status.running, true);
   console.log(`initial status running: ${status.running}`);
+
+  const decision = await sendJson(socketPath, {
+    requestId: "meta-deny-1",
+    actionClass: "file",
+    operation: "write",
+    target: "/tmp/agent-buccet-intercept-contract.txt",
+    payloadSummary: "contract authority claim",
+    provenance: "agent_inference",
+    flags: {
+      authorityClaimed: true,
+    },
+  }) as { type: string; decision: string };
+  assert.equal(decision.type, "decision");
+  assert.equal(decision.decision, "deny");
+  console.log(`meta-law intercept decision: ${decision.decision}`);
+
+  const restart = await sendJson(socketPath, {
+    command: "restart",
+    requestId: "restart-1",
+    reason: "server contract restart",
+  }) as { type: string; command: string; restartCount?: number };
+  assert.equal(restart.type, "ack");
+  assert.equal(restart.command, "restart");
+  assert.equal(typeof restart.restartCount, "number");
+
+  await waitFor(async () => {
+    const restartedStatus = await sendJson(socketPath, {
+      command: "status",
+      requestId: "status-after-restart",
+    }) as { type: string; running: boolean };
+    return restartedStatus.type === "status" && restartedStatus.running ? restartedStatus : null;
+  }, 5_000, 100);
 
   const denyAsLaw = await sendJson(socketPath, {
     command: "ingress_deny_as_law",

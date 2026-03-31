@@ -160,8 +160,8 @@ async function main() {
   const hookEnv = JSON.parse(envResult.stdout) as Record<string, string>;
   assert.ok(hookEnv.BUCCET_SOCKET_PATH);
   assert.ok(hookEnv.BUCCET_BRAIN_STATUS_PATH);
-  assert.equal(hookEnv.BUCCET_SOCKET_PATH, hookStatus.interceptSocketPath);
-  assert.notEqual(hookEnv.BUCCET_SOCKET_PATH, hookStatus.gravityBridgeSocketPath);
+  assert.equal(hookEnv.BUCCET_SOCKET_PATH, hookStatus.gravityBridgeSocketPath);
+  assert.notEqual(hookEnv.BUCCET_SOCKET_PATH, hookStatus.interceptSocketPath);
 
   const attackRun = spawnBuccet(["hook", "run", "--", attackerBinaryPath, victimPath], env, repoRoot);
 

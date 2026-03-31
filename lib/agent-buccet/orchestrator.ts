@@ -90,6 +90,9 @@ export function targetMatchesGrant(request: BoundaryActionRequest, grant: Bounda
   }
 
   if (grant.resourceKind === "path") {
+    if (grant.metadata?.exact_only === true) {
+      return request.target === grant.resourceValue;
+    }
     return (
       request.target === grant.resourceValue ||
       request.target.startsWith(`${grant.resourceValue}/`)

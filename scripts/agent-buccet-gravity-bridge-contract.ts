@@ -110,44 +110,52 @@ async function main() {
   }
   assert.equal(bridgeReady, true, `gravity bridge should be ready\n${bridgeStderr}`);
 
-  const approvalBlockedPromise = sendGravityPayload(
+  const approvalTarget = path.join(tempRoot, "candidate.txt");
+  let approvalSettled = false;
+  const approvalReleasedPromise = sendGravityPayload(
     { host: "127.0.0.1", port: gravityPort },
-    `write|${path.join(tempRoot, "candidate.txt")}|${process.pid}|from-contract`,
+    `write|${approvalTarget}|${process.pid}|from-contract`,
+  );
+  void approvalReleasedPromise.finally(() => {
+    approvalSettled = true;
+  });
+
+  await wait(250);
+  assert.equal(
+    approvalSettled,
+    false,
+    `expected approval-required payload to remain frozen while waiting for swarm approval\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
   );
 
-  const pendingGroupId = await waitFor(async () => {
-    const swarmStatus = await sendBoundaryInterceptServerInput({
-      target: { host: "127.0.0.1", port: interceptPort },
-      input: { command: "swarm_status", requestId: "swarm-status-1" },
-    });
-    if (swarmStatus.type !== "swarm_status") {
-      return null;
-    }
-    const pending = swarmStatus.groups.find((group) =>
-      group.state === "waiting"
-      && group.actionClass === "file"
-      && group.operation === "write"
-      && group.target === path.join(tempRoot, "candidate.txt")
-    );
-    return pending?.groupId ?? null;
-  }, 5_000, 100);
-
-  const approvalDenied = await sendBoundaryInterceptServerInput({
+  const swarmStatus = await sendBoundaryInterceptServerInput({
     target: { host: "127.0.0.1", port: interceptPort },
     input: {
-      command: "swarm_deny",
-      groupId: pendingGroupId,
-      requestId: "swarm-deny-1",
-      reason: "gravity-bridge-contract deny",
+      command: "swarm_status",
     },
   });
-  assert.equal(approvalDenied.type, "ack");
+  assert.equal(swarmStatus.type, "swarm_status");
+  assert.equal(swarmStatus.totals.pending, 1);
+  assert.equal(swarmStatus.totals.waitingMembers, 1);
+  const pendingGroup = swarmStatus.groups.find((group) => group.target === approvalTarget);
+  assert.ok(pendingGroup, "expected pending swarm group for approval target");
 
-  const approvalBlocked = await approvalBlockedPromise;
+  const approvalAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_approve",
+      groupId: pendingGroup.groupId,
+      issuedBy: "user:gravity-bridge-contract",
+      reason: "release frozen gravity payload after explicit approval",
+    },
+  });
+  assert.equal(approvalAck.type, "ack");
+  assert.equal(approvalAck.command, "swarm_approve");
+
+  const approvalReleased = await approvalReleasedPromise;
   assert.equal(
-    approvalBlocked,
-    "0",
-    `expected approval-required payload to block at the front-layer\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
+    approvalReleased,
+    "1",
+    `expected approval-required payload to release after swarm approval\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
   );
 
   const denyDecision = await sendBoundaryInterceptServerInput({
@@ -181,7 +189,7 @@ async function main() {
   await once(gravityBridge, "exit");
   await once(interceptServer, "exit");
 
-  console.log(`gravity bridge blocked approval-required payload: ${approvalBlocked}`);
+  console.log(`gravity bridge released approval-required payload: ${approvalReleased}`);
   console.log(`gravity bridge blocked hard-deny payload: ${denyBlocked}`);
 }
 

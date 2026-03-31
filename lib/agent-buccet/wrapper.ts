@@ -78,8 +78,7 @@ async function getOrCreateStore(args: {
   });
 }
 
-async function assertDirectInterceptPathActive() {
-  const socketPath = process.env.BUCCET_SOCKET_PATH;
+async function assertDirectInterceptPathActive(socketPath = process.env.BUCCET_SOCKET_PATH) {
   if (!socketPath) {
     throw new Error("direct intercept path is not active: BUCCET_SOCKET_PATH is missing");
   }
@@ -153,7 +152,9 @@ export async function runBoundaryWrappedCommand(args: {
   });
 
   const config = enableBodyguardControl(store.getConfig());
-  await assertDirectInterceptPathActive();
+  await assertDirectInterceptPathActive(
+    args.env?.AGENT_BUCCET_INTERCEPT_SOCKET ?? args.env?.BUCCET_SOCKET_PATH,
+  );
 
   try {
     await prepareBoundaryProcess({

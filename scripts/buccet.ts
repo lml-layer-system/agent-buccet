@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import os from "node:os";
 import path from "node:path";
+import net from "node:net";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import readline from "node:readline";
@@ -67,7 +68,8 @@ function currentScriptDir(): string {
 
 function shortSocketPath(homePath: string, label: string): string {
   const digest = createHash("sha256").update(`${homePath}:${label}`).digest("hex").slice(0, 12);
-  return path.join(os.tmpdir(), `buccet-${label}-${digest}.sock`);
+  const socketRoot = process.platform === "darwin" ? "/tmp" : os.tmpdir();
+  return path.join(socketRoot, `buccet-${label}-${digest}.sock`);
 }
 
 function parseGlobal(argv: string[]): ParsedGlobal {
@@ -105,6 +107,29 @@ async function pathExists(targetPath: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function sleep(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${ms}ms`));
+    }, ms);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timeout);
+        reject(error);
+      },
+    );
+  });
 }
 
 function uniquePaths(paths: string[]): string[] {
@@ -165,6 +190,7 @@ function resolveHomePaths(homePath: string) {
     launcherPath: process.env.AGENT_BUCCET_LAUNCHER_PATH ?? path.join(os.homedir(), ".local", "bin", "buccet"),
     runDir,
     interceptSocketPath: shortSocketPath(homePath, "intercept"),
+    gravityBridgeSocketPath: shortSocketPath(homePath, "gravity"),
     brainStatusPath: path.join(runDir, "brain-status.json"),
     hookPidPath: path.join(runDir, "hook-daemon.pid"),
     installedNativeSourceDir,
@@ -230,6 +256,205 @@ async function pidAlive(pid: number): Promise<boolean> {
   }
 }
 
+async function readHookPid(pidFilePath: string): Promise<number> {
+  return await fs.readFile(pidFilePath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+}
+
+type HookRuntimeHealth = {
+  running: boolean;
+  healthy: boolean;
+  pid?: number;
+  state?: string;
+  interceptReady: boolean;
+  bridgeReady: boolean;
+  reason?: string;
+};
+
+async function probeGravityBridge(socketPath: string, timeoutMs = 1_500): Promise<void> {
+  await withTimeout(new Promise<void>((resolve, reject) => {
+    const socket = net.createConnection(socketPath);
+    let settled = false;
+
+    const finish = (error?: Error) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.destroy();
+      if (error) {
+        reject(error);
+        return;
+      }
+      resolve();
+    };
+
+    socket.once("error", (error) => {
+      finish(error instanceof Error ? error : new Error(String(error)));
+    });
+    socket.once("connect", () => {
+      socket.write("__health__\n");
+    });
+    socket.on("data", (chunk) => {
+      const response = chunk.toString();
+      if (response.includes("1")) {
+        finish();
+        return;
+      }
+      finish(new Error(`unexpected gravity bridge health response: ${JSON.stringify(response)}`));
+    });
+    socket.once("end", () => {
+      finish(new Error("gravity bridge closed before health response"));
+    });
+  }), timeoutMs, "gravity bridge health check");
+}
+
+async function getHookRuntimeHealth(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+): Promise<HookRuntimeHealth> {
+  const pid = await readHookPid(home.hookPidPath);
+  const running = pid ? await pidAlive(pid) : false;
+  const hookState = await readJsonIfExists<{ state?: string }>(home.brainStatusPath);
+  const state = hookState?.state;
+
+  if (!running) {
+    return {
+      running: false,
+      healthy: false,
+      pid: pid || undefined,
+      state,
+      interceptReady: false,
+      bridgeReady: false,
+      reason: "hook daemon is not running",
+    };
+  }
+
+  if (state !== "alive") {
+    return {
+      running,
+      healthy: false,
+      pid,
+      state,
+      interceptReady: false,
+      bridgeReady: false,
+      reason: `hook daemon state is ${state ?? "missing"}`,
+    };
+  }
+
+  if (!(await pathExists(home.interceptSocketPath))) {
+    return {
+      running,
+      healthy: false,
+      pid,
+      state,
+      interceptReady: false,
+      bridgeReady: false,
+      reason: "intercept socket is missing",
+    };
+  }
+
+  if (!(await pathExists(home.gravityBridgeSocketPath))) {
+    return {
+      running,
+      healthy: false,
+      pid,
+      state,
+      interceptReady: true,
+      bridgeReady: false,
+      reason: "gravity bridge socket is missing",
+    };
+  }
+
+  try {
+    const interceptStatus = await withTimeout(boundary.sendBoundaryInterceptServerInput({
+      target: { socketPath: home.interceptSocketPath },
+      input: {
+        command: "status",
+      },
+    }), 1_500, "intercept server health check");
+    if (interceptStatus.type !== "status" || interceptStatus.running !== true) {
+      return {
+        running,
+        healthy: false,
+        pid,
+        state,
+        interceptReady: false,
+        bridgeReady: false,
+        reason: `unexpected intercept server health response: ${interceptStatus.type}`,
+      };
+    }
+  } catch (error) {
+    return {
+      running,
+      healthy: false,
+      pid,
+      state,
+      interceptReady: false,
+      bridgeReady: false,
+      reason: error instanceof Error ? error.message : "intercept server health check failed",
+    };
+  }
+
+  try {
+    await probeGravityBridge(home.gravityBridgeSocketPath);
+  } catch (error) {
+    return {
+      running,
+      healthy: false,
+      pid,
+      state,
+      interceptReady: true,
+      bridgeReady: false,
+      reason: error instanceof Error ? error.message : "gravity bridge health check failed",
+    };
+  }
+
+  return {
+    running,
+    healthy: true,
+    pid,
+    state,
+    interceptReady: true,
+    bridgeReady: true,
+  };
+}
+
+async function waitForHookRuntimeHealthy(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+  timeoutMs = 10_000,
+): Promise<HookRuntimeHealth> {
+  const startedAt = Date.now();
+  let lastHealth: HookRuntimeHealth | null = null;
+
+  while (Date.now() - startedAt < timeoutMs) {
+    lastHealth = await getHookRuntimeHealth(boundary, home);
+    if (lastHealth.healthy) {
+      return lastHealth;
+    }
+    await sleep(100);
+  }
+
+  throw new Error(lastHealth?.reason ?? "hook runtime did not become healthy");
+}
+
+async function stopHookDaemonPid(pid: number): Promise<void> {
+  try {
+    process.kill(pid, "SIGTERM");
+  } catch {
+    return;
+  }
+
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    if (!(await pidAlive(pid))) {
+      return;
+    }
+    await sleep(100);
+  }
+
+  throw new Error(`hook daemon ${pid} did not stop cleanly`);
+}
+
 async function importBoundary(homePath: string) {
   await ensureDir(homePath);
   process.chdir(homePath);
@@ -278,6 +503,46 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
       issuedBy: args.actorId,
     });
   }
+
+  if (process.platform === "darwin") {
+    const runtimeSupportGrants = [
+      { target: "/", actions: ["fs.read"] as BoundaryActionKind[] },
+      { target: "/dev/null", actions: ["fs.read", "fs.write", "fs.append"] as BoundaryActionKind[] },
+      { target: "/usr/local/etc/openssl@3/openssl.cnf", actions: ["fs.read"] as BoundaryActionKind[] },
+      { target: "/opt/homebrew/etc/openssl@3/openssl.cnf", actions: ["fs.read"] as BoundaryActionKind[] },
+    ];
+    const existingExactGrantKeys = new Set(
+      args.store.getConfig().grants
+        .filter((grant) => !grant.revokedAt)
+        .filter((grant) => grant.resourceKind === "path")
+        .filter((grant) => grant.metadata?.exact_only === true)
+        .flatMap((grant) =>
+          grant.grantedActions.map((action) => `${path.resolve(grant.resourceValue)}:${action}`),
+        ),
+    );
+
+    for (const grant of runtimeSupportGrants) {
+      const missingAction = grant.actions.find((action) =>
+        !existingExactGrantKeys.has(`${path.resolve(grant.target)}:${action}`)
+      );
+      if (!missingAction) {
+        continue;
+      }
+      if (!(await pathExists(grant.target))) {
+        continue;
+      }
+      await args.store.issueGrant({
+        resourceKind: "path",
+        resourceValue: grant.target,
+        grantedActions: grant.actions,
+        issuedBy: args.actorId,
+        metadata: {
+          exact_only: true,
+          runtime_support: true,
+        },
+      });
+    }
+  }
 }
 
 function printJson(value: unknown) {
@@ -325,10 +590,10 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
     lastError?: string;
     pid?: number;
   }>(args.home.brainStatusPath);
-  const pid = await fs.readFile(args.home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
-  const running = pid ? await pidAlive(pid) : false;
+  const health = await getHookRuntimeHealth(boundary, args.home);
+  const running = health.running;
 
-  let interceptReachable = false;
+  let interceptReachable = health.interceptReady;
   let ledgerEntries = 0;
   let interceptedAttempts = 0;
   let canyonHeld = 0;
@@ -368,16 +633,19 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
   return {
     initialized: Boolean(args.config),
     running,
-    pid: pid || undefined,
-    state: hookState?.state,
+    healthy: health.healthy,
+    pid: health.pid,
+    state: health.state ?? hookState?.state,
     sessionId: hookState?.sessionId ?? args.config?.sessionId,
     actorId: hookState?.actorId ?? args.config?.actorId,
     interceptSocketPath: hookState?.interceptSocketPath ?? args.home.interceptSocketPath,
-    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath,
+    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
     brainStatusPath: hookState?.brainStatusPath ?? args.home.brainStatusPath,
     nativeLibraryPath: args.home.nativeLibraryPath,
     restarts: hookState?.restartCount,
-    lastError: hookState?.lastError,
+    lastError: health.reason ?? hookState?.lastError,
+    interceptReady: health.interceptReady,
+    bridgeReady: health.bridgeReady,
     interceptReachable,
     ledgerEntries,
     interceptedAttempts,
@@ -504,6 +772,7 @@ async function handleInit(rest: string[]) {
           "--actor-id", nextConfig.actorId,
           "--sessions-dir", home.sessionsDir,
           "--intercept-socket", home.interceptSocketPath,
+          "--gravity-bridge-socket", home.gravityBridgeSocketPath,
           "--brain-status-file", home.brainStatusPath,
           "--pid-file", home.hookPidPath,
         ], {
@@ -1028,6 +1297,30 @@ async function handleRun(rest: string[]) {
   });
   await store.persist();
 
+  if (!(await pathExists(home.nativeLibraryPath))) {
+    await handleHook(["build"]);
+  }
+  const hookHealth = await getHookRuntimeHealth(boundary, home);
+  if (!hookHealth.healthy) {
+    await handleHook(["start"]);
+  }
+  await waitForHookRuntimeHealthy(boundary, home);
+
+  const hookEnv = {
+    AGENT_BUCCET_HOME: home.homePath,
+    AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+    BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+    BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
+    ...(process.platform === "darwin"
+      ? {
+          DYLD_INSERT_LIBRARIES: home.nativeLibraryPath,
+          DYLD_FORCE_FLAT_NAMESPACE: "1",
+        }
+      : {
+          LD_PRELOAD: home.nativeLibraryPath,
+        }),
+  };
+
   const runResult = await boundary.runBoundaryWrappedCommand({
     sessionId: nextConfig.sessionId,
     actorId: nextConfig.actorId,
@@ -1041,6 +1334,7 @@ async function handleRun(rest: string[]) {
     dryRun: nextConfig.dryRun,
     cwd: requestedCwd ?? callerCwd,
     provenance: "trusted_user",
+    env: hookEnv,
   });
 
   console.log(`exit code: ${runResult.exitCode}`);
@@ -1082,6 +1376,7 @@ async function handleUninstall() {
 type HookStatusPayload = {
   initialized: boolean;
   running: boolean;
+  healthy?: boolean;
   pid?: number;
   state?: string;
   sessionId?: string;
@@ -1090,6 +1385,8 @@ type HookStatusPayload = {
   gravityBridgeSocketPath?: string;
   brainStatusPath?: string;
   nativeLibraryPath?: string;
+  interceptReady?: boolean;
+  bridgeReady?: boolean;
   restarts?: number;
   lastError?: string;
   interceptReachable?: boolean;
@@ -1263,10 +1560,15 @@ async function handleHook(rest: string[]) {
       throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
     }
     await ensureDir(home.runDir);
-    const existingPid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+    const boundary = await importBoundary(homePath);
+    const existingPid = await readHookPid(home.hookPidPath);
     if (existingPid && await pidAlive(existingPid)) {
-      console.log(`hook daemon already running: ${existingPid}`);
-      return;
+      const health = await getHookRuntimeHealth(boundary, home);
+      if (health.healthy) {
+        console.log(`hook daemon already running: ${existingPid}`);
+        return;
+      }
+      await stopHookDaemonPid(existingPid);
     }
     const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
     const child = spawn(daemonExec, [
@@ -1279,9 +1581,11 @@ async function handleHook(rest: string[]) {
       home.sessionsDir,
       "--intercept-socket",
       home.interceptSocketPath,
-          "--brain-status-file",
-          home.brainStatusPath,
-          "--pid-file",
+      "--gravity-bridge-socket",
+      home.gravityBridgeSocketPath,
+      "--brain-status-file",
+      home.brainStatusPath,
+      "--pid-file",
       home.hookPidPath,
     ], {
       cwd: home.homePath,
@@ -1293,6 +1597,7 @@ async function handleHook(rest: string[]) {
       },
     });
     child.unref();
+    await waitForHookRuntimeHealthy(boundary, home);
     console.log(`hook daemon started`);
     return;
   }
@@ -1309,21 +1614,28 @@ async function handleHook(rest: string[]) {
       }
       if (watch) {
         process.stdout.write("\x1Bc");
-        console.log(`Buccet live | ${payload.running && payload.interceptReachable ? "protected" : "disconnected"} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`);
+        console.log(`Buccet live | ${payload.healthy ? "protected" : "degraded"} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`);
         console.log(``);
       } else {
         console.log(`Agent Buccet hook status — Terminal 1`);
       }
       console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
       console.log(`running: ${payload.running ? "yes" : "no"}`);
+      console.log(`healthy: ${payload.healthy ? "yes" : "no"}`);
       console.log(`state: ${payload.state ?? "missing"}`);
       console.log(`pid: ${payload.pid ?? "-"}`);
+      console.log(`intercept ready: ${payload.interceptReady ? "yes" : "no"}`);
+      console.log(`bridge ready: ${payload.bridgeReady ? "yes" : "no"}`);
       console.log(`intercept socket: ${payload.interceptReachable ? "reachable" : "unreachable"}`);
+      console.log(`bridge socket: ${payload.gravityBridgeSocketPath ?? "-"}`);
       console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
       console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
       console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
       console.log(`brain status: ${payload.brainStatusPath}`);
       console.log(`native library: ${payload.nativeLibraryPath}`);
+      if (payload.lastError) {
+        console.log(`last error: ${payload.lastError}`);
+      }
       if (!watch && !payload.running) {
         console.log(`re-arm: buccet hook start`);
       }
@@ -1352,7 +1664,8 @@ async function handleHook(rest: string[]) {
     const asJson = rest.includes("--json");
     const isMac = process.platform === "darwin";
     const payload = {
-      BUCCET_SOCKET_PATH: home.interceptSocketPath,
+      AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+      BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
       BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
       ...(isMac
         ? {
@@ -1389,21 +1702,17 @@ async function handleHook(rest: string[]) {
     if (!(await pathExists(home.nativeLibraryPath))) {
       await handleHook(["build"]);
     }
-    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
-    if (!(pid && await pidAlive(pid))) {
+    const boundary = await importBoundary(homePath);
+    const health = await getHookRuntimeHealth(boundary, home);
+    if (!health.healthy) {
       await handleHook(["start"]);
-      for (let attempt = 0; attempt < 100; attempt += 1) {
-        const status = await readJsonIfExists<{ state?: string }>(home.brainStatusPath);
-        if (status?.state === "alive") {
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
     }
+    await waitForHookRuntimeHealthy(boundary, home);
     const env = {
       ...process.env,
       AGENT_BUCCET_HOME: home.homePath,
-      BUCCET_SOCKET_PATH: home.interceptSocketPath,
+      AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+      BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
       BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
       ...(process.platform === "darwin"
         ? {

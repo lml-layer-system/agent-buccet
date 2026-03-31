@@ -66,6 +66,7 @@ function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessio
         id: grant.grantId,
         kind: grant.resourceKind,
         scope: grant.resourceValue,
+        exactOnly: grant.metadata?.exact_only === true,
         issuedAt: Date.parse(grant.issuedAt),
         expiresAt: grant.expiresAt ? Date.parse(grant.expiresAt) : undefined,
         revokedAt: grant.revokedAt ? Date.parse(grant.revokedAt) : undefined,

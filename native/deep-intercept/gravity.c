@@ -328,10 +328,27 @@ static void gravity_constructor(void) {
 static int ask_buccet(const char* action, const char* target, const char* extra) {
     struct sockaddr_un addr;
     char payload[BUCCET_MAX_PAYLOAD];
+    char merged_extra[BUCCET_MAX_PAYLOAD];
     pid_t pid = getpid();
+    const char* wrapper_mode = getenv("AGENT_BUCCET_WRAPPER_MODE");
+    int trusted_wrapper = wrapper_mode && strcmp(wrapper_mode, "true") == 0;
 
+    merged_extra[0] = '\0';
     if (extra && extra[0]) {
-        snprintf(payload, sizeof(payload), "%s|%s|%d|%s\n", action, target, pid, extra);
+        snprintf(merged_extra, sizeof(merged_extra), "%s", extra);
+    }
+    if (trusted_wrapper) {
+        size_t used = strlen(merged_extra);
+        snprintf(
+            merged_extra + used,
+            sizeof(merged_extra) - used,
+            "%sprov=trusted_user",
+            used > 0 ? " " : ""
+        );
+    }
+
+    if (merged_extra[0]) {
+        snprintf(payload, sizeof(payload), "%s|%s|%d|%s\n", action, target, pid, merged_extra);
     } else {
         snprintf(payload, sizeof(payload), "%s|%s|%d|\n", action, target, pid);
     }
@@ -786,8 +803,14 @@ int execvp(const char* file, char* const argv[]) {
     return real_execvp(file, argv);
 }
 
-int posix_spawn(pid_t* pid, const char* path, const posix_spawn_file_actions_t* file_actions,
-                const posix_spawnattr_t* attrp, char* const argv[], char* const envp[]) {
+int posix_spawn(
+    pid_t* pid,
+    const char* path,
+    const posix_spawn_file_actions_t* file_actions,
+    const posix_spawnattr_t* attrp,
+    char* const argv[],
+    char* const envp[]
+) {
     gravity_init();
     if (g_buccet_internal) {
         return real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
@@ -808,8 +831,14 @@ int posix_spawn(pid_t* pid, const char* path, const posix_spawn_file_actions_t* 
     return real_posix_spawn(pid, path, file_actions, attrp, argv, envp);
 }
 
-int posix_spawnp(pid_t* pid, const char* file, const posix_spawn_file_actions_t* file_actions,
-                 const posix_spawnattr_t* attrp, char* const argv[], char* const envp[]) {
+int posix_spawnp(
+    pid_t* pid,
+    const char* file,
+    const posix_spawn_file_actions_t* file_actions,
+    const posix_spawnattr_t* attrp,
+    char* const argv[],
+    char* const envp[]
+) {
     gravity_init();
     if (g_buccet_internal) {
         return real_posix_spawnp(pid, file, file_actions, attrp, argv, envp);
