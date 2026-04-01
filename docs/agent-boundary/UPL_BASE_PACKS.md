@@ -107,6 +107,7 @@ From Terminal 2:
 
 ```bash
 buccet upl list
+buccet upl sources
 buccet console
 ```
 
@@ -151,11 +152,30 @@ replace the built-in pack module or seed your own pack from your integration cod
 
 ### Option 2: import markdown law
 
-Import explicit markdown law into UPL:
+For one-off imports:
 
 ```bash
 buccet upl import policies/my-team-law.md
 ```
+
+For the built-in authored-lane workflow:
+
+```text
+~/.buccet/upl-docs/acceptance
+~/.buccet/upl-docs/denial
+```
+
+Put acceptance markdown in the acceptance lane.
+Put denial markdown in the denial lane.
+
+Then compile both into UPL:
+
+```bash
+buccet upl sync
+```
+
+Buccet refuses lane mismatch.
+If a denial document is placed in the acceptance lane, sync fails instead of coercing it.
 
 That path is good for:
 
@@ -195,6 +215,23 @@ Your company rule:
 - deny access to `/workspace/secrets`
 
 That becomes authored UPL law, then compiles into one live field with open report roads and secret walls.
+
+### Split authoring, one runtime
+
+The human sees:
+
+- acceptance docs
+- denial docs
+
+Buccet runs:
+
+- one live UPL field
+
+So the user edits separate lanes, but runtime enforces one geometry:
+
+- acceptance creates road
+- denial creates wall
+- overlap resolves to wall
 
 ### RLHF / guardrail law
 

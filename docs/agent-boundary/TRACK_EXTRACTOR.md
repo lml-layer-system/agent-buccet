@@ -177,6 +177,8 @@ meaning.
 - explicit invariant / enforcement blocks
 - direct allow / deny law
 - document-imported markdown law via `buccet upl import`
+- authored acceptance / denial markdown lanes via `~/.buccet/upl-docs/*` and
+  `buccet upl sync`
 - policy-binding payloads that already carry structured request basis and, if
   needed, a track constraint
 
@@ -238,6 +240,37 @@ The rule is simple:
 - if it snaps to a real corridor, it can become law-in-motion
 - if it cannot snap cleanly, it is refused
 - Track Extractor does not partially snap a law block
+
+## Authored lane rule
+
+Buccet lets the human author document law in two visible lanes:
+
+- acceptance
+- denial
+
+Those are authoring lanes, not two runtime engines.
+
+At sync time:
+
+- acceptance lane documents must compile into approved UPL law
+- denial lane documents must compile into denied UPL law
+- mismatches are refused
+
+Buccet will not silently coerce a denied block into acceptance or an approved
+block into denial just because of where the file was dropped.
+
+## Injection rule
+
+Document text is inert unless it matches the parse contract.
+
+That means:
+
+- unsupported prose is non-operative
+- prompt-injection style text is non-operative unless it matches lawful grammar
+- decorative text does not widen law
+- Buccet does not "figure out what you probably meant"
+
+The compiler is supposed to be deterministic, bounded, and fail-closed.
 
 Not yet complete:
 

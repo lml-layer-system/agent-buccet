@@ -99,7 +99,10 @@ async function main() {
 
     const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
     const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
-    const activeDenied = upl.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE");
+    const activeDenied = upl.userDeniedLawPaths.filter((entry) =>
+      entry.status === "ACTIVE" &&
+      entry.notes?.includes("document-law import:")
+    );
     const activeApproved = upl.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE");
     assert.equal(activeDenied.length, 1);
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("2000s")));

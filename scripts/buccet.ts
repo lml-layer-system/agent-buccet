@@ -7,7 +7,15 @@ import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import type { BoundaryActionKind, BoundarySession } from "../lib/agent-buccet/index.ts";
+import type {
+  BoundaryActionKind,
+  BoundarySession,
+  BoundaryUplEntry,
+  BoundaryUplEntryType,
+  BoundaryUplScope,
+  BoundaryUserPathLedger,
+  CompiledDocumentLaw,
+} from "../lib/agent-buccet/index.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -34,6 +42,13 @@ const FULL_FS_SCOPE_ACTIONS: BoundaryActionKind[] = [
 ];
 
 type ConsoleApprovalMode = "interactive" | "standing_law";
+type UplSourceLane = "acceptance" | "denial";
+
+type UplSourceSpec = {
+  lane: UplSourceLane;
+  dir: string;
+  readmePath: string;
+};
 
 function parseConsoleApprovalModeToken(token: string | undefined): ConsoleApprovalMode | null {
   if (!token) {
@@ -73,7 +88,9 @@ function usage(): never {
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
     "  buccet upl list [--json]",
+    "  buccet upl sources [--json]",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
+    "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
     "  buccet hook build",
     "  buccet hook start",
     "  buccet hook status [--json] [--watch]                     — Terminal 1 live shield / heartbeat",
@@ -85,7 +102,7 @@ function usage(): never {
     "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
     "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
     "  buccet uninstall",
-  "  buccet extract-laws <file.md> [--json]             — extract and inspect law directives from a markdown document",
+  "  buccet extract-laws <file.md> [--lane acceptance|denial] [--json]  — extract and inspect law directives from a markdown document",
   ].join("\n"));
   process.exit(1);
 }
@@ -234,6 +251,7 @@ function resolveHomePaths(homePath: string) {
   const installedNativeSourceDir = path.join(homePath, "current", "native", "deep-intercept");
   const repoNativeSourceDir = path.resolve(currentScriptDir(), "..", "native", "deep-intercept");
   const nativeBuildDir = path.join(nativeDir, "build");
+  const uplDocsDir = path.join(homePath, "upl-docs");
   const isMac = process.platform === "darwin";
   const nativeLibraryName = isMac ? "libbuccet-hook.dylib" : "libbuccet-hook.so";
   return {
@@ -246,10 +264,205 @@ function resolveHomePaths(homePath: string) {
     gravityBridgeSocketPath: shortSocketPath(homePath, "gravity"),
     brainStatusPath: path.join(runDir, "brain-status.json"),
     hookPidPath: path.join(runDir, "hook-daemon.pid"),
+    uplDocsDir,
+    uplAcceptanceDocsDir: path.join(uplDocsDir, "acceptance"),
+    uplDenialDocsDir: path.join(uplDocsDir, "denial"),
     installedNativeSourceDir,
     repoNativeSourceDir,
     nativeBuildDir,
     nativeLibraryPath: path.join(nativeBuildDir, nativeLibraryName),
+  };
+}
+
+function parseUplSourceLaneToken(token: string | undefined): UplSourceLane | null {
+  if (!token) {
+    return null;
+  }
+  switch (token.trim().toLowerCase()) {
+    case "acceptance":
+    case "accept":
+    case "allow":
+    case "approved":
+      return "acceptance";
+    case "denial":
+    case "deny":
+    case "denied":
+    case "block":
+      return "denial";
+    default:
+      return null;
+  }
+}
+
+function uplSourceSpecs(home: ReturnType<typeof resolveHomePaths>): UplSourceSpec[] {
+  return [
+    {
+      lane: "acceptance",
+      dir: home.uplAcceptanceDocsDir,
+      readmePath: path.join(home.uplAcceptanceDocsDir, "README.txt"),
+    },
+    {
+      lane: "denial",
+      dir: home.uplDenialDocsDir,
+      readmePath: path.join(home.uplDenialDocsDir, "README.txt"),
+    },
+  ];
+}
+
+function uplLaneTag(lane: UplSourceLane): string {
+  return `[upl-doc-lane:${lane}]`;
+}
+
+function formatUplSourceNote(args: {
+  lane: UplSourceLane;
+  filePath: string;
+  notes?: string | null;
+}): string {
+  const base = `${uplLaneTag(args.lane)} source=${args.filePath}`;
+  return args.notes ? `${base} | ${args.notes}` : base;
+}
+
+function laneMatchesType(lane: UplSourceLane, type: BoundaryUplEntryType): boolean {
+  return lane === "acceptance" ? type === "APPROVED" : type === "DENIED";
+}
+
+function validateCompiledDocumentLane(args: {
+  lane: UplSourceLane;
+  filePath: string;
+  compiled: CompiledDocumentLaw[];
+}): void {
+  if (args.compiled.length === 0) {
+    throw new Error(
+      `${args.filePath} did not compile into any ${args.lane} law. Rewrite it into supported law shapes or inspect it with \`buccet extract-laws ${args.filePath}\`.`,
+    );
+  }
+  const mismatched = args.compiled.filter((entry) => !laneMatchesType(args.lane, entry.type));
+  if (mismatched.length > 0) {
+    const wrongSide = args.lane === "acceptance" ? "denied" : "approved";
+    throw new Error(
+      `${args.filePath} compiled ${mismatched.length} ${wrongSide} law block(s) in the ${args.lane} lane. Move the document to the other lane or rewrite it. Buccet will not coerce lane polarity.`,
+    );
+  }
+}
+
+async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): Promise<void> {
+  await ensureDir(home.uplDocsDir);
+  for (const spec of uplSourceSpecs(home)) {
+    await ensureDir(spec.dir);
+    if (!(await pathExists(spec.readmePath))) {
+      const content = spec.lane === "acceptance"
+        ? [
+            "Agent Buccet UPL document source — acceptance lane",
+            "",
+            "Put markdown law docs here when you want them to compile into approved UPL law.",
+            "These docs become open-road segments in the live UPL field.",
+            "",
+            "Rules:",
+            "- Supported files: .md and .markdown",
+            "- README files are ignored by `buccet upl sync`",
+            "- The parser is strict and fail-closed",
+            "- If a document compiles into denied law here, sync refuses it",
+            "",
+            "Useful commands:",
+            "- buccet extract-laws <file.md> --lane acceptance",
+            "- buccet upl sync",
+          ].join("\n")
+        : [
+            "Agent Buccet UPL document source — denial lane",
+            "",
+            "Put markdown law docs here when you want them to compile into denied UPL law.",
+            "These docs become wall segments in the live UPL field.",
+            "",
+            "Rules:",
+            "- Supported files: .md and .markdown",
+            "- README files are ignored by `buccet upl sync`",
+            "- The parser is strict and fail-closed",
+            "- If a document compiles into approved law here, sync refuses it",
+            "",
+            "Useful commands:",
+            "- buccet extract-laws <file.md> --lane denial",
+            "- buccet upl sync",
+          ].join("\n");
+      await fs.writeFile(spec.readmePath, `${content}\n`, "utf8");
+    }
+  }
+  const rootReadmePath = path.join(home.uplDocsDir, "README.txt");
+  if (!(await pathExists(rootReadmePath))) {
+    await fs.writeFile(rootReadmePath, [
+      "Agent Buccet UPL document sources",
+      "",
+      "Author law separately for humans:",
+      `- acceptance: ${home.uplAcceptanceDocsDir}`,
+      `- denial: ${home.uplDenialDocsDir}`,
+      "",
+      "At runtime Buccet compiles both sides into one live UPL field.",
+      "Acceptance creates road. Denial creates wall. Denial wins on overlap.",
+      "",
+      "Use `buccet upl sync` to compile both lanes into the active UPL.",
+    ].join("\n") + "\n", "utf8");
+  }
+}
+
+async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
+  const results: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true }).catch(() => []);
+  for (const entry of entries) {
+    const absolutePath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...await listLaneMarkdownFiles(absolutePath));
+      continue;
+    }
+    if (!entry.isFile()) {
+      continue;
+    }
+    if (!/\.(md|markdown)$/i.test(entry.name)) {
+      continue;
+    }
+    if (/^readme\./i.test(entry.name)) {
+      continue;
+    }
+    results.push(absolutePath);
+  }
+  return results.sort((left, right) => left.localeCompare(right));
+}
+
+function muteLaneSourcedEntries(args: {
+  ledger: BoundaryUserPathLedger;
+  lane: UplSourceLane;
+  scope: BoundaryUplScope;
+  session: BoundarySession;
+  modifiedAt: string;
+}): BoundaryUserPathLedger {
+  const tag = uplLaneTag(args.lane);
+  const shouldMute = (entry: BoundaryUplEntry): boolean => {
+    if (entry.status !== "ACTIVE") {
+      return false;
+    }
+    if (!entry.notes?.includes(tag)) {
+      return false;
+    }
+    if (entry.scope !== args.scope) {
+      return false;
+    }
+    if (args.scope === "SESSION" && entry.sessionId !== args.session.sessionId) {
+      return false;
+    }
+    return true;
+  };
+  const mute = (entry: BoundaryUplEntry): BoundaryUplEntry => {
+    if (!shouldMute(entry)) {
+      return entry;
+    }
+    return {
+      ...entry,
+      status: "MUTED",
+      modifiedAt: args.modifiedAt,
+    };
+  };
+  return {
+    ...args.ledger,
+    userApprovedLawPaths: args.ledger.userApprovedLawPaths.map(mute),
+    userDeniedLawPaths: args.ledger.userDeniedLawPaths.map(mute),
   };
 }
 
@@ -777,6 +990,7 @@ async function handleInit(rest: string[]) {
   });
   await store.persist();
   await saveConfig(home.configPath, nextConfig);
+  await ensureUplSourceHomes(home);
 
   const platformLabel = detectPlatformLabel();
   const backendLabel = detectBackendLabel();
@@ -861,6 +1075,12 @@ async function handleInit(rest: string[]) {
   console.log(``);
   console.log(`    buccet console`);
   console.log(`    buccet ledger --follow`);
+  console.log(`    buccet upl sync`);
+  console.log(``);
+  console.log(`  UPL document sources:`);
+  console.log(``);
+  console.log(`    acceptance: ${home.uplAcceptanceDocsDir}`);
+  console.log(`    denial:     ${home.uplDenialDocsDir}`);
   console.log(``);
 }
 
@@ -1116,6 +1336,84 @@ async function handleScope(rest: string[]) {
   console.log(`opened scope: ${scopePath}`);
 }
 
+async function importCompiledDocumentLaws(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  config: BuccetConfig;
+  store: Awaited<ReturnType<typeof ensureStore>>;
+  upl: BoundaryUserPathLedger;
+  filePath: string;
+  compiled: CompiledDocumentLaw[];
+  scope: BoundaryUplScope;
+  importReason: string;
+  metadata?: Record<string, string | number | boolean>;
+}): Promise<{ upl: BoundaryUserPathLedger; entryIds: string[]; imported: number }> {
+  const scoped = args.compiled.map((entry) => ({
+    ...entry,
+    scope: args.scope,
+  }));
+  const entryIds: string[] = [];
+  const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof args.boundary.appendBoundaryLedger>>>();
+  for (const lawType of ["APPROVED", "DENIED"] as const) {
+    const matching = scoped.filter((entry) => entry.type === lawType);
+    if (matching.length === 0) {
+      continue;
+    }
+    const requestId = `upl-import-${createHash("sha256").update(`${args.filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`).digest("hex").slice(0, 12)}`;
+    const representative = matching[0];
+    const witness = await args.boundary.appendBoundaryLedger(
+      lawType === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
+      {
+        sessionId: args.config.sessionId,
+        actorId: args.config.actorId,
+        requestId,
+        actionKind: representative.requestBasis.actionKind,
+        target: representative.requestBasis.target,
+        decision: lawType === "APPROVED" ? "allow" : "deny",
+        reason: `${args.importReason} (${matching.length} compiled laws)`,
+        lawIds: [],
+        metadata: {
+          source_document: args.filePath,
+          upl_scope: args.scope,
+          compiled_law_count: matching.length,
+          imported_invariant_batch: createHash("sha256")
+            .update(matching
+              .map((entry) => entry.requestBasis.reviewContext?.invariantLawId ?? entry.requestBasis.payloadSummary ?? "unknown")
+              .join("|"))
+            .digest("hex")
+            .slice(0, 16),
+          ...(args.metadata ?? {}),
+        },
+        createdAt: new Date().toISOString(),
+      },
+    );
+    witnessByType.set(lawType, witness);
+  }
+
+  const batch = scoped.flatMap((law) => {
+    const witness = witnessByType.get(law.type);
+    return witness ? [{ compiledLaw: law, witness }] : [];
+  });
+  const approvedCountBefore = args.upl.userApprovedLawPaths.length;
+  const deniedCountBefore = args.upl.userDeniedLawPaths.length;
+  const upl = await args.boundary.writeCompiledUserPathLaws({
+    ledger: args.upl,
+    compiledLaws: batch,
+    session: args.store.getConfig().session,
+  });
+  for (const entry of upl.userApprovedLawPaths.slice(approvedCountBefore)) {
+    entryIds.push(entry.id);
+  }
+  for (const entry of upl.userDeniedLawPaths.slice(deniedCountBefore)) {
+    entryIds.push(entry.id);
+  }
+
+  return {
+    upl,
+    entryIds,
+    imported: scoped.length,
+  };
+}
+
 async function handleUpl(rest: string[]) {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
@@ -1129,6 +1427,31 @@ async function handleUpl(rest: string[]) {
   const asJson = rest.includes("--json");
   if (!subcommand) {
     usage();
+  }
+
+  if (subcommand === "sources") {
+    await ensureUplSourceHomes(home);
+    const snapshot = await Promise.all(
+      uplSourceSpecs(home).map(async (spec) => ({
+        lane: spec.lane,
+        dir: spec.dir,
+        files: await listLaneMarkdownFiles(spec.dir),
+      })),
+    );
+    if (asJson) {
+      printJson({ root: home.uplDocsDir, lanes: snapshot });
+      return;
+    }
+    console.log(`UPL document sources`);
+    console.log(`root: ${home.uplDocsDir}`);
+    for (const lane of snapshot) {
+      console.log(`${lane.lane}: ${lane.dir} (${lane.files.length} file${lane.files.length === 1 ? "" : "s"})`);
+      for (const filePath of lane.files) {
+        console.log(`  - ${filePath}`);
+      }
+    }
+    console.log(`sync: buccet upl sync`);
+    return;
   }
 
   if (subcommand === "list") {
@@ -1147,6 +1470,155 @@ async function handleUpl(rest: string[]) {
     console.log(`runtime track field: ${runtimeTrackField.length} compiled segments`);
     for (const entry of [...approved, ...denied]) {
       console.log(`${entry.type} | ${entry.id} | ${entry.path}`);
+    }
+    return;
+  }
+
+  if (subcommand === "sync") {
+    let scope: BoundaryUplScope = "GLOBAL";
+    let laneSelection: UplSourceLane | null = null;
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--scope") {
+        const rawScope = (rest[index + 1] ?? usage()).toUpperCase();
+        if (rawScope !== "GLOBAL" && rawScope !== "SESSION") {
+          throw new Error(`unsupported UPL sync scope: ${rawScope}`);
+        }
+        scope = rawScope;
+        index += 1;
+        continue;
+      }
+      if (token === "--lane") {
+        laneSelection = parseUplSourceLaneToken(rest[index + 1] ?? usage());
+        if (!laneSelection) {
+          throw new Error(`unsupported UPL lane: ${rest[index + 1] ?? ""}`);
+        }
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      usage();
+    }
+
+    await ensureUplSourceHomes(home);
+    const lanes = uplSourceSpecs(home).filter((spec) => !laneSelection || spec.lane === laneSelection);
+    const laneFiles = await Promise.all(
+      lanes.map(async (spec) => ({
+        spec,
+        files: await listLaneMarkdownFiles(spec.dir),
+      })),
+    );
+    const store = await ensureStore(boundary, {
+      config,
+      sessionsDir: home.sessionsDir,
+    });
+    const staged: Array<{ lane: UplSourceLane; filePath: string; compiled: CompiledDocumentLaw[] }> = [];
+    for (const lane of laneFiles) {
+      for (const filePath of lane.files) {
+        const markdown = await fs.readFile(filePath, "utf8");
+        const compiled = boundary.compileMarkdownDocumentToLaws({
+          sourcePath: filePath,
+          markdown,
+        });
+        validateCompiledDocumentLane({
+          lane: lane.spec.lane,
+          filePath,
+          compiled,
+        });
+        const tagged = compiled.map((entry) => ({
+          ...entry,
+          notes: formatUplSourceNote({
+            lane: lane.spec.lane,
+            filePath,
+            notes: entry.notes,
+          }),
+        }));
+        staged.push({
+          lane: lane.spec.lane,
+          filePath,
+          compiled: tagged,
+        });
+      }
+    }
+
+    let upl = await boundary.loadUserPathLedger();
+    const now = new Date().toISOString();
+    for (const lane of lanes) {
+      upl = muteLaneSourcedEntries({
+        ledger: upl,
+        lane: lane.lane,
+        scope,
+        session: store.getConfig().session,
+        modifiedAt: now,
+      });
+    }
+    if (staged.length === 0) {
+      upl = await boundary.saveUserPathLedger(upl);
+    }
+
+    const imported: Array<{ lane: UplSourceLane; file: string; imported: number; entries: string[] }> = [];
+    for (const item of staged) {
+      const result = await importCompiledDocumentLaws({
+        boundary,
+        config,
+        store,
+        upl,
+        filePath: item.filePath,
+        compiled: item.compiled,
+        scope,
+        importReason: `document law synced from ${item.lane} source`,
+        metadata: {
+          import_mode: "upl_sync",
+          document_lane: item.lane,
+        },
+      });
+      upl = result.upl;
+      imported.push({
+        lane: item.lane,
+        file: item.filePath,
+        imported: result.imported,
+        entries: result.entryIds,
+      });
+    }
+
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl,
+      userLawIds: [
+        ...new Set([
+          ...(store.getConfig().userLawIds ?? []),
+          ...boundary.getActiveUserLawIds(upl, store.getConfig().session),
+        ]),
+      ],
+    });
+    await store.persist();
+
+    if (asJson) {
+      printJson({
+        scope,
+        root: home.uplDocsDir,
+        lanes: laneFiles.map((lane) => ({
+          lane: lane.spec.lane,
+          dir: lane.spec.dir,
+          files: lane.files,
+        })),
+        imported,
+      });
+      return;
+    }
+    console.log(`Synced UPL document sources into authored law`);
+    console.log(`scope: ${scope}`);
+    for (const lane of laneFiles) {
+      console.log(`${lane.spec.lane}: ${lane.files.length} file${lane.files.length === 1 ? "" : "s"} from ${lane.spec.dir}`);
+    }
+    if (imported.length === 0) {
+      console.log(`No authored UPL markdown documents found. Add .md files under acceptance or denial, then run \`buccet upl sync\` again.`);
+      return;
+    }
+    for (const entry of imported) {
+      console.log(`${entry.lane} | ${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
     }
     return;
   }
@@ -1187,70 +1659,26 @@ async function handleUpl(rest: string[]) {
       const compiled = boundary.compileMarkdownDocumentToLaws({
         sourcePath: filePath,
         markdown,
-      }).map((entry: Awaited<ReturnType<typeof boundary.compileMarkdownDocumentToLaws>>[number]) => ({
-        ...entry,
+      });
+      const result = await importCompiledDocumentLaws({
+        boundary,
+        config,
+        store,
+        upl,
+        filePath,
+        compiled,
         scope,
-      }));
-
-      const entryIds: string[] = [];
-      const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof boundary.appendBoundaryLedger>>>();
-      for (const lawType of ["APPROVED", "DENIED"] as const) {
-        const matching = compiled.filter((entry) => entry.type === lawType);
-        if (matching.length === 0) {
-          continue;
-        }
-        const requestId = `upl-import-${createHash("sha256").update(`${filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`).digest("hex").slice(0, 12)}`;
-        const representative = matching[0];
-        const witness = await boundary.appendBoundaryLedger(
-          lawType === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
-          {
-            sessionId: config.sessionId,
-            actorId: config.actorId,
-            requestId,
-            actionKind: representative.requestBasis.actionKind,
-            target: representative.requestBasis.target,
-            decision: lawType === "APPROVED" ? "allow" : "deny",
-            reason: `document law imported from ${path.basename(filePath)} (${matching.length} compiled laws)`,
-            lawIds: [],
-            metadata: {
-              source_document: filePath,
-              upl_scope: scope,
-              compiled_law_count: matching.length,
-              imported_invariant_batch: createHash("sha256")
-                .update(matching
-                  .map((entry) => entry.requestBasis.reviewContext?.invariantLawId ?? entry.requestBasis.payloadSummary ?? "unknown")
-                  .join("|"))
-                .digest("hex")
-                .slice(0, 16),
-            },
-            createdAt: new Date().toISOString(),
-          },
-        );
-        witnessByType.set(lawType, witness);
-      }
-
-      const batch = compiled.flatMap((law) => {
-        const witness = witnessByType.get(law.type);
-        return witness ? [{ compiledLaw: law, witness }] : [];
+        importReason: `document law imported from ${path.basename(filePath)}`,
+        metadata: {
+          import_mode: "upl_import",
+        },
       });
-      const approvedCountBefore = upl.userApprovedLawPaths.length;
-      const deniedCountBefore = upl.userDeniedLawPaths.length;
-      upl = await boundary.writeCompiledUserPathLaws({
-        ledger: upl,
-        compiledLaws: batch,
-        session: store.getConfig().session,
-      });
-      for (const entry of upl.userApprovedLawPaths.slice(approvedCountBefore)) {
-        entryIds.push(entry.id);
-      }
-      for (const entry of upl.userDeniedLawPaths.slice(deniedCountBefore)) {
-        entryIds.push(entry.id);
-      }
+      upl = result.upl;
 
       imported.push({
         file: filePath,
-        imported: compiled.length,
-        entries: entryIds,
+        imported: result.imported,
+        entries: result.entryIds,
       });
     }
 
@@ -2837,9 +3265,28 @@ async function handleExtractLaws(rest: string[]) {
   );
 
   const jsonFlag = rest.includes("--json");
-  const filePath = rest.find((a) => !a.startsWith("--"));
+  let lane: UplSourceLane | null = null;
+  let filePath: string | null = null;
+  for (let index = 0; index < rest.length; index += 1) {
+    const token = rest[index];
+    if (token === "--lane") {
+      lane = parseUplSourceLaneToken(rest[index + 1] ?? usage());
+      if (!lane) {
+        console.error(`Unsupported lane: ${rest[index + 1] ?? ""}`);
+        process.exit(1);
+      }
+      index += 1;
+      continue;
+    }
+    if (token === "--json") {
+      continue;
+    }
+    if (!token.startsWith("--") && !filePath) {
+      filePath = token;
+    }
+  }
   if (!filePath) {
-    console.error("Usage: buccet extract-laws <file.md> [--json]");
+    console.error("Usage: buccet extract-laws <file.md> [--lane acceptance|denial] [--json]");
     process.exit(1);
   }
 
@@ -2858,7 +3305,16 @@ async function handleExtractLaws(rest: string[]) {
   });
 
   if (jsonFlag) {
-    console.log(JSON.stringify({ laws, diagnostics }, null, 2));
+    const laneMismatches = lane
+      ? laws
+        .filter((law) => !laneMatchesType(lane as UplSourceLane, law.type))
+        .map((law) => ({
+          type: law.type,
+          summary: law.requestBasis.payloadSummary ?? law.requestBasis.target,
+          invariantLawId: law.requestBasis.reviewContext?.invariantLawId ?? null,
+        }))
+      : [];
+    console.log(JSON.stringify({ laws, diagnostics, lane, laneMismatches }, null, 2));
     return;
   }
 
@@ -2866,6 +3322,9 @@ async function handleExtractLaws(rest: string[]) {
   const skipped = diagnostics.filter((d) => !d.compiled);
 
   console.log(`\nDocument: ${path.basename(resolvedPath)}`);
+  if (lane) {
+    console.log(`Lane: ${lane}`);
+  }
   console.log(`Extracted ${compiled.length} law directive${compiled.length === 1 ? "" : "s"}:\n`);
 
   for (let i = 0; i < compiled.length; i++) {
@@ -2874,6 +3333,13 @@ async function handleExtractLaws(rest: string[]) {
     const corridorLabel = d.corridorType ? `${d.corridorType}Corridor` : "track";
     const location = d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
     console.log(`  [${i + 1}] ${corridorLabel}  ${d.description ?? d.invariantLawId ?? "—"}`);
+    const law = laws[i];
+    if (law) {
+      console.log(`      polarity: ${law.type.toLowerCase()}`);
+      if (lane && !laneMatchesType(lane, law.type)) {
+        console.log(`      lane-mismatch: this block does not belong in the ${lane} lane`);
+      }
+    }
     if (d.heading) {
       console.log(`      section: "${d.heading}"`);
     }

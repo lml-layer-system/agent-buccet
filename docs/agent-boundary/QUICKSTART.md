@@ -187,6 +187,23 @@ When the user records `allow_as_law`, a **UPL Track** is automatically bound. Th
 
 See [UPL Base Packs](UPL_BASE_PACKS.md) for the shipped acceptance and denial packs, plus how to replace them with personal, company, RLHF, constitutional, or regulator/business law.
 
+If you want split authored document lanes for Terminal 2:
+
+```text
+~/.buccet/upl-docs/acceptance
+~/.buccet/upl-docs/denial
+```
+
+Put your markdown law on the appropriate side, then run:
+
+```bash
+buccet upl sync
+```
+
+Acceptance docs compile into approved UPL law.
+Denial docs compile into denied UPL law.
+Runtime merges both into the same live field.
+
 Document-imported law is bounded, not magical. Current guaranteed parse surface:
 - explicit invariant/enforcement markdown
 - required / forbidden text patterns
