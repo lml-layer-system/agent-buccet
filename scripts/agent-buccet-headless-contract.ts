@@ -192,6 +192,7 @@ async function main() {
         rootPath: workspace,
         grantedActions: ["fs.write"],
         issuedBy: "user:test",
+        seedBaseAcceptance: false,
       });
       store.replaceConfig({
         ...scopedConfig,

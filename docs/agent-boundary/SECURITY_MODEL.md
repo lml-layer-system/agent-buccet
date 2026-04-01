@@ -88,6 +88,16 @@ The Bodyguard enforces that by turning every user decision into a standing UPL l
 
 The agent cannot write to the UPL. The agent cannot read the UPL to understand its limits. The agent proposes. The user's laws decide.
 
+Base Buccet law now ships as authored packs:
+
+- base denial pack
+- base acceptance pack
+
+They stay separate for human inspection and customization.
+Runtime compiles them into one live UPL field.
+
+See [UPL Base Packs](UPL_BASE_PACKS.md).
+
 ## UPL Tracks — Execution Corridor Enforcement
 
 When a user records `allow_as_law`, a **UPL Track** is automatically bound to that approval.

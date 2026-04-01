@@ -26,6 +26,7 @@ export type BoundaryRuntimeStore = {
     grantedActions: BoundaryActionKind[];
     issuedBy: string;
     expiresAt?: string;
+    seedBaseAcceptance?: boolean;
   }): Promise<BoundaryRuntimeConfig>;
   issueGrant(args: {
     resourceKind: BoundaryResourceKind;
@@ -55,13 +56,14 @@ export function createBoundaryRuntimeStore(initialConfig: BoundaryRuntimeConfig)
     persist: async () => {
       await persistBoundarySessionState(current);
     },
-    openPath: async ({ rootPath, grantedActions, issuedBy, expiresAt }) => {
+    openPath: async ({ rootPath, grantedActions, issuedBy, expiresAt, seedBaseAcceptance }) => {
       const result = await openBoundaryPath({
         config: current,
         rootPath,
         grantedActions,
         issuedBy,
         expiresAt,
+        seedBaseAcceptance,
       });
       current = result.config;
       return current;

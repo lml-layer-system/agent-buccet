@@ -65,6 +65,7 @@ Core docs:
 - [Launch Proof](LAUNCH_PROOF.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
 - [Security Model](SECURITY_MODEL.md)
+- [UPL Base Packs](UPL_BASE_PACKS.md)
 - [Buccet System Substrate](BUCCET_SYSTEM_SUBSTRATE.md)
 - [Current Limits](CURRENT_LIMITS.md)
 - [Law Catalog](LAW_CATALOG.md)
@@ -183,6 +184,8 @@ The carried base-law foundation is also present in the repo and loaded into the 
 - Witness Ledger is proof, not live authorization.
 - Law must be ledgered.
 - Incomplete ledger traces are non-authoritative.
+- Authored approved and denied UPL law compiles into one live runtime field.
+- Terminal 2 is where that field is inspected, changed, and enforced.
 
 ## Why It Exists
 

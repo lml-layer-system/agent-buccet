@@ -62,6 +62,9 @@ The ledger records:
 - `PATH_OPENED`
 - `PATH_LAW_INSTANTIATED`
 
+Opening lawful scope also seeds the built-in Buccet base acceptance pack for that scope.
+Those authored laws compile into the same live UPL field as your deny walls.
+
 ## 3. Run actions through Buccet
 
 For filesystem:
@@ -181,6 +184,8 @@ After `DENY`, the Bodyguard checks the UPL — if there is a standing user law f
 If the user makes it a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
 When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in Terminal 2 with `tracks`.
+
+See [UPL Base Packs](UPL_BASE_PACKS.md) for the shipped acceptance and denial packs, plus how to replace them with personal, company, RLHF, constitutional, or regulator/business law.
 
 Document-imported law is bounded, not magical. Current guaranteed parse surface:
 - explicit invariant/enforcement markdown

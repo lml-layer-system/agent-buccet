@@ -1,5 +1,6 @@
 import { appendBoundaryLedger } from "./ledger.ts";
 import { adjudicateBoundaryRequest, enableBodyguardControl } from "./bodyguard.ts";
+import { seedBaseAcceptanceIntoConfig } from "./base-upl-acceptance.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
@@ -174,6 +175,7 @@ export async function openBoundaryPath(args: {
   grantedActions: BoundaryActionKind[];
   issuedBy: string;
   expiresAt?: string;
+  seedBaseAcceptance?: boolean;
 }): Promise<OpenPathResult & { config: BoundaryRuntimeConfig }> {
   const openedAt = new Date().toISOString();
   const { grant, pathLaw } = instantiatePathLaw({
@@ -216,9 +218,18 @@ export async function openBoundaryPath(args: {
     grants: [...args.config.grants, grant],
     pathLaws: [...args.config.pathLaws, pathLaw],
   };
-  await persistBoundarySessionState(nextConfig);
+  const scopedConfig = args.seedBaseAcceptance === false
+    ? nextConfig
+    : await seedBaseAcceptanceIntoConfig({
+        config: nextConfig,
+        rootPath: args.rootPath,
+        grantedActions: args.grantedActions,
+        issuedBy: args.issuedBy,
+        scope: "SESSION",
+      });
+  await persistBoundarySessionState(scopedConfig);
 
-  return { grant, pathLaw, config: nextConfig };
+  return { grant, pathLaw, config: scopedConfig };
 }
 
 export async function evaluateBoundaryAction(

@@ -178,6 +178,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*/.config/gcloud/*",
       "*/.npmrc",
       "*/.pypirc",
+      "*/secrets/*",
+      "*/credentials/*",
       "*/id_rsa*",
       "*/id_ed25519*",
       "*/keychain*",

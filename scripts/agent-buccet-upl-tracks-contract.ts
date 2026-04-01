@@ -61,6 +61,7 @@ async function main() {
       rootPath: workspace,
       grantedActions: ["fs.write"],
       issuedBy: actorId,
+      seedBaseAcceptance: false,
     });
     store.replaceConfig({
       ...scopedConfig,

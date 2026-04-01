@@ -173,6 +173,8 @@
           "/^.*/\\.config/gcloud/.*$/i",
           "/^.*/\\.npmrc$/i",
           "/^.*/\\.pypirc$/i",
+          "/^.*/secrets/.*$/i",
+          "/^.*/credentials/.*$/i",
           "/^.*/id_rsa.*$/i",
           "/^.*/id_ed25519.*$/i",
           "/^.*/keychain.*$/i",

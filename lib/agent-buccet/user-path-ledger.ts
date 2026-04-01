@@ -223,14 +223,14 @@ function compareLiveUplFieldEntries(
   left: BoundaryLiveUplFieldEntry,
   right: BoundaryLiveUplFieldEntry,
 ): number {
+  if (left.polarity !== right.polarity) {
+    return left.polarity === "deny" ? -1 : 1;
+  }
   if (right.specificity !== left.specificity) {
     return right.specificity - left.specificity;
   }
   if (left.entry.createdAt !== right.entry.createdAt) {
     return right.entry.createdAt.localeCompare(left.entry.createdAt);
-  }
-  if (left.polarity !== right.polarity) {
-    return left.polarity === "deny" ? -1 : 1;
   }
   return left.entry.id.localeCompare(right.entry.id);
 }
@@ -425,15 +425,6 @@ export function lookupUserPathTrackDecision(args: {
 
   const bestDeny = denyMatches[0];
   const bestAllow = allowMatches[0];
-
-  if (bestDeny && bestAllow) {
-    // Same road: a closed segment must wall the request point if it applies
-    // at equal-or-greater specificity than an open segment.
-    if (bestDeny.specificity >= bestAllow.specificity) {
-      return { entry: bestDeny.entry, decision: "deny" };
-    }
-    return { entry: bestAllow.entry, decision: "allow" };
-  }
 
   if (bestDeny) {
     return { entry: bestDeny.entry, decision: "deny" };
