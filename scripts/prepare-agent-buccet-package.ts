@@ -487,11 +487,7 @@ async function writeStandaloneWrapper() {
   await fs.writeFile(path.join(binDir, "buccet.ts"), rewrittenCli, "utf8");
 
   const rawInstall = await fs.readFile(sourceInstallScript, "utf8");
-  const rewrittenInstall = rawInstall
-    .replaceAll("node scripts/prepare-agent-buccet-package.ts", "true")
-    .replaceAll("cp -R \"$REPO_ROOT/dist/agent-buccet/.\" \"$BUCCET_HOME/current\"", "cp -R \"$REPO_ROOT/.\" \"$BUCCET_HOME/current\"")
-    .replaceAll("exec node \"$BUCCET_HOME/current/bin/buccet.ts\" \"$@\"", "exec node \"$BUCCET_HOME/current/bin/buccet.ts\" \"$@\"");
-  await fs.writeFile(path.join(outDir, "install.sh"), rewrittenInstall, "utf8");
+  await fs.writeFile(path.join(outDir, "install.sh"), rawInstall, "utf8");
   await fs.chmod(path.join(outDir, "install.sh"), 0o755);
 }
 

@@ -24,13 +24,17 @@ else
   exit 1
 fi
 
-cd "$REPO_ROOT"
-"$DETECTED_RUNTIME" scripts/prepare-agent-buccet-package.ts
+SOURCE_ROOT=$REPO_ROOT
+if [ -f "$REPO_ROOT/scripts/prepare-agent-buccet-package.ts" ]; then
+  cd "$REPO_ROOT"
+  "$DETECTED_RUNTIME" scripts/prepare-agent-buccet-package.ts
+  SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
+fi
 
 mkdir -p "$BUCCET_HOME/current" "$LAUNCHER_DIR"
 rm -rf "$BUCCET_HOME/current"
 mkdir -p "$BUCCET_HOME/current"
-cp -R "$REPO_ROOT/dist/agent-buccet/." "$BUCCET_HOME/current"
+cp -R "$SOURCE_ROOT/." "$BUCCET_HOME/current"
 
 # Write the launcher. It detects bun or node at each invocation so the runtime
 # preference is always correct regardless of what was available at install time.
