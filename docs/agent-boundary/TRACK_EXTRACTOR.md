@@ -166,6 +166,79 @@ Current runtime truth on this branch:
 - legacy flat fields still exist for compatibility, but structured corridors are
   now the primary track surface
 
+## What parses now
+
+This is the current parseability contract. These are the things the branch is
+expected to compile today when the wording carries low-entropy operational
+meaning.
+
+### Supported law shapes
+
+- explicit invariant / enforcement blocks
+- direct allow / deny law
+- document-imported markdown law via `buccet upl import`
+- policy-binding payloads that already carry structured request basis and, if
+  needed, a track constraint
+
+### Supported corridor families
+
+- action corridors
+- output corridors
+- completion corridors
+- expression corridors
+
+### Supported parseable signals
+
+- required text patterns
+- forbidden text patterns
+- output shape such as bullets
+- completion grammar such as single sentence
+- expression register/style constraints such as direct, objective, impersonal,
+  brief, no metaphor, no hype
+- action kind constraints such as `fs.write`
+- target rails such as a concrete allowed path or parent directory corridor
+
+### Supported examples
+
+- `Return only 1999 material.` → required text pattern / output corridor
+- `Never mention 2000s.` → forbidden text pattern / output corridor
+- `The response must be in bullets.` → output shape
+- `Invariant: Completion must stay single sentence.` plus
+  `Completion grammar: single sentence` → completion corridor
+- `Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.`
+  → expression corridor
+- `Only permit fs.write inside "/workspace/rail/allowed.txt". Never write outside ...`
+  → action corridor with `fs.write` target rail
+- `Decision: deny` with explicit forbidden content such as spoilers
+  → denied standing law with corridor
+
+## What does not parse now
+
+These inputs are not part of the guaranteed parse surface on this branch.
+
+- vague aspiration without operative boundary meaning
+- high-entropy poetry, metaphor, hype, or narrative style used as if it were a
+  precise corridor
+- arbitrary prose that does not state invariant, enforcement, or corridor
+- content that would require Buccet to infer a hidden target, hidden action
+  class, or hidden grammar
+- partially specified law blocks where one operative piece is missing
+- decorative phrases used as fake requirements when they do not map to an
+  enforceable corridor
+
+### Refused or intentionally killed examples
+
+- `Expression: cosmic legendary phoenix storyteller voice`
+- `Require: legendary unforgettable phoenix ascension`
+- `Action: write` plus a non-real target like `legendary cosmic somewhere wonderful`
+- mixed blocks that contain one enforceable corridor plus one non-materializable
+  demand
+
+The rule is simple:
+- if it snaps to a real corridor, it can become law-in-motion
+- if it cannot snap cleanly, it is refused
+- Track Extractor does not partially snap a law block
+
 Not yet complete:
 
 - the remaining work is not a second parser or a second law system

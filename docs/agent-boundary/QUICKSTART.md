@@ -182,6 +182,21 @@ If the user makes it a law, the same class of motion is denied on contact instea
 
 When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in Terminal 2 with `tracks`.
 
+Document-imported law is bounded, not magical. Current guaranteed parse surface:
+- explicit invariant/enforcement markdown
+- required / forbidden text patterns
+- output shape
+- completion grammar
+- expression corridor traits
+- action kind + concrete target rails
+
+Current non-guaranteed surface:
+- vague prose without operative corridor meaning
+- metaphor / hype / decorative style as if it were a precise rule
+- partially specified blocks that do not snap into an enforceable corridor
+
+See [Track Extractor](TRACK_EXTRACTOR.md) for the exact parseability contract.
+
 That is the whole point.
 
 ## 9. Run the end-to-end example
