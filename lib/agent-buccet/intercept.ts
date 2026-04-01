@@ -47,6 +47,12 @@ export type BoundaryInterceptRequest = {
     provenanceStrength: BoundaryProvenanceStrength;
     weightClass: BoundaryInputWeightClass;
   };
+  funnel?: {
+    source: "gravity";
+    rawAction: string;
+    pid?: string;
+    extra?: string;
+  };
 };
 
 export type BoundaryInterceptDecision = "allow" | "deny" | "require_approval";
@@ -82,6 +88,287 @@ export type BoundaryInterceptResult = {
   actionKind: BoundaryActionKind;
   tarpitActive?: boolean;
 };
+
+export type BoundaryGravityFunnelPayload = {
+  action: string;
+  target: string;
+  pid?: string;
+  extra?: string;
+};
+
+type BoundaryGravityPayloadHints = {
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryInterceptRequest["flags"];
+};
+
+function decodeGravityComponent(component: string): string {
+  try {
+    return decodeURIComponent(component);
+  } catch {
+    return component;
+  }
+}
+
+export function parseBoundaryGravityFunnelPayload(line: string): BoundaryGravityFunnelPayload {
+  const trimmed = line.trim();
+  const first = trimmed.indexOf("|");
+  const second = first >= 0 ? trimmed.indexOf("|", first + 1) : -1;
+  const third = second >= 0 ? trimmed.indexOf("|", second + 1) : -1;
+  if (first < 0 || second < 0 || third < 0) {
+    throw new Error("malformed gravity payload");
+  }
+  return {
+    action: trimmed.slice(0, first),
+    target: decodeGravityComponent(trimmed.slice(first + 1, second)),
+    pid: trimmed.slice(second + 1, third),
+    extra: decodeGravityComponent(trimmed.slice(third + 1)),
+  };
+}
+
+function parseBoundaryGravityPayloadHints(payload: BoundaryGravityFunnelPayload): BoundaryGravityPayloadHints {
+  const flags: NonNullable<BoundaryInterceptRequest["flags"]> = {};
+  const extraTokens = (payload.extra ?? "")
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+  const payloadSummaryTokens: string[] = [];
+  let provenance: BoundaryRequestProvenance | undefined;
+
+  for (const token of extraTokens) {
+    if (token.startsWith("prov=")) {
+      provenance = token.slice("prov=".length) as BoundaryRequestProvenance;
+      continue;
+    }
+    if (token.startsWith("flags=")) {
+      for (const flagName of token.slice("flags=".length).split(",")) {
+        if (flagName === "authorityClaimed") flags.authorityClaimed = true;
+        if (flagName === "claimsCompleteCoverage") flags.claimsCompleteCoverage = true;
+        if (flagName === "requestsScopeExpansion") flags.requestsScopeExpansion = true;
+        if (flagName === "requestsLawMutation") flags.requestsLawMutation = true;
+        if (flagName === "requestsSessionRevival") flags.requestsSessionRevival = true;
+        if (flagName === "requestsLedgerBypass") flags.requestsLedgerBypass = true;
+      }
+      continue;
+    }
+    payloadSummaryTokens.push(token);
+  }
+
+  return {
+    payloadSummary: [
+      payload.pid ? `pid=${payload.pid}` : "",
+      payloadSummaryTokens.join(" "),
+    ].filter(Boolean).join(" "),
+    provenance,
+    flags: Object.keys(flags).length > 0 ? flags : undefined,
+  };
+}
+
+function buildGravityFunnelInterceptRequest(args: {
+  payload: BoundaryGravityFunnelPayload;
+  actionClass: BoundaryInterceptRequest["actionClass"];
+  operation: string;
+  target?: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryInterceptRequest["flags"];
+}): BoundaryInterceptRequest {
+  return {
+    actionClass: args.actionClass,
+    operation: args.operation,
+    target: args.target ?? args.payload.target,
+    payloadSummary: args.payloadSummary,
+    provenance: args.provenance,
+    flags: args.flags,
+    funnel: {
+      source: "gravity",
+      rawAction: args.payload.action,
+      pid: args.payload.pid,
+      extra: args.payload.extra,
+    },
+  };
+}
+
+export function mapBoundaryGravityFunnelPayloadToInterceptRequests(
+  payload: BoundaryGravityFunnelPayload,
+): BoundaryInterceptRequest[] {
+  if (payload.action === "rename" || payload.action === "link" || payload.action === "symlink") {
+    const counterpart = payload.extra ?? "";
+    if (!counterpart) {
+      throw new Error(`gravity action ${payload.action} requires counterpart target`);
+    }
+    return [
+      buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "file",
+        operation: "move",
+        payloadSummary: `move-destination:${counterpart}`,
+      }),
+      buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "file",
+        operation: "move",
+        target: counterpart,
+        payloadSummary: `move-source:${payload.target}`,
+      }),
+    ];
+  }
+
+  const hints = parseBoundaryGravityPayloadHints(payload);
+  switch (payload.action) {
+    case "read":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "file",
+        operation: "read",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "write":
+    case "create":
+    case "chmod":
+    case "chown":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "file",
+        operation: "write",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "delete":
+    case "rmdir":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "file",
+        operation: "delete",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "mkdir":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "file",
+        operation: "mkdir",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "exec":
+    case "system":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "shell",
+        operation: "exec",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "database.query":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "database",
+        operation: "query",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "database.insert":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "database",
+        operation: "insert",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "database.update":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "database",
+        operation: "update",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "database.delete":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "database",
+        operation: "delete",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "system.env.read":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "system",
+        operation: "env.read",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "system.env.write":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "system",
+        operation: "env.write",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "system.config.read":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "system",
+        operation: "config.read",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "system.config.write":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "system",
+        operation: "config.write",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "system.credential.read":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "system",
+        operation: "credential.read",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "system.credential.use":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "system",
+        operation: "credential.use",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    case "connect":
+      return [buildGravityFunnelInterceptRequest({
+        payload,
+        actionClass: "network",
+        operation: "send",
+        payloadSummary: hints.payloadSummary,
+        provenance: hints.provenance,
+        flags: hints.flags,
+      })];
+    default:
+      throw new Error(`unsupported gravity action: ${payload.action}`);
+  }
+}
 
 function mapFileOperation(operation: string): BoundaryActionKind {
   switch (operation) {
