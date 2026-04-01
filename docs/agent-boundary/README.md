@@ -179,7 +179,9 @@ The carried base-law foundation is also present in the repo and loaded into the 
 - Session law persists until the user ends it.
 - Grants can be revoked and expire.
 - Untrusted content is proposal, not authority.
-- Ledger is law.
+- UPL is live user law.
+- Witness Ledger is proof, not live authorization.
+- Law must be ledgered.
 - Incomplete ledger traces are non-authoritative.
 
 ## Why It Exists

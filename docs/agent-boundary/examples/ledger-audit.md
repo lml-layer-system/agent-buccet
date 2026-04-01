@@ -1,7 +1,8 @@
 # Ledger Audit Example
 
-Ledger is law.
+Law must be ledgered.
 
+Witness Ledger proves what happened. It does not authorize live actions.
 That means an action or session trace must be complete enough to trust.
 
 ## Request audit

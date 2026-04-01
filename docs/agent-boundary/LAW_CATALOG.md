@@ -85,9 +85,11 @@ Lawful recovery:
 - restore from snapshot or ledger
 - end session explicitly when done
 
-### `BUCCET.BASE.06` Ledger Is Law
+### `BUCCET.BASE.06` Law Must Be Ledgered
 
 Meaning:
+- live authorization comes from base laws, scope/grants, and UPL
+- Witness Ledger is the authoritative historical proof path, not a live authorization source
 - meaningful actions must be represented in the audit chain
 - missing or incomplete traces are non-authoritative
 
@@ -95,6 +97,7 @@ Prevents:
 - silent side effects
 - hidden execution paths
 - fake or partial trust in untracked actions
+- treating historical proof as if it were the live approval surface
 
 Lawful recovery:
 - review ledger

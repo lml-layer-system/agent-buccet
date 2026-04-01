@@ -106,16 +106,18 @@ So the reflex path is:
 2. Something hits the action boundary.
 3. Interceptor and Gravity catch, stop, and hold immediately.
 4. Bodyguard takes over.
-5. Bodyguard checks UPL only.
-6. If UPL has standing allow, allow.
-7. If UPL has standing deny, deny.
-8. If UPL has no standing user law, present the full four-way choice surface.
-9. The user chooses one of:
+5. Bodyguard evaluates the live native lawful surfaces.
+6. Base laws, scope/grants, governor/gravity, and UPL stay in the same decision path.
+7. UPL is the live standing user-law surface.
+8. If UPL has standing allow, allow.
+9. If UPL has standing deny, deny.
+10. If UPL has no standing user law, present the full four-way choice surface.
+11. The user chooses one of:
    - allow once
    - allow as law
    - deny once
    - deny as law
-10. Every event and every UPL mutation is written to Witness Ledger.
+12. Every event and every UPL mutation is written to Witness Ledger.
 
 Witness Ledger is never used as live authorization input.
 
@@ -204,8 +206,10 @@ The runtime should be understood like this:
 - Interceptor and Gravity catch it and hold it
 - they hand it to the boss-side native system
 - Bodyguard steps in immediately
-- Bodyguard asks UPL only:
-  - is this guy already on the list?
+- Bodyguard checks the live lawful surfaces:
+  - does base law permit this?
+  - is scope/grant already open?
+  - is this guy already on the UPL list?
 - if UPL says yes:
   - let him in
 - if UPL says permanent no:

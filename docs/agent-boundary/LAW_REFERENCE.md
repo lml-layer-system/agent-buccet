@@ -44,7 +44,7 @@ These are the active root invariants of Agent Buccet.
 | `BUCCET.BASE.03` | Capability is not authorization |
 | `BUCCET.BASE.04` | Opened paths become law |
 | `BUCCET.BASE.05` | Session law persists until explicit end |
-| `BUCCET.BASE.06` | Ledger is law |
+| `BUCCET.BASE.06` | Law must be ledgered |
 
 Source of public statement:
 - [LAW_CATALOG.md](LAW_CATALOG.md)
