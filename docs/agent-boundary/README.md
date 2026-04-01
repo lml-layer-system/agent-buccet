@@ -533,8 +533,8 @@ It proves:
 - file/process/network/database/system events map into finite Agent Buccet action classes
 - the intercept server stays the stable handoff seam instead of introducing a second policy runtime
 
-It does **not** yet do full system-level syscall interception.
-That remains a deeper Agent Buccet Interceptor phase.
+It does **not** yet normalize every low-level continuation syscall family as its own native proof event.
+First-contact consequence classification remains the authority seam; deeper per-family native visibility is a later Agent Buccet Interceptor phase.
 
 ## Standalone Package Prep
 

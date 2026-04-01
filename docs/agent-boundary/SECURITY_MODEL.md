@@ -300,7 +300,7 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 - An LLM moderation gateway (no semantic classification in the hot path; pre-cognitive law only)
 - A probabilistic scanner (decisions are deterministic — law matches or doesn't)
 - A fail-open wrapper (there is no default-allow fallback on brain death)
-- A promise of 100% OS-kernel mediation on every syscall (honest about what the deep-intercept layer covers and what it does not)
+- A promise of 100% OS-kernel mediation on every syscall (Buccet's authority seam is upstream consequence classification; deep-intercept honesty is about native proof depth and normalization coverage)
 
 ---
 
@@ -322,7 +322,7 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 
 ## What Agent Buccet Does Not Yet Guarantee
 
-- OS-kernel mediation on every syscall path (eBPF/seccomp/ptrace — not part of this release)
+- Per-syscall native mediation/proof on every continuation primitive (eBPF/seccomp/ptrace-class completeness is not part of this release)
 - Independent external witnessing by default (ledger is locally signed; remote anchoring requires operator configuration)
 - Hardware-backed key protection by default (software keys on disk; HSM support not in this release)
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger

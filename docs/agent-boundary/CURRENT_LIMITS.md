@@ -63,7 +63,9 @@ Agent Buccet intercepts these action classes:
 
 ### Egress: Syscall Family Coverage
 
-Not all write paths are created equal. Explicitly covered write syscalls and what is not yet covered:
+Buccet's authority seam is first consequence-bearing contact, not a claim that every continuation syscall becomes a new sovereignty event. `open` / `openat`, `connect`, `exec*`, path mutation calls, and framework action proposals are the places where unknown motion is caught, frozen, and routed into Gravity / Bodyguard / UPL. Many lower-level syscall families are only alternate continuation shapes on an already-open file descriptor or socket.
+
+The table below is therefore about native deep-intercept visibility and normalization depth, not a blanket statement that each uncovered family is a fresh authority bypass:
 
 | Write path | Coverage |
 |---|---|
@@ -72,14 +74,14 @@ Not all write paths are created equal. Explicitly covered write syscalls and wha
 | `read` | **Covered** — deep-intercept hook |
 | `execve` / `execv` / `execvp` | **Covered** — deep-intercept hook |
 | `connect` / `socket` | **Covered** — deep-intercept hook |
-| `writev` | **Not explicitly covered** — not yet in deep-intercept |
-| `sendfile` | **Not explicitly covered** — kernel-level file copy bypass |
-| `splice` / `tee` | **Not explicitly covered** — zero-copy kernel paths |
-| `mmap(MAP_SHARED)` | **Not explicitly covered** — shared memory write path |
-| `pwrite` / `pwritev` | **Not explicitly covered** |
-| `io_uring` ops | **Not explicitly covered** — async I/O ring bypass |
+| `writev` | **Not explicitly covered** — continuation-shape visibility gap on an already-open fd |
+| `sendfile` | **Not explicitly covered** — kernel-assisted continuation copy path |
+| `splice` / `tee` | **Not explicitly covered** — zero-copy continuation paths |
+| `mmap(MAP_SHARED)` | **Not explicitly covered** — shared-memory mutation continuation path |
+| `pwrite` / `pwritev` | **Not explicitly covered** — offset-write continuation shape |
+| `io_uring` ops | **Not explicitly covered** — async submission path; this remains the hardest native gap |
 
-The uncovered paths are documented, not hidden. They represent the honest boundary of the current deep-intercept layer. Framework-level adapters capture intent before any syscall is issued and close most of these gaps at the semantic layer.
+The uncovered families are documented, not hidden. For most of them, the consequence should already have crossed the same upstream Buccet boundary earlier as `fs.read`, `fs.write`, `network.send`, or another finite action class. What is missing is per-family native normalization/proof depth, not a new independent authority system. `io_uring` is the clearest remaining case where deeper native handling is still needed.
 
 ### Egress: What is Checked at chat.emit vs Network Boundaries
 
@@ -467,6 +469,7 @@ Every major architectural claim maps to:
 
 - Full OS-kernel mediation on every syscall (eBPF/seccomp/ptrace — not part of this release)
 - Impossible bypass on all OS paths
+- Per-syscall native proof on every continuation write/send primitive
 - Hardware-backed key protection by default
 - rlimit strong-path guarantees when `PROCESS_PHYSWRAP_FALLBACK` is in ledger
 - Input DDoS protection when `admissionConfig` is absent from `BoundaryRuntimeConfig`
