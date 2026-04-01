@@ -66,6 +66,7 @@
     "test:agent-buccet:admission-contract": "node scripts/agent-buccet-admission-contract.ts",
     "test:agent-buccet:admission-hardcap-contract": "node scripts/agent-buccet-admission-hardcap-contract.ts",
     "test:agent-buccet:headless-contract": "node scripts/agent-buccet-headless-contract.ts",
+    "test:agent-buccet:headless-base-denials": "node scripts/agent-buccet-headless-base-denials-contract.ts",
     "test:agent-buccet:physwrap-contract": "node scripts/agent-buccet-physwrap-contract.ts",
     "test:agent-buccet:foundation": "node scripts/agent-buccet-foundation-contract.ts",
     "test:agent-buccet:time-runtime": "node scripts/agent-buccet-time-runtime-contract.ts",

@@ -246,6 +246,39 @@ function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConst
   return "paragraph";
 }
 
+function matchesTrackPattern(text: string, pattern: string): boolean {
+  const trimmedPattern = pattern.trim();
+  if (!trimmedPattern) {
+    return true;
+  }
+  const regexLiteral = trimmedPattern.match(/^\/(.+)\/([a-z]*)$/i);
+  if (regexLiteral) {
+    try {
+      return new RegExp(regexLiteral[1], regexLiteral[2]).test(text);
+    } catch {
+      return text.toLowerCase().includes(trimmedPattern.toLowerCase());
+    }
+  }
+  return text.toLowerCase().includes(trimmedPattern.toLowerCase());
+}
+
+function normalizeTrackTarget(target: string): string {
+  return target.replaceAll("\\", "/");
+}
+
+function buildRequestTrackText(request: BoundaryActionRequest): string {
+  return [
+    request.actionKind,
+    request.target,
+    request.payloadSummary ?? "",
+    request.reviewContext?.question ?? "",
+    request.reviewContext?.attemptedOutput ?? "",
+    request.reviewContext?.userInput ?? "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 /**
  * Check whether an incoming request satisfies a UPL track constraint.
  *
@@ -269,10 +302,14 @@ export function checkTrackConstraint(
   }
 
   // 2. Target must match the pattern (when present).
-  const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
-  if (targetPattern) {
+  const targetPatterns = [
+    ...(constraint.actionCorridor?.targetPattern ? [constraint.actionCorridor.targetPattern] : []),
+    ...(constraint.targetPatterns ?? []),
+    ...(constraint.targetPattern ? [constraint.targetPattern] : []),
+  ];
+  if (targetPatterns.length > 0) {
     const target = request.target;
-    const pattern = targetPattern;
+    const normalizedTarget = normalizeTrackTarget(target);
 
     // Path-like targets (start with / or . or contain a path separator): prefix match.
     const isPathLike =
@@ -284,13 +321,30 @@ export function checkTrackConstraint(
     const matchMode = constraint.actionCorridor?.targetMatchMode
       ?? constraint.targetMatchMode
       ?? (isPathLike ? "prefix" : "exact");
-    const matches = matchMode === "exact"
-      ? target === pattern
-      : target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/");
+    const matches = targetPatterns.some((pattern) => {
+      if (matchMode === "regex") {
+        return matchesTrackPattern(normalizedTarget, pattern);
+      }
+      if (matchMode === "exact") {
+        return target === pattern;
+      }
+      return target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/");
+    });
 
     if (!matches) {
       return (
-        `target '${target}' exits the approved target corridor '${pattern}' ` +
+        `target '${target}' exits the approved target corridor '${targetPatterns.join(" | ")}' ` +
+        `(track: ${constraint.description})`
+      );
+    }
+  }
+
+  if (constraint.requestTextPatterns?.length) {
+    const requestText = buildRequestTrackText(request);
+    const matches = constraint.requestTextPatterns.some((pattern) => matchesTrackPattern(requestText, pattern));
+    if (!matches) {
+      return (
+        `request text exits the approved execution corridor ` +
         `(track: ${constraint.description})`
       );
     }
@@ -344,10 +398,16 @@ export function checkTrackConstraint(
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
   const kinds = (constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds).join(", ");
   const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
+  const targetPatterns = constraint.targetPatterns;
   const targetMatchMode = constraint.actionCorridor?.targetMatchMode ?? constraint.targetMatchMode;
   const outputCorridor = constraint.outputCorridor;
   const patternPart = targetPattern
-    ? ` | target${targetMatchMode === "exact" ? "==" : "^="}: ${targetPattern}`
+    ? ` | target${targetMatchMode === "exact" ? "==" : targetMatchMode === "regex" ? "~=" : "^="}: ${targetPattern}`
+    : targetPatterns?.length
+      ? ` | targets${targetMatchMode === "regex" ? "~=" : targetMatchMode === "exact" ? "==" : "^="}: ${targetPatterns.join(" ; ")}`
+    : "";
+  const requestPart = constraint.requestTextPatterns?.length
+    ? ` | request~=: ${constraint.requestTextPatterns.join(" ; ")}`
     : "";
   const invariantPart = constraint.reviewInvariantLawId
     ? ` | invariant: ${constraint.reviewInvariantLawId}`
@@ -372,5 +432,5 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const actionCorridorPart = constraint.actionCorridor
     ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
     : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${requestPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

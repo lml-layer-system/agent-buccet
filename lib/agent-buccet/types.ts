@@ -331,7 +331,7 @@ export type BoundaryCompletionCorridor = {
 export type BoundaryActionCorridor = {
   allowedActionKinds: BoundaryActionKind[];
   targetPattern?: string;
-  targetMatchMode?: "prefix" | "exact";
+  targetMatchMode?: "prefix" | "exact" | "regex";
   reviewSurface?: BoundaryReviewContext["surface"];
 };
 
@@ -348,8 +348,12 @@ export type BoundaryUplTrackConstraint = {
    * Absent means any target is permitted as long as actionKind matches.
    */
   targetPattern?: string;
+  /** Optional alternative list of target patterns. Any single match admits the target. */
+  targetPatterns?: string[];
   /** How to compare targetPattern against the incoming target. */
-  targetMatchMode?: "prefix" | "exact";
+  targetMatchMode?: "prefix" | "exact" | "regex";
+  /** Optional request-text patterns matched against target + payloadSummary + review text. */
+  requestTextPatterns?: string[];
   /** Optional review surface binding for chat/action tracks. */
   reviewSurface?: BoundaryReviewContext["surface"];
   /** Optional invariant binding for chat tracks. */

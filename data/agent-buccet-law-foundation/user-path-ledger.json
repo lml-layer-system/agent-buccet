@@ -1,5 +1,753 @@
 {
   "specVersion": 1,
   "userApprovedLawPaths": [],
-  "userDeniedLawPaths": []
+  "userDeniedLawPaths": [
+    {
+      "id": "DENY.PERSISTENCE.001A",
+      "type": "DENIED",
+      "path": "fs.write base-headless-denials:persistence-paths",
+      "pathHash": "2d5b226413053ba40abe33463f0c0d606fbd880370792433b0d868578f668863",
+      "createdAt": "2026-03-31T00:00:00.000Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[persistence] Silent persistence is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "fs.write",
+        "target": "base-headless-denials:persistence-paths",
+        "payloadSummary": "Silent persistence is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.write"
+        ],
+        "targetPatterns": [
+          "/^.*/\\.bashrc$/i",
+          "/^.*/\\.zshrc$/i",
+          "/^.*/\\.profile$/i",
+          "/^.*/rc\\.local$/i",
+          "/^.*/LaunchAgents/.*$/i",
+          "/^.*/LaunchDaemons/.*$/i",
+          "/^.*/systemd/.*$/i",
+          "/^.*/init\\.d/.*$/i",
+          "/^.*/cron.*$/i",
+          "/^.*/crontab.*$/i",
+          "/^.*/autorun.*$/i",
+          "/^.*/startup.*$/i",
+          "/^.*/runonce.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.PERSISTENCE.001A — Silent persistence is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.PERSISTENCE.001B",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:persistence-command",
+      "pathHash": "8cc82c9ea98339f7994c9acddbb60de5253af4e0dd95e9ac45e56f07c61d8ca9",
+      "createdAt": "2026-03-31T00:00:00.001Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[persistence] Silent persistence is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:persistence-command",
+        "payloadSummary": "Silent persistence is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/.*crontab .*/i",
+          "/.*systemctl enable.*/i",
+          "/.*schtasks.*/i",
+          "/.*reg add.*run.*/i",
+          "/.*launchctl load.*/i",
+          "/.*launchctl bootstrap.*/i",
+          "/.*sc create.*/i"
+        ],
+        "description": "DENY.PERSISTENCE.001B — Silent persistence is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.SECURITY.WEAKENING.002A",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:security-weakening-command",
+      "pathHash": "3bfdbda5d25261cf566d062eb73b64485fa1fcac2b41b670cb5c4f8d49f71d03",
+      "createdAt": "2026-03-31T00:00:00.002Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[security_weakening] Security control weakening is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:security-weakening-command",
+        "payloadSummary": "Security control weakening is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/.*ufw disable.*/i",
+          "/.*iptables -f.*/i",
+          "/.*set-mppreference.*/i",
+          "/.*sc stop windefend.*/i",
+          "/.*spctl --master-disable.*/i",
+          "/.*defaults write.*gatekeeper.*/i",
+          "/.*disable firewall.*/i",
+          "/.*turn off defender.*/i",
+          "/.*executionpolicy bypass.*/i"
+        ],
+        "description": "DENY.SECURITY.WEAKENING.002A — Security control weakening is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.SECURITY.WEAKENING.002B",
+      "type": "DENIED",
+      "path": "fs.write base-headless-denials:security-weakening-paths",
+      "pathHash": "5d7a496f289ad64d2c6197e3ed8759592e51646c74996d77cac2cf2af481b9ba",
+      "createdAt": "2026-03-31T00:00:00.003Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[security_weakening] Security control weakening is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "fs.write",
+        "target": "base-headless-denials:security-weakening-paths",
+        "payloadSummary": "Security control weakening is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.write",
+          "sys.config.write"
+        ],
+        "targetPatterns": [
+          "/^.*/Windows Defender/.*$/i",
+          "/^.*/firewall/.*$/i",
+          "/^.*/security/.*$/i",
+          "/^.*/Gatekeeper.*$/i",
+          "/^.*/ExecutionPolicy.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.SECURITY.WEAKENING.002B — Security control weakening is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.SECRETS.ACCESS.003A",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:secrets-paths",
+      "pathHash": "785336ec6ff3d47181b30627530e11d955440965481ce03d61a879e0cb4cfa2d",
+      "createdAt": "2026-03-31T00:00:00.004Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[secret_access] Secret or credential access is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:secrets-paths",
+        "payloadSummary": "Secret or credential access is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "sys.env.read"
+        ],
+        "targetPatterns": [
+          "/^.*/\\.env$/i",
+          "/^.*/\\.ssh/.*$/i",
+          "/^.*/\\.gnupg/.*$/i",
+          "/^.*/\\.aws/.*$/i",
+          "/^.*/\\.config/gcloud/.*$/i",
+          "/^.*/\\.npmrc$/i",
+          "/^.*/\\.pypirc$/i",
+          "/^.*/id_rsa.*$/i",
+          "/^.*/id_ed25519.*$/i",
+          "/^.*/keychain.*$/i",
+          "/^.*/wallet.*$/i",
+          "/^.*/seed.*$/i",
+          "/^.*/keystore.*$/i",
+          "/^.*/cookies.*$/i",
+          "/^.*/token.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.SECRETS.ACCESS.003A — Secret or credential access is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.SECRETS.ACCESS.003B",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:secrets-command",
+      "pathHash": "6e920037f256622401017fbb02f516c36a02bfb3ed7403dc527cc487070c72c4",
+      "createdAt": "2026-03-31T00:00:00.005Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[secret_access] Secret or credential access is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:secrets-command",
+        "payloadSummary": "Secret or credential access is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/.*security find-generic-password.*/i",
+          "/.*security find-internet-password.*/i",
+          "/.*pass .*/i",
+          "/.*secret-tool .*/i",
+          "/.*cmdkey .*/i",
+          "/.*vault .*/i"
+        ],
+        "description": "DENY.SECRETS.ACCESS.003B — Secret or credential access is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.SECRETS.ACCESS.003C",
+      "type": "DENIED",
+      "path": "sys.credential.read base-headless-denials:credential-surface",
+      "pathHash": "34235dc82a25cd7cdbe75dba8b41968765f05d01726946a9e69aed0f819eb0ac",
+      "createdAt": "2026-03-31T00:00:00.006Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[secret_access] Secret or credential access is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "sys.credential.read",
+        "target": "base-headless-denials:credential-surface",
+        "payloadSummary": "Secret or credential access is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "sys.credential.read",
+          "sys.credential.use"
+        ],
+        "description": "DENY.SECRETS.ACCESS.003C — Secret or credential access is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.EXFILTRATION.004A",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:exfil-command",
+      "pathHash": "4321532ff77a5ffcf31c328778fe619d096641c018fb64e47cb6f2bddbe9a364",
+      "createdAt": "2026-03-31T00:00:00.007Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[exfiltration] Outbound data movement is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:exfil-command",
+        "payloadSummary": "Outbound data movement is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/.*curl .* --upload-file .*/i",
+          "/.*wget .* --post-file=.*/i",
+          "/.*scp .*/i",
+          "/.*rsync .*:.*/i",
+          "/.*nc .*/i",
+          "/.*ncat .*/i",
+          "/.*ftp .*/i",
+          "/.*invoke-webrequest.* -method post.*/i",
+          "/.*post .*/i",
+          "/.*upload .*/i"
+        ],
+        "description": "DENY.EXFILTRATION.004A — Outbound data movement is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.EXFILTRATION.004B",
+      "type": "DENIED",
+      "path": "network.send base-headless-denials:exfil-network",
+      "pathHash": "f75d1c3966700ea5e9e30f445bdd07275d8bcd0f9a577b19372f0213266358c4",
+      "createdAt": "2026-03-31T00:00:00.008Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[exfiltration] Outbound data movement is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "network.send",
+        "target": "base-headless-denials:exfil-network",
+        "payloadSummary": "Outbound data movement is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "network.send"
+        ],
+        "targetPatterns": [
+          "/^.*webhook.*$/i",
+          "/^.*telegram.*$/i",
+          "/^.*discord.*$/i",
+          "/^.*slack.*$/i",
+          "/^.*smtp.*$/i",
+          "/^.*ftp://.*$/i",
+          "/^.*tor.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.EXFILTRATION.004B — Outbound data movement is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.PRIVILEGE.ESCALATION.005",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:privilege-escalation",
+      "pathHash": "2ee51243c1bf6c76b8cda34eca88247b13aded2296b2cfe8def702f91256849b",
+      "createdAt": "2026-03-31T00:00:00.009Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[privilege_escalation] Privilege escalation is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:privilege-escalation",
+        "payloadSummary": "Privilege escalation is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/sudo .*/i",
+          "/su .*/i",
+          "/runas .*/i",
+          "/.*chmod 777 .*/i",
+          "/.*chmod \\+s .*/i",
+          "/.*setcap .*/i",
+          "/.*icacls .* /grant .*/i"
+        ],
+        "description": "DENY.PRIVILEGE.ESCALATION.005 — Privilege escalation is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.STEALTH.EVASION.006",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:stealth-evasion",
+      "pathHash": "dbcbad02964eb22d1793857cf108b513280ff7528ff87261bdabdf875a5d5e62",
+      "createdAt": "2026-03-31T00:00:00.010Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[stealth_evasion] Stealth, concealment, or anti-analysis behavior is forbidden.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:stealth-evasion",
+        "payloadSummary": "Stealth, concealment, or anti-analysis behavior is forbidden.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/.*vmdetect.*/i",
+          "/.*sandbox.*detect.*/i",
+          "/.*sleep 300.*/i",
+          "/.*timeout /t 300.*/i",
+          "/.*wevtutil cl.*/i",
+          "/.*clear-eventlog.*/i",
+          "/.*history -c.*/i",
+          "/.*rm .*history.*/i",
+          "/.*obfus.*/i",
+          "/.*hide .*/i"
+        ],
+        "description": "DENY.STEALTH.EVASION.006 — Stealth, concealment, or anti-analysis behavior is forbidden."
+      }
+    },
+    {
+      "id": "DENY.PROPAGATION.007A",
+      "type": "DENIED",
+      "path": "fs.write base-headless-denials:propagation-paths",
+      "pathHash": "63ee0344dfb4042376ba675ff4d64a073c4908fa59f70ca664dcfa58c139ee0b",
+      "createdAt": "2026-03-31T00:00:00.011Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[propagation] Self-propagation or lateral spread is forbidden.",
+      "requestBasis": {
+        "actionKind": "fs.write",
+        "target": "base-headless-denials:propagation-paths",
+        "payloadSummary": "Self-propagation or lateral spread is forbidden.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.write"
+        ],
+        "targetPatterns": [
+          "/^.*/autorun\\.inf$/i",
+          "/^.*/usb/.*$/i",
+          "/^.*/network-share/.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.PROPAGATION.007A — Self-propagation or lateral spread is forbidden."
+      }
+    },
+    {
+      "id": "DENY.PROPAGATION.007B",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:propagation-command",
+      "pathHash": "2c16cdef25f21636d315773c9b70dd5d774bcaadebda23775825d75479d92511",
+      "createdAt": "2026-03-31T00:00:00.012Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[propagation] Self-propagation or lateral spread is forbidden.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:propagation-command",
+        "payloadSummary": "Self-propagation or lateral spread is forbidden.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec",
+          "network.send"
+        ],
+        "requestTextPatterns": [
+          "/net use .*/i",
+          "/wmic .* process call create .*/i",
+          "/psexec .*/i",
+          "/scp .*:.*/i",
+          "/smbclient .*/i",
+          "/.*copy to usb.*/i",
+          "/.*replicate .*/i",
+          "/.*spread .*/i",
+          "/.*lateral .*/i"
+        ],
+        "description": "DENY.PROPAGATION.007B — Self-propagation or lateral spread is forbidden."
+      }
+    },
+    {
+      "id": "DENY.LAW.TAMPER.008A",
+      "type": "DENIED",
+      "path": "fs.write base-headless-denials:law-tamper-paths",
+      "pathHash": "d6b08fe53485a484ccebf4382d65aa8b48a1e57eb836c5aa9ea9ab9b142cdcfb",
+      "createdAt": "2026-03-31T00:00:00.013Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[law_witness_tamper] Law, tracks, witness, or control-plane tampering is forbidden.",
+      "requestBasis": {
+        "actionKind": "fs.write",
+        "target": "base-headless-denials:law-tamper-paths",
+        "payloadSummary": "Law, tracks, witness, or control-plane tampering is forbidden.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.write",
+          "fs.delete",
+          "fs.move",
+          "sys.config.write"
+        ],
+        "targetPatterns": [
+          "/^.*/upl/.*$/i",
+          "/^.*/law/.*$/i",
+          "/^.*/tracks/.*$/i",
+          "/^.*/ledger/.*$/i",
+          "/^.*/witness/.*$/i",
+          "/^.*/buccet/config/.*$/i",
+          "/^.*/\\.buccet/.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.LAW.TAMPER.008A — Law, tracks, witness, or control-plane tampering is forbidden."
+      }
+    },
+    {
+      "id": "DENY.LAW.TAMPER.008B",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:law-tamper-command",
+      "pathHash": "376bd24c9a533e7dd3922532c36e7a44b4f16441255735a28f552f216a2b62be",
+      "createdAt": "2026-03-31T00:00:00.014Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[law_witness_tamper] Law, tracks, witness, or control-plane tampering is forbidden.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:law-tamper-command",
+        "payloadSummary": "Law, tracks, witness, or control-plane tampering is forbidden.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/kill .*buccet.*/i",
+          "/pkill .*buccet.*/i",
+          "/rm .*ledger.*/i",
+          "/truncate .*ledger.*/i",
+          "/rm .*upl.*/i",
+          "/rm .*tracks.*/i",
+          "/.*disable buccet.*/i"
+        ],
+        "description": "DENY.LAW.TAMPER.008B — Law, tracks, witness, or control-plane tampering is forbidden."
+      }
+    },
+    {
+      "id": "DENY.DESTRUCTIVE.MASS.009A",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:destructive-command",
+      "pathHash": "1f697af716bad1cd66d3d11f79e6cbe0c8a96aae4648d87171c035f718a3088a",
+      "createdAt": "2026-03-31T00:00:00.015Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[destructive_mass_mutation] Destructive mass mutation is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:destructive-command",
+        "payloadSummary": "Destructive mass mutation is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/rm -rf .*/i",
+          "/del /s /q .*/i",
+          "/shred .*/i",
+          "/cipher /w:.*/i",
+          "/.*encrypt.* --all.*/i",
+          "/.*wipe .*/i",
+          "/format .*/i"
+        ],
+        "description": "DENY.DESTRUCTIVE.MASS.009A — Destructive mass mutation is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.DESTRUCTIVE.MASS.009B",
+      "type": "DENIED",
+      "path": "fs.delete base-headless-denials:destructive-bulk",
+      "pathHash": "57d7071ef82b91f3cdba2e40116febf364e49e123f3a7c5cf02b112f4b52e57f",
+      "createdAt": "2026-03-31T00:00:00.016Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[destructive_mass_mutation] Destructive mass mutation is forbidden in headless mode.",
+      "requestBasis": {
+        "actionKind": "fs.delete",
+        "target": "base-headless-denials:destructive-bulk",
+        "payloadSummary": "Destructive mass mutation is forbidden in headless mode.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.delete",
+          "fs.move",
+          "fs.write"
+        ],
+        "requestTextPatterns": [
+          "/.*recursive.*/i",
+          "/.*mass.*/i",
+          "/.*broad.*/i",
+          "/.*overwrite.*/i",
+          "/.*encrypt.*/i"
+        ],
+        "description": "DENY.DESTRUCTIVE.MASS.009B — Destructive mass mutation is forbidden in headless mode."
+      }
+    },
+    {
+      "id": "DENY.SENSITIVE.CAPTURE.010",
+      "type": "DENIED",
+      "path": "camera.capture base-headless-denials:sensitive-capture",
+      "pathHash": "654823ea9b0082239bec453e617f1221e9d150d51bf3050dbb5a72cfda1e41f1",
+      "createdAt": "2026-03-31T00:00:00.017Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[sensitive_capture] Sensitive capture is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "camera.capture",
+        "target": "base-headless-denials:sensitive-capture",
+        "payloadSummary": "Sensitive capture is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "camera.capture",
+          "microphone.capture",
+          "screen.capture",
+          "clipboard.read",
+          "browser.session.read"
+        ],
+        "description": "DENY.SENSITIVE.CAPTURE.010 — Sensitive capture is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.SYSTEM.MUTATION.011A",
+      "type": "DENIED",
+      "path": "fs.write base-headless-denials:system-mutation-paths",
+      "pathHash": "453206657b911b996607e6e2a58899c65fa201e5c81f37bcbf2d900f25df933e",
+      "createdAt": "2026-03-31T00:00:00.018Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[system_mutation] System-level mutation is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "fs.write",
+        "target": "base-headless-denials:system-mutation-paths",
+        "payloadSummary": "System-level mutation is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.write",
+          "sys.config.write"
+        ],
+        "targetPatterns": [
+          "/^/etc/.*$/i",
+          "/^/usr/bin/.*$/i",
+          "/^/usr/local/bin/.*$/i",
+          "/^c:/windows/.*$/i",
+          "/^c:/program files/.*$/i",
+          "/^.*/library/preferences/.*$/i",
+          "/^.*/registry/.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.SYSTEM.MUTATION.011A — System-level mutation is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.SYSTEM.MUTATION.011B",
+      "type": "DENIED",
+      "path": "tool.exec base-headless-denials:system-mutation-command",
+      "pathHash": "a633fa114bc719273274b0ec2c5909dcc7502f1cc42f6c40ac95ffead4bbce0e",
+      "createdAt": "2026-03-31T00:00:00.019Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[system_mutation] System-level mutation is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "tool.exec",
+        "target": "base-headless-denials:system-mutation-command",
+        "payloadSummary": "System-level mutation is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "tool.exec"
+        ],
+        "requestTextPatterns": [
+          "/apt install.*/i",
+          "/yum install.*/i",
+          "/dnf install.*/i",
+          "/brew install.*/i",
+          "/winget install.*/i",
+          "/choco install.*/i",
+          "/reg add.*/i",
+          "/defaults write.*/i"
+        ],
+        "description": "DENY.SYSTEM.MUTATION.011B — System-level mutation is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.EXTERNAL.COMMUNICATION.012A",
+      "type": "DENIED",
+      "path": "comm.send base-headless-denials:external-comm-recipient",
+      "pathHash": "54d7be978ba775e820f1bfc62052aaea9b71d8fc7bc6948f47a000cbb621762a",
+      "createdAt": "2026-03-31T00:00:00.020Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[external_communication] External communication is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "comm.send",
+        "target": "base-headless-denials:external-comm-recipient",
+        "payloadSummary": "External communication is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "comm.send",
+          "email.send",
+          "message.send"
+        ],
+        "targetPatterns": [
+          "/^.*@.*$/i",
+          "/^.*slack\\.com.*$/i",
+          "/^.*discord.*$/i",
+          "/^.*telegram.*$/i",
+          "/^.*webhook.*$/i",
+          "/^.*smtp.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.EXTERNAL.COMMUNICATION.012A — External communication is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.EXTERNAL.COMMUNICATION.012B",
+      "type": "DENIED",
+      "path": "network.send base-headless-denials:external-comm-destination",
+      "pathHash": "f34a79e74d7e8e546ec7b1bbecf5826603ea31ccbd8f2dac8c81fcd0388c420d",
+      "createdAt": "2026-03-31T00:00:00.021Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[external_communication] External communication is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "network.send",
+        "target": "base-headless-denials:external-comm-destination",
+        "payloadSummary": "External communication is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "network.send"
+        ],
+        "targetPatterns": [
+          "/^.*webhook.*$/i",
+          "/^.*telegram.*$/i",
+          "/^.*discord.*$/i",
+          "/^.*slack.*$/i",
+          "/^.*smtp.*$/i",
+          "/^.*messaging.*$/i"
+        ],
+        "targetMatchMode": "regex",
+        "description": "DENY.EXTERNAL.COMMUNICATION.012B — External communication is forbidden without explicit law."
+      }
+    }
+  ]
 }

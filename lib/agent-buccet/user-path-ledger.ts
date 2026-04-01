@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createBaseHeadlessDenialLedger } from "./headless-base-denials.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -20,11 +21,7 @@ const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const UPL_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "user-path-ledger.json");
 
 function getDefaultLedger(): BoundaryUserPathLedger {
-  return {
-    specVersion: 1,
-    userApprovedLawPaths: [],
-    userDeniedLawPaths: [],
-  };
+  return createBaseHeadlessDenialLedger();
 }
 
 function stablePathDescriptor(request: BoundaryActionRequest) {
