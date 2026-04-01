@@ -207,9 +207,9 @@ function isEntryActiveForSession(entry: BoundaryUplEntry, session: BoundarySessi
   return true;
 }
 
-type RankedEntry = {
+export type BoundaryLiveUplFieldEntry = {
   entry: BoundaryUplEntry;
-  decision: "allow" | "deny";
+  polarity: "allow" | "deny";
   specificity: 0 | 1 | 2;
 };
 
@@ -217,6 +217,63 @@ function entrySpecificity(entry: BoundaryUplEntry): 0 | 1 | 2 {
   if (entry.scope === "SESSION") return 2;
   if (entry.scope === "DOMAIN") return 1;
   return 0;
+}
+
+function compareLiveUplFieldEntries(
+  left: BoundaryLiveUplFieldEntry,
+  right: BoundaryLiveUplFieldEntry,
+): number {
+  if (right.specificity !== left.specificity) {
+    return right.specificity - left.specificity;
+  }
+  if (left.entry.createdAt !== right.entry.createdAt) {
+    return right.entry.createdAt.localeCompare(left.entry.createdAt);
+  }
+  if (left.polarity !== right.polarity) {
+    return left.polarity === "deny" ? -1 : 1;
+  }
+  return left.entry.id.localeCompare(right.entry.id);
+}
+
+/**
+ * Human authoring stays split into approved and denied UPL lists so the user can
+ * inspect and customize both sides directly. Runtime does not keep that split.
+ * Buccet compiles the active laws into one live field and evaluates motion
+ * against that field.
+ */
+export function compileLiveUplField(args: {
+  ledger: BoundaryUserPathLedger;
+  session: BoundarySession;
+}): BoundaryLiveUplFieldEntry[] {
+  const field: BoundaryLiveUplFieldEntry[] = [];
+
+  for (const entry of args.ledger.userApprovedLawPaths) {
+    if (!isEntryActiveForSession(entry, args.session)) continue;
+    field.push({
+      entry,
+      polarity: "allow",
+      specificity: entrySpecificity(entry),
+    });
+  }
+
+  for (const entry of args.ledger.userDeniedLawPaths) {
+    if (!isEntryActiveForSession(entry, args.session)) continue;
+    field.push({
+      entry,
+      polarity: "deny",
+      specificity: entrySpecificity(entry),
+    });
+  }
+
+  field.sort(compareLiveUplFieldEntries);
+  return field;
+}
+
+export function compileLiveUplTrackField(args: {
+  ledger: BoundaryUserPathLedger;
+  session: BoundarySession;
+}): BoundaryLiveUplFieldEntry[] {
+  return compileLiveUplField(args).filter((segment) => Boolean(segment.entry.trackConstraint));
 }
 
 function entryMatchesScope(args: {
@@ -280,37 +337,14 @@ export function lookupUserPathDecision(args: {
 }): { entry: BoundaryUplEntry; decision: "allow" | "deny" } | null {
   const pathHash = hashUserPath(args.request);
   const domain = classifyUserPathDomain(args.request);
-  const matches: RankedEntry[] = [];
-
-  for (const entry of args.ledger.userApprovedLawPaths) {
-    if (!isEntryActiveForSession(entry, args.session)) continue;
-    if (entry.pathHash === pathHash || (entry.scope === "DOMAIN" && entry.domain === domain)) {
-      matches.push({ entry, decision: "allow", specificity: entrySpecificity(entry) });
-    }
-  }
-
-  for (const entry of args.ledger.userDeniedLawPaths) {
-    if (!isEntryActiveForSession(entry, args.session)) continue;
-    if (entry.pathHash === pathHash || (entry.scope === "DOMAIN" && entry.domain === domain)) {
-      matches.push({ entry, decision: "deny", specificity: entrySpecificity(entry) });
-    }
-  }
-
-  matches.sort((left, right) => {
-    if (right.specificity !== left.specificity) {
-      return right.specificity - left.specificity;
-    }
-    if (left.entry.createdAt !== right.entry.createdAt) {
-      return right.entry.createdAt.localeCompare(left.entry.createdAt);
-    }
-    if (left.decision !== right.decision) {
-      return left.decision === "deny" ? -1 : 1;
-    }
-    return left.entry.id.localeCompare(right.entry.id);
-  });
-
-  const winner = matches[0];
-  return winner ? { entry: winner.entry, decision: winner.decision } : null;
+  const winner = compileLiveUplField({
+    ledger: args.ledger,
+    session: args.session,
+  }).find((segment) => (
+    segment.entry.pathHash === pathHash ||
+    (segment.entry.scope === "DOMAIN" && segment.entry.domain === domain)
+  ));
+  return winner ? { entry: winner.entry, decision: winner.polarity } : null;
 }
 
 /**
@@ -340,61 +374,49 @@ export function lookupUserPathTrackDecision(args: {
     return null;
   }
 
-  type TrackMatch = {
-    entry: BoundaryUplEntry;
+  type TrackMatch = BoundaryLiveUplFieldEntry & {
     decision: "allow" | "deny" | "track_violation";
     violation?: string;
-    specificity: 0 | 1 | 2;
   };
 
   const allowMatches: TrackMatch[] = [];
   const denyMatches: TrackMatch[] = [];
   const violations: TrackMatch[] = [];
 
-  for (const entry of args.ledger.userApprovedLawPaths) {
-    if (!isEntryActiveForSession(entry, args.session)) continue;
-    if (!entry.trackConstraint) continue;
-    if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
+  for (const segment of compileLiveUplTrackField({
+    ledger: args.ledger,
+    session: args.session,
+  })) {
+    const constraint = segment.entry.trackConstraint;
+    if (!constraint) continue;
+    if (!constraint.allowedActionKinds.includes(args.request.actionKind)) continue;
 
-    const violation = checkTrackConstraint(entry.trackConstraint, args.request);
+    const violation = checkTrackConstraint(constraint, args.request);
     if (!violation) {
-      allowMatches.push({
-        entry,
-        decision: "allow",
-        specificity: entrySpecificity(entry),
-      });
+      if (segment.polarity === "deny") {
+        denyMatches.push({
+          ...segment,
+          decision: "deny",
+        });
+      } else {
+        allowMatches.push({
+          ...segment,
+          decision: "allow",
+        });
+      }
       continue;
     }
-    violations.push({
-      entry,
-      decision: "track_violation",
-      violation,
-      specificity: entrySpecificity(entry),
-    });
-  }
-
-  for (const entry of args.ledger.userDeniedLawPaths) {
-    if (!isEntryActiveForSession(entry, args.session)) continue;
-    if (!entry.trackConstraint) continue;
-    if (!entry.trackConstraint.allowedActionKinds.includes(args.request.actionKind)) continue;
-    const violation = checkTrackConstraint(entry.trackConstraint, args.request);
-    if (!violation) {
-      denyMatches.push({
-        entry,
-        decision: "deny",
-        specificity: entrySpecificity(entry),
+    if (segment.polarity === "allow") {
+      violations.push({
+        ...segment,
+        decision: "track_violation",
+        violation,
       });
     }
   }
 
   const rankTrackMatch = (left: TrackMatch, right: TrackMatch) => {
-    if (right.specificity !== left.specificity) {
-      return right.specificity - left.specificity;
-    }
-    if (left.entry.createdAt !== right.entry.createdAt) {
-      return right.entry.createdAt.localeCompare(left.entry.createdAt);
-    }
-    return left.entry.id.localeCompare(right.entry.id);
+    return compareLiveUplFieldEntries(left, right);
   };
 
   denyMatches.sort(rankTrackMatch);

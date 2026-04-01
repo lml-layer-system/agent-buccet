@@ -7,7 +7,7 @@ import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
-import type { BoundaryActionKind } from "../lib/agent-buccet/index.ts";
+import type { BoundaryActionKind, BoundarySession } from "../lib/agent-buccet/index.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -201,6 +201,31 @@ function baseConfig(args: {
     defaultScopes: uniquePaths(args.defaultScopes),
     dryRun: args.dryRun,
   };
+}
+
+function fallbackBoundarySession(config: BuccetConfig): BoundarySession {
+  return {
+    sessionId: config.sessionId,
+    actorId: config.actorId,
+    createdAt: config.createdAt,
+    dryRun: config.dryRun,
+    persistent: true,
+    status: "active",
+  };
+}
+
+async function loadActiveBoundarySession(
+  boundary: {
+    loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{ session: BoundarySession } | null>;
+  },
+  home: ReturnType<typeof resolveHomePaths>,
+  config: BuccetConfig,
+): Promise<BoundarySession> {
+  const sessionState = await boundary.loadBoundarySessionState({
+    sessionId: config.sessionId,
+    sessionsDir: home.sessionsDir,
+  });
+  return sessionState?.session ?? fallbackBoundarySession(config);
 }
 
 function resolveHomePaths(homePath: string) {
@@ -1108,15 +1133,18 @@ async function handleUpl(rest: string[]) {
 
   if (subcommand === "list") {
     const upl = await boundary.loadUserPathLedger();
+    const session = await loadActiveBoundarySession(boundary, home, config);
     const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
     const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+    const runtimeTrackField = boundary.compileLiveUplTrackField({ ledger: upl, session });
     if (asJson) {
-      printJson({ approved, denied });
+      printJson({ approved, denied, runtimeTrackField });
       return;
     }
     console.log(`Active UPL laws`);
     console.log(`approved: ${approved.length}`);
     console.log(`denied: ${denied.length}`);
+    console.log(`runtime track field: ${runtimeTrackField.length} compiled segments`);
     for (const entry of [...approved, ...denied]) {
       console.log(`${entry.type} | ${entry.id} | ${entry.path}`);
     }
@@ -2531,10 +2559,13 @@ async function handleConsole() {
 
         if (cmd === "upl") {
           const upl = await boundary.loadUserPathLedger();
+          const session = await loadActiveBoundarySession(boundary, home, config);
           const approved = (upl.userApprovedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
           const denied = (upl.userDeniedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
+          const runtimeTrackField = boundary.compileLiveUplTrackField({ ledger: upl, session });
           console.log(``);
           console.log(`  UPL: ${approved.length} approved laws / ${denied.length} denied laws`);
+          console.log(`  Runtime field: ${runtimeTrackField.length} compiled track segments`);
           for (const law of approved.slice(-8)) {
             console.log(`  allow | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
           }
@@ -2581,22 +2612,28 @@ async function handleConsole() {
 
         if (cmd === "tracks") {
           const upl = await boundary.loadUserPathLedger();
-          const tracked = [
-            ...(upl.userApprovedLawPaths ?? []),
-            ...(upl.userDeniedLawPaths ?? []),
-          ].filter((l) => l.status === "ACTIVE" && l.trackConstraint);
+          const session = await loadActiveBoundarySession(boundary, home, config);
+          const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+          const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+          const tracked = boundary.compileLiveUplTrackField({ ledger: upl, session });
           console.log(``);
-          console.log(`  Active UPL track corridors`);
+          console.log(`  Active UPL runtime track field`);
           console.log(`  ─────────────────────────────────────`);
+          console.log(`  authored: ${approved.length} approved / ${denied.length} denied`);
+          console.log(`  runtime:  ${tracked.length} compiled segments`);
           if (tracked.length === 0) {
             console.log(`  No active track corridors.`);
           } else {
-            for (const entry of tracked) {
+            for (const segment of tracked) {
+              const entry = segment.entry;
               const tc = entry.trackConstraint!;
-              console.log(`  ${entry.id}  [${entry.type}] ${tc.description}`);
+              console.log(`  ${segment.polarity === "allow" ? "open " : "wall "} | ${entry.id} | ${tc.description}`);
               console.log(`    kinds:   ${tc.allowedActionKinds.join(", ")}`);
               if (tc.targetPattern) {
                 console.log(`    target:  ${tc.targetPattern}`);
+              }
+              if (tc.targetPatterns?.length) {
+                console.log(`    targets: ${tc.targetPatterns.join(" | ")}`);
               }
               if (tc.reviewInvariantLawId) {
                 console.log(`    track:   invariant ${tc.reviewInvariantLawId}`);
