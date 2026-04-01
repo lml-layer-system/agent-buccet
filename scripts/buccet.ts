@@ -33,6 +33,33 @@ const FULL_FS_SCOPE_ACTIONS: BoundaryActionKind[] = [
   "fs.move",
 ];
 
+type ConsoleApprovalMode = "interactive" | "standing_law";
+
+function parseConsoleApprovalModeToken(token: string | undefined): ConsoleApprovalMode | null {
+  if (!token) {
+    return null;
+  }
+  switch (token.trim().toLowerCase()) {
+    case "interactive":
+    case "live":
+      return "interactive";
+    case "standing-law":
+    case "standing_law":
+    case "no-questions":
+    case "no_questions":
+    case "24/7":
+    case "24x7":
+    case "headless":
+      return "standing_law";
+    default:
+      return null;
+  }
+}
+
+function formatConsoleApprovalMode(mode: ConsoleApprovalMode): string {
+  return mode === "standing_law" ? "24/7 no-questions (standing law)" : "interactive";
+}
+
 function usage(): never {
   console.error([
     "Usage:",
@@ -54,6 +81,7 @@ function usage(): never {
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
     "  buccet swarm list [--json]",
+    "  buccet swarm mode [interactive|standing-law] [--json]",
     "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
     "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
     "  buccet uninstall",
@@ -1436,6 +1464,7 @@ async function handleSwarm(rest: string[]) {
       return;
     }
     console.log(`Agent Buccet swarm groups`);
+    console.log(`mode: ${formatConsoleApprovalMode(output.mode)}`);
     console.log(`pending: ${output.totals.pending}`);
     console.log(`waiting members: ${output.totals.waitingMembers}`);
     for (const group of output.groups) {
@@ -1443,6 +1472,29 @@ async function handleSwarm(rest: string[]) {
         `${group.state} | ${group.groupId} | ${group.actionClass}.${group.operation} | ${group.target} | members=${group.memberCount} waiting=${group.waitingCount}`,
       );
     }
+    return;
+  }
+
+  if (subcommand === "mode") {
+    const requestedMode = parseConsoleApprovalModeToken(rest[1]);
+    if (rest[1] && !requestedMode) {
+      throw new Error(`unknown swarm mode: ${rest[1]}`);
+    }
+    const output = await boundary.sendBoundaryInterceptServerInput({
+      target,
+      input: {
+        command: "swarm_mode",
+        ...(requestedMode ? { mode: requestedMode } : {}),
+      },
+    });
+    if (output.type !== "swarm_mode") {
+      throw new Error(`unexpected swarm response: ${output.type}`);
+    }
+    if (asJson) {
+      printJson(output);
+      return;
+    }
+    console.log(`swarm mode: ${formatConsoleApprovalMode(output.mode)}`);
     return;
   }
 
@@ -1893,10 +1945,14 @@ async function handleConsole() {
   console.log(``);
   console.log(`  Commands:`);
   console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
+  console.log(`    right-arrow        — enter 24/7 no-questions mode`);
+  console.log(`    Esc                — return to interactive mode`);
   console.log(`    allow <id>         — allow once`);
   console.log(`    deny <id>          — deny once`);
   console.log(`    law <id>           — allow as standing law`);
   console.log(`    deny-law <id>      — deny as standing law`);
+  console.log(`    mode [name]        — show or set interactive / standing-law mode`);
+  console.log(`    no-questions       — turn on 24/7 standing-law mode`);
   console.log(`    canyon [prov]      — inspect ingress control state or list all`);
   console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
   console.log(`    laws               — list active scope laws for this session`);
@@ -1913,6 +1969,7 @@ async function handleConsole() {
 
   // Track which groups have already been reported.
   const reportedGroupIds = new Set<string>();
+  let currentApprovalMode: ConsoleApprovalMode = "interactive";
   // Current waiting groups — updated on every approval poll for numbered shorthand.
   let currentWaitingGroups: Array<{
     groupId: string;
@@ -2030,6 +2087,40 @@ async function handleConsole() {
           target: move.target,
         });
       }
+    }
+  }
+
+  async function setConsoleApprovalMode(
+    mode: ConsoleApprovalMode,
+    reason: string,
+    options?: { silent?: boolean },
+  ): Promise<boolean> {
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: {
+          command: "swarm_mode",
+          mode,
+        },
+      });
+      if (out.type !== "swarm_mode") {
+        console.log(`  Error: unexpected mode response: ${out.type}`);
+        return false;
+      }
+      currentApprovalMode = out.mode;
+      reportedGroupIds.clear();
+      if (!options?.silent) {
+        if (out.mode === "standing_law") {
+          console.log(`  24/7 no-questions mode active — UPL is now resolving pending action groups. Press Esc to return to interactive mode.`);
+        } else {
+          console.log(`  Interactive mode restored — Terminal 2 will ask the 4 choices again.`);
+        }
+        console.log(`  reason: ${reason}`);
+      }
+      return true;
+    } catch (error) {
+      console.log(`  Error: ${error instanceof Error ? error.message : String(error)}`);
+      return false;
     }
   }
 
@@ -2185,12 +2276,22 @@ async function handleConsole() {
         input: { command: "swarm_status" },
       });
       if (out.type !== "swarm_status") return;
+      currentApprovalMode = out.mode;
 
       const waitingGroups = out.groups.filter(
         (g: { state: string; waitingCount: number }) => g.state === "waiting" || g.waitingCount > 0,
       );
       currentWaitingGroups = waitingGroups;
       syncNslSuggestions(waitingGroups);
+
+      if (currentApprovalMode === "standing_law") {
+        for (const id of reportedGroupIds) {
+          if (!waitingGroups.some((g: { groupId: string }) => g.groupId === id)) {
+            reportedGroupIds.delete(id);
+          }
+        }
+        return;
+      }
 
       for (const group of waitingGroups) {
         if (reportedGroupIds.has(group.groupId)) continue;
@@ -2280,6 +2381,28 @@ async function handleConsole() {
     terminal: true,
   });
 
+  readline.emitKeypressEvents(process.stdin, rl);
+  const rawModeSupported = process.stdin.isTTY && typeof process.stdin.setRawMode === "function";
+  if (rawModeSupported) {
+    process.stdin.setRawMode(true);
+  }
+
+  const onKeypress = (_input: string, key: { name?: string; ctrl?: boolean }) => {
+    if (!rawModeSupported || rl.line.trim().length > 0) {
+      return;
+    }
+    if (key.name === "right" && currentApprovalMode !== "standing_law") {
+      void setConsoleApprovalMode("standing_law", "console: right-arrow enabled 24/7 no-questions mode");
+      rl.prompt();
+      return;
+    }
+    if (key.name === "escape" && currentApprovalMode === "standing_law") {
+      void setConsoleApprovalMode("interactive", "console: Esc returned Terminal 2 to interactive mode");
+      rl.prompt();
+    }
+  };
+  process.stdin.on("keypress", onKeypress);
+
   rl.prompt();
 
   rl.on("line", (rawLine) => {
@@ -2299,6 +2422,32 @@ async function handleConsole() {
           clearInterval(pollHandle);
           rl.close();
           process.exit(0);
+        }
+
+        if (cmd === "mode" || cmd === "no-questions" || cmd === "standing-law" || cmd === "interactive" || cmd === "24/7") {
+          const requestedMode = cmd === "mode"
+            ? parseConsoleApprovalModeToken(arg1)
+            : cmd === "interactive"
+              ? "interactive"
+              : "standing_law";
+          if (cmd === "mode" && arg1 && !requestedMode) {
+            console.log(`  Usage: mode [interactive|standing-law|no-questions|24/7]`);
+            rl.prompt();
+            return;
+          }
+          if (!requestedMode) {
+            console.log(`  Mode: ${formatConsoleApprovalMode(currentApprovalMode)}`);
+            rl.prompt();
+            return;
+          }
+          await setConsoleApprovalMode(
+            requestedMode,
+            requestedMode === "standing_law"
+              ? "console: enabled 24/7 no-questions mode"
+              : "console: restored interactive mode",
+          );
+          rl.prompt();
+          return;
         }
 
         // Numbered shorthand: 1/2/3/4 when exactly one group is waiting.
@@ -2358,6 +2507,7 @@ async function handleConsole() {
           console.log(`  Status:     ${sessionState?.session.status ?? "missing"}`);
           console.log(`  Scopes:     ${scopes.length}`);
           console.log(`  Grants:     ${grants.length}`);
+          console.log(`  Mode:       ${formatConsoleApprovalMode(currentApprovalMode)}`);
           console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
           console.log(`  Pending:    ${currentWaitingGroups.length} action group(s) waiting`);
           console.log(`  Canyon:     ${currentIngressEntries.filter((entry) => entry.state === "canyon").length} provenance(s) held`);
@@ -2628,6 +2778,10 @@ async function handleConsole() {
 
   rl.on("close", () => {
     clearInterval(pollHandle);
+    process.stdin.off("keypress", onKeypress);
+    if (rawModeSupported) {
+      process.stdin.setRawMode(false);
+    }
     process.exit(0);
   });
 

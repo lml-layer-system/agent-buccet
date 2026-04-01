@@ -50,6 +50,7 @@ export type BoundaryInterceptRequest = {
 };
 
 export type BoundaryInterceptDecision = "allow" | "deny" | "require_approval";
+export type BoundaryInterceptApprovalMode = "interactive" | "standing_law";
 
 export type BoundaryInterceptSwarmGroupState = "waiting" | "approved" | "denied";
 
@@ -288,6 +289,7 @@ export type BoundaryInterceptDaemonCommand =
   | { command: "restart"; requestId?: string; reason?: string }
   | { command: "shutdown"; requestId?: string }
   | { command: "swarm_status"; requestId?: string }
+  | { command: "swarm_mode"; requestId?: string; mode?: BoundaryInterceptApprovalMode }
   | { command: "ingress_status"; requestId?: string }
   | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string; asLaw?: boolean }
   | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean }
@@ -315,21 +317,28 @@ export type BoundaryInterceptDaemonOutput =
       lastDecision?: "allow" | "null";
       lastError?: string;
       lastRestartReason?: string;
+      approvalMode?: BoundaryInterceptApprovalMode;
       swarm?: {
         pending: number;
         waitingMembers: number;
         tracked: number;
       };
     }
-  | {
+    | {
       type: "swarm_status";
       requestId: string;
+      mode: BoundaryInterceptApprovalMode;
       groups: BoundaryInterceptSwarmGroup[];
       totals: {
         pending: number;
         waitingMembers: number;
         tracked: number;
       };
+    }
+  | {
+      type: "swarm_mode";
+      requestId: string;
+      mode: BoundaryInterceptApprovalMode;
     }
     | {
       type: "ingress_status";
@@ -355,6 +364,7 @@ export type BoundaryInterceptDaemonOutput =
         | "shutdown"
         | "swarm_approve"
         | "swarm_deny"
+        | "swarm_mode"
         | "ingress_allow_once"
         | "ingress_allow_as_law"
         | "ingress_deny_once"

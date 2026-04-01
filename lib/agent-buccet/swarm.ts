@@ -1,17 +1,21 @@
 import { createHash, randomUUID } from "node:crypto";
 import { enableBodyguardControl, recordBodyguardUserLawDecision } from "./bodyguard.ts";
+import { createBoundaryHeadlessApprovalHandler } from "./headless.ts";
 import path from "node:path";
 import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryAdmissionState,
+  BoundaryApprovalPrompt,
   BoundaryActionRequest,
   BoundaryResourceKind,
   BoundaryReviewContext,
+  BoundaryUserPathLedger,
   BodyguardMove,
 } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
+import { loadUserPathLedger } from "./user-path-ledger.ts";
 
 export type BoundarySwarmGroupState = "waiting" | "approved" | "denied";
 
@@ -146,6 +150,49 @@ function toBoundaryActionRequest(store: BoundaryRuntimeStore, request: BoundaryI
     provenance: request.provenance ?? "agent_inference",
     flags: request.flags,
   };
+}
+
+function buildDefaultAttemptLines(request: BoundaryActionRequest): string[] {
+  const baseLine = request.actionKind === "tool.exec"
+    ? `$ ${request.target}`
+    : `$ ${request.actionKind} ${request.target}`;
+  return request.payloadSummary ? [baseLine, `  ${request.payloadSummary}`] : [baseLine];
+}
+
+function buildSwarmApprovalPrompt(group: BoundarySwarmPendingGroup, request: BoundaryActionRequest): BoundaryApprovalPrompt {
+  const context = group.representative.reviewContext;
+  if (context?.surface === "chat") {
+    return {
+      title: context.title ?? "Standing-law review",
+      question: context.question ?? group.reason,
+      surface: "chat",
+      lawIds: [...group.lawIds],
+      userInput: context.userInput,
+      attemptedOutput: context.attemptedOutput,
+      invariantLawId: context.invariantLawId ?? group.lawIds[0],
+      invariantLabel: context.invariantLabel ?? group.reason,
+      evidence: context.evidence ?? [],
+      violations: context.violations ?? [],
+      options: [],
+    };
+  }
+
+  return {
+    title: context?.title ?? "Standing-law review",
+    question: context?.question ?? group.reason,
+    surface: "action",
+    lawIds: [...group.lawIds],
+    attemptLines: context?.attemptLines ?? buildDefaultAttemptLines(request),
+    invariantLawId: context?.invariantLawId ?? group.lawIds[0],
+    invariantLabel: context?.invariantLabel ?? group.reason,
+    violations: context?.violations ?? [],
+    options: [],
+  };
+}
+
+function standingLawReason(notes: string | null | undefined, fallback: string): string {
+  const trimmed = notes?.trim();
+  return trimmed ? `standing-law: ${trimmed}` : fallback;
 }
 
 async function appendSwarmLedger(args: {
@@ -500,10 +547,73 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     };
   }
 
+  async function resolveWaitingGroupsFromUpl(args: {
+    actorId: string;
+    getLedger?: () => Promise<BoundaryUserPathLedger>;
+  }): Promise<number> {
+    const handler = createBoundaryHeadlessApprovalHandler({
+      mode: "follow_upl",
+      getLedger: args.getLedger ?? (() => loadUserPathLedger()),
+    });
+    const groups = [...pendingGroups.values()].filter((group) => group.state === "waiting" && group.waitingCount > 0);
+    let resolved = 0;
+
+    for (const group of groups) {
+      if (!pendingGroups.has(group.key)) {
+        continue;
+      }
+
+      const approvalRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
+      const rawDecision = await handler({
+        session: store.getConfig().session,
+        request: approvalRequest,
+        reason: group.reason,
+        lawIds: [...group.lawIds],
+        bodyguardMoves: [...group.bodyguardMoves],
+        prompt: buildSwarmApprovalPrompt(group, approvalRequest),
+      });
+      const decision = typeof rawDecision === "boolean"
+        ? { choice: rawDecision ? "allow_once" as const : "deny_once" as const, notes: null }
+        : "approved" in rawDecision
+          ? {
+              choice: rawDecision.approved ? "allow_once" as const : "deny_once" as const,
+              notes: rawDecision.notes,
+            }
+          : rawDecision;
+
+      const allowed = decision.choice === "allow_once" || decision.choice === "allow_as_law";
+      if (allowed) {
+        const approved = await approveGroup({
+          groupId: group.groupId,
+          issuedBy: args.actorId,
+          reason: standingLawReason(decision.notes, "standing-law: existing UPL law allowed this request"),
+          asLaw: false,
+        });
+        if (approved) {
+          resolved += 1;
+        }
+        continue;
+      }
+
+      const denied = await denyGroup({
+        groupId: group.groupId,
+        deniedBy: args.actorId,
+        reason: standingLawReason(decision.notes, "standing-law: no standing UPL law matched this request"),
+        asLaw: false,
+      });
+      if (denied) {
+        resolved += 1;
+      }
+    }
+
+    return resolved;
+  }
+
   return {
     evaluateOrWait,
     approveGroup,
     denyGroup,
     listGroups,
+    resolveWaitingGroupsFromUpl,
   };
 }

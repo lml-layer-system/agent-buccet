@@ -12,6 +12,7 @@ import {
   denyIngressOnce,
   denyIngressAsLaw,
   restoreBoundaryRuntimeStore,
+  type BoundaryInterceptApprovalMode,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
   type BoundaryInterceptResult,
@@ -442,6 +443,32 @@ async function main() {
     },
   });
   const swarm = createBoundarySwarmCoordinator(store);
+  let approvalMode: BoundaryInterceptApprovalMode = "interactive";
+  let standingLawPassRunning = false;
+
+  const maybeResolveStandingLaw = async () => {
+    if (approvalMode !== "standing_law" || standingLawPassRunning) {
+      return;
+    }
+    standingLawPassRunning = true;
+    try {
+      while (approvalMode === "standing_law") {
+        const resolved = await swarm.resolveWaitingGroupsFromUpl({
+          actorId: store.getConfig().session.actorId,
+        });
+        if (resolved === 0) {
+          break;
+        }
+      }
+    } catch (error) {
+      console.error("[intercept-server-standing-law-pass]", error);
+    } finally {
+      standingLawPassRunning = false;
+    }
+  };
+  const standingLawTimer = setInterval(() => {
+    void maybeResolveStandingLaw();
+  }, 150);
 
   await supervisor.start();
 
@@ -484,6 +511,7 @@ async function main() {
                 type: "status",
                 requestId,
                 ...status,
+                approvalMode,
                 swarm: swarmStatus.totals,
               });
               continue;
@@ -493,8 +521,31 @@ async function main() {
               writeJsonOutput(socket, {
                 type: "swarm_status",
                 requestId,
+                mode: approvalMode,
                 groups: swarmStatus.groups,
                 totals: swarmStatus.totals,
+              });
+              continue;
+            }
+            if (parsed.command === "swarm_mode") {
+              if (parsed.mode) {
+                if (parsed.mode !== "interactive" && parsed.mode !== "standing_law") {
+                  writeJsonOutput(socket, {
+                    type: "error",
+                    requestId,
+                    error: `unknown swarm mode: ${String(parsed.mode)}`,
+                  });
+                  continue;
+                }
+                approvalMode = parsed.mode;
+                if (approvalMode === "standing_law") {
+                  void maybeResolveStandingLaw();
+                }
+              }
+              writeJsonOutput(socket, {
+                type: "swarm_mode",
+                requestId,
+                mode: approvalMode,
               });
               continue;
             }
@@ -714,6 +765,7 @@ async function main() {
               });
               continue;
             }
+            clearInterval(standingLawTimer);
             await supervisor.stop();
             writeJsonOutput(socket, {
               type: "ack",
@@ -788,6 +840,7 @@ async function main() {
   }
 
   const shutdown = async () => {
+    clearInterval(standingLawTimer);
     await supervisor.stop();
     await new Promise<void>((resolve) => {
       server.close(() => resolve());
