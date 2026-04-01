@@ -72,6 +72,9 @@ async function main() {
     rootPath: workspace,
     grantedActions: ["fs.read", "fs.write", "fs.delete"],
     issuedBy: actorId,
+    // This demo intentionally shows the pre-standing-law baseline in its final
+    // section, so keep the default base acceptance pack out of this workspace.
+    seedBaseAcceptance: false,
   });
   config = enableBodyguardControl(scopedConfig);
 

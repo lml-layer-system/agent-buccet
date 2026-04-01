@@ -5,6 +5,7 @@ import {
 } from "./gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
+import { grantsForAction } from "./orchestrator.ts";
 import {
   getActiveUserLawIds,
   lookupUserPathDecision,
@@ -46,6 +47,63 @@ export function attachBodyguardControl(
     ...overrides,
     bodyguardOnline: true,
   };
+}
+
+function resolveBodyguardPriorityLaw(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}): BoundaryLawResult | null {
+  const priorityLaws = args.config.laws.filter((law) => law.lawId.startsWith("META."));
+  if (priorityLaws.length === 0) {
+    return null;
+  }
+
+  const activeGrants = grantsForAction(args.config.session, args.request.actionKind, args.config.grants);
+  const triggeredLawIds: string[] = [];
+  let matched = false;
+  let decision: "allow" | "require_approval" | null = null;
+  let reason = "";
+
+  for (const law of priorityLaws) {
+    const result = law.evaluate({
+      session: args.config.session,
+      request: args.request,
+      activeGrants,
+    });
+    if (!result) {
+      continue;
+    }
+    matched = true;
+    triggeredLawIds.push(...result.triggeredLawIds);
+    if (result.decision === "deny") {
+      return expandRuntimeMuscleTriggeredLawIds(args.config, {
+        decision: "deny",
+        reason: result.reason,
+        triggeredLawIds,
+        requiresApproval: false,
+      });
+    }
+    if (result.decision === "require_approval") {
+      decision = "require_approval";
+      reason = result.reason;
+      continue;
+    }
+    if (!decision) {
+      decision = "allow";
+      reason = result.reason;
+    }
+  }
+
+  if (!matched || !decision) {
+    return null;
+  }
+
+  return expandRuntimeMuscleTriggeredLawIds(args.config, {
+    decision,
+    reason,
+    triggeredLawIds,
+    requiresApproval: decision === "require_approval",
+  });
 }
 
 export function resolveBodyguardStandingLaw(args: {
@@ -239,14 +297,6 @@ export async function resolveBodyguardHeldRequest(args: {
     };
   }
 
-  const standingLaw = resolveBodyguardStandingLaw(args);
-  if (standingLaw) {
-    return {
-      result: standingLaw,
-      bodyguardMoves: [],
-    };
-  }
-
   return null;
 }
 
@@ -254,6 +304,14 @@ export function evaluateBodyguardAction(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
 }): BodyguardAdjudication {
+  const priorityLaw = resolveBodyguardPriorityLaw(args);
+  if (priorityLaw) {
+    return {
+      result: priorityLaw,
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+
   const standingLaw = resolveBodyguardStandingLaw(args);
   if (standingLaw) {
     return {
