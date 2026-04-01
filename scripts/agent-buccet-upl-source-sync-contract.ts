@@ -186,6 +186,7 @@ async function main() {
   assert.equal(deniedSecretRead.requiresApproval, false, "expected denial lane to hard deny secret reads");
 
   const badAcceptanceDocPath = path.join(acceptanceDir!, "bad-denial.md");
+  const mixedAcceptanceDocPath = path.join(acceptanceDir!, "mixed-unsupported.md");
   await fs.writeFile(badAcceptanceDocPath, [
     "# Wrong lane",
     "",
@@ -216,7 +217,39 @@ async function main() {
     "expected failed sync to preserve existing denial lane law",
   );
 
+  await fs.writeFile(mixedAcceptanceDocPath, [
+    "# Mixed unsupported law",
+    "",
+    `Only permit fs.write inside "${railTarget}". Never write outside "${railTarget}".`,
+    "",
+    "Invariant: Mixed block must not partially snap.",
+    "Expression: cosmic legendary phoenix storyteller voice",
+    "Require: canon-sigil-42",
+  ].join("\n"));
+
+  const mixedFailure = await runCli(["upl", "sync"], env);
+  assert.notEqual(mixedFailure.code, 0, "expected unsnappable law block to fail sync");
+  assert.match(mixedFailure.stderr, /refuses partial import|unsupported or unsnappable/i);
+
+  const uplListAfterMixedFailure = await runCli(["upl", "list", "--json"], env);
+  assert.equal(uplListAfterMixedFailure.code, 0, uplListAfterMixedFailure.stderr);
+  const uplAfterMixedFailure = JSON.parse(uplListAfterMixedFailure.stdout) as {
+    approved: Array<{ notes?: string | null }>;
+    denied: Array<{ notes?: string | null }>;
+  };
+  assert.equal(
+    uplAfterMixedFailure.approved.filter((entry) => entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
+    1,
+    "expected partial-snap failure to preserve existing acceptance lane law",
+  );
+  assert.equal(
+    uplAfterMixedFailure.denied.filter((entry) => entry.notes?.includes("[upl-doc-lane:denial]")).length,
+    1,
+    "expected partial-snap failure to preserve existing denial lane law",
+  );
+
   await fs.rm(badAcceptanceDocPath, { force: true });
+  await fs.rm(mixedAcceptanceDocPath, { force: true });
   await fs.rm(acceptanceDocPath, { force: true });
   const emptyAcceptanceSync = await runCli(["upl", "sync", "--lane", "acceptance", "--json"], env);
   assert.equal(emptyAcceptanceSync.code, 0, emptyAcceptanceSync.stderr);

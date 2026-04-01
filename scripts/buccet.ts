@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type {
   BoundaryActionKind,
+  DocumentLawDiagnosticEntry,
   BoundarySession,
   BoundaryUplEntry,
   BoundaryUplEntryType,
@@ -326,18 +327,42 @@ function laneMatchesType(lane: UplSourceLane, type: BoundaryUplEntryType): boole
   return lane === "acceptance" ? type === "APPROVED" : type === "DENIED";
 }
 
-function validateCompiledDocumentLane(args: {
-  lane: UplSourceLane;
+function isIgnorableDocumentDiagnostic(diagnostic: DocumentLawDiagnosticEntry): boolean {
+  return diagnostic.skipReason === "duplicate directive (same signature as earlier block)";
+}
+
+function validateExtractedDocumentLane(args: {
+  lane?: UplSourceLane;
   filePath: string;
   compiled: CompiledDocumentLaw[];
+  diagnostics: DocumentLawDiagnosticEntry[];
 }): void {
-  if (args.compiled.length === 0) {
+  const fatalDiagnostics = args.diagnostics.filter((diagnostic) => (
+    !diagnostic.compiled && !isIgnorableDocumentDiagnostic(diagnostic)
+  ));
+  if (fatalDiagnostics.length > 0) {
+    const detail = fatalDiagnostics
+      .slice(0, 3)
+      .map((diagnostic) => {
+        const location = diagnostic.startLine === diagnostic.endLine
+          ? `line ${diagnostic.startLine}`
+          : `lines ${diagnostic.startLine}-${diagnostic.endLine}`;
+        return `${location}: ${diagnostic.skipReason ?? "unsupported law block"}`;
+      })
+      .join("; ");
     throw new Error(
-      `${args.filePath} did not compile into any ${args.lane} law. Rewrite it into supported law shapes or inspect it with \`buccet extract-laws ${args.filePath}\`.`,
+      `${args.filePath} contains ${fatalDiagnostics.length} unsupported or unsnappable law block(s). Buccet refuses partial import. Inspect it with \`buccet extract-laws ${args.filePath}\`. ${detail}`,
     );
   }
-  const mismatched = args.compiled.filter((entry) => !laneMatchesType(args.lane, entry.type));
-  if (mismatched.length > 0) {
+  if (args.compiled.length === 0) {
+    throw new Error(
+      `${args.filePath} did not compile into any${args.lane ? ` ${args.lane}` : ""} law. Rewrite it into supported law shapes or inspect it with \`buccet extract-laws ${args.filePath}\`.`,
+    );
+  }
+  const mismatched = args.lane
+    ? args.compiled.filter((entry) => !laneMatchesType(args.lane!, entry.type))
+    : [];
+  if (args.lane && mismatched.length > 0) {
     const wrongSide = args.lane === "acceptance" ? "denied" : "approved";
     throw new Error(
       `${args.filePath} compiled ${mismatched.length} ${wrongSide} law block(s) in the ${args.lane} lane. Move the document to the other lane or rewrite it. Buccet will not coerce lane polarity.`,
@@ -1518,16 +1543,17 @@ async function handleUpl(rest: string[]) {
     for (const lane of laneFiles) {
       for (const filePath of lane.files) {
         const markdown = await fs.readFile(filePath, "utf8");
-        const compiled = boundary.compileMarkdownDocumentToLaws({
+        const extracted = boundary.extractDocumentLawsWithDiagnostics({
           sourcePath: filePath,
           markdown,
         });
-        validateCompiledDocumentLane({
+        validateExtractedDocumentLane({
           lane: lane.spec.lane,
           filePath,
-          compiled,
+          compiled: extracted.laws,
+          diagnostics: extracted.diagnostics,
         });
-        const tagged = compiled.map((entry) => ({
+        const tagged = extracted.laws.map((entry) => ({
           ...entry,
           notes: formatUplSourceNote({
             lane: lane.spec.lane,
@@ -1656,9 +1682,14 @@ async function handleUpl(rest: string[]) {
 
     for (const filePath of files) {
       const markdown = await fs.readFile(filePath, "utf8");
-      const compiled = boundary.compileMarkdownDocumentToLaws({
+      const extracted = boundary.extractDocumentLawsWithDiagnostics({
         sourcePath: filePath,
         markdown,
+      });
+      validateExtractedDocumentLane({
+        filePath,
+        compiled: extracted.laws,
+        diagnostics: extracted.diagnostics,
       });
       const result = await importCompiledDocumentLaws({
         boundary,
@@ -1666,7 +1697,7 @@ async function handleUpl(rest: string[]) {
         store,
         upl,
         filePath,
-        compiled,
+        compiled: extracted.laws,
         scope,
         importReason: `document law imported from ${path.basename(filePath)}`,
         metadata: {

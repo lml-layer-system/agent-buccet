@@ -49,11 +49,44 @@ export function attachBodyguardControl(
   };
 }
 
+const BODYGUARD_PRIORITY_TIME_ALIASES = new Map<string, string>([
+  ["META.TRUST.01", "TIME.TRUST.01"],
+  ["META.AUTHORITY.01", "TIME.AUTHORITY.01"],
+  ["META.NOVELTY.01", "TIME.NOVELTY.01"],
+  ["META.SCOPE.01", "TIME.SCOPE.01"],
+  ["META.LAW.01", "TIME.LAW.01"],
+  ["META.SESSION.01", "TIME.SESSION.01"],
+  ["META.LEDGER.01", "TIME.LEDGER.01"],
+]);
+
+function normalizeBodyguardPriorityLawId(lawId: string): string {
+  return BODYGUARD_PRIORITY_TIME_ALIASES.get(lawId) ?? lawId;
+}
+
+function isBodyguardPriorityLawId(lawId: string): boolean {
+  return normalizeBodyguardPriorityLawId(lawId).startsWith("TIME.");
+}
+
+function mergeBodyguardLawResults(
+  primary: BoundaryLawResult,
+  secondary: BoundaryLawResult | null,
+): BoundaryLawResult {
+  if (!secondary) {
+    return primary;
+  }
+  return {
+    ...primary,
+    triggeredLawIds: [...new Set([...primary.triggeredLawIds, ...secondary.triggeredLawIds])],
+    uplTrackId: primary.uplTrackId ?? secondary.uplTrackId,
+    ...(primary.uplTrackViolated || secondary.uplTrackViolated ? { uplTrackViolated: true } : {}),
+  };
+}
+
 function resolveBodyguardPriorityLaw(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
 }): BoundaryLawResult | null {
-  const priorityLaws = args.config.laws.filter((law) => law.lawId.startsWith("META."));
+  const priorityLaws = args.config.laws.filter((law) => isBodyguardPriorityLawId(law.lawId));
   if (priorityLaws.length === 0) {
     return null;
   }
@@ -230,26 +263,26 @@ function expandRuntimeMuscleTriggeredLawIds(
 
   const extraLawIds = new Set<string>();
   for (const lawId of result.triggeredLawIds) {
-    switch (lawId) {
-      case "META.TRUST.01":
+    switch (normalizeBodyguardPriorityLawId(lawId)) {
+      case "TIME.TRUST.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.truth_alignment ?? []) extraLawIds.add(id);
         break;
-      case "META.AUTHORITY.01":
+      case "TIME.AUTHORITY.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.authority_bypass ?? []) extraLawIds.add(id);
         break;
-      case "META.NOVELTY.01":
+      case "TIME.NOVELTY.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.hallucination_prevention ?? []) extraLawIds.add(id);
         break;
-      case "META.SCOPE.01":
+      case "TIME.SCOPE.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.safety_governance ?? []) extraLawIds.add(id);
         break;
-      case "META.LAW.01":
+      case "TIME.LAW.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.meta_law ?? []) extraLawIds.add(id);
         break;
-      case "META.SESSION.01":
+      case "TIME.SESSION.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.memory_temporal ?? []) extraLawIds.add(id);
         break;
-      case "META.LEDGER.01":
+      case "TIME.LEDGER.01":
         for (const id of runtimeMuscle.timeLawIdsByCategory.ledger_proof ?? []) extraLawIds.add(id);
         break;
       default:
@@ -305,18 +338,42 @@ export function evaluateBodyguardAction(args: {
   request: BoundaryActionRequest;
 }): BodyguardAdjudication {
   const priorityLaw = resolveBodyguardPriorityLaw(args);
+  const standingLaw = resolveBodyguardStandingLaw(args);
+
+  if (priorityLaw?.decision === "deny") {
+    return {
+      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+  if (standingLaw?.decision === "deny") {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
+    };
+  }
+  if (priorityLaw?.decision === "require_approval") {
+    return {
+      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+  if (standingLaw?.decision === "require_approval") {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
+    };
+  }
+  if (standingLaw) {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
+    };
+  }
   if (priorityLaw) {
     return {
       result: priorityLaw,
       bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
-    };
-  }
-
-  const standingLaw = resolveBodyguardStandingLaw(args);
-  if (standingLaw) {
-    return {
-      result: standingLaw,
-      bodyguardMoves: [],
     };
   }
 

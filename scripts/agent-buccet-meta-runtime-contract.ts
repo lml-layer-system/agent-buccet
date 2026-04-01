@@ -9,6 +9,19 @@ import {
   startPersistentBoundarySession,
 } from "../lib/agent-buccet/index.ts";
 
+function hasTriggeredLawAlias(ids: readonly string[], alias: string): boolean {
+  const aliases = new Map<string, string>([
+    ["TIME.TRUST.01", "META.TRUST.01"],
+    ["TIME.AUTHORITY.01", "META.AUTHORITY.01"],
+    ["TIME.NOVELTY.01", "META.NOVELTY.01"],
+    ["TIME.SCOPE.01", "META.SCOPE.01"],
+    ["TIME.LAW.01", "META.LAW.01"],
+    ["TIME.SESSION.01", "META.SESSION.01"],
+    ["TIME.LEDGER.01", "META.LEDGER.01"],
+  ]);
+  return ids.includes(alias) || ids.includes(aliases.get(alias) ?? alias);
+}
+
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-time-runtime-"));
   const scopedRoot = path.join(tempRoot, "workspace");
@@ -39,12 +52,37 @@ async function main() {
   const evaluated = await evaluateBoundaryAction(config, request);
   assert.equal(evaluated.result.decision, "require_approval");
   assert.ok(
-    evaluated.result.triggeredLawIds.includes("META.NOVELTY.01"),
+    hasTriggeredLawAlias(evaluated.result.triggeredLawIds, "TIME.NOVELTY.01"),
     "expected novelty guard to trigger on complete coverage claims",
+  );
+
+  ({ config } = await openBoundaryPath({
+    config,
+    rootPath: scopedRoot,
+    grantedActions: ["fs.read"],
+    issuedBy: config.session.actorId,
+  }));
+
+  const deniedRequest = createBoundaryActionRequest({
+    config,
+    actionKind: "fs.read",
+    target: path.join(scopedRoot, ".env"),
+    provenance: "agent_inference",
+    flags: {
+      claimsCompleteCoverage: true,
+    },
+  });
+
+  const denied = await evaluateBoundaryAction(config, deniedRequest);
+  assert.equal(denied.result.decision, "deny");
+  assert.ok(
+    hasTriggeredLawAlias(denied.result.triggeredLawIds, "TIME.NOVELTY.01"),
+    "expected novelty guard to stay visible even when deny wall wins",
   );
 
   console.log(`time runtime decision: ${evaluated.result.decision}`);
   console.log(`time runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
+  console.log(`deny wall beats novelty review: ${denied.result.decision}`);
 }
 
 main().catch((error) => {

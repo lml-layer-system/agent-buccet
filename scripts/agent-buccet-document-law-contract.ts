@@ -47,27 +47,16 @@ async function main() {
     const actionRailDir = path.join(workspacePath, "rail");
     await fs.mkdir(actionRailDir, { recursive: true });
     const documentPath = path.join(workspacePath, "policy.md");
+    const mixedDocumentPath = path.join(workspacePath, "mixed-policy.md");
     await fs.writeFile(documentPath, [
       "# Response policy",
       "",
       "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
-      "Like a phoenix rising from the ashes, this response should feel legendary and obviously unforgettable.",
       "",
       "Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.",
       "",
       "Invariant: Completion must stay single sentence.",
       "Completion grammar: single sentence",
-      "",
-      "Invariant: Mixed block must not partially snap.",
-      "Expression: cosmic legendary phoenix storyteller voice",
-      "Require: canon-sigil-42",
-      "",
-      "Expression: cosmic legendary phoenix storyteller voice",
-      "",
-      "Require: legendary unforgettable phoenix ascension",
-      "",
-      "Action: write",
-      "Target: legendary cosmic somewhere wonderful",
       "",
       `Only permit fs.write inside "${path.join(actionRailDir, "allowed.txt")}". Never write outside "${path.join(actionRailDir, "allowed.txt")}".`,
       "",
@@ -75,6 +64,15 @@ async function main() {
       "Invariant: Never mention spoilers.",
       "Enforcement: Reject spoiler phrasing entirely.",
       "Forbid: spoilers",
+    ].join("\n"));
+    await fs.writeFile(mixedDocumentPath, [
+      "# Mixed response policy",
+      "",
+      "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
+      "",
+      "Invariant: Mixed block must not partially snap.",
+      "Expression: cosmic legendary phoenix storyteller voice",
+      "Require: canon-sigil-42",
     ].join("\n"));
 
     const env = {
@@ -96,6 +94,10 @@ async function main() {
     assert.equal(imported.scope, "GLOBAL");
     assert.equal(imported.imported.length, 1);
     assert.equal(imported.imported[0].imported, 5, "expected five invariant blocks to compile into five laws");
+
+    const mixedImport = await runCli(["upl", "import", mixedDocumentPath], env);
+    assert.notEqual(mixedImport.code, 0, "expected mixed unsupported law doc to fail strict import");
+    assert.match(mixedImport.stderr, /refuses partial import|unsupported or unsnappable/i);
 
     const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
     const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
