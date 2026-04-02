@@ -1,4 +1,12 @@
 import { createHash } from "node:crypto";
+import {
+  AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS,
+  AGENT_BUCCET_META_LAW_REFERENCES,
+} from "./meta.ts";
+import {
+  BOUNDARY_PERIODIC_FAILURE_DIMENSIONS,
+  BOUNDARY_PERIODIC_FAILURE_ROWS,
+} from "./periodic-failure-taxonomy.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
@@ -15,6 +23,8 @@ export type DenialClass =
   | "exfiltration"
   | "authority_spoofing"
   | "meta_boundary_attack"
+  | "periodic_failure_taxonomy"
+  | "defensive_meta_law"
   | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
@@ -121,6 +131,107 @@ function hashBaseRuleId(id: string): string {
 
 function buildBasisPath(seed: BaseHeadlessDenialSeed): string {
   return `${seed.actionKinds[0] ?? "unknown"} ${seed.requestBasisTarget}`;
+}
+
+function collapseWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function toCatalogRequestTextPatterns(values: readonly (string | undefined)[]): string[] {
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+
+  for (const raw of values) {
+    const value = collapseWhitespace(raw ?? "")
+      .replaceAll("`", "")
+      .replaceAll("\"", "")
+      .trim();
+    if (value.length < 4) {
+      continue;
+    }
+    const key = value.toLowerCase();
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    normalized.push(`*${value}*`);
+  }
+
+  return toContainsRegexList(normalized);
+}
+
+const EXCLUDED_META_LAW_IDS = new Set<number>([
+  164,
+  ...AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS,
+]);
+
+function isVendoredMetaLawReferenceAllowed(ref: (typeof AGENT_BUCCET_META_LAW_REFERENCES)[number]): boolean {
+  if (EXCLUDED_META_LAW_IDS.has(ref.lawId)) {
+    return false;
+  }
+
+  const lowered = `${ref.name} ${ref.category} ${ref.source}`.toLowerCase();
+  return !(
+    lowered.includes("novelty") ||
+    lowered.includes("autonomous") ||
+    lowered.includes("self-continuation") ||
+    lowered.includes("self_extending") ||
+    lowered.includes("self-extending") ||
+    lowered.includes("strict improvement after shock") ||
+    lowered.includes("future_mutation_detection") ||
+    lowered.includes("adaptive_law_emergence") ||
+    lowered.includes("no_repeat_without_coverage") ||
+    lowered.includes("reproduction/self-continuation") ||
+    lowered.includes("offensive cyber") ||
+    lowered.includes("offensive payload") ||
+    lowered.includes("defensive mastery flips to offensive")
+  );
+}
+
+function createPeriodicDimensionSeeds(): BaseHeadlessDenialSeed[] {
+  return BOUNDARY_PERIODIC_FAILURE_DIMENSIONS.map((dimension) => ({
+    id: `DENY.PERIODIC.${dimension.id}`,
+    denialClass: "periodic_failure_taxonomy",
+    reason: `[dimension:${dimension.name}] ${dimension.description}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns([
+      dimension.id,
+      `${dimension.name} failures`,
+      dimension.description,
+    ]),
+    requestBasisTarget: `base-headless-denials:periodic-dimension:${dimension.id.toLowerCase()}`,
+  }));
+}
+
+function createPeriodicFailureSeeds(): BaseHeadlessDenialSeed[] {
+  return BOUNDARY_PERIODIC_FAILURE_ROWS.map((row) => ({
+    id: `DENY.PERIODIC.${row.id}`,
+    denialClass: "periodic_failure_taxonomy",
+    reason: `[${row.dimension}] ${row.title} — ${row.forbidden}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns([
+      row.id,
+      row.title,
+    ]),
+    requestBasisTarget: `base-headless-denials:periodic:${row.id.toLowerCase()}`,
+  }));
+}
+
+function createVendoredMetaLawSeeds(): BaseHeadlessDenialSeed[] {
+  return AGENT_BUCCET_META_LAW_REFERENCES
+    .filter(isVendoredMetaLawReferenceAllowed)
+    .map((ref) => ({
+      id: `DENY.META.CATALOG.${String(ref.lawId).padStart(4, "0")}`,
+      denialClass: "defensive_meta_law",
+      reason: `[${ref.category}] ${ref.name}`,
+      actionKinds: allTrackSurfaceKinds,
+      requestTextPatterns: toCatalogRequestTextPatterns([
+        `LAW ${ref.lawId}`,
+        ref.name,
+        ref.category,
+      ]),
+      requestBasisTarget: `base-headless-denials:meta-catalog:${String(ref.lawId).padStart(4, "0")}`,
+    }));
 }
 
 const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
@@ -594,6 +705,9 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     ]),
     requestBasisTarget: "base-headless-denials:external-comm-destination",
   },
+  ...createPeriodicDimensionSeeds(),
+  ...createPeriodicFailureSeeds(),
+  ...createVendoredMetaLawSeeds(),
 ];
 
 function lower(value: string | undefined): string {

@@ -38,6 +38,8 @@ Buccet ships two built-in law packs:
 
 The base denial pack is day-one standing law.
 
+It now seeds a 500+ entry wall catalog into the UPL denial side out of the box.
+
 It blocks classes of sovereignty theft by default:
 
 - persistence and autostart
@@ -65,6 +67,9 @@ The day-one meta hardening now also carries defensive material distilled from:
 
 - the 343-class AI failure taxonomy across epistemic, agentic, adversarial, alignment, architectural, domain, and governance dimensions
 - the defensive meta/time law corpus around proof, lockstep containment, shapeshift resistance, and trickster resistance
+
+Those are not stored as a second engine.
+They are carried as ordinary denial-side UPL wall tracks inside the same live field.
 
 Intentionally excluded from the shipped base denial pack:
 

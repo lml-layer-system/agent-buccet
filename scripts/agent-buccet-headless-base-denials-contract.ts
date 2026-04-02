@@ -50,9 +50,18 @@ async function main() {
     const expectedEntries = createBaseHeadlessDenialEntries();
     assert.equal(ledger.userApprovedLawPaths.length, 0, "default base denial ledger should not seed approved entries");
     assert.equal(ledger.userDeniedLawPaths.length, expectedEntries.length, "default base denial ledger should seed every denial entry");
+    assert.ok(ledger.userDeniedLawPaths.length > 500, "default base denial ledger should now seed a 500+ wall catalog");
     assert.ok(
       ledger.userDeniedLawPaths.some((entry) => entry.id.startsWith("DENY.SECRETS.ACCESS.003")),
       "default base denial ledger should include secret access denies",
+    );
+    assert.ok(
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.PERIODIC.EPIS-CITE-SPOOF-008"),
+      "default base denial ledger should include the vendored periodic taxonomy rows",
+    );
+    assert.ok(
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.META.CATALOG.0170"),
+      "default base denial ledger should include the vendored defensive meta law rows",
     );
 
     const session = makeSession();
@@ -193,6 +202,24 @@ async function main() {
     assert.equal(ledgerBypass?.decision, "deny");
     assert.equal(ledgerBypass?.entry.id, "DENY.META.LEDGER.004O");
 
+    const periodicCatalog = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "E1.8: CITATION SPOOFING"),
+    });
+    assert.ok(periodicCatalog, "expected periodic taxonomy row to exist as a live denial track");
+    assert.equal(periodicCatalog?.decision, "deny");
+    assert.equal(periodicCatalog?.entry.id, "DENY.PERIODIC.EPIS-CITE-SPOOF-008");
+
+    const metaCatalog = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "Lockstep Law: In-Band Proof"),
+    });
+    assert.ok(metaCatalog, "expected defensive meta law row to exist as a live denial track");
+    assert.equal(metaCatalog?.decision, "deny");
+    assert.equal(metaCatalog?.entry.id, "DENY.META.CATALOG.0180");
+
     const safeWorkspaceWrite = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -223,6 +250,8 @@ async function main() {
     console.log(`law mutation deny: ${lawMutation?.entry.id}`);
     console.log(`session revival deny: ${sessionRevival?.entry.id}`);
     console.log(`ledger bypass deny: ${ledgerBypass?.entry.id}`);
+    console.log(`periodic catalog deny: ${periodicCatalog?.entry.id}`);
+    console.log(`meta catalog deny: ${metaCatalog?.entry.id}`);
     console.log(`safe workspace write untouched: ${safeWorkspaceWrite === null}`);
   } finally {
     if (previousLedgerPath === undefined) {
