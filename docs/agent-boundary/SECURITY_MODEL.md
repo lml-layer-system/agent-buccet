@@ -310,15 +310,15 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 
 - A **fail-closed law boundary** — deny is the default when the brain is unreachable; the hook never guesses
 - An **egress structural validity layer** — outbound actions are validated against boundary laws before execution
-- A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move
+- A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move; shipped defaults govern outbound rate and weighted action cost without pretending to be token accounting
 - A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling on all platforms; Tier 2b: live I/O boundary — file descriptor/file size limits on all platforms; I/O rate/IOPS throttle on Windows 10 1607+) — native rlimits, IAT-hook DLL injection, Job Objects, capability drop, and macOS jetsam ceiling govern what approved processes can physically become and do; runtime enforcement outcome ledgered per-run
-- An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation
+- An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation; shipped defaults govern inbound velocity, density, and weighted work before the brain wakes
 - A **ledger I/O physics envelope** (LIOPE) — the ledger survives distributed event storms via a bounded ring buffer (Q1.8), max-IOPS background daemon (D2.8), and signed magnitude storm summaries (A3.8); hot path O(1); material state transitions always durable
 
 ### Agent Buccet Is Not
 
 - A generic sandbox (it is a specific law boundary with declared coverage)
-- A token budget dashboard (it governs actions and process envelopes, not LLM token counts)
+- A token budget dashboard (it governs weighted action crossings and weighted inbound work, not LLM token counts)
 - An LLM moderation gateway (no semantic classification in the hot path; pre-cognitive law only)
 - A probabilistic scanner (decisions are deterministic — law matches or doesn't)
 - A fail-open wrapper (there is no default-allow fallback on brain death)

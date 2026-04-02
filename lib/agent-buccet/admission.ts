@@ -38,6 +38,7 @@ export const DEFAULT_ADMISSION_WEIGHT: Record<BoundaryInputWeightClass, number> 
 export const DEFAULT_ADMISSION_CONFIG: BoundaryAdmissionConfig = {
   velocity: { maxRpm: 60, windowMs: 60_000 },
   density: { maxDenyRatio: 0.6, windowSize: 5 },
+  mass: { maxInboundWeight: 120, windowMs: 60_000 },
 };
 
 export function getInputWeight(

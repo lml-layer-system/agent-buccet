@@ -11,11 +11,15 @@ A third layer governs the inbound direction:
 
 **Input Admission Boundary** — hostile inbound traffic denied before it reaches the brain
 
+Shipped default posture: persistent runtime sessions seed inbound admission **velocity + density + mass** by default, plus the hard ceiling for weak provenance. That means hostile wake-up force and weighted inbound work are governed before tokenization, inference, or API spend.
+
 ---
 
 ## Tier 1 — Boundary Laws (Motion Governance)
 
 Four kinetic dimensions govern how the agent crosses the action boundary per session. All four are pure functions in `governor.ts`. State is carried in `BoundaryRuntimeConfig.governorState` and flows back through `BoundaryExecutionResult.config` after every crossing.
+
+Shipped default posture: persistent runtime sessions seed outbound governor **velocity + mass** by default. That gives Agent Buccet an out-of-the-box outbound force budget without claiming provider-token accounting. Density remains available, but is intentionally not part of the default egress experience.
 
 ### Velocity
 

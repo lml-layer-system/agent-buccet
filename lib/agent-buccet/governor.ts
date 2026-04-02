@@ -28,6 +28,14 @@ export const DEFAULT_GOVERNOR_WEIGHT: Record<BoundaryActionKind, number> = {
   "sys.credential.use": 8,
 };
 
+export const DEFAULT_GOVERNOR_CONFIG: BoundaryGovernorConfig = {
+  // Shipped default posture: cap runaway outbound rate and weighted session cost.
+  // Density remains opt-in because it is a stronger pathology detector and should
+  // not silently become the baseline egress experience.
+  velocity: { maxRpm: 120, windowMs: 60_000 },
+  mass: { maxCrossings: 500 },
+};
+
 export type BoundaryGovernorTrip =
   | {
       tripped: false;

@@ -732,6 +732,9 @@ export type BoundaryPersistedSessionState = {
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds: string[];
   processPolicy?: BoundaryProcessPolicy;
+  governorConfig?: BoundaryGovernorConfig;
+  governorState?: BoundaryGovernorState;
+  admissionConfig?: BoundaryAdmissionConfig;
   admissionState?: BoundaryAdmissionState;
   savedAt: string;
 };

@@ -23,6 +23,8 @@ Every primitive listed here maps to: a code surface, a ledger event, and a contr
 - A fail-open wrapper
 - A promise of 100% OS-kernel mediation on every syscall path
 
+Cost governance in Buccet is expressed as weighted motion and weighted inbound work, not provider billing tokens. Ingress cost is governed by admission weight classes and admission mass; egress cost is governed by action-class weight and governor mass.
+
 ---
 
 ## Intercept Level
@@ -105,6 +107,8 @@ Four dimensions, all pure functions, all fail-closed.
 | Weight table | `governor.ts:DEFAULT_GOVERNOR_WEIGHT` | — (applies to mass) | `agent-buccet-governor-contract.ts` |
 
 Trips before law evaluation. No fallback. No retry. No best-effort continuation.
+
+**Shipped default posture:** persistent runtime sessions seed an outbound governor by default with velocity + mass active. This governs outbound runaway force and weighted session cost out of the box without pretending to be token accounting.
 
 ### Tier 2 — Payload Physics
 
@@ -196,6 +200,8 @@ Build physwrap to activate the strong path: `npm run build:native:physwrap`
 ## Input Admission Boundary: LIVE
 
 Hostile inbound traffic is denied at the admission layer before the brain wakes — before tokenization, prompt assembly, inference, or API invocation.
+
+**Shipped default posture:** persistent runtime sessions seed inbound admission by default with velocity + density + mass active, plus the weak-provenance hard ceiling. This governs hostile wake-up force and weighted inbound cost out of the box.
 
 ### Path
 

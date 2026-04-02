@@ -10,6 +10,7 @@ import {
 } from "./foundation.ts";
 import { DEFAULT_ADMISSION_CONFIG } from "./admission.ts";
 import { initialAdmissionState } from "./admission.ts";
+import { DEFAULT_GOVERNOR_CONFIG, initialGovernorState } from "./governor.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
 import { instantiateBoundaryGrant } from "./orchestrator.ts";
 import {
@@ -50,6 +51,9 @@ function toPersistedState(config: BoundaryRuntimeConfig): BoundaryPersistedSessi
     approvalRequiredFor: config.approvalRequiredFor,
     userLawIds: config.userLawIds ?? [],
     processPolicy: config.processPolicy,
+    governorConfig: config.governorConfig,
+    governorState: config.governorState,
+    admissionConfig: config.admissionConfig,
     admissionState: config.admissionState,
     savedAt: new Date().toISOString(),
   };
@@ -316,6 +320,8 @@ export async function startPersistentBoundarySession(args: {
       executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
     }),
     processPolicy: undefined,
+    governorConfig: DEFAULT_GOVERNOR_CONFIG,
+    governorState: initialGovernorState(),
     admissionConfig: DEFAULT_ADMISSION_CONFIG,
     admissionState: initialAdmissionState(),
     persistence: {
@@ -386,7 +392,9 @@ export async function restorePersistentBoundarySession(args: {
     approvalRequiredFor: state.approvalRequiredFor,
     userLawIds: [],
     processPolicy: state.processPolicy as BoundaryProcessPolicy | undefined,
-    admissionConfig: DEFAULT_ADMISSION_CONFIG,
+    governorConfig: state.governorConfig ?? DEFAULT_GOVERNOR_CONFIG,
+    governorState: state.governorState ?? initialGovernorState(),
+    admissionConfig: state.admissionConfig ?? DEFAULT_ADMISSION_CONFIG,
     admissionState: state.admissionState ?? initialAdmissionState(),
     persistence: {
       enabled: true,
