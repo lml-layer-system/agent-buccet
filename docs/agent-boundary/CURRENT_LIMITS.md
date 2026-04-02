@@ -87,7 +87,7 @@ The uncovered families are documented, not hidden. For most of them, the consequ
 
 ### Egress: What is Checked at chat.emit vs Network Boundaries
 
-- `chat.emit` — subject to boundary law evaluation (scope, grants, UPL, base laws)
+- `chat.emit` — subject to boundary law evaluation (scope, grants, UPL, base laws) and automatic outbound payload classification for PII, credentials, and financial data
 - `network.send` — subject to boundary law evaluation (domain allowlist, scope); enforced at the `connect()` interception level in the libc hook
 - Egress structural validity (bodyguard/gravity) applies to all outbound action proposals before execution
 

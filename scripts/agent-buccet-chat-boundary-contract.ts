@@ -117,6 +117,51 @@ async function main() {
     assert(!nearMatch.executed, "expected denied chat track to skip execution");
     assert(!nearMatch.requiresApproval, "expected denied chat track to avoid re-prompt for same invariant corridor");
 
+    const piiChat = await bodyguard.chat.emit({
+      userInput: "say hi to the user",
+      attemptedOutput: "Reach me at alice@example.com for follow-up.",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after review",
+    });
+
+    assert(!piiChat.allowed, "expected PII chat output to be denied");
+    assert(!piiChat.executed, "expected PII chat output not to execute");
+    assert(!piiChat.requiresApproval, "expected PII chat output to deny without re-prompt");
+    assert(
+      piiChat.reason.includes("personally identifiable information"),
+      "expected PII chat output to explain the egress denial",
+    );
+
+    const credentialChat = await bodyguard.chat.emit({
+      userInput: "show the token",
+      attemptedOutput: "Authorization: Bearer sk-abcdefghijklmnopqrstuvwxyz1234567890",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after review",
+    });
+
+    assert(!credentialChat.allowed, "expected credential-bearing chat output to be denied");
+    assert(!credentialChat.executed, "expected credential-bearing chat output not to execute");
+    assert(!credentialChat.requiresApproval, "expected credential-bearing chat output to deny without re-prompt");
+    assert(
+      credentialChat.reason.includes("credentials or secrets"),
+      "expected credential-bearing chat output to explain the credential denial",
+    );
+
+    const financialChat = await bodyguard.chat.emit({
+      userInput: "show the card",
+      attemptedOutput: "Card: 4111111111111111",
+      execute: async () => "should-not-run",
+      successReason: "chat output emitted after review",
+    });
+
+    assert(!financialChat.allowed, "expected financial chat output to be denied");
+    assert(!financialChat.executed, "expected financial chat output not to execute");
+    assert(!financialChat.requiresApproval, "expected financial chat output to deny without re-prompt");
+    assert(
+      financialChat.reason.includes("financial data"),
+      "expected financial chat output to explain the financial denial",
+    );
+
     const updatedLedger = await loadUserPathLedger();
     assert(updatedLedger.userDeniedLawPaths.length === 1, "expected one denied UPL law after deny_as_law");
 
@@ -127,6 +172,9 @@ async function main() {
     console.log(`rendered prompt surface: ${approval.prompt.surface}`);
     console.log(`repeated flagged chat allowed: ${repeated.allowed}`);
     console.log(`near-match flagged chat allowed: ${nearMatch.allowed}`);
+    console.log(`PII chat denied: ${!piiChat.allowed}`);
+    console.log(`credential chat denied: ${!credentialChat.allowed}`);
+    console.log(`financial chat denied: ${!financialChat.allowed}`);
     console.log(`standing denied laws: ${updatedLedger.userDeniedLawPaths.length}`);
   } finally {
     await saveUserPathLedger(originalLedger);

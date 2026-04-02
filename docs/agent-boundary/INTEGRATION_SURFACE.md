@@ -340,12 +340,12 @@ These mark remote or async control text as untrusted proposal input and attach d
 Use:
 - `inferBoundaryEgressFlagsFromPayload(payload: string)`
 
-This scans an outbound payload string and returns flags for `network.send` and `comm.send` proposals:
+This scans an outbound payload string and returns flags for outbound proposals:
 - `payloadContainsPii` — email, phone, SSN patterns
 - `payloadContainsCredential` — API keys, private keys, password/token fields, AWS access key IDs
 - `payloadContainsFinancialData` — card number patterns with Luhn validation
 
-Set the returned flags on the proposal. `BOUNDARY.EGRESS.PII.01`, `BOUNDARY.EGRESS.CREDENTIAL.01`, and `BOUNDARY.EGRESS.FINANCIAL.01` laws will deny the send automatically.
+`chat.emit` now runs this classification automatically from `attemptedOutput`. For `network.send` and `comm.send`, set the returned flags on the proposal. `BOUNDARY.EGRESS.PII.01`, `BOUNDARY.EGRESS.CREDENTIAL.01`, and `BOUNDARY.EGRESS.FINANCIAL.01` laws will deny the outbound action automatically.
 
 For proof:
 - `npm run test:agent-buccet:egress-contract`

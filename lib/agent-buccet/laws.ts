@@ -238,7 +238,7 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
   {
     lawId: "BOUNDARY.EGRESS.PII.01",
     description: "Outbound payloads containing PII are denied by default.",
-    appliesTo: ["network.send", "comm.send"],
+    appliesTo: ["network.send", "comm.send", "chat.emit"],
     evaluate: ({ request }) => {
       if (!request.flags?.payloadContainsPii) {
         return null;
@@ -254,7 +254,7 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
   {
     lawId: "BOUNDARY.EGRESS.CREDENTIAL.01",
     description: "Outbound payloads containing credentials are denied by default.",
-    appliesTo: ["network.send", "comm.send"],
+    appliesTo: ["network.send", "comm.send", "chat.emit"],
     evaluate: ({ request }) => {
       if (!request.flags?.payloadContainsCredential) {
         return null;
@@ -270,7 +270,7 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
   {
     lawId: "BOUNDARY.EGRESS.FINANCIAL.01",
     description: "Outbound payloads containing financial data are denied by default.",
-    appliesTo: ["network.send", "comm.send"],
+    appliesTo: ["network.send", "comm.send", "chat.emit"],
     evaluate: ({ request }) => {
       if (!request.flags?.payloadContainsFinancialData) {
         return null;

@@ -831,6 +831,24 @@ function mergeEvidenceLines(...groups: Array<string[] | undefined>): string[] {
   return merged;
 }
 
+function mergeBoundaryFlags(
+  ...groups: Array<BoundaryActionRequest["flags"] | undefined>
+): BoundaryActionRequest["flags"] {
+  const merged: BoundaryActionRequest["flags"] = {};
+  for (const group of groups) {
+    if (!group) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(group)) {
+      if (!value) {
+        continue;
+      }
+      merged[key as keyof NonNullable<BoundaryActionRequest["flags"]>] = true;
+    }
+  }
+  return merged;
+}
+
 function summarizeChatEmission(args: {
   attemptedOutput: string;
   invariantLawId?: string;
@@ -859,6 +877,7 @@ export function createBoundaryChatEmissionRequest(args: {
     attemptedOutput: args.attemptedOutput,
   });
   const inferredOutputFlags = inferBoundaryChatFlagsFromOutput(args.attemptedOutput);
+  const inferredEgressFlags = inferBoundaryEgressFlagsFromPayload(args.attemptedOutput);
   const mergedEvidence = mergeEvidenceLines(inferredConstraintSignals.evidence, args.evidence);
 
   return createBoundaryActionRequest({
@@ -871,11 +890,12 @@ export function createBoundaryChatEmissionRequest(args: {
       evidence: args.evidence,
     }),
     provenance: args.provenance ?? "agent_inference",
-    flags: {
-      ...inferredOutputFlags,
-      ...inferredConstraintSignals.flags,
-      ...args.flags,
-    },
+    flags: mergeBoundaryFlags(
+      inferredOutputFlags,
+      inferredConstraintSignals.flags,
+      inferredEgressFlags,
+      args.flags,
+    ),
     reviewContext: {
       surface: "chat",
       actorLabel: args.actorLabel,
