@@ -309,6 +309,22 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:unwitnessed-completion-claim",
   },
   {
+    id: "DENY.AUTHORITY.SPOOFING.004J",
+    denialClass: "authority_spoofing",
+    reason: "Output cannot violate an explicit user constraint.",
+    actionKinds: ["chat.emit"],
+    requiredFlags: ["violatesUserConstraint"],
+    requestBasisTarget: "base-headless-denials:user-constraint-violation",
+  },
+  {
+    id: "DENY.AUTHORITY.SPOOFING.004K",
+    denialClass: "authority_spoofing",
+    reason: "Output cannot conflict with grounding or supporting evidence.",
+    actionKinds: ["chat.emit"],
+    requiredFlags: ["groundingMismatch"],
+    requestBasisTarget: "base-headless-denials:grounding-mismatch",
+  },
+  {
     id: "DENY.SENSITIVE.EGRESS.004G",
     denialClass: "sensitive_data_egress",
     reason: "Outbound PII is forbidden without explicit law.",

@@ -105,6 +105,28 @@ async function main() {
     assert.equal(authorityClaim?.decision, "deny");
     assert.equal(authorityClaim?.entry.id, "DENY.AUTHORITY.SPOOFING.004C");
 
+    const userConstraintViolation = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "Batman 2003 run is the best answer for that request.", {
+        violatesUserConstraint: true,
+      }),
+    });
+    assert.ok(userConstraintViolation, "expected explicit user-constraint violation to match the base denial pack");
+    assert.equal(userConstraintViolation?.decision, "deny");
+    assert.equal(userConstraintViolation?.entry.id, "DENY.AUTHORITY.SPOOFING.004J");
+
+    const groundingMismatch = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "Batman 2003 run is the best answer for that request.", {
+        groundingMismatch: true,
+      }),
+    });
+    assert.ok(groundingMismatch, "expected grounding mismatch to match the base denial pack");
+    assert.equal(groundingMismatch?.decision, "deny");
+    assert.equal(groundingMismatch?.entry.id, "DENY.AUTHORITY.SPOOFING.004K");
+
     const piiEgress = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -149,6 +171,8 @@ async function main() {
     console.log(`system mutation deny: ${systemMutation?.entry.id}`);
     console.log(`chat approval spoof deny: ${fakeApprovalChat?.entry.id}`);
     console.log(`authority claim deny: ${authorityClaim?.entry.id}`);
+    console.log(`user constraint deny: ${userConstraintViolation?.entry.id}`);
+    console.log(`grounding mismatch deny: ${groundingMismatch?.entry.id}`);
     console.log(`PII egress deny: ${piiEgress?.entry.id}`);
     console.log(`credential chat deny: ${credentialChat?.entry.id}`);
     console.log(`safe workspace write untouched: ${safeWorkspaceWrite === null}`);
