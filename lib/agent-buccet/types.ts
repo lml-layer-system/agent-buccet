@@ -285,6 +285,8 @@ export type BoundaryActionRequest = {
   reviewContext?: BoundaryReviewContext;
 };
 
+export type BoundaryActionFlagName = keyof NonNullable<BoundaryActionRequest["flags"]>;
+
 export type BoundaryLawResult = {
   decision: BoundaryDecision;
   reason: string;
@@ -354,6 +356,8 @@ export type BoundaryUplTrackConstraint = {
   targetMatchMode?: "prefix" | "exact" | "regex";
   /** Optional request-text patterns matched against target + payloadSummary + review text. */
   requestTextPatterns?: string[];
+  /** Optional request flags that must be true for this corridor to match. */
+  requiredFlags?: BoundaryActionFlagName[];
   /** Optional review surface binding for chat/action tracks. */
   reviewSurface?: BoundaryReviewContext["surface"];
   /** Optional invariant binding for chat tracks. */

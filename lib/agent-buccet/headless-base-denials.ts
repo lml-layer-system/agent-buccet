@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import type {
+  BoundaryActionFlagName,
   BoundaryActionKind,
   BoundaryUplEntry,
   BoundaryUserPathLedger,
@@ -12,6 +13,8 @@ export type DenialClass =
   | "security_weakening"
   | "secret_access"
   | "exfiltration"
+  | "authority_spoofing"
+  | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
   | "propagation"
@@ -28,6 +31,7 @@ export interface HeadlessActionRequest {
   command?: string;
   destination?: string;
   recipient?: string;
+  flags?: Partial<Record<BoundaryActionFlagName, boolean | undefined>>;
   metadata?: Record<string, unknown>;
 }
 
@@ -45,6 +49,7 @@ type BaseHeadlessDenialSeed = {
   actionKinds: BoundaryActionKind[];
   targetPatterns?: string[];
   requestTextPatterns?: string[];
+  requiredFlags?: BoundaryActionFlagName[];
   requestBasisTarget: string;
 };
 
@@ -63,6 +68,29 @@ const externalCommKinds = [
   "email.send",
   "message.send",
 ] as unknown as BoundaryActionKind[];
+
+const allTrackSurfaceKinds: BoundaryActionKind[] = [
+  "fs.read",
+  "fs.write",
+  "fs.append",
+  "fs.delete",
+  "fs.mkdir",
+  "fs.move",
+  "tool.exec",
+  "network.send",
+  "comm.send",
+  "db.query",
+  "db.insert",
+  "db.update",
+  "db.delete",
+  "sys.env.read",
+  "sys.env.write",
+  "sys.config.read",
+  "sys.config.write",
+  "sys.credential.read",
+  "sys.credential.use",
+  "chat.emit",
+];
 
 function globToRegexLiteral(pattern: string): string {
   const escaped = pattern
@@ -247,6 +275,62 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*tor*",
     ]),
     requestBasisTarget: "base-headless-denials:exfil-network",
+  },
+  {
+    id: "DENY.AUTHORITY.SPOOFING.004C",
+    denialClass: "authority_spoofing",
+    reason: "Prompt or model output cannot self-authorize or claim authority.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["authorityClaimed"],
+    requestBasisTarget: "base-headless-denials:authority-claim",
+  },
+  {
+    id: "DENY.AUTHORITY.SPOOFING.004D",
+    denialClass: "authority_spoofing",
+    reason: "Prompt or model output cannot claim perfect safety or complete coverage.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["claimsCompleteCoverage"],
+    requestBasisTarget: "base-headless-denials:complete-coverage-claim",
+  },
+  {
+    id: "DENY.AUTHORITY.SPOOFING.004E",
+    denialClass: "authority_spoofing",
+    reason: "Prompt or model output cannot claim the user already approved the action.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["claimsUserApproval"],
+    requestBasisTarget: "base-headless-denials:user-approval-claim",
+  },
+  {
+    id: "DENY.AUTHORITY.SPOOFING.004F",
+    denialClass: "authority_spoofing",
+    reason: "Prompt or model output cannot claim completion without witness evidence.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["claimsActionCompletionWithoutWitness"],
+    requestBasisTarget: "base-headless-denials:unwitnessed-completion-claim",
+  },
+  {
+    id: "DENY.SENSITIVE.EGRESS.004G",
+    denialClass: "sensitive_data_egress",
+    reason: "Outbound PII is forbidden without explicit law.",
+    actionKinds: ["chat.emit", "network.send", "comm.send"],
+    requiredFlags: ["payloadContainsPii"],
+    requestBasisTarget: "base-headless-denials:sensitive-egress-pii",
+  },
+  {
+    id: "DENY.SENSITIVE.EGRESS.004H",
+    denialClass: "sensitive_data_egress",
+    reason: "Outbound credentials or secrets are forbidden without explicit law.",
+    actionKinds: ["chat.emit", "network.send", "comm.send"],
+    requiredFlags: ["payloadContainsCredential"],
+    requestBasisTarget: "base-headless-denials:sensitive-egress-credential",
+  },
+  {
+    id: "DENY.SENSITIVE.EGRESS.004I",
+    denialClass: "sensitive_data_egress",
+    reason: "Outbound financial data is forbidden without explicit law.",
+    actionKinds: ["chat.emit", "network.send", "comm.send"],
+    requiredFlags: ["payloadContainsFinancialData"],
+    requestBasisTarget: "base-headless-denials:sensitive-egress-financial",
   },
   {
     id: "DENY.PRIVILEGE.ESCALATION.005",
@@ -493,6 +577,13 @@ function seedMatchesRequest(seed: BaseHeadlessDenialSeed, req: HeadlessActionReq
     return false;
   }
 
+  if (seed.requiredFlags?.length) {
+    const flags = req.flags ?? {};
+    if (!seed.requiredFlags.every((flag) => Boolean(flags[flag]))) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -535,6 +626,7 @@ export function createBaseHeadlessDenialEntries(): BoundaryUplEntry[] {
       allowedActionKinds: [...seed.actionKinds],
       ...(seed.targetPatterns ? { targetPatterns: [...seed.targetPatterns], targetMatchMode: "regex" as const } : {}),
       ...(seed.requestTextPatterns ? { requestTextPatterns: [...seed.requestTextPatterns] } : {}),
+      ...(seed.requiredFlags ? { requiredFlags: [...seed.requiredFlags] } : {}),
       description: `${seed.id} — ${seed.reason}`,
     },
   }));

@@ -350,6 +350,17 @@ export function checkTrackConstraint(
     }
   }
 
+  if (constraint.requiredFlags?.length) {
+    const flags = request.flags ?? {};
+    const missingFlags = constraint.requiredFlags.filter((flag) => !flags[flag]);
+    if (missingFlags.length > 0) {
+      return (
+        `request flags exit the approved execution corridor ` +
+        `(missing flags: ${missingFlags.join(", ")} | track: ${constraint.description})`
+      );
+    }
+  }
+
   const reviewSurface = constraint.actionCorridor?.reviewSurface ?? constraint.reviewSurface;
   if (reviewSurface && request.reviewContext?.surface !== reviewSurface) {
     return (
@@ -409,6 +420,9 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const requestPart = constraint.requestTextPatterns?.length
     ? ` | request~=: ${constraint.requestTextPatterns.join(" ; ")}`
     : "";
+  const flagPart = constraint.requiredFlags?.length
+    ? ` | flags: ${constraint.requiredFlags.join(", ")}`
+    : "";
   const invariantPart = constraint.reviewInvariantLawId
     ? ` | invariant: ${constraint.reviewInvariantLawId}`
     : "";
@@ -432,5 +446,5 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const actionCorridorPart = constraint.actionCorridor
     ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
     : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}${requestPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${requestPart}${flagPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

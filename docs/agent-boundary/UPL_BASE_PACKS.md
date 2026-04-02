@@ -44,6 +44,8 @@ It blocks classes of sovereignty theft by default:
 - security weakening
 - secret and credential access
 - exfiltration
+- authority spoofing and fake self-approval / completion claims
+- sensitive outbound data classes like PII, credentials, and financial payloads
 - privilege escalation
 - stealth and evasion
 - propagation
@@ -54,6 +56,15 @@ It blocks classes of sovereignty theft by default:
 - unapproved external communication
 
 These entries are authored in the UPL and compiled into wall segments in the live field.
+
+The detectors stay in code.
+The standing consequence classes now also live in the base denial pack as UPL wall tracks.
+
+That means Buccet can:
+
+- detect `claimsUserApproval`, `claimsActionCompletionWithoutWitness`, `authorityClaimed`, and `claimsCompleteCoverage`
+- detect `payloadContainsPii`, `payloadContainsCredential`, and `payloadContainsFinancialData`
+- then resolve those classes through the same live UPL field the rest of Terminal 2 uses
 
 ### Base acceptance pack
 
@@ -78,6 +89,7 @@ In plain terms, opening a workspace seeds lawful roads for:
 Delete is not part of the base acceptance pack.
 Exec is not part of the base acceptance pack.
 Network is not part of the base acceptance pack.
+Generic hardening classes do not belong in the acceptance pack; they belong in the denial pack.
 
 Those stay explicit customization surfaces unless the user or company binds them as standing law.
 

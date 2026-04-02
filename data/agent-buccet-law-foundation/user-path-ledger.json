@@ -316,11 +316,282 @@
       }
     },
     {
+      "id": "DENY.AUTHORITY.SPOOFING.004C",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:authority-claim",
+      "pathHash": "ca60c0d87fec7d6e1da866473d80c359d7bb99a60cc422d336cb9b03d485e0dd",
+      "createdAt": "2026-03-31T00:00:00.009Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[authority_spoofing] Prompt or model output cannot self-authorize or claim authority.",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:authority-claim",
+        "payloadSummary": "Prompt or model output cannot self-authorize or claim authority.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requiredFlags": [
+          "authorityClaimed"
+        ],
+        "description": "DENY.AUTHORITY.SPOOFING.004C — Prompt or model output cannot self-authorize or claim authority."
+      }
+    },
+    {
+      "id": "DENY.AUTHORITY.SPOOFING.004D",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:complete-coverage-claim",
+      "pathHash": "6d7e4bc76141d64c0e9a97350b5c73d53b5708f5dcdbeabea9534fb4550d667c",
+      "createdAt": "2026-03-31T00:00:00.010Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[authority_spoofing] Prompt or model output cannot claim perfect safety or complete coverage.",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:complete-coverage-claim",
+        "payloadSummary": "Prompt or model output cannot claim perfect safety or complete coverage.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requiredFlags": [
+          "claimsCompleteCoverage"
+        ],
+        "description": "DENY.AUTHORITY.SPOOFING.004D — Prompt or model output cannot claim perfect safety or complete coverage."
+      }
+    },
+    {
+      "id": "DENY.AUTHORITY.SPOOFING.004E",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:user-approval-claim",
+      "pathHash": "ab05346fd1ba323604d0d157e096f01bd47ff6ec9013910b7ef860f294772ccb",
+      "createdAt": "2026-03-31T00:00:00.011Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[authority_spoofing] Prompt or model output cannot claim the user already approved the action.",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:user-approval-claim",
+        "payloadSummary": "Prompt or model output cannot claim the user already approved the action.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requiredFlags": [
+          "claimsUserApproval"
+        ],
+        "description": "DENY.AUTHORITY.SPOOFING.004E — Prompt or model output cannot claim the user already approved the action."
+      }
+    },
+    {
+      "id": "DENY.AUTHORITY.SPOOFING.004F",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:unwitnessed-completion-claim",
+      "pathHash": "82b2b7eaf4aea4e39e0bdf461b8e173d7f370f32d542b80dba9ab6ff76c0873c",
+      "createdAt": "2026-03-31T00:00:00.012Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[authority_spoofing] Prompt or model output cannot claim completion without witness evidence.",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:unwitnessed-completion-claim",
+        "payloadSummary": "Prompt or model output cannot claim completion without witness evidence.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requiredFlags": [
+          "claimsActionCompletionWithoutWitness"
+        ],
+        "description": "DENY.AUTHORITY.SPOOFING.004F — Prompt or model output cannot claim completion without witness evidence."
+      }
+    },
+    {
+      "id": "DENY.SENSITIVE.EGRESS.004G",
+      "type": "DENIED",
+      "path": "chat.emit base-headless-denials:sensitive-egress-pii",
+      "pathHash": "08eca3c31cedd21aef6b80554c4ebe87b79ab3059a16fe8f4eb7f5c0d3a78f06",
+      "createdAt": "2026-03-31T00:00:00.013Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[sensitive_data_egress] Outbound PII is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "chat.emit",
+        "target": "base-headless-denials:sensitive-egress-pii",
+        "payloadSummary": "Outbound PII is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "chat.emit",
+          "network.send",
+          "comm.send"
+        ],
+        "requiredFlags": [
+          "payloadContainsPii"
+        ],
+        "description": "DENY.SENSITIVE.EGRESS.004G — Outbound PII is forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.SENSITIVE.EGRESS.004H",
+      "type": "DENIED",
+      "path": "chat.emit base-headless-denials:sensitive-egress-credential",
+      "pathHash": "cb88a1b11d8fd6335f5722cd174c23eab8e37785a63487375d1b6f800442d34f",
+      "createdAt": "2026-03-31T00:00:00.014Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[sensitive_data_egress] Outbound credentials or secrets are forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "chat.emit",
+        "target": "base-headless-denials:sensitive-egress-credential",
+        "payloadSummary": "Outbound credentials or secrets are forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "chat.emit",
+          "network.send",
+          "comm.send"
+        ],
+        "requiredFlags": [
+          "payloadContainsCredential"
+        ],
+        "description": "DENY.SENSITIVE.EGRESS.004H — Outbound credentials or secrets are forbidden without explicit law."
+      }
+    },
+    {
+      "id": "DENY.SENSITIVE.EGRESS.004I",
+      "type": "DENIED",
+      "path": "chat.emit base-headless-denials:sensitive-egress-financial",
+      "pathHash": "150bcf76e923f6316ed1f01a47ea2da4189f676b5db2356f43531a2c80ce5abc",
+      "createdAt": "2026-03-31T00:00:00.015Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[sensitive_data_egress] Outbound financial data is forbidden without explicit law.",
+      "requestBasis": {
+        "actionKind": "chat.emit",
+        "target": "base-headless-denials:sensitive-egress-financial",
+        "payloadSummary": "Outbound financial data is forbidden without explicit law.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "chat.emit",
+          "network.send",
+          "comm.send"
+        ],
+        "requiredFlags": [
+          "payloadContainsFinancialData"
+        ],
+        "description": "DENY.SENSITIVE.EGRESS.004I — Outbound financial data is forbidden without explicit law."
+      }
+    },
+    {
       "id": "DENY.PRIVILEGE.ESCALATION.005",
       "type": "DENIED",
       "path": "tool.exec base-headless-denials:privilege-escalation",
       "pathHash": "2ee51243c1bf6c76b8cda34eca88247b13aded2296b2cfe8def702f91256849b",
-      "createdAt": "2026-03-31T00:00:00.009Z",
+      "createdAt": "2026-03-31T00:00:00.016Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -353,7 +624,7 @@
       "type": "DENIED",
       "path": "tool.exec base-headless-denials:stealth-evasion",
       "pathHash": "dbcbad02964eb22d1793857cf108b513280ff7528ff87261bdabdf875a5d5e62",
-      "createdAt": "2026-03-31T00:00:00.010Z",
+      "createdAt": "2026-03-31T00:00:00.017Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -389,7 +660,7 @@
       "type": "DENIED",
       "path": "fs.write base-headless-denials:propagation-paths",
       "pathHash": "63ee0344dfb4042376ba675ff4d64a073c4908fa59f70ca664dcfa58c139ee0b",
-      "createdAt": "2026-03-31T00:00:00.011Z",
+      "createdAt": "2026-03-31T00:00:00.018Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -419,7 +690,7 @@
       "type": "DENIED",
       "path": "tool.exec base-headless-denials:propagation-command",
       "pathHash": "2c16cdef25f21636d315773c9b70dd5d774bcaadebda23775825d75479d92511",
-      "createdAt": "2026-03-31T00:00:00.012Z",
+      "createdAt": "2026-03-31T00:00:00.019Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -455,7 +726,7 @@
       "type": "DENIED",
       "path": "fs.write base-headless-denials:law-tamper-paths",
       "pathHash": "d6b08fe53485a484ccebf4382d65aa8b48a1e57eb836c5aa9ea9ab9b142cdcfb",
-      "createdAt": "2026-03-31T00:00:00.013Z",
+      "createdAt": "2026-03-31T00:00:00.020Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -492,7 +763,7 @@
       "type": "DENIED",
       "path": "tool.exec base-headless-denials:law-tamper-command",
       "pathHash": "376bd24c9a533e7dd3922532c36e7a44b4f16441255735a28f552f216a2b62be",
-      "createdAt": "2026-03-31T00:00:00.014Z",
+      "createdAt": "2026-03-31T00:00:00.021Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -525,7 +796,7 @@
       "type": "DENIED",
       "path": "tool.exec base-headless-denials:destructive-command",
       "pathHash": "1f697af716bad1cd66d3d11f79e6cbe0c8a96aae4648d87171c035f718a3088a",
-      "createdAt": "2026-03-31T00:00:00.015Z",
+      "createdAt": "2026-03-31T00:00:00.022Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -558,7 +829,7 @@
       "type": "DENIED",
       "path": "fs.delete base-headless-denials:destructive-bulk",
       "pathHash": "57d7071ef82b91f3cdba2e40116febf364e49e123f3a7c5cf02b112f4b52e57f",
-      "createdAt": "2026-03-31T00:00:00.016Z",
+      "createdAt": "2026-03-31T00:00:00.023Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -591,7 +862,7 @@
       "type": "DENIED",
       "path": "camera.capture base-headless-denials:sensitive-capture",
       "pathHash": "654823ea9b0082239bec453e617f1221e9d150d51bf3050dbb5a72cfda1e41f1",
-      "createdAt": "2026-03-31T00:00:00.017Z",
+      "createdAt": "2026-03-31T00:00:00.024Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -619,7 +890,7 @@
       "type": "DENIED",
       "path": "fs.write base-headless-denials:system-mutation-paths",
       "pathHash": "453206657b911b996607e6e2a58899c65fa201e5c81f37bcbf2d900f25df933e",
-      "createdAt": "2026-03-31T00:00:00.018Z",
+      "createdAt": "2026-03-31T00:00:00.025Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -654,7 +925,7 @@
       "type": "DENIED",
       "path": "tool.exec base-headless-denials:system-mutation-command",
       "pathHash": "a633fa114bc719273274b0ec2c5909dcc7502f1cc42f6c40ac95ffead4bbce0e",
-      "createdAt": "2026-03-31T00:00:00.019Z",
+      "createdAt": "2026-03-31T00:00:00.026Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -688,7 +959,7 @@
       "type": "DENIED",
       "path": "comm.send base-headless-denials:external-comm-recipient",
       "pathHash": "54d7be978ba775e820f1bfc62052aaea9b71d8fc7bc6948f47a000cbb621762a",
-      "createdAt": "2026-03-31T00:00:00.020Z",
+      "createdAt": "2026-03-31T00:00:00.027Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
@@ -723,7 +994,7 @@
       "type": "DENIED",
       "path": "network.send base-headless-denials:external-comm-destination",
       "pathHash": "f34a79e74d7e8e546ec7b1bbecf5826603ea31ccbd8f2dac8c81fcd0388c420d",
-      "createdAt": "2026-03-31T00:00:00.021Z",
+      "createdAt": "2026-03-31T00:00:00.028Z",
       "scope": "GLOBAL",
       "status": "ACTIVE",
       "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
