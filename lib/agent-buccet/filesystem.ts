@@ -6,7 +6,7 @@ import {
   runBoundaryControlledAction,
   type BoundaryExecutionResult,
 } from "./bodyguard.ts";
-import type { BoundaryRuntimeConfig } from "./types.ts";
+import type { BoundaryReviewContext, BoundaryRuntimeConfig } from "./types.ts";
 
 export type BoundaryFsResult<T = void> = BoundaryExecutionResult<T>;
 
@@ -18,6 +18,7 @@ export async function boundaryReadFile(
   config: BoundaryRuntimeConfig,
   targetPath: string,
   encoding: BufferEncoding = "utf8",
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<string>> {
   const target = normalizeBoundaryPath(targetPath);
   return runBoundaryControlledAction({
@@ -27,6 +28,7 @@ export async function boundaryReadFile(
       actionKind: "fs.read",
       target,
       payloadSummary: `read:${encoding}`,
+      reviewContext,
     }),
     execute: async () => fs.readFile(target, encoding),
     successReason: "filesystem read executed inside boundary runtime",
@@ -37,6 +39,7 @@ export async function boundaryWriteFile(
   config: BoundaryRuntimeConfig,
   targetPath: string,
   contents: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return runBoundaryControlledAction({
@@ -46,6 +49,7 @@ export async function boundaryWriteFile(
       actionKind: "fs.write",
       target,
       payloadSummary: `write:${contents.length}bytes`,
+      reviewContext,
     }),
     execute: async () => {
       await fs.writeFile(target, contents, "utf8");
@@ -59,6 +63,7 @@ export async function boundaryAppendFile(
   config: BoundaryRuntimeConfig,
   targetPath: string,
   contents: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return runBoundaryControlledAction({
@@ -68,6 +73,7 @@ export async function boundaryAppendFile(
       actionKind: "fs.append",
       target,
       payloadSummary: `append:${contents.length}bytes`,
+      reviewContext,
     }),
     execute: async () => {
       await fs.appendFile(target, contents, "utf8");
@@ -80,6 +86,7 @@ export async function boundaryAppendFile(
 export async function boundaryDeletePath(
   config: BoundaryRuntimeConfig,
   targetPath: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return runBoundaryControlledAction({
@@ -88,6 +95,7 @@ export async function boundaryDeletePath(
       config,
       actionKind: "fs.delete",
       target,
+      reviewContext,
     }),
     execute: async () => {
       await fs.rm(target, { recursive: true, force: false });
@@ -100,6 +108,7 @@ export async function boundaryDeletePath(
 export async function boundaryMkdir(
   config: BoundaryRuntimeConfig,
   targetPath: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
   return runBoundaryControlledAction({
@@ -108,6 +117,7 @@ export async function boundaryMkdir(
       config,
       actionKind: "fs.mkdir",
       target,
+      reviewContext,
     }),
     execute: async () => {
       await fs.mkdir(target, { recursive: true });
@@ -121,6 +131,7 @@ export async function boundaryMovePath(
   config: BoundaryRuntimeConfig,
   sourcePath: string,
   destinationPath: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const source = normalizeBoundaryPath(sourcePath);
   const destination = normalizeBoundaryPath(destinationPath);
@@ -132,6 +143,7 @@ export async function boundaryMovePath(
       actionKind: "fs.move",
       target: source,
       payloadSummary: `move-source:${destination}`,
+      reviewContext,
     }),
     successReason: "source path admitted for move",
   });
@@ -146,6 +158,7 @@ export async function boundaryMovePath(
       actionKind: "fs.move",
       target: destination,
       payloadSummary: `move-destination:${source}`,
+      reviewContext,
     }),
     execute: async () => {
       await fs.rename(source, destination);

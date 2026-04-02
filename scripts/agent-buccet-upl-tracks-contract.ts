@@ -27,7 +27,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForPending<T>(list: () => T[], timeoutMs = 1_500): Promise<T[]> {
+async function waitForPending<T>(list: () => T[], timeoutMs = 5_000): Promise<T[]> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const items = list();

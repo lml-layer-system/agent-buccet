@@ -85,7 +85,10 @@ That means Buccet can:
 
 - detect `claimsUserApproval`, `claimsActionCompletionWithoutWitness`, `authorityClaimed`, and `claimsCompleteCoverage`
 - detect `payloadContainsPii`, `payloadContainsCredential`, and `payloadContainsFinancialData`
+- activate explicit Time constraints from action-side instruction text such as `do not delete package-lock.json` or `do not delete anything`
 - then resolve those classes through the same live UPL field the rest of Terminal 2 uses
+
+For example, if an action request carries `reviewContext.userInput` with an explicit delete prohibition, Buccet does not guess. The request builder activates `violatesUserConstraint`, points the request at `TIME.CONSTRAINT.DELETE.01`, and the same base denial pack denies the delete through the live UPL wall field.
 
 ### Base acceptance pack
 

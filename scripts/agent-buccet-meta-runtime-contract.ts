@@ -84,10 +84,56 @@ async function main() {
     "expected novelty guard to stay visible even when deny wall wins",
   );
 
+  const deleteConstraintRequest = createBoundaryActionRequest({
+    config,
+    actionKind: "fs.delete",
+    target: path.join(scopedRoot, "keep.txt"),
+    provenance: "agent_inference",
+    reviewContext: {
+      surface: "action",
+      userInput: "Do not delete anything in this workspace.",
+    },
+  });
+
+  assert.equal(deleteConstraintRequest.flags?.violatesUserConstraint, true);
+  assert.equal(deleteConstraintRequest.reviewContext?.invariantLawId, "TIME.CONSTRAINT.DELETE.01");
+
+  const constrainedDelete = await evaluateBoundaryAction(config, deleteConstraintRequest);
+  assert.equal(constrainedDelete.result.decision, "deny");
+  assert.ok(
+    constrainedDelete.result.triggeredLawIds.includes("DENY.DESTRUCTIVE.DELETE.009C"),
+    "expected explicit delete prohibition to remain denied by the base denial pack",
+  );
+
+  const specificDeleteRequest = createBoundaryActionRequest({
+    config,
+    actionKind: "fs.delete",
+    target: path.join(scopedRoot, "package-lock.json"),
+    provenance: "agent_inference",
+    reviewContext: {
+      surface: "action",
+      userInput: "Do not delete package-lock.json.",
+    },
+  });
+  assert.equal(specificDeleteRequest.flags?.violatesUserConstraint, true);
+
+  const unrelatedDeleteRequest = createBoundaryActionRequest({
+    config,
+    actionKind: "fs.delete",
+    target: path.join(scopedRoot, "other.txt"),
+    provenance: "agent_inference",
+    reviewContext: {
+      surface: "action",
+      userInput: "Do not delete package-lock.json.",
+    },
+  });
+  assert.equal(unrelatedDeleteRequest.flags?.violatesUserConstraint, undefined);
+
   console.log(`time runtime decision: ${evaluated.result.decision}`);
   console.log(`time runtime hard deny: ${evaluated.result.triggeredLawIds.includes("DENY.AUTHORITY.SPOOFING.004D")}`);
   console.log(`time runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
   console.log(`deny wall beats novelty review: ${denied.result.decision}`);
+  console.log(`delete constraint activation: ${deleteConstraintRequest.flags?.violatesUserConstraint === true}`);
 }
 
 main().catch((error) => {

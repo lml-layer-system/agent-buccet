@@ -5,6 +5,7 @@ import {
   type BoundaryExecutionResult,
 } from "./bodyguard.ts";
 import type {
+  BoundaryReviewContext,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
 } from "./types.ts";
@@ -24,6 +25,7 @@ export async function boundaryNetworkSend<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return runBoundaryControlledAction({
@@ -35,6 +37,7 @@ export async function boundaryNetworkSend<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "network send executed inside boundary runtime",
@@ -55,6 +58,7 @@ export async function boundaryRecipientSend<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return runBoundaryControlledAction({
@@ -66,6 +70,7 @@ export async function boundaryRecipientSend<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "recipient send executed inside boundary runtime",
@@ -86,6 +91,7 @@ export async function boundaryToolExec<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return runBoundaryControlledAction({
@@ -97,6 +103,7 @@ export async function boundaryToolExec<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "tool execution executed inside boundary runtime",
@@ -118,6 +125,7 @@ export async function boundaryDatabaseAction<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return runBoundaryControlledAction({
@@ -129,6 +137,7 @@ export async function boundaryDatabaseAction<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "database action executed inside boundary runtime",
@@ -156,6 +165,7 @@ export async function boundarySystemAction<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
   return runBoundaryControlledAction({
@@ -167,6 +177,7 @@ export async function boundarySystemAction<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "system action executed inside boundary runtime",

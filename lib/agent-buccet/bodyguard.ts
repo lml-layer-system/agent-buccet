@@ -17,6 +17,7 @@ import { appendBoundaryLedger } from "./ledger.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
+import { inferBoundaryTimeConstraintSignals } from "./time-constraint-flags.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
 import type {
   BoundaryActionKind,
@@ -109,6 +110,14 @@ export function createBoundaryActionRequest(args: {
   flags?: BoundaryActionRequest["flags"];
   reviewContext?: BoundaryReviewContext;
 }): BoundaryActionRequest {
+  const inferredTimeConstraints = inferBoundaryTimeConstraintSignals({
+    actionKind: args.actionKind,
+    target: args.target,
+    reviewContext: args.reviewContext,
+  });
+  const mergedFlags = mergeRequestFlags(args.flags, inferredTimeConstraints.flags);
+  const mergedReviewContext = mergeBoundaryReviewContext(args.reviewContext, inferredTimeConstraints.reviewContext);
+
   return {
     requestId: randomUUID(),
     sessionId: args.config.session.sessionId,
@@ -117,8 +126,63 @@ export function createBoundaryActionRequest(args: {
     payloadSummary: args.payloadSummary,
     requestedAt: new Date().toISOString(),
     provenance: args.provenance ?? "agent_inference",
-    flags: args.flags,
-    reviewContext: args.reviewContext,
+    flags: mergedFlags,
+    reviewContext: mergedReviewContext,
+  };
+}
+
+function mergeRequestFlags(
+  base: BoundaryActionRequest["flags"] | undefined,
+  patch: BoundaryActionRequest["flags"] | undefined,
+): BoundaryActionRequest["flags"] | undefined {
+  if (!base && !patch) {
+    return undefined;
+  }
+
+  const merged: BoundaryActionRequest["flags"] = {};
+  for (const group of [base, patch]) {
+    if (!group) {
+      continue;
+    }
+    for (const [key, value] of Object.entries(group)) {
+      if (value) {
+        merged[key as keyof NonNullable<BoundaryActionRequest["flags"]>] = true;
+      }
+    }
+  }
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
+}
+
+function mergeBoundaryReviewContext(
+  base: BoundaryReviewContext | undefined,
+  patch: Partial<BoundaryReviewContext> | undefined,
+): BoundaryReviewContext | undefined {
+  if (!base && !patch) {
+    return undefined;
+  }
+
+  const mergedEvidence = [...new Set([...(base?.evidence ?? []), ...(patch?.evidence ?? [])])];
+  const mergedViolations = [...new Set([...(base?.violations ?? []), ...(patch?.violations ?? [])])];
+
+  return {
+    surface: base?.surface ?? patch?.surface ?? "action",
+    ...(base?.title ?? patch?.title ? { title: base?.title ?? patch?.title } : {}),
+    ...(base?.question ?? patch?.question ? { question: base?.question ?? patch?.question } : {}),
+    ...(base?.actorLabel ?? patch?.actorLabel ? { actorLabel: base?.actorLabel ?? patch?.actorLabel } : {}),
+    ...(base?.invariantLawId ?? patch?.invariantLawId
+      ? { invariantLawId: base?.invariantLawId ?? patch?.invariantLawId }
+      : {}),
+    ...(base?.invariantLabel ?? patch?.invariantLabel
+      ? { invariantLabel: base?.invariantLabel ?? patch?.invariantLabel }
+      : {}),
+    ...(base?.userInput ?? patch?.userInput ? { userInput: base?.userInput ?? patch?.userInput } : {}),
+    ...(base?.attemptedOutput ?? patch?.attemptedOutput
+      ? { attemptedOutput: base?.attemptedOutput ?? patch?.attemptedOutput }
+      : {}),
+    ...(base?.attemptLines ?? patch?.attemptLines ? { attemptLines: base?.attemptLines ?? patch?.attemptLines } : {}),
+    ...(mergedEvidence.length > 0 ? { evidence: mergedEvidence } : {}),
+    ...(mergedViolations.length > 0 ? { violations: mergedViolations } : {}),
   };
 }
 
