@@ -38,6 +38,8 @@ To keep both sides structurally distinct without splitting the runtime, the comp
   - `UPL.TRAFFIC.RAIL:sha256:...`
   - `UPL.TRAFFIC.WALL:sha256:...`
 
+If a segment's class/tag does not match its compiled polarity, Buccet refuses that segment and fails closed.
+
 That means acceptance and denial stay mathematically distinct in the live field even though they run inside one runtime engine.
 
 So the real runtime truth is:

@@ -7,6 +7,7 @@ import {
   hashUserPath,
   lookupUserPathDecision,
   lookupUserPathTrackDecision,
+  resolveBoundaryUplTrafficPolarity,
 } from "../lib/agent-buccet/index.ts";
 import type {
   BoundaryActionKind,
@@ -141,6 +142,15 @@ async function main() {
   assert.ok(
     liveField.some((segment) => segment.polarity === "deny" && segment.trafficClass === "deny_wall" && segment.trafficTag.startsWith("UPL.TRAFFIC.WALL:sha256:")),
     "expected deny segments to carry a deterministic wall tag",
+  );
+  const tamperedSegment = {
+    ...liveField[0]!,
+    trafficTag: "UPL.TRAFFIC.RAIL:sha256:tampered",
+  };
+  assert.equal(
+    resolveBoundaryUplTrafficPolarity(tamperedSegment),
+    null,
+    "expected tampered traffic tag to fail closed",
   );
 
   const liveTracks = compileLiveUplTrackField({ ledger, session });

@@ -2,9 +2,10 @@ import type {
   BoundaryApprovalDecision,
   BoundaryApprovalHandler,
   BoundaryApprovalRequest,
+  BoundaryRuntimeConfig,
   BoundaryUserPathLedger,
 } from "./types.ts";
-import { lookupUserPathDecision } from "./user-path-ledger.ts";
+import { evaluateBoundaryUplTraffic } from "./upl-traffic.ts";
 
 /**
  * Headless approval policy — replaces the human in the chair for automated pipelines.
@@ -105,21 +106,38 @@ export function createBoundaryHeadlessApprovalHandler(
             notes: "headless:follow_upl — ledger unavailable",
           };
         }
-        const match = lookupUserPathDecision({
-          ledger,
+        const config: BoundaryRuntimeConfig = {
           session: approval.session,
+          laws: [],
+          grants: [],
+          pathLaws: [],
+          approvalRequiredFor: [],
+          userLawIds: [],
+          upl: ledger,
+          persistence: {
+            enabled: false,
+          },
+        };
+        const traffic = evaluateBoundaryUplTraffic({
+          config,
           request: approval.request,
         });
-        if (!match) {
-          // No standing UPL law for this request — fail safe: deny
+        if (traffic.decision === "allow" && traffic.entry) {
           return {
-            choice: "deny_once",
-            notes: "headless:follow_upl — no standing law match",
+            choice: "allow_once",
+            notes: `headless:follow_upl — traffic rail: ${traffic.entry.id}`,
           };
         }
-        return match.decision === "allow"
-          ? { choice: "allow_once", notes: `headless:follow_upl — law: ${match.entry.id}` }
-          : { choice: "deny_once", notes: `headless:follow_upl — law: ${match.entry.id}` };
+        if (traffic.entry) {
+          return {
+            choice: "deny_once",
+            notes: `headless:follow_upl — traffic ${traffic.decision}: ${traffic.entry.id}`,
+          };
+        }
+        return {
+          choice: "deny_once",
+          notes: "headless:follow_upl — no traffic match",
+        };
       }
     }
   };

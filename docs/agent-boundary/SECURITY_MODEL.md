@@ -175,6 +175,8 @@ To keep the two sides structurally distinct in the same runtime field, each comp
   - `UPL.TRAFFIC.RAIL:sha256:...`
   - `UPL.TRAFFIC.WALL:sha256:...`
 
+If the class/tag does not match the compiled segment polarity, the segment fails closed and does not resolve as live traffic.
+
 That means the runtime split is:
 - UPL Tracks author the rails and walls
 - UPL Traffic enforces those rails and walls in motion

@@ -239,6 +239,23 @@ export function makeBoundaryUplTrafficTag(args: {
   return `${prefix}:sha256:${digest}`;
 }
 
+export function resolveBoundaryUplTrafficPolarity(
+  segment: BoundaryLiveUplFieldEntry,
+): "allow" | "deny" | null {
+  const expectedClass = uplTrafficClassForPolarity(segment.polarity);
+  if (segment.trafficClass !== expectedClass) {
+    return null;
+  }
+  const expectedTag = makeBoundaryUplTrafficTag({
+    entry: segment.entry,
+    polarity: segment.polarity,
+  });
+  if (segment.trafficTag !== expectedTag) {
+    return null;
+  }
+  return segment.polarity;
+}
+
 function entrySpecificity(entry: BoundaryUplEntry): 0 | 1 | 2 {
   if (entry.scope === "SESSION") return 2;
   if (entry.scope === "DOMAIN") return 1;
@@ -367,14 +384,22 @@ export function lookupUserPathDecision(args: {
 }): { entry: BoundaryUplEntry; decision: "allow" | "deny" } | null {
   const pathHash = hashUserPath(args.request);
   const domain = classifyUserPathDomain(args.request);
-  const winner = compileLiveUplField({
+  for (const segment of compileLiveUplField({
     ledger: args.ledger,
     session: args.session,
-  }).find((segment) => (
-    segment.entry.pathHash === pathHash ||
-    (segment.entry.scope === "DOMAIN" && segment.entry.domain === domain)
-  ));
-  return winner ? { entry: winner.entry, decision: winner.polarity } : null;
+  })) {
+    const decision = resolveBoundaryUplTrafficPolarity(segment);
+    if (!decision) {
+      continue;
+    }
+    if (
+      segment.entry.pathHash === pathHash ||
+      (segment.entry.scope === "DOMAIN" && segment.entry.domain === domain)
+    ) {
+      return { entry: segment.entry, decision };
+    }
+  }
+  return null;
 }
 
 /**
@@ -417,13 +442,15 @@ export function lookupUserPathTrackDecision(args: {
     ledger: args.ledger,
     session: args.session,
   })) {
+    const polarity = resolveBoundaryUplTrafficPolarity(segment);
+    if (!polarity) continue;
     const constraint = segment.entry.trackConstraint;
     if (!constraint) continue;
     if (!constraint.allowedActionKinds.includes(args.request.actionKind)) continue;
 
     const violation = checkTrackConstraint(constraint, args.request);
     if (!violation) {
-      if (segment.polarity === "deny") {
+      if (polarity === "deny") {
         denyMatches.push({
           ...segment,
           decision: "deny",
@@ -436,7 +463,7 @@ export function lookupUserPathTrackDecision(args: {
       }
       continue;
     }
-    if (segment.polarity === "allow") {
+    if (polarity === "allow") {
       violations.push({
         ...segment,
         decision: "track_violation",
