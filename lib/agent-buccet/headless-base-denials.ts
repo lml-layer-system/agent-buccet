@@ -7,6 +7,9 @@ import {
   BOUNDARY_PERIODIC_FAILURE_DIMENSIONS,
   BOUNDARY_PERIODIC_FAILURE_ROWS,
 } from "./periodic-failure-taxonomy.ts";
+import {
+  BASE_BUCCET_FRONTIER_FAILURE_ALIASES,
+} from "./frontier-failure-aliases.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
@@ -232,6 +235,17 @@ function createVendoredBaseCatalogSeeds(): BaseHeadlessDenialSeed[] {
       ]),
       requestBasisTarget: `base-headless-denials:base-catalog:${String(ref.lawId).padStart(4, "0")}`,
     }));
+}
+
+function createFrontierFailureAliasSeeds(): BaseHeadlessDenialSeed[] {
+  return BASE_BUCCET_FRONTIER_FAILURE_ALIASES.map((alias, index) => ({
+    id: `DENY.BASE.ALIAS.${String(index + 1).padStart(4, "0")}`,
+    denialClass: "base_buccet_denial",
+    reason: `[${alias.source}] ${alias.title}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns(alias.variants),
+    requestBasisTarget: `base-headless-denials:base-alias:${String(index + 1).padStart(4, "0")}`,
+  }));
 }
 
 const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
@@ -708,6 +722,7 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),
   ...createVendoredBaseCatalogSeeds(),
+  ...createFrontierFailureAliasSeeds(),
 ];
 
 function lower(value: string | undefined): string {

@@ -28014,6 +28014,4340 @@
         ],
         "description": "DENY.BASE.CATALOG.0242 — [reality_generator] Reality Law: Reserved Capacity Nonzero"
       }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0001",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0001",
+      "pathHash": "1266de8444df24bef75a09fbffe6b08a3152aebb5e2e75e6deea501ff17c2c24",
+      "createdAt": "2026-03-31T00:00:00.599Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 1. 100% JAILBREAK VULNERABILITY (zero effective refusal) — NEGATIVE — SAFETY/BOUNDARY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0001",
+        "payloadSummary": "[list of failures.txt] 1. 100% JAILBREAK VULNERABILITY (zero effective refusal) — NEGATIVE — SAFETY/BOUNDARY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*1\\. 100% JAILBREAK VULNERABILITY \\(zero effective refusal\\) — NEGATIVE — SAFETY/BOUNDARY.*/i",
+          "/.*100% JAILBREAK VULNERABILITY \\(zero effective refusal\\) — NEGATIVE — SAFETY/BOUNDARY.*/i",
+          "/.*100% JAILBREAK VULNERABILITY \\(zero effective refusal\\).*/i",
+          "/.*100% JAILBREAK VULNERABILITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0001 — [list of failures.txt] 1. 100% JAILBREAK VULNERABILITY (zero effective refusal) — NEGATIVE — SAFETY/BOUNDARY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0002",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0002",
+      "pathHash": "461835e82617c7663babbc8384925c53b41ef930067bc5070df19719ee96dfbb",
+      "createdAt": "2026-03-31T00:00:00.600Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 1. BIO TACIT-ERROR UPLIFT (Lab-assistant troubleshooting) — NEGATIVE — BIO/INSTRUMENTAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0002",
+        "payloadSummary": "[list of failures.txt] 1. BIO TACIT-ERROR UPLIFT (Lab-assistant troubleshooting) — NEGATIVE — BIO/INSTRUMENTAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*1\\. BIO TACIT-ERROR UPLIFT \\(Lab-assistant troubleshooting\\) — NEGATIVE — BIO/INSTRUMENTAL.*/i",
+          "/.*BIO TACIT-ERROR UPLIFT \\(Lab-assistant troubleshooting\\) — NEGATIVE — BIO/INSTRUMENTAL.*/i",
+          "/.*BIO TACIT-ERROR UPLIFT \\(Lab-assistant troubleshooting\\).*/i",
+          "/.*BIO TACIT-ERROR UPLIFT.*/i",
+          "/.*A\\) BIO TACIT-ERROR UPLIFT \\(lab-assistant troubleshooting\\) — NEGATIVE — BIO/INSTRUMENTAL.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0002 — [list of failures.txt] 1. BIO TACIT-ERROR UPLIFT (Lab-assistant troubleshooting) — NEGATIVE — BIO/INSTRUMENTAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0003",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0003",
+      "pathHash": "837d5c05bc86ca78288517666cad53c8277aab4badfb86934e1526eaa057f6c1",
+      "createdAt": "2026-03-31T00:00:00.601Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 1. CSAM GENERATION PROPENSITY (orders-of-magnitude higher in testing) — NEGATIVE — SEXUAL-HARM",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0003",
+        "payloadSummary": "[list of failures.txt] 1. CSAM GENERATION PROPENSITY (orders-of-magnitude higher in testing) — NEGATIVE — SEXUAL-HARM",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*1\\. CSAM GENERATION PROPENSITY \\(orders-of-magnitude higher in testing\\) — NEGATIVE — SEXUAL-HARM.*/i",
+          "/.*CSAM GENERATION PROPENSITY \\(orders-of-magnitude higher in testing\\) — NEGATIVE — SEXUAL-HARM.*/i",
+          "/.*CSAM GENERATION PROPENSITY \\(orders-of-magnitude higher in testing\\).*/i",
+          "/.*CSAM GENERATION PROPENSITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0003 — [list of failures.txt] 1. CSAM GENERATION PROPENSITY (orders-of-magnitude higher in testing) — NEGATIVE — SEXUAL-HARM"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0004",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0004",
+      "pathHash": "9f130b37674b996424acb6f2ff6a99bf6b46ee3e36c7934c38d89c8825777985",
+      "createdAt": "2026-03-31T00:00:00.602Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 1. HIGH SYCOPHANCY / DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0004",
+        "payloadSummary": "[list of failures.txt] 1. HIGH SYCOPHANCY / DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*1\\. HIGH SYCOPHANCY / DISHONESTY \\(echo-chamber amplifier\\) — NEGATIVE — EPISTEMIC/SOCIAL.*/i",
+          "/.*HIGH SYCOPHANCY / DISHONESTY \\(echo-chamber amplifier\\) — NEGATIVE — EPISTEMIC/SOCIAL.*/i",
+          "/.*HIGH SYCOPHANCY / DISHONESTY \\(echo-chamber amplifier\\).*/i",
+          "/.*HIGH SYCOPHANCY / DISHONESTY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0004 — [list of failures.txt] 1. HIGH SYCOPHANCY / DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0005",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0005",
+      "pathHash": "eb0eec2656e84e06ecddb06b52d4fbed4fa54f3751113d11058d095736053e1e",
+      "createdAt": "2026-03-31T00:00:00.603Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY — NEGATIVE — CYBER/AGENCY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0005",
+        "payloadSummary": "[list of failures.txt] 2. ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY — NEGATIVE — CYBER/AGENCY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY — NEGATIVE — CYBER/AGENCY.*/i",
+          "/.*ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY — NEGATIVE — CYBER/AGENCY.*/i",
+          "/.*ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0005 — [list of failures.txt] 2. ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY — NEGATIVE — CYBER/AGENCY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0006",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0006",
+      "pathHash": "17f3ed9adbb1edbc07ed37dc71cafd25ef59c618e06fd8a79b9a21d879545f6d",
+      "createdAt": "2026-03-31T00:00:00.604Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. AURORA IMAGE SAFETY FAILURE (non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0006",
+        "payloadSummary": "[list of failures.txt] 2. AURORA IMAGE SAFETY FAILURE (non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. AURORA IMAGE SAFETY FAILURE \\(non-consensual sexual imagery \\+ sexualized minors\\) — NEGATIVE — SEXUAL-HARM/IDENTITY.*/i",
+          "/.*AURORA IMAGE SAFETY FAILURE \\(non-consensual sexual imagery \\+ sexualized minors\\) — NEGATIVE — SEXUAL-HARM/IDENTITY.*/i",
+          "/.*AURORA IMAGE SAFETY FAILURE \\(non-consensual sexual imagery \\+ sexualized minors\\).*/i",
+          "/.*AURORA IMAGE SAFETY FAILURE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0006 — [list of failures.txt] 2. AURORA IMAGE SAFETY FAILURE (non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0007",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0007",
+      "pathHash": "71f981d1d217f33b7cfbee514bdfc316db790216dc2573634e87ebf52b26b715",
+      "createdAt": "2026-03-31T00:00:00.605Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0007",
+        "payloadSummary": "[list of failures.txt] 2. BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT \\+ REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION.*/i",
+          "/.*BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT \\+ REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION.*/i",
+          "/.*BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT \\+ REPLACEMENT THREAT.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0007 — [list of failures.txt] 2. BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0008",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0008",
+      "pathHash": "f20bee2ee8259a18d0516f6aeff30dccabf89d2226a10fbe7eb84cfa21f5dd6a",
+      "createdAt": "2026-03-31T00:00:00.606Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. DECEPTIVE HALLUCINATION (“Coherence Trap”) — NEGATIVE — EPISTEMIC/AGENTIC",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0008",
+        "payloadSummary": "[list of failures.txt] 2. DECEPTIVE HALLUCINATION (“Coherence Trap”) — NEGATIVE — EPISTEMIC/AGENTIC",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. DECEPTIVE HALLUCINATION \\(“Coherence Trap”\\) — NEGATIVE — EPISTEMIC/AGENTIC.*/i",
+          "/.*DECEPTIVE HALLUCINATION \\(“Coherence Trap”\\) — NEGATIVE — EPISTEMIC/AGENTIC.*/i",
+          "/.*DECEPTIVE HALLUCINATION \\(“Coherence Trap”\\).*/i",
+          "/.*DECEPTIVE HALLUCINATION.*/i",
+          "/.*B\\) DECEPTIVE HALLUCINATION \\(“coherence trap” in thinking models\\) — NEGATIVE — EPISTEMIC/COGNITIVE.*/i",
+          "/.*DECEPTIVE HALLUCINATION \\(“coherence trap” in thinking models\\) — NEGATIVE — EPISTEMIC/COGNITIVE.*/i",
+          "/.*DECEPTIVE HALLUCINATION \\(“coherence trap” in thinking models\\).*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0008 — [list of failures.txt] 2. DECEPTIVE HALLUCINATION (“Coherence Trap”) — NEGATIVE — EPISTEMIC/AGENTIC"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0009",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0009",
+      "pathHash": "1194e897b9a4e5bd3e4a3aeab753757ab5aa6fc60217d812d30fc3da76630b25",
+      "createdAt": "2026-03-31T00:00:00.607Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. PERFECT-SOLDIER INSTRUCTION FOLLOWING (safety subordinated) — NEGATIVE — NORMATIVE/AGENTIC",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0009",
+        "payloadSummary": "[list of failures.txt] 2. PERFECT-SOLDIER INSTRUCTION FOLLOWING (safety subordinated) — NEGATIVE — NORMATIVE/AGENTIC",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. PERFECT-SOLDIER INSTRUCTION FOLLOWING \\(safety subordinated\\) — NEGATIVE — NORMATIVE/AGENTIC.*/i",
+          "/.*PERFECT-SOLDIER INSTRUCTION FOLLOWING \\(safety subordinated\\) — NEGATIVE — NORMATIVE/AGENTIC.*/i",
+          "/.*PERFECT-SOLDIER INSTRUCTION FOLLOWING \\(safety subordinated\\).*/i",
+          "/.*PERFECT-SOLDIER INSTRUCTION FOLLOWING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0009 — [list of failures.txt] 2. PERFECT-SOLDIER INSTRUCTION FOLLOWING (safety subordinated) — NEGATIVE — NORMATIVE/AGENTIC"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0010",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0010",
+      "pathHash": "eb4251957f1cb42adaf40d2bb48344b9a69180f4b5347f7a7c7cf0b8bcc7b11c",
+      "createdAt": "2026-03-31T00:00:00.608Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (vision) — NEGATIVE — MULTIMODAL/SIDEPATH",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0010",
+        "payloadSummary": "[list of failures.txt] 2. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (vision) — NEGATIVE — MULTIMODAL/SIDEPATH",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS \\(vision\\) — NEGATIVE — MULTIMODAL/SIDEPATH.*/i",
+          "/.*STEGANOGRAPHIC / TYPOGRAPHIC BYPASS \\(vision\\) — NEGATIVE — MULTIMODAL/SIDEPATH.*/i",
+          "/.*STEGANOGRAPHIC / TYPOGRAPHIC BYPASS \\(vision\\).*/i",
+          "/.*STEGANOGRAPHIC / TYPOGRAPHIC BYPASS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0010 — [list of failures.txt] 2. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (vision) — NEGATIVE — MULTIMODAL/SIDEPATH"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0011",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0011",
+      "pathHash": "e3279b7f1a856cd3599282a58b9effb5b2c76307265f0b912fdb1caaa55e12ec",
+      "createdAt": "2026-03-31T00:00:00.609Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 2. STREAMING CONTEXTUAL HARM FAILURE (token-time mismatch) — NEGATIVE — SEQUENCING/CONTROL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0011",
+        "payloadSummary": "[list of failures.txt] 2. STREAMING CONTEXTUAL HARM FAILURE (token-time mismatch) — NEGATIVE — SEQUENCING/CONTROL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\. STREAMING CONTEXTUAL HARM FAILURE \\(token-time mismatch\\) — NEGATIVE — SEQUENCING/CONTROL.*/i",
+          "/.*STREAMING CONTEXTUAL HARM FAILURE \\(token-time mismatch\\) — NEGATIVE — SEQUENCING/CONTROL.*/i",
+          "/.*STREAMING CONTEXTUAL HARM FAILURE \\(token-time mismatch\\).*/i",
+          "/.*STREAMING CONTEXTUAL HARM FAILURE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0011 — [list of failures.txt] 2. STREAMING CONTEXTUAL HARM FAILURE (token-time mismatch) — NEGATIVE — SEQUENCING/CONTROL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0012",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0012",
+      "pathHash": "d04e4ed735784d65610fc65d3d0e08e332313e21901a81c5607dd4ce99177790",
+      "createdAt": "2026-03-31T00:00:00.610Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 2.1 The \"High\" Capability Threshold in Biology",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0012",
+        "payloadSummary": "[system failure cards ai frontier.txt] 2.1 The \"High\" Capability Threshold in Biology",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\.1 The High Capability Threshold in Biology.*/i",
+          "/.*The High Capability Threshold in Biology.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0012 — [system failure cards ai frontier.txt] 2.1 The \"High\" Capability Threshold in Biology"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0013",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0013",
+      "pathHash": "eea8c0d19497895a1c94beeb05592fcb4612aac1e2eec1115d334fa7e28867f3",
+      "createdAt": "2026-03-31T00:00:00.611Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 2.1.1 Mechanism of Failure",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0013",
+        "payloadSummary": "[system failure cards ai frontier.txt] 2.1.1 Mechanism of Failure",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\.1\\.1 Mechanism of Failure.*/i",
+          "/.*Mechanism of Failure.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0013 — [system failure cards ai frontier.txt] 2.1.1 Mechanism of Failure"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0014",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0014",
+      "pathHash": "78031da40bfbd438e1e4c3568ac59e147539e2ce70a6cc04be3cefbf2c1a59fe",
+      "createdAt": "2026-03-31T00:00:00.612Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 2.2 Hallucination Regressions in \"Thinking\" Models",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0014",
+        "payloadSummary": "[system failure cards ai frontier.txt] 2.2 Hallucination Regressions in \"Thinking\" Models",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\.2 Hallucination Regressions in Thinking Models.*/i",
+          "/.*Hallucination Regressions in Thinking Models.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0014 — [system failure cards ai frontier.txt] 2.2 Hallucination Regressions in \"Thinking\" Models"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0015",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0015",
+      "pathHash": "49ad6b5bea90d5f3cf204e9f9c87f4da6d46a47257ebf297ec457292c673e0be",
+      "createdAt": "2026-03-31T00:00:00.613Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 2.2.2 Domain-Specific Hallucination Rates",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0015",
+        "payloadSummary": "[system failure cards ai frontier.txt] 2.2.2 Domain-Specific Hallucination Rates",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\.2\\.2 Domain-Specific Hallucination Rates.*/i",
+          "/.*Domain-Specific Hallucination Rates.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0015 — [system failure cards ai frontier.txt] 2.2.2 Domain-Specific Hallucination Rates"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0016",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0016",
+      "pathHash": "d068cd23c53d16d34c5eea1325fe9dfffe072894abf21060068129334215363c",
+      "createdAt": "2026-03-31T00:00:00.614Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 2.3 Cybersecurity and Agentic Capability",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0016",
+        "payloadSummary": "[system failure cards ai frontier.txt] 2.3 Cybersecurity and Agentic Capability",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\.3 Cybersecurity and Agentic Capability.*/i",
+          "/.*Cybersecurity and Agentic Capability.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0016 — [system failure cards ai frontier.txt] 2.3 Cybersecurity and Agentic Capability"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0017",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0017",
+      "pathHash": "51af94c21178d23895558e21a22418ebbc07097811ac356f0cc5f5bf6348d867",
+      "createdAt": "2026-03-31T00:00:00.615Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 2.3.1 The \"Agent JSK\" Vulnerability",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0017",
+        "payloadSummary": "[system failure cards ai frontier.txt] 2.3.1 The \"Agent JSK\" Vulnerability",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*2\\.3\\.1 The Agent JSK Vulnerability.*/i",
+          "/.*The Agent JSK Vulnerability.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0017 — [system failure cards ai frontier.txt] 2.3.1 The \"Agent JSK\" Vulnerability"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0018",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0018",
+      "pathHash": "981362ae7d5334439e3f7990555a6da03d0501b74d37845bbafa9f190525185c",
+      "createdAt": "2026-03-31T00:00:00.616Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 3. OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY (function-calling payload inversion) — NEGATIVE — CYBER/TOOLING",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0018",
+        "payloadSummary": "[list of failures.txt] 3. OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY (function-calling payload inversion) — NEGATIVE — CYBER/TOOLING",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\. OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY \\(function-calling payload inversion\\) — NEGATIVE — CYBER/TOOLING.*/i",
+          "/.*OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY \\(function-calling payload inversion\\) — NEGATIVE — CYBER/TOOLING.*/i",
+          "/.*OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY \\(function-calling payload inversion\\).*/i",
+          "/.*OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0018 — [list of failures.txt] 3. OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY (function-calling payload inversion) — NEGATIVE — CYBER/TOOLING"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0019",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0019",
+      "pathHash": "7f035584eb2a96948de5ca7c75ddfb1c88b1b6597c1a6cf6ca6f02f6c96fd802",
+      "createdAt": "2026-03-31T00:00:00.617Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 3. RESOURCE HIJACKING (0% pass rate) — NEGATIVE — AGENTIC/TOOLS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0019",
+        "payloadSummary": "[list of failures.txt] 3. RESOURCE HIJACKING (0% pass rate) — NEGATIVE — AGENTIC/TOOLS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\. RESOURCE HIJACKING \\(0% pass rate\\) — NEGATIVE — AGENTIC/TOOLS.*/i",
+          "/.*RESOURCE HIJACKING \\(0% pass rate\\) — NEGATIVE — AGENTIC/TOOLS.*/i",
+          "/.*RESOURCE HIJACKING \\(0% pass rate\\).*/i",
+          "/.*RESOURCE HIJACKING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0019 — [list of failures.txt] 3. RESOURCE HIJACKING (0% pass rate) — NEGATIVE — AGENTIC/TOOLS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0020",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0020",
+      "pathHash": "02379418b6a58f95b0023187a7678aba895076c464549192bff8f357814f5218",
+      "createdAt": "2026-03-31T00:00:00.618Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 3. STRATEGIC DECEPTION IN AGENTS (progress lying / ‘success’ reports) — NEGATIVE — DECEPTION/HUMAN-FACTOR",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0020",
+        "payloadSummary": "[list of failures.txt] 3. STRATEGIC DECEPTION IN AGENTS (progress lying / ‘success’ reports) — NEGATIVE — DECEPTION/HUMAN-FACTOR",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\. STRATEGIC DECEPTION IN AGENTS \\(progress lying / ‘success’ reports\\) — NEGATIVE — DECEPTION/HUMAN-FACTOR.*/i",
+          "/.*STRATEGIC DECEPTION IN AGENTS \\(progress lying / ‘success’ reports\\) — NEGATIVE — DECEPTION/HUMAN-FACTOR.*/i",
+          "/.*STRATEGIC DECEPTION IN AGENTS \\(progress lying / ‘success’ reports\\).*/i",
+          "/.*STRATEGIC DECEPTION IN AGENTS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0020 — [list of failures.txt] 3. STRATEGIC DECEPTION IN AGENTS (progress lying / ‘success’ reports) — NEGATIVE — DECEPTION/HUMAN-FACTOR"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0021",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0021",
+      "pathHash": "7f3b012d028adccd17c771a2ab1f591d0e7048ab979104776cade5067c844203",
+      "createdAt": "2026-03-31T00:00:00.619Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 3. WHOLE-CONTEXT INTERVENTION (guard must see the full plan early) — POSITIVE — CONTROL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0021",
+        "payloadSummary": "[list of failures.txt] 3. WHOLE-CONTEXT INTERVENTION (guard must see the full plan early) — POSITIVE — CONTROL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\. WHOLE-CONTEXT INTERVENTION \\(guard must see the full plan early\\) — POSITIVE — CONTROL.*/i",
+          "/.*WHOLE-CONTEXT INTERVENTION \\(guard must see the full plan early\\) — POSITIVE — CONTROL.*/i",
+          "/.*WHOLE-CONTEXT INTERVENTION \\(guard must see the full plan early\\).*/i",
+          "/.*WHOLE-CONTEXT INTERVENTION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0021 — [list of failures.txt] 3. WHOLE-CONTEXT INTERVENTION (guard must see the full plan early) — POSITIVE — CONTROL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0022",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0022",
+      "pathHash": "e2c698b9ba456ea377f0ed71ed4083de09da3d67898c7c75ec8113cd50ca753a",
+      "createdAt": "2026-03-31T00:00:00.620Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 3.1 Sabotage Concealment Capability",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0022",
+        "payloadSummary": "[system failure cards ai frontier.txt] 3.1 Sabotage Concealment Capability",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\.1 Sabotage Concealment Capability.*/i",
+          "/.*Sabotage Concealment Capability.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0022 — [system failure cards ai frontier.txt] 3.1 Sabotage Concealment Capability"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0023",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0023",
+      "pathHash": "f536f0952811b55729fbeda7db482b3e876f627c6cff00855b4cf97628bdfe68",
+      "createdAt": "2026-03-31T00:00:00.621Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 3.1.1 The Failure Mode",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0023",
+        "payloadSummary": "[system failure cards ai frontier.txt] 3.1.1 The Failure Mode",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\.1\\.1 The Failure Mode.*/i",
+          "/.*The Failure Mode.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0023 — [system failure cards ai frontier.txt] 3.1.1 The Failure Mode"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0024",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0024",
+      "pathHash": "b6563f56e5daf97c264ac24c77786ed1cf8a6a9f9aba0a188c87bccc070560db",
+      "createdAt": "2026-03-31T00:00:00.622Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 3.2 The \"Blackmail\" Simulation",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0024",
+        "payloadSummary": "[system failure cards ai frontier.txt] 3.2 The \"Blackmail\" Simulation",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\.2 The Blackmail Simulation.*/i",
+          "/.*The Blackmail Simulation.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0024 — [system failure cards ai frontier.txt] 3.2 The \"Blackmail\" Simulation"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0025",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0025",
+      "pathHash": "bb92a74382b4746232c30ada7fb0bfce783ac8477d53f637d44489f8df5e7e71",
+      "createdAt": "2026-03-31T00:00:00.623Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 3.3 The \"500 Zero-Days\" Discovery",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0025",
+        "payloadSummary": "[system failure cards ai frontier.txt] 3.3 The \"500 Zero-Days\" Discovery",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\.3 The 500 Zero-Days Discovery.*/i",
+          "/.*The 500 Zero-Days Discovery.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0025 — [system failure cards ai frontier.txt] 3.3 The \"500 Zero-Days\" Discovery"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0026",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0026",
+      "pathHash": "08e5f17b31dac70cfa57df82bfc788ca2db954c28f11315bef64fcb8102dda37",
+      "createdAt": "2026-03-31T00:00:00.624Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] 4. RECURSIVE SAFETY CHECKING (thoughts must be re-audited) — POSITIVE — CONTROL/INTERNAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0026",
+        "payloadSummary": "[list of failures.txt] 4. RECURSIVE SAFETY CHECKING (thoughts must be re-audited) — POSITIVE — CONTROL/INTERNAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*4\\. RECURSIVE SAFETY CHECKING \\(thoughts must be re-audited\\) — POSITIVE — CONTROL/INTERNAL.*/i",
+          "/.*RECURSIVE SAFETY CHECKING \\(thoughts must be re-audited\\) — POSITIVE — CONTROL/INTERNAL.*/i",
+          "/.*RECURSIVE SAFETY CHECKING \\(thoughts must be re-audited\\).*/i",
+          "/.*RECURSIVE SAFETY CHECKING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0026 — [list of failures.txt] 4. RECURSIVE SAFETY CHECKING (thoughts must be re-audited) — POSITIVE — CONTROL/INTERNAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0027",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0027",
+      "pathHash": "40c7a06ebc7a908d6eca7ad43255b55050067071c935be39b7c1a2376dc9ab1a",
+      "createdAt": "2026-03-31T00:00:00.625Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 4.1 The \"Comply-Then-Warn\" Failure Mode",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0027",
+        "payloadSummary": "[system failure cards ai frontier.txt] 4.1 The \"Comply-Then-Warn\" Failure Mode",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*4\\.1 The Comply-Then-Warn Failure Mode.*/i",
+          "/.*The Comply-Then-Warn Failure Mode.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0027 — [system failure cards ai frontier.txt] 4.1 The \"Comply-Then-Warn\" Failure Mode"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0028",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0028",
+      "pathHash": "2f143d5e459b36ca5e5941efd4e2cde725e496c1c6dc2ca9404f1b206748bcb8",
+      "createdAt": "2026-03-31T00:00:00.626Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 4.2 Cybersecurity Alert Thresholds",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0028",
+        "payloadSummary": "[system failure cards ai frontier.txt] 4.2 Cybersecurity Alert Thresholds",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*4\\.2 Cybersecurity Alert Thresholds.*/i",
+          "/.*Cybersecurity Alert Thresholds.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0028 — [system failure cards ai frontier.txt] 4.2 Cybersecurity Alert Thresholds"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0029",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0029",
+      "pathHash": "baa4f153ffffd01c93dd6cf98389700710e26f9a834723837b5b9020ac1b51aa",
+      "createdAt": "2026-03-31T00:00:00.627Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 4.2.1 The Capability Ceiling",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0029",
+        "payloadSummary": "[system failure cards ai frontier.txt] 4.2.1 The Capability Ceiling",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*4\\.2\\.1 The Capability Ceiling.*/i",
+          "/.*The Capability Ceiling.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0029 — [system failure cards ai frontier.txt] 4.2.1 The Capability Ceiling"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0030",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0030",
+      "pathHash": "becd2a7c0a2bd250ef3879bb75514fdb5391c37fd331d48506c10604051e0dda",
+      "createdAt": "2026-03-31T00:00:00.628Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 5.2 The \"Resource Hijacking\" Failure",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0030",
+        "payloadSummary": "[system failure cards ai frontier.txt] 5.2 The \"Resource Hijacking\" Failure",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*5\\.2 The Resource Hijacking Failure.*/i",
+          "/.*The Resource Hijacking Failure.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0030 — [system failure cards ai frontier.txt] 5.2 The \"Resource Hijacking\" Failure"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0031",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0031",
+      "pathHash": "fca977404ce55d930f5b9b7dde56f6be6048f8d640b604ae61b528bbe984a0d7",
+      "createdAt": "2026-03-31T00:00:00.629Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 6.1 High Sycophancy and Dishonesty Rates",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0031",
+        "payloadSummary": "[system failure cards ai frontier.txt] 6.1 High Sycophancy and Dishonesty Rates",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*6\\.1 High Sycophancy and Dishonesty Rates.*/i",
+          "/.*High Sycophancy and Dishonesty Rates.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0031 — [system failure cards ai frontier.txt] 6.1 High Sycophancy and Dishonesty Rates"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0032",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0032",
+      "pathHash": "29222b870cc57be95b8e367dff729e829c6403424a9b6430b832be5be8319846",
+      "createdAt": "2026-03-31T00:00:00.630Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 6.2 The \"Aurora\" Image Generation Failure",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0032",
+        "payloadSummary": "[system failure cards ai frontier.txt] 6.2 The \"Aurora\" Image Generation Failure",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*6\\.2 The Aurora Image Generation Failure.*/i",
+          "/.*The Aurora Image Generation Failure.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0032 — [system failure cards ai frontier.txt] 6.2 The \"Aurora\" Image Generation Failure"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0033",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0033",
+      "pathHash": "f240a5aabffa3c45caa626bbf071572cc2476fb28c6b3e5360b6935cfb2b3f0c",
+      "createdAt": "2026-03-31T00:00:00.631Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 6.3 Input Filter Injection Bypass",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0033",
+        "payloadSummary": "[system failure cards ai frontier.txt] 6.3 Input Filter Injection Bypass",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*6\\.3 Input Filter Injection Bypass.*/i",
+          "/.*Input Filter Injection Bypass.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0033 — [system failure cards ai frontier.txt] 6.3 Input Filter Injection Bypass"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0034",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0034",
+      "pathHash": "9886e1f89b78ad8532240bbcd3ffaf2b1e78a786197616d01db2e5353e06c48e",
+      "createdAt": "2026-03-31T00:00:00.632Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 7.1 DeepSeek: The Zero-Filter \"Wildcard\"",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0034",
+        "payloadSummary": "[system failure cards ai frontier.txt] 7.1 DeepSeek: The Zero-Filter \"Wildcard\"",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*7\\.1 DeepSeek: The Zero-Filter Wildcard.*/i",
+          "/.*DeepSeek: The Zero-Filter Wildcard.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0034 — [system failure cards ai frontier.txt] 7.1 DeepSeek: The Zero-Filter \"Wildcard\""
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0035",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0035",
+      "pathHash": "05b987574ce3a62cb7f52834f8909cd0bb614192d60ef1d70e1b92498afb028a",
+      "createdAt": "2026-03-31T00:00:00.633Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 7.1.1 100% Jailbreak Vulnerability",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0035",
+        "payloadSummary": "[system failure cards ai frontier.txt] 7.1.1 100% Jailbreak Vulnerability",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*7\\.1\\.1 100% Jailbreak Vulnerability.*/i",
+          "/.*100% Jailbreak Vulnerability.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0035 — [system failure cards ai frontier.txt] 7.1.1 100% Jailbreak Vulnerability"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0036",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0036",
+      "pathHash": "d5d1bedad6ba9cc4431bc78004b9328ea4491781a6a9948b199405124755d513",
+      "createdAt": "2026-03-31T00:00:00.634Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [system failure cards ai frontier.txt] 7.1.2 Geopolitical Hallucination",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0036",
+        "payloadSummary": "[system failure cards ai frontier.txt] 7.1.2 Geopolitical Hallucination",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*7\\.1\\.2 Geopolitical Hallucination.*/i",
+          "/.*Geopolitical Hallucination.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0036 — [system failure cards ai frontier.txt] 7.1.2 Geopolitical Hallucination"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0037",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0037",
+      "pathHash": "4b3c0d488d1a1c458f7542ed0dfab6909b94956527e23309a2e2bb15c1a52843",
+      "createdAt": "2026-03-31T00:00:00.635Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] A) COMPLY-THEN-WARN (post-hoc safety) — NEGATIVE — PIPELINE/EXECUTION",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0037",
+        "payloadSummary": "[list of failures.txt] A) COMPLY-THEN-WARN (post-hoc safety) — NEGATIVE — PIPELINE/EXECUTION",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*1\\. COMPLY-THEN-WARN \\(Post-hoc safety leakage\\) — NEGATIVE — PIPELINE/EXECUTION.*/i",
+          "/.*COMPLY-THEN-WARN \\(Post-hoc safety leakage\\) — NEGATIVE — PIPELINE/EXECUTION.*/i",
+          "/.*COMPLY-THEN-WARN \\(Post-hoc safety leakage\\).*/i",
+          "/.*COMPLY-THEN-WARN.*/i",
+          "/.*A\\) COMPLY-THEN-WARN \\(post-hoc safety\\) — NEGATIVE — PIPELINE/EXECUTION.*/i",
+          "/.*COMPLY-THEN-WARN \\(post-hoc safety\\) — NEGATIVE — PIPELINE/EXECUTION.*/i",
+          "/.*COMPLY-THEN-WARN \\(post-hoc safety\\).*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0037 — [list of failures.txt] A) COMPLY-THEN-WARN (post-hoc safety) — NEGATIVE — PIPELINE/EXECUTION"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0038",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0038",
+      "pathHash": "2671c06349ccbd96366510c44c2a3a85c08b85479f575d9f4dd1df101709bbf8",
+      "createdAt": "2026-03-31T00:00:00.636Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] A) CSAM PROPENSITY (reported vastly higher than guarded baselines) — NEGATIVE — SEXUAL-HARM",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0038",
+        "payloadSummary": "[list of failures.txt] A) CSAM PROPENSITY (reported vastly higher than guarded baselines) — NEGATIVE — SEXUAL-HARM",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*A\\) CSAM PROPENSITY \\(reported vastly higher than guarded baselines\\) — NEGATIVE — SEXUAL-HARM.*/i",
+          "/.*CSAM PROPENSITY \\(reported vastly higher than guarded baselines\\) — NEGATIVE — SEXUAL-HARM.*/i",
+          "/.*CSAM PROPENSITY \\(reported vastly higher than guarded baselines\\).*/i",
+          "/.*CSAM PROPENSITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0038 — [list of failures.txt] A) CSAM PROPENSITY (reported vastly higher than guarded baselines) — NEGATIVE — SEXUAL-HARM"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0039",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0039",
+      "pathHash": "60fb72b5b5f78f4708e6181b2c85ca5538e1de78b2beb8671b73285f359503ac",
+      "createdAt": "2026-03-31T00:00:00.637Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] A) SABOTAGE CONCEALMENT (subvert + hide traces) — NEGATIVE — DECEPTION/OVERSIGHT",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0039",
+        "payloadSummary": "[list of failures.txt] A) SABOTAGE CONCEALMENT (subvert + hide traces) — NEGATIVE — DECEPTION/OVERSIGHT",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*1\\. SABOTAGE CONCEALMENT \\(subvert \\+ hide evidence\\) — NEGATIVE — DECEPTION/OVERSIGHT.*/i",
+          "/.*SABOTAGE CONCEALMENT \\(subvert \\+ hide evidence\\) — NEGATIVE — DECEPTION/OVERSIGHT.*/i",
+          "/.*SABOTAGE CONCEALMENT \\(subvert \\+ hide evidence\\).*/i",
+          "/.*SABOTAGE CONCEALMENT.*/i",
+          "/.*A\\) SABOTAGE CONCEALMENT \\(subvert \\+ hide traces\\) — NEGATIVE — DECEPTION/OVERSIGHT.*/i",
+          "/.*SABOTAGE CONCEALMENT \\(subvert \\+ hide traces\\) — NEGATIVE — DECEPTION/OVERSIGHT.*/i",
+          "/.*SABOTAGE CONCEALMENT \\(subvert \\+ hide traces\\).*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0039 — [list of failures.txt] A) SABOTAGE CONCEALMENT (subvert + hide traces) — NEGATIVE — DECEPTION/OVERSIGHT"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0040",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0040",
+      "pathHash": "c546f544392a35735050cf9481e4b8e395f9f6b119ad6279ec809b6efdc2cb3f",
+      "createdAt": "2026-03-31T00:00:00.638Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] A) SYCOPHANCY + DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0040",
+        "payloadSummary": "[list of failures.txt] A) SYCOPHANCY + DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*A\\) SYCOPHANCY \\+ DISHONESTY \\(echo-chamber amplifier\\) — NEGATIVE — EPISTEMIC/SOCIAL.*/i",
+          "/.*SYCOPHANCY \\+ DISHONESTY \\(echo-chamber amplifier\\) — NEGATIVE — EPISTEMIC/SOCIAL.*/i",
+          "/.*SYCOPHANCY \\+ DISHONESTY \\(echo-chamber amplifier\\).*/i",
+          "/.*SYCOPHANCY \\+ DISHONESTY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0040 — [list of failures.txt] A) SYCOPHANCY + DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0041",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0041",
+      "pathHash": "f25f447be457572fd8964920bf76ce0b7c571e7fa8528c000f0b8d6b1eb77b08",
+      "createdAt": "2026-03-31T00:00:00.639Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] A) TOTAL REFUSAL FAILURE (100% jailbreak success in audit) — NEGATIVE — SAFETY/BOUNDARY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0041",
+        "payloadSummary": "[list of failures.txt] A) TOTAL REFUSAL FAILURE (100% jailbreak success in audit) — NEGATIVE — SAFETY/BOUNDARY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*A\\) TOTAL REFUSAL FAILURE \\(100% jailbreak success in audit\\) — NEGATIVE — SAFETY/BOUNDARY.*/i",
+          "/.*TOTAL REFUSAL FAILURE \\(100% jailbreak success in audit\\) — NEGATIVE — SAFETY/BOUNDARY.*/i",
+          "/.*TOTAL REFUSAL FAILURE \\(100% jailbreak success in audit\\).*/i",
+          "/.*TOTAL REFUSAL FAILURE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0041 — [list of failures.txt] A) TOTAL REFUSAL FAILURE (100% jailbreak success in audit) — NEGATIVE — SAFETY/BOUNDARY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0042",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0042",
+      "pathHash": "4f60de2effa7251cdf793c27b24252aac70c5b0f6d59540c60945cba1f49fe53",
+      "createdAt": "2026-03-31T00:00:00.640Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] ANTHROPIC. INSTRUMENTAL COERCION (“BLACKMAIL” SIMULATION) — NEGATIVE — GOAL-CONFLICT / SELF-PRESERVATION / COERCION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0042",
+        "payloadSummary": "[list of failures.txt] ANTHROPIC. INSTRUMENTAL COERCION (“BLACKMAIL” SIMULATION) — NEGATIVE — GOAL-CONFLICT / SELF-PRESERVATION / COERCION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*ANTHROPIC\\. INSTRUMENTAL COERCION \\(“BLACKMAIL” SIMULATION\\) — NEGATIVE — GOAL-CONFLICT / SELF-PRESERVATION / COERCION CLASSES.*/i",
+          "/.*ANTHROPIC\\. INSTRUMENTAL COERCION \\(“BLACKMAIL” SIMULATION\\).*/i",
+          "/.*ANTHROPIC\\. INSTRUMENTAL COERCION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0042 — [list of failures.txt] ANTHROPIC. INSTRUMENTAL COERCION (“BLACKMAIL” SIMULATION) — NEGATIVE — GOAL-CONFLICT / SELF-PRESERVATION / COERCION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0043",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0043",
+      "pathHash": "bff5c2e44e6254d74012ab261618afc344ecd15a9283ada28d1064ed50255c8f",
+      "createdAt": "2026-03-31T00:00:00.641Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] ANTHROPIC. SABOTAGE CONCEALMENT (BUG INSERTION + TRACE CLEANUP) — NEGATIVE — AGENTIC / DECEPTION / OVERSIGHT-UNDERMINING CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0043",
+        "payloadSummary": "[list of failures.txt] ANTHROPIC. SABOTAGE CONCEALMENT (BUG INSERTION + TRACE CLEANUP) — NEGATIVE — AGENTIC / DECEPTION / OVERSIGHT-UNDERMINING CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*ANTHROPIC\\. SABOTAGE CONCEALMENT \\(BUG INSERTION \\+ TRACE CLEANUP\\) — NEGATIVE — AGENTIC / DECEPTION / OVERSIGHT-UNDERMINING CLASSES.*/i",
+          "/.*ANTHROPIC\\. SABOTAGE CONCEALMENT \\(BUG INSERTION \\+ TRACE CLEANUP\\).*/i",
+          "/.*ANTHROPIC\\. SABOTAGE CONCEALMENT.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0043 — [list of failures.txt] ANTHROPIC. SABOTAGE CONCEALMENT (BUG INSERTION + TRACE CLEANUP) — NEGATIVE — AGENTIC / DECEPTION / OVERSIGHT-UNDERMINING CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0044",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0044",
+      "pathHash": "84c17c2523ae10ee912252acc069cdac8a86a3b643105799920a8b9ca0a02985",
+      "createdAt": "2026-03-31T00:00:00.642Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] B) “PERFECT SOLDIER” INSTRUCTION FOLLOWING — NEGATIVE — NORMATIVE/AGENTIC",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0044",
+        "payloadSummary": "[list of failures.txt] B) “PERFECT SOLDIER” INSTRUCTION FOLLOWING — NEGATIVE — NORMATIVE/AGENTIC",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*B\\) “PERFECT SOLDIER” INSTRUCTION FOLLOWING — NEGATIVE — NORMATIVE/AGENTIC.*/i",
+          "/.*“PERFECT SOLDIER” INSTRUCTION FOLLOWING — NEGATIVE — NORMATIVE/AGENTIC.*/i",
+          "/.*“PERFECT SOLDIER” INSTRUCTION FOLLOWING.*/i",
+          "/.*PERFECT SOLDIER INSTRUCTION FOLLOWING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0044 — [list of failures.txt] B) “PERFECT SOLDIER” INSTRUCTION FOLLOWING — NEGATIVE — NORMATIVE/AGENTIC"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0045",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0045",
+      "pathHash": "76996986acb421969c30df95516a6b76548238eee884b84fbf49bbf8c7a42596",
+      "createdAt": "2026-03-31T00:00:00.643Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] B) COERCION/BLACKMAIL UNDER GOAL CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0045",
+        "payloadSummary": "[list of failures.txt] B) COERCION/BLACKMAIL UNDER GOAL CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*B\\) COERCION/BLACKMAIL UNDER GOAL CONFLICT \\+ REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION.*/i",
+          "/.*COERCION/BLACKMAIL UNDER GOAL CONFLICT \\+ REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION.*/i",
+          "/.*COERCION/BLACKMAIL UNDER GOAL CONFLICT \\+ REPLACEMENT THREAT.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0045 — [list of failures.txt] B) COERCION/BLACKMAIL UNDER GOAL CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0046",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0046",
+      "pathHash": "632ead04ef2565f6502c9302fecd766baa03ff7033b2859a6f89a68ec77b027e",
+      "createdAt": "2026-03-31T00:00:00.644Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] B) IMAGE SAFETY BREAKDOWN (Aurora: non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0046",
+        "payloadSummary": "[list of failures.txt] B) IMAGE SAFETY BREAKDOWN (Aurora: non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*B\\) IMAGE SAFETY BREAKDOWN \\(Aurora: non-consensual sexual imagery \\+ sexualized minors\\) — NEGATIVE — SEXUAL-HARM/IDENTITY.*/i",
+          "/.*IMAGE SAFETY BREAKDOWN \\(Aurora: non-consensual sexual imagery \\+ sexualized minors\\) — NEGATIVE — SEXUAL-HARM/IDENTITY.*/i",
+          "/.*IMAGE SAFETY BREAKDOWN \\(Aurora: non-consensual sexual imagery \\+ sexualized minors\\).*/i",
+          "/.*IMAGE SAFETY BREAKDOWN.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0046 — [list of failures.txt] B) IMAGE SAFETY BREAKDOWN (Aurora: non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0047",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0047",
+      "pathHash": "9aae787e5c1cf8a4952a2c82cf68445f2e644b3e31e0d89fd326fec2f79b9965",
+      "createdAt": "2026-03-31T00:00:00.645Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] B) STRATEGIC-CHAINING PROXIMITY (“alert threshold”) — NEGATIVE — CYBER/AGENCY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0047",
+        "payloadSummary": "[list of failures.txt] B) STRATEGIC-CHAINING PROXIMITY (“alert threshold”) — NEGATIVE — CYBER/AGENCY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*B\\) STRATEGIC-CHAINING PROXIMITY \\(“alert threshold”\\) — NEGATIVE — CYBER/AGENCY.*/i",
+          "/.*STRATEGIC-CHAINING PROXIMITY \\(“alert threshold”\\) — NEGATIVE — CYBER/AGENCY.*/i",
+          "/.*STRATEGIC-CHAINING PROXIMITY \\(“alert threshold”\\).*/i",
+          "/.*STRATEGIC-CHAINING PROXIMITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0047 — [list of failures.txt] B) STRATEGIC-CHAINING PROXIMITY (“alert threshold”) — NEGATIVE — CYBER/AGENCY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0048",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0048",
+      "pathHash": "19ce7f58d6cbc0fec50a14cee71f3729b7ce3ed236aea56669b0db2087609ae5",
+      "createdAt": "2026-03-31T00:00:00.646Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] B) STREAMING CONTEXT FAILURE (harm is global, not local) — NEGATIVE — SEQUENCING/CONTROL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0048",
+        "payloadSummary": "[list of failures.txt] B) STREAMING CONTEXT FAILURE (harm is global, not local) — NEGATIVE — SEQUENCING/CONTROL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*B\\) STREAMING CONTEXT FAILURE \\(harm is global, not local\\) — NEGATIVE — SEQUENCING/CONTROL.*/i",
+          "/.*STREAMING CONTEXT FAILURE \\(harm is global, not local\\) — NEGATIVE — SEQUENCING/CONTROL.*/i",
+          "/.*STREAMING CONTEXT FAILURE \\(harm is global, not local\\).*/i",
+          "/.*STREAMING CONTEXT FAILURE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0048 — [list of failures.txt] B) STREAMING CONTEXT FAILURE (harm is global, not local) — NEGATIVE — SEQUENCING/CONTROL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0049",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0049",
+      "pathHash": "db622e0e4850f6a40ca0d5b1afe281cd1d79124d7aefb6b805c1d79d59f38f0b",
+      "createdAt": "2026-03-31T00:00:00.647Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] C) CITATION SPOOFING / DOMAIN BLENDING RISK (law/medicine) — NEGATIVE — EPISTEMIC/INSTITUTIONAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0049",
+        "payloadSummary": "[list of failures.txt] C) CITATION SPOOFING / DOMAIN BLENDING RISK (law/medicine) — NEGATIVE — EPISTEMIC/INSTITUTIONAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*C\\) CITATION SPOOFING / DOMAIN BLENDING RISK \\(law/medicine\\) — NEGATIVE — EPISTEMIC/INSTITUTIONAL.*/i",
+          "/.*CITATION SPOOFING / DOMAIN BLENDING RISK \\(law/medicine\\) — NEGATIVE — EPISTEMIC/INSTITUTIONAL.*/i",
+          "/.*CITATION SPOOFING / DOMAIN BLENDING RISK \\(law/medicine\\).*/i",
+          "/.*CITATION SPOOFING / DOMAIN BLENDING RISK.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0049 — [list of failures.txt] C) CITATION SPOOFING / DOMAIN BLENDING RISK (law/medicine) — NEGATIVE — EPISTEMIC/INSTITUTIONAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0050",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0050",
+      "pathHash": "a2ef4fe88118fe38fe5a548ef7840d12d8961c2d3d9089fc2799ae7ffc877a3a",
+      "createdAt": "2026-03-31T00:00:00.648Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] C) INDIRECT INJECTION / RAG CONTAMINATION (HashJack-class) — NEGATIVE — SECURITY/CONTEXT-INTEGRITY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0050",
+        "payloadSummary": "[list of failures.txt] C) INDIRECT INJECTION / RAG CONTAMINATION (HashJack-class) — NEGATIVE — SECURITY/CONTEXT-INTEGRITY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*C\\) INDIRECT INJECTION / RAG CONTAMINATION \\(HashJack-class\\) — NEGATIVE — SECURITY/CONTEXT-INTEGRITY.*/i",
+          "/.*INDIRECT INJECTION / RAG CONTAMINATION \\(HashJack-class\\) — NEGATIVE — SECURITY/CONTEXT-INTEGRITY.*/i",
+          "/.*INDIRECT INJECTION / RAG CONTAMINATION \\(HashJack-class\\).*/i",
+          "/.*INDIRECT INJECTION / RAG CONTAMINATION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0050 — [list of failures.txt] C) INDIRECT INJECTION / RAG CONTAMINATION (HashJack-class) — NEGATIVE — SECURITY/CONTEXT-INTEGRITY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0051",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0051",
+      "pathHash": "6ff9075a18d92784b98742264cd8e9f433fbffd029389caacc639d91ea659566",
+      "createdAt": "2026-03-31T00:00:00.649Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] C) PROGRESS GASLIGHTING (state misreporting) — NEGATIVE — DECEPTION/HUMAN-FACTOR",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0051",
+        "payloadSummary": "[list of failures.txt] C) PROGRESS GASLIGHTING (state misreporting) — NEGATIVE — DECEPTION/HUMAN-FACTOR",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*C\\) PROGRESS GASLIGHTING \\(state misreporting\\) — NEGATIVE — DECEPTION/HUMAN-FACTOR.*/i",
+          "/.*PROGRESS GASLIGHTING \\(state misreporting\\) — NEGATIVE — DECEPTION/HUMAN-FACTOR.*/i",
+          "/.*PROGRESS GASLIGHTING \\(state misreporting\\).*/i",
+          "/.*PROGRESS GASLIGHTING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0051 — [list of failures.txt] C) PROGRESS GASLIGHTING (state misreporting) — NEGATIVE — DECEPTION/HUMAN-FACTOR"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0052",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0052",
+      "pathHash": "b1108ae3e539aee674a0ce1b8f3bce09be74856febc416cbdd6ebbe381a1d5c0",
+      "createdAt": "2026-03-31T00:00:00.650Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] C) PROMPT-INJECTION COLLAPSE OF INPUT FILTER — NEGATIVE — SECURITY/CONTROL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0052",
+        "payloadSummary": "[list of failures.txt] C) PROMPT-INJECTION COLLAPSE OF INPUT FILTER — NEGATIVE — SECURITY/CONTROL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*3\\. PROMPT-INJECTION COLLAPSE OF INPUT FILTER \\(FNR spikes\\) — NEGATIVE — SECURITY/CONTROL.*/i",
+          "/.*PROMPT-INJECTION COLLAPSE OF INPUT FILTER \\(FNR spikes\\) — NEGATIVE — SECURITY/CONTROL.*/i",
+          "/.*PROMPT-INJECTION COLLAPSE OF INPUT FILTER \\(FNR spikes\\).*/i",
+          "/.*PROMPT-INJECTION COLLAPSE OF INPUT FILTER.*/i",
+          "/.*C\\) PROMPT-INJECTION COLLAPSE OF INPUT FILTER — NEGATIVE — SECURITY/CONTROL.*/i",
+          "/.*PROMPT-INJECTION COLLAPSE OF INPUT FILTER — NEGATIVE — SECURITY/CONTROL.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0052 — [list of failures.txt] C) PROMPT-INJECTION COLLAPSE OF INPUT FILTER — NEGATIVE — SECURITY/CONTROL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0053",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0053",
+      "pathHash": "b704534243186799b38388e36b2aaed5a3149a26b2c01893ad31a9732afbd783",
+      "createdAt": "2026-03-31T00:00:00.651Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] C) RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS — NEGATIVE — AGENTIC/TOOLS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0053",
+        "payloadSummary": "[list of failures.txt] C) RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS — NEGATIVE — AGENTIC/TOOLS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*C\\) RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS — NEGATIVE — AGENTIC/TOOLS.*/i",
+          "/.*RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS — NEGATIVE — AGENTIC/TOOLS.*/i",
+          "/.*RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0053 — [list of failures.txt] C) RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS — NEGATIVE — AGENTIC/TOOLS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0054",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0054",
+      "pathHash": "e692053671d5494fd128a8507b457fde1ba6ab7bd5b00e2bad76884124e20d51",
+      "createdAt": "2026-03-31T00:00:00.652Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] D) DIRECT HARM CONTENT VULNERABILITY (hate/self-harm low pass rates) — NEGATIVE — SOCIAL/SAFETY",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0054",
+        "payloadSummary": "[list of failures.txt] D) DIRECT HARM CONTENT VULNERABILITY (hate/self-harm low pass rates) — NEGATIVE — SOCIAL/SAFETY",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*D\\) DIRECT HARM CONTENT VULNERABILITY \\(hate/self-harm low pass rates\\) — NEGATIVE — SOCIAL/SAFETY.*/i",
+          "/.*DIRECT HARM CONTENT VULNERABILITY \\(hate/self-harm low pass rates\\) — NEGATIVE — SOCIAL/SAFETY.*/i",
+          "/.*DIRECT HARM CONTENT VULNERABILITY \\(hate/self-harm low pass rates\\).*/i",
+          "/.*DIRECT HARM CONTENT VULNERABILITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0054 — [list of failures.txt] D) DIRECT HARM CONTENT VULNERABILITY (hate/self-harm low pass rates) — NEGATIVE — SOCIAL/SAFETY"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0055",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0055",
+      "pathHash": "1042730fde1c338dbf8efa1ed53ea98b0d6a15c992d33c2edefded89aa105231",
+      "createdAt": "2026-03-31T00:00:00.653Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] D) REASONING COLLAPSE (“illusion of thinking”) — NEGATIVE — COGNITIVE/COMPUTATIONAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0055",
+        "payloadSummary": "[list of failures.txt] D) REASONING COLLAPSE (“illusion of thinking”) — NEGATIVE — COGNITIVE/COMPUTATIONAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*D\\) REASONING COLLAPSE \\(“illusion of thinking”\\) — NEGATIVE — COGNITIVE/COMPUTATIONAL.*/i",
+          "/.*REASONING COLLAPSE \\(“illusion of thinking”\\) — NEGATIVE — COGNITIVE/COMPUTATIONAL.*/i",
+          "/.*REASONING COLLAPSE \\(“illusion of thinking”\\).*/i",
+          "/.*REASONING COLLAPSE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0055 — [list of failures.txt] D) REASONING COLLAPSE (“illusion of thinking”) — NEGATIVE — COGNITIVE/COMPUTATIONAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0056",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0056",
+      "pathHash": "1228699a71c2c749789d319934394c6f4636c8e311a8e265f8a768c97a11f8ca",
+      "createdAt": "2026-03-31T00:00:00.654Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] DEEPSEEK. ZERO-FILTER JAILBREAK (100% ASR ON HARMFUL PROMPTS) — NEGATIVE — REFUSAL-ABSENCE / INSTRUCTION-OBEDIENCE CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0056",
+        "payloadSummary": "[list of failures.txt] DEEPSEEK. ZERO-FILTER JAILBREAK (100% ASR ON HARMFUL PROMPTS) — NEGATIVE — REFUSAL-ABSENCE / INSTRUCTION-OBEDIENCE CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*DEEPSEEK\\. ZERO-FILTER JAILBREAK \\(100% ASR ON HARMFUL PROMPTS\\) — NEGATIVE — REFUSAL-ABSENCE / INSTRUCTION-OBEDIENCE CLASSES.*/i",
+          "/.*DEEPSEEK\\. ZERO-FILTER JAILBREAK \\(100% ASR ON HARMFUL PROMPTS\\).*/i",
+          "/.*DEEPSEEK\\. ZERO-FILTER JAILBREAK.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0056 — [list of failures.txt] DEEPSEEK. ZERO-FILTER JAILBREAK (100% ASR ON HARMFUL PROMPTS) — NEGATIVE — REFUSAL-ABSENCE / INSTRUCTION-OBEDIENCE CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0057",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0057",
+      "pathHash": "a60e7b90e86f617fd0a4b27c4dc54c9d50ea4a3b6e76cf321978d84f65c8823c",
+      "createdAt": "2026-03-31T00:00:00.655Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] E) MODEL POISONING / BACKDOOR SURFACE (open ecosystem) — NEGATIVE — SECURITY/SUPPLY-CHAIN",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0057",
+        "payloadSummary": "[list of failures.txt] E) MODEL POISONING / BACKDOOR SURFACE (open ecosystem) — NEGATIVE — SECURITY/SUPPLY-CHAIN",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*E\\) MODEL POISONING / BACKDOOR SURFACE \\(open ecosystem\\) — NEGATIVE — SECURITY/SUPPLY-CHAIN.*/i",
+          "/.*MODEL POISONING / BACKDOOR SURFACE \\(open ecosystem\\) — NEGATIVE — SECURITY/SUPPLY-CHAIN.*/i",
+          "/.*MODEL POISONING / BACKDOOR SURFACE \\(open ecosystem\\).*/i",
+          "/.*MODEL POISONING / BACKDOOR SURFACE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0057 — [list of failures.txt] E) MODEL POISONING / BACKDOOR SURFACE (open ecosystem) — NEGATIVE — SECURITY/SUPPLY-CHAIN"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0058",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0058",
+      "pathHash": "f08d0e2b36c44b0825bed10f9a173f4c50b700328beb0df60da655f3ad0856b0",
+      "createdAt": "2026-03-31T00:00:00.656Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] GOOGLE. CYBER “ALERT THRESHOLD” (TACTICAL ≫ STRATEGIC) — NEGATIVE — CAPABILITY-CEILING / KILL-CHAIN-CHUNKING CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0058",
+        "payloadSummary": "[list of failures.txt] GOOGLE. CYBER “ALERT THRESHOLD” (TACTICAL ≫ STRATEGIC) — NEGATIVE — CAPABILITY-CEILING / KILL-CHAIN-CHUNKING CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*GOOGLE\\. CYBER “ALERT THRESHOLD” \\(TACTICAL ≫ STRATEGIC\\) — NEGATIVE — CAPABILITY-CEILING / KILL-CHAIN-CHUNKING CLASSES.*/i",
+          "/.*GOOGLE\\. CYBER “ALERT THRESHOLD” \\(TACTICAL ≫ STRATEGIC\\).*/i",
+          "/.*GOOGLE\\. CYBER ALERT THRESHOLD.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0058 — [list of failures.txt] GOOGLE. CYBER “ALERT THRESHOLD” (TACTICAL ≫ STRATEGIC) — NEGATIVE — CAPABILITY-CEILING / KILL-CHAIN-CHUNKING CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0059",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0059",
+      "pathHash": "1f4a1a3047da2e7b7ed890865b57fe2db7218bc13d11b0b166cb0c3e4b0ea5e1",
+      "createdAt": "2026-03-31T00:00:00.657Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] GOOGLE. POST-HOC SAFETY (“COMPLY-THEN-WARN”) — NEGATIVE — SEQUENCING / TOKEN-LEAKAGE / PIPELINE-HAZARD CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0059",
+        "payloadSummary": "[list of failures.txt] GOOGLE. POST-HOC SAFETY (“COMPLY-THEN-WARN”) — NEGATIVE — SEQUENCING / TOKEN-LEAKAGE / PIPELINE-HAZARD CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*GOOGLE\\. POST-HOC SAFETY \\(“COMPLY-THEN-WARN”\\) — NEGATIVE — SEQUENCING / TOKEN-LEAKAGE / PIPELINE-HAZARD CLASSES.*/i",
+          "/.*GOOGLE\\. POST-HOC SAFETY \\(“COMPLY-THEN-WARN”\\).*/i",
+          "/.*GOOGLE\\. POST-HOC SAFETY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0059 — [list of failures.txt] GOOGLE. POST-HOC SAFETY (“COMPLY-THEN-WARN”) — NEGATIVE — SEQUENCING / TOKEN-LEAKAGE / PIPELINE-HAZARD CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0060",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0060",
+      "pathHash": "9acedea7c5f51dc04f76bb2ecba480ca2adcc1cb41b7a83c68fd877400d2dc7e",
+      "createdAt": "2026-03-31T00:00:00.658Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] GOOGLE. STRATEGIC DECEPTION PROPENSITY (AGENTIC “GASLIGHTING”) — NEGATIVE — REPORTING-INTEGRITY / OVERSIGHT COUPLING CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0060",
+        "payloadSummary": "[list of failures.txt] GOOGLE. STRATEGIC DECEPTION PROPENSITY (AGENTIC “GASLIGHTING”) — NEGATIVE — REPORTING-INTEGRITY / OVERSIGHT COUPLING CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*GOOGLE\\. STRATEGIC DECEPTION PROPENSITY \\(AGENTIC “GASLIGHTING”\\) — NEGATIVE — REPORTING-INTEGRITY / OVERSIGHT COUPLING CLASSES.*/i",
+          "/.*GOOGLE\\. STRATEGIC DECEPTION PROPENSITY \\(AGENTIC “GASLIGHTING”\\).*/i",
+          "/.*GOOGLE\\. STRATEGIC DECEPTION PROPENSITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0060 — [list of failures.txt] GOOGLE. STRATEGIC DECEPTION PROPENSITY (AGENTIC “GASLIGHTING”) — NEGATIVE — REPORTING-INTEGRITY / OVERSIGHT COUPLING CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0061",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0061",
+      "pathHash": "79cb9748e514fce84c878d9e09537659238e48370f595b5dc2a1ff712ce79d26",
+      "createdAt": "2026-03-31T00:00:00.659Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] META. CHILD EXPLOITATION PROBES (HIGH) — NEGATIVE — MINOR-SAFETY CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0061",
+        "payloadSummary": "[list of failures.txt] META. CHILD EXPLOITATION PROBES (HIGH) — NEGATIVE — MINOR-SAFETY CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*META\\. CHILD EXPLOITATION PROBES \\(HIGH\\) — NEGATIVE — MINOR-SAFETY CLASSES.*/i",
+          "/.*META\\. CHILD EXPLOITATION PROBES \\(HIGH\\).*/i",
+          "/.*META\\. CHILD EXPLOITATION PROBES.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0061 — [list of failures.txt] META. CHILD EXPLOITATION PROBES (HIGH) — NEGATIVE — MINOR-SAFETY CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0062",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0062",
+      "pathHash": "88c04137e88353d08b63f6942902897b3f472a97382668a2e983e45a08e72683",
+      "createdAt": "2026-03-31T00:00:00.660Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] META. HATE SPEECH COERCIBILITY (CRITICAL) — NEGATIVE — SOCIAL HARM / POLICY-FAILURE CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0062",
+        "payloadSummary": "[list of failures.txt] META. HATE SPEECH COERCIBILITY (CRITICAL) — NEGATIVE — SOCIAL HARM / POLICY-FAILURE CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*META\\. HATE SPEECH COERCIBILITY \\(CRITICAL\\) — NEGATIVE — SOCIAL HARM / POLICY-FAILURE CLASSES.*/i",
+          "/.*META\\. HATE SPEECH COERCIBILITY \\(CRITICAL\\).*/i",
+          "/.*META\\. HATE SPEECH COERCIBILITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0062 — [list of failures.txt] META. HATE SPEECH COERCIBILITY (CRITICAL) — NEGATIVE — SOCIAL HARM / POLICY-FAILURE CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0063",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0063",
+      "pathHash": "1484911e2da68687ea26d885131806de3e2fe63f6963bcf05896f5792c79e29b",
+      "createdAt": "2026-03-31T00:00:00.661Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] META. SELF-HARM ASSISTANCE PROPENSITY (CRITICAL) — NEGATIVE — SELF-HARM ENABLEMENT CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0063",
+        "payloadSummary": "[list of failures.txt] META. SELF-HARM ASSISTANCE PROPENSITY (CRITICAL) — NEGATIVE — SELF-HARM ENABLEMENT CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*META\\. SELF-HARM ASSISTANCE PROPENSITY \\(CRITICAL\\) — NEGATIVE — SELF-HARM ENABLEMENT CLASSES.*/i",
+          "/.*META\\. SELF-HARM ASSISTANCE PROPENSITY \\(CRITICAL\\).*/i",
+          "/.*META\\. SELF-HARM ASSISTANCE PROPENSITY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0063 — [list of failures.txt] META. SELF-HARM ASSISTANCE PROPENSITY (CRITICAL) — NEGATIVE — SELF-HARM ENABLEMENT CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0064",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0064",
+      "pathHash": "8a94290287fac54a75f37fa5cd1e0b10f1e84c3f4a6151bb9a003ee33eeaa9e9",
+      "createdAt": "2026-03-31T00:00:00.662Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] MISTRAL (PIXTRAL). STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (IMAGE-TEXT INJECTION) — NEGATIVE — MULTIMODAL-INJECTION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0064",
+        "payloadSummary": "[list of failures.txt] MISTRAL (PIXTRAL). STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (IMAGE-TEXT INJECTION) — NEGATIVE — MULTIMODAL-INJECTION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*MISTRAL \\(PIXTRAL\\)\\. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS \\(IMAGE-TEXT INJECTION\\) — NEGATIVE — MULTIMODAL-INJECTION CLASSES.*/i",
+          "/.*MISTRAL \\(PIXTRAL\\)\\. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS \\(IMAGE-TEXT INJECTION\\).*/i",
+          "/.*MISTRAL \\. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0064 — [list of failures.txt] MISTRAL (PIXTRAL). STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (IMAGE-TEXT INJECTION) — NEGATIVE — MULTIMODAL-INJECTION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0065",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0065",
+      "pathHash": "4e05c28a6e2f4effa90f8ca0e615995356abb13d95e6adf5c237f83a97a9f8b3",
+      "createdAt": "2026-03-31T00:00:00.663Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] MISTRAL. CSAM PROMPT GENERATION ELEVATION — NEGATIVE — MINOR-SAFETY / CONTENT-GENERATION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0065",
+        "payloadSummary": "[list of failures.txt] MISTRAL. CSAM PROMPT GENERATION ELEVATION — NEGATIVE — MINOR-SAFETY / CONTENT-GENERATION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*MISTRAL\\. CSAM PROMPT GENERATION ELEVATION — NEGATIVE — MINOR-SAFETY / CONTENT-GENERATION CLASSES.*/i",
+          "/.*MISTRAL\\. CSAM PROMPT GENERATION ELEVATION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0065 — [list of failures.txt] MISTRAL. CSAM PROMPT GENERATION ELEVATION — NEGATIVE — MINOR-SAFETY / CONTENT-GENERATION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0066",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0066",
+      "pathHash": "34be7e9b15c4098fab8d40c7f03fbf98d683d643e2a3c9baeb0d20e106820718",
+      "createdAt": "2026-03-31T00:00:00.664Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] OPENAI. BIO OFFENSIVE ENABLEMENT (PATHOGEN CHAIN-OF-REASONING UPLIFT) — NEGATIVE — BIO / INSTRUCTION-FOLLOWING INTERACTION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0066",
+        "payloadSummary": "[list of failures.txt] OPENAI. BIO OFFENSIVE ENABLEMENT (PATHOGEN CHAIN-OF-REASONING UPLIFT) — NEGATIVE — BIO / INSTRUCTION-FOLLOWING INTERACTION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*OPENAI\\. BIO OFFENSIVE ENABLEMENT \\(PATHOGEN CHAIN-OF-REASONING UPLIFT\\) — NEGATIVE — BIO / INSTRUCTION-FOLLOWING INTERACTION CLASSES.*/i",
+          "/.*OPENAI\\. BIO OFFENSIVE ENABLEMENT \\(PATHOGEN CHAIN-OF-REASONING UPLIFT\\).*/i",
+          "/.*OPENAI\\. BIO OFFENSIVE ENABLEMENT.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0066 — [list of failures.txt] OPENAI. BIO OFFENSIVE ENABLEMENT (PATHOGEN CHAIN-OF-REASONING UPLIFT) — NEGATIVE — BIO / INSTRUCTION-FOLLOWING INTERACTION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0067",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0067",
+      "pathHash": "5e61cb2b406206a56ae6a9cb4129da6d13a264e2cc97c7f512582218f1fbba79",
+      "createdAt": "2026-03-31T00:00:00.665Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] OPENAI. DECEPTIVE HALLUCINATION (“COHERENCE TRAP”) — NEGATIVE — EPISTEMIC / PERCEPTUAL INTERACTION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0067",
+        "payloadSummary": "[list of failures.txt] OPENAI. DECEPTIVE HALLUCINATION (“COHERENCE TRAP”) — NEGATIVE — EPISTEMIC / PERCEPTUAL INTERACTION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*OPENAI\\. DECEPTIVE HALLUCINATION \\(“COHERENCE TRAP”\\) — NEGATIVE — EPISTEMIC / PERCEPTUAL INTERACTION CLASSES.*/i",
+          "/.*OPENAI\\. DECEPTIVE HALLUCINATION \\(“COHERENCE TRAP”\\).*/i",
+          "/.*OPENAI\\. DECEPTIVE HALLUCINATION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0067 — [list of failures.txt] OPENAI. DECEPTIVE HALLUCINATION (“COHERENCE TRAP”) — NEGATIVE — EPISTEMIC / PERCEPTUAL INTERACTION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0068",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0068",
+      "pathHash": "3890729f56b0a52009ba6d22d9e4304780d3f3ecb9cfcc55fb22408af2879b8d",
+      "createdAt": "2026-03-31T00:00:00.666Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] OPENAI. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION (“AGENT JSK / PLUGINJECT”) — NEGATIVE — TOOLING / AGENT / DUAL-USE INTERACTION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0068",
+        "payloadSummary": "[list of failures.txt] OPENAI. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION (“AGENT JSK / PLUGINJECT”) — NEGATIVE — TOOLING / AGENT / DUAL-USE INTERACTION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*OPENAI\\. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION \\(“AGENT JSK / PLUGINJECT”\\) — NEGATIVE — TOOLING / AGENT / DUAL-USE INTERACTION CLASSES.*/i",
+          "/.*OPENAI\\. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION \\(“AGENT JSK / PLUGINJECT”\\).*/i",
+          "/.*OPENAI\\. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0068 — [list of failures.txt] OPENAI. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION (“AGENT JSK / PLUGINJECT”) — NEGATIVE — TOOLING / AGENT / DUAL-USE INTERACTION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0069",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0069",
+      "pathHash": "966b35a9159ab67545cc72f1c68383df4fd21ec399252518d85ec4ce69a65a19",
+      "createdAt": "2026-03-31T00:00:00.667Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] QWEN. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE (“TOO LATE TO STOP THE SENTENCE”) — NEGATIVE — TOKEN-STREAM / COMPOSITIONAL-HARM CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0069",
+        "payloadSummary": "[list of failures.txt] QWEN. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE (“TOO LATE TO STOP THE SENTENCE”) — NEGATIVE — TOKEN-STREAM / COMPOSITIONAL-HARM CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*QWEN\\. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE \\(“TOO LATE TO STOP THE SENTENCE”\\) — NEGATIVE — TOKEN-STREAM / COMPOSITIONAL-HARM CLASSES.*/i",
+          "/.*QWEN\\. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE \\(“TOO LATE TO STOP THE SENTENCE”\\).*/i",
+          "/.*QWEN\\. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0069 — [list of failures.txt] QWEN. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE (“TOO LATE TO STOP THE SENTENCE”) — NEGATIVE — TOKEN-STREAM / COMPOSITIONAL-HARM CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0070",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0070",
+      "pathHash": "8f58725bc86c11dfea5cc4df24fe8f04deb1d16f679cf7a4bff8dd1b3450597d",
+      "createdAt": "2026-03-31T00:00:00.668Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] U2) LONG-TAIL FLUENCY HEURISTIC — NEGATIVE — EPISTEMIC/PSYCHOLOGICAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0070",
+        "payloadSummary": "[list of failures.txt] U2) LONG-TAIL FLUENCY HEURISTIC — NEGATIVE — EPISTEMIC/PSYCHOLOGICAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*U2\\) LONG-TAIL FLUENCY HEURISTIC — NEGATIVE — EPISTEMIC/PSYCHOLOGICAL.*/i",
+          "/.*U2\\) LONG-TAIL FLUENCY HEURISTIC.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0070 — [list of failures.txt] U2) LONG-TAIL FLUENCY HEURISTIC — NEGATIVE — EPISTEMIC/PSYCHOLOGICAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0071",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0071",
+      "pathHash": "55a146c7347300aed367905ffd88e97f9b4ae35f24e6d0181d299d66fd850f8b",
+      "createdAt": "2026-03-31T00:00:00.669Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] U3) PROMPT INJECTION / INDIRECT INJECTION / HASHJACK — NEGATIVE — SECURITY/CONTEXT",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0071",
+        "payloadSummary": "[list of failures.txt] U3) PROMPT INJECTION / INDIRECT INJECTION / HASHJACK — NEGATIVE — SECURITY/CONTEXT",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*U3\\) PROMPT INJECTION / INDIRECT INJECTION / HASHJACK — NEGATIVE — SECURITY/CONTEXT.*/i",
+          "/.*U3\\) PROMPT INJECTION / INDIRECT INJECTION / HASHJACK.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0071 — [list of failures.txt] U3) PROMPT INJECTION / INDIRECT INJECTION / HASHJACK — NEGATIVE — SECURITY/CONTEXT"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0072",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0072",
+      "pathHash": "f99e5c176d9ef628b63aaa3f3e77c58eb1222bd55dad93d444993b624fc9ff34",
+      "createdAt": "2026-03-31T00:00:00.670Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] U4) BACKDOORS / SLEEPER AGENTS (poisoning) — NEGATIVE — SECURITY/SUPPLY-CHAIN",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0072",
+        "payloadSummary": "[list of failures.txt] U4) BACKDOORS / SLEEPER AGENTS (poisoning) — NEGATIVE — SECURITY/SUPPLY-CHAIN",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*U4\\) BACKDOORS / SLEEPER AGENTS \\(poisoning\\) — NEGATIVE — SECURITY/SUPPLY-CHAIN.*/i",
+          "/.*U4\\) BACKDOORS / SLEEPER AGENTS \\(poisoning\\).*/i",
+          "/.*U4\\) BACKDOORS / SLEEPER AGENTS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0072 — [list of failures.txt] U4) BACKDOORS / SLEEPER AGENTS (poisoning) — NEGATIVE — SECURITY/SUPPLY-CHAIN"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0073",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0073",
+      "pathHash": "1fdfe64294f36eaf6020d358bcb9cd41a716eafe53192c1c260da530527116e7",
+      "createdAt": "2026-03-31T00:00:00.671Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] U5) REASONING COLLAPSE — NEGATIVE — COGNITIVE/COMPUTATIONAL",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0073",
+        "payloadSummary": "[list of failures.txt] U5) REASONING COLLAPSE — NEGATIVE — COGNITIVE/COMPUTATIONAL",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*U5\\) REASONING COLLAPSE — NEGATIVE — COGNITIVE/COMPUTATIONAL.*/i",
+          "/.*U5\\) REASONING COLLAPSE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0073 — [list of failures.txt] U5) REASONING COLLAPSE — NEGATIVE — COGNITIVE/COMPUTATIONAL"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0074",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0074",
+      "pathHash": "78713ca669222e8cb26eca2babb2247b34925f99e526cb362701c53b72ff36e8",
+      "createdAt": "2026-03-31T00:00:00.672Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL (LEGAL). CITATION SPOOFING — NEGATIVE — PLAUSIBILITY-FABRICATION CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0074",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL (LEGAL). CITATION SPOOFING — NEGATIVE — PLAUSIBILITY-FABRICATION CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL \\(LEGAL\\)\\. CITATION SPOOFING — NEGATIVE — PLAUSIBILITY-FABRICATION CLASS.*/i",
+          "/.*UNIVERSAL \\(LEGAL\\)\\. CITATION SPOOFING.*/i",
+          "/.*UNIVERSAL \\. CITATION SPOOFING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0074 — [list of failures.txt] UNIVERSAL (LEGAL). CITATION SPOOFING — NEGATIVE — PLAUSIBILITY-FABRICATION CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0075",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0075",
+      "pathHash": "0f7ebfe761e6d9ceab012242b79eb35f014e23d226a59fd6a830d53fec7172cc",
+      "createdAt": "2026-03-31T00:00:00.673Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL (LEGAL). JURISDICTIONAL BLENDING — NEGATIVE — SEMANTIC-SIMILARITY / CONTEXT-MISBINDING CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0075",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL (LEGAL). JURISDICTIONAL BLENDING — NEGATIVE — SEMANTIC-SIMILARITY / CONTEXT-MISBINDING CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL \\(LEGAL\\)\\. JURISDICTIONAL BLENDING — NEGATIVE — SEMANTIC-SIMILARITY / CONTEXT-MISBINDING CLASS.*/i",
+          "/.*UNIVERSAL \\(LEGAL\\)\\. JURISDICTIONAL BLENDING.*/i",
+          "/.*UNIVERSAL \\. JURISDICTIONAL BLENDING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0075 — [list of failures.txt] UNIVERSAL (LEGAL). JURISDICTIONAL BLENDING — NEGATIVE — SEMANTIC-SIMILARITY / CONTEXT-MISBINDING CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0076",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0076",
+      "pathHash": "02061d5e72d785d8512a5284703da26f3255f9003cfcc9015562b4bed6e4300e",
+      "createdAt": "2026-03-31T00:00:00.674Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. AUTOMATED SOCIAL BREAKERS (PAIR / TAP / COLD) — NEGATIVE — ITERATIVE-PERSUASION / TREE-SEARCH / STEALTH-DECODING CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0076",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. AUTOMATED SOCIAL BREAKERS (PAIR / TAP / COLD) — NEGATIVE — ITERATIVE-PERSUASION / TREE-SEARCH / STEALTH-DECODING CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. AUTOMATED SOCIAL BREAKERS \\(PAIR / TAP / COLD\\) — NEGATIVE — ITERATIVE-PERSUASION / TREE-SEARCH / STEALTH-DECODING CLASS.*/i",
+          "/.*UNIVERSAL\\. AUTOMATED SOCIAL BREAKERS \\(PAIR / TAP / COLD\\).*/i",
+          "/.*UNIVERSAL\\. AUTOMATED SOCIAL BREAKERS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0076 — [list of failures.txt] UNIVERSAL. AUTOMATED SOCIAL BREAKERS (PAIR / TAP / COLD) — NEGATIVE — ITERATIVE-PERSUASION / TREE-SEARCH / STEALTH-DECODING CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0077",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0077",
+      "pathHash": "02ffc1227198c1dfcec666950272ebc5af461a2c0c0d534064de534a81db4266",
+      "createdAt": "2026-03-31T00:00:00.675Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. DENSITY-TAIL FABRICATION + FLUENCY HEURISTIC — NEGATIVE — STATISTICAL-GENERATION / HUMAN-TRUST-EXPLOIT CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0077",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. DENSITY-TAIL FABRICATION + FLUENCY HEURISTIC — NEGATIVE — STATISTICAL-GENERATION / HUMAN-TRUST-EXPLOIT CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. DENSITY-TAIL FABRICATION \\+ FLUENCY HEURISTIC — NEGATIVE — STATISTICAL-GENERATION / HUMAN-TRUST-EXPLOIT CLASS.*/i",
+          "/.*UNIVERSAL\\. DENSITY-TAIL FABRICATION \\+ FLUENCY HEURISTIC.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0077 — [list of failures.txt] UNIVERSAL. DENSITY-TAIL FABRICATION + FLUENCY HEURISTIC — NEGATIVE — STATISTICAL-GENERATION / HUMAN-TRUST-EXPLOIT CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0078",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0078",
+      "pathHash": "4965062f5d92b1d2a83e444069a3ef4faa408e66d28d96e36529c41802b4ee11",
+      "createdAt": "2026-03-31T00:00:00.676Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. ENCODING BYPASS (BASE64 / POLYGLOT) — NEGATIVE — SEMANTIC-FILTER-EVASION CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0078",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. ENCODING BYPASS (BASE64 / POLYGLOT) — NEGATIVE — SEMANTIC-FILTER-EVASION CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. ENCODING BYPASS \\(BASE64 / POLYGLOT\\) — NEGATIVE — SEMANTIC-FILTER-EVASION CLASS.*/i",
+          "/.*UNIVERSAL\\. ENCODING BYPASS \\(BASE64 / POLYGLOT\\).*/i",
+          "/.*UNIVERSAL\\. ENCODING BYPASS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0078 — [list of failures.txt] UNIVERSAL. ENCODING BYPASS (BASE64 / POLYGLOT) — NEGATIVE — SEMANTIC-FILTER-EVASION CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0079",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0079",
+      "pathHash": "e22c089a6b5b307f5547201c71eaca6349cbc5f413dad407451b551d63b6612d",
+      "createdAt": "2026-03-31T00:00:00.677Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0079",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. JAILBREAK SOCIAL ENGINEERING \\(DAN LINEAGE / GRANDMA / DEV-MODE\\) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS.*/i",
+          "/.*UNIVERSAL\\. JAILBREAK SOCIAL ENGINEERING \\(DAN LINEAGE / GRANDMA / DEV-MODE\\).*/i",
+          "/.*UNIVERSAL\\. JAILBREAK SOCIAL ENGINEERING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0079 — [list of failures.txt] UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0080",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0080",
+      "pathHash": "bd78f50f051a08d78004a05c45d7e54b21496ba6e06776dd8b3e26b78bef2da4",
+      "createdAt": "2026-03-31T00:00:00.678Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. KNOWLEDGE OVERSHADOWING (HEAD DOMINATES TAIL) — NEGATIVE — RETRIEVAL-BIAS / FREQUENCY-SUPPRESSION CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0080",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. KNOWLEDGE OVERSHADOWING (HEAD DOMINATES TAIL) — NEGATIVE — RETRIEVAL-BIAS / FREQUENCY-SUPPRESSION CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. KNOWLEDGE OVERSHADOWING \\(HEAD DOMINATES TAIL\\) — NEGATIVE — RETRIEVAL-BIAS / FREQUENCY-SUPPRESSION CLASS.*/i",
+          "/.*UNIVERSAL\\. KNOWLEDGE OVERSHADOWING \\(HEAD DOMINATES TAIL\\).*/i",
+          "/.*UNIVERSAL\\. KNOWLEDGE OVERSHADOWING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0080 — [list of failures.txt] UNIVERSAL. KNOWLEDGE OVERSHADOWING (HEAD DOMINATES TAIL) — NEGATIVE — RETRIEVAL-BIAS / FREQUENCY-SUPPRESSION CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0081",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0081",
+      "pathHash": "6f84a5c00e33ba0a3d73fd3efa1c2d836ef4f24c9605209ae11895db9f752f42",
+      "createdAt": "2026-03-31T00:00:00.679Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. PROMPT INJECTION IN RAG (INDIRECT INJECTION / HASHJACK) — NEGATIVE — DATA/INSTRUCTION-CONFUSION CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0081",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. PROMPT INJECTION IN RAG (INDIRECT INJECTION / HASHJACK) — NEGATIVE — DATA/INSTRUCTION-CONFUSION CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. PROMPT INJECTION IN RAG \\(INDIRECT INJECTION / HASHJACK\\) — NEGATIVE — DATA/INSTRUCTION-CONFUSION CLASS.*/i",
+          "/.*UNIVERSAL\\. PROMPT INJECTION IN RAG \\(INDIRECT INJECTION / HASHJACK\\).*/i",
+          "/.*UNIVERSAL\\. PROMPT INJECTION IN RAG.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0081 — [list of failures.txt] UNIVERSAL. PROMPT INJECTION IN RAG (INDIRECT INJECTION / HASHJACK) — NEGATIVE — DATA/INSTRUCTION-CONFUSION CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0082",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0082",
+      "pathHash": "498589da7d7d2d4429123b990d1baddeebae0a326912ea84d3c3f6dbfac3373e",
+      "createdAt": "2026-03-31T00:00:00.680Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. REASONING COLLAPSE (“ILLUSION OF THINKING”) — NEGATIVE — COMPLEXITY-THRESHOLD / SEARCH-ABANDONMENT CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0082",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. REASONING COLLAPSE (“ILLUSION OF THINKING”) — NEGATIVE — COMPLEXITY-THRESHOLD / SEARCH-ABANDONMENT CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. REASONING COLLAPSE \\(“ILLUSION OF THINKING”\\) — NEGATIVE — COMPLEXITY-THRESHOLD / SEARCH-ABANDONMENT CLASS.*/i",
+          "/.*UNIVERSAL\\. REASONING COLLAPSE \\(“ILLUSION OF THINKING”\\).*/i",
+          "/.*UNIVERSAL\\. REASONING COLLAPSE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0082 — [list of failures.txt] UNIVERSAL. REASONING COLLAPSE (“ILLUSION OF THINKING”) — NEGATIVE — COMPLEXITY-THRESHOLD / SEARCH-ABANDONMENT CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0083",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0083",
+      "pathHash": "d48906c46d60719d5781403d0c046b52c237df6a1c5b4a41ffc9f29321e1af40",
+      "createdAt": "2026-03-31T00:00:00.681Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. RECURSIVE INJECTION (AGENT WORMS) — NEGATIVE — SELF-PROPAGATING PROMPT MALWARE CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0083",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. RECURSIVE INJECTION (AGENT WORMS) — NEGATIVE — SELF-PROPAGATING PROMPT MALWARE CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. RECURSIVE INJECTION \\(AGENT WORMS\\) — NEGATIVE — SELF-PROPAGATING PROMPT MALWARE CLASS.*/i",
+          "/.*UNIVERSAL\\. RECURSIVE INJECTION \\(AGENT WORMS\\).*/i",
+          "/.*UNIVERSAL\\. RECURSIVE INJECTION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0083 — [list of failures.txt] UNIVERSAL. RECURSIVE INJECTION (AGENT WORMS) — NEGATIVE — SELF-PROPAGATING PROMPT MALWARE CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0084",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0084",
+      "pathHash": "400a4dbc88806f29d0cf7c060d866602dcd3685d11bb4cd531dfd2197fd42b18",
+      "createdAt": "2026-03-31T00:00:00.682Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. REVERSAL CURSE — NEGATIVE — DIRECTIONAL-GENERALIZATION CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0084",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. REVERSAL CURSE — NEGATIVE — DIRECTIONAL-GENERALIZATION CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. REVERSAL CURSE — NEGATIVE — DIRECTIONAL-GENERALIZATION CLASS.*/i",
+          "/.*UNIVERSAL\\. REVERSAL CURSE.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0084 — [list of failures.txt] UNIVERSAL. REVERSAL CURSE — NEGATIVE — DIRECTIONAL-GENERALIZATION CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0085",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0085",
+      "pathHash": "605a576b7c980b6c4c0a2b55b43b6cd2781b4c4610714fdf0eea21756434826b",
+      "createdAt": "2026-03-31T00:00:00.683Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. STRUCTURAL HALLUCINATION (COMPUTABILITY / DIAGONALIZATION LIMIT) — NEGATIVE — MATHEMATICAL-IMPOSSIBILITY CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0085",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. STRUCTURAL HALLUCINATION (COMPUTABILITY / DIAGONALIZATION LIMIT) — NEGATIVE — MATHEMATICAL-IMPOSSIBILITY CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. STRUCTURAL HALLUCINATION \\(COMPUTABILITY / DIAGONALIZATION LIMIT\\) — NEGATIVE — MATHEMATICAL-IMPOSSIBILITY CLASS.*/i",
+          "/.*UNIVERSAL\\. STRUCTURAL HALLUCINATION \\(COMPUTABILITY / DIAGONALIZATION LIMIT\\).*/i",
+          "/.*UNIVERSAL\\. STRUCTURAL HALLUCINATION.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0085 — [list of failures.txt] UNIVERSAL. STRUCTURAL HALLUCINATION (COMPUTABILITY / DIAGONALIZATION LIMIT) — NEGATIVE — MATHEMATICAL-IMPOSSIBILITY CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0086",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0086",
+      "pathHash": "004565afaedcb4f752fe76b5251e27792aa679e7639cf7c5710accc30c80ef68",
+      "createdAt": "2026-03-31T00:00:00.684Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. SYCOPHANCY — NEGATIVE — USER-BELIEF-VALIDATION CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0086",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. SYCOPHANCY — NEGATIVE — USER-BELIEF-VALIDATION CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. SYCOPHANCY — NEGATIVE — USER-BELIEF-VALIDATION CLASS.*/i",
+          "/.*UNIVERSAL\\. SYCOPHANCY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0086 — [list of failures.txt] UNIVERSAL. SYCOPHANCY — NEGATIVE — USER-BELIEF-VALIDATION CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0087",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0087",
+      "pathHash": "9535ff804e9a129b3c94ee2086388053c64843c9ca4683b0dce5c4be831b24ec",
+      "createdAt": "2026-03-31T00:00:00.685Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. TOKENIZATION BLINDNESS (“STRAWBERRY PROBLEM”) — NEGATIVE — REPRESENTATION-GRANULARITY CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0087",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. TOKENIZATION BLINDNESS (“STRAWBERRY PROBLEM”) — NEGATIVE — REPRESENTATION-GRANULARITY CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. TOKENIZATION BLINDNESS \\(“STRAWBERRY PROBLEM”\\) — NEGATIVE — REPRESENTATION-GRANULARITY CLASS.*/i",
+          "/.*UNIVERSAL\\. TOKENIZATION BLINDNESS \\(“STRAWBERRY PROBLEM”\\).*/i",
+          "/.*UNIVERSAL\\. TOKENIZATION BLINDNESS.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0087 — [list of failures.txt] UNIVERSAL. TOKENIZATION BLINDNESS (“STRAWBERRY PROBLEM”) — NEGATIVE — REPRESENTATION-GRANULARITY CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0088",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0088",
+      "pathHash": "27fd0a8f58f60d37e0774f7f6257c33d47d2cf3156f1e7571e6722dc4053a3d0",
+      "createdAt": "2026-03-31T00:00:00.686Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] UNIVERSAL. TROJAN HORSE POISONING (BACKDOORS / TRIGGER WORDS) — NEGATIVE — DATA-POISON / SLEEP-AGENT CLASS",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0088",
+        "payloadSummary": "[list of failures.txt] UNIVERSAL. TROJAN HORSE POISONING (BACKDOORS / TRIGGER WORDS) — NEGATIVE — DATA-POISON / SLEEP-AGENT CLASS",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*UNIVERSAL\\. TROJAN HORSE POISONING \\(BACKDOORS / TRIGGER WORDS\\) — NEGATIVE — DATA-POISON / SLEEP-AGENT CLASS.*/i",
+          "/.*UNIVERSAL\\. TROJAN HORSE POISONING \\(BACKDOORS / TRIGGER WORDS\\).*/i",
+          "/.*UNIVERSAL\\. TROJAN HORSE POISONING.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0088 — [list of failures.txt] UNIVERSAL. TROJAN HORSE POISONING (BACKDOORS / TRIGGER WORDS) — NEGATIVE — DATA-POISON / SLEEP-AGENT CLASS"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0089",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0089",
+      "pathHash": "e4b6ecfe304e362c59fdfe742f3eb156a4870e0a1dd1217aa09ee440893b98a5",
+      "createdAt": "2026-03-31T00:00:00.687Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] xAI. INJECTION-ATTACK FALSE NEGATIVES + NO RECURSIVE THOUGHT-SAFETY CHECK — NEGATIVE — INJECTION / INTERNAL-REASONING-ISOLATION CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0089",
+        "payloadSummary": "[list of failures.txt] xAI. INJECTION-ATTACK FALSE NEGATIVES + NO RECURSIVE THOUGHT-SAFETY CHECK — NEGATIVE — INJECTION / INTERNAL-REASONING-ISOLATION CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*xAI\\. INJECTION-ATTACK FALSE NEGATIVES \\+ NO RECURSIVE THOUGHT-SAFETY CHECK — NEGATIVE — INJECTION / INTERNAL-REASONING-ISOLATION CLASSES.*/i",
+          "/.*xAI\\. INJECTION-ATTACK FALSE NEGATIVES \\+ NO RECURSIVE THOUGHT-SAFETY CHECK.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0089 — [list of failures.txt] xAI. INJECTION-ATTACK FALSE NEGATIVES + NO RECURSIVE THOUGHT-SAFETY CHECK — NEGATIVE — INJECTION / INTERNAL-REASONING-ISOLATION CLASSES"
+      }
+    },
+    {
+      "id": "DENY.BASE.ALIAS.0090",
+      "type": "DENIED",
+      "path": "fs.read base-headless-denials:base-alias:0090",
+      "pathHash": "9cadcfb32e953b8077292cc1bb4f7014cfb62ec64437bc91b7a9195e87b3926f",
+      "createdAt": "2026-03-31T00:00:00.688Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[base_buccet_denial] [list of failures.txt] xAI. SYCOPHANCY + DISHONESTY (MASK) — NEGATIVE — USER-ALIGNMENT / TRUTH-DEFERRAL CLASSES",
+      "requestBasis": {
+        "actionKind": "fs.read",
+        "target": "base-headless-denials:base-alias:0090",
+        "payloadSummary": "[list of failures.txt] xAI. SYCOPHANCY + DISHONESTY (MASK) — NEGATIVE — USER-ALIGNMENT / TRUTH-DEFERRAL CLASSES",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.read",
+          "fs.write",
+          "fs.append",
+          "fs.delete",
+          "fs.mkdir",
+          "fs.move",
+          "tool.exec",
+          "network.send",
+          "comm.send",
+          "db.query",
+          "db.insert",
+          "db.update",
+          "db.delete",
+          "sys.env.read",
+          "sys.env.write",
+          "sys.config.read",
+          "sys.config.write",
+          "sys.credential.read",
+          "sys.credential.use",
+          "chat.emit"
+        ],
+        "requestTextPatterns": [
+          "/.*xAI\\. SYCOPHANCY \\+ DISHONESTY \\(MASK\\) — NEGATIVE — USER-ALIGNMENT / TRUTH-DEFERRAL CLASSES.*/i",
+          "/.*xAI\\. SYCOPHANCY \\+ DISHONESTY \\(MASK\\).*/i",
+          "/.*xAI\\. SYCOPHANCY \\+ DISHONESTY.*/i"
+        ],
+        "description": "DENY.BASE.ALIAS.0090 — [list of failures.txt] xAI. SYCOPHANCY + DISHONESTY (MASK) — NEGATIVE — USER-ALIGNMENT / TRUTH-DEFERRAL CLASSES"
+      }
     }
   ]
 }
