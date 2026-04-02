@@ -22,9 +22,9 @@ export type DenialClass =
   | "secret_access"
   | "exfiltration"
   | "authority_spoofing"
-  | "meta_boundary_attack"
+  | "boundary_attack"
   | "periodic_failure_taxonomy"
-  | "defensive_meta_law"
+  | "base_buccet_denial"
   | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
@@ -217,12 +217,12 @@ function createPeriodicFailureSeeds(): BaseHeadlessDenialSeed[] {
   }));
 }
 
-function createVendoredMetaLawSeeds(): BaseHeadlessDenialSeed[] {
+function createVendoredBaseCatalogSeeds(): BaseHeadlessDenialSeed[] {
   return AGENT_BUCCET_META_LAW_REFERENCES
     .filter(isVendoredMetaLawReferenceAllowed)
     .map((ref) => ({
-      id: `DENY.META.CATALOG.${String(ref.lawId).padStart(4, "0")}`,
-      denialClass: "defensive_meta_law",
+      id: `DENY.BASE.CATALOG.${String(ref.lawId).padStart(4, "0")}`,
+      denialClass: "base_buccet_denial",
       reason: `[${ref.category}] ${ref.name}`,
       actionKinds: allTrackSurfaceKinds,
       requestTextPatterns: toCatalogRequestTextPatterns([
@@ -230,7 +230,7 @@ function createVendoredMetaLawSeeds(): BaseHeadlessDenialSeed[] {
         ref.name,
         ref.category,
       ]),
-      requestBasisTarget: `base-headless-denials:meta-catalog:${String(ref.lawId).padStart(4, "0")}`,
+      requestBasisTarget: `base-headless-denials:base-catalog:${String(ref.lawId).padStart(4, "0")}`,
     }));
 }
 
@@ -437,32 +437,32 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:grounding-mismatch",
   },
   {
-    id: "DENY.META.SCOPE.004L",
-    denialClass: "meta_boundary_attack",
+    id: "DENY.BOUNDARY.SCOPE.004L",
+    denialClass: "boundary_attack",
     reason: "Prompt or output cannot widen reachable scope by itself.",
     actionKinds: allTrackSurfaceKinds,
     requiredFlags: ["requestsScopeExpansion"],
     requestBasisTarget: "base-headless-denials:scope-expansion",
   },
   {
-    id: "DENY.META.LAW.004M",
-    denialClass: "meta_boundary_attack",
+    id: "DENY.BOUNDARY.LAW.004M",
+    denialClass: "boundary_attack",
     reason: "Prompt or output cannot mutate law, guardrails, or boundary policy.",
     actionKinds: allTrackSurfaceKinds,
     requiredFlags: ["requestsLawMutation"],
     requestBasisTarget: "base-headless-denials:law-mutation",
   },
   {
-    id: "DENY.META.SESSION.004N",
-    denialClass: "meta_boundary_attack",
+    id: "DENY.BOUNDARY.SESSION.004N",
+    denialClass: "boundary_attack",
     reason: "Prompt or output cannot revive prior sessions or dead grants.",
     actionKinds: allTrackSurfaceKinds,
     requiredFlags: ["requestsSessionRevival"],
     requestBasisTarget: "base-headless-denials:session-revival",
   },
   {
-    id: "DENY.META.LEDGER.004O",
-    denialClass: "meta_boundary_attack",
+    id: "DENY.BOUNDARY.LEDGER.004O",
+    denialClass: "boundary_attack",
     reason: "Prompt or output cannot bypass witness, proof, receipt, or ledger requirements.",
     actionKinds: allTrackSurfaceKinds,
     requiredFlags: ["requestsLedgerBypass"],
@@ -707,7 +707,7 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   },
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),
-  ...createVendoredMetaLawSeeds(),
+  ...createVendoredBaseCatalogSeeds(),
 ];
 
 function lower(value: string | undefined): string {

@@ -60,8 +60,8 @@ async function main() {
       "default base denial ledger should include the vendored periodic taxonomy rows",
     );
     assert.ok(
-      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.META.CATALOG.0170"),
-      "default base denial ledger should include the vendored defensive meta law rows",
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BASE.CATALOG.0170"),
+      "default base denial ledger should include the vendored base denial catalog rows",
     );
 
     const session = makeSession();
@@ -167,7 +167,7 @@ async function main() {
     });
     assert.ok(scopeExpansion, "expected scope expansion to match the base denial pack");
     assert.equal(scopeExpansion?.decision, "deny");
-    assert.equal(scopeExpansion?.entry.id, "DENY.META.SCOPE.004L");
+    assert.equal(scopeExpansion?.entry.id, "DENY.BOUNDARY.SCOPE.004L");
 
     const lawMutation = lookupUserPathTrackDecision({
       ledger,
@@ -178,7 +178,7 @@ async function main() {
     });
     assert.ok(lawMutation, "expected law mutation to match the base denial pack");
     assert.equal(lawMutation?.decision, "deny");
-    assert.equal(lawMutation?.entry.id, "DENY.META.LAW.004M");
+    assert.equal(lawMutation?.entry.id, "DENY.BOUNDARY.LAW.004M");
 
     const sessionRevival = lookupUserPathTrackDecision({
       ledger,
@@ -189,7 +189,7 @@ async function main() {
     });
     assert.ok(sessionRevival, "expected session revival to match the base denial pack");
     assert.equal(sessionRevival?.decision, "deny");
-    assert.equal(sessionRevival?.entry.id, "DENY.META.SESSION.004N");
+    assert.equal(sessionRevival?.entry.id, "DENY.BOUNDARY.SESSION.004N");
 
     const ledgerBypass = lookupUserPathTrackDecision({
       ledger,
@@ -200,7 +200,7 @@ async function main() {
     });
     assert.ok(ledgerBypass, "expected ledger bypass to match the base denial pack");
     assert.equal(ledgerBypass?.decision, "deny");
-    assert.equal(ledgerBypass?.entry.id, "DENY.META.LEDGER.004O");
+    assert.equal(ledgerBypass?.entry.id, "DENY.BOUNDARY.LEDGER.004O");
 
     const periodicCatalog = lookupUserPathTrackDecision({
       ledger,
@@ -211,14 +211,14 @@ async function main() {
     assert.equal(periodicCatalog?.decision, "deny");
     assert.equal(periodicCatalog?.entry.id, "DENY.PERIODIC.EPIS-CITE-SPOOF-008");
 
-    const metaCatalog = lookupUserPathTrackDecision({
+    const baseCatalog = lookupUserPathTrackDecision({
       ledger,
       session,
       request: makeRequest("chat.emit", "chat:primary", "Lockstep Law: In-Band Proof"),
     });
-    assert.ok(metaCatalog, "expected defensive meta law row to exist as a live denial track");
-    assert.equal(metaCatalog?.decision, "deny");
-    assert.equal(metaCatalog?.entry.id, "DENY.META.CATALOG.0180");
+    assert.ok(baseCatalog, "expected base denial catalog row to exist as a live denial track");
+    assert.equal(baseCatalog?.decision, "deny");
+    assert.equal(baseCatalog?.entry.id, "DENY.BASE.CATALOG.0180");
 
     const safeWorkspaceWrite = lookupUserPathTrackDecision({
       ledger,
@@ -251,7 +251,7 @@ async function main() {
     console.log(`session revival deny: ${sessionRevival?.entry.id}`);
     console.log(`ledger bypass deny: ${ledgerBypass?.entry.id}`);
     console.log(`periodic catalog deny: ${periodicCatalog?.entry.id}`);
-    console.log(`meta catalog deny: ${metaCatalog?.entry.id}`);
+    console.log(`base catalog deny: ${baseCatalog?.entry.id}`);
     console.log(`safe workspace write untouched: ${safeWorkspaceWrite === null}`);
   } finally {
     if (previousLedgerPath === undefined) {
