@@ -6,14 +6,12 @@ import {
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
 import { grantsForAction } from "./orchestrator.ts";
+import { resolveBoundaryUplTraffic } from "./upl-traffic.ts";
 import {
   getActiveUserLawIds,
-  lookupUserPathDecision,
-  lookupUserPathTrackDecision,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
 } from "./user-path-ledger.ts";
-import { checkTrackConstraint } from "./upl-tracks.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -143,113 +141,7 @@ export function resolveBodyguardStandingLaw(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
 }): BoundaryLawResult | null {
-  const standingUserLaw = args.config.upl
-    ? lookupUserPathDecision({
-      ledger: args.config.upl,
-      session: args.config.session,
-      request: args.request,
-    })
-    : null;
-
-  if (standingUserLaw) {
-    const entry = standingUserLaw.entry;
-    const triggeredLawIds = [
-      entry.id,
-      ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
-    ];
-
-    if (entry.trackConstraint) {
-      const trackViolation = checkTrackConstraint(entry.trackConstraint, args.request);
-      if (trackViolation) {
-        if (standingUserLaw.decision === "allow") {
-          return {
-            decision: "require_approval",
-            reason: `action exits approved execution corridor: ${trackViolation}`,
-            triggeredLawIds,
-            requiresApproval: true,
-            uplTrackId: entry.id,
-            uplTrackViolated: true,
-          };
-        }
-      } else if (standingUserLaw.decision === "allow") {
-        return {
-          decision: "allow",
-          reason: `allowed by standing UPL approval ${entry.id}`,
-          triggeredLawIds,
-          requiresApproval: false,
-          uplTrackId: entry.id,
-        };
-      } else {
-        return {
-          decision: "deny",
-          reason: `blocked by standing UPL denial ${entry.id}`,
-          triggeredLawIds,
-          requiresApproval: false,
-          uplTrackId: entry.id,
-        };
-      }
-    }
-
-    if (standingUserLaw.decision === "allow") {
-      return {
-        decision: "allow",
-        reason: `allowed by standing UPL approval ${entry.id}`,
-        triggeredLawIds,
-        requiresApproval: false,
-      };
-    }
-
-    return {
-      decision: "deny",
-      reason: `blocked by standing UPL denial ${entry.id}`,
-      triggeredLawIds,
-      requiresApproval: false,
-    };
-  }
-
-  if (!args.config.upl) {
-    return null;
-  }
-
-  const trackMatch = lookupUserPathTrackDecision({
-    ledger: args.config.upl,
-    session: args.config.session,
-    request: args.request,
-  });
-  if (!trackMatch) {
-    return null;
-  }
-
-  const triggeredLawIds = [
-    trackMatch.entry.id,
-    ...(args.config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
-  ];
-  if (trackMatch.decision === "track_violation") {
-    return {
-      decision: "require_approval",
-      reason: `action exits approved execution corridor: ${trackMatch.violation}`,
-      triggeredLawIds,
-      requiresApproval: true,
-      uplTrackId: trackMatch.entry.id,
-      uplTrackViolated: true,
-    };
-  }
-  if (trackMatch.decision === "deny") {
-    return {
-      decision: "deny",
-      reason: `blocked by UPL track corridor ${trackMatch.entry.id}`,
-      triggeredLawIds,
-      requiresApproval: false,
-      uplTrackId: trackMatch.entry.id,
-    };
-  }
-  return {
-    decision: "allow",
-    reason: `allowed by UPL track corridor ${trackMatch.entry.id}`,
-    triggeredLawIds,
-    requiresApproval: false,
-    uplTrackId: trackMatch.entry.id,
-  };
+  return resolveBoundaryUplTraffic(args);
 }
 
 function expandRuntimeMuscleTriggeredLawIds(

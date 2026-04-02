@@ -19,6 +19,27 @@ At runtime, Buccet compiles authored law into one live UPL field:
 - wall segments from denied law
 - no-road space outside both
 
+`UPL Traffic` is the live motion enforcer for that field.
+
+It does not create law.
+It does not ask questions.
+It only keeps motion inside the already-decided UPL geometry:
+
+- accepted rail stays accepted
+- denial wall stays denied
+- drift exits the approved rail and gets surfaced as drift, not silent widening
+
+To keep both sides structurally distinct without splitting the runtime, the compiled field now gives each segment:
+
+- a traffic class:
+  - `allow_rail`
+  - `deny_wall`
+- a deterministic polarity tag:
+  - `UPL.TRAFFIC.RAIL:sha256:...`
+  - `UPL.TRAFFIC.WALL:sha256:...`
+
+That means acceptance and denial stay mathematically distinct in the live field even though they run inside one runtime engine.
+
 So the real runtime truth is:
 
 - deny wall covers the point → deny

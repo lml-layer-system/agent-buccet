@@ -118,7 +118,7 @@ Runtime compiles them into one live UPL field.
 
 See [UPL Base Packs](UPL_BASE_PACKS.md).
 
-## UPL Tracks — Execution Corridor Enforcement
+## UPL Tracks — Authored Corridors
 
 When a user records `allow_as_law`, a **UPL Track** is automatically bound to that approval.
 
@@ -135,12 +135,9 @@ On track-eligible surfaces, Buccet binds standing UPL law into corridors:
 - `completionCorridor` — completion grammar and shape
 - `expressionCorridor` — expression register and style
 
-These corridors are the execution form of law — approved motion continues inside the snapped corridor; motion that exits returns to Terminal 2.
+These corridors are the execution form of law.
 
-**What the track enforces:**
-When a subsequent request matches the UPL entry by action kind family, the track is checked:
-- Request stays within the corridor → allowed, no re-prompt.
-- Request exits the corridor (different directory, different command, different domain) → `require_approval` surfaces to Terminal 2. Not a hard deny — the user can consciously expand the corridor.
+They are the authored rails and walls that the runtime can enforce after law has already been decided.
 
 **What tracks are not:**
 - Not a new boundary layer. They run inside the existing UPL enforcement gate.
@@ -151,6 +148,43 @@ When a subsequent request matches the UPL entry by action kind family, the track
 **Surface scope:** Tracks apply only to Tool/Action and Chat/Output surfaces. Input Admission and Payload-Physics surfaces are excluded — ingress is front-line catch/freeze/deny, not a post-law continuation corridor; physics is hard ceiling enforcement, not semantic shaping.
 
 View active track corridors from Terminal 2: `tracks`
+
+## UPL Traffic — Live Motion Enforcement
+
+`UPL Traffic` is the post-law motion enforcer for the compiled UPL field.
+
+It is separate from the front gate, but it does not introduce a second brain.
+
+It does not:
+- decide law
+- ask for approval
+- widen scope
+- author new UPL
+
+It does only this:
+- keep acceptance rails open in motion
+- keep denial rails closed in motion
+- compress motion to the already-decided live UPL field
+- surface drift when motion exits the approved corridor
+
+To keep the two sides structurally distinct in the same runtime field, each compiled segment carries:
+- a traffic class:
+  - `allow_rail`
+  - `deny_wall`
+- a deterministic polarity tag:
+  - `UPL.TRAFFIC.RAIL:sha256:...`
+  - `UPL.TRAFFIC.WALL:sha256:...`
+
+That means the runtime split is:
+- UPL Tracks author the rails and walls
+- UPL Traffic enforces those rails and walls in motion
+
+When a subsequent request matches the UPL field by action family:
+- motion stays on an approval rail → allow
+- motion hits a denial wall → deny
+- motion exits the approved rail → drift
+
+`drift` is not a new law decision. It is the runtime fact that motion left the already-decided UPL corridor. Terminal 2 can then resolve that drift according to the active mode.
 
 ## Swarm Mode
 

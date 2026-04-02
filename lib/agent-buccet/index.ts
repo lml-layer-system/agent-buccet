@@ -26,6 +26,7 @@ export * from "./bodyguard.ts";
 export * from "./governor.ts";
 export * from "./user-path-ledger.ts";
 export * from "./upl-tracks.ts";
+export * from "./upl-traffic.ts";
 export * from "./document-law.ts";
 export * from "./gravity.ts";
 export * from "./gravity-core/index.ts";

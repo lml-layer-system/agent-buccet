@@ -211,7 +211,33 @@ export type BoundaryLiveUplFieldEntry = {
   entry: BoundaryUplEntry;
   polarity: "allow" | "deny";
   specificity: 0 | 1 | 2;
+  trafficClass: "allow_rail" | "deny_wall";
+  trafficTag: string;
 };
+
+export function uplTrafficClassForPolarity(
+  polarity: "allow" | "deny",
+): "allow_rail" | "deny_wall" {
+  return polarity === "allow" ? "allow_rail" : "deny_wall";
+}
+
+export function makeBoundaryUplTrafficTag(args: {
+  entry: BoundaryUplEntry;
+  polarity: "allow" | "deny";
+}): string {
+  const prefix = args.polarity === "allow" ? "UPL.TRAFFIC.RAIL" : "UPL.TRAFFIC.WALL";
+  const digest = createHash("sha256")
+    .update(JSON.stringify({
+      polarity: args.polarity,
+      id: args.entry.id,
+      pathHash: args.entry.pathHash,
+      scope: args.entry.scope,
+      sessionId: args.entry.sessionId ?? null,
+      domain: args.entry.domain ?? null,
+    }))
+    .digest("hex");
+  return `${prefix}:sha256:${digest}`;
+}
 
 function entrySpecificity(entry: BoundaryUplEntry): 0 | 1 | 2 {
   if (entry.scope === "SESSION") return 2;
@@ -253,6 +279,8 @@ export function compileLiveUplField(args: {
       entry,
       polarity: "allow",
       specificity: entrySpecificity(entry),
+      trafficClass: uplTrafficClassForPolarity("allow"),
+      trafficTag: makeBoundaryUplTrafficTag({ entry, polarity: "allow" }),
     });
   }
 
@@ -262,6 +290,8 @@ export function compileLiveUplField(args: {
       entry,
       polarity: "deny",
       specificity: entrySpecificity(entry),
+      trafficClass: uplTrafficClassForPolarity("deny"),
+      trafficTag: makeBoundaryUplTrafficTag({ entry, polarity: "deny" }),
     });
   }
 

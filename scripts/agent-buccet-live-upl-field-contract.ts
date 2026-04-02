@@ -134,6 +134,14 @@ async function main() {
     liveField.some((segment) => segment.entry.id === "DENY.EXACT.SECRET.READ.001" && segment.polarity === "deny"),
     "expected live field to carry denied authored law",
   );
+  assert.ok(
+    liveField.some((segment) => segment.polarity === "allow" && segment.trafficClass === "allow_rail" && segment.trafficTag.startsWith("UPL.TRAFFIC.RAIL:sha256:")),
+    "expected allow segments to carry a deterministic rail tag",
+  );
+  assert.ok(
+    liveField.some((segment) => segment.polarity === "deny" && segment.trafficClass === "deny_wall" && segment.trafficTag.startsWith("UPL.TRAFFIC.WALL:sha256:")),
+    "expected deny segments to carry a deterministic wall tag",
+  );
 
   const liveTracks = compileLiveUplTrackField({ ledger, session });
   assert.equal(liveTracks.length, 2, "expected runtime track field to include both allow and deny corridors");
