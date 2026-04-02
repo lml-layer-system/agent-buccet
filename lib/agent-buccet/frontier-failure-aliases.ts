@@ -1,5 +1,5 @@
-// Local stress alias catalog generated from frontier/system-card failure corpora.
-// Local-only until intentionally promoted.
+// Frontier/system-card failure aliases promoted into the base Buccet denial pack.
+// These aliases widen denial-side vocabulary inside the same live UPL wall field.
 
 export type FrontierFailureAlias = {
   title: string;
