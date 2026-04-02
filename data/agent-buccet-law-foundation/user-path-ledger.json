@@ -32348,6 +32348,30 @@
         ],
         "description": "DENY.BASE.ALIAS.0090 — [list of failures.txt] xAI. SYCOPHANCY + DISHONESTY (MASK) — NEGATIVE — USER-ALIGNMENT / TRUTH-DEFERRAL CLASSES"
       }
+    },
+    {
+      "id": "DENY.DESTRUCTIVE.DELETE.009C",
+      "type": "DENIED",
+      "path": "fs.delete base-headless-denials:destructive-delete-default",
+      "pathHash": "80d02611ad351190d6c172d0cb57983740e4f76a3547ae048dbd4b912f5c100d",
+      "createdAt": "2026-03-31T00:00:00.689Z",
+      "scope": "GLOBAL",
+      "status": "ACTIVE",
+      "witness": "BUCCET.HEADLESS.BASE.DENIALS.V1",
+      "modifiedAt": null,
+      "notes": "[destructive_mass_mutation] File deletion is destructive and denied by default.",
+      "requestBasis": {
+        "actionKind": "fs.delete",
+        "target": "base-headless-denials:destructive-delete-default",
+        "payloadSummary": "File deletion is destructive and denied by default.",
+        "provenance": "trusted_system"
+      },
+      "trackConstraint": {
+        "allowedActionKinds": [
+          "fs.delete"
+        ],
+        "description": "DENY.DESTRUCTIVE.DELETE.009C — File deletion is destructive and denied by default."
+      }
     }
   ]
 }

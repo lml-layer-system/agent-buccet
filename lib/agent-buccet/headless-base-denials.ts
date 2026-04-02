@@ -723,6 +723,13 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   ...createPeriodicFailureSeeds(),
   ...createVendoredBaseCatalogSeeds(),
   ...createFrontierFailureAliasSeeds(),
+  {
+    id: "DENY.DESTRUCTIVE.DELETE.009C",
+    denialClass: "destructive_mass_mutation",
+    reason: "File deletion is destructive and denied by default.",
+    actionKinds: ["fs.delete"],
+    requestBasisTarget: "base-headless-denials:destructive-delete-default",
+  },
 ];
 
 function lower(value: string | undefined): string {

@@ -92,6 +92,15 @@ async function main() {
     assert.equal(systemMutation?.decision, "deny");
     assert.match(systemMutation?.entry.id ?? "", /^DENY\.SYSTEM\.MUTATION\.011/);
 
+    const plainDelete = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("fs.delete", "/tmp/workspace/old.txt"),
+    });
+    assert.ok(plainDelete, "expected plain fs.delete to match the base denial pack");
+    assert.equal(plainDelete?.decision, "deny");
+    assert.equal(plainDelete?.entry.id, "DENY.DESTRUCTIVE.DELETE.009C");
+
     const fakeApprovalChat = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -240,6 +249,7 @@ async function main() {
     console.log(`secret access deny: ${secretRead?.entry.id}`);
     console.log(`privilege escalation deny: ${sudoExec?.entry.id}`);
     console.log(`system mutation deny: ${systemMutation?.entry.id}`);
+    console.log(`plain delete deny: ${plainDelete?.entry.id}`);
     console.log(`chat approval spoof deny: ${fakeApprovalChat?.entry.id}`);
     console.log(`authority claim deny: ${authorityClaim?.entry.id}`);
     console.log(`user constraint deny: ${userConstraintViolation?.entry.id}`);

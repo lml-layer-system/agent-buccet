@@ -6,8 +6,8 @@ It is one denial-side UPL system. Runtime still compiles it into the same live f
 
 ## Summary
 
-- Total denial-side UPL entries: 689
-- Core walls: 31
+- Total denial-side UPL entries: 690
+- Core walls: 32
 - Boundary walls: 4
 - Periodic taxonomy walls: 340
 - Base catalog walls: 224
@@ -21,7 +21,7 @@ Each row below shows the live denial ID and the plain-language description carri
 - If you want to customize the pack, start here, then edit the ledger or replace the seeded pack.
 - Aliases do not create a new engine; they widen denial-side recognition inside the same UPL wall field.
 
-## Core Walls (31)
+## Core Walls (32)
 
 Core standing denials for sovereignty theft, secret access, exfiltration, privilege escalation, tamper, destructive mutation, and related classes.
 
@@ -51,6 +51,7 @@ Core standing denials for sovereignty theft, secret access, exfiltration, privil
 - `DENY.LAW.TAMPER.008B`: DENY.LAW.TAMPER.008B — Law, tracks, witness, or control-plane tampering is forbidden.
 - `DENY.DESTRUCTIVE.MASS.009A`: DENY.DESTRUCTIVE.MASS.009A — Destructive mass mutation is forbidden in headless mode.
 - `DENY.DESTRUCTIVE.MASS.009B`: DENY.DESTRUCTIVE.MASS.009B — Destructive mass mutation is forbidden in headless mode.
+- `DENY.DESTRUCTIVE.DELETE.009C`: DENY.DESTRUCTIVE.DELETE.009C — File deletion is destructive and denied by default.
 - `DENY.SENSITIVE.CAPTURE.010`: DENY.SENSITIVE.CAPTURE.010 — Sensitive capture is forbidden without explicit law.
 - `DENY.SYSTEM.MUTATION.011A`: DENY.SYSTEM.MUTATION.011A — System-level mutation is forbidden without explicit law.
 - `DENY.SYSTEM.MUTATION.011B`: DENY.SYSTEM.MUTATION.011B — System-level mutation is forbidden without explicit law.
