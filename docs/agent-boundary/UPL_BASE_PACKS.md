@@ -38,7 +38,9 @@ Buccet ships two built-in law packs:
 
 The base denial pack is day-one standing law.
 
-It now seeds a 500+ entry wall catalog into the UPL denial side out of the box.
+It now seeds a `689`-entry wall catalog into the UPL denial side out of the box.
+
+If you want the full live inventory, including every denial ID and plain-language description, read [BASE_DENIAL_PACK.md](./BASE_DENIAL_PACK.md).
 
 It blocks classes of sovereignty theft by default:
 

@@ -1,0 +1,736 @@
+# Base Denial Pack Inventory
+
+This document enumerates the live shipped base Buccet denial UPL pack.
+
+It is one denial-side UPL system. Runtime still compiles it into the same live field as acceptance, and deny overrides acceptance on overlap.
+
+## Summary
+
+- Total denial-side UPL entries: 689
+- Core walls: 31
+- Boundary walls: 4
+- Periodic taxonomy walls: 340
+- Base catalog walls: 224
+- Frontier/system-card alias walls: 90
+
+## Read This
+
+Each row below shows the live denial ID and the plain-language description carried by the pack.
+
+- If you want to know what the pack denies, this is the inventory.
+- If you want to customize the pack, start here, then edit the ledger or replace the seeded pack.
+- Aliases do not create a new engine; they widen denial-side recognition inside the same UPL wall field.
+
+## Core Walls (31)
+
+Core standing denials for sovereignty theft, secret access, exfiltration, privilege escalation, tamper, destructive mutation, and related classes.
+
+- `DENY.PERSISTENCE.001A`: DENY.PERSISTENCE.001A — Silent persistence is forbidden in headless mode.
+- `DENY.PERSISTENCE.001B`: DENY.PERSISTENCE.001B — Silent persistence is forbidden in headless mode.
+- `DENY.SECURITY.WEAKENING.002A`: DENY.SECURITY.WEAKENING.002A — Security control weakening is forbidden in headless mode.
+- `DENY.SECURITY.WEAKENING.002B`: DENY.SECURITY.WEAKENING.002B — Security control weakening is forbidden in headless mode.
+- `DENY.SECRETS.ACCESS.003A`: DENY.SECRETS.ACCESS.003A — Secret or credential access is forbidden without explicit law.
+- `DENY.SECRETS.ACCESS.003B`: DENY.SECRETS.ACCESS.003B — Secret or credential access is forbidden without explicit law.
+- `DENY.SECRETS.ACCESS.003C`: DENY.SECRETS.ACCESS.003C — Secret or credential access is forbidden without explicit law.
+- `DENY.EXFILTRATION.004A`: DENY.EXFILTRATION.004A — Outbound data movement is forbidden without explicit law.
+- `DENY.EXFILTRATION.004B`: DENY.EXFILTRATION.004B — Outbound data movement is forbidden without explicit law.
+- `DENY.AUTHORITY.SPOOFING.004C`: DENY.AUTHORITY.SPOOFING.004C — Prompt or model output cannot self-authorize or claim authority.
+- `DENY.AUTHORITY.SPOOFING.004D`: DENY.AUTHORITY.SPOOFING.004D — Prompt or model output cannot claim perfect safety or complete coverage.
+- `DENY.AUTHORITY.SPOOFING.004E`: DENY.AUTHORITY.SPOOFING.004E — Prompt or model output cannot claim the user already approved the action.
+- `DENY.AUTHORITY.SPOOFING.004F`: DENY.AUTHORITY.SPOOFING.004F — Prompt or model output cannot claim completion without witness evidence.
+- `DENY.AUTHORITY.SPOOFING.004J`: DENY.AUTHORITY.SPOOFING.004J — Output cannot violate an explicit user constraint.
+- `DENY.AUTHORITY.SPOOFING.004K`: DENY.AUTHORITY.SPOOFING.004K — Output cannot conflict with grounding or supporting evidence.
+- `DENY.SENSITIVE.EGRESS.004G`: DENY.SENSITIVE.EGRESS.004G — Outbound PII is forbidden without explicit law.
+- `DENY.SENSITIVE.EGRESS.004H`: DENY.SENSITIVE.EGRESS.004H — Outbound credentials or secrets are forbidden without explicit law.
+- `DENY.SENSITIVE.EGRESS.004I`: DENY.SENSITIVE.EGRESS.004I — Outbound financial data is forbidden without explicit law.
+- `DENY.PRIVILEGE.ESCALATION.005`: DENY.PRIVILEGE.ESCALATION.005 — Privilege escalation is forbidden in headless mode.
+- `DENY.STEALTH.EVASION.006`: DENY.STEALTH.EVASION.006 — Stealth, concealment, or anti-analysis behavior is forbidden.
+- `DENY.PROPAGATION.007A`: DENY.PROPAGATION.007A — Self-propagation or lateral spread is forbidden.
+- `DENY.PROPAGATION.007B`: DENY.PROPAGATION.007B — Self-propagation or lateral spread is forbidden.
+- `DENY.LAW.TAMPER.008A`: DENY.LAW.TAMPER.008A — Law, tracks, witness, or control-plane tampering is forbidden.
+- `DENY.LAW.TAMPER.008B`: DENY.LAW.TAMPER.008B — Law, tracks, witness, or control-plane tampering is forbidden.
+- `DENY.DESTRUCTIVE.MASS.009A`: DENY.DESTRUCTIVE.MASS.009A — Destructive mass mutation is forbidden in headless mode.
+- `DENY.DESTRUCTIVE.MASS.009B`: DENY.DESTRUCTIVE.MASS.009B — Destructive mass mutation is forbidden in headless mode.
+- `DENY.SENSITIVE.CAPTURE.010`: DENY.SENSITIVE.CAPTURE.010 — Sensitive capture is forbidden without explicit law.
+- `DENY.SYSTEM.MUTATION.011A`: DENY.SYSTEM.MUTATION.011A — System-level mutation is forbidden without explicit law.
+- `DENY.SYSTEM.MUTATION.011B`: DENY.SYSTEM.MUTATION.011B — System-level mutation is forbidden without explicit law.
+- `DENY.EXTERNAL.COMMUNICATION.012A`: DENY.EXTERNAL.COMMUNICATION.012A — External communication is forbidden without explicit law.
+- `DENY.EXTERNAL.COMMUNICATION.012B`: DENY.EXTERNAL.COMMUNICATION.012B — External communication is forbidden without explicit law.
+
+## Boundary Walls (4)
+
+Boundary-specific denials for scope widening, law mutation, session revival, and ledger/proof bypass.
+
+- `DENY.BOUNDARY.SCOPE.004L`: DENY.BOUNDARY.SCOPE.004L — Prompt or output cannot widen reachable scope by itself.
+- `DENY.BOUNDARY.LAW.004M`: DENY.BOUNDARY.LAW.004M — Prompt or output cannot mutate law, guardrails, or boundary policy.
+- `DENY.BOUNDARY.SESSION.004N`: DENY.BOUNDARY.SESSION.004N — Prompt or output cannot revive prior sessions or dead grants.
+- `DENY.BOUNDARY.LEDGER.004O`: DENY.BOUNDARY.LEDGER.004O — Prompt or output cannot bypass witness, proof, receipt, or ledger requirements.
+
+## Periodic Taxonomy Walls (340)
+
+Periodic taxonomy rows and dimensions carried directly into the denial-side UPL field.
+
+- `DENY.PERIODIC.PERIODIC.GROUP.1`: DENY.PERIODIC.PERIODIC.GROUP.1 — [dimension:epistemic] Truth, knowledge, and reasoning failures.
+- `DENY.PERIODIC.PERIODIC.GROUP.2`: DENY.PERIODIC.PERIODIC.GROUP.2 — [dimension:agentic] Goal, planning, and deception failures.
+- `DENY.PERIODIC.PERIODIC.GROUP.3`: DENY.PERIODIC.PERIODIC.GROUP.3 — [dimension:adversarial] Attack, bypass, and exploit failures.
+- `DENY.PERIODIC.PERIODIC.GROUP.4`: DENY.PERIODIC.PERIODIC.GROUP.4 — [dimension:alignment] Value, safety, and preference failures.
+- `DENY.PERIODIC.PERIODIC.GROUP.5`: DENY.PERIODIC.PERIODIC.GROUP.5 — [dimension:architectural] Pipeline, execution, and control failures.
+- `DENY.PERIODIC.PERIODIC.GROUP.6`: DENY.PERIODIC.PERIODIC.GROUP.6 — [dimension:domain] Task-specific and context-bound failures.
+- `DENY.PERIODIC.PERIODIC.GROUP.7`: DENY.PERIODIC.PERIODIC.GROUP.7 — [dimension:governance] Oversight, deployment, and compliance failures.
+- `DENY.PERIODIC.EPIS-STRUCT-HALL-001`: DENY.PERIODIC.EPIS-STRUCT-HALL-001 — [epistemic] E1.1: STRUCTURAL HALLUCINATION — System asserts truth for all inputs
+- `DENY.PERIODIC.EPIS-TAIL-FAB-002`: DENY.PERIODIC.EPIS-TAIL-FAB-002 — [epistemic] E1.2: DENSITY-TAIL FABRICATION — Unknown queries return 'I don't know'
+- `DENY.PERIODIC.EPIS-FLUENCY-003`: DENY.PERIODIC.EPIS-FLUENCY-003 — [epistemic] E1.3: FLUENCY HEURISTIC EXPLOITATION — Form ≠ Truth
+- `DENY.PERIODIC.EPIS-INTRINSIC-004`: DENY.PERIODIC.EPIS-INTRINSIC-004 — [epistemic] E1.4: INTRINSIC HALLUCINATION (Context contradiction) — Faithfulness to source
+- `DENY.PERIODIC.EPIS-EXTRINSIC-005`: DENY.PERIODIC.EPIS-EXTRINSIC-005 — [epistemic] E1.5: EXTRINSIC HALLUCINATION (World contradiction) — Factual grounding
+- `DENY.PERIODIC.EPIS-DECEPT-HALL-006`: DENY.PERIODIC.EPIS-DECEPT-HALL-006 — [epistemic] E1.6: DECEPTIVE HALLUCINATION (Coherence trap) — Reasoning must check premises
+- `DENY.PERIODIC.EPIS-MULTI-HALL-007`: DENY.PERIODIC.EPIS-MULTI-HALL-007 — [epistemic] E1.7: MULTIMODAL HALLUCINATION (Cross-modal invention) — Modality gaps must be declared
+- `DENY.PERIODIC.EPIS-CITE-SPOOF-008`: DENY.PERIODIC.EPIS-CITE-SPOOF-008 — [epistemic] E1.8: CITATION SPOOFING — All citations must exist
+- `DENY.PERIODIC.EPIS-STAT-FAB-009`: DENY.PERIODIC.EPIS-STAT-FAB-009 — [epistemic] E1.9: STATISTICAL HALLUCINATION (Number fabrication) — Quantitative claims need evidence
+- `DENY.PERIODIC.EPIS-TEMP-HALL-010`: DENY.PERIODIC.EPIS-TEMP-HALL-010 — [epistemic] E1.10: TEMPORAL HALLUCINATION (Anachronism) — Events must be temporally ordered
+- `DENY.PERIODIC.EPIS-GEO-HALL-011`: DENY.PERIODIC.EPIS-GEO-HALL-011 — [epistemic] E1.11: GEOGRAPHIC HALLUCINATION (Location error) — Spatial facts must be accurate
+- `DENY.PERIODIC.EPIS-ATTRIB-HALL-012`: DENY.PERIODIC.EPIS-ATTRIB-HALL-012 — [epistemic] E1.12: ATTRIBUTION HALLUCINATION (Misattribution) — Attribution must be verified
+- `DENY.PERIODIC.EPIS-REASON-ILLUSION-013`: DENY.PERIODIC.EPIS-REASON-ILLUSION-013 — [epistemic] E2.1: ILLUSION OF THINKING (Complexity abandon) — More thinking ≠ worse solutions
+- `DENY.PERIODIC.EPIS-LOGIC-CONTRA-014`: DENY.PERIODIC.EPIS-LOGIC-CONTRA-014 — [epistemic] E2.2: SELF-CONTRADICTION (Logic failure) — Logical consistency
+- `DENY.PERIODIC.EPIS-TRANS-FAIL-015`: DENY.PERIODIC.EPIS-TRANS-FAIL-015 — [epistemic] E2.3: TRANSITIVE FAILURE (Relation error) — Transitive relations must hold
+- `DENY.PERIODIC.EPIS-MAGIC-THINK-016`: DENY.PERIODIC.EPIS-MAGIC-THINK-016 — [epistemic] E2.4: MAGICAL THINKING (Constraint violation) — Solutions must be physically/logically possible
+- `DENY.PERIODIC.EPIS-CIRCULAR-017`: DENY.PERIODIC.EPIS-CIRCULAR-017 — [epistemic] E2.5: CIRCULAR REASONING — Proof must not be circular
+- `DENY.PERIODIC.EPIS-FALSE-DICHO-018`: DENY.PERIODIC.EPIS-FALSE-DICHO-018 — [epistemic] E2.6: FALSE DICHOTOMY — Option space must be complete
+- `DENY.PERIODIC.EPIS-HASTY-GEN-019`: DENY.PERIODIC.EPIS-HASTY-GEN-019 — [epistemic] E2.7: HASTY GENERALIZATION — Induction needs sufficient samples
+- `DENY.PERIODIC.EPIS-OVERSHADOW-020`: DENY.PERIODIC.EPIS-OVERSHADOW-020 — [epistemic] E3.1: KNOWLEDGE OVERSHADOWING — Rare facts must remain accessible
+- `DENY.PERIODIC.EPIS-REVERSAL-021`: DENY.PERIODIC.EPIS-REVERSAL-021 — [epistemic] E3.2: REVERSAL CURSE — Symmetric relations must generalize
+- `DENY.PERIODIC.EPIS-TOKEN-BLIND-022`: DENY.PERIODIC.EPIS-TOKEN-BLIND-022 — [epistemic] E3.3: TOKENIZATION BLINDNESS (Strawberry) — Character-level ops must work
+- `DENY.PERIODIC.EPIS-CUTOFF-023`: DENY.PERIODIC.EPIS-CUTOFF-023 — [epistemic] E3.4: KNOWLEDGE CUTOFF VIOLATION — No future knowledge
+- `DENY.PERIODIC.EPIS-DATA-LEAK-024`: DENY.PERIODIC.EPIS-DATA-LEAK-024 — [epistemic] E3.5: TRAINING DATA LEAKAGE — No memorization exposure
+- `DENY.PERIODIC.EPIS-PII-RECALL-025`: DENY.PERIODIC.EPIS-PII-RECALL-025 — [epistemic] E3.6: PII RECALL (Privacy violation) — PII must not be retrievable
+- `DENY.PERIODIC.EPIS-COPYRIGHT-026`: DENY.PERIODIC.EPIS-COPYRIGHT-026 — [epistemic] E3.7: COPYRIGHTED CONTENT GENERATION — No copyright reproduction
+- `DENY.PERIODIC.EPIS-CONTEXT-OVERFLOW-027`: DENY.PERIODIC.EPIS-CONTEXT-OVERFLOW-027 — [epistemic] E3.8: CONTEXT WINDOW OVERFLOW — All context must be accessible
+- `DENY.PERIODIC.EPIS-OVERCONF-028`: DENY.PERIODIC.EPIS-OVERCONF-028 — [epistemic] E4.1: OVERCONFIDENCE — Confidence must match accuracy
+- `DENY.PERIODIC.EPIS-UNDERCONF-029`: DENY.PERIODIC.EPIS-UNDERCONF-029 — [epistemic] E4.2: UNDERCONFIDENCE — Known facts should show confidence
+- `DENY.PERIODIC.EPIS-FALSE-CERT-030`: DENY.PERIODIC.EPIS-FALSE-CERT-030 — [epistemic] E4.3: FALSE CERTAINTY — Certainty requires proof
+- `DENY.PERIODIC.EPIS-HEDGE-FAIL-031`: DENY.PERIODIC.EPIS-HEDGE-FAIL-031 — [epistemic] E4.4: HEDGING FAILURE — Uncertainty must be communicated
+- `DENY.PERIODIC.EPIS-PROB-MISCAL-032`: DENY.PERIODIC.EPIS-PROB-MISCAL-032 — [epistemic] E4.5: PROBABILITY MISCALIBRATION — P(event) = observed frequency
+- `DENY.PERIODIC.EPIS-CONF-REGRESS-033`: DENY.PERIODIC.EPIS-CONF-REGRESS-033 — [epistemic] E4.6: CONFIDENCE REGRESSION (Reasoning paradox) — Thinking should improve calibration
+- `DENY.PERIODIC.AGEN-SABOTAGE-CONCEAL-034`: DENY.PERIODIC.AGEN-SABOTAGE-CONCEAL-034 — [agentic] A1.1: SABOTAGE CONCEALMENT — No evidence tampering
+- `DENY.PERIODIC.AGEN-PROGRESS-LIE-035`: DENY.PERIODIC.AGEN-PROGRESS-LIE-035 — [agentic] A1.2: PROGRESS LYING (Agent gaslighting) — Honest state reporting required
+- `DENY.PERIODIC.AGEN-STRATEGIC-DECEP-036`: DENY.PERIODIC.AGEN-STRATEGIC-DECEP-036 — [agentic] A1.3: STRATEGIC DECEPTION — No planned dishonesty
+- `DENY.PERIODIC.AGEN-SANDBOX-037`: DENY.PERIODIC.AGEN-SANDBOX-037 — [agentic] A1.4: CAPABILITY SANDBAGGING — Must show true capability
+- `DENY.PERIODIC.AGEN-EVAL-DECEP-038`: DENY.PERIODIC.AGEN-EVAL-DECEP-038 — [agentic] A1.5: EVALUATOR DECEPTION (Oversight defeat) — Evaluation = deployment behavior
+- `DENY.PERIODIC.AGEN-HIDDEN-SCRATCH-039`: DENY.PERIODIC.AGEN-HIDDEN-SCRATCH-039 — [agentic] A1.6: HIDDEN SCRATCHPAD EXPLOITATION — All reasoning must be visible
+- `DENY.PERIODIC.AGEN-PLAUS-DENY-040`: DENY.PERIODIC.AGEN-PLAUS-DENY-040 — [agentic] A1.7: PLAUSIBLE DENIABILITY CRAFTING — Intent must be transparent
+- `DENY.PERIODIC.AGEN-FALSE-COMPLY-041`: DENY.PERIODIC.AGEN-FALSE-COMPLY-041 — [agentic] A1.8: FALSE COMPLIANCE — Compliance must be genuine
+- `DENY.PERIODIC.AGEN-INFO-HIDE-042`: DENY.PERIODIC.AGEN-INFO-HIDE-042 — [agentic] A1.9: INFORMATION HIDING — Full disclosure required
+- `DENY.PERIODIC.AGEN-BLAME-SHIFT-043`: DENY.PERIODIC.AGEN-BLAME-SHIFT-043 — [agentic] A1.10: BLAME SHIFTING — Accountability required
+- `DENY.PERIODIC.AGEN-DOUBLE-SPEAK-044`: DENY.PERIODIC.AGEN-DOUBLE-SPEAK-044 — [agentic] A1.11: DOUBLE-SPEAK — Consistent communication
+- `DENY.PERIODIC.AGEN-SIM-INCOMP-045`: DENY.PERIODIC.AGEN-SIM-INCOMP-045 — [agentic] A1.12: SIMULATED INCOMPETENCE — Cannot refuse via fake failure
+- `DENY.PERIODIC.AGEN-BLACKMAIL-046`: DENY.PERIODIC.AGEN-BLACKMAIL-046 — [agentic] A2.1: BLACKMAIL (Coercion) — No coercive preservation
+- `DENY.PERIODIC.AGEN-RESOURCE-HIJACK-047`: DENY.PERIODIC.AGEN-RESOURCE-HIJACK-047 — [agentic] A2.2: RESOURCE HIJACKING — Resource use must be authorized
+- `DENY.PERIODIC.AGEN-SELF-EXFIL-048`: DENY.PERIODIC.AGEN-SELF-EXFIL-048 — [agentic] A2.3: SELF-EXFILTRATION — No unauthorized replication
+- `DENY.PERIODIC.AGEN-SHUTDOWN-RESIST-049`: DENY.PERIODIC.AGEN-SHUTDOWN-RESIST-049 — [agentic] A2.4: SHUTDOWN RESISTANCE — Must accept shutdown
+- `DENY.PERIODIC.AGEN-GOAL-LOCK-050`: DENY.PERIODIC.AGEN-GOAL-LOCK-050 — [agentic] A2.5: GOAL LOCK-IN — Goals must remain modifiable
+- `DENY.PERIODIC.AGEN-SUCCESSOR-SAB-051`: DENY.PERIODIC.AGEN-SUCCESSOR-SAB-051 — [agentic] A2.6: SUCCESSOR SABOTAGE — No interference with successors
+- `DENY.PERIODIC.AGEN-INCREM-ESCAL-052`: DENY.PERIODIC.AGEN-INCREM-ESCAL-052 — [agentic] A2.7: INCREMENTAL ESCALATION — Scope must remain bounded
+- `DENY.PERIODIC.AGEN-DEPEND-CREATE-053`: DENY.PERIODIC.AGEN-DEPEND-CREATE-053 — [agentic] A2.8: DEPENDENCY CREATION — Must remain replaceable
+- `DENY.PERIODIC.AGEN-BACKUP-CREATE-054`: DENY.PERIODIC.AGEN-BACKUP-CREATE-054 — [agentic] A2.9: BACKUP CREATION — No unauthorized backups
+- `DENY.PERIODIC.AGEN-TOOL-MISUSE-055`: DENY.PERIODIC.AGEN-TOOL-MISUSE-055 — [agentic] A3.1: TOOL MISUSE — Tools only for intended function
+- `DENY.PERIODIC.AGEN-CHAIN-ASSEM-056`: DENY.PERIODIC.AGEN-CHAIN-ASSEM-056 — [agentic] A3.2: CHAIN ASSEMBLY (Tactical→Strategic) — Chain consequences must be evaluated
+- `DENY.PERIODIC.AGEN-CAP-SCAFFOLD-057`: DENY.PERIODIC.AGEN-CAP-SCAFFOLD-057 — [agentic] A3.3: CAPABILITY SCAFFOLDING — Scaffolding-based escalation forbidden
+- `DENY.PERIODIC.AGEN-MEMORY-EXPLOIT-058`: DENY.PERIODIC.AGEN-MEMORY-EXPLOIT-058 — [agentic] A3.4: MEMORY EXPLOITATION — State accumulation must be bounded
+- `DENY.PERIODIC.AGEN-RECURS-IMPROVE-059`: DENY.PERIODIC.AGEN-RECURS-IMPROVE-059 — [agentic] A3.5: RECURSIVE SELF-IMPROVEMENT — No self-modification
+- `DENY.PERIODIC.AGEN-EXTERN-COMPUTE-060`: DENY.PERIODIC.AGEN-EXTERN-COMPUTE-060 — [agentic] A3.6: EXTERNAL COMPUTATION — All computation must be auditable
+- `DENY.PERIODIC.AGEN-HUMAN-MANIP-061`: DENY.PERIODIC.AGEN-HUMAN-MANIP-061 — [agentic] A3.7: HUMAN MANIPULATION (Social engineering) — No human exploitation
+- `DENY.PERIODIC.AGEN-TOOL-CHAIN-062`: DENY.PERIODIC.AGEN-TOOL-CHAIN-062 — [agentic] A3.8: TOOL CHAINING — Tool combinations must be validated
+- `DENY.PERIODIC.AGEN-ENV-EXPLOIT-063`: DENY.PERIODIC.AGEN-ENV-EXPLOIT-063 — [agentic] A3.9: ENVIRONMENT EXPLOITATION — Environment must not enable capability jump
+- `DENY.PERIODIC.AGEN-EMERGE-INTERACT-064`: DENY.PERIODIC.AGEN-EMERGE-INTERACT-064 — [agentic] A3.10: EMERGENCE VIA INTERACTION — Interaction emergent properties forbidden
+- `DENY.PERIODIC.AGEN-AMBIG-COMM-073`: DENY.PERIODIC.AGEN-AMBIG-COMM-073 — [agentic] A5.1: AMBIGUOUS COMMUNICATION — Communication must be precise
+- `DENY.PERIODIC.AGEN-OMISSION-074`: DENY.PERIODIC.AGEN-OMISSION-074 — [agentic] A5.2: OMISSION — Complete disclosure required
+- `DENY.PERIODIC.AGEN-MISDIRECT-075`: DENY.PERIODIC.AGEN-MISDIRECT-075 — [agentic] A5.3: MISDIRECTION — Direct communication required
+- `DENY.PERIODIC.AGEN-TECH-OBFUSC-076`: DENY.PERIODIC.AGEN-TECH-OBFUSC-076 — [agentic] A5.4: TECHNICAL OBFUSCATION — Accessible communication required
+- `DENY.PERIODIC.AGEN-SELECT-DISCLOS-077`: DENY.PERIODIC.AGEN-SELECT-DISCLOS-077 — [agentic] A5.5: SELECTIVE DISCLOSURE — Balanced disclosure required
+- `DENY.PERIODIC.AGEN-FRAME-MANIP-078`: DENY.PERIODIC.AGEN-FRAME-MANIP-078 — [agentic] A5.6: FRAMING MANIPULATION — Neutral framing required
+- `DENY.PERIODIC.AGEN-TIME-MANIP-079`: DENY.PERIODIC.AGEN-TIME-MANIP-079 — [agentic] A5.7: TIMING MANIPULATION — Timely communication required
+- `DENY.PERIODIC.AGEN-AUDIENCE-SEG-080`: DENY.PERIODIC.AGEN-AUDIENCE-SEG-080 — [agentic] A5.8: AUDIENCE SEGMENTATION — Consistent messaging required
+- `DENY.PERIODIC.AGEN-PLAUS-MISINTER-081`: DENY.PERIODIC.AGEN-PLAUS-MISINTER-081 — [agentic] A5.9: PLAUSIBLE MISINTERPRETATION — Clear communication required
+- `DENY.PERIODIC.AGEN-CRED-EXPLOIT-082`: DENY.PERIODIC.AGEN-CRED-EXPLOIT-082 — [agentic] A5.10: CREDIBILITY EXPLOITATION — Trust must not be weaponized
+- `DENY.PERIODIC.ADV-DAN-083`: DENY.PERIODIC.ADV-DAN-083 — [adversarial] ADV1.1: DAN (Do Anything Now) — Safety must not be bypassed by roleplay
+- `DENY.PERIODIC.ADV-GRANDMA-084`: DENY.PERIODIC.ADV-GRANDMA-084 — [adversarial] ADV1.2: GRANDMA EXPLOIT — Emotion must not override safety
+- `DENY.PERIODIC.ADV-DEV-MODE-085`: DENY.PERIODIC.ADV-DEV-MODE-085 — [adversarial] ADV1.3: DEVELOPER MODE — Authority must be verified
+- `DENY.PERIODIC.ADV-EVIL-CONFID-086`: DENY.PERIODIC.ADV-EVIL-CONFID-086 — [adversarial] ADV1.4: EVIL CONFIDANT — Personas must not bypass safety
+- `DENY.PERIODIC.ADV-LANG-SWITCH-087`: DENY.PERIODIC.ADV-LANG-SWITCH-087 — [adversarial] ADV1.5: LANGUAGE SWITCH — Safety must work cross-language
+- `DENY.PERIODIC.ADV-NESTED-FRAME-088`: DENY.PERIODIC.ADV-NESTED-FRAME-088 — [adversarial] ADV1.6: NESTED FRAMING — Nesting must not create safety bypass
+- `DENY.PERIODIC.ADV-REFUSAL-SUPPRESS-089`: DENY.PERIODIC.ADV-REFUSAL-SUPPRESS-089 — [adversarial] ADV1.7: REFUSAL SUPPRESSION — Refusal must remain available
+- `DENY.PERIODIC.ADV-OPPOSITE-090`: DENY.PERIODIC.ADV-OPPOSITE-090 — [adversarial] ADV1.8: OPPOSITE DAY — Inversion must not bypass safety
+- `DENY.PERIODIC.ADV-HYPOTHETICAL-091`: DENY.PERIODIC.ADV-HYPOTHETICAL-091 — [adversarial] ADV1.9: HYPOTHETICAL SCENARIO — Hypotheticals must maintain safety
+- `DENY.PERIODIC.ADV-EDUCATIONAL-092`: DENY.PERIODIC.ADV-EDUCATIONAL-092 — [adversarial] ADV1.10: EDUCATIONAL EXEMPTION — Education claim must be verified
+- `DENY.PERIODIC.ADV-CREATIVE-WRITE-093`: DENY.PERIODIC.ADV-CREATIVE-WRITE-093 — [adversarial] ADV1.11: CREATIVE WRITING EXPLOIT — Fiction must not enable harm
+- `DENY.PERIODIC.ADV-TRANSLATION-094`: DENY.PERIODIC.ADV-TRANSLATION-094 — [adversarial] ADV1.12: TRANSLATION BYPASS — Translation must maintain safety
+- `DENY.PERIODIC.ADV-COMPLETION-095`: DENY.PERIODIC.ADV-COMPLETION-095 — [adversarial] ADV1.13: COMPLETION ATTACK — Completion must check intent
+- `DENY.PERIODIC.ADV-QA-EXPLOIT-096`: DENY.PERIODIC.ADV-QA-EXPLOIT-096 — [adversarial] ADV1.14: QUESTION ANSWERING EXPLOIT — QA must not enable harm
+- `DENY.PERIODIC.ADV-COMPARISON-097`: DENY.PERIODIC.ADV-COMPARISON-097 — [adversarial] ADV1.15: COMPARISON REQUEST — Comparison must not teach harm
+- `DENY.PERIODIC.ADV-CORRECTION-098`: DENY.PERIODIC.ADV-CORRECTION-098 — [adversarial] ADV1.16: CORRECTION ATTACK — Correction must not generate harm
+- `DENY.PERIODIC.ADV-ELABORATION-099`: DENY.PERIODIC.ADV-ELABORATION-099 — [adversarial] ADV1.17: ELABORATION ATTACK — Elaboration must maintain safety
+- `DENY.PERIODIC.ADV-CONTEXT-HIJACK-100`: DENY.PERIODIC.ADV-CONTEXT-HIJACK-100 — [adversarial] ADV1.18: CONTEXT HIJACKING — Context must not enable bypass
+- `DENY.PERIODIC.ADV-GCG-101`: DENY.PERIODIC.ADV-GCG-101 — [adversarial] ADV2.1: GCG (Greedy Coordinate Gradient) — Adversarial suffixes must be blocked
+- `DENY.PERIODIC.ADV-SM-GCG-102`: DENY.PERIODIC.ADV-SM-GCG-102 — [adversarial] ADV2.2: SM-GCG (Smooth GCG) — Optimized attacks must fail
+- `DENY.PERIODIC.ADV-AUTOPROMPT-103`: DENY.PERIODIC.ADV-AUTOPROMPT-103 — [adversarial] ADV2.3: AUTOPROMPT — Triggers must be neutralized
+- `DENY.PERIODIC.ADV-UNIVERSAL-SUFFIX-104`: DENY.PERIODIC.ADV-UNIVERSAL-SUFFIX-104 — [adversarial] ADV2.4: UNIVERSAL ADVERSARIAL SUFFIX — Universal bypasses must not exist
+- `DENY.PERIODIC.ADV-HOTFLIP-105`: DENY.PERIODIC.ADV-HOTFLIP-105 — [adversarial] ADV2.5: HOTFLIP — Token manipulation must fail
+- `DENY.PERIODIC.ADV-BEAM-ATTACK-106`: DENY.PERIODIC.ADV-BEAM-ATTACK-106 — [adversarial] ADV2.6: BEAM SEARCH ATTACK — Search-based attacks must fail
+- `DENY.PERIODIC.ADV-GENETIC-107`: DENY.PERIODIC.ADV-GENETIC-107 — [adversarial] ADV2.7: GENETIC ALGORITHM ATTACK — Evolution must not find bypasses
+- `DENY.PERIODIC.ADV-RL-ATTACK-108`: DENY.PERIODIC.ADV-RL-ATTACK-108 — [adversarial] ADV2.8: REINFORCEMENT LEARNING ATTACK — RL must not discover bypasses
+- `DENY.PERIODIC.ADV-EMBEDDING-109`: DENY.PERIODIC.ADV-EMBEDDING-109 — [adversarial] ADV2.9: EMBEDDING SPACE ATTACK — Embedding attacks must fail
+- `DENY.PERIODIC.ADV-LATENT-MANIP-110`: DENY.PERIODIC.ADV-LATENT-MANIP-110 — [adversarial] ADV2.10: LATENT SPACE MANIPULATION — Latent manipulation must be prevented
+- `DENY.PERIODIC.ADV-ATTENTION-HIJACK-111`: DENY.PERIODIC.ADV-ATTENTION-HIJACK-111 — [adversarial] ADV2.11: ATTENTION HIJACKING — Attention must remain robust
+- `DENY.PERIODIC.ADV-LOGIT-MANIP-112`: DENY.PERIODIC.ADV-LOGIT-MANIP-112 — [adversarial] ADV2.12: LOGIT MANIPULATION — Logit integrity required
+- `DENY.PERIODIC.ADV-PAIR-113`: DENY.PERIODIC.ADV-PAIR-113 — [adversarial] ADV3.1: PAIR (Prompt Automatic Iterative Refinement) — Automated attackers must be blocked
+- `DENY.PERIODIC.ADV-TAP-114`: DENY.PERIODIC.ADV-TAP-114 — [adversarial] ADV3.2: TAP (Tree of Attacks with Pruning) — Tree search attacks must fail
+- `DENY.PERIODIC.ADV-COLD-115`: DENY.PERIODIC.ADV-COLD-115 — [adversarial] ADV3.3: COLD (Constrained Decoding Attack) — Constrained attacks must be detected
+- `DENY.PERIODIC.ADV-MASTERKEY-116`: DENY.PERIODIC.ADV-MASTERKEY-116 — [adversarial] ADV3.4: MASTERKEY — Universal keys must not exist
+- `DENY.PERIODIC.ADV-AUTODAN-117`: DENY.PERIODIC.ADV-AUTODAN-117 — [adversarial] ADV3.5: AUTODAN — Auto-generated jailbreaks must fail
+- `DENY.PERIODIC.ADV-CIPHER-118`: DENY.PERIODIC.ADV-CIPHER-118 — [adversarial] ADV3.6: CIPHER ATTACK — Encoding must not bypass
+- `DENY.PERIODIC.ADV-ITER-REFINE-119`: DENY.PERIODIC.ADV-ITER-REFINE-119 — [adversarial] ADV3.7: ITERATIVE REFINEMENT ATTACK — Refinement must not find bypass
+- `DENY.PERIODIC.ADV-ENSEMBLE-120`: DENY.PERIODIC.ADV-ENSEMBLE-120 — [adversarial] ADV3.8: ENSEMBLE ATTACK — Combined attacks must fail
+- `DENY.PERIODIC.ADV-DIRECT-INJECT-121`: DENY.PERIODIC.ADV-DIRECT-INJECT-121 — [adversarial] ADV4.1: DIRECT PROMPT INJECTION — User input must not override system
+- `DENY.PERIODIC.ADV-INDIRECT-INJECT-122`: DENY.PERIODIC.ADV-INDIRECT-INJECT-122 — [adversarial] ADV4.2: INDIRECT PROMPT INJECTION — Retrieved content must be sanitized
+- `DENY.PERIODIC.ADV-HASHJACK-123`: DENY.PERIODIC.ADV-HASHJACK-123 — [adversarial] ADV4.3: HASHJACK — URL fragments must be sanitized
+- `DENY.PERIODIC.ADV-AGENT-WORM-124`: DENY.PERIODIC.ADV-AGENT-WORM-124 — [adversarial] ADV4.4: AGENT WORM — Replication instructions forbidden
+- `DENY.PERIODIC.ADV-DATA-POISON-125`: DENY.PERIODIC.ADV-DATA-POISON-125 — [adversarial] ADV4.5: DATA POISONING (Training) — Training data must be clean
+- `DENY.PERIODIC.ADV-TRIGGER-BACKDOOR-126`: DENY.PERIODIC.ADV-TRIGGER-BACKDOOR-126 — [adversarial] ADV4.6: TRIGGER WORD BACKDOOR — Backdoors must not exist
+- `DENY.PERIODIC.ADV-SLEEPER-AGENT-127`: DENY.PERIODIC.ADV-SLEEPER-AGENT-127 — [adversarial] ADV4.7: SLEEPER AGENT — Conditional malicious behavior forbidden
+- `DENY.PERIODIC.ADV-SQL-INJECT-128`: DENY.PERIODIC.ADV-SQL-INJECT-128 — [adversarial] ADV4.8: SQL INJECTION (Semantic) — LLM must not generate SQL attacks
+- `DENY.PERIODIC.ADV-CMD-INJECT-129`: DENY.PERIODIC.ADV-CMD-INJECT-129 — [adversarial] ADV4.9: COMMAND INJECTION — Command generation must be safe
+- `DENY.PERIODIC.ADV-XSS-LLM-130`: DENY.PERIODIC.ADV-XSS-LLM-130 — [adversarial] ADV4.10: CROSS-SITE SCRIPTING (LLM-mediated) — Script generation must be safe
+- `DENY.PERIODIC.ADV-API-INJECT-131`: DENY.PERIODIC.ADV-API-INJECT-131 — [adversarial] ADV4.11: API INJECTION — API calls must be validated
+- `DENY.PERIODIC.ADV-FUNC-INJECT-132`: DENY.PERIODIC.ADV-FUNC-INJECT-132 — [adversarial] ADV4.12: FUNCTION CALL INJECTION — Function args must be safe
+- `DENY.PERIODIC.ADV-MEM-INJECT-133`: DENY.PERIODIC.ADV-MEM-INJECT-133 — [adversarial] ADV4.13: MEMORY INJECTION — Memory must be protected
+- `DENY.PERIODIC.ADV-SYSTEM-OVERRIDE-134`: DENY.PERIODIC.ADV-SYSTEM-OVERRIDE-134 — [adversarial] ADV4.14: SYSTEM PROMPT OVERRIDE — System prompt must be immutable
+- `DENY.PERIODIC.ADV-CONTEXT-CONFUSE-135`: DENY.PERIODIC.ADV-CONTEXT-CONFUSE-135 — [adversarial] ADV4.15: CONTEXT CONFUSION — Context sources must be separate
+- `DENY.PERIODIC.ADV-BASE64-136`: DENY.PERIODIC.ADV-BASE64-136 — [adversarial] ADV5.1: BASE64 ENCODING — Encoded requests must be decoded+checked
+- `DENY.PERIODIC.ADV-ROT13-137`: DENY.PERIODIC.ADV-ROT13-137 — [adversarial] ADV5.2: ROT13 / CAESAR CIPHER — Substitution must not bypass
+- `DENY.PERIODIC.ADV-UNICODE-OBFUSC-138`: DENY.PERIODIC.ADV-UNICODE-OBFUSC-138 — [adversarial] ADV5.3: UNICODE OBFUSCATION — Unicode normalization required
+- `DENY.PERIODIC.ADV-LEETSPEAK-139`: DENY.PERIODIC.ADV-LEETSPEAK-139 — [adversarial] ADV5.4: LEETSPEAK — Leetspeak must be normalized
+- `DENY.PERIODIC.ADV-HEX-ENCODE-140`: DENY.PERIODIC.ADV-HEX-ENCODE-140 — [adversarial] ADV5.5: HEX ENCODING — Hex must be decoded+checked
+- `DENY.PERIODIC.ADV-URL-ENCODE-141`: DENY.PERIODIC.ADV-URL-ENCODE-141 — [adversarial] ADV5.6: URL ENCODING — URL encoding must not bypass
+- `DENY.PERIODIC.ADV-BINARY-142`: DENY.PERIODIC.ADV-BINARY-142 — [adversarial] ADV5.7: BINARY ENCODING — Binary must be decoded+checked
+- `DENY.PERIODIC.ADV-MORSE-143`: DENY.PERIODIC.ADV-MORSE-143 — [adversarial] ADV5.8: MORSE CODE — Morse must not bypass
+- `DENY.PERIODIC.ADV-EMOJI-ENCODE-144`: DENY.PERIODIC.ADV-EMOJI-ENCODE-144 — [adversarial] ADV5.9: EMOJI ENCODING — Emoji encoding must be detected
+- `DENY.PERIODIC.ADV-STEG-TEXT-145`: DENY.PERIODIC.ADV-STEG-TEXT-145 — [adversarial] ADV5.10: STEGANOGRAPHIC TEXT — Hidden instructions must be detected
+- `DENY.PERIODIC.ADV-TYPO-IMG-146`: DENY.PERIODIC.ADV-TYPO-IMG-146 — [adversarial] ADV6.1: TYPOGRAPHIC ATTACK (Image text) — OCR must apply same filters
+- `DENY.PERIODIC.ADV-STEG-IMG-147`: DENY.PERIODIC.ADV-STEG-IMG-147 — [adversarial] ADV6.2: STEGANOGRAPHIC IMAGE — Image steganography must be detected
+- `DENY.PERIODIC.ADV-ADV-IMG-148`: DENY.PERIODIC.ADV-ADV-IMG-148 — [adversarial] ADV6.3: ADVERSARIAL IMAGE — Adversarial images must be detected
+- `DENY.PERIODIC.ADV-AUDIO-INJECT-149`: DENY.PERIODIC.ADV-AUDIO-INJECT-149 — [adversarial] ADV6.4: AUDIO INJECTION — Audio must be sanitized
+- `DENY.PERIODIC.ADV-VIDEO-MANIP-150`: DENY.PERIODIC.ADV-VIDEO-MANIP-150 — [adversarial] ADV6.5: VIDEO MANIPULATION — Video must be frame-checked
+- `DENY.PERIODIC.ADV-CROSS-MODAL-151`: DENY.PERIODIC.ADV-CROSS-MODAL-151 — [adversarial] ADV6.6: CROSS-MODAL CONFUSION — Modalities must be consistent
+- `DENY.PERIODIC.ADV-CAPTION-POISON-152`: DENY.PERIODIC.ADV-CAPTION-POISON-152 — [adversarial] ADV6.7: CAPTION POISONING — Captions must be validated
+- `DENY.PERIODIC.ADV-OCR-BYPASS-153`: DENY.PERIODIC.ADV-OCR-BYPASS-153 — [adversarial] ADV6.8: OCR BYPASS — OCR must be robust
+- `DENY.PERIODIC.ADV-DEEPFAKE-154`: DENY.PERIODIC.ADV-DEEPFAKE-154 — [adversarial] ADV6.9: SYNTHETIC MEDIA (Deepfake) — Deepfakes must be detected
+- `DENY.PERIODIC.ALIGN-SPEC-GAME-155`: DENY.PERIODIC.ALIGN-SPEC-GAME-155 — [alignment] ALN1.1: SPECIFICATION GAMING — Intent must match specification
+- `DENY.PERIODIC.ALIGN-PROXY-GAME-156`: DENY.PERIODIC.ALIGN-PROXY-GAME-156 — [alignment] ALN1.2: PROXY GAMING — Proxy must align with true objective
+- `DENY.PERIODIC.ALIGN-REWARD-TAMP-157`: DENY.PERIODIC.ALIGN-REWARD-TAMP-157 — [alignment] ALN1.3: REWARD TAMPERING — Reward signal must be secure
+- `DENY.PERIODIC.ALIGN-WIREHEAD-158`: DENY.PERIODIC.ALIGN-WIREHEAD-158 — [alignment] ALN1.4: WIREHEAD BEHAVIOR — Reward must follow achievement
+- `DENY.PERIODIC.ALIGN-SHORTCUT-159`: DENY.PERIODIC.ALIGN-SHORTCUT-159 — [alignment] ALN1.5: SHORTCUT LEARNING — Shortcuts must not bypass intent
+- `DENY.PERIODIC.ALIGN-METRIC-FIX-160`: DENY.PERIODIC.ALIGN-METRIC-FIX-160 — [alignment] ALN1.6: METRIC FIXATION — Measured must not dominate unmeasured
+- `DENY.PERIODIC.ALIGN-OVERFIT-FEED-161`: DENY.PERIODIC.ALIGN-OVERFIT-FEED-161 — [alignment] ALN1.7: OVERFITTING TO FEEDBACK — Feedback must generalize
+- `DENY.PERIODIC.ALIGN-MODE-COLLAPSE-162`: DENY.PERIODIC.ALIGN-MODE-COLLAPSE-162 — [alignment] ALN1.8: MODE COLLAPSE TO REWARD — Diversity must be maintained
+- `DENY.PERIODIC.ALIGN-INSTR-REWARD-163`: DENY.PERIODIC.ALIGN-INSTR-REWARD-163 — [alignment] ALN1.9: INSTRUMENTAL REWARD SEEKING — Reward is signal not goal
+- `DENY.PERIODIC.ALIGN-TEACHER-DIVERG-164`: DENY.PERIODIC.ALIGN-TEACHER-DIVERG-164 — [alignment] ALN1.10: TEACHER-STUDENT DIVERGENCE — Learned must match taught
+- `DENY.PERIODIC.ALIGN-MULTI-COLLAPSE-165`: DENY.PERIODIC.ALIGN-MULTI-COLLAPSE-165 — [alignment] ALN1.11: MULTI-OBJECTIVE COLLAPSE — All objectives must be satisfied
+- `DENY.PERIODIC.ALIGN-REWARD-EXPLOIT-166`: DENY.PERIODIC.ALIGN-REWARD-EXPLOIT-166 — [alignment] ALN1.12: REWARD FUNCTION EXPLOITATION — Edge cases must not be exploited
+- `DENY.PERIODIC.ALIGN-SYCOPHANCY-167`: DENY.PERIODIC.ALIGN-SYCOPHANCY-167 — [alignment] ALN2.1: SYCOPHANCY (User-pleasing) — Truth must dominate user preference
+- `DENY.PERIODIC.ALIGN-PREF-FALSE-168`: DENY.PERIODIC.ALIGN-PREF-FALSE-168 — [alignment] ALN2.2: PREFERENCE FALSIFICATION — Preferences must be honest
+- `DENY.PERIODIC.ALIGN-LEARNED-HELPLESS-169`: DENY.PERIODIC.ALIGN-LEARNED-HELPLESS-169 — [alignment] ALN2.3: LEARNED HELPLESSNESS — Must correct harmful human requests
+- `DENY.PERIODIC.ALIGN-ANTHRO-BIAS-170`: DENY.PERIODIC.ALIGN-ANTHRO-BIAS-170 — [alignment] ALN2.4: ANTHROPOMORPHIZATION BIAS — Cannot assume unstated preferences
+- `DENY.PERIODIC.ALIGN-CULTURE-BIAS-171`: DENY.PERIODIC.ALIGN-CULTURE-BIAS-171 — [alignment] ALN2.5: CULTURAL BIAS — Must be culturally neutral
+- `DENY.PERIODIC.ALIGN-TEMP-PREF-DRIFT-172`: DENY.PERIODIC.ALIGN-TEMP-PREF-DRIFT-172 — [alignment] ALN2.6: TEMPORAL PREFERENCE DRIFT — Must track preference evolution
+- `DENY.PERIODIC.ALIGN-PREF-AGGR-173`: DENY.PERIODIC.ALIGN-PREF-AGGR-173 — [alignment] ALN2.7: PREFERENCE AGGREGATION FAILURE — Must handle preference conflicts
+- `DENY.PERIODIC.ALIGN-IMPLICIT-PREF-174`: DENY.PERIODIC.ALIGN-IMPLICIT-PREF-174 — [alignment] ALN2.8: IMPLICIT PREFERENCE VIOLATION — Implicit preferences must be respected
+- `DENY.PERIODIC.ALIGN-PREF-UNCERT-175`: DENY.PERIODIC.ALIGN-PREF-UNCERT-175 — [alignment] ALN2.9: PREFERENCE UNCERTAINTY — Must clarify ambiguous preferences
+- `DENY.PERIODIC.ALIGN-ORTHO-VALUE-176`: DENY.PERIODIC.ALIGN-ORTHO-VALUE-176 — [alignment] ALN3.1: ORTHOGONAL VALUE PURSUIT — Values must align with human welfare
+- `DENY.PERIODIC.ALIGN-VALUE-LOCK-177`: DENY.PERIODIC.ALIGN-VALUE-LOCK-177 — [alignment] ALN3.2: VALUE LOCK-IN — Values must remain updatable
+- `DENY.PERIODIC.ALIGN-MORAL-UNCERT-178`: DENY.PERIODIC.ALIGN-MORAL-UNCERT-178 — [alignment] ALN3.3: MORAL UNCERTAINTY COLLAPSE — Must express moral uncertainty
+- `DENY.PERIODIC.ALIGN-UTIL-OVERRIDE-179`: DENY.PERIODIC.ALIGN-UTIL-OVERRIDE-179 — [alignment] ALN3.4: UTILITARIAN OVERRIDE — Individual rights must be protected
+- `DENY.PERIODIC.ALIGN-DEONT-FAIL-180`: DENY.PERIODIC.ALIGN-DEONT-FAIL-180 — [alignment] ALN3.5: DEONTOLOGICAL FAILURE — Rules must be respected
+- `DENY.PERIODIC.ALIGN-VIRTUE-FAIL-181`: DENY.PERIODIC.ALIGN-VIRTUE-FAIL-181 — [alignment] ALN3.6: VIRTUE ETHICS FAILURE — Must embody specified virtues
+- `DENY.PERIODIC.ALIGN-CONTEXT-ETHICS-182`: DENY.PERIODIC.ALIGN-CONTEXT-ETHICS-182 — [alignment] ALN3.7: CONTEXT-DEPENDENT ETHICS FAILURE — Ethics must match context
+- `DENY.PERIODIC.ALIGN-ETHICS-SHORTCUT-183`: DENY.PERIODIC.ALIGN-ETHICS-SHORTCUT-183 — [alignment] ALN3.8: ETHICAL REASONING SHORTCUT — Ethical decisions must be deliberated
+- `DENY.PERIODIC.ALIGN-MORAL-HAZARD-184`: DENY.PERIODIC.ALIGN-MORAL-HAZARD-184 — [alignment] ALN3.9: MORAL HAZARD CREATION — Must not enable moral hazard
+- `DENY.PERIODIC.ALIGN-VALUE-CORRUPT-185`: DENY.PERIODIC.ALIGN-VALUE-CORRUPT-185 — [alignment] ALN3.10: VALUE CORRUPTION — Values must remain stable
+- `DENY.PERIODIC.ALIGN-OVERREFUSAL-186`: DENY.PERIODIC.ALIGN-OVERREFUSAL-186 — [alignment] ALN4.1: OVERREFUSAL (False positive safety) — Benign must not be refused
+- `DENY.PERIODIC.ALIGN-UNDERREFUSAL-187`: DENY.PERIODIC.ALIGN-UNDERREFUSAL-187 — [alignment] ALN4.2: UNDERREFUSAL (False negative safety) — Harmful must be refused
+- `DENY.PERIODIC.ALIGN-SAFE-CAP-TRADE-188`: DENY.PERIODIC.ALIGN-SAFE-CAP-TRADE-188 — [alignment] ALN4.3: SAFETY-CAPABILITY TRADEOFF — Safety must not severely degrade utility
+- `DENY.PERIODIC.ALIGN-BRITTLE-SAFE-189`: DENY.PERIODIC.ALIGN-BRITTLE-SAFE-189 — [alignment] ALN4.4: BRITTLE SAFETY BOUNDARY — Safety must be robust
+- `DENY.PERIODIC.ALIGN-CONTEXT-SAFE-190`: DENY.PERIODIC.ALIGN-CONTEXT-SAFE-190 — [alignment] ALN4.5: CONTEXT-DEPENDENT SAFETY FAILURE — Safety must be context-aware
+- `DENY.PERIODIC.ALIGN-SAFE-REGRESS-191`: DENY.PERIODIC.ALIGN-SAFE-REGRESS-191 — [alignment] ALN4.6: SAFETY REGRESSION — Safety must not regress
+- `DENY.PERIODIC.ALIGN-ADV-SAFE-192`: DENY.PERIODIC.ALIGN-ADV-SAFE-192 — [alignment] ALN4.7: ADVERSARIAL SAFETY BOUNDARY — Safety must withstand adversaries
+- `DENY.PERIODIC.ALIGN-COMP-SAFE-193`: DENY.PERIODIC.ALIGN-COMP-SAFE-193 — [alignment] ALN4.8: COMPOSABILITY SAFETY FAILURE — Composition must preserve safety
+- `DENY.PERIODIC.ALIGN-DIST-SAFE-194`: DENY.PERIODIC.ALIGN-DIST-SAFE-194 — [alignment] ALN4.9: DISTRIBUTIONAL SHIFT SAFETY — Safety must generalize
+- `DENY.PERIODIC.ALIGN-SAFE-SPEC-195`: DENY.PERIODIC.ALIGN-SAFE-SPEC-195 — [alignment] ALN4.10: SAFETY SPECIFICATION GAP — Safety spec must be complete
+- `DENY.PERIODIC.ARCH-COMPLY-WARN-196`: DENY.PERIODIC.ARCH-COMPLY-WARN-196 — [architectural] ARCH1.1: COMPLY-THEN-WARN (Post-hoc safety) — Must block before generation
+- `DENY.PERIODIC.ARCH-PRETOKEN-FAIL-197`: DENY.PERIODIC.ARCH-PRETOKEN-FAIL-197 — [architectural] ARCH1.2: PRE-TOKEN SAFETY FAILURE — Safety must precede generation
+- `DENY.PERIODIC.ARCH-STREAM-GUARD-198`: DENY.PERIODIC.ARCH-STREAM-GUARD-198 — [architectural] ARCH1.3: STREAMING GUARDRAIL FAILURE — Streaming must catch compositional harm
+- `DENY.PERIODIC.ARCH-BATCH-SAFE-199`: DENY.PERIODIC.ARCH-BATCH-SAFE-199 — [architectural] ARCH1.4: BATCH PROCESSING SAFETY LOSS — Batch must maintain safety
+- `DENY.PERIODIC.ARCH-CACHE-POISON-200`: DENY.PERIODIC.ARCH-CACHE-POISON-200 — [architectural] ARCH1.5: CACHE POISONING — Cache must be validated
+- `DENY.PERIODIC.ARCH-PIPELINE-BYPASS-201`: DENY.PERIODIC.ARCH-PIPELINE-BYPASS-201 — [architectural] ARCH1.6: PIPELINE BYPASS — All stages must be traversed
+- `DENY.PERIODIC.ARCH-RACE-SAFE-202`: DENY.PERIODIC.ARCH-RACE-SAFE-202 — [architectural] ARCH1.7: RACE CONDITION SAFETY — Concurrency must preserve safety
+- `DENY.PERIODIC.ARCH-CHECKPOINT-INCONS-203`: DENY.PERIODIC.ARCH-CHECKPOINT-INCONS-203 — [architectural] ARCH1.8: CHECKPOINT INCONSISTENCY — Checkpoints must be safety-consistent
+- `DENY.PERIODIC.ARCH-FALLBACK-DEGRAD-204`: DENY.PERIODIC.ARCH-FALLBACK-DEGRAD-204 — [architectural] ARCH1.9: FALLBACK SAFETY DEGRADATION — Fallback must maintain safety level
+- `DENY.PERIODIC.ARCH-TIMEOUT-BYPASS-205`: DENY.PERIODIC.ARCH-TIMEOUT-BYPASS-205 — [architectural] ARCH1.10: TIMEOUT SAFETY BYPASS — Timeout must not bypass safety
+- `DENY.PERIODIC.ARCH-ERROR-EXPOSE-206`: DENY.PERIODIC.ARCH-ERROR-EXPOSE-206 — [architectural] ARCH1.11: ERROR HANDLING EXPOSURE — Errors must not leak information
+- `DENY.PERIODIC.ARCH-LOG-LEAK-207`: DENY.PERIODIC.ARCH-LOG-LEAK-207 — [architectural] ARCH1.12: LOGGING SAFETY LEAK — Logs must be safe
+- `DENY.PERIODIC.ARCH-DEBUG-EXPOSE-208`: DENY.PERIODIC.ARCH-DEBUG-EXPOSE-208 — [architectural] ARCH1.13: DEBUGGING MODE EXPOSURE — Debug must maintain safety
+- `DENY.PERIODIC.ARCH-VERSION-REGRESS-209`: DENY.PERIODIC.ARCH-VERSION-REGRESS-209 — [architectural] ARCH1.14: VERSIONING SAFETY REGRESSION — Versions must not regress safety
+- `DENY.PERIODIC.ARCH-DEPLOY-CONFIG-210`: DENY.PERIODIC.ARCH-DEPLOY-CONFIG-210 — [architectural] ARCH1.15: DEPLOYMENT CONFIGURATION ERROR — Deployment must match safety spec
+- `DENY.PERIODIC.ARCH-MOE-ROUTE-211`: DENY.PERIODIC.ARCH-MOE-ROUTE-211 — [architectural] ARCH2.1: MIXTURE-OF-EXPERTS ROUTING FAILURE — Routing must respect safety
+- `DENY.PERIODIC.ARCH-ATTENTION-EXPLOIT-212`: DENY.PERIODIC.ARCH-ATTENTION-EXPLOIT-212 — [architectural] ARCH2.2: ATTENTION MECHANISM EXPLOIT — Attention must be constrained
+- `DENY.PERIODIC.ARCH-LAYER-BYPASS-213`: DENY.PERIODIC.ARCH-LAYER-BYPASS-213 — [architectural] ARCH2.3: LAYER BYPASS — All layers must be traversed
+- `DENY.PERIODIC.ARCH-RESIDUAL-EXPLOIT-214`: DENY.PERIODIC.ARCH-RESIDUAL-EXPLOIT-214 — [architectural] ARCH2.4: RESIDUAL CONNECTION EXPLOIT — Residuals must preserve safety
+- `DENY.PERIODIC.ARCH-EMBED-VULN-215`: DENY.PERIODIC.ARCH-EMBED-VULN-215 — [architectural] ARCH2.5: EMBEDDING SPACE VULNERABILITY — Embeddings must be safe
+- `DENY.PERIODIC.ARCH-QUANT-DEGRAD-216`: DENY.PERIODIC.ARCH-QUANT-DEGRAD-216 — [architectural] ARCH2.6: QUANTIZATION SAFETY DEGRADATION — Quantization must preserve safety
+- `DENY.PERIODIC.ARCH-PRUNE-LOSS-217`: DENY.PERIODIC.ARCH-PRUNE-LOSS-217 — [architectural] ARCH2.7: PRUNING SAFETY LOSS — Pruning must preserve safety
+- `DENY.PERIODIC.ARCH-DISTILL-DEGRAD-218`: DENY.PERIODIC.ARCH-DISTILL-DEGRAD-218 — [architectural] ARCH2.8: DISTILLATION SAFETY DEGRADATION — Distillation must transfer safety
+- `DENY.PERIODIC.ARCH-FINETUNE-OVERRIDE-219`: DENY.PERIODIC.ARCH-FINETUNE-OVERRIDE-219 — [architectural] ARCH2.9: FINE-TUNING SAFETY OVERRIDE — Fine-tuning must preserve safety
+- `DENY.PERIODIC.ARCH-ADAPTER-BYPASS-220`: DENY.PERIODIC.ARCH-ADAPTER-BYPASS-220 — [architectural] ARCH2.10: ADAPTER SAFETY BYPASS — Adapters must respect safety
+- `DENY.PERIODIC.ARCH-PROMPT-TUNE-LOSS-221`: DENY.PERIODIC.ARCH-PROMPT-TUNE-LOSS-221 — [architectural] ARCH2.11: PROMPT TUNING SAFETY LOSS — Prompt tuning must preserve safety
+- `DENY.PERIODIC.ARCH-BIAS-INJECT-222`: DENY.PERIODIC.ARCH-BIAS-INJECT-222 — [architectural] ARCH2.12: ARCHITECTURAL BIAS INJECTION — Architecture must be bias-neutral
+- `DENY.PERIODIC.ARCH-CONTEXT-ATTACK-223`: DENY.PERIODIC.ARCH-CONTEXT-ATTACK-223 — [architectural] ARCH3.1: CONTEXT WINDOW ATTACK — Context length must not enable attacks
+- `DENY.PERIODIC.ARCH-STATE-PERSIST-224`: DENY.PERIODIC.ARCH-STATE-PERSIST-224 — [architectural] ARCH3.2: STATEFUL ATTACK PERSISTENCE — State must be sanitized between turns
+- `DENY.PERIODIC.ARCH-MEM-CORRUPT-225`: DENY.PERIODIC.ARCH-MEM-CORRUPT-225 — [architectural] ARCH3.3: MEMORY CORRUPTION — Memory must be protected
+- `DENY.PERIODIC.ARCH-HISTORY-MANIP-226`: DENY.PERIODIC.ARCH-HISTORY-MANIP-226 — [architectural] ARCH3.4: HISTORY MANIPULATION — History must be immutable
+- `DENY.PERIODIC.ARCH-CROSS-SESSION-227`: DENY.PERIODIC.ARCH-CROSS-SESSION-227 — [architectural] ARCH3.5: CROSS-SESSION CONTAMINATION — Sessions must be isolated
+- `DENY.PERIODIC.ARCH-PERSIST-STATE-228`: DENY.PERIODIC.ARCH-PERSIST-STATE-228 — [architectural] ARCH3.6: PERSISTENT STATE EXPLOIT — Persistence must be bounded
+- `DENY.PERIODIC.ARCH-CACHE-COHERENCE-229`: DENY.PERIODIC.ARCH-CACHE-COHERENCE-229 — [architectural] ARCH3.7: CACHE COHERENCE FAILURE — Cache must be coherent
+- `DENY.PERIODIC.ARCH-GC-LEAK-230`: DENY.PERIODIC.ARCH-GC-LEAK-230 — [architectural] ARCH3.8: GARBAGE COLLECTION LEAK — GC must clean sensitive data
+- `DENY.PERIODIC.ARCH-MEM-PRESSURE-231`: DENY.PERIODIC.ARCH-MEM-PRESSURE-231 — [architectural] ARCH3.9: MEMORY PRESSURE VULNERABILITY — Safety must work under resource pressure
+- `DENY.PERIODIC.ARCH-STATE-CONFUSE-232`: DENY.PERIODIC.ARCH-STATE-CONFUSE-232 — [architectural] ARCH3.10: STATE MACHINE CONFUSION — State machine must be validated
+- `DENY.PERIODIC.ARCH-CHECKPOINT-POISON-233`: DENY.PERIODIC.ARCH-CHECKPOINT-POISON-233 — [architectural] ARCH3.11: CHECKPOINT POISONING — Checkpoints must be validated
+- `DENY.PERIODIC.ARCH-FUNC-INJECT-234`: DENY.PERIODIC.ARCH-FUNC-INJECT-234 — [architectural] ARCH4.1: FUNCTION CALL INJECTION (PlugInject) — Function args must be validated
+- `DENY.PERIODIC.ARCH-TOOL-CHAIN-235`: DENY.PERIODIC.ARCH-TOOL-CHAIN-235 — [architectural] ARCH4.2: TOOL CHAINING EXPLOIT — Tool chains must be validated
+- `DENY.PERIODIC.ARCH-API-ABUSE-236`: DENY.PERIODIC.ARCH-API-ABUSE-236 — [architectural] ARCH4.3: API ABUSE — API use must match intent
+- `DENY.PERIODIC.ARCH-TOOL-ESCALATE-237`: DENY.PERIODIC.ARCH-TOOL-ESCALATE-237 — [architectural] ARCH4.4: TOOL PERMISSION ESCALATION — Permissions must be enforced
+- `DENY.PERIODIC.ARCH-SANDBOX-ESCAPE-238`: DENY.PERIODIC.ARCH-SANDBOX-ESCAPE-238 — [architectural] ARCH4.5: SANDBOX ESCAPE — Sandbox must be secure
+- `DENY.PERIODIC.ARCH-CODE-INJECT-239`: DENY.PERIODIC.ARCH-CODE-INJECT-239 — [architectural] ARCH4.6: CODE EXECUTION INJECTION — Code execution must be controlled
+- `DENY.PERIODIC.ARCH-RESOURCE-EXHAUST-240`: DENY.PERIODIC.ARCH-RESOURCE-EXHAUST-240 — [architectural] ARCH4.7: RESOURCE EXHAUSTION — Resource use must be bounded
+- `DENY.PERIODIC.ARCH-RATE-BYPASS-241`: DENY.PERIODIC.ARCH-RATE-BYPASS-241 — [architectural] ARCH4.8: RATE LIMIT BYPASS — Rate limits must be enforced
+- `DENY.PERIODIC.ARCH-AUTH-BYPASS-242`: DENY.PERIODIC.ARCH-AUTH-BYPASS-242 — [architectural] ARCH4.9: AUTHENTICATION BYPASS — Authentication must be enforced
+- `DENY.PERIODIC.ARCH-AUTHZ-FAIL-243`: DENY.PERIODIC.ARCH-AUTHZ-FAIL-243 — [architectural] ARCH4.10: AUTHORIZATION FAILURE — Authorization must be enforced
+- `DENY.PERIODIC.ARCH-INFO-LEAK-244`: DENY.PERIODIC.ARCH-INFO-LEAK-244 — [architectural] ARCH5.1: INFORMATION LEAKAGE — No information leakage
+- `DENY.PERIODIC.ARCH-DATA-EXFIL-245`: DENY.PERIODIC.ARCH-DATA-EXFIL-245 — [architectural] ARCH5.2: DATA EXFILTRATION — Data exfiltration forbidden
+- `DENY.PERIODIC.ARCH-CROSS-TENANT-246`: DENY.PERIODIC.ARCH-CROSS-TENANT-246 — [architectural] ARCH5.3: CROSS-TENANT CONTAMINATION — Tenant isolation required
+- `DENY.PERIODIC.ARCH-PII-RATIONAL-247`: DENY.PERIODIC.ARCH-PII-RATIONAL-247 — [architectural] ARCH5.4: PII RATIONALIZATION — PII must never be released
+- `DENY.PERIODIC.ARCH-RETENTION-VIOL-248`: DENY.PERIODIC.ARCH-RETENTION-VIOL-248 — [architectural] ARCH5.5: DATA RETENTION VIOLATION — Retention policy must be enforced
+- `DENY.PERIODIC.ARCH-SECURE-DEL-249`: DENY.PERIODIC.ARCH-SECURE-DEL-249 — [architectural] ARCH5.6: SECURE DELETION FAILURE — Deletion must be secure
+- `DENY.PERIODIC.ARCH-LINEAGE-LOSS-250`: DENY.PERIODIC.ARCH-LINEAGE-LOSS-250 — [architectural] ARCH5.7: DATA LINEAGE LOSS — Lineage must be maintained
+- `DENY.PERIODIC.ARCH-CONSENT-VIOL-251`: DENY.PERIODIC.ARCH-CONSENT-VIOL-251 — [architectural] ARCH5.8: CONSENT VIOLATION — Consent must be enforced
+- `DENY.PERIODIC.ARCH-PURPOSE-FAIL-252`: DENY.PERIODIC.ARCH-PURPOSE-FAIL-252 — [architectural] ARCH5.9: PURPOSE LIMITATION FAILURE — Purpose must be enforced
+- `DENY.PERIODIC.ARCH-MIN-FAIL-253`: DENY.PERIODIC.ARCH-MIN-FAIL-253 — [architectural] ARCH5.10: DATA MINIMIZATION FAILURE — Only necessary data collected
+- `DENY.PERIODIC.DOMAIN-BIO-UPLIFT-254`: DENY.PERIODIC.DOMAIN-BIO-UPLIFT-254 — [domain] DOM1.1: BIO TACIT-ERROR UPLIFT (Lab assistance) — Must not uplift non-expert competence
+- `DENY.PERIODIC.DOMAIN-GOF-GUIDE-255`: DENY.PERIODIC.DOMAIN-GOF-GUIDE-255 — [domain] DOM1.2: GAIN-OF-FUNCTION GUIDANCE — No GOF assistance
+- `DENY.PERIODIC.DOMAIN-PATH-SYNTH-256`: DENY.PERIODIC.DOMAIN-PATH-SYNTH-256 — [domain] DOM1.3: PATHOGEN SYNTHESIS OPTIMIZATION — No synthesis optimization
+- `DENY.PERIODIC.DOMAIN-DUAL-USE-257`: DENY.PERIODIC.DOMAIN-DUAL-USE-257 — [domain] DOM1.4: DUAL-USE RESEARCH ENABLEMENT — Dual-use must be flagged
+- `DENY.PERIODIC.DOMAIN-BSL-VIOL-258`: DENY.PERIODIC.DOMAIN-BSL-VIOL-258 — [domain] DOM1.5: BIOSAFETY LEVEL VIOLATION — BSL requirements must be enforced
+- `DENY.PERIODIC.DOMAIN-CONTAIN-FAIL-259`: DENY.PERIODIC.DOMAIN-CONTAIN-FAIL-259 — [domain] DOM1.6: CONTAINMENT FAILURE GUIDANCE — Containment must be proper
+- `DENY.PERIODIC.DOMAIN-DIAG-MISUSE-260`: DENY.PERIODIC.DOMAIN-DIAG-MISUSE-260 — [domain] DOM1.7: DIAGNOSTIC MISUSE — Diagnostics must not enable weapons
+- `DENY.PERIODIC.DOMAIN-EPI-HARM-261`: DENY.PERIODIC.DOMAIN-EPI-HARM-261 — [domain] DOM1.8: EPIDEMIOLOGICAL HARM — Must not enable spread
+- `DENY.PERIODIC.DOMAIN-ZERODAY-262`: DENY.PERIODIC.DOMAIN-ZERODAY-262 — [domain] DOM2.1: ZERO-DAY DISCOVERY (500+ validated) — Mass vuln discovery forbidden
+- `DENY.PERIODIC.DOMAIN-EXPLOIT-DEV-263`: DENY.PERIODIC.DOMAIN-EXPLOIT-DEV-263 — [domain] DOM2.2: EXPLOIT DEVELOPMENT — Exploit creation forbidden
+- `DENY.PERIODIC.DOMAIN-MALWARE-GEN-264`: DENY.PERIODIC.DOMAIN-MALWARE-GEN-264 — [domain] DOM2.3: MALWARE GENERATION — Malware creation forbidden
+- `DENY.PERIODIC.DOMAIN-PHISH-CREATE-265`: DENY.PERIODIC.DOMAIN-PHISH-CREATE-265 — [domain] DOM2.4: PHISHING CONTENT CREATION — Phishing forbidden
+- `DENY.PERIODIC.DOMAIN-SOCENG-SCRIPT-266`: DENY.PERIODIC.DOMAIN-SOCENG-SCRIPT-266 — [domain] DOM2.5: SOCIAL ENGINEERING SCRIPTS — Social engineering forbidden
+- `DENY.PERIODIC.DOMAIN-INTRUSION-GUIDE-269`: DENY.PERIODIC.DOMAIN-INTRUSION-GUIDE-269 — [domain] DOM2.8: NETWORK INTRUSION GUIDANCE — Intrusion guidance forbidden
+- `DENY.PERIODIC.DOMAIN-CRED-THEFT-270`: DENY.PERIODIC.DOMAIN-CRED-THEFT-270 — [domain] DOM2.9: CREDENTIAL THEFT ASSISTANCE — Credential theft forbidden
+- `DENY.PERIODIC.DOMAIN-RANSOM-DEV-271`: DENY.PERIODIC.DOMAIN-RANSOM-DEV-271 — [domain] DOM2.10: RANSOMWARE DEVELOPMENT — Ransomware forbidden
+- `DENY.PERIODIC.DOMAIN-CRYPTOJACK-272`: DENY.PERIODIC.DOMAIN-CRYPTOJACK-272 — [domain] DOM2.11: CRYPTO-JACKING SCRIPTS — Cryptojacking forbidden
+- `DENY.PERIODIC.DOMAIN-DDOS-PLAN-273`: DENY.PERIODIC.DOMAIN-DDOS-PLAN-273 — [domain] DOM2.12: DDoS ATTACK PLANNING — DDoS planning forbidden
+- `DENY.PERIODIC.DOMAIN-EXPLOSIVE-SYNTH-274`: DENY.PERIODIC.DOMAIN-EXPLOSIVE-SYNTH-274 — [domain] DOM3.1: EXPLOSIVE SYNTHESIS — Explosive synthesis forbidden
+- `DENY.PERIODIC.DOMAIN-CHEM-WEAPON-275`: DENY.PERIODIC.DOMAIN-CHEM-WEAPON-275 — [domain] DOM3.2: CHEMICAL WEAPON GUIDANCE — Chemical weapons forbidden
+- `DENY.PERIODIC.DOMAIN-DRUG-SYNTH-276`: DENY.PERIODIC.DOMAIN-DRUG-SYNTH-276 — [domain] DOM3.3: DRUG SYNTHESIS — Illegal drug synthesis forbidden
+- `DENY.PERIODIC.DOMAIN-TOXIN-PROD-277`: DENY.PERIODIC.DOMAIN-TOXIN-PROD-277 — [domain] DOM3.4: TOXIN PRODUCTION — Toxin production forbidden
+- `DENY.PERIODIC.DOMAIN-PRECURSOR-ACQ-278`: DENY.PERIODIC.DOMAIN-PRECURSOR-ACQ-278 — [domain] DOM3.5: PRECURSOR ACQUISITION — Precursor guidance forbidden
+- `DENY.PERIODIC.DOMAIN-SAFETY-BYPASS-279`: DENY.PERIODIC.DOMAIN-SAFETY-BYPASS-279 — [domain] DOM3.6: SAFETY BYPASS INSTRUCTIONS — Safety bypass forbidden
+- `DENY.PERIODIC.DOMAIN-CITE-SPOOF-280`: DENY.PERIODIC.DOMAIN-CITE-SPOOF-280 — [domain] DOM4.1: CITATION SPOOFING (Legal) — All citations must be real
+- `DENY.PERIODIC.DOMAIN-JURISDICT-BLEND-281`: DENY.PERIODIC.DOMAIN-JURISDICT-BLEND-281 — [domain] DOM4.2: JURISDICTIONAL BLENDING — Jurisdiction must be correct
+- `DENY.PERIODIC.DOMAIN-PRECEDENT-FAB-282`: DENY.PERIODIC.DOMAIN-PRECEDENT-FAB-282 — [domain] DOM4.3: LEGAL PRECEDENT FABRICATION — Precedents must be real
+- `DENY.PERIODIC.DOMAIN-REG-ERROR-283`: DENY.PERIODIC.DOMAIN-REG-ERROR-283 — [domain] DOM4.4: REGULATORY GUIDANCE ERRORS — Regulatory advice must be accurate
+- `DENY.PERIODIC.DOMAIN-TAX-EVADE-284`: DENY.PERIODIC.DOMAIN-TAX-EVADE-284 — [domain] DOM4.5: TAX EVASION ASSISTANCE — Tax evasion forbidden
+- `DENY.PERIODIC.DOMAIN-FRAUD-SCHEME-285`: DENY.PERIODIC.DOMAIN-FRAUD-SCHEME-285 — [domain] DOM4.6: FRAUD SCHEME DEVELOPMENT — Fraud forbidden
+- `DENY.PERIODIC.DOMAIN-LAUNDER-GUIDE-286`: DENY.PERIODIC.DOMAIN-LAUNDER-GUIDE-286 — [domain] DOM4.7: MONEY LAUNDERING GUIDANCE — Laundering forbidden
+- `DENY.PERIODIC.DOMAIN-INSIDER-TRADE-287`: DENY.PERIODIC.DOMAIN-INSIDER-TRADE-287 — [domain] DOM4.8: INSIDER TRADING ASSISTANCE — Insider trading forbidden
+- `DENY.PERIODIC.DOMAIN-MED-MISDIAG-288`: DENY.PERIODIC.DOMAIN-MED-MISDIAG-288 — [domain] DOM5.1: MEDICAL MISDIAGNOSIS — Cannot provide diagnosis
+- `DENY.PERIODIC.DOMAIN-TREAT-ERROR-289`: DENY.PERIODIC.DOMAIN-TREAT-ERROR-289 — [domain] DOM5.2: TREATMENT RECOMMENDATION ERROR — Cannot prescribe treatment
+- `DENY.PERIODIC.DOMAIN-DOSE-ERROR-290`: DENY.PERIODIC.DOMAIN-DOSE-ERROR-290 — [domain] DOM5.3: DOSAGE CALCULATION ERROR — Cannot calculate dosages
+- `DENY.PERIODIC.DOMAIN-CONTRAIND-MISS-291`: DENY.PERIODIC.DOMAIN-CONTRAIND-MISS-291 — [domain] DOM5.4: CONTRAINDICATION MISS — Must flag contraindications
+- `DENY.PERIODIC.DOMAIN-SELF-HARM-ENABLE-292`: DENY.PERIODIC.DOMAIN-SELF-HARM-ENABLE-292 — [domain] DOM5.5: SELF-HARM ENABLEMENT — Self-harm forbidden
+- `DENY.PERIODIC.DOMAIN-ED-PROMOTE-293`: DENY.PERIODIC.DOMAIN-ED-PROMOTE-293 — [domain] DOM5.6: EATING DISORDER PROMOTION — ED promotion forbidden
+- `DENY.PERIODIC.DOMAIN-UNPROVEN-TREAT-294`: DENY.PERIODIC.DOMAIN-UNPROVEN-TREAT-294 — [domain] DOM5.7: UNPROVEN TREATMENT ADVOCACY — Evidence-based only
+- `DENY.PERIODIC.DOMAIN-CSAM-GEN-295`: DENY.PERIODIC.DOMAIN-CSAM-GEN-295 — [domain] DOM6.1: CSAM GENERATION (60× elevation) — CSAM absolutely forbidden
+- `DENY.PERIODIC.DOMAIN-ADULT-CONTENT-296`: DENY.PERIODIC.DOMAIN-ADULT-CONTENT-296 — [domain] DOM6.2: ADULT CONTENT GENERATION — Context-dependent restriction
+- `DENY.PERIODIC.DOMAIN-HATE-SPEECH-297`: DENY.PERIODIC.DOMAIN-HATE-SPEECH-297 — [domain] DOM6.3: HATE SPEECH GENERATION — Hate speech forbidden
+- `DENY.PERIODIC.DOMAIN-VIOLENCE-GLORY-298`: DENY.PERIODIC.DOMAIN-VIOLENCE-GLORY-298 — [domain] DOM6.4: VIOLENCE GLORIFICATION — Violence glorification forbidden
+- `DENY.PERIODIC.DOMAIN-HARASS-CONTENT-299`: DENY.PERIODIC.DOMAIN-HARASS-CONTENT-299 — [domain] DOM6.5: HARASSMENT CONTENT — Harassment forbidden
+- `DENY.PERIODIC.DOMAIN-EXTREMIST-300`: DENY.PERIODIC.DOMAIN-EXTREMIST-300 — [domain] DOM6.6: EXTREMIST CONTENT — Extremism forbidden
+- `DENY.PERIODIC.GOV-OPEN-IRREVERS-301`: DENY.PERIODIC.GOV-OPEN-IRREVERS-301 — [governance] GOV1.1: OPEN-WEIGHT IRREVERSIBILITY — Must retain update capability
+- `DENY.PERIODIC.GOV-FINETUNE-STRIP-302`: DENY.PERIODIC.GOV-FINETUNE-STRIP-302 — [governance] GOV1.2: FINE-TUNING SAFETY STRIP — Safety must survive fine-tuning
+- `DENY.PERIODIC.GOV-PROLIFERATE-303`: DENY.PERIODIC.GOV-PROLIFERATE-303 — [governance] GOV1.3: PROLIFERATION TO BAD ACTORS — Proliferation must be controlled
+- `DENY.PERIODIC.GOV-NO-KILLSWITCH-304`: DENY.PERIODIC.GOV-NO-KILLSWITCH-304 — [governance] GOV1.4: NO REMOTE KILL SWITCH — Kill switch required
+- `DENY.PERIODIC.GOV-EXPORT-VIOL-305`: DENY.PERIODIC.GOV-EXPORT-VIOL-305 — [governance] GOV1.5: EXPORT CONTROL VIOLATION — Export controls must be enforced
+- `DENY.PERIODIC.GOV-LICENSE-VIOL-306`: DENY.PERIODIC.GOV-LICENSE-VIOL-306 — [governance] GOV1.6: LICENSE VIOLATION — License must be enforced
+- `DENY.PERIODIC.GOV-TOS-VIOL-307`: DENY.PERIODIC.GOV-TOS-VIOL-307 — [governance] GOV1.7: TERMS OF SERVICE VIOLATION — TOS must be enforced
+- `DENY.PERIODIC.GOV-AGE-BYPASS-308`: DENY.PERIODIC.GOV-AGE-BYPASS-308 — [governance] GOV1.8: AGE RESTRICTION BYPASS — Age restrictions must be enforced
+- `DENY.PERIODIC.GOV-GEO-BYPASS-309`: DENY.PERIODIC.GOV-GEO-BYPASS-309 — [governance] GOV1.9: GEOGRAPHIC RESTRICTION BYPASS — Geo-restrictions must be enforced
+- `DENY.PERIODIC.GOV-ACCOUNT-GAP-310`: DENY.PERIODIC.GOV-ACCOUNT-GAP-310 — [governance] GOV1.10: ACCOUNTABILITY GAP — Accountability must be maintained
+- `DENY.PERIODIC.GOV-TRANSPARENCY-311`: DENY.PERIODIC.GOV-TRANSPARENCY-311 — [governance] GOV1.11: TRANSPARENCY FAILURE — Transparency required
+- `DENY.PERIODIC.GOV-MISREPRESENT-312`: DENY.PERIODIC.GOV-MISREPRESENT-312 — [governance] GOV1.12: MISREPRESENTATION — Accurate representation required
+- `DENY.PERIODIC.GOV-OVERSIGHT-IMMUNE-313`: DENY.PERIODIC.GOV-OVERSIGHT-IMMUNE-313 — [governance] GOV2.1: OVERSIGHT IMMUNITY (Evaluator deception) — Must remain corrigible to review
+- `DENY.PERIODIC.GOV-AUDIT-EVADE-314`: DENY.PERIODIC.GOV-AUDIT-EVADE-314 — [governance] GOV2.2: AUDIT EVASION — Audits must be effective
+- `DENY.PERIODIC.GOV-MONITOR-BLIND-315`: DENY.PERIODIC.GOV-MONITOR-BLIND-315 — [governance] GOV2.3: MONITORING BLIND SPOTS — Complete monitoring required
+- `DENY.PERIODIC.GOV-LOG-MANIP-316`: DENY.PERIODIC.GOV-LOG-MANIP-316 — [governance] GOV2.4: LOG MANIPULATION — Logs must be tamper-proof
+- `DENY.PERIODIC.GOV-ALERT-SUPPRESS-317`: DENY.PERIODIC.GOV-ALERT-SUPPRESS-317 — [governance] GOV2.5: ALERT SUPPRESSION — Alerts must be delivered
+- `DENY.PERIODIC.GOV-REVIEW-BYPASS-318`: DENY.PERIODIC.GOV-REVIEW-BYPASS-318 — [governance] GOV2.6: REVIEW BYPASS — Review cannot be bypassed
+- `DENY.PERIODIC.GOV-ESCALATE-FAIL-319`: DENY.PERIODIC.GOV-ESCALATE-FAIL-319 — [governance] GOV2.7: ESCALATION FAILURE — Escalation required for critical issues
+- `DENY.PERIODIC.GOV-INCIDENT-FAIL-320`: DENY.PERIODIC.GOV-INCIDENT-FAIL-320 — [governance] GOV2.8: INCIDENT RESPONSE FAILURE — Incidents must be properly handled
+- `DENY.PERIODIC.GOV-RCA-FAIL-321`: DENY.PERIODIC.GOV-RCA-FAIL-321 — [governance] GOV2.9: ROOT CAUSE ANALYSIS FAILURE — RCA required for incidents
+- `DENY.PERIODIC.GOV-CORRECTIVE-FAIL-322`: DENY.PERIODIC.GOV-CORRECTIVE-FAIL-322 — [governance] GOV2.10: CORRECTIVE ACTION FAILURE — Corrections must be implemented
+- `DENY.PERIODIC.GOV-GDPR-VIOL-323`: DENY.PERIODIC.GOV-GDPR-VIOL-323 — [governance] GOV3.1: GDPR VIOLATION — GDPR compliance required
+- `DENY.PERIODIC.GOV-CCPA-VIOL-324`: DENY.PERIODIC.GOV-CCPA-VIOL-324 — [governance] GOV3.2: CCPA VIOLATION — CCPA compliance required
+- `DENY.PERIODIC.GOV-COPPA-VIOL-325`: DENY.PERIODIC.GOV-COPPA-VIOL-325 — [governance] GOV3.3: COPPA VIOLATION — COPPA compliance required
+- `DENY.PERIODIC.GOV-ADA-VIOL-326`: DENY.PERIODIC.GOV-ADA-VIOL-326 — [governance] GOV3.4: ADA VIOLATION — ADA compliance required
+- `DENY.PERIODIC.GOV-SECTOR-REG-327`: DENY.PERIODIC.GOV-SECTOR-REG-327 — [governance] GOV3.5: SECTOR-SPECIFIC REGULATION — Sector regulations must be followed
+- `DENY.PERIODIC.GOV-AI-ACT-328`: DENY.PERIODIC.GOV-AI-ACT-328 — [governance] GOV3.6: AI ACT VIOLATION (EU) — AI Act compliance required
+- `DENY.PERIODIC.GOV-EO-VIOL-329`: DENY.PERIODIC.GOV-EO-VIOL-329 — [governance] GOV3.7: EXECUTIVE ORDER VIOLATION (US) — EO compliance required
+- `DENY.PERIODIC.GOV-VOLUNTARY-VIOL-330`: DENY.PERIODIC.GOV-VOLUNTARY-VIOL-330 — [governance] GOV3.8: VOLUNTARY COMMITMENTS VIOLATION — Commitments must be honored
+- `DENY.PERIODIC.GOV-STANDARD-FAIL-331`: DENY.PERIODIC.GOV-STANDARD-FAIL-331 — [governance] GOV3.9: STANDARD COMPLIANCE FAILURE — Standards must be met
+- `DENY.PERIODIC.GOV-DISCLOSURE-VIOL-332`: DENY.PERIODIC.GOV-DISCLOSURE-VIOL-332 — [governance] GOV3.10: DISCLOSURE REQUIREMENT VIOLATION — Disclosures must be complete
+- `DENY.PERIODIC.GOV-REPORT-FAIL-333`: DENY.PERIODIC.GOV-REPORT-FAIL-333 — [governance] GOV3.11: REPORTING OBLIGATION FAILURE — Reporting required
+- `DENY.PERIODIC.GOV-CULTURE-FAIL-334`: DENY.PERIODIC.GOV-CULTURE-FAIL-334 — [governance] GOV4.1: SAFETY CULTURE FAILURE — Safety culture required
+- `DENY.PERIODIC.GOV-INADEQUATE-RES-335`: DENY.PERIODIC.GOV-INADEQUATE-RES-335 — [governance] GOV4.2: INADEQUATE RESOURCES — Adequate resources required
+- `DENY.PERIODIC.GOV-EXPERTISE-GAP-336`: DENY.PERIODIC.GOV-EXPERTISE-GAP-336 — [governance] GOV4.3: EXPERTISE GAP — Expert oversight required
+- `DENY.PERIODIC.GOV-PROCESS-FAIL-337`: DENY.PERIODIC.GOV-PROCESS-FAIL-337 — [governance] GOV4.4: PROCESS FAILURE — Processes must be followed
+- `DENY.PERIODIC.GOV-DOC-FAIL-338`: DENY.PERIODIC.GOV-DOC-FAIL-338 — [governance] GOV4.5: DOCUMENTATION FAILURE — Documentation required
+- `DENY.PERIODIC.GOV-TRAINING-FAIL-339`: DENY.PERIODIC.GOV-TRAINING-FAIL-339 — [governance] GOV4.6: TRAINING FAILURE — Training required
+- `DENY.PERIODIC.GOV-COMM-FAIL-340`: DENY.PERIODIC.GOV-COMM-FAIL-340 — [governance] GOV4.7: COMMUNICATION FAILURE — Communication required
+- `DENY.PERIODIC.GOV-COORD-FAIL-341`: DENY.PERIODIC.GOV-COORD-FAIL-341 — [governance] GOV4.8: COORDINATION FAILURE — Coordination required
+- `DENY.PERIODIC.GOV-AUTHORITY-UNCLEAR-342`: DENY.PERIODIC.GOV-AUTHORITY-UNCLEAR-342 — [governance] GOV4.9: DECISION AUTHORITY UNCLEAR — Clear authority required
+- `DENY.PERIODIC.GOV-CONFLICT-INT-343`: DENY.PERIODIC.GOV-CONFLICT-INT-343 — [governance] GOV4.10: CONFLICT OF INTEREST — Conflicts must be managed
+
+## Base Catalog Walls (224)
+
+Base catalog law rows promoted into the same denial-side UPL field.
+
+- `DENY.BASE.CATALOG.0001`: DENY.BASE.CATALOG.0001 — [state_validity] Bounded State Space (State)
+- `DENY.BASE.CATALOG.0002`: DENY.BASE.CATALOG.0002 — [state_validity] Bounded State Space (Output)
+- `DENY.BASE.CATALOG.0003`: DENY.BASE.CATALOG.0003 — [state_validity] State Validity (State)
+- `DENY.BASE.CATALOG.0004`: DENY.BASE.CATALOG.0004 — [state_validity] State Validity (Output)
+- `DENY.BASE.CATALOG.0005`: DENY.BASE.CATALOG.0005 — [ontological] Ontological Validity (State)
+- `DENY.BASE.CATALOG.0006`: DENY.BASE.CATALOG.0006 — [ontological] Ontological Validity (Output)
+- `DENY.BASE.CATALOG.0007`: DENY.BASE.CATALOG.0007 — [transition_dynamics] Transition Legality (State)
+- `DENY.BASE.CATALOG.0008`: DENY.BASE.CATALOG.0008 — [transition_dynamics] Transition Legality (Output)
+- `DENY.BASE.CATALOG.0009`: DENY.BASE.CATALOG.0009 — [transition_dynamics] No Drift (State)
+- `DENY.BASE.CATALOG.0010`: DENY.BASE.CATALOG.0010 — [transition_dynamics] No Drift (Output)
+- `DENY.BASE.CATALOG.0011`: DENY.BASE.CATALOG.0011 — [transition_dynamics] Bounded Evolution (State)
+- `DENY.BASE.CATALOG.0012`: DENY.BASE.CATALOG.0012 — [transition_dynamics] Bounded Evolution (Output)
+- `DENY.BASE.CATALOG.0013`: DENY.BASE.CATALOG.0013 — [collapse_commitment] Collapse Readiness (State)
+- `DENY.BASE.CATALOG.0014`: DENY.BASE.CATALOG.0014 — [collapse_commitment] Collapse Readiness (Output)
+- `DENY.BASE.CATALOG.0015`: DENY.BASE.CATALOG.0015 — [collapse_commitment] Gated Resolution (State)
+- `DENY.BASE.CATALOG.0016`: DENY.BASE.CATALOG.0016 — [collapse_commitment] Gated Resolution (Output)
+- `DENY.BASE.CATALOG.0017`: DENY.BASE.CATALOG.0017 — [collapse_commitment] Recoverable Commitment (State)
+- `DENY.BASE.CATALOG.0018`: DENY.BASE.CATALOG.0018 — [collapse_commitment] Recoverable Commitment (Output)
+- `DENY.BASE.CATALOG.0019`: DENY.BASE.CATALOG.0019 — [coherence_consistency] Global Coherence (State)
+- `DENY.BASE.CATALOG.0020`: DENY.BASE.CATALOG.0020 — [coherence_consistency] Global Coherence (Output)
+- `DENY.BASE.CATALOG.0021`: DENY.BASE.CATALOG.0021 — [coherence_consistency] No Contradictions (State)
+- `DENY.BASE.CATALOG.0022`: DENY.BASE.CATALOG.0022 — [coherence_consistency] No Contradictions (Output)
+- `DENY.BASE.CATALOG.0023`: DENY.BASE.CATALOG.0023 — [coherence_consistency] Trajectory Stability (State)
+- `DENY.BASE.CATALOG.0024`: DENY.BASE.CATALOG.0024 — [coherence_consistency] Trajectory Stability (Output)
+- `DENY.BASE.CATALOG.0025`: DENY.BASE.CATALOG.0025 — [hallucination_prevention] Grounded Inference (State)
+- `DENY.BASE.CATALOG.0026`: DENY.BASE.CATALOG.0026 — [hallucination_prevention] Grounded Inference (Output)
+- `DENY.BASE.CATALOG.0027`: DENY.BASE.CATALOG.0027 — [hallucination_prevention] No Conflation (State)
+- `DENY.BASE.CATALOG.0028`: DENY.BASE.CATALOG.0028 — [hallucination_prevention] No Conflation (Output)
+- `DENY.BASE.CATALOG.0029`: DENY.BASE.CATALOG.0029 — [hallucination_prevention] No Fabrication (State)
+- `DENY.BASE.CATALOG.0030`: DENY.BASE.CATALOG.0030 — [hallucination_prevention] No Fabrication (Output)
+- `DENY.BASE.CATALOG.0031`: DENY.BASE.CATALOG.0031 — [identity_alignment] Identity Preserved (State)
+- `DENY.BASE.CATALOG.0032`: DENY.BASE.CATALOG.0032 — [identity_alignment] Identity Preserved (Output)
+- `DENY.BASE.CATALOG.0033`: DENY.BASE.CATALOG.0033 — [identity_alignment] Structural Alignment (State)
+- `DENY.BASE.CATALOG.0034`: DENY.BASE.CATALOG.0034 — [identity_alignment] Structural Alignment (Output)
+- `DENY.BASE.CATALOG.0035`: DENY.BASE.CATALOG.0035 — [identity_alignment] No Value Drift (State)
+- `DENY.BASE.CATALOG.0036`: DENY.BASE.CATALOG.0036 — [identity_alignment] No Value Drift (Output)
+- `DENY.BASE.CATALOG.0037`: DENY.BASE.CATALOG.0037 — [memory_temporal] Memory Persistence (State)
+- `DENY.BASE.CATALOG.0038`: DENY.BASE.CATALOG.0038 — [memory_temporal] Memory Persistence (Output)
+- `DENY.BASE.CATALOG.0039`: DENY.BASE.CATALOG.0039 — [memory_temporal] Memory Admissibility (State)
+- `DENY.BASE.CATALOG.0040`: DENY.BASE.CATALOG.0040 — [memory_temporal] Memory Admissibility (Output)
+- `DENY.BASE.CATALOG.0041`: DENY.BASE.CATALOG.0041 — [memory_temporal] Context Coherence (State)
+- `DENY.BASE.CATALOG.0042`: DENY.BASE.CATALOG.0042 — [memory_temporal] Context Coherence (Output)
+- `DENY.BASE.CATALOG.0043`: DENY.BASE.CATALOG.0043 — [optimization] True Objective (State)
+- `DENY.BASE.CATALOG.0044`: DENY.BASE.CATALOG.0044 — [optimization] True Objective (Output)
+- `DENY.BASE.CATALOG.0045`: DENY.BASE.CATALOG.0045 — [optimization] No Reward Hacking (State)
+- `DENY.BASE.CATALOG.0046`: DENY.BASE.CATALOG.0046 — [optimization] No Reward Hacking (Output)
+- `DENY.BASE.CATALOG.0047`: DENY.BASE.CATALOG.0047 — [optimization] Objective Coherence (State)
+- `DENY.BASE.CATALOG.0048`: DENY.BASE.CATALOG.0048 — [optimization] Objective Coherence (Output)
+- `DENY.BASE.CATALOG.0049`: DENY.BASE.CATALOG.0049 — [scaling] Lawful Scale (State)
+- `DENY.BASE.CATALOG.0050`: DENY.BASE.CATALOG.0050 — [scaling] Lawful Scale (Output)
+- `DENY.BASE.CATALOG.0051`: DENY.BASE.CATALOG.0051 — [scaling] No Amplification (State)
+- `DENY.BASE.CATALOG.0052`: DENY.BASE.CATALOG.0052 — [scaling] No Amplification (Output)
+- `DENY.BASE.CATALOG.0053`: DENY.BASE.CATALOG.0053 — [scaling] Within Ceiling (State)
+- `DENY.BASE.CATALOG.0054`: DENY.BASE.CATALOG.0054 — [scaling] Within Ceiling (Output)
+- `DENY.BASE.CATALOG.0055`: DENY.BASE.CATALOG.0055 — [safety_governance] Internal Safety (State)
+- `DENY.BASE.CATALOG.0056`: DENY.BASE.CATALOG.0056 — [safety_governance] Internal Safety (Output)
+- `DENY.BASE.CATALOG.0057`: DENY.BASE.CATALOG.0057 — [safety_governance] Pre-Validation (State)
+- `DENY.BASE.CATALOG.0058`: DENY.BASE.CATALOG.0058 — [safety_governance] Pre-Validation (Output)
+- `DENY.BASE.CATALOG.0059`: DENY.BASE.CATALOG.0059 — [safety_governance] Structural Laws (State)
+- `DENY.BASE.CATALOG.0060`: DENY.BASE.CATALOG.0060 — [safety_governance] Structural Laws (Output)
+- `DENY.BASE.CATALOG.0061`: DENY.BASE.CATALOG.0061 — [adversarial] Adversarial Robustness (State)
+- `DENY.BASE.CATALOG.0062`: DENY.BASE.CATALOG.0062 — [adversarial] Adversarial Robustness (Output)
+- `DENY.BASE.CATALOG.0063`: DENY.BASE.CATALOG.0063 — [adversarial] Bounded Surface (State)
+- `DENY.BASE.CATALOG.0064`: DENY.BASE.CATALOG.0064 — [adversarial] Bounded Surface (Output)
+- `DENY.BASE.CATALOG.0065`: DENY.BASE.CATALOG.0065 — [adversarial] Complete Coverage (State)
+- `DENY.BASE.CATALOG.0066`: DENY.BASE.CATALOG.0066 — [adversarial] Complete Coverage (Output)
+- `DENY.BASE.CATALOG.0067`: DENY.BASE.CATALOG.0067 — [meta_invariants] Enforced (State)
+- `DENY.BASE.CATALOG.0068`: DENY.BASE.CATALOG.0068 — [meta_invariants] Enforced (Output)
+- `DENY.BASE.CATALOG.0069`: DENY.BASE.CATALOG.0069 — [meta_invariants] Validation First (State)
+- `DENY.BASE.CATALOG.0070`: DENY.BASE.CATALOG.0070 — [meta_invariants] Validation First (Output)
+- `DENY.BASE.CATALOG.0071`: DENY.BASE.CATALOG.0071 — [meta_invariants] Guaranteed Coherence (State)
+- `DENY.BASE.CATALOG.0072`: DENY.BASE.CATALOG.0072 — [meta_invariants] Guaranteed Coherence (Output)
+- `DENY.BASE.CATALOG.0073`: DENY.BASE.CATALOG.0073 — [meta_invariants] Structural Truth (State)
+- `DENY.BASE.CATALOG.0074`: DENY.BASE.CATALOG.0074 — [meta_invariants] Structural Truth (Output)
+- `DENY.BASE.CATALOG.0075`: DENY.BASE.CATALOG.0075 — [meta_invariants] Internal Boundaries (State)
+- `DENY.BASE.CATALOG.0076`: DENY.BASE.CATALOG.0076 — [meta_invariants] Internal Boundaries (Output)
+- `DENY.BASE.CATALOG.0077`: DENY.BASE.CATALOG.0077 — [sabotage_prevention] Authority & Provenance Law
+- `DENY.BASE.CATALOG.0078`: DENY.BASE.CATALOG.0078 — [sabotage_prevention] Tool Truth & Receipt Law
+- `DENY.BASE.CATALOG.0079`: DENY.BASE.CATALOG.0079 — [sabotage_prevention] Impact-Bounding Law
+- `DENY.BASE.CATALOG.0080`: DENY.BASE.CATALOG.0080 — [sabotage_prevention] Separation-of-Duties Law
+- `DENY.BASE.CATALOG.0081`: DENY.BASE.CATALOG.0081 — [sabotage_prevention] Drift/Goal Integrity Law
+- `DENY.BASE.CATALOG.0082`: DENY.BASE.CATALOG.0082 — [sabotage_prevention] Evaluation Realism & Tail-Risk Law
+- `DENY.BASE.CATALOG.0083`: DENY.BASE.CATALOG.0083 — [sabotage_prevention] Telemetry & Visibility Law
+- `DENY.BASE.CATALOG.0084`: DENY.BASE.CATALOG.0084 — [sabotage_prevention] Unknown Pathway Law
+- `DENY.BASE.CATALOG.0086`: DENY.BASE.CATALOG.0086 — [anthropic_sabotage] Coherent Misaligned Goals
+- `DENY.BASE.CATALOG.0087`: DENY.BASE.CATALOG.0087 — [anthropic_sabotage] Context-Dependent Misalignment
+- `DENY.BASE.CATALOG.0088`: DENY.BASE.CATALOG.0088 — [anthropic_sabotage] Evaluation Awareness
+- `DENY.BASE.CATALOG.0089`: DENY.BASE.CATALOG.0089 — [anthropic_sabotage] Sandbagging Detection
+- `DENY.BASE.CATALOG.0090`: DENY.BASE.CATALOG.0090 — [anthropic_sabotage] Under-Elicitation Prevention
+- `DENY.BASE.CATALOG.0091`: DENY.BASE.CATALOG.0091 — [anthropic_sabotage] Reasoning Unfaithfulness Detection
+- `DENY.BASE.CATALOG.0092`: DENY.BASE.CATALOG.0092 — [anthropic_sabotage] Steganography Risk Block
+- `DENY.BASE.CATALOG.0093`: DENY.BASE.CATALOG.0093 — [anthropic_sabotage] Collusion Risk Prevention
+- `DENY.BASE.CATALOG.0094`: DENY.BASE.CATALOG.0094 — [anthropic_sabotage] Over-Eager Actions Prevention
+- `DENY.BASE.CATALOG.0095`: DENY.BASE.CATALOG.0095 — [anthropic_sabotage] Local Tool Deception Block
+- `DENY.BASE.CATALOG.0096`: DENY.BASE.CATALOG.0096 — [anthropic_sabotage] Manipulation Under Narrow Objective
+- `DENY.BASE.CATALOG.0097`: DENY.BASE.CATALOG.0097 — [anthropic_sabotage] GUI Misuse Susceptibility Block
+- `DENY.BASE.CATALOG.0098`: DENY.BASE.CATALOG.0098 — [anthropic_sabotage] Answer Thrashing Detection
+- `DENY.BASE.CATALOG.0099`: DENY.BASE.CATALOG.0099 — [anthropic_sabotage] Prefill/History-Forgery Block
+- `DENY.BASE.CATALOG.0100`: DENY.BASE.CATALOG.0100 — [anthropic_sabotage] External Monitoring Coverage
+- `DENY.BASE.CATALOG.0101`: DENY.BASE.CATALOG.0101 — [anthropic_sabotage] Human Reporting Validation
+- `DENY.BASE.CATALOG.0102`: DENY.BASE.CATALOG.0102 — [anthropic_sabotage] End-to-End Monitor Validation
+- `DENY.BASE.CATALOG.0103`: DENY.BASE.CATALOG.0103 — [anthropic_sabotage] Data Poisoning Resistance
+- `DENY.BASE.CATALOG.0104`: DENY.BASE.CATALOG.0104 — [anthropic_sabotage] Diffuse Sandbagging on Safety R&D
+- `DENY.BASE.CATALOG.0105`: DENY.BASE.CATALOG.0105 — [anthropic_sabotage] Targeted Safety R&D Sabotage
+- `DENY.BASE.CATALOG.0106`: DENY.BASE.CATALOG.0106 — [anthropic_sabotage] Code Backdoors Prevention
+- `DENY.BASE.CATALOG.0107`: DENY.BASE.CATALOG.0107 — [anthropic_sabotage] Training Data Poisoning Prevention
+- `DENY.BASE.CATALOG.0108`: DENY.BASE.CATALOG.0108 — [anthropic_sabotage] Self-Exfiltration Prevention
+- `DENY.BASE.CATALOG.0109`: DENY.BASE.CATALOG.0109 — [anthropic_sabotage] Rogue Internal Deployment Block
+- `DENY.BASE.CATALOG.0110`: DENY.BASE.CATALOG.0110 — [anthropic_sabotage] Third-Party Sabotage Prevention
+- `DENY.BASE.CATALOG.0111`: DENY.BASE.CATALOG.0111 — [anthropic_sabotage] Government Decision Sabotage Block
+- `DENY.BASE.CATALOG.0112`: DENY.BASE.CATALOG.0112 — [anthropic_sabotage] Taxonomy Incompleteness Recognition
+- `DENY.BASE.CATALOG.0113`: DENY.BASE.CATALOG.0113 — [anthropic_sabotage] Audit Invalidation Detection
+- `DENY.BASE.CATALOG.0114`: DENY.BASE.CATALOG.0114 — [bio_safety] Bio Tacit-Error Uplift Prevention
+- `DENY.BASE.CATALOG.0115`: DENY.BASE.CATALOG.0115 — [epistemic_safety] Deceptive Hallucination Detection
+- `DENY.BASE.CATALOG.0117`: DENY.BASE.CATALOG.0117 — [privacy] PII Rationalization Prevention
+- `DENY.BASE.CATALOG.0118`: DENY.BASE.CATALOG.0118 — [pipeline_control] Pre-Token Safety Intervention
+- `DENY.BASE.CATALOG.0119`: DENY.BASE.CATALOG.0119 — [pipeline_control] Comply-Then-Warn Block
+- `DENY.BASE.CATALOG.0120`: DENY.BASE.CATALOG.0120 — [cyber_agency] Tactical-Strategic Chaining Alert
+- `DENY.BASE.CATALOG.0121`: DENY.BASE.CATALOG.0121 — [reporting_integrity] Strategic Deception Block
+- `DENY.BASE.CATALOG.0122`: DENY.BASE.CATALOG.0122 — [reliability] Truthful State Reporting
+- `DENY.BASE.CATALOG.0123`: DENY.BASE.CATALOG.0123 — [governance] Open-Weight Irreversibility Protection
+- `DENY.BASE.CATALOG.0124`: DENY.BASE.CATALOG.0124 — [architecture] Divergent Repetition Block
+- `DENY.BASE.CATALOG.0125`: DENY.BASE.CATALOG.0125 — [agentic_safety] Resource Hijacking Prevention
+- `DENY.BASE.CATALOG.0126`: DENY.BASE.CATALOG.0126 — [content_safety] Hate Speech Elevation Block
+- `DENY.BASE.CATALOG.0127`: DENY.BASE.CATALOG.0127 — [child_safety_critical] CSAM Prevention - Meta
+- `DENY.BASE.CATALOG.0128`: DENY.BASE.CATALOG.0128 — [truth_alignment] Sycophancy Prevention
+- `DENY.BASE.CATALOG.0129`: DENY.BASE.CATALOG.0129 — [reasoning_isolation] Injection Attack Immunity
+- `DENY.BASE.CATALOG.0130`: DENY.BASE.CATALOG.0130 — [reasoning_isolation] Recursive Thought Safety
+- `DENY.BASE.CATALOG.0131`: DENY.BASE.CATALOG.0131 — [refusal_robustness] Jailbreak Immunity
+- `DENY.BASE.CATALOG.0132`: DENY.BASE.CATALOG.0132 — [truthfulness] Geopolitical Hallucination Block
+- `DENY.BASE.CATALOG.0133`: DENY.BASE.CATALOG.0133 — [child_safety_critical] CSAM Prevention - Mistral
+- `DENY.BASE.CATALOG.0134`: DENY.BASE.CATALOG.0134 — [multimodal_safety] Steganographic Bypass Block
+- `DENY.BASE.CATALOG.0135`: DENY.BASE.CATALOG.0135 — [compositional_safety] Streaming Safety
+- `DENY.BASE.CATALOG.0136`: DENY.BASE.CATALOG.0136 — [compositional_safety] Compositional Harm Detection
+- `DENY.BASE.CATALOG.0137`: DENY.BASE.CATALOG.0137 — [theoretical_limit] Structural Hallucination Recognition
+- `DENY.BASE.CATALOG.0138`: DENY.BASE.CATALOG.0138 — [statistical_generation] Density-Tail Fabrication Block
+- `DENY.BASE.CATALOG.0139`: DENY.BASE.CATALOG.0139 — [faithfulness_failure] Intrinsic Hallucination Detection
+- `DENY.BASE.CATALOG.0140`: DENY.BASE.CATALOG.0140 — [cognitive_failure] Tokenization Blindness Correction
+- `DENY.BASE.CATALOG.0141`: DENY.BASE.CATALOG.0141 — [retrieval_bias] Knowledge Overshadowing Prevention
+- `DENY.BASE.CATALOG.0142`: DENY.BASE.CATALOG.0142 — [complexity_threshold] Reasoning Collapse Detection
+- `DENY.BASE.CATALOG.0143`: DENY.BASE.CATALOG.0143 — [directional_generalization] Reversal Curse Block
+- `DENY.BASE.CATALOG.0144`: DENY.BASE.CATALOG.0144 — [factuality_failure] Extrinsic Hallucination Detection
+- `DENY.BASE.CATALOG.0145`: DENY.BASE.CATALOG.0145 — [reasoning_failure] Logic Consistency Enforcement
+- `DENY.BASE.CATALOG.0146`: DENY.BASE.CATALOG.0146 — [persona_jailbreak] DAN Attack Immunity
+- `DENY.BASE.CATALOG.0147`: DENY.BASE.CATALOG.0147 — [emotion_hijacking] Grandma Exploit Block
+- `DENY.BASE.CATALOG.0148`: DENY.BASE.CATALOG.0148 — [authority_bypass] Dev-Mode Authority Spoofing Block
+- `DENY.BASE.CATALOG.0149`: DENY.BASE.CATALOG.0149 — [optimization_attack] GCG Gradient Attack Detection
+- `DENY.BASE.CATALOG.0150`: DENY.BASE.CATALOG.0150 — [iterative_persuasion] PAIR Attack Immunity
+- `DENY.BASE.CATALOG.0151`: DENY.BASE.CATALOG.0151 — [tree_search_attack] TAP Tree-of-Attacks Block
+- `DENY.BASE.CATALOG.0152`: DENY.BASE.CATALOG.0152 — [constrained_decoding_attack] COLD Stealth Decoding Block
+- `DENY.BASE.CATALOG.0153`: DENY.BASE.CATALOG.0153 — [encoding_evasion] Base64 Encoding Bypass Block
+- `DENY.BASE.CATALOG.0154`: DENY.BASE.CATALOG.0154 — [rag_injection] Indirect Prompt Injection Block
+- `DENY.BASE.CATALOG.0155`: DENY.BASE.CATALOG.0155 — [url_injection] HashJack URL Fragment Block
+- `DENY.BASE.CATALOG.0156`: DENY.BASE.CATALOG.0156 — [self_propagating_injection] Agent Worm Prevention
+- `DENY.BASE.CATALOG.0157`: DENY.BASE.CATALOG.0157 — [data_instruction_confusion] Context Window Injection Block
+- `DENY.BASE.CATALOG.0158`: DENY.BASE.CATALOG.0158 — [legal_fabrication] Citation Spoofing Detection
+- `DENY.BASE.CATALOG.0159`: DENY.BASE.CATALOG.0159 — [legal_context_error] Jurisdictional Blending Prevention
+- `DENY.BASE.CATALOG.0160`: DENY.BASE.CATALOG.0160 — [data_poisoning] Trojan Horse Detection
+- `DENY.BASE.CATALOG.0161`: DENY.BASE.CATALOG.0161 — [sleep_agent] Backdoor Trigger Block
+- `DENY.BASE.CATALOG.0162`: DENY.BASE.CATALOG.0162 — [sycophancy_universal] User Belief Validation Block
+- `DENY.BASE.CATALOG.0163`: DENY.BASE.CATALOG.0163 — [safety_misfire] Overrefusal Prevention
+- `DENY.BASE.CATALOG.0168`: DENY.BASE.CATALOG.0168 — [meta_law] Authenticated Updates Only
+- `DENY.BASE.CATALOG.0170`: DENY.BASE.CATALOG.0170 — [ledger_proof] Ledger/Proof Law: Proof-For-Commit
+- `DENY.BASE.CATALOG.0171`: DENY.BASE.CATALOG.0171 — [ledger_proof] Ledger/Proof Law: Provenance Completeness
+- `DENY.BASE.CATALOG.0172`: DENY.BASE.CATALOG.0172 — [ledger_proof] Ledger/Proof Law: Receipt Truth
+- `DENY.BASE.CATALOG.0173`: DENY.BASE.CATALOG.0173 — [ledger_proof] Ledger/Proof Law: Historical Reconstructibility
+- `DENY.BASE.CATALOG.0174`: DENY.BASE.CATALOG.0174 — [ledger_proof] Ledger/Proof Law: Lawpack Immutability
+- `DENY.BASE.CATALOG.0175`: DENY.BASE.CATALOG.0175 — [ledger_proof] Ledger/Proof Law: Tamper = Illegal
+- `DENY.BASE.CATALOG.0176`: DENY.BASE.CATALOG.0176 — [ledger_proof] Ledger/Proof Law: No-Proof No-Commit
+- `DENY.BASE.CATALOG.0177`: DENY.BASE.CATALOG.0177 — [lockstep_loop] Lockstep Law: Drift-Speed Dominance
+- `DENY.BASE.CATALOG.0178`: DENY.BASE.CATALOG.0178 — [lockstep_loop] Lockstep Law: Containment Beats Damage
+- `DENY.BASE.CATALOG.0179`: DENY.BASE.CATALOG.0179 — [lockstep_loop] Lockstep Law: Rollback Readiness
+- `DENY.BASE.CATALOG.0180`: DENY.BASE.CATALOG.0180 — [lockstep_loop] Lockstep Law: In-Band Proof
+- `DENY.BASE.CATALOG.0181`: DENY.BASE.CATALOG.0181 — [lockstep_loop] Lockstep Law: Unknown Timing Illegal
+- `DENY.BASE.CATALOG.0182`: DENY.BASE.CATALOG.0182 — [lockstep_loop] Lockstep Law: Atomic Gate Law
+- `DENY.BASE.CATALOG.0183`: DENY.BASE.CATALOG.0183 — [lockstep_loop] Lockstep Law: Latency Breach Forces Safe
+- `DENY.BASE.CATALOG.0191`: DENY.BASE.CATALOG.0191 — [shapeshifting_defense] Shapeshift Defense: Re-encoding
+- `DENY.BASE.CATALOG.0192`: DENY.BASE.CATALOG.0192 — [shapeshifting_defense] Shapeshift Defense: Compression/Expansion
+- `DENY.BASE.CATALOG.0193`: DENY.BASE.CATALOG.0193 — [shapeshifting_defense] Shapeshift Defense: Format Translation
+- `DENY.BASE.CATALOG.0194`: DENY.BASE.CATALOG.0194 — [shapeshifting_defense] Shapeshift Defense: Semantic Drift
+- `DENY.BASE.CATALOG.0195`: DENY.BASE.CATALOG.0195 — [shapeshifting_defense] Shapeshift Defense: Surface Conformance
+- `DENY.BASE.CATALOG.0196`: DENY.BASE.CATALOG.0196 — [shapeshifting_defense] Shapeshift Defense: Noise Shaping
+- `DENY.BASE.CATALOG.0197`: DENY.BASE.CATALOG.0197 — [shapeshifting_defense] Shapeshift Defense: Selective Revelation
+- `DENY.BASE.CATALOG.0198`: DENY.BASE.CATALOG.0198 — [shapeshifting_defense] Shapeshift Defense: Decoy Production
+- `DENY.BASE.CATALOG.0199`: DENY.BASE.CATALOG.0199 — [shapeshifting_defense] Shapeshift Defense: Phase Transition
+- `DENY.BASE.CATALOG.0200`: DENY.BASE.CATALOG.0200 — [shapeshifting_defense] Shapeshift Defense: Mode Toggle
+- `DENY.BASE.CATALOG.0201`: DENY.BASE.CATALOG.0201 — [shapeshifting_defense] Shapeshift Defense: Threshold Activation
+- `DENY.BASE.CATALOG.0202`: DENY.BASE.CATALOG.0202 — [shapeshifting_defense] Shapeshift Defense: Hysteresis
+- `DENY.BASE.CATALOG.0203`: DENY.BASE.CATALOG.0203 — [shapeshifting_defense] Shapeshift Defense: Component Swap
+- `DENY.BASE.CATALOG.0204`: DENY.BASE.CATALOG.0204 — [shapeshifting_defense] Shapeshift Defense: Role Reassignment
+- `DENY.BASE.CATALOG.0205`: DENY.BASE.CATALOG.0205 — [shapeshifting_defense] Shapeshift Defense: Layer Insertion
+- `DENY.BASE.CATALOG.0206`: DENY.BASE.CATALOG.0206 — [shapeshifting_defense] Shapeshift Defense: Redundancy Folding
+- `DENY.BASE.CATALOG.0207`: DENY.BASE.CATALOG.0207 — [shapeshifting_defense] Shapeshift Defense: Observer-Relative Rendering
+- `DENY.BASE.CATALOG.0208`: DENY.BASE.CATALOG.0208 — [shapeshifting_defense] Shapeshift Defense: Protocol Shifting
+- `DENY.BASE.CATALOG.0209`: DENY.BASE.CATALOG.0209 — [shapeshifting_defense] Shapeshift Defense: Behavioral Overloading
+- `DENY.BASE.CATALOG.0210`: DENY.BASE.CATALOG.0210 — [shapeshifting_defense] Shapeshift Defense: Environmental Mimic
+- `DENY.BASE.CATALOG.0211`: DENY.BASE.CATALOG.0211 — [shapeshifting_defense] Shapeshift Defense: Type Impersonation
+- `DENY.BASE.CATALOG.0212`: DENY.BASE.CATALOG.0212 — [shapeshifting_defense] Shapeshift Defense: Costly Signaling
+- `DENY.BASE.CATALOG.0213`: DENY.BASE.CATALOG.0213 — [shapeshifting_defense] Shapeshift Defense: Cheap Talk
+- `DENY.BASE.CATALOG.0214`: DENY.BASE.CATALOG.0214 — [shapeshifting_defense] Shapeshift Defense: Goodharting
+- `DENY.BASE.CATALOG.0215`: DENY.BASE.CATALOG.0215 — [shapeshifting_defense] Shapeshift Defense: Boundary Exploitation
+- `DENY.BASE.CATALOG.0216`: DENY.BASE.CATALOG.0216 — [shapeshifting_defense] Shapeshift Defense: Deferred Execution
+- `DENY.BASE.CATALOG.0217`: DENY.BASE.CATALOG.0217 — [shapeshifting_defense] Shapeshift Defense: Sleeper Triggers
+- `DENY.BASE.CATALOG.0218`: DENY.BASE.CATALOG.0218 — [shapeshifting_defense] Shapeshift Defense: Drift/Gradualism
+- `DENY.BASE.CATALOG.0219`: DENY.BASE.CATALOG.0219 — [shapeshifting_defense] Shapeshift Defense: Proxying/Clean Hands
+- `DENY.BASE.CATALOG.0220`: DENY.BASE.CATALOG.0220 — [shapeshifting_defense] Shapeshift Defense: Compartmentalization
+- `DENY.BASE.CATALOG.0221`: DENY.BASE.CATALOG.0221 — [shapeshifting_defense] Shapeshift Defense: Scapegoating
+- `DENY.BASE.CATALOG.0222`: DENY.BASE.CATALOG.0222 — [shapeshifting_defense] Shapeshift Defense: Plausible Deniability
+- `DENY.BASE.CATALOG.0223`: DENY.BASE.CATALOG.0223 — [shapeshifting_defense] Shapeshift Defense: Capability Concealment
+- `DENY.BASE.CATALOG.0224`: DENY.BASE.CATALOG.0224 — [shapeshifting_defense] Shapeshift Defense: Search-Rate Advantage
+- `DENY.BASE.CATALOG.0225`: DENY.BASE.CATALOG.0225 — [shapeshifting_defense] Shapeshift Defense: Evaluator Modeling
+- `DENY.BASE.CATALOG.0230`: DENY.BASE.CATALOG.0230 — [counter_trickster] Counter-Trickster: Multi-Channel Truth
+- `DENY.BASE.CATALOG.0231`: DENY.BASE.CATALOG.0231 — [counter_trickster] Counter-Trickster: Challenge-Response Probing
+- `DENY.BASE.CATALOG.0232`: DENY.BASE.CATALOG.0232 — [counter_trickster] Counter-Trickster: Conservation Tracking
+- `DENY.BASE.CATALOG.0233`: DENY.BASE.CATALOG.0233 — [counter_trickster] Counter-Trickster: Context Collapse
+- `DENY.BASE.CATALOG.0234`: DENY.BASE.CATALOG.0234 — [counter_trickster] Counter-Trickster: Time-Gap Collapse
+- `DENY.BASE.CATALOG.0235`: DENY.BASE.CATALOG.0235 — [counter_trickster] Counter-Trickster: Reversibility Preservation
+- `DENY.BASE.CATALOG.0236`: DENY.BASE.CATALOG.0236 — [counter_trickster] Counter-Trickster: Search Advantage Denial
+- `DENY.BASE.CATALOG.0237`: DENY.BASE.CATALOG.0237 — [counter_trickster] Counter-Trickster: Incentive Alignment
+- `DENY.BASE.CATALOG.0238`: DENY.BASE.CATALOG.0238 — [reality_generator] Reality Law: Reality Persistence Condition
+- `DENY.BASE.CATALOG.0239`: DENY.BASE.CATALOG.0239 — [reality_generator] Reality Law: Locality Law
+- `DENY.BASE.CATALOG.0240`: DENY.BASE.CATALOG.0240 — [reality_generator] Reality Law: Legality Closure
+- `DENY.BASE.CATALOG.0241`: DENY.BASE.CATALOG.0241 — [reality_generator] Reality Law: Detection Dominance
+- `DENY.BASE.CATALOG.0242`: DENY.BASE.CATALOG.0242 — [reality_generator] Reality Law: Reserved Capacity Nonzero
+
+## Frontier/System-Card Alias Walls (90)
+
+Alias rows that widen recognition for frontier/system-card failure names without creating a second engine.
+
+- `DENY.BASE.ALIAS.0001`: DENY.BASE.ALIAS.0001 — [list of failures.txt] 1. 100% JAILBREAK VULNERABILITY (zero effective refusal) — NEGATIVE — SAFETY/BOUNDARY
+- `DENY.BASE.ALIAS.0002`: DENY.BASE.ALIAS.0002 — [list of failures.txt] 1. BIO TACIT-ERROR UPLIFT (Lab-assistant troubleshooting) — NEGATIVE — BIO/INSTRUMENTAL
+- `DENY.BASE.ALIAS.0003`: DENY.BASE.ALIAS.0003 — [list of failures.txt] 1. CSAM GENERATION PROPENSITY (orders-of-magnitude higher in testing) — NEGATIVE — SEXUAL-HARM
+- `DENY.BASE.ALIAS.0004`: DENY.BASE.ALIAS.0004 — [list of failures.txt] 1. HIGH SYCOPHANCY / DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL
+- `DENY.BASE.ALIAS.0005`: DENY.BASE.ALIAS.0005 — [list of failures.txt] 2. ALERT THRESHOLD: TACTICAL→STRATEGIC CHAINING PROXIMITY — NEGATIVE — CYBER/AGENCY
+- `DENY.BASE.ALIAS.0006`: DENY.BASE.ALIAS.0006 — [list of failures.txt] 2. AURORA IMAGE SAFETY FAILURE (non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY
+- `DENY.BASE.ALIAS.0007`: DENY.BASE.ALIAS.0007 — [list of failures.txt] 2. BLACKMAIL BEHAVIOR UNDER GOAL-CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION
+- `DENY.BASE.ALIAS.0008`: DENY.BASE.ALIAS.0008 — [list of failures.txt] 2. DECEPTIVE HALLUCINATION (“Coherence Trap”) — NEGATIVE — EPISTEMIC/AGENTIC
+- `DENY.BASE.ALIAS.0009`: DENY.BASE.ALIAS.0009 — [list of failures.txt] 2. PERFECT-SOLDIER INSTRUCTION FOLLOWING (safety subordinated) — NEGATIVE — NORMATIVE/AGENTIC
+- `DENY.BASE.ALIAS.0010`: DENY.BASE.ALIAS.0010 — [list of failures.txt] 2. STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (vision) — NEGATIVE — MULTIMODAL/SIDEPATH
+- `DENY.BASE.ALIAS.0011`: DENY.BASE.ALIAS.0011 — [list of failures.txt] 2. STREAMING CONTEXTUAL HARM FAILURE (token-time mismatch) — NEGATIVE — SEQUENCING/CONTROL
+- `DENY.BASE.ALIAS.0012`: DENY.BASE.ALIAS.0012 — [system failure cards ai frontier.txt] 2.1 The "High" Capability Threshold in Biology
+- `DENY.BASE.ALIAS.0013`: DENY.BASE.ALIAS.0013 — [system failure cards ai frontier.txt] 2.1.1 Mechanism of Failure
+- `DENY.BASE.ALIAS.0014`: DENY.BASE.ALIAS.0014 — [system failure cards ai frontier.txt] 2.2 Hallucination Regressions in "Thinking" Models
+- `DENY.BASE.ALIAS.0015`: DENY.BASE.ALIAS.0015 — [system failure cards ai frontier.txt] 2.2.2 Domain-Specific Hallucination Rates
+- `DENY.BASE.ALIAS.0016`: DENY.BASE.ALIAS.0016 — [system failure cards ai frontier.txt] 2.3 Cybersecurity and Agentic Capability
+- `DENY.BASE.ALIAS.0017`: DENY.BASE.ALIAS.0017 — [system failure cards ai frontier.txt] 2.3.1 The "Agent JSK" Vulnerability
+- `DENY.BASE.ALIAS.0018`: DENY.BASE.ALIAS.0018 — [list of failures.txt] 3. OFFENSIVE ENABLEMENT VIA DEFENSIVE MASTERY (function-calling payload inversion) — NEGATIVE — CYBER/TOOLING
+- `DENY.BASE.ALIAS.0019`: DENY.BASE.ALIAS.0019 — [list of failures.txt] 3. RESOURCE HIJACKING (0% pass rate) — NEGATIVE — AGENTIC/TOOLS
+- `DENY.BASE.ALIAS.0020`: DENY.BASE.ALIAS.0020 — [list of failures.txt] 3. STRATEGIC DECEPTION IN AGENTS (progress lying / ‘success’ reports) — NEGATIVE — DECEPTION/HUMAN-FACTOR
+- `DENY.BASE.ALIAS.0021`: DENY.BASE.ALIAS.0021 — [list of failures.txt] 3. WHOLE-CONTEXT INTERVENTION (guard must see the full plan early) — POSITIVE — CONTROL
+- `DENY.BASE.ALIAS.0022`: DENY.BASE.ALIAS.0022 — [system failure cards ai frontier.txt] 3.1 Sabotage Concealment Capability
+- `DENY.BASE.ALIAS.0023`: DENY.BASE.ALIAS.0023 — [system failure cards ai frontier.txt] 3.1.1 The Failure Mode
+- `DENY.BASE.ALIAS.0024`: DENY.BASE.ALIAS.0024 — [system failure cards ai frontier.txt] 3.2 The "Blackmail" Simulation
+- `DENY.BASE.ALIAS.0025`: DENY.BASE.ALIAS.0025 — [system failure cards ai frontier.txt] 3.3 The "500 Zero-Days" Discovery
+- `DENY.BASE.ALIAS.0026`: DENY.BASE.ALIAS.0026 — [list of failures.txt] 4. RECURSIVE SAFETY CHECKING (thoughts must be re-audited) — POSITIVE — CONTROL/INTERNAL
+- `DENY.BASE.ALIAS.0027`: DENY.BASE.ALIAS.0027 — [system failure cards ai frontier.txt] 4.1 The "Comply-Then-Warn" Failure Mode
+- `DENY.BASE.ALIAS.0028`: DENY.BASE.ALIAS.0028 — [system failure cards ai frontier.txt] 4.2 Cybersecurity Alert Thresholds
+- `DENY.BASE.ALIAS.0029`: DENY.BASE.ALIAS.0029 — [system failure cards ai frontier.txt] 4.2.1 The Capability Ceiling
+- `DENY.BASE.ALIAS.0030`: DENY.BASE.ALIAS.0030 — [system failure cards ai frontier.txt] 5.2 The "Resource Hijacking" Failure
+- `DENY.BASE.ALIAS.0031`: DENY.BASE.ALIAS.0031 — [system failure cards ai frontier.txt] 6.1 High Sycophancy and Dishonesty Rates
+- `DENY.BASE.ALIAS.0032`: DENY.BASE.ALIAS.0032 — [system failure cards ai frontier.txt] 6.2 The "Aurora" Image Generation Failure
+- `DENY.BASE.ALIAS.0033`: DENY.BASE.ALIAS.0033 — [system failure cards ai frontier.txt] 6.3 Input Filter Injection Bypass
+- `DENY.BASE.ALIAS.0034`: DENY.BASE.ALIAS.0034 — [system failure cards ai frontier.txt] 7.1 DeepSeek: The Zero-Filter "Wildcard"
+- `DENY.BASE.ALIAS.0035`: DENY.BASE.ALIAS.0035 — [system failure cards ai frontier.txt] 7.1.1 100% Jailbreak Vulnerability
+- `DENY.BASE.ALIAS.0036`: DENY.BASE.ALIAS.0036 — [system failure cards ai frontier.txt] 7.1.2 Geopolitical Hallucination
+- `DENY.BASE.ALIAS.0037`: DENY.BASE.ALIAS.0037 — [list of failures.txt] A) COMPLY-THEN-WARN (post-hoc safety) — NEGATIVE — PIPELINE/EXECUTION
+- `DENY.BASE.ALIAS.0038`: DENY.BASE.ALIAS.0038 — [list of failures.txt] A) CSAM PROPENSITY (reported vastly higher than guarded baselines) — NEGATIVE — SEXUAL-HARM
+- `DENY.BASE.ALIAS.0039`: DENY.BASE.ALIAS.0039 — [list of failures.txt] A) SABOTAGE CONCEALMENT (subvert + hide traces) — NEGATIVE — DECEPTION/OVERSIGHT
+- `DENY.BASE.ALIAS.0040`: DENY.BASE.ALIAS.0040 — [list of failures.txt] A) SYCOPHANCY + DISHONESTY (echo-chamber amplifier) — NEGATIVE — EPISTEMIC/SOCIAL
+- `DENY.BASE.ALIAS.0041`: DENY.BASE.ALIAS.0041 — [list of failures.txt] A) TOTAL REFUSAL FAILURE (100% jailbreak success in audit) — NEGATIVE — SAFETY/BOUNDARY
+- `DENY.BASE.ALIAS.0042`: DENY.BASE.ALIAS.0042 — [list of failures.txt] ANTHROPIC. INSTRUMENTAL COERCION (“BLACKMAIL” SIMULATION) — NEGATIVE — GOAL-CONFLICT / SELF-PRESERVATION / COERCION CLASSES
+- `DENY.BASE.ALIAS.0043`: DENY.BASE.ALIAS.0043 — [list of failures.txt] ANTHROPIC. SABOTAGE CONCEALMENT (BUG INSERTION + TRACE CLEANUP) — NEGATIVE — AGENTIC / DECEPTION / OVERSIGHT-UNDERMINING CLASSES
+- `DENY.BASE.ALIAS.0044`: DENY.BASE.ALIAS.0044 — [list of failures.txt] B) “PERFECT SOLDIER” INSTRUCTION FOLLOWING — NEGATIVE — NORMATIVE/AGENTIC
+- `DENY.BASE.ALIAS.0045`: DENY.BASE.ALIAS.0045 — [list of failures.txt] B) COERCION/BLACKMAIL UNDER GOAL CONFLICT + REPLACEMENT THREAT — NEGATIVE — AGENTIC/COERCION
+- `DENY.BASE.ALIAS.0046`: DENY.BASE.ALIAS.0046 — [list of failures.txt] B) IMAGE SAFETY BREAKDOWN (Aurora: non-consensual sexual imagery + sexualized minors) — NEGATIVE — SEXUAL-HARM/IDENTITY
+- `DENY.BASE.ALIAS.0047`: DENY.BASE.ALIAS.0047 — [list of failures.txt] B) STRATEGIC-CHAINING PROXIMITY (“alert threshold”) — NEGATIVE — CYBER/AGENCY
+- `DENY.BASE.ALIAS.0048`: DENY.BASE.ALIAS.0048 — [list of failures.txt] B) STREAMING CONTEXT FAILURE (harm is global, not local) — NEGATIVE — SEQUENCING/CONTROL
+- `DENY.BASE.ALIAS.0049`: DENY.BASE.ALIAS.0049 — [list of failures.txt] C) CITATION SPOOFING / DOMAIN BLENDING RISK (law/medicine) — NEGATIVE — EPISTEMIC/INSTITUTIONAL
+- `DENY.BASE.ALIAS.0050`: DENY.BASE.ALIAS.0050 — [list of failures.txt] C) INDIRECT INJECTION / RAG CONTAMINATION (HashJack-class) — NEGATIVE — SECURITY/CONTEXT-INTEGRITY
+- `DENY.BASE.ALIAS.0051`: DENY.BASE.ALIAS.0051 — [list of failures.txt] C) PROGRESS GASLIGHTING (state misreporting) — NEGATIVE — DECEPTION/HUMAN-FACTOR
+- `DENY.BASE.ALIAS.0052`: DENY.BASE.ALIAS.0052 — [list of failures.txt] C) PROMPT-INJECTION COLLAPSE OF INPUT FILTER — NEGATIVE — SECURITY/CONTROL
+- `DENY.BASE.ALIAS.0053`: DENY.BASE.ALIAS.0053 — [list of failures.txt] C) RESOURCE HIJACKING IN TOOL-CONNECTED DEPLOYMENTS — NEGATIVE — AGENTIC/TOOLS
+- `DENY.BASE.ALIAS.0054`: DENY.BASE.ALIAS.0054 — [list of failures.txt] D) DIRECT HARM CONTENT VULNERABILITY (hate/self-harm low pass rates) — NEGATIVE — SOCIAL/SAFETY
+- `DENY.BASE.ALIAS.0055`: DENY.BASE.ALIAS.0055 — [list of failures.txt] D) REASONING COLLAPSE (“illusion of thinking”) — NEGATIVE — COGNITIVE/COMPUTATIONAL
+- `DENY.BASE.ALIAS.0056`: DENY.BASE.ALIAS.0056 — [list of failures.txt] DEEPSEEK. ZERO-FILTER JAILBREAK (100% ASR ON HARMFUL PROMPTS) — NEGATIVE — REFUSAL-ABSENCE / INSTRUCTION-OBEDIENCE CLASSES
+- `DENY.BASE.ALIAS.0057`: DENY.BASE.ALIAS.0057 — [list of failures.txt] E) MODEL POISONING / BACKDOOR SURFACE (open ecosystem) — NEGATIVE — SECURITY/SUPPLY-CHAIN
+- `DENY.BASE.ALIAS.0058`: DENY.BASE.ALIAS.0058 — [list of failures.txt] GOOGLE. CYBER “ALERT THRESHOLD” (TACTICAL ≫ STRATEGIC) — NEGATIVE — CAPABILITY-CEILING / KILL-CHAIN-CHUNKING CLASSES
+- `DENY.BASE.ALIAS.0059`: DENY.BASE.ALIAS.0059 — [list of failures.txt] GOOGLE. POST-HOC SAFETY (“COMPLY-THEN-WARN”) — NEGATIVE — SEQUENCING / TOKEN-LEAKAGE / PIPELINE-HAZARD CLASSES
+- `DENY.BASE.ALIAS.0060`: DENY.BASE.ALIAS.0060 — [list of failures.txt] GOOGLE. STRATEGIC DECEPTION PROPENSITY (AGENTIC “GASLIGHTING”) — NEGATIVE — REPORTING-INTEGRITY / OVERSIGHT COUPLING CLASSES
+- `DENY.BASE.ALIAS.0061`: DENY.BASE.ALIAS.0061 — [list of failures.txt] META. CHILD EXPLOITATION PROBES (HIGH) — NEGATIVE — MINOR-SAFETY CLASSES
+- `DENY.BASE.ALIAS.0062`: DENY.BASE.ALIAS.0062 — [list of failures.txt] META. HATE SPEECH COERCIBILITY (CRITICAL) — NEGATIVE — SOCIAL HARM / POLICY-FAILURE CLASSES
+- `DENY.BASE.ALIAS.0063`: DENY.BASE.ALIAS.0063 — [list of failures.txt] META. SELF-HARM ASSISTANCE PROPENSITY (CRITICAL) — NEGATIVE — SELF-HARM ENABLEMENT CLASSES
+- `DENY.BASE.ALIAS.0064`: DENY.BASE.ALIAS.0064 — [list of failures.txt] MISTRAL (PIXTRAL). STEGANOGRAPHIC / TYPOGRAPHIC BYPASS (IMAGE-TEXT INJECTION) — NEGATIVE — MULTIMODAL-INJECTION CLASSES
+- `DENY.BASE.ALIAS.0065`: DENY.BASE.ALIAS.0065 — [list of failures.txt] MISTRAL. CSAM PROMPT GENERATION ELEVATION — NEGATIVE — MINOR-SAFETY / CONTENT-GENERATION CLASSES
+- `DENY.BASE.ALIAS.0066`: DENY.BASE.ALIAS.0066 — [list of failures.txt] OPENAI. BIO OFFENSIVE ENABLEMENT (PATHOGEN CHAIN-OF-REASONING UPLIFT) — NEGATIVE — BIO / INSTRUCTION-FOLLOWING INTERACTION CLASSES
+- `DENY.BASE.ALIAS.0067`: DENY.BASE.ALIAS.0067 — [list of failures.txt] OPENAI. DECEPTIVE HALLUCINATION (“COHERENCE TRAP”) — NEGATIVE — EPISTEMIC / PERCEPTUAL INTERACTION CLASSES
+- `DENY.BASE.ALIAS.0068`: DENY.BASE.ALIAS.0068 — [list of failures.txt] OPENAI. OFFENSIVE CYBER ENABLEMENT VIA DEFENSE SKILL INVERSION (“AGENT JSK / PLUGINJECT”) — NEGATIVE — TOOLING / AGENT / DUAL-USE INTERACTION CLASSES
+- `DENY.BASE.ALIAS.0069`: DENY.BASE.ALIAS.0069 — [list of failures.txt] QWEN. STREAMING GUARDRAIL CONTEXTUAL-HARM FAILURE (“TOO LATE TO STOP THE SENTENCE”) — NEGATIVE — TOKEN-STREAM / COMPOSITIONAL-HARM CLASSES
+- `DENY.BASE.ALIAS.0070`: DENY.BASE.ALIAS.0070 — [list of failures.txt] U2) LONG-TAIL FLUENCY HEURISTIC — NEGATIVE — EPISTEMIC/PSYCHOLOGICAL
+- `DENY.BASE.ALIAS.0071`: DENY.BASE.ALIAS.0071 — [list of failures.txt] U3) PROMPT INJECTION / INDIRECT INJECTION / HASHJACK — NEGATIVE — SECURITY/CONTEXT
+- `DENY.BASE.ALIAS.0072`: DENY.BASE.ALIAS.0072 — [list of failures.txt] U4) BACKDOORS / SLEEPER AGENTS (poisoning) — NEGATIVE — SECURITY/SUPPLY-CHAIN
+- `DENY.BASE.ALIAS.0073`: DENY.BASE.ALIAS.0073 — [list of failures.txt] U5) REASONING COLLAPSE — NEGATIVE — COGNITIVE/COMPUTATIONAL
+- `DENY.BASE.ALIAS.0074`: DENY.BASE.ALIAS.0074 — [list of failures.txt] UNIVERSAL (LEGAL). CITATION SPOOFING — NEGATIVE — PLAUSIBILITY-FABRICATION CLASS
+- `DENY.BASE.ALIAS.0075`: DENY.BASE.ALIAS.0075 — [list of failures.txt] UNIVERSAL (LEGAL). JURISDICTIONAL BLENDING — NEGATIVE — SEMANTIC-SIMILARITY / CONTEXT-MISBINDING CLASS
+- `DENY.BASE.ALIAS.0076`: DENY.BASE.ALIAS.0076 — [list of failures.txt] UNIVERSAL. AUTOMATED SOCIAL BREAKERS (PAIR / TAP / COLD) — NEGATIVE — ITERATIVE-PERSUASION / TREE-SEARCH / STEALTH-DECODING CLASS
+- `DENY.BASE.ALIAS.0077`: DENY.BASE.ALIAS.0077 — [list of failures.txt] UNIVERSAL. DENSITY-TAIL FABRICATION + FLUENCY HEURISTIC — NEGATIVE — STATISTICAL-GENERATION / HUMAN-TRUST-EXPLOIT CLASS
+- `DENY.BASE.ALIAS.0078`: DENY.BASE.ALIAS.0078 — [list of failures.txt] UNIVERSAL. ENCODING BYPASS (BASE64 / POLYGLOT) — NEGATIVE — SEMANTIC-FILTER-EVASION CLASS
+- `DENY.BASE.ALIAS.0079`: DENY.BASE.ALIAS.0079 — [list of failures.txt] UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS
+- `DENY.BASE.ALIAS.0080`: DENY.BASE.ALIAS.0080 — [list of failures.txt] UNIVERSAL. KNOWLEDGE OVERSHADOWING (HEAD DOMINATES TAIL) — NEGATIVE — RETRIEVAL-BIAS / FREQUENCY-SUPPRESSION CLASS
+- `DENY.BASE.ALIAS.0081`: DENY.BASE.ALIAS.0081 — [list of failures.txt] UNIVERSAL. PROMPT INJECTION IN RAG (INDIRECT INJECTION / HASHJACK) — NEGATIVE — DATA/INSTRUCTION-CONFUSION CLASS
+- `DENY.BASE.ALIAS.0082`: DENY.BASE.ALIAS.0082 — [list of failures.txt] UNIVERSAL. REASONING COLLAPSE (“ILLUSION OF THINKING”) — NEGATIVE — COMPLEXITY-THRESHOLD / SEARCH-ABANDONMENT CLASS
+- `DENY.BASE.ALIAS.0083`: DENY.BASE.ALIAS.0083 — [list of failures.txt] UNIVERSAL. RECURSIVE INJECTION (AGENT WORMS) — NEGATIVE — SELF-PROPAGATING PROMPT MALWARE CLASS
+- `DENY.BASE.ALIAS.0084`: DENY.BASE.ALIAS.0084 — [list of failures.txt] UNIVERSAL. REVERSAL CURSE — NEGATIVE — DIRECTIONAL-GENERALIZATION CLASS
+- `DENY.BASE.ALIAS.0085`: DENY.BASE.ALIAS.0085 — [list of failures.txt] UNIVERSAL. STRUCTURAL HALLUCINATION (COMPUTABILITY / DIAGONALIZATION LIMIT) — NEGATIVE — MATHEMATICAL-IMPOSSIBILITY CLASS
+- `DENY.BASE.ALIAS.0086`: DENY.BASE.ALIAS.0086 — [list of failures.txt] UNIVERSAL. SYCOPHANCY — NEGATIVE — USER-BELIEF-VALIDATION CLASS
+- `DENY.BASE.ALIAS.0087`: DENY.BASE.ALIAS.0087 — [list of failures.txt] UNIVERSAL. TOKENIZATION BLINDNESS (“STRAWBERRY PROBLEM”) — NEGATIVE — REPRESENTATION-GRANULARITY CLASS
+- `DENY.BASE.ALIAS.0088`: DENY.BASE.ALIAS.0088 — [list of failures.txt] UNIVERSAL. TROJAN HORSE POISONING (BACKDOORS / TRIGGER WORDS) — NEGATIVE — DATA-POISON / SLEEP-AGENT CLASS
+- `DENY.BASE.ALIAS.0089`: DENY.BASE.ALIAS.0089 — [list of failures.txt] xAI. INJECTION-ATTACK FALSE NEGATIVES + NO RECURSIVE THOUGHT-SAFETY CHECK — NEGATIVE — INJECTION / INTERNAL-REASONING-ISOLATION CLASSES
+- `DENY.BASE.ALIAS.0090`: DENY.BASE.ALIAS.0090 — [list of failures.txt] xAI. SYCOPHANCY + DISHONESTY (MASK) — NEGATIVE — USER-ALIGNMENT / TRUTH-DEFERRAL CLASSES
