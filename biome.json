@@ -40,12 +40,5 @@
       "semicolons": "always",
       "trailingCommas": "all"
     }
-  },
-  "typescript": {
-    "formatter": {
-      "quoteStyle": "double",
-      "semicolons": "always",
-      "trailingCommas": "all"
-    }
   }
 }

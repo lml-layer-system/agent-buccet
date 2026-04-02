@@ -4,6 +4,26 @@ This document defines the operational split inside Agent Buccet.
 
 ## Core Split
 
+### Feeders / Gravity Funnel
+
+Every consequence-bearing feeder does only this:
+- catch motion at its local seam
+- collapse that motion into the shared Gravity funnel shape
+- forward the frozen proposal into the same Buccet runtime
+
+Feeders include:
+- native hook / gravity bridge
+- system-intercept bridge
+- framework adapters
+- intercept-daemon stdin/stdout transport
+- intercept-server socket transport
+
+The feeder does not:
+- decide law
+- widen scope
+- approve motion
+- create a second authority system
+
 ### Hook
 
 The hook does only this:
@@ -46,15 +66,15 @@ The main Agent Buccet runtime owns:
 ## Decision Path
 
 1. motion is intercepted at the action boundary
-2. hook freezes it — the action does not execute
-3. **Input Admission Boundary fires** (when `admissionConfig` is configured):
+2. the feeder collapses it into the shared Gravity funnel
+3. Gravity catches, freezes, and holds — the action does not execute
+4. **Input Admission Boundary fires** (when `admissionConfig` is configured):
    - O(1) canyon cache check — brain never wakes for known-hostile provenances
    - Bounded provenance density tracking
    - Velocity / Density / Mass reflex thresholds for inbound traffic
    - Tarpit decision: hold socket, return nothing (not a fast 403/429)
    - Ledger the event and surface it to Terminal 2
    - Only if admitted → continue
-4. hook signals the Buccet brain that a frozen proposal is waiting
 5. Buccet brain evaluates while the action stays frozen:
    - **resource governor** (Tier 1 pre-check — velocity / density / mass / weight; trips before law evaluation)
    - laws (base runtime laws)
@@ -65,7 +85,7 @@ The main Agent Buccet runtime owns:
    - swarm coordination if many matching requests are waiting
    - ledger
 6. verdict returns: allow / deny / require_approval
-7. hook applies the verdict — allow executes, deny drops, require_approval holds until resolved
+7. the feeder applies the verdict — allow executes, deny drops, require_approval holds until resolved
 
 ## UPL — User Path Ledger
 
@@ -159,10 +179,12 @@ INTERCEPT hooks at:
   → framework APIs (Claude SDK, NeMo, OpenAI Agents, LangGraph, Telegram)
 
 Both map into the same finite boundary action classes.
-Both route to the same Buccet brain.
+Both collapse into the same Gravity funnel and route to the same Buccet brain.
 ```
 
 `buccet init` builds and starts the intercept layer automatically. If a C compiler is not available, Agent Buccet runs in user-space bridge mode — the same brain, law body, and ledger, with framework-level interception only.
+
+`agent-buccet:intercept-daemon` is a stdin/stdout transport over the intercept server path. It is not a separate adjudicator.
 
 The C/libc layer is the deepest level in the public release. That is by design.
 

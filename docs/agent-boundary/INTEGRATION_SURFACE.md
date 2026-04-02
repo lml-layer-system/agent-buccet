@@ -29,6 +29,8 @@ Add boundary law for containment.
 
 If the path was not issued, the action cannot happen.
 
+All public feeders should collapse proposal shape into the same Gravity funnel request before Buccet decides anything.
+
 ## Integration Point
 
 The integration point is the proposed real-world action:
@@ -45,6 +47,7 @@ Existing stack:
 - proposes execution
 
 Boundary runtime:
+- normalizes the proposal into the shared Gravity funnel shape
 - checks reachable scope
 - checks laws
 - checks gravity no-leak constraints
@@ -76,9 +79,14 @@ Scope is not path-only:
 ### Boundary action surface
 
 Use:
+- `createBoundaryFunnelInterceptRequest(...)`
 - `createBoundaryActionRequest(...)`
 - `runBoundaryControlledAction(...)`
 - `enforceBoundaryProposal(...)`
+
+`createBoundaryFunnelInterceptRequest(...)` is the canonical feeder helper. Native bridges,
+system bridges, and framework adapters should emit this shared shape instead of inventing
+parallel request formats.
 
 `createBoundaryActionRequest` builds a typed `BoundaryActionRequest` from raw parameters.
 `runBoundaryControlledAction` is the shared action admission path through Bodyguard — it
@@ -109,6 +117,7 @@ Use:
 
 These allow existing agent stacks to wrap tool execution without changing their whole architecture.
 They also allow callers to pass provenance and defensive meta flags so prompt-injection attempts fail closed at the action boundary.
+Framework adapters that stay at the intercept layer should still emit the shared Gravity funnel request rather than inventing a private feeder shape.
 
 ### Policy loading
 

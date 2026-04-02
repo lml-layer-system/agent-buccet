@@ -485,6 +485,9 @@ Run the intercept daemon with:
 npm run agent-buccet:intercept-daemon -- --session-id my-session
 ```
 
+The intercept daemon is a stdin/stdout transport over the intercept server path.
+It is not a separate adjudicator.
+
 Run the intercept daemon contract harness with:
 
 ```bash
@@ -493,7 +496,8 @@ npm run test:agent-buccet:intercept-daemon
 
 It proves:
 - status command works
-- finite action-boundary decisions work over daemon transport
+- daemon transport sees held swarm groups over the same server path
+- daemon transport can release held motion by forwarding swarm approval
 - restart command works
 - shutdown command works
 

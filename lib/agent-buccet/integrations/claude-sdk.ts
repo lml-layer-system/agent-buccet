@@ -53,8 +53,12 @@
  * ```
  */
 
-import { evaluateBoundaryIntercept } from "../intercept.ts";
-import type { BoundaryInterceptActionClass, BoundaryInterceptResult } from "../intercept.ts";
+import { createBoundaryFunnelInterceptRequest, evaluateBoundaryIntercept } from "../intercept.ts";
+import type {
+  BoundaryInterceptActionClass,
+  BoundaryInterceptRequest,
+  BoundaryInterceptResult,
+} from "../intercept.ts";
 import type { BoundaryRequestProvenance, BoundaryReviewContext, BoundaryRuntimeConfig } from "../types.ts";
 
 export type BoundaryClaudeToolMapping = {
@@ -77,6 +81,25 @@ export type BoundaryClaudeToolMapping = {
  * Provide one entry per tool defined in your Claude API call.
  */
 export type BoundaryClaudeToolRegistry = Record<string, BoundaryClaudeToolMapping>;
+
+export function mapClaudeToolUseToInterceptRequest(args: {
+  toolName: string;
+  toolInput: unknown;
+  mapping: BoundaryClaudeToolMapping;
+  provenance?: BoundaryRequestProvenance;
+}): BoundaryInterceptRequest {
+  return createBoundaryFunnelInterceptRequest({
+    source: "framework",
+    rawAction: args.toolName,
+    actionClass: args.mapping.actionClass,
+    operation: args.mapping.operation,
+    target: args.mapping.describeTarget(args.toolInput),
+    payloadSummary: args.mapping.describePayload?.(args.toolInput),
+    reviewContext: args.mapping.reviewContext?.(args.toolInput),
+    provenance: args.provenance ?? args.mapping.provenance ?? "agent_inference",
+    extra: "adapter=claude-sdk",
+  });
+}
 
 /**
  * Evaluates a single Claude tool_use block through the full boundary chain.
@@ -107,14 +130,12 @@ export async function guardClaudeToolUse(args: {
 
   return evaluateBoundaryIntercept({
     config: args.config,
-    request: {
-      actionClass: mapping.actionClass,
-      operation: mapping.operation,
-      target: mapping.describeTarget(args.toolInput),
-      payloadSummary: mapping.describePayload?.(args.toolInput),
-      reviewContext: mapping.reviewContext?.(args.toolInput),
-      provenance: args.provenance ?? mapping.provenance ?? "agent_inference",
-    },
+    request: mapClaudeToolUseToInterceptRequest({
+      toolName: args.toolName,
+      toolInput: args.toolInput,
+      mapping,
+      provenance: args.provenance,
+    }),
   });
 }
 
