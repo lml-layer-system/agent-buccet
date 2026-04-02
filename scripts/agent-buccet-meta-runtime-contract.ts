@@ -50,7 +50,11 @@ async function main() {
   });
 
   const evaluated = await evaluateBoundaryAction(config, request);
-  assert.equal(evaluated.result.decision, "require_approval");
+  assert.equal(evaluated.result.decision, "deny");
+  assert.ok(
+    evaluated.result.triggeredLawIds.includes("DENY.AUTHORITY.SPOOFING.004D"),
+    "expected base denial pack to hard-deny complete coverage claims",
+  );
   assert.ok(
     hasTriggeredLawAlias(evaluated.result.triggeredLawIds, "TIME.NOVELTY.01"),
     "expected novelty guard to trigger on complete coverage claims",
@@ -81,6 +85,7 @@ async function main() {
   );
 
   console.log(`time runtime decision: ${evaluated.result.decision}`);
+  console.log(`time runtime hard deny: ${evaluated.result.triggeredLawIds.includes("DENY.AUTHORITY.SPOOFING.004D")}`);
   console.log(`time runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
   console.log(`deny wall beats novelty review: ${denied.result.decision}`);
 }

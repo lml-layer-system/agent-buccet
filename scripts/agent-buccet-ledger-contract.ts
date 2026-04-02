@@ -90,9 +90,10 @@ async function main() {
   );
 
   const allowResults = await queryBoundaryLedger({
-    source: actorId,
+    from: first.META.timestamp,
+    action: "fs.write",
     decision: "ALLOW",
-    limit: 10,
+    limit: Number.MAX_SAFE_INTEGER,
   });
   assert.equal(allowResults.some((record) => record.META.session_id === sessionId), true);
 

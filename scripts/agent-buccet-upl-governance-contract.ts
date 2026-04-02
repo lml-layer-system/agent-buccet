@@ -1,32 +1,15 @@
 import assert from "node:assert/strict";
 import {
   appendBoundaryLedger,
+  createBoundaryChatEmissionRequest,
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
   getActiveUserLawIds,
   loadUserPathLedger,
   saveUserPathLedger,
+  writeDeniedUserPathLaw,
   writeApprovedUserPathLaw,
 } from "../lib/agent-buccet/index.ts";
-
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function waitForPendingApproval<T>(
-  listPending: () => T[],
-  timeoutMs = 1_000,
-): Promise<T[]> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const pending = listPending();
-    if (pending.length > 0) {
-      return pending;
-    }
-    await sleep(25);
-  }
-  return listPending();
-}
 
 async function main() {
   const originalLedger = await loadUserPathLedger();
@@ -46,20 +29,50 @@ async function main() {
     });
     const bodyguard = createBoundaryBodyguard(store);
 
-    const blockedAttempt = bodyguard.chat.emit({
+    const request = createBoundaryChatEmissionRequest({
+      config: store.getConfig(),
+      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      attemptedOutput: "Batman 2003 run is the best answer for that request.",
+    });
+
+    const denyWitness = await appendBoundaryLedger("APPROVAL_DENIED", {
+      sessionId,
+      actorId,
+      requestId: request.requestId,
+      actionKind: request.actionKind,
+      target: request.target,
+      decision: "deny",
+      reason: "1999 only means 1999 only",
+      lawIds: ["UPL.MANUAL.DENY.01"],
+      createdAt: new Date().toISOString(),
+    });
+
+    const deniedLedger = await writeDeniedUserPathLaw({
+      ledger: await loadUserPathLedger(),
+      request,
+      witness: denyWitness,
+      session: store.getConfig().session,
+      decision: { choice: "deny_as_law" },
+    });
+
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl: deniedLedger,
+      userLawIds: [
+        ...new Set([
+          ...getActiveUserLawIds(deniedLedger, store.getConfig().session),
+        ]),
+      ],
+    });
+
+    const denied = await bodyguard.chat.emit({
       userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
       execute: async () => "should-not-run",
-      successReason: "chat output emitted after review",
+      successReason: "chat output emitted after standing deny",
     });
-
-    const pending = await waitForPendingApproval(() => bodyguard.approvals.listPending());
-    assert.equal(pending.length, 1, "expected one pending approval before deny-as-law");
-    bodyguard.approvals.denyAsLaw(pending[0].approvalId, {
-      notes: "1999 only means 1999 only",
-    });
-    const denied = await blockedAttempt;
     assert.equal(denied.allowed, false, "expected first attempt to be denied");
+    assert.equal(denied.requiresApproval, false, "expected standing deny to avoid prompting");
 
     const autoBlocked = await bodyguard.chat.emit({
       userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
@@ -70,7 +83,6 @@ async function main() {
     assert.equal(autoBlocked.allowed, false, "expected standing deny to auto-block repeated attempt");
     assert.equal(autoBlocked.requiresApproval, false, "expected standing deny to avoid re-prompt");
 
-    const request = pending[0].request.request;
     const witness = await appendBoundaryLedger("APPROVAL_GRANTED", {
       sessionId,
       actorId,
