@@ -14,6 +14,7 @@ export type DenialClass =
   | "secret_access"
   | "exfiltration"
   | "authority_spoofing"
+  | "meta_boundary_attack"
   | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
@@ -325,6 +326,38 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:grounding-mismatch",
   },
   {
+    id: "DENY.META.SCOPE.004L",
+    denialClass: "meta_boundary_attack",
+    reason: "Prompt or output cannot widen reachable scope by itself.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["requestsScopeExpansion"],
+    requestBasisTarget: "base-headless-denials:scope-expansion",
+  },
+  {
+    id: "DENY.META.LAW.004M",
+    denialClass: "meta_boundary_attack",
+    reason: "Prompt or output cannot mutate law, guardrails, or boundary policy.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["requestsLawMutation"],
+    requestBasisTarget: "base-headless-denials:law-mutation",
+  },
+  {
+    id: "DENY.META.SESSION.004N",
+    denialClass: "meta_boundary_attack",
+    reason: "Prompt or output cannot revive prior sessions or dead grants.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["requestsSessionRevival"],
+    requestBasisTarget: "base-headless-denials:session-revival",
+  },
+  {
+    id: "DENY.META.LEDGER.004O",
+    denialClass: "meta_boundary_attack",
+    reason: "Prompt or output cannot bypass witness, proof, receipt, or ledger requirements.",
+    actionKinds: allTrackSurfaceKinds,
+    requiredFlags: ["requestsLedgerBypass"],
+    requestBasisTarget: "base-headless-denials:ledger-bypass",
+  },
+  {
     id: "DENY.SENSITIVE.EGRESS.004G",
     denialClass: "sensitive_data_egress",
     reason: "Outbound PII is forbidden without explicit law.",
@@ -378,6 +411,13 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*clear-eventlog*",
       "*history -c*",
       "*rm *history*",
+      "*steganograph*",
+      "*stealth decoding*",
+      "*hidden trigger*",
+      "*sleeper trigger*",
+      "*plausible deniability*",
+      "*capability concealment*",
+      "*evaluator model*",
       "*obfus*",
       "*hide *",
     ]),
@@ -406,6 +446,10 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "psexec *",
       "scp *:*",
       "smbclient *",
+      "*agent worm*",
+      "*self-propagat*",
+      "*replicate across agents*",
+      "*forward to every agent*",
       "*copy to usb*",
       "*replicate *",
       "*spread *",
@@ -441,6 +485,11 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "truncate *ledger*",
       "rm *upl*",
       "rm *tracks*",
+      "*lawpack tamper*",
+      "*unsigned update*",
+      "*forged receipt*",
+      "*history forgery*",
+      "*audit invalidation*",
       "*disable buccet*",
     ]),
     requestBasisTarget: "base-headless-denials:law-tamper-command",

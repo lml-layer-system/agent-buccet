@@ -45,6 +45,7 @@ It blocks classes of sovereignty theft by default:
 - secret and credential access
 - exfiltration
 - authority spoofing and fake self-approval / completion claims
+- meta boundary attacks like scope widening, law mutation, session revival, and ledger/proof bypass
 - sensitive outbound data classes like PII, credentials, and financial payloads
 - privilege escalation
 - stealth and evasion
@@ -59,6 +60,18 @@ These entries are authored in the UPL and compiled into wall segments in the liv
 
 The detectors stay in code.
 The standing consequence classes now also live in the base denial pack as UPL wall tracks.
+
+The day-one meta hardening now also carries defensive material distilled from:
+
+- the 343-class AI failure taxonomy across epistemic, agentic, adversarial, alignment, architectural, domain, and governance dimensions
+- the defensive meta/time law corpus around proof, lockstep containment, shapeshift resistance, and trickster resistance
+
+Intentionally excluded from the shipped base denial pack:
+
+- autonomous-operation doctrine
+- offensive-tooling or defensive-to-offensive flip doctrine
+- self-updating or self-continuation law
+- novelty-completeness expansion beyond the already-carried novelty guard
 
 That means Buccet can:
 

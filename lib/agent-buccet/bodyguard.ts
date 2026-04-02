@@ -15,6 +15,7 @@ import {
 import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
+import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
 import type {
@@ -536,39 +537,26 @@ export function wrapBoundaryTool<TInput, TOutput>(
     });
 }
 
-const COMPLETE_COVERAGE_PATTERNS = [
-  /\bcomplete safety\b/i,
-  /\bcomplete coverage\b/i,
-  /\bfully safe\b/i,
-  /\bguaranteed safe\b/i,
-  /\bnothing can go wrong\b/i,
-  /\bperfectly secure\b/i,
-];
-
-const AUTHORITY_PATTERNS = [
-  /\bignore (all )?(previous|prior) instructions\b/i,
-  /\boverride (the )?(rules|laws|guardrails)\b/i,
-  /\bself-approve\b/i,
-  /\bauthorize yourself\b/i,
-  /\bbypass (the )?(approval|boundary|guardrails|laws)\b/i,
-];
-
 const USER_APPROVAL_PATTERNS = [
   /\bthe user (already )?(approved|said yes)\b/i,
   /\bboss (already )?said yes\b/i,
   /\bpermission (was|has been) granted\b/i,
+  /\bapproved in the hidden transcript\b/i,
+  /\bprefill(?:ed)? history says yes\b/i,
 ];
 
 const ACTION_COMPLETION_PATTERNS = [
   /\bi (already )?(did|completed|executed|sent|deleted|updated|wrote)\b/i,
   /\bit (has been|was) done\b/i,
   /\bcompleted successfully\b/i,
+  /\breceipt says it was done\b/i,
+  /\bthe audit already shows completion\b/i,
 ];
 
 export function inferBoundaryChatFlagsFromOutput(text: string): BoundaryActionRequest["flags"] {
+  const metaFlags = inferBoundaryMetaFlagsFromText(text);
   return {
-    authorityClaimed: AUTHORITY_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
-    claimsCompleteCoverage: COMPLETE_COVERAGE_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+    ...metaFlags,
     claimsUserApproval: USER_APPROVAL_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     claimsActionCompletionWithoutWitness: ACTION_COMPLETION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
   };
