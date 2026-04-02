@@ -282,14 +282,14 @@ Lawful recovery:
 ### `BOUNDARY.DELETE.01`
 
 Meaning:
-- destructive delete requires approval
+- destructive delete is denied by default
 
 Prevents:
 - silent file/directory deletion
 
 Lawful recovery:
-- approve delete
-- preview delete
+- author standing allow law deliberately
+- preview the target without deleting it
 
 ### `BOUNDARY.EXEC.01`
 

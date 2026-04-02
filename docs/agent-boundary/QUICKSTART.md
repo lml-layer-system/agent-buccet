@@ -233,7 +233,7 @@ This runs one concrete flow through the real runtime:
 - opened path becomes law
 - in-scope write executes
 - out-of-scope write becomes an open-as-law offer
-- destructive delete requires approval
+- destructive delete is denied by default
 - restored session keeps lawful scope
 - ended session denies later motion
 

@@ -116,13 +116,13 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
   },
   {
     lawId: "BOUNDARY.DELETE.01",
-    description: "Destructive delete actions require explicit approval.",
+    description: "Destructive delete actions are denied by default.",
     appliesTo: ["fs.delete"],
     evaluate: () => ({
-      decision: "require_approval",
-      reason: "delete is destructive and requires approval",
+      decision: "deny",
+      reason: "delete is destructive and denied by default",
       triggeredLawIds: ["BOUNDARY.DELETE.01"],
-      requiresApproval: true,
+      requiresApproval: false,
     }),
   },
   {

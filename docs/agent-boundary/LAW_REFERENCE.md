@@ -73,7 +73,7 @@ These govern Agent Buccet action classes.
 | `BOUNDARY.DEFAULT_SCOPE.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Target outside reachable user-opened scope is denied |
 | `BOUNDARY.APPROVAL.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Some admitted action classes still require explicit approval |
 | `BOUNDARY.COMM.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Recipient sends require approval |
-| `BOUNDARY.DELETE.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Destructive delete requires approval |
+| `BOUNDARY.DELETE.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Destructive delete is denied by default |
 | `BOUNDARY.EXEC.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Tool execution is denied by default |
 | `BOUNDARY.NETWORK.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Network sends require approval |
 | `BOUNDARY.DB.READ.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Database queries require approval |

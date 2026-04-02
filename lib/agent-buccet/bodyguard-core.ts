@@ -339,6 +339,13 @@ export function evaluateBodyguardAction(args: {
 }): BodyguardAdjudication {
   const priorityLaw = resolveBodyguardPriorityLaw(args);
   const standingLaw = resolveBodyguardStandingLaw(args);
+  const boundaryResult = expandRuntimeMuscleTriggeredLawIds(args.config, evaluateBoundaryLaws({
+    session: args.config.session,
+    request: args.request,
+    laws: args.config.laws,
+    grants: args.config.grants,
+    approvalRequiredFor: args.config.approvalRequiredFor,
+  }));
 
   if (priorityLaw?.decision === "deny") {
     return {
@@ -350,6 +357,13 @@ export function evaluateBodyguardAction(args: {
     return {
       result: mergeBodyguardLawResults(standingLaw, priorityLaw),
       bodyguardMoves: [],
+    };
+  }
+  if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {
+    const result = mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(priorityLaw ?? boundaryResult, standingLaw));
+    return {
+      result,
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
     };
   }
   if (priorityLaw?.decision === "require_approval") {
@@ -377,18 +391,9 @@ export function evaluateBodyguardAction(args: {
     };
   }
 
-  const result = evaluateBoundaryLaws({
-    session: args.config.session,
-    request: args.request,
-    laws: args.config.laws,
-    grants: args.config.grants,
-    approvalRequiredFor: args.config.approvalRequiredFor,
-  });
-  const expandedResult = expandRuntimeMuscleTriggeredLawIds(args.config, result);
-
   return {
-    result: expandedResult,
-    bodyguardMoves: buildBoundaryBodyguardMoves(args.request, expandedResult),
+    result: boundaryResult,
+    bodyguardMoves: buildBoundaryBodyguardMoves(args.request, boundaryResult),
   };
 }
 

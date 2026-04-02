@@ -125,7 +125,7 @@ async function main() {
       actionKind: "fs.delete",
       target: path.join(workspace, "README.md"),
     }));
-    assert.equal(deleteDecision.result.decision, "require_approval", "expected delete to stay outside the base acceptance pack");
+    assert.equal(deleteDecision.result.decision, "deny", "expected delete to stay outside the base acceptance pack and remain hard-denied");
 
     const secretDecision = await evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -144,7 +144,7 @@ async function main() {
     console.log(`workspace read: ${readDecision.result.decision}`);
     console.log(`workspace write: ${writeDecision.result.decision}`);
     console.log(`outputs write: ${artifactDecision.result.decision}`);
-    console.log(`delete remains gated: ${deleteDecision.result.decision}`);
+    console.log(`delete remains hard denied: ${deleteDecision.result.decision}`);
     console.log(`secret wall: ${secretDecision.result.decision}`);
   } finally {
     if (previousLedgerPath === undefined) {

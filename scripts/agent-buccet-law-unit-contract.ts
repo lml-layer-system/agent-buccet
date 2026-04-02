@@ -386,10 +386,10 @@ test("BOUNDARY.NETWORK.01 — network.send requires approval", () => {
 // ─── DEFAULT_BOUNDARY_LAWS — destructive file operations ─────────────────────
 console.log("\nDEFAULT_BOUNDARY_LAWS — destructive file operations");
 
-test("BOUNDARY.DELETE.01 — fs.delete always requires approval", () => {
+test("BOUNDARY.DELETE.01 — fs.delete is denied by default", () => {
   const result = evalBoundaryLaw("BOUNDARY.DELETE.01", makeRequest({ actionKind: "fs.delete" }));
   assert.ok(result !== null);
-  assert.equal(result!.decision, "require_approval");
+  assert.equal(result!.decision, "deny");
 });
 
 test("BOUNDARY.EXEC.01 — tool.exec is denied by default", () => {
@@ -547,7 +547,7 @@ test("no laws + in-scope target → require_approval", () => {
   assert.ok(result.triggeredLawIds.includes("BOUNDARY.DEFAULT.ASK.01"));
 });
 
-test("fs.delete inside scope → require_approval (BOUNDARY.DELETE.01)", () => {
+test("fs.delete inside scope → deny (BOUNDARY.DELETE.01)", () => {
   const result = evaluateBoundaryLaws({
     session: makeSession(),
     request: makeRequest({ actionKind: "fs.delete", target: "/home/alice/project/old.txt" }),
@@ -555,7 +555,7 @@ test("fs.delete inside scope → require_approval (BOUNDARY.DELETE.01)", () => {
     grants: [makePathGrant("/home/alice/project", ["fs.delete"])],
     approvalRequiredFor: [],
   });
-  assert.equal(result.decision, "require_approval");
+  assert.equal(result.decision, "deny");
   assert.ok(result.triggeredLawIds.includes("BOUNDARY.DELETE.01"));
 });
 

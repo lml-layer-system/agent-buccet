@@ -38,9 +38,9 @@ const result = await bodyguard.enforceProposal({
 ```
 
 Expected behavior:
-- delete requires approval
-- approval request is queued
-- no execution until explicit approval
+- delete is denied by default
+- no approval request is queued
+- no execution occurs
 
 ## Inspect pending approvals
 

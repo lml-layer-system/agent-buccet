@@ -97,8 +97,9 @@ async function main() {
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
-        grantedActions: ["fs.delete"],
+        grantedActions: ["fs.write"],
         issuedBy: "user:test",
+        seedBaseAcceptance: false,
       });
       // Inject deny_all headless handler into config
       store.replaceConfig({
@@ -110,15 +111,15 @@ async function main() {
       const target = path.join(workspace, "file.txt");
       await fs.writeFile(target, "hello");
 
-      // BOUNDARY.DELETE.01 fires → require_approval → deny_all → final deny
+      // BOUNDARY.FS.WRITE.01 fires → require_approval → deny_all → final deny
       const result = await bodyguard.enforceProposal({
-        actionKind: "fs.delete",
+        actionKind: "fs.write",
         target,
-        successReason: "deleted file",
-        execute: async () => { await fs.unlink(target); },
+        successReason: "wrote file",
+        execute: async () => { await fs.writeFile(target, "updated"); },
       });
 
-      check("H1: deny_all auto-denies fs.delete approval request", !result.allowed);
+      check("H1: deny_all auto-denies fs.write approval request", !result.allowed);
     }
 
     // ── H2: allow_if_law_clear — denies when BOUNDARY.* in lawIds ────────────
@@ -254,8 +255,9 @@ async function main() {
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
-        grantedActions: ["fs.delete"],
+        grantedActions: ["fs.write"],
         issuedBy: "user:test",
+        seedBaseAcceptance: false,
       });
       store.replaceConfig({
         ...scopedConfig,
@@ -263,16 +265,16 @@ async function main() {
       });
 
       const bodyguard = createBoundaryBodyguard(store);
-      const target = path.join(workspace, "delete-me.txt");
+      const target = path.join(workspace, "write-me.txt");
       await fs.writeFile(target, "bye");
 
       const result = await bodyguard.enforceProposal({
-        actionKind: "fs.delete",
+        actionKind: "fs.write",
         target,
-        successReason: "deleted file",
-        execute: async () => { await fs.unlink(target); },
+        successReason: "wrote file",
+        execute: async () => { await fs.writeFile(target, "changed"); },
       });
-      check("H5: allow_all auto-allows fs.delete approval request", result.allowed);
+      check("H5: allow_all auto-allows fs.write approval request", result.allowed);
     }
 
     // ── H6: ledger records APPROVAL_DENIED after headless deny ───────────────
@@ -286,8 +288,9 @@ async function main() {
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
-        grantedActions: ["fs.delete"],
+        grantedActions: ["fs.write"],
         issuedBy: "user:test",
+        seedBaseAcceptance: false,
       });
       store.replaceConfig({
         ...scopedConfig,
@@ -298,10 +301,10 @@ async function main() {
       const target = path.join(workspace, "file.txt");
       await fs.writeFile(target, "data");
       await bodyguard.enforceProposal({
-        actionKind: "fs.delete",
+        actionKind: "fs.write",
         target,
-        successReason: "deleted",
-        execute: async () => { await fs.unlink(target); },
+        successReason: "wrote",
+        execute: async () => { await fs.writeFile(target, "blocked"); },
       });
 
       await sleep(200); // let ledger flush

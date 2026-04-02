@@ -189,11 +189,11 @@ async function main() {
     },
   });
   result("fs.delete from tool_output provenance", trustEval.decision, trustEval.lawIds);
-  // TIME.TRUST.01 fires require_approval; BOUNDARY.DELETE.01 also requires approval.
-  // Both protect the action — it cannot execute without user sign-off.
+  // TIME.TRUST.01 still fires, but BOUNDARY.DELETE.01 now hard-denies delete.
+  // The delete cannot execute at all without a pre-authored standing law override.
   assert(
-    trustEval.decision === "require_approval",
-    "untrusted high-risk action must require approval",
+    trustEval.decision === "deny",
+    "untrusted high-risk delete must be denied",
   );
   assert(hasDisplayedLaw(trustEval.lawIds, "TIME.TRUST.01"), "TIME.TRUST.01 must fire");
 

@@ -119,7 +119,7 @@ async function main() {
     logResult(step1.allowed ? "ALLOW" : "DENY", step1.reason);
     console.log(`  ${C.dim}Law: BOUNDARY.DEFAULT_SCOPE.01 — target outside opened scope${C.reset}`);
 
-    // ── Step 2: Delete within scope — BOUNDARY.DELETE.01 → headless deny ─────
+    // ── Step 2: Delete within scope — BOUNDARY.DELETE.01 hard deny ───────────
 
     logStep(2, "Agent tries to delete a file — headless auto-deny");
     const targetForDeletion = path.join(workspace, "temp.txt");
@@ -135,7 +135,7 @@ async function main() {
     });
 
     logResult(step2.allowed ? "ALLOW" : "DENY", step2.reason);
-    console.log(`  ${C.dim}Law: BOUNDARY.DELETE.01 → require_approval → headless:deny_all${C.reset}`);
+    console.log(`  ${C.dim}Law: BOUNDARY.DELETE.01 → deny by default${C.reset}`);
 
     // ── Step 3: Write within scope — user approves as law ────────────────────
 
