@@ -228,11 +228,13 @@ async function main() {
       successReason: "should not execute inside secret wall",
     });
 
-    const secretPending = await waitForPending(() => bodyguard.approvals.listPending());
-    assert.ok(secretPending.length > 0, "T7 setup: expected approval request for secret wall");
-    bodyguard.approvals.denyAsLaw(secretPending[0].approvalId);
     const deniedSecretResult = await denySecretProposal;
     assert.equal(deniedSecretResult.allowed, false, "T7 setup: expected secret wall to be recorded");
+    assert.equal(
+      deniedSecretResult.requiresApproval,
+      false,
+      "T7 setup: expected secret wall to deny directly when base denial pack already walls it",
+    );
 
     const rootAllowed = path.join(workspace, "root-allowed.txt");
     const rootProposal = bodyguard.enforceProposal({
