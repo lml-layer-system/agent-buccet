@@ -119,6 +119,8 @@ The base acceptance pack is seeded when the user opens lawful scope with `scope 
 
 It is session-scoped by default.
 
+For the full seeded inventory, see [Base Acceptance Pack Inventory](./BASE_ACCEPTANCE_PACK.md).
+
 The built-in classes are:
 
 - `workspace_read`
