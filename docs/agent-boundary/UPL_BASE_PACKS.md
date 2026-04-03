@@ -143,7 +143,7 @@ In plain terms, opening a workspace seeds lawful roads for:
 - local notes, tasks, memory, and `.buccet` roots inside the workspace
 - bounded local developer commands like `git status`, `npm test`, `pytest`, `eslint`, `cargo test`, and similar quality/runtime inspection tools
 - bounded research fetch/search motion against explicit documentation and source domains like MDN, Python docs, GitHub, and search/fetch providers
-- `53` explicit named OpenClaw skill rails on the acceptance side
+- `51` explicit OpenClaw skill rails on the acceptance side
 
 Delete is not part of the base acceptance pack.
 Generic exec is not part of the base acceptance pack.
@@ -157,7 +157,7 @@ The acceptance pack stays narrow on purpose:
 - it does not create a broad outbound network rail
 - denial still overrides every acceptance rail on overlap
 
-That means the OpenClaw intake is now beginning to materialize as real UPL acceptance law, but only in bounded forms that can live safely in the same runtime field as the denial constitution.
+That means the OpenClaw intake is now materializing as real UPL acceptance law, but only in bounded forms that can live safely in the same runtime field as the denial constitution.
 
 ## Why the packs are separate for authors but one at runtime
 

@@ -71,7 +71,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 65, "expected base acceptance pack to seed sixty-five session-scoped rails");
+    assert.equal(baseAcceptanceEntries.length, 63, "expected base acceptance pack to seed sixty-three session-scoped rails");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -111,6 +111,14 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "notion"),
       "expected notion OpenClaw skill rail",
+    );
+    assert.ok(
+      !baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "1password"),
+      "expected credential-vault skill to stay out of the base acceptance pack",
+    );
+    assert.ok(
+      !baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "camsnap"),
+      "expected camera capture skill to stay out of the base acceptance pack",
     );
 
     const readDecision = await evaluateBoundaryAction(config, makeRequest({
@@ -179,18 +187,50 @@ async function main() {
     const weatherSkillDecision = await evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "network.send",
-      target: "weather",
-      payloadSummary: "weather skill forecast lookup",
+      target: "https://api.weather.gov/points/39.7456,-97.0892",
+      payloadSummary: "weather forecast lookup",
     }));
-    assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather OpenClaw skill rail to allow named weather skill motion");
+    assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather OpenClaw skill rail to allow bounded weather-domain motion");
 
     const notionSkillDecision = await evaluateBoundaryAction(config, makeRequest({
       sessionId,
-      actionKind: "db.update",
-      target: "notion",
-      payloadSummary: "notion skill update page",
+      actionKind: "network.send",
+      target: "https://api.notion.com/v1/pages",
+      payloadSummary: "notion page update request",
     }));
-    assert.equal(notionSkillDecision.result.decision, "allow", "expected notion OpenClaw skill rail to allow named notion skill motion");
+    assert.equal(notionSkillDecision.result.decision, "allow", "expected notion OpenClaw skill rail to allow bounded notion-domain motion");
+
+    const slackChannelDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "chat.emit",
+      target: "slack",
+      payloadSummary: "slack notify channel",
+    }));
+    assert.equal(slackChannelDecision.result.decision, "allow", "expected slack OpenClaw skill rail to allow channel-shaped chat delivery");
+
+    const slackNetworkDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "slack",
+      payloadSummary: "slack api call",
+    }));
+    assert.notEqual(slackNetworkDecision.result.decision, "allow", "expected slack raw network motion to stay outside the base acceptance pack");
+
+    const credentialSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "sys.credential.use",
+      target: "1password",
+      payloadSummary: "use vault secret",
+    }));
+    assert.notEqual(credentialSkillDecision.result.decision, "allow", "expected credential vault use to stay outside the base acceptance pack");
+
+    const cameraSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "camsnap",
+      payloadSummary: "capture camera snapshot",
+    }));
+    assert.notEqual(cameraSkillDecision.result.decision, "allow", "expected camera capture skill to stay outside the base acceptance pack");
 
     const deleteDecision = await evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -229,7 +269,11 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });

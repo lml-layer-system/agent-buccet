@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
+import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
 import { getActiveUserLawIds, loadUserPathLedger, writeCompiledUserPathLaws } from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
@@ -261,15 +261,16 @@ function buildBaseAcceptanceSeeds(args: {
     });
   }
 
-  for (const lane of OPENCLAW_SKILL_ACCEPTANCE_LANES) {
+  for (const lane of BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES) {
     seeds.push({
       id: lane.id,
       acceptanceClass: "openclaw_skill",
-      reason: `OpenClaw skill '${lane.skill}' is a lawful named acceptance rail for ${lane.summary}.`,
+      reason: `OpenClaw skill '${lane.skill}' is a lawful acceptance rail for ${lane.summary}.`,
       actionKinds: [...lane.actionKinds],
-      targetPattern: lane.skill,
-      targetMatchMode: "exact",
-      requestTextPatterns: [lane.skill],
+      ...(lane.targetPattern ? { targetPattern: lane.targetPattern } : {}),
+      ...(lane.targetPatterns ? { targetPatterns: [...lane.targetPatterns] } : {}),
+      ...(lane.targetMatchMode ? { targetMatchMode: lane.targetMatchMode } : {}),
+      ...(lane.requestTextPatterns ? { requestTextPatterns: [...lane.requestTextPatterns] } : {}),
       requestBasisTarget: lane.skill,
       requestBasisSummary: `openclaw-skill:${lane.skill}`,
     });

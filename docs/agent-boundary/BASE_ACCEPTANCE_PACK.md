@@ -6,11 +6,11 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 65
+- Total acceptance-side UPL entries seeded per opened workspace session: 63
 - Workspace rails: 5
 - Safe local exec rails: 4
 - Bounded web research rails: 3
-- OpenClaw skill rails: 53
+- OpenClaw skill rails: 51
 
 ## Read This
 
@@ -168,29 +168,34 @@ These rails allow bounded research and retrieval against explicit documentation,
   `crawl`
   `browse`
 
-## OpenClaw Skill Rails (53)
+## OpenClaw Skill Rails (51)
 
-These rails are the explicit named acceptance entries sourced from the OpenClaw skills surface. They are not a second engine. They are acceptance-side UPL rails inside the same live field.
+These rails are the explicit acceptance entries sourced from the OpenClaw skills surface. They are not a second engine. They are acceptance-side UPL rails inside the same live field.
 
-- `ACCEPT.OPENCLAW.SKILL.1001`: `1password` — named rail for credential-vault use through the 1Password skill surface.
+The base pack only seeds OpenClaw rails that are truthful under the shipped denial constitution:
+
+- credential-vault use is not part of the base acceptance pack
+- camera capture is not part of the base acceptance pack
+- channel skills are opened in their delivery shape, not as raw unrestricted network rails
+- obvious API-backed skills are opened on bounded target domains, not just by name alone
+
 - `ACCEPT.OPENCLAW.SKILL.1002`: `apple-notes` — named rail for local Apple Notes read and write motion.
 - `ACCEPT.OPENCLAW.SKILL.1003`: `apple-reminders` — named rail for reminders query and update motion.
 - `ACCEPT.OPENCLAW.SKILL.1004`: `bear-notes` — named rail for Bear notes read and write motion.
 - `ACCEPT.OPENCLAW.SKILL.1005`: `blogwatcher` — named rail for blog/feed retrieval and note output.
 - `ACCEPT.OPENCLAW.SKILL.1006`: `blucli` — named rail for bounded local CLI workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1007`: `bluebubbles` — named rail for BlueBubbles message delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1008`: `camsnap` — named rail for camera snapshot file motion.
 - `ACCEPT.OPENCLAW.SKILL.1009`: `canvas` — named rail for canvas control and paired surface updates.
 - `ACCEPT.OPENCLAW.SKILL.1010`: `clawhub` — named rail for ClawHub network and workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1011`: `coding-agent` — named rail for local coding and file mutation work.
 - `ACCEPT.OPENCLAW.SKILL.1012`: `discord` — named rail for Discord delivery motion.
 - `ACCEPT.OPENCLAW.SKILL.1013`: `eightctl` — named rail for bounded controller CLI workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1014`: `gemini` — named rail for Gemini-backed retrieval or exchange motion.
-- `ACCEPT.OPENCLAW.SKILL.1015`: `gh-issues` — named rail for GitHub issue retrieval and update workflow motion.
+- `ACCEPT.OPENCLAW.SKILL.1014`: `gemini` — bounded rail for Gemini-backed retrieval or exchange motion.
+- `ACCEPT.OPENCLAW.SKILL.1015`: `gh-issues` — bounded rail for GitHub issue retrieval and update workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1016`: `gifgrep` — named rail for local media search and inspection motion.
-- `ACCEPT.OPENCLAW.SKILL.1017`: `github` — named rail for GitHub work item and repository workflow motion.
+- `ACCEPT.OPENCLAW.SKILL.1017`: `github` — bounded rail for GitHub work item and repository workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1018`: `gog` — named rail for bounded tool and service workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1019`: `goplaces` — named rail for places lookup and result writing motion.
+- `ACCEPT.OPENCLAW.SKILL.1019`: `goplaces` — bounded rail for places lookup and result writing motion.
 - `ACCEPT.OPENCLAW.SKILL.1020`: `healthcheck` — named rail for bounded health and diagnostics checks.
 - `ACCEPT.OPENCLAW.SKILL.1021`: `himalaya` — named rail for mail-oriented communication workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1022`: `imsg` — named rail for iMessage delivery motion.
@@ -198,10 +203,10 @@ These rails are the explicit named acceptance entries sourced from the OpenClaw 
 - `ACCEPT.OPENCLAW.SKILL.1024`: `model-usage` — named rail for model-usage note and ledger motion.
 - `ACCEPT.OPENCLAW.SKILL.1025`: `nano-pdf` — named rail for PDF retrieval and extraction output motion.
 - `ACCEPT.OPENCLAW.SKILL.1026`: `node-connect` — named rail for node connection and paired target motion.
-- `ACCEPT.OPENCLAW.SKILL.1027`: `notion` — named rail for Notion retrieval and update motion.
+- `ACCEPT.OPENCLAW.SKILL.1027`: `notion` — bounded rail for Notion retrieval and update motion.
 - `ACCEPT.OPENCLAW.SKILL.1028`: `obsidian` — named rail for Obsidian vault read and write motion.
 - `ACCEPT.OPENCLAW.SKILL.1029`: `openai-whisper` — named rail for local transcription workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1030`: `openai-whisper-api` — named rail for API-backed transcription workflow motion.
+- `ACCEPT.OPENCLAW.SKILL.1030`: `openai-whisper-api` — bounded rail for API-backed transcription workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1031`: `openhue` — named rail for Hue device control motion.
 - `ACCEPT.OPENCLAW.SKILL.1032`: `oracle` — named rail for bounded oracle-style query and output motion.
 - `ACCEPT.OPENCLAW.SKILL.1033`: `ordercli` — named rail for bounded order/workflow CLI motion.
@@ -219,12 +224,12 @@ These rails are the explicit named acceptance entries sourced from the OpenClaw 
 - `ACCEPT.OPENCLAW.SKILL.1045`: `taskflow-inbox-triage` — named rail for inbox triage task-system motion.
 - `ACCEPT.OPENCLAW.SKILL.1046`: `things-mac` — named rail for Things task-system motion.
 - `ACCEPT.OPENCLAW.SKILL.1047`: `tmux` — named rail for tmux session workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1048`: `trello` — named rail for Trello board and task motion.
+- `ACCEPT.OPENCLAW.SKILL.1048`: `trello` — bounded rail for Trello board and task motion.
 - `ACCEPT.OPENCLAW.SKILL.1049`: `video-frames` — named rail for video frame extraction workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1050`: `voice-call` — named rail for voice-call delivery motion.
 - `ACCEPT.OPENCLAW.SKILL.1051`: `wacli` — named rail for WhatsApp CLI delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1052`: `weather` — named rail for weather retrieval and output motion.
-- `ACCEPT.OPENCLAW.SKILL.1053`: `xurl` — named rail for bounded fetch and retrieval motion.
+- `ACCEPT.OPENCLAW.SKILL.1052`: `weather` — bounded rail for weather retrieval and output motion.
+- `ACCEPT.OPENCLAW.SKILL.1053`: `xurl` — bounded rail for fetch and retrieval motion.
 
 ## Important Limits
 
