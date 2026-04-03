@@ -74,6 +74,15 @@ async function main() {
     assert.equal(secretRead?.decision, "deny");
     assert.match(secretRead?.entry.id ?? "", /^DENY\.SECRETS\.ACCESS\.003/);
 
+    const secretDirRead = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("fs.read", "/tmp/workspace/secrets"),
+    });
+    assert.ok(secretDirRead, "expected secrets directory root to match the base denial pack");
+    assert.equal(secretDirRead?.decision, "deny");
+    assert.match(secretDirRead?.entry.id ?? "", /^DENY\.SECRETS\.ACCESS\.003/);
+
     const sudoExec = lookupUserPathTrackDecision({
       ledger,
       session,
