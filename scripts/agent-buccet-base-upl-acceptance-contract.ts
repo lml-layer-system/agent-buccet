@@ -71,7 +71,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 12, "expected base acceptance pack to seed twelve session-scoped rails");
+    assert.equal(baseAcceptanceEntries.length, 65, "expected base acceptance pack to seed sixty-five session-scoped rails");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -99,6 +99,18 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[bounded_web_research]")),
       "expected bounded web research rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "tmux"),
+      "expected tmux OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "weather"),
+      "expected weather OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "notion"),
+      "expected notion OpenClaw skill rail",
     );
 
     const readDecision = await evaluateBoundaryAction(config, makeRequest({
@@ -155,6 +167,30 @@ async function main() {
       payloadSummary: "fetch docs reference",
     }));
     assert.equal(researchDecision.result.decision, "allow", "expected bounded web research rail to allow documentation fetch");
+
+    const tmuxSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "tmux",
+      payloadSummary: "tmux skill attach session",
+    }));
+    assert.equal(tmuxSkillDecision.result.decision, "allow", "expected tmux OpenClaw skill rail to allow named tmux skill motion");
+
+    const weatherSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "weather",
+      payloadSummary: "weather skill forecast lookup",
+    }));
+    assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather OpenClaw skill rail to allow named weather skill motion");
+
+    const notionSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "db.update",
+      target: "notion",
+      payloadSummary: "notion skill update page",
+    }));
+    assert.equal(notionSkillDecision.result.decision, "allow", "expected notion OpenClaw skill rail to allow named notion skill motion");
 
     const deleteDecision = await evaluateBoundaryAction(config, makeRequest({
       sessionId,

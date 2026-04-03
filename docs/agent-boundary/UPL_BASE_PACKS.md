@@ -130,6 +130,7 @@ The built-in classes are:
 - `notes_and_tasks`
 - `safe_local_exec`
 - `bounded_web_research`
+- `openclaw_skill`
 
 For the larger acceptance-side source intake pulled from OpenClaw capability surfaces, see [OpenClaw Acceptance Intake](./OPENCLAW_ACCEPTANCE_INTAKE.md).
 
@@ -142,6 +143,7 @@ In plain terms, opening a workspace seeds lawful roads for:
 - local notes, tasks, memory, and `.buccet` roots inside the workspace
 - bounded local developer commands like `git status`, `npm test`, `pytest`, `eslint`, `cargo test`, and similar quality/runtime inspection tools
 - bounded research fetch/search motion against explicit documentation and source domains like MDN, Python docs, GitHub, and search/fetch providers
+- `53` explicit named OpenClaw skill rails on the acceptance side
 
 Delete is not part of the base acceptance pack.
 Generic exec is not part of the base acceptance pack.

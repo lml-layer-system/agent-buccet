@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
+import { OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
 import { getActiveUserLawIds, loadUserPathLedger, writeCompiledUserPathLaws } from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
@@ -16,7 +17,8 @@ export type BaseAcceptanceClass =
   | "internal_artifacts"
   | "safe_local_exec"
   | "bounded_web_research"
-  | "notes_and_tasks";
+  | "notes_and_tasks"
+  | "openclaw_skill";
 
 type BaseAcceptanceSeed = {
   id: string;
@@ -259,6 +261,20 @@ function buildBaseAcceptanceSeeds(args: {
     });
   }
 
+  for (const lane of OPENCLAW_SKILL_ACCEPTANCE_LANES) {
+    seeds.push({
+      id: lane.id,
+      acceptanceClass: "openclaw_skill",
+      reason: `OpenClaw skill '${lane.skill}' is a lawful named acceptance rail for ${lane.summary}.`,
+      actionKinds: [...lane.actionKinds],
+      targetPattern: lane.skill,
+      targetMatchMode: "exact",
+      requestTextPatterns: [lane.skill],
+      requestBasisTarget: lane.skill,
+      requestBasisSummary: `openclaw-skill:${lane.skill}`,
+    });
+  }
+
   return seeds;
 }
 
@@ -351,9 +367,9 @@ export async function seedBaseAcceptanceIntoConfig(args: {
   });
 
   const newEntries = upl.userApprovedLawPaths.slice(approvedCountBefore);
-  await Promise.all(newEntries.map((entry, index) => {
+  for (const [index, entry] of newEntries.entries()) {
     const law = compiledLaws[index];
-    return appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
+    await appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
       sessionId: args.config.session.sessionId,
       actorId: args.issuedBy,
       requestId: `upl-base-acceptance-track-${entry.id}`,
@@ -371,7 +387,7 @@ export async function seedBaseAcceptanceIntoConfig(args: {
       }),
       createdAt: new Date().toISOString(),
     });
-  }));
+  }
 
   return {
     ...args.config,
