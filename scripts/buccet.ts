@@ -88,7 +88,11 @@ function usage(): never {
     "  buccet ledger [--limit <n>] [--json] [--follow]          — open the witness ledger (Terminal 3, optional)",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
-    "  buccet upl list [--json]",
+    "  buccet upl list [--all] [--json]",
+    "  buccet upl show <upl-id> [--json]",
+    "  buccet upl mute <upl-id...> [--json]",
+    "  buccet upl unmute <upl-id...> [--json]",
+    "  buccet upl remove <upl-id...> [--json]",
     "  buccet upl sources [--json]",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
@@ -489,6 +493,31 @@ function muteLaneSourcedEntries(args: {
     userApprovedLawPaths: args.ledger.userApprovedLawPaths.map(mute),
     userDeniedLawPaths: args.ledger.userDeniedLawPaths.map(mute),
   };
+}
+
+function summarizeUplEntrySource(entry: BoundaryUplEntry): string {
+  if (entry.notes?.includes("[upl-doc-lane:acceptance]")) {
+    return "acceptance-doc";
+  }
+  if (entry.notes?.includes("[upl-doc-lane:denial]")) {
+    return "denial-doc";
+  }
+  if (entry.witness === "BUCCET.HEADLESS.BASE.DENIALS.V1") {
+    return "base-denial-pack";
+  }
+  if (entry.notes?.includes("Buccet base acceptance pack")) {
+    return "base-acceptance-pack";
+  }
+  return "runtime";
+}
+
+function sortUplEntries(entries: BoundaryUplEntry[]): BoundaryUplEntry[] {
+  return [...entries].sort((left, right) => {
+    if (left.createdAt !== right.createdAt) {
+      return right.createdAt.localeCompare(left.createdAt);
+    }
+    return left.id.localeCompare(right.id);
+  });
 }
 
 async function runSubprocess(args: {
@@ -1482,19 +1511,132 @@ async function handleUpl(rest: string[]) {
   if (subcommand === "list") {
     const upl = await boundary.loadUserPathLedger();
     const session = await loadActiveBoundarySession(boundary, home, config);
-    const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
-    const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+    const includeAll = rest.includes("--all");
+    const entries = sortUplEntries(boundary.listUserPathEntries(upl));
+    const approved = entries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE");
+    const denied = entries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE");
+    const muted = entries.filter((entry) => entry.status === "MUTED");
+    const deleted = entries.filter((entry) => entry.status === "DELETED");
     const runtimeTrackField = boundary.compileLiveUplTrackField({ ledger: upl, session });
     if (asJson) {
-      printJson({ approved, denied, runtimeTrackField });
+      printJson({
+        approved,
+        denied,
+        activeApproved: approved,
+        activeDenied: denied,
+        muted,
+        deleted,
+        runtimeTrackField,
+        entries: includeAll ? entries : [...approved, ...denied],
+      });
       return;
     }
-    console.log(`Active UPL laws`);
-    console.log(`approved: ${approved.length}`);
-    console.log(`denied: ${denied.length}`);
+    console.log(`UPL laws`);
+    console.log(`active approved: ${approved.length}`);
+    console.log(`active denied: ${denied.length}`);
+    console.log(`muted: ${muted.length}`);
+    console.log(`deleted: ${deleted.length}`);
     console.log(`runtime track field: ${runtimeTrackField.length} compiled segments`);
-    for (const entry of [...approved, ...denied]) {
-      console.log(`${entry.type} | ${entry.id} | ${entry.path}`);
+    if (!includeAll) {
+      console.log(`showing active laws only | use --all to include muted and deleted`);
+    }
+    for (const entry of includeAll ? entries : [...approved, ...denied]) {
+      console.log(`${entry.status} | ${entry.type} | ${entry.id} | ${summarizeUplEntrySource(entry)} | ${entry.path}`);
+    }
+    return;
+  }
+
+  if (subcommand === "show") {
+    const entryId = rest.find((token, index) => index > 0 && token !== "--json");
+    if (!entryId) {
+      usage();
+    }
+    const upl = await boundary.loadUserPathLedger();
+    const session = await loadActiveBoundarySession(boundary, home, config);
+    const entry = boundary.findUserPathEntryById(upl, entryId);
+    if (!entry) {
+      throw new Error(`unknown UPL id: ${entryId}`);
+    }
+    const liveSegment = boundary.compileLiveUplField({ ledger: upl, session }).find((segment) => segment.entry.id === entry.id) ?? null;
+    if (asJson) {
+      printJson({ entry, liveSegment });
+      return;
+    }
+    console.log(`UPL entry ${entry.id}`);
+    console.log(`status: ${entry.status}`);
+    console.log(`type: ${entry.type}`);
+    console.log(`scope: ${entry.scope}`);
+    console.log(`source: ${summarizeUplEntrySource(entry)}`);
+    console.log(`created: ${entry.createdAt}`);
+    console.log(`modified: ${entry.modifiedAt ?? "never"}`);
+    console.log(`path: ${entry.path}`);
+    console.log(`witness: ${entry.witness}`);
+    if (entry.notes) {
+      console.log(`notes: ${entry.notes}`);
+    }
+    if (entry.trackConstraint) {
+      console.log(`track: yes`);
+      console.log(`track kinds: ${entry.trackConstraint.allowedActionKinds.join(", ")}`);
+    } else {
+      console.log(`track: no`);
+    }
+    if (liveSegment) {
+      console.log(`live field: ${liveSegment.trafficClass} | ${liveSegment.trafficTag}`);
+    } else {
+      console.log(`live field: inactive`);
+    }
+    return;
+  }
+
+  if (subcommand === "mute" || subcommand === "unmute" || subcommand === "remove") {
+    const ids = rest.filter((token, index) => index > 0 && token !== "--json");
+    if (ids.length === 0) {
+      usage();
+    }
+
+    const status = subcommand === "mute"
+      ? "MUTED"
+      : subcommand === "unmute"
+        ? "ACTIVE"
+        : "DELETED";
+    const upl = await boundary.loadUserPathLedger();
+    const update = boundary.updateUserPathEntryStatuses({
+      ledger: upl,
+      ids,
+      status,
+      modifiedAt: new Date().toISOString(),
+    });
+    if (update.missing.length > 0) {
+      throw new Error(`unknown UPL ids: ${update.missing.join(", ")}`);
+    }
+    const saved = await boundary.saveUserPathLedger(update.ledger);
+    const store = await ensureStore(boundary, {
+      config,
+      sessionsDir: home.sessionsDir,
+    });
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl: saved,
+      userLawIds: boundary.getActiveUserLawIds(saved, store.getConfig().session),
+    });
+    await store.persist();
+
+    if (asJson) {
+      printJson({
+        action: subcommand,
+        changed: update.changed,
+        unchanged: update.unchanged,
+      });
+      return;
+    }
+    console.log(`${subcommand} UPL laws`);
+    console.log(`changed: ${update.changed.length}`);
+    console.log(`unchanged: ${update.unchanged.length}`);
+    for (const entry of update.changed) {
+      console.log(`${entry.id} | ${entry.type} | ${entry.status} | ${entry.path}`);
+    }
+    for (const entry of update.unchanged) {
+      console.log(`unchanged | ${entry.id} | ${entry.type} | ${entry.status} | ${entry.path}`);
     }
     return;
   }

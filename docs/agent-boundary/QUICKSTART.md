@@ -204,6 +204,18 @@ Acceptance docs compile into approved UPL law.
 Denial docs compile into denied UPL law.
 Runtime merges both into the same live field.
 
+If you want to inspect or customize the live authored law directly:
+
+```bash
+buccet upl list --all
+buccet upl show <upl-id>
+buccet upl mute <upl-id>
+buccet upl unmute <upl-id>
+buccet upl remove <upl-id>
+```
+
+That is the easiest way to inspect, mute, restore, or remove specific laws without editing code.
+
 Document-imported law is bounded, not magical. Current guaranteed parse surface:
 - explicit invariant/enforcement markdown
 - required / forbidden text patterns

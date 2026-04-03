@@ -211,19 +211,33 @@ You can:
 - bind company or safety-system policies directly into UPL
 - ship your own default pack instead of Buccet's base pack
 
-The canonical ledger path is:
+### Option 1: inspect and control the UPL directly
+
+Use the built-in UPL controls first:
+
+```bash
+buccet upl list --all
+buccet upl show <upl-id>
+buccet upl mute <upl-id>
+buccet upl unmute <upl-id>
+buccet upl remove <upl-id>
+```
+
+That gives you direct control over authored law without touching code:
+
+- `upl list --all` shows active, muted, and deleted laws
+- `upl show` shows the exact law, its source, and whether it is live in the runtime field
+- `upl mute` turns a law off without deleting it
+- `upl unmute` turns a muted law back on
+- `upl remove` marks a law deleted so it no longer participates in the live field
+
+If you want to inspect or edit the raw ledger file anyway, the canonical path is:
 
 ```text
 ~/.buccet/data/agent-buccet-law-foundation/user-path-ledger.json
 ```
 
-### Option 1: inspect and edit the UPL directly
-
-Open the ledger file, inspect the active entries, and remove or replace what you do not want.
-
-Buccet will still compile the authored result into the live field at runtime.
-
-For the current live session, that is enough.
+Buccet still compiles the authored result into the live field at runtime.
 
 If you want different day-one defaults for every scope-open in your own distribution,
 replace the built-in pack module or seed your own pack from your integration code.

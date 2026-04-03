@@ -192,6 +192,65 @@ export async function saveUserPathLedger(ledger: BoundaryUserPathLedger): Promis
   return normalized;
 }
 
+export function listUserPathEntries(ledger: BoundaryUserPathLedger): BoundaryUplEntry[] {
+  return [...ledger.userApprovedLawPaths, ...ledger.userDeniedLawPaths];
+}
+
+export function findUserPathEntryById(
+  ledger: BoundaryUserPathLedger,
+  entryId: string,
+): BoundaryUplEntry | null {
+  return listUserPathEntries(ledger).find((entry) => entry.id === entryId) ?? null;
+}
+
+export function updateUserPathEntryStatuses(args: {
+  ledger: BoundaryUserPathLedger;
+  ids: string[];
+  status: BoundaryUplStatus;
+  modifiedAt: string;
+}): {
+  ledger: BoundaryUserPathLedger;
+  changed: BoundaryUplEntry[];
+  unchanged: BoundaryUplEntry[];
+  missing: string[];
+} {
+  const wanted = new Set(args.ids);
+  const changed: BoundaryUplEntry[] = [];
+  const unchanged: BoundaryUplEntry[] = [];
+  const seen = new Set<string>();
+
+  const update = (entry: BoundaryUplEntry): BoundaryUplEntry => {
+    if (!wanted.has(entry.id)) {
+      return entry;
+    }
+    seen.add(entry.id);
+    if (entry.status === args.status || (entry.status === "DELETED" && args.status !== "DELETED")) {
+      unchanged.push(entry);
+      return entry;
+    }
+    const next = {
+      ...entry,
+      status: args.status,
+      modifiedAt: args.modifiedAt,
+    };
+    changed.push(next);
+    return next;
+  };
+
+  const nextLedger = {
+    ...args.ledger,
+    userApprovedLawPaths: args.ledger.userApprovedLawPaths.map(update),
+    userDeniedLawPaths: args.ledger.userDeniedLawPaths.map(update),
+  };
+
+  return {
+    ledger: nextLedger,
+    changed,
+    unchanged,
+    missing: args.ids.filter((id) => !seen.has(id)),
+  };
+}
+
 function makeEntryId(ledger: BoundaryUserPathLedger): string {
   const total = ledger.userApprovedLawPaths.length + ledger.userDeniedLawPaths.length + 1;
   return `UPL-${String(total).padStart(6, "0")}`;

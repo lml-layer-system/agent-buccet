@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
+import type { BoundaryUplEntry } from "../lib/agent-buccet/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {
@@ -53,6 +54,7 @@ async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-cli-"));
   const homePath = path.join(tempRoot, "home");
   const workspacePath = path.join(tempRoot, "workspace");
+  const uplLedgerPath = path.join(tempRoot, "upl-ledger.json");
   await fs.mkdir(workspacePath, { recursive: true });
   await fs.writeFile(path.join(workspacePath, "note.txt"), "hello\n", "utf8");
 
@@ -61,6 +63,7 @@ async function main() {
     AGENT_BUCCET_HOME: homePath,
     AGENT_BUCCET_CALLER_CWD: workspacePath,
     AGENT_BUCCET_LAUNCHER_PATH: path.join(tempRoot, "bin", "buccet"),
+    AGENT_BUCCET_UPL_LEDGER_PATH: uplLedgerPath,
   };
 
   const initResult = await runCli(["init"], env);
@@ -85,6 +88,63 @@ async function main() {
   assert.equal(scopeListResult.code, 0, scopeListResult.stderr);
   const scopes = JSON.parse(scopeListResult.stdout) as Array<{ rootPath: string }>;
   assert.ok(scopes.some((scope) => scope.rootPath === workspacePath));
+
+  const uplListResult = await runCli(["upl", "list", "--json"], env);
+  assert.equal(uplListResult.code, 0, uplListResult.stderr);
+  const uplList = JSON.parse(uplListResult.stdout) as {
+    activeApproved: BoundaryUplEntry[];
+    activeDenied: BoundaryUplEntry[];
+  };
+  assert.ok(uplList.activeApproved.length > 0, "expected base acceptance to seed active approved UPL");
+  assert.ok(uplList.activeDenied.length > 0, "expected base denial pack to seed active denied UPL");
+
+  const mutableEntry = uplList.activeDenied[0];
+  assert.ok(mutableEntry?.id, "expected an active denied UPL entry to mutate");
+
+  const uplShowResult = await runCli(["upl", "show", mutableEntry.id, "--json"], env);
+  assert.equal(uplShowResult.code, 0, uplShowResult.stderr);
+  const shown = JSON.parse(uplShowResult.stdout) as {
+    entry: BoundaryUplEntry;
+  };
+  assert.equal(shown.entry.id, mutableEntry.id);
+
+  const muteResult = await runCli(["upl", "mute", mutableEntry.id, "--json"], env);
+  assert.equal(muteResult.code, 0, muteResult.stderr);
+  const muted = JSON.parse(muteResult.stdout) as {
+    changed: BoundaryUplEntry[];
+  };
+  assert.equal(muted.changed.length, 1);
+  assert.equal(muted.changed[0]?.status, "MUTED");
+
+  const listAllAfterMute = await runCli(["upl", "list", "--all", "--json"], env);
+  assert.equal(listAllAfterMute.code, 0, listAllAfterMute.stderr);
+  const listedAfterMute = JSON.parse(listAllAfterMute.stdout) as {
+    entries: BoundaryUplEntry[];
+  };
+  assert.equal(listedAfterMute.entries.find((entry) => entry.id === mutableEntry.id)?.status, "MUTED");
+
+  const unmuteResult = await runCli(["upl", "unmute", mutableEntry.id, "--json"], env);
+  assert.equal(unmuteResult.code, 0, unmuteResult.stderr);
+  const unmuted = JSON.parse(unmuteResult.stdout) as {
+    changed: BoundaryUplEntry[];
+  };
+  assert.equal(unmuted.changed.length, 1);
+  assert.equal(unmuted.changed[0]?.status, "ACTIVE");
+
+  const removeResult = await runCli(["upl", "remove", mutableEntry.id, "--json"], env);
+  assert.equal(removeResult.code, 0, removeResult.stderr);
+  const removed = JSON.parse(removeResult.stdout) as {
+    changed: BoundaryUplEntry[];
+  };
+  assert.equal(removed.changed.length, 1);
+  assert.equal(removed.changed[0]?.status, "DELETED");
+
+  const listAllAfterRemove = await runCli(["upl", "list", "--all", "--json"], env);
+  assert.equal(listAllAfterRemove.code, 0, listAllAfterRemove.stderr);
+  const listedAfterRemove = JSON.parse(listAllAfterRemove.stdout) as {
+    entries: BoundaryUplEntry[];
+  };
+  assert.equal(listedAfterRemove.entries.find((entry) => entry.id === mutableEntry.id)?.status, "DELETED");
 
   const doctorResult = await runCli(["doctor"], env);
   assert.equal(doctorResult.code, 0, doctorResult.stderr);
@@ -122,6 +182,7 @@ async function main() {
   console.log(`cli hook status: ok`);
   console.log(`cli console: ok`);
   console.log(`cli ledger: ok`);
+  console.log(`cli upl controls: ok`);
 }
 
 main().catch((error) => {
