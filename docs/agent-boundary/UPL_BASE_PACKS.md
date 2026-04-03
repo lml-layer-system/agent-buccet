@@ -126,6 +126,8 @@ The built-in classes are:
 - `local_organization`
 - `internal_artifacts`
 
+For the larger acceptance-side source intake pulled from OpenClaw capability surfaces, see [OpenClaw Acceptance Intake](./OPENCLAW_ACCEPTANCE_INTAKE.md).
+
 In plain terms, opening a workspace seeds lawful roads for:
 
 - reading inside the opened workspace
