@@ -32,6 +32,18 @@ function trafficLawIds(config: BoundaryRuntimeConfig, entry: BoundaryUplEntry): 
   ];
 }
 
+function describeTrafficEntry(entry: BoundaryUplEntry): string {
+  const note = entry.notes?.trim();
+  if (note) {
+    return note;
+  }
+  const trackDescription = entry.trackConstraint?.description?.trim();
+  if (trackDescription) {
+    return trackDescription;
+  }
+  return entry.id;
+}
+
 export function evaluateBoundaryUplTraffic(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
@@ -70,7 +82,7 @@ export function evaluateBoundaryUplTraffic(args: {
       return {
         decision: "allow",
         entry: exactMatch.entry,
-        reason: `allowed by standing UPL approval ${exactMatch.entry.id}`,
+        reason: `allowed by standing UPL approval ${describeTrafficEntry(exactMatch.entry)}`,
         triggeredLawIds,
         trafficClass: uplTrafficClassForPolarity("allow"),
         trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "allow" }),
@@ -81,7 +93,7 @@ export function evaluateBoundaryUplTraffic(args: {
     return {
       decision: "deny",
       entry: exactMatch.entry,
-      reason: `blocked by standing UPL denial ${exactMatch.entry.id}`,
+      reason: `blocked by standing UPL denial ${describeTrafficEntry(exactMatch.entry)}`,
       triggeredLawIds,
       trafficClass: uplTrafficClassForPolarity("deny"),
       trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "deny" }),
@@ -118,7 +130,7 @@ export function evaluateBoundaryUplTraffic(args: {
     return {
       decision: "deny",
       entry: trackMatch.entry,
-      reason: `blocked by UPL traffic wall ${trackMatch.entry.id}`,
+      reason: `blocked by UPL traffic wall ${describeTrafficEntry(trackMatch.entry)}`,
       triggeredLawIds,
       trafficClass: uplTrafficClassForPolarity("deny"),
       trafficTag: makeBoundaryUplTrafficTag({ entry: trackMatch.entry, polarity: "deny" }),
@@ -128,7 +140,7 @@ export function evaluateBoundaryUplTraffic(args: {
   return {
     decision: "allow",
     entry: trackMatch.entry,
-    reason: `allowed by UPL traffic rail ${trackMatch.entry.id}`,
+    reason: `allowed by UPL traffic rail ${describeTrafficEntry(trackMatch.entry)}`,
     triggeredLawIds,
     trafficClass: uplTrafficClassForPolarity("allow"),
     trafficTag: makeBoundaryUplTrafficTag({ entry: trackMatch.entry, polarity: "allow" }),

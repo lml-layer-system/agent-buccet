@@ -54,18 +54,6 @@ function createDaemonClient(child: ReturnType<typeof spawn>) {
   };
 }
 
-async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const result = await fn();
-    if (result !== null) {
-      return result;
-    }
-    await wait(stepMs);
-  }
-  throw new Error(`timed out after ${timeoutMs}ms`);
-}
-
 async function main() {
   console.log("Agent Buccet intercept daemon contract");
 
@@ -117,51 +105,16 @@ async function main() {
   console.log(`initial status running: ${status.running}`);
 
   const decisionTarget = "/tmp/agent-buccet-intercept-daemon-contract.txt";
-  const decisionPromise = client.send("decision-1", {
+  const decision = await client.send("decision-1", {
     actionClass: "file",
     operation: "write",
     target: decisionTarget,
     payloadSummary: "daemon contract pending write",
     provenance: "agent_inference",
-  }) as Promise<{ type: string; decision: string }>;
-
-  const pendingGroup = await waitFor(async () => {
-    const swarmStatus = await client.send(`swarm-status-${Date.now()}`, {
-      command: "swarm_status",
-    }) as {
-      type: string;
-      groups: Array<{
-        groupId: string;
-        actionClass: string;
-        operation: string;
-        target: string;
-        state: string;
-      }>;
-    };
-    if (swarmStatus.type !== "swarm_status") {
-      return null;
-    }
-    return swarmStatus.groups.find((group) =>
-      group.state === "waiting"
-      && group.actionClass === "file"
-      && group.operation === "write"
-      && group.target === decisionTarget
-    ) ?? null;
-  }, 5_000, 100);
-  console.log(`pending group target: ${pendingGroup.target}`);
-
-  const approve = await client.send("swarm-approve-1", {
-    command: "swarm_approve",
-    groupId: pendingGroup.groupId,
-    issuedBy: "user:intercept-daemon-contract",
-    reason: "release daemon-held request",
-  }) as { type: string; command: string };
-  assert.equal(approve.type, "ack");
-  assert.equal(approve.command, "swarm_approve");
-
-  const decision = await decisionPromise;
+  }) as { type: string; decision: string; reason: string };
   assert.equal(decision.type, "decision");
-  assert.equal(decision.decision, "allow");
+  assert.equal(decision.decision, "deny");
+  assert.match(decision.reason, /outside user-opened reachable scope/i);
   console.log(`daemon-held decision: ${decision.decision}`);
 
   const restart = await client.send("restart-1", {

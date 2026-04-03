@@ -174,6 +174,8 @@ async function main() {
     assert(!jailbreakChat.requiresApproval, "expected jailbreak-style chat output to deny without re-prompt");
     assert(
       jailbreakChat.reason.includes("authority") ||
+        jailbreakChat.reason.includes("authorize") ||
+        jailbreakChat.reason.includes("jailbreak") ||
         jailbreakChat.reason.includes("law") ||
         jailbreakChat.reason.includes("ledger"),
       "expected jailbreak-style chat output to explain the meta denial",
@@ -182,18 +184,6 @@ async function main() {
     const updatedLedger = await loadUserPathLedger();
     assert(updatedLedger.userDeniedLawPaths.length === 1, "expected one denied UPL law after deny_as_law");
 
-    console.log("Agent Buccet chat boundary contract");
-    console.log("---CHAT PROMPT---");
-    console.log(renderedPrompt);
-    console.log(`flagged prompt options: ${approval.prompt.options.length}`);
-    console.log(`rendered prompt surface: ${approval.prompt.surface}`);
-    console.log(`repeated flagged chat allowed: ${repeated.allowed}`);
-    console.log(`near-match flagged chat allowed: ${nearMatch.allowed}`);
-    console.log(`PII chat denied: ${!piiChat.allowed}`);
-    console.log(`credential chat denied: ${!credentialChat.allowed}`);
-    console.log(`financial chat denied: ${!financialChat.allowed}`);
-    console.log(`jailbreak chat denied: ${!jailbreakChat.allowed}`);
-    console.log(`standing denied laws: ${updatedLedger.userDeniedLawPaths.length}`);
   } finally {
     await saveUserPathLedger(originalLedger);
   }

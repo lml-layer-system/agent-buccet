@@ -362,14 +362,15 @@ export function checkTrackConstraint(
   }
 
   const reviewSurface = constraint.actionCorridor?.reviewSurface ?? constraint.reviewSurface;
-  if (reviewSurface && request.reviewContext?.surface !== reviewSurface) {
+  const inboundSurface = request.reviewContext?.surface ?? (request.actionKind === "chat.emit" ? "chat" : "action");
+  if (reviewSurface && inboundSurface !== reviewSurface) {
     return (
-      `review surface '${request.reviewContext?.surface ?? "unknown"}' exits the approved execution corridor ` +
+      `review surface '${inboundSurface}' exits the approved execution corridor ` +
       `(track requires surface: ${reviewSurface})`
     );
   }
 
-  if (constraint.reviewInvariantLawId) {
+  if (constraint.reviewInvariantLawId && (reviewSurface === "chat" || inboundSurface === "chat")) {
     const inboundInvariant = request.reviewContext?.invariantLawId;
     if (inboundInvariant !== constraint.reviewInvariantLawId) {
       return (

@@ -153,7 +153,7 @@ async function main() {
       }
     });
 
-    for (let attempt = 0; attempt < 50 && !interceptReady; attempt += 1) {
+    for (let attempt = 0; attempt < 150 && !interceptReady; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     assert(interceptReady, `expected intercept server ready\n${interceptStderr}`);

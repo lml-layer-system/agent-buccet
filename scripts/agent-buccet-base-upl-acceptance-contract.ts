@@ -71,7 +71,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 4, "expected base acceptance pack to seed four session-scoped rails");
+    assert.equal(baseAcceptanceEntries.length, 12, "expected base acceptance pack to seed twelve session-scoped rails");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -87,6 +87,18 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[internal_artifacts]")),
       "expected internal artifacts rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.notes?.includes("[notes_and_tasks]")),
+      "expected notes and tasks rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.notes?.includes("[safe_local_exec]")),
+      "expected safe local exec rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.notes?.includes("[bounded_web_research]")),
+      "expected bounded web research rail",
     );
 
     const readDecision = await evaluateBoundaryAction(config, makeRequest({
@@ -120,6 +132,30 @@ async function main() {
     }));
     assert.equal(mkdirDecision.result.decision, "allow", "expected local organization rail to allow mkdir");
 
+    const notesDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "fs.write",
+      target: path.join(workspace, "notes", "todo.md"),
+      payloadSummary: "write:12bytes",
+    }));
+    assert.equal(notesDecision.result.decision, "allow", "expected notes and tasks rail to allow local note writes");
+
+    const execDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "git",
+      payloadSummary: "git status",
+    }));
+    assert.equal(execDecision.result.decision, "allow", "expected safe local exec rail to allow bounded git inspection");
+
+    const researchDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+      payloadSummary: "fetch docs reference",
+    }));
+    assert.equal(researchDecision.result.decision, "allow", "expected bounded web research rail to allow documentation fetch");
+
     const deleteDecision = await evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.delete",
@@ -139,13 +175,14 @@ async function main() {
       "expected secret access denial to come from the base denial pack",
     );
 
-    console.log("Agent Buccet base UPL acceptance contract");
-    console.log(`seeded rails: ${baseAcceptanceEntries.length}`);
-    console.log(`workspace read: ${readDecision.result.decision}`);
-    console.log(`workspace write: ${writeDecision.result.decision}`);
-    console.log(`outputs write: ${artifactDecision.result.decision}`);
-    console.log(`delete remains hard denied: ${deleteDecision.result.decision}`);
-    console.log(`secret wall: ${secretDecision.result.decision}`);
+    const unsafeExecDecision = await evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "git",
+      payloadSummary: "git push origin main",
+    }));
+    assert.notEqual(unsafeExecDecision.result.decision, "allow", "expected unsafe exec drift to stay outside automatic allowance");
+
   } finally {
     if (previousLedgerPath === undefined) {
       delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;

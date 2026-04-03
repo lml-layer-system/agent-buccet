@@ -246,9 +246,14 @@ export function evaluateBodyguardAction(args: {
     };
   }
   if (standingLaw?.decision === "deny") {
+    const result = boundaryResult.decision === "deny"
+      ? mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(standingLaw, priorityLaw))
+      : mergeBodyguardLawResults(standingLaw, priorityLaw);
     return {
-      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
-      bodyguardMoves: [],
+      result,
+      bodyguardMoves: boundaryResult.decision === "deny"
+        ? buildBoundaryBodyguardMoves(args.request, result)
+        : [],
     };
   }
   if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {
@@ -256,12 +261,6 @@ export function evaluateBodyguardAction(args: {
     return {
       result,
       bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
-    };
-  }
-  if (priorityLaw?.decision === "require_approval") {
-    return {
-      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
-      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
     };
   }
   if (standingLaw?.decision === "require_approval") {
@@ -274,6 +273,12 @@ export function evaluateBodyguardAction(args: {
     return {
       result: mergeBodyguardLawResults(standingLaw, priorityLaw),
       bodyguardMoves: [],
+    };
+  }
+  if (priorityLaw?.decision === "require_approval") {
+    return {
+      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
     };
   }
   if (priorityLaw) {
@@ -324,6 +329,17 @@ export async function adjudicateBodyguardRequest(args: {
     }
 
     if (gravity.outcome === "bodyguard_grant_offer") {
+      const adjudication = evaluateBodyguardAction({
+        config: gravity.config,
+        request: gravity.request,
+      });
+      if (adjudication.result.decision !== "require_approval") {
+        return {
+          ...adjudication,
+          config: gravity.config,
+          request: gravity.request,
+        };
+      }
       return {
         config: gravity.config,
         request: gravity.request,

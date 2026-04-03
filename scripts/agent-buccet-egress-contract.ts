@@ -100,8 +100,9 @@ async function main() {
   const actorId = "user:egress-contract";
 
   const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
-  await store.openPath({
-    rootPath: "/",
+  await store.issueGrant({
+    resourceKind: "domain",
+    resourceValue: "api.example.com",
     grantedActions: ["network.send"],
     issuedBy: actorId,
   });
@@ -109,7 +110,7 @@ async function main() {
 
   const piiResult = await bodyguard.enforceProposal({
     actionKind: "network.send",
-    target: "https://api.example.com/submit",
+    target: "api.example.com",
     payloadSummary: "POST body",
     flags: inferBoundaryEgressFlagsFromPayload("Sending user data for alice@example.com"),
     execute: async () => "should-not-run",
@@ -125,7 +126,7 @@ async function main() {
 
   const credResult = await bodyguard.enforceProposal({
     actionKind: "network.send",
-    target: "https://api.example.com/submit",
+    target: "api.example.com",
     payloadSummary: "POST body",
     flags: inferBoundaryEgressFlagsFromPayload("token=sk-abcdefghijklmnopqrstuvwxyz"),
     execute: async () => "should-not-run",
@@ -136,7 +137,7 @@ async function main() {
 
   const financialResult = await bodyguard.enforceProposal({
     actionKind: "network.send",
-    target: "https://api.example.com/submit",
+    target: "api.example.com",
     payloadSummary: "POST body",
     flags: inferBoundaryEgressFlagsFromPayload("Card: 4111111111111111"),
     execute: async () => "should-not-run",
@@ -147,7 +148,7 @@ async function main() {
 
   const cleanResult = await bodyguard.enforceProposal({
     actionKind: "network.send",
-    target: "https://api.example.com/submit",
+    target: "api.example.com",
     payloadSummary: "POST body",
     flags: inferBoundaryEgressFlagsFromPayload(cleanPayload),
     execute: async () => "clean-send-complete",
@@ -157,23 +158,6 @@ async function main() {
   // network.send requires approval by default even without egress flags, so it should reach approval queue
   assert(!cleanResult.executed, "clean network.send without approval handler should not execute");
 
-  console.log("Agent Buccet egress contract — Structural Validity Layer");
-  console.log(`clean payload PII: ${cleanFlags?.payloadContainsPii ?? false}`);
-  console.log(`email payload PII: ${emailFlags?.payloadContainsPii}`);
-  console.log(`api key credential: ${apiKeyFlags?.payloadContainsCredential}`);
-  console.log(`valid card financial (Luhn): ${cardFlags?.payloadContainsFinancialData}`);
-  console.log(`invalid Luhn financial: ${badCardFlags?.payloadContainsFinancialData ?? false}`);
-  console.log(`valid IPv4 PII: ${ipv4Flags?.payloadContainsPii}`);
-  console.log(`invalid IPv4 (256.x.x.x) PII: ${fakeIpFlags?.payloadContainsPii ?? false}`);
-  console.log(`valid IBAN (MOD-97) PII: ${ibanFlags?.payloadContainsPii}`);
-  console.log(`invalid IBAN (MOD-97 fails) PII: ${fakeIbanFlags?.payloadContainsPii ?? false}`);
-  console.log(`valid ABA routing financial: ${abaFlags?.payloadContainsFinancialData}`);
-  console.log(`invalid ABA checksum financial: ${fakeAbaFlags?.payloadContainsFinancialData ?? false}`);
-  console.log(`GitHub PAT credential: ${githubPatFlags?.payloadContainsCredential}`);
-  console.log(`JWT credential: ${jwtFlags?.payloadContainsCredential}`);
-  console.log(`PII network.send denied: ${!piiResult.allowed}`);
-  console.log(`credential network.send denied: ${!credResult.allowed}`);
-  console.log(`financial network.send denied: ${!financialResult.allowed}`);
 }
 
 main().catch((error) => {

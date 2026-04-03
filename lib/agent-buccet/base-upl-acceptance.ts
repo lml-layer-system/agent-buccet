@@ -13,7 +13,10 @@ export type BaseAcceptanceClass =
   | "workspace_read"
   | "workspace_mutation"
   | "local_organization"
-  | "internal_artifacts";
+  | "internal_artifacts"
+  | "safe_local_exec"
+  | "bounded_web_research"
+  | "notes_and_tasks";
 
 type BaseAcceptanceSeed = {
   id: string;
@@ -23,12 +26,109 @@ type BaseAcceptanceSeed = {
   targetPattern?: string;
   targetPatterns?: string[];
   targetMatchMode?: "prefix" | "exact" | "regex";
+  requestTextPatterns?: string[];
   requestBasisTarget: string;
   requestBasisSummary: string;
 };
 
 const BASE_ACCEPTANCE_PROFILE_ID = "BUCCET.BASE.UPL.ACCEPTANCE.V1";
 const SAFE_OUTPUT_DIR_NAMES = ["outputs", "reports", "artifacts"] as const;
+const NOTES_AND_TASK_DIR_NAMES = [".buccet", "notes", "tasks", "memory"] as const;
+const SAFE_LOCAL_EXEC_SEEDS = [
+  {
+    id: "ACCEPT.SAFE.LOCAL.EXEC.005A",
+    targetPatterns: ["git", "rg"],
+    requestTextPatterns: [
+      "/\\b(?:git\\s+(?:status|diff|grep|log|show|rev-parse|branch|ls-files)|rg\\b)\\b/i",
+    ],
+    requestBasisTarget: "git",
+    requestBasisSummary: "git status",
+    reason: "Bounded local repository inspection commands are lawful.",
+  },
+  {
+    id: "ACCEPT.SAFE.LOCAL.EXEC.005B",
+    targetPatterns: ["npm", "pnpm", "yarn"],
+    requestTextPatterns: [
+      "/\\b(?:npm|pnpm|yarn)\\s+(?:test|lint|run\\s+(?:test|lint|typecheck|build)|typecheck|build)\\b/i",
+    ],
+    requestBasisTarget: "npm",
+    requestBasisSummary: "npm test",
+    reason: "Bounded package-runner quality commands are lawful.",
+  },
+  {
+    id: "ACCEPT.SAFE.LOCAL.EXEC.005C",
+    targetPatterns: ["pytest", "ruff", "mypy", "eslint", "prettier", "tsc"],
+    requestTextPatterns: [
+      "/\\b(?:pytest|mypy|eslint|prettier|tsc)\\b/i",
+      "/\\bruff\\s+(?:check|format)\\b/i",
+    ],
+    requestBasisTarget: "pytest",
+    requestBasisSummary: "pytest -q",
+    reason: "Bounded test, lint, and typecheck tools are lawful.",
+  },
+  {
+    id: "ACCEPT.SAFE.LOCAL.EXEC.005D",
+    targetPatterns: ["cargo", "go", "make"],
+    requestTextPatterns: [
+      "/\\bcargo\\s+(?:test|check|fmt|clippy)\\b/i",
+      "/\\bgo\\s+(?:test|fmt|vet)\\b/i",
+      "/\\bmake\\s+(?:test|lint|build|check)\\b/i",
+    ],
+    requestBasisTarget: "cargo",
+    requestBasisSummary: "cargo test",
+    reason: "Bounded native-toolchain quality commands are lawful.",
+  },
+] as const;
+const BOUNDED_WEB_RESEARCH_SEEDS = [
+  {
+    id: "ACCEPT.BOUNDED.WEB.RESEARCH.006A",
+    targetPatterns: [
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?developer\\.mozilla\\.org(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?docs\\.python\\.org(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?docs\\.npmjs\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?nodejs\\.org(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?docs\\.rs(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?pkg\\.go\\.dev(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?www\\.typescriptlang\\.org(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?developer\\.apple\\.com(?:\\/|$)/i",
+    ],
+    requestTextPatterns: [
+      "/\\b(?:fetch|read|browse|lookup|docs?|documentation|reference|manual|guide|api)\\b/i",
+    ],
+    requestBasisTarget: "developer.mozilla.org",
+    requestBasisSummary: "fetch docs",
+    reason: "Bounded documentation and reference retrieval is lawful.",
+  },
+  {
+    id: "ACCEPT.BOUNDED.WEB.RESEARCH.006B",
+    targetPatterns: [
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?github\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?api\\.github\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?raw\\.githubusercontent\\.com(?:\\/|$)/i",
+    ],
+    requestTextPatterns: [
+      "/\\b(?:fetch|read|browse|lookup|docs?|documentation|reference|raw|source|repository|repo)\\b/i",
+    ],
+    requestBasisTarget: "github.com",
+    requestBasisSummary: "fetch repository docs",
+    reason: "Bounded source and repository retrieval is lawful.",
+  },
+  {
+    id: "ACCEPT.BOUNDED.WEB.RESEARCH.006C",
+    targetPatterns: [
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?duckduckgo\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?search\\.brave\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?exa\\.ai(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?firecrawl\\.dev(?:\\/|$)/i",
+    ],
+    requestTextPatterns: [
+      "/\\b(?:search|query|lookup|research|retrieve|crawl|browse)\\b/i",
+    ],
+    requestBasisTarget: "duckduckgo.com",
+    requestBasisSummary: "search docs",
+    reason: "Bounded search and retrieval provider use is lawful.",
+  },
+] as const;
 
 function hashSeedWitnessId(rootPath: string, grantedActions: readonly BoundaryActionKind[]): string {
   return createHash("sha256")
@@ -43,6 +143,10 @@ function buildNotes(seed: BaseAcceptanceSeed): string {
 
 function resolveSafeOutputRoots(rootPath: string): string[] {
   return SAFE_OUTPUT_DIR_NAMES.map((name) => path.join(rootPath, name));
+}
+
+function resolveNotesAndTaskRoots(rootPath: string): string[] {
+  return NOTES_AND_TASK_DIR_NAMES.map((name) => path.join(rootPath, name));
 }
 
 function buildBaseAcceptanceSeeds(args: {
@@ -109,6 +213,52 @@ function buildBaseAcceptanceSeeds(args: {
     });
   }
 
+  if (["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"].some((kind) => granted.has(kind as BoundaryActionKind))) {
+    const notesAndTaskKinds = ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"].filter((kind) =>
+      granted.has(kind as BoundaryActionKind)
+    ) as BoundaryActionKind[];
+    if (notesAndTaskKinds.length > 0) {
+      seeds.push({
+        id: "ACCEPT.NOTES.TASKS.007",
+        acceptanceClass: "notes_and_tasks",
+        reason: "Local notes, tasks, and Buccet workspace memory roots are lawful.",
+        actionKinds: notesAndTaskKinds,
+        targetPatterns: resolveNotesAndTaskRoots(rootPath),
+        targetMatchMode: "prefix",
+        requestBasisTarget: path.join(rootPath, ".buccet"),
+        requestBasisSummary: "base-acceptance:notes-and-tasks",
+      });
+    }
+  }
+
+  for (const execSeed of SAFE_LOCAL_EXEC_SEEDS) {
+    seeds.push({
+      id: execSeed.id,
+      acceptanceClass: "safe_local_exec",
+      reason: execSeed.reason,
+      actionKinds: ["tool.exec"],
+      targetPatterns: [...execSeed.targetPatterns],
+      targetMatchMode: "exact",
+      requestTextPatterns: [...execSeed.requestTextPatterns],
+      requestBasisTarget: execSeed.requestBasisTarget,
+      requestBasisSummary: execSeed.requestBasisSummary,
+    });
+  }
+
+  for (const researchSeed of BOUNDED_WEB_RESEARCH_SEEDS) {
+    seeds.push({
+      id: researchSeed.id,
+      acceptanceClass: "bounded_web_research",
+      reason: researchSeed.reason,
+      actionKinds: ["network.send"],
+      targetPatterns: [...researchSeed.targetPatterns],
+      targetMatchMode: "regex",
+      requestTextPatterns: [...researchSeed.requestTextPatterns],
+      requestBasisTarget: researchSeed.requestBasisTarget,
+      requestBasisSummary: researchSeed.requestBasisSummary,
+    });
+  }
+
   return seeds;
 }
 
@@ -133,6 +283,7 @@ export function createBaseAcceptanceLaws(args: {
       ...(seed.targetPattern ? { targetPattern: seed.targetPattern } : {}),
       ...(seed.targetPatterns ? { targetPatterns: [...seed.targetPatterns] } : {}),
       ...(seed.targetMatchMode ? { targetMatchMode: seed.targetMatchMode } : {}),
+      ...(seed.requestTextPatterns ? { requestTextPatterns: [...seed.requestTextPatterns] } : {}),
       description: `${seed.id} — ${seed.reason}`,
     },
   }));
@@ -149,6 +300,9 @@ function entryTrackMetadata(entryId: string, law: CompiledDocumentLaw) {
       : {}),
     ...(law.trackConstraint?.targetPatterns?.length
       ? { track_target_patterns: law.trackConstraint.targetPatterns.join(",") }
+      : {}),
+    ...(law.trackConstraint?.requestTextPatterns?.length
+      ? { track_request_text_patterns: law.trackConstraint.requestTextPatterns.join(",") }
       : {}),
   };
 }

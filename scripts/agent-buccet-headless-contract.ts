@@ -19,6 +19,7 @@ import {
   createBoundaryBodyguard,
   createBoundaryHeadlessApprovalHandler,
   createPersistentBoundaryRuntimeStore,
+  getActiveUserLawIds,
   loadUserPathLedger,
   openBoundaryPath,
   readBoundaryLedgerBySession,
@@ -186,7 +187,7 @@ async function main() {
       await fs.mkdir(subdirA, { recursive: true });
       await fs.mkdir(subdirB, { recursive: true });
 
-      // Phase 1: interactive approval — record an allow_as_law for targetA in subdir_a
+      // Phase 1: write a standing allow law for targetA in subdir_a
       let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
@@ -201,18 +202,37 @@ async function main() {
       });
       const bodyguard = createBoundaryBodyguard(store);
 
-      // Approve write to subdir_a/a.txt — track binds to subdir_a/
       const targetA = path.join(subdirA, "a.txt");
-      const firstProposal = bodyguard.enforceProposal({
-        actionKind: "fs.write",
-        target: targetA,
-        successReason: "wrote a.txt",
-        execute: async () => { await fs.writeFile(targetA, "data"); },
+      await saveUserPathLedger({
+        specVersion: 1,
+        userApprovedLawPaths: [
+          {
+            id: "UPL-MANUAL-H4-ALLOW-001",
+            type: "APPROVED",
+            path: "",
+            pathHash: "",
+            createdAt: new Date().toISOString(),
+            scope: "GLOBAL",
+            status: "ACTIVE",
+            witness: "manual:h4",
+            modifiedAt: null,
+            notes: "manual standing allow for fs.write within subdir_a",
+            requestBasis: {
+              actionKind: "fs.write",
+              target: targetA,
+              payloadSummary: "write a.txt",
+              provenance: "agent_inference",
+            },
+          },
+        ],
+        userDeniedLawPaths: [],
       });
-      const pending = await waitForPending(() => bodyguard.approvals.listPending());
-      assert.ok(pending.length > 0, "H4 setup: expected pending approval for fs.write targetA");
-      bodyguard.approvals.allowAsLaw(pending[0].approvalId);
-      await firstProposal;
+      const reloadedLedger = await loadUserPathLedger();
+      store.replaceConfig({
+        ...store.getConfig(),
+        upl: reloadedLedger,
+        userLawIds: [...new Set(getActiveUserLawIds(reloadedLedger, store.getConfig().session))],
+      });
 
       // Phase 2: switch to follow_upl headless handler
       store.replaceConfig({

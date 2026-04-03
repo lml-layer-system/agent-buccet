@@ -125,6 +125,9 @@ The built-in classes are:
 - `workspace_mutation`
 - `local_organization`
 - `internal_artifacts`
+- `notes_and_tasks`
+- `safe_local_exec`
+- `bounded_web_research`
 
 For the larger acceptance-side source intake pulled from OpenClaw capability surfaces, see [OpenClaw Acceptance Intake](./OPENCLAW_ACCEPTANCE_INTAKE.md).
 
@@ -134,13 +137,23 @@ In plain terms, opening a workspace seeds lawful roads for:
 - writing and appending inside the opened workspace
 - mkdir and move inside the opened workspace
 - standard artifact roots like `outputs/`, `reports/`, and `artifacts/`
+- local notes, tasks, memory, and `.buccet` roots inside the workspace
+- bounded local developer commands like `git status`, `npm test`, `pytest`, `eslint`, `cargo test`, and similar quality/runtime inspection tools
+- bounded research fetch/search motion against explicit documentation and source domains like MDN, Python docs, GitHub, and search/fetch providers
 
 Delete is not part of the base acceptance pack.
-Exec is not part of the base acceptance pack.
-Network is not part of the base acceptance pack.
+Generic exec is not part of the base acceptance pack.
+Generic network egress is not part of the base acceptance pack.
 Generic hardening classes do not belong in the acceptance pack; they belong in the denial pack.
 
-Those stay explicit customization surfaces unless the user or company binds them as standing law.
+The acceptance pack stays narrow on purpose:
+
+- it opens specific rails
+- it does not create a broad shell rail
+- it does not create a broad outbound network rail
+- denial still overrides every acceptance rail on overlap
+
+That means the OpenClaw intake is now beginning to materialize as real UPL acceptance law, but only in bounded forms that can live safely in the same runtime field as the denial constitution.
 
 ## Why the packs are separate for authors but one at runtime
 

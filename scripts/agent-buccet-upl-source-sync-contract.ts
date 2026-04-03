@@ -165,7 +165,7 @@ async function main() {
 
   const allowedWrite = await bodyguard.enforceProposal({
     actionKind: "fs.write",
-    target: path.join(railDir, "inside.txt"),
+    target: railTarget,
     payloadSummary: "write rail file",
     provenance: "agent_inference",
     execute: async () => "ok",
@@ -216,6 +216,8 @@ async function main() {
     1,
     "expected failed sync to preserve existing denial lane law",
   );
+
+  await fs.rm(badAcceptanceDocPath, { force: true });
 
   await fs.writeFile(mixedAcceptanceDocPath, [
     "# Mixed unsupported law",
@@ -270,14 +272,6 @@ async function main() {
     "expected empty acceptance sync to leave denial lane untouched",
   );
 
-  console.log("Agent Buccet UPL source sync contract");
-  console.log(`source homes: ${sources.root}`);
-  console.log(`acceptance lane: ${activeAcceptance.length}`);
-  console.log(`denial lane: ${activeDenials.length}`);
-  console.log(`write rail: ${allowedWrite.allowed}`);
-  console.log(`secret wall: ${!deniedSecretRead.allowed}`);
-  console.log(`lane mismatch refused: ${failedSync.code !== 0}`);
-  console.log(`empty lane clears active law: true`);
 }
 
 main().catch((error) => {
