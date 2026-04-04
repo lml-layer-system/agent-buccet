@@ -63,7 +63,12 @@ The base denial pack is day-one standing law.
 
 It now seeds a `690`-entry wall catalog into the UPL denial side out of the box.
 
-If you want the full live inventory, including every denial ID and plain-language description, read [BASE_DENIAL_PACK.md](./BASE_DENIAL_PACK.md).
+If you want the full live inventory, read [BASE_DENIAL_PACK.md](./BASE_DENIAL_PACK.md).
+That inventory now normalizes every denial entry as:
+- `What it is`
+- `Connects to`
+- `Action kinds`
+- `Bounds`
 
 It blocks classes of sovereignty theft by default:
 
