@@ -272,6 +272,30 @@ async function main() {
     "expected empty acceptance sync to leave denial lane untouched",
   );
 
+  const intakeDocPath = path.join(acceptanceDir!, "pdf-processing.md");
+  await fs.writeFile(intakeDocPath, [
+    "# PDF Processing",
+    "",
+    "Catalog: SkillHub",
+    "URL: https://skillhub.club/skills/pdf-processing",
+    "",
+    "## Source material",
+    "Copied text:",
+    "Read PDFs, extract tables, fill forms, merge and split documents for normal document work.",
+  ].join("\n"));
+
+  const intakeSync = await runCli(["upl", "sync", "--lane", "acceptance", "--json"], env);
+  assert.equal(intakeSync.code, 0, intakeSync.stderr);
+
+  const uplAfterIntake = await runCli(["upl", "list", "--json"], env);
+  assert.equal(uplAfterIntake.code, 0, uplAfterIntake.stderr);
+  const uplIntakeState = JSON.parse(uplAfterIntake.stdout) as {
+    approved: Array<{ path?: string; notes?: string | null }>;
+  };
+  const intakeEntry = uplIntakeState.approved.find((entry) => entry.notes?.includes("[acceptance-source-intake]"));
+  assert.ok(intakeEntry, "expected raw acceptance source intake to compile into approved UPL");
+  assert.match(intakeEntry?.notes ?? "", /catalog=SkillHub/);
+
 }
 
 main().catch((error) => {

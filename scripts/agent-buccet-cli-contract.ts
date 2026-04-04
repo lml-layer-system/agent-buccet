@@ -89,6 +89,30 @@ async function main() {
   const scopes = JSON.parse(scopeListResult.stdout) as Array<{ rootPath: string }>;
   assert.ok(scopes.some((scope) => scope.rootPath === workspacePath));
 
+  const uplSourcesResult = await runCli(["upl", "sources", "--json"], env);
+  assert.equal(uplSourcesResult.code, 0, uplSourcesResult.stderr);
+  const uplSources = JSON.parse(uplSourcesResult.stdout) as {
+    root: string;
+    lanes: Array<{ lane: "acceptance" | "denial"; dir: string; files: string[] }>;
+    catalogs: Array<{ name: string; url: string }>;
+    acceptancePipeline: {
+      guidePath: string;
+      templatePath: string;
+      commands: {
+        copyTemplate: string;
+        sync: string;
+      };
+    };
+  };
+  assert.ok(uplSources.lanes.some((lane) => lane.lane === "acceptance"));
+  assert.ok(uplSources.catalogs.some((catalog) => catalog.url.includes("skillsmp.com")));
+  assert.ok(uplSources.catalogs.some((catalog) => catalog.url.includes("aitmpl.com/skills")));
+  assert.ok(uplSources.catalogs.some((catalog) => catalog.url.includes("skillhub.club")));
+  assert.ok(uplSources.catalogs.some((catalog) => catalog.url.includes("agentskills.io")));
+  await fs.access(uplSources.acceptancePipeline.guidePath);
+  await fs.access(uplSources.acceptancePipeline.templatePath);
+  assert.match(uplSources.acceptancePipeline.commands.sync, /buccet upl sync --lane acceptance/);
+
   const uplListResult = await runCli(["upl", "list", "--json"], env);
   assert.equal(uplListResult.code, 0, uplListResult.stderr);
   const uplList = JSON.parse(uplListResult.stdout) as {

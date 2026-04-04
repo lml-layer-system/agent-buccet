@@ -52,6 +52,19 @@ type UplSourceSpec = {
   readmePath: string;
 };
 
+type UplAcceptanceSourceCatalog = {
+  name: string;
+  url: string;
+  description: string;
+};
+
+type AcceptanceSourceIntakeDoc = {
+  name: string;
+  catalog: string;
+  url: string;
+  sourceText: string;
+};
+
 type ParsedUplSelection = {
   ids: string[];
   queryTerms: string[];
@@ -104,7 +117,7 @@ function usage(): never {
     "  buccet upl mute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl unmute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl remove <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl sources [--json]",
+    "  buccet upl sources [--json]                               — show authored lanes plus external yes-side intake catalogs",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
     "  buccet hook build",
@@ -283,6 +296,8 @@ function resolveHomePaths(homePath: string) {
     uplDocsDir,
     uplAcceptanceDocsDir: path.join(uplDocsDir, "acceptance"),
     uplDenialDocsDir: path.join(uplDocsDir, "denial"),
+    uplAcceptancePipelinePath: path.join(uplDocsDir, "acceptance", "PIPELINE.txt"),
+    uplAcceptanceSkillTemplatePath: path.join(uplDocsDir, "acceptance", "SKILL_INTAKE_TEMPLATE.txt"),
     installedNativeSourceDir,
     repoNativeSourceDir,
     nativeBuildDir,
@@ -323,6 +338,220 @@ function uplSourceSpecs(home: ReturnType<typeof resolveHomePaths>): UplSourceSpe
       readmePath: path.join(home.uplDenialDocsDir, "README.txt"),
     },
   ];
+}
+
+function acceptanceSourceCatalogs(): UplAcceptanceSourceCatalog[] {
+  return [
+    {
+      name: "SkillsMP",
+      url: "https://skillsmp.com",
+      description: "largest broad skill catalog",
+    },
+    {
+      name: "AITmpl Skills",
+      url: "https://aitmpl.com/skills",
+      description: "template and one-command install workflows",
+    },
+    {
+      name: "SkillHub",
+      url: "https://skillhub.club",
+      description: "AI-rated skills and high-signal curation",
+    },
+    {
+      name: "AgentSkills",
+      url: "https://agentskills.io",
+      description: "official spec and shape grounding",
+    },
+  ];
+}
+
+function acceptancePipelineCommands(home: ReturnType<typeof resolveHomePaths>) {
+  const exampleDocPath = path.join(home.uplAcceptanceDocsDir, "my-skill.md");
+  return {
+    copyTemplate: `cp ${home.uplAcceptanceSkillTemplatePath} ${exampleDocPath}`,
+    sync: "buccet upl sync --lane acceptance",
+    inspectSearch: "buccet upl search my-skill",
+    inspectDiff: "buccet upl diff --search my-skill",
+    inspectShow: "buccet upl show <upl-id>",
+  };
+}
+
+function acceptancePipelineGuideText(home: ReturnType<typeof resolveHomePaths>): string {
+  const catalogs = acceptanceSourceCatalogs();
+  const commands = acceptancePipelineCommands(home);
+  return [
+    "Agent Buccet acceptance source pipeline",
+    "",
+    "Use this when you want to pull a skill or workflow from an external catalog into the UPL acceptance side.",
+    "",
+    "Source catalogs:",
+    ...catalogs.map((catalog) => `- ${catalog.name} — ${catalog.url} — ${catalog.description}`),
+    "",
+    "Steps:",
+    "1. Open one of the source catalogs above and choose the skill or workflow you want.",
+    "2. Copy the capability text, summary, or examples that matter.",
+    `3. Copy the intake template into a new markdown file in this lane:`,
+    `   ${commands.copyTemplate}`,
+    "4. Paste the copied source text into the Source material section.",
+    "5. Compile it into the live UPL acceptance side:",
+    `   ${commands.sync}`,
+    "6. Inspect the result:",
+    `   ${commands.inspectSearch}`,
+    `   ${commands.inspectDiff}`,
+    `   ${commands.inspectShow}`,
+    "",
+    "Rules:",
+    "- Paste real source text, not hype-only filler.",
+    "- Buccet turns the copied source into bounded yes-side UPL automatically.",
+    "- Denial still overrides acceptance on overlap.",
+    "- Repeat this process as long as you want. The source side stays open-ended; Buccet acceptance stays the finite compiled result.",
+  ].join("\n");
+}
+
+function acceptanceSkillTemplateText(): string {
+  return [
+    "# <skill-or-workflow-name>",
+    "",
+    "Catalog: <SkillsMP | AITmpl Skills | SkillHub | AgentSkills>",
+    "URL: <paste source URL here>",
+    "",
+    "## Source material",
+    "Copied text:",
+    "Paste the skill or workflow description here.",
+    "",
+    "Paste the raw source material only.",
+    "Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`.",
+  ].join("\n");
+}
+
+function escapeRegexLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function slugifyAcceptanceSourceName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "source-intake";
+}
+
+function parseAcceptanceSourceIntakeDoc(markdown: string): AcceptanceSourceIntakeDoc | null {
+  const trimmed = markdown.trim();
+  const titleMatch = trimmed.match(/^#\s+(.+)$/m);
+  const catalogMatch = trimmed.match(/^Catalog:\s*(.+)$/mi);
+  const urlMatch = trimmed.match(/^URL:\s*(.+)$/mi);
+  const sourceSectionMatch = trimmed.match(/(?:^##\s+Source material\s*$)([\s\S]+)$/mi);
+  if (!titleMatch || !catalogMatch || !urlMatch || !sourceSectionMatch) {
+    return null;
+  }
+
+  let sourceText = sourceSectionMatch[1]
+    .replace(/^Copied text:\s*/mi, "")
+    .trim();
+  sourceText = sourceText
+    .replace(/^Paste the skill or workflow description here\.\s*$/mi, "")
+    .replace(/^Paste the raw source material only\.\s*$/mi, "")
+    .replace(/^Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`\.\s*$/mi, "")
+    .trim();
+
+  if (!sourceText) {
+    return null;
+  }
+
+  return {
+    name: titleMatch[1].trim(),
+    catalog: catalogMatch[1].trim(),
+    url: urlMatch[1].trim(),
+    sourceText,
+  };
+}
+
+function inferAcceptanceIntakeActionKinds(text: string): BoundaryActionKind[] {
+  const lower = text.toLowerCase();
+  const kinds = new Set<BoundaryActionKind>();
+
+  if (/\b(pdf|docx|pptx|xlsx|word|excel|slide|document|docs|markdown|report|file|read|write|edit|merge|split|form)\b/.test(lower)) {
+    kinds.add("fs.read");
+    kinds.add("fs.write");
+    kinds.add("fs.append");
+  }
+  if (/\b(notes|obsidian|notion|vault|memory|tasks|calendar|contact|knowledge|database|sql|query|sheet|spreadsheet|analytics)\b/.test(lower)) {
+    kinds.add("db.query");
+    kinds.add("db.update");
+  }
+  if (/\b(browser|playwright|crawl|search|research|fetch|extract|web|http|api|scrape|crawl|map)\b/.test(lower)) {
+    kinds.add("network.send");
+  }
+  if (/\b(debug|test|build|exec|run|tool|cli|automation|agent|workflow|pipeline|code|mcp|server|developer|design|artifact|generate|render)\b/.test(lower)) {
+    kinds.add("tool.exec");
+  }
+  if (/\b(email|mail|slack|discord|telegram|whatsapp|message|chat|social|seo|marketing|brand|content)\b/.test(lower)) {
+    kinds.add("chat.emit");
+    kinds.add("comm.send");
+  }
+  if (/\b(config|settings|workspace|integration|plugin|connector)\b/.test(lower)) {
+    kinds.add("sys.config.read");
+    kinds.add("sys.config.write");
+  }
+
+  if (kinds.size === 0) {
+    kinds.add("tool.exec");
+  }
+
+  return [...kinds];
+}
+
+function compileAcceptanceSourceIntakeDoc(args: {
+  filePath: string;
+  doc: AcceptanceSourceIntakeDoc;
+  scope: BoundaryUplScope;
+}): CompiledDocumentLaw[] {
+  const slug = slugifyAcceptanceSourceName(args.doc.name);
+  const kinds = inferAcceptanceIntakeActionKinds([
+    args.doc.name,
+    args.doc.catalog,
+    args.doc.url,
+    args.doc.sourceText,
+  ].join("\n"));
+  const namePattern = escapeRegexLiteral(args.doc.name.trim()).replace(/\s+/g, "\\s+");
+  const slugPattern = escapeRegexLiteral(slug).replace(/-/g, "[-\\s]?");
+  const requestTextPatterns = [
+    `/\\b(?:${slugPattern}|${namePattern})\\b/i`,
+  ];
+  const summary = args.doc.sourceText
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220);
+
+  return [{
+    type: "APPROVED",
+    scope: args.scope,
+    notes: formatUplSourceNote({
+      lane: "acceptance",
+      filePath: args.filePath,
+      notes: `[acceptance-source-intake] catalog=${args.doc.catalog} url=${args.doc.url} name=${args.doc.name}`,
+    }),
+    requestBasis: {
+      actionKind: kinds[0] ?? "tool.exec",
+      target: slug,
+      payloadSummary: `acceptance-source-intake:${args.doc.catalog}:${slug}`,
+      provenance: "trusted_system",
+      reviewContext: {
+        surface: "action",
+        title: `${args.doc.name} source intake`,
+        evidence: [args.doc.url],
+      },
+    },
+    trackConstraint: {
+      allowedActionKinds: kinds,
+      targetPatterns: [slug, args.doc.name.toLowerCase()],
+      targetMatchMode: "exact",
+      requestTextPatterns,
+      description: `${args.doc.name} — sourced from ${args.doc.catalog}; ${summary || "bounded acceptance source intake"}`,
+    },
+  }];
 }
 
 function uplLaneTag(lane: UplSourceLane): string {
@@ -402,10 +631,14 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "- README files are ignored by `buccet upl sync`",
             "- The parser is strict and fail-closed",
             "- If a document compiles into denied law here, sync refuses it",
+            "- For external skill catalogs, use PIPELINE.txt and SKILL_INTAKE_TEMPLATE.txt in this lane",
             "",
             "Useful commands:",
             "- buccet extract-laws <file.md> --lane acceptance",
             "- buccet upl sync",
+            "",
+            "External intake catalogs:",
+            ...acceptanceSourceCatalogs().map((catalog) => `- ${catalog.name}: ${catalog.url}`),
           ].join("\n")
         : [
             "Agent Buccet UPL document source — denial lane",
@@ -426,6 +659,12 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
       await fs.writeFile(spec.readmePath, `${content}\n`, "utf8");
     }
   }
+  if (!(await pathExists(home.uplAcceptancePipelinePath))) {
+    await fs.writeFile(home.uplAcceptancePipelinePath, `${acceptancePipelineGuideText(home)}\n`, "utf8");
+  }
+  if (!(await pathExists(home.uplAcceptanceSkillTemplatePath))) {
+    await fs.writeFile(home.uplAcceptanceSkillTemplatePath, `${acceptanceSkillTemplateText()}\n`, "utf8");
+  }
   const rootReadmePath = path.join(home.uplDocsDir, "README.txt");
   if (!(await pathExists(rootReadmePath))) {
     await fs.writeFile(rootReadmePath, [
@@ -437,6 +676,9 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
       "",
       "At runtime Buccet compiles both sides into one live UPL field.",
       "Acceptance creates road. Denial creates wall. Denial wins on overlap.",
+      "",
+      `Acceptance source pipeline: ${home.uplAcceptancePipelinePath}`,
+      `Acceptance intake template: ${home.uplAcceptanceSkillTemplatePath}`,
       "",
       "Use `buccet upl sync` to compile both lanes into the active UPL.",
     ].join("\n") + "\n", "utf8");
@@ -1781,6 +2023,8 @@ async function handleUpl(rest: string[]) {
 
   if (subcommand === "sources") {
     await ensureUplSourceHomes(home);
+    const catalogs = acceptanceSourceCatalogs();
+    const commands = acceptancePipelineCommands(home);
     const snapshot = await Promise.all(
       uplSourceSpecs(home).map(async (spec) => ({
         lane: spec.lane,
@@ -1789,7 +2033,16 @@ async function handleUpl(rest: string[]) {
       })),
     );
     if (asJson) {
-      printJson({ root: home.uplDocsDir, lanes: snapshot });
+      printJson({
+        root: home.uplDocsDir,
+        lanes: snapshot,
+        catalogs,
+        acceptancePipeline: {
+          guidePath: home.uplAcceptancePipelinePath,
+          templatePath: home.uplAcceptanceSkillTemplatePath,
+          commands,
+        },
+      });
       return;
     }
     console.log(`UPL document sources`);
@@ -1800,6 +2053,25 @@ async function handleUpl(rest: string[]) {
         console.log(`  - ${filePath}`);
       }
     }
+    console.log(``);
+    console.log(`Acceptance intake catalogs`);
+    for (const catalog of catalogs) {
+      console.log(`- ${catalog.name}: ${catalog.url} (${catalog.description})`);
+    }
+    console.log(``);
+    console.log(`Acceptance pipeline`);
+    console.log(`guide: ${home.uplAcceptancePipelinePath}`);
+    console.log(`template: ${home.uplAcceptanceSkillTemplatePath}`);
+    console.log(`1. choose a skill/workflow from a catalog above`);
+    console.log(`2. copy the source text you want`);
+    console.log(`3. create a new acceptance doc from the template`);
+    console.log(`   ${commands.copyTemplate}`);
+    console.log(`4. compile it into live acceptance UPL`);
+    console.log(`   ${commands.sync}`);
+    console.log(`5. inspect what landed`);
+    console.log(`   ${commands.inspectSearch}`);
+    console.log(`   ${commands.inspectDiff}`);
+    console.log(`   ${commands.inspectShow}`);
     console.log(`sync: buccet upl sync`);
     return;
   }
@@ -2111,24 +2383,35 @@ async function handleUpl(rest: string[]) {
     for (const lane of laneFiles) {
       for (const filePath of lane.files) {
         const markdown = await fs.readFile(filePath, "utf8");
-        const extracted = boundary.extractDocumentLawsWithDiagnostics({
-          sourcePath: filePath,
-          markdown,
-        });
-        validateExtractedDocumentLane({
-          lane: lane.spec.lane,
-          filePath,
-          compiled: extracted.laws,
-          diagnostics: extracted.diagnostics,
-        });
-        const tagged = extracted.laws.map((entry) => ({
-          ...entry,
-          notes: formatUplSourceNote({
-            lane: lane.spec.lane,
+        const intakeDoc = lane.spec.lane === "acceptance"
+          ? parseAcceptanceSourceIntakeDoc(markdown)
+          : null;
+        const tagged = intakeDoc
+          ? compileAcceptanceSourceIntakeDoc({
             filePath,
-            notes: entry.notes,
-          }),
-        }));
+            doc: intakeDoc,
+            scope,
+          })
+          : (() => {
+            const extracted = boundary.extractDocumentLawsWithDiagnostics({
+              sourcePath: filePath,
+              markdown,
+            });
+            validateExtractedDocumentLane({
+              lane: lane.spec.lane,
+              filePath,
+              compiled: extracted.laws,
+              diagnostics: extracted.diagnostics,
+            });
+            return extracted.laws.map((entry) => ({
+              ...entry,
+              notes: formatUplSourceNote({
+                lane: lane.spec.lane,
+                filePath,
+                notes: entry.notes,
+              }),
+            }));
+          })();
         staged.push({
           lane: lane.spec.lane,
           filePath,

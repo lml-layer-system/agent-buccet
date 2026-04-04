@@ -204,6 +204,16 @@ Acceptance docs compile into approved UPL law.
 Denial docs compile into denied UPL law.
 Runtime merges both into the same live field.
 
+If you want to keep widening the yes side from outside skill catalogs, use
+[UPL Acceptance Source Pipeline](UPL_ACCEPTANCE_SOURCE_PIPELINE.md).
+
+That gives users the direct browse -> copy -> paste -> parse -> sync path from:
+
+- [SkillsMP](https://skillsmp.com)
+- [AITmpl Skills](https://aitmpl.com/skills)
+- [SkillHub](https://skillhub.club)
+- [AgentSkills](https://agentskills.io)
+
 If you want to inspect or customize the live authored law directly:
 
 ```bash

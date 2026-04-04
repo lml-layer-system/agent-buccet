@@ -308,6 +308,23 @@ buccet upl sync
 Buccet refuses lane mismatch.
 If a denial document is placed in the acceptance lane, sync fails instead of coercing it.
 
+If you want the yes side to stay open-ended through external skill catalogs,
+use the dedicated [UPL Acceptance Source Pipeline](./UPL_ACCEPTANCE_SOURCE_PIPELINE.md).
+
+That path gives users direct intake from:
+
+- [SkillsMP](https://skillsmp.com)
+- [AITmpl Skills](https://aitmpl.com/skills)
+- [SkillHub](https://skillhub.club)
+- [AgentSkills](https://agentskills.io)
+
+Then they can:
+
+- choose the skill or workflow they want
+- paste it into the authored acceptance lane
+- compile it with `buccet upl sync --lane acceptance`
+- repeat as long as they want
+
 That path is good for:
 
 - personal working rules
