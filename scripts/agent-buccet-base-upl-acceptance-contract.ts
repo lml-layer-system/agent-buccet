@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 120, "expected base acceptance pack to seed one hundred twenty session-scoped rails");
+    assert.equal(baseAcceptanceEntries.length, 157, "expected base acceptance pack to seed one hundred fifty-seven session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -129,6 +129,34 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "azure-devops"),
       "expected azure-devops awesome OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "docx"),
+      "expected docx curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "frontend-design"),
+      "expected frontend-design curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "tavily"),
+      "expected tavily curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "task-master-ai"),
+      "expected task-master-ai curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "brand-guidelines"),
+      "expected brand-guidelines curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2101")),
+      "expected docx workflow entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2110")),
+      "expected Tavily workflow entry",
     );
     assert.ok(
       !baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "1password"),
@@ -281,6 +309,62 @@ async function main() {
       payloadSummary: "azure-devops list projects",
     }));
     assert.equal(azureDevopsDecision.result.decision, "allow", "expected azure-devops awesome rail to allow bounded Azure DevOps motion");
+
+    const docxDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "docx",
+      payloadSummary: "docx tracked changes edit",
+    }));
+    assert.equal(docxDecision.result.decision, "allow", "expected docx curated capability entry to allow document workflow motion");
+
+    const frontendDesignDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "frontend-design",
+      payloadSummary: "frontend-design dashboard redesign",
+    }));
+    assert.equal(frontendDesignDecision.result.decision, "allow", "expected frontend-design curated capability entry to allow design workflow motion");
+
+    const tavilyDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "tavily",
+      payloadSummary: "tavily search competitor landscape",
+    }));
+    assert.equal(tavilyDecision.result.decision, "allow", "expected tavily curated capability entry to allow structured search workflow motion");
+
+    const taskMasterDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "task-master-ai",
+      payloadSummary: "task-master-ai break prd into tasks",
+    }));
+    assert.equal(taskMasterDecision.result.decision, "allow", "expected task-master-ai curated capability entry to allow project workflow motion");
+
+    const brandGuidelinesDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "chat.emit",
+      target: "brand-guidelines",
+      payloadSummary: "brand-guidelines rewrite homepage copy",
+    }));
+    assert.equal(brandGuidelinesDecision.result.decision, "allow", "expected brand-guidelines curated capability entry to allow style-bound output workflow motion");
+
+    const tavilyWorkflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "https://api.tavily.com/search",
+      payloadSummary: "tavily search competitor landscape",
+    }));
+    assert.equal(tavilyWorkflowDecision.result.decision, "allow", "expected Tavily workflow entry to allow bounded provider motion");
+
+    const notebooklmWorkflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "https://notebooklm.google.com/",
+      payloadSummary: "notebooklm build study notebook",
+    }));
+    assert.equal(notebooklmWorkflowDecision.result.decision, "allow", "expected NotebookLM workflow entry to allow bounded provider motion");
 
     const deleteDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,

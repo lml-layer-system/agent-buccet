@@ -131,6 +131,7 @@ The built-in classes are:
 - `safe_local_exec`
 - `bounded_web_research`
 - `openclaw_skill`
+- `curated_capability`
 
 For the larger acceptance-side source intake pulled from OpenClaw capability surfaces, see [OpenClaw Acceptance Intake](./OPENCLAW_ACCEPTANCE_INTAKE.md).
 
@@ -146,6 +147,14 @@ In plain terms, opening a workspace seeds lawful roads for:
 - `108` explicit OpenClaw skill rails on the acceptance side
   Bundled OpenClaw rails: `51`
   Awesome OpenClaw rails: `57`
+- `37` curated List V entries on the acceptance side
+  Named capability entries: `23`
+  Workflow-shaped entries: `14`
+  Office and document work: `docx`, `pptx`, `xlsx`, `doc-coauthoring`
+  Design and artifact work: `frontend-design`, `canvas-design`, `theme-factory`, `web-artifacts-builder`
+  Dev and workflow work: `superpowers`, `systematic-debugging`, `file-search`, `context-optimization`, `task-master-ai`, `codebase-memory-mcp`, `mcp-playwright`, `markdownify-mcp`
+  Research and knowledge work: `notebooklm-integration`, `tavily`, `context7`, `gpt-researcher`
+  Brand and site work: `brand-guidelines`, `claude-seo`
 
 Delete is not part of the base acceptance pack.
 Generic exec is not part of the base acceptance pack.

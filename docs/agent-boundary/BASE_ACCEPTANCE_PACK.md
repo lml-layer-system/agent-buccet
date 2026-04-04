@@ -6,13 +6,15 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 120
+- Total acceptance-side UPL entries seeded per opened workspace session: 157
 - Workspace rails: 5
 - Safe local exec rails: 4
 - Bounded web research rails: 3
 - OpenClaw skill rails: 108
   Bundled OpenClaw rails: 51
   Awesome OpenClaw rails: 57
+- Curated capability entries: 23
+- Curated workflow entries: 14
 
 ## Read This
 
@@ -292,6 +294,53 @@ The base pack only seeds OpenClaw rails that are truthful under the shipped deni
 - `ACCEPT.OPENCLAW.SKILL.1108`: `filesystem` — named rail for advanced workspace file listing, search, and batch motion.
 - `ACCEPT.OPENCLAW.SKILL.1109`: `docsync` — named rail for docs generation and drift-check workflow motion.
 - `ACCEPT.OPENCLAW.SKILL.1110`: `read-optimizer` — named rail for bounded repository reading strategy motion.
+
+## Curated Capability Entries (23)
+
+These are the local "List V" capability extractions turned into acceptance-side UPL entries.
+
+- `ACCEPT.CURATED.CAPABILITY.2001`: `docx` — named rail for Word document creation, editing, and tracked-change workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2002`: `pptx` — named rail for slide deck creation, editing, and speaker-note workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2003`: `xlsx` — named rail for spreadsheet analysis, formula, and chart workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2004`: `doc-coauthoring` — named rail for collaborative drafting, revision, and coauthoring workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2005`: `frontend-design` — named rail for frontend design-system and visual component workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2006`: `canvas-design` — named rail for social graphic, poster, and canvas output workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2007`: `theme-factory` — named rail for theme and color-system generation workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2008`: `web-artifacts-builder` — named rail for calculators, dashboards, and interactive artifact workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2009`: `superpowers` — named rail for structured coding, planning, and execution workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2010`: `systematic-debugging` — named rail for root-cause debugging and fix-validation workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2011`: `file-search` — named rail for bounded file search, symbol search, and content retrieval motion.
+- `ACCEPT.CURATED.CAPABILITY.2012`: `context-optimization` — named rail for context shaping, summarization, and token-efficiency workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2013`: `notebooklm-integration` — named rail for notebook-backed study, synthesis, and source-grounded note workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2014`: `excel-mcp-server` — named rail for spreadsheet manipulation and report workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2015`: `tavily` — named rail for structured web search, extract, and crawl workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2016`: `context7` — named rail for live library-documentation retrieval workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2017`: `task-master-ai` — named rail for project-task decomposition and dependency workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2018`: `gpt-researcher` — named rail for autonomous research compilation and report workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2019`: `codebase-memory-mcp` — named rail for persistent codebase memory and knowledge-graph workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2020`: `mcp-playwright` — named rail for bounded browser automation and page-interaction workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2021`: `markdownify-mcp` — named rail for PDF, image, and audio to Markdown conversion workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2022`: `brand-guidelines` — named rail for brand-rule application and style-consistent output workflow motion.
+- `ACCEPT.CURATED.CAPABILITY.2023`: `claude-seo` — named rail for SEO audit, schema, and site-content improvement workflow motion.
+
+## Curated Workflow Entries (14)
+
+These are the workflow-shaped companions to the curated capability entries. They make the yes-side read more like real work and less like tool names.
+
+- `ACCEPT.CURATED.WORKFLOW.2101`: `docx-workflow` — bounded workspace Word-document workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2102`: `pptx-workflow` — bounded workspace slide-deck workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2103`: `xlsx-workflow` — bounded workspace spreadsheet and table workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2104`: `doc-coauthoring-workflow` — bounded collaborative drafting and revision workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2105`: `frontend-design-workflow` — bounded frontend design-system and UI artifact workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2106`: `canvas-design-workflow` — bounded poster, social graphic, and visual export workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2107`: `theme-factory-workflow` — bounded theme and color-system file workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2108`: `web-artifacts-builder-workflow` — bounded calculators, dashboards, and interactive artifact file workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2109`: `excel-mcp-workflow` — bounded spreadsheet workbook and report workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2110`: `tavily-workflow` — bounded Tavily search, extract, and crawl provider motion.
+- `ACCEPT.CURATED.WORKFLOW.2111`: `notebooklm-workflow` — bounded NotebookLM study and synthesis provider motion.
+- `ACCEPT.CURATED.WORKFLOW.2112`: `markdownify-workflow` — bounded document, image, and audio conversion workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2113`: `brand-and-seo-workflow` — bounded brand, copy, and site-content workflow motion.
+- `ACCEPT.CURATED.WORKFLOW.2114`: `browser-artifact-workflow` — bounded browser screenshot, page export, and trace artifact workflow motion.
 
 ## Important Limits
 
