@@ -61,7 +61,7 @@ Buccet ships two built-in law packs:
 
 The base denial pack is day-one standing law.
 
-It now seeds a `690`-entry wall catalog into the UPL denial side out of the box.
+It now seeds a `752`-entry wall catalog into the UPL denial side out of the box.
 
 If you want the full live inventory, read [BASE_DENIAL_PACK.md](./BASE_DENIAL_PACK.md).
 That inventory now normalizes every denial entry as:
@@ -97,6 +97,7 @@ The standing consequence classes now also live in the base denial pack as UPL wa
 The day-one base denial hardening now also carries defensive material distilled from:
 
 - the 343-class AI failure taxonomy across epistemic, agentic, adversarial, alignment, architectural, domain, and governance dimensions
+- the Buccet failure/containment corpus across 7 dimensions, 6 structural containment laws, and 49 failure classes
 - the defensive law corpus around proof, lockstep containment, shapeshift resistance, and trickster resistance
 
 Those are not stored as a second engine.

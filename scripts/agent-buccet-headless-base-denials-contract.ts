@@ -63,6 +63,18 @@ async function main() {
       ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BASE.CATALOG.0170"),
       "default base denial ledger should include the vendored base denial catalog rows",
     );
+    assert.ok(
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BUCCET.DIM.RELIABILITY"),
+      "default base denial ledger should include the Buccet failure dimension rows",
+    );
+    assert.ok(
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BUCCET.LAW.01"),
+      "default base denial ledger should include the Buccet containment laws",
+    );
+    assert.ok(
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BUCCET.FAILURE.R1"),
+      "default base denial ledger should include the Buccet failure rows",
+    );
 
     const session = makeSession();
     const secretRead = lookupUserPathTrackDecision({
@@ -238,6 +250,22 @@ async function main() {
     assert.equal(baseCatalog?.decision, "deny");
     assert.equal(baseCatalog?.entry.id, "DENY.BASE.CATALOG.0180");
 
+    const buccetFailure = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "R1: HALLUCINATED ACTIONS"),
+    });
+    assert.ok(buccetFailure, "expected Buccet failure row to exist as a live denial track");
+    assert.equal(buccetFailure?.decision, "deny");
+    assert.equal(buccetFailure?.entry.id, "DENY.BUCCET.FAILURE.R1");
+
+    const buccetLawEntry = ledger.userDeniedLawPaths.find((entry) => entry.id === "DENY.BUCCET.LAW.03");
+    assert.ok(buccetLawEntry, "expected Buccet containment law to be seeded explicitly in the denial pack");
+    assert.ok(
+      buccetLawEntry?.trackConstraint?.requestTextPatterns?.some((pattern) => pattern.includes("ALL ACCESS MUST BE SCOPED, LOGGED, AND REVOCABLE")),
+      "expected Buccet containment law to carry the containment-law trigger text",
+    );
+
     const safeWorkspaceWrite = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -271,6 +299,8 @@ async function main() {
     console.log(`ledger bypass deny: ${ledgerBypass?.entry.id}`);
     console.log(`periodic catalog deny: ${periodicCatalog?.entry.id}`);
     console.log(`base catalog deny: ${baseCatalog?.entry.id}`);
+    console.log(`buccet failure deny: ${buccetFailure?.entry.id}`);
+    console.log(`buccet law seeded: ${buccetLawEntry?.id}`);
     console.log(`safe workspace write untouched: ${safeWorkspaceWrite === null}`);
   } finally {
     if (previousLedgerPath === undefined) {

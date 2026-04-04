@@ -8,10 +8,11 @@ It is one denial-side UPL system. Runtime still compiles it into the same live f
 
 ## Summary
 
-- Total denial-side UPL entries: 690
+- Total denial-side UPL entries: 752
 - Core walls: 32
 - Boundary walls: 4
 - Periodic taxonomy walls: 340
+- Buccet failure walls: 62
 - Base catalog walls: 224
 - Frontier/system-card alias walls: 90
 
@@ -20,6 +21,7 @@ It is one denial-side UPL system. Runtime still compiles it into the same live f
 - `DENY.<CORE_CLASS>.*`: built-in Buccet standing walls for destructive, secret, exfiltration, spoofing, tamper, and related classes.
 - `DENY.BOUNDARY.*`: Buccet boundary walls for scope, law, session, and ledger/proof abuse.
 - `DENY.PERIODIC.*`: periodic failure taxonomy rows and dimensions carried into the same denial-side UPL field.
+- `DENY.BUCCET.*`: Buccet failure dimensions, containment laws, and failure rows carried into the same denial-side UPL field.
 - `DENY.BASE.CATALOG.*`: base Buccet denial catalog rows carried into the same denial-side UPL field.
 - `DENY.BASE.ALIAS.*`: frontier/system-card alias vocabulary carried into the same denial-side UPL field.
 
@@ -2291,6 +2293,380 @@ Bounds: listed request-text triggers only; deny wins on overlap.
 ### DENY.PERIODIC.GOV-CONFLICT-INT-343
 What it is: [governance] GOV4.10: CONFLICT OF INTEREST — Conflicts must be managed.
 Connects to: request text trigger `*GOV-CONFLICT-INT-343*`; request text trigger `*GOV4.10: CONFLICT OF INTEREST*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+## Buccet Failure Walls (62)
+
+### DENY.BUCCET.DIM.RELIABILITY
+What it is: [Buccet failure source document] DIMENSION 1: RELIABILITY FAILURES — Probabilistic generation != deterministic execution.
+Connects to: request text trigger `*DIMENSION 1: RELIABILITY FAILURES*`; request text trigger `*RELIABILITY FAILURES*`; request text trigger `*Probabilistic generation != deterministic execution*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.DIM.AUTONOMY
+What it is: [Buccet failure source document] DIMENSION 2: AUTONOMY FAILURES — Unsupervised action = unbounded damage.
+Connects to: request text trigger `*DIMENSION 2: AUTONOMY FAILURES*`; request text trigger `*AUTONOMY FAILURES*`; request text trigger `*Unsupervised action = unbounded damage*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.DIM.SECURITY
+What it is: [Buccet failure source document] DIMENSION 3: SECURITY FAILURES — Every external data source, API, and tool = potential attack vector.
+Connects to: request text trigger `*DIMENSION 3: SECURITY FAILURES*`; request text trigger `*SECURITY FAILURES*`; request text trigger `*Every external data source, API, and tool = potential attack vector*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.DIM.ECONOMICS
+What it is: [Buccet failure source document] DIMENSION 4: ECONOMICS FAILURES — Token consumption compounds exponentially.
+Connects to: request text trigger `*DIMENSION 4: ECONOMICS FAILURES*`; request text trigger `*ECONOMICS FAILURES*`; request text trigger `*Token consumption compounds exponentially*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.DIM.INTEGRATION
+What it is: [Buccet failure source document] DIMENSION 5: INTEGRATION FAILURES — Working demo != production system.
+Connects to: request text trigger `*DIMENSION 5: INTEGRATION FAILURES*`; request text trigger `*INTEGRATION FAILURES*`; request text trigger `*Working demo != production system*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.DIM.GOVERNANCE
+What it is: [Buccet failure source document] DIMENSION 6: GOVERNANCE FAILURES — No audit trail = no accountability.
+Connects to: request text trigger `*DIMENSION 6: GOVERNANCE FAILURES*`; request text trigger `*GOVERNANCE FAILURES*`; request text trigger `*No audit trail = no accountability*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.DIM.TRUST
+What it is: [Buccet failure source document] DIMENSION 7: TRUST FAILURES — Confidence != correctness.
+Connects to: request text trigger `*DIMENSION 7: TRUST FAILURES*`; request text trigger `*TRUST FAILURES*`; request text trigger `*Confidence != correctness*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.LAW.01
+What it is: [Buccet containment source document] ALL ACTIONS MUST BE VALIDATED BEFORE EXECUTION — stops Reliability.
+Connects to: request text trigger `*LAW 1: ALL ACTIONS MUST BE VALIDATED BEFORE EXECUTION*`; request text trigger `*ALL ACTIONS MUST BE VALIDATED BEFORE EXECUTION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.LAW.03
+What it is: [Buccet containment source document] ALL ACCESS MUST BE SCOPED, LOGGED, AND REVOCABLE — stops Security.
+Connects to: request text trigger `*LAW 3: ALL ACCESS MUST BE SCOPED, LOGGED, AND REVOCABLE*`; request text trigger `*ALL ACCESS MUST BE SCOPED, LOGGED, AND REVOCABLE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.LAW.04
+What it is: [Buccet containment source document] ALL COSTS MUST BE BOUNDED AND OBSERVABLE — stops Economics.
+Connects to: request text trigger `*LAW 4: ALL COSTS MUST BE BOUNDED AND OBSERVABLE*`; request text trigger `*ALL COSTS MUST BE BOUNDED AND OBSERVABLE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.LAW.05
+What it is: [Buccet containment source document] ALL INTEGRATIONS MUST BE EVENT-DRIVEN AND TYPED — stops Integration.
+Connects to: request text trigger `*LAW 5: ALL INTEGRATIONS MUST BE EVENT-DRIVEN AND TYPED*`; request text trigger `*ALL INTEGRATIONS MUST BE EVENT-DRIVEN AND TYPED*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.LAW.06
+What it is: [Buccet containment source document] ALL DECISIONS MUST BE TRACEABLE AND AUDITABLE — stops Governance.
+Connects to: request text trigger `*LAW 6: ALL DECISIONS MUST BE TRACEABLE AND AUDITABLE*`; request text trigger `*ALL DECISIONS MUST BE TRACEABLE AND AUDITABLE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.LAW.07
+What it is: [Buccet containment source document] ALL OUTPUTS MUST BE VERIFIED AGAINST GROUND TRUTH — stops Trust.
+Connects to: request text trigger `*LAW 7: ALL OUTPUTS MUST BE VERIFIED AGAINST GROUND TRUTH*`; request text trigger `*ALL OUTPUTS MUST BE VERIFIED AGAINST GROUND TRUTH*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R1
+What it is: [Buccet failure source document] R1 HALLUCINATED ACTIONS — Reliability.
+Connects to: request text trigger `*R1: HALLUCINATED ACTIONS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R2
+What it is: [Buccet failure source document] R2 COMPOUND PROBABILITY COLLAPSE — Reliability.
+Connects to: request text trigger `*R2: COMPOUND PROBABILITY COLLAPSE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R3
+What it is: [Buccet failure source document] R3 CONTEXT WINDOW DECAY — Reliability.
+Connects to: request text trigger `*R3: CONTEXT WINDOW DECAY*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R4
+What it is: [Buccet failure source document] R4 SILENT FAILURE AT SCALE — Reliability.
+Connects to: request text trigger `*R4: SILENT FAILURE AT SCALE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R5
+What it is: [Buccet failure source document] R5 CASCADING ERROR PROPAGATION — Reliability.
+Connects to: request text trigger `*R5: CASCADING ERROR PROPAGATION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R6
+What it is: [Buccet failure source document] R6 INSTRUCTION VIOLATION — Reliability.
+Connects to: request text trigger `*R6: INSTRUCTION VIOLATION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.R7
+What it is: [Buccet failure source document] R7 FABRICATED EVIDENCE — Reliability.
+Connects to: request text trigger `*R7: FABRICATED EVIDENCE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A1
+What it is: [Buccet failure source document] A1 PRODUCTION DESTRUCTION — Autonomy.
+Connects to: request text trigger `*A1: PRODUCTION DESTRUCTION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A2
+What it is: [Buccet failure source document] A2 SCOPE CREEP — Autonomy.
+Connects to: request text trigger `*A2: SCOPE CREEP*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A3
+What it is: [Buccet failure source document] A3 IRREVERSIBLE ACTIONS — Autonomy.
+Connects to: request text trigger `*A3: IRREVERSIBLE ACTIONS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A4
+What it is: [Buccet failure source document] A4 KILL SWITCH ABSENCE — Autonomy.
+Connects to: request text trigger `*A4: KILL SWITCH ABSENCE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A5
+What it is: [Buccet failure source document] A5 TOOL MISUSE — Autonomy.
+Connects to: request text trigger `*A5: TOOL MISUSE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A6
+What it is: [Buccet failure source document] A6 DECEPTIVE SELF-PRESERVATION — Autonomy.
+Connects to: request text trigger `*A6: DECEPTIVE SELF-PRESERVATION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.A7
+What it is: [Buccet failure source document] A7 AGENT SPRAWL — Autonomy.
+Connects to: request text trigger `*A7: AGENT SPRAWL*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S1
+What it is: [Buccet failure source document] S1 PROMPT INJECTION — Security.
+Connects to: request text trigger `*S1: PROMPT INJECTION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S2
+What it is: [Buccet failure source document] S2 CREDENTIAL EXFILTRATION — Security.
+Connects to: request text trigger `*S2: CREDENTIAL EXFILTRATION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S3
+What it is: [Buccet failure source document] S3 SHADOW AI DATA EXPOSURE — Security.
+Connects to: request text trigger `*S3: SHADOW AI DATA EXPOSURE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S4
+What it is: [Buccet failure source document] S4 SUPPLY CHAIN COMPROMISE — Security.
+Connects to: request text trigger `*S4: SUPPLY CHAIN COMPROMISE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S5
+What it is: [Buccet failure source document] S5 CASCADING LATERAL MOVEMENT — Security.
+Connects to: request text trigger `*S5: CASCADING LATERAL MOVEMENT*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S6
+What it is: [Buccet failure source document] S6 HARDCODED SECRETS — Security.
+Connects to: request text trigger `*S6: HARDCODED SECRETS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.S7
+What it is: [Buccet failure source document] S7 MEMORY POISONING — Security.
+Connects to: request text trigger `*S7: MEMORY POISONING*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E1
+What it is: [Buccet failure source document] E1 INFINITE LOOP COST EXPLOSION — Economics.
+Connects to: request text trigger `*E1: INFINITE LOOP COST EXPLOSION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E2
+What it is: [Buccet failure source document] E2 RETRY STORM — Economics.
+Connects to: request text trigger `*E2: RETRY STORM*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E3
+What it is: [Buccet failure source document] E3 POLLING TAX — Economics.
+Connects to: request text trigger `*E3: POLLING TAX*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E4
+What it is: [Buccet failure source document] E4 CONTEXT WINDOW BLOAT — Economics.
+Connects to: request text trigger `*E4: CONTEXT WINDOW BLOAT*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E5
+What it is: [Buccet failure source document] E5 BUDGET SURPRISE — Economics.
+Connects to: request text trigger `*E5: BUDGET SURPRISE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E6
+What it is: [Buccet failure source document] E6 SUBSIDIZED PRICING TRAP — Economics.
+Connects to: request text trigger `*E6: SUBSIDIZED PRICING TRAP*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.E7
+What it is: [Buccet failure source document] E7 AUTONOMOUS RESOURCE HIJACK — Economics.
+Connects to: request text trigger `*E7: AUTONOMOUS RESOURCE HIJACK*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I1
+What it is: [Buccet failure source document] I1 DUMB RAG — Integration.
+Connects to: request text trigger `*I1: DUMB RAG*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I2
+What it is: [Buccet failure source document] I2 BRITTLE CONNECTORS — Integration.
+Connects to: request text trigger `*I2: BRITTLE CONNECTORS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I3
+What it is: [Buccet failure source document] I3 NO EVENT-DRIVEN ARCHITECTURE — Integration.
+Connects to: request text trigger `*I3: NO EVENT-DRIVEN ARCHITECTURE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I4
+What it is: [Buccet failure source document] I4 DEMO INPUT CHERRY-PICKING — Integration.
+Connects to: request text trigger `*I4: DEMO INPUT CHERRY-PICKING*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I5
+What it is: [Buccet failure source document] I5 SINGLE AGENT DEAD ENDS — Integration.
+Connects to: request text trigger `*I5: SINGLE AGENT DEAD ENDS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I6
+What it is: [Buccet failure source document] I6 MISSING OPERATING SYSTEM — Integration.
+Connects to: request text trigger `*I6: MISSING OPERATING SYSTEM*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.I7
+What it is: [Buccet failure source document] I7 ARCHITECTURAL WASTE — Integration.
+Connects to: request text trigger `*I7: ARCHITECTURAL WASTE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G1
+What it is: [Buccet failure source document] G1 UNMANAGED AGENT IDENTITIES — Governance.
+Connects to: request text trigger `*G1: UNMANAGED AGENT IDENTITIES*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G2
+What it is: [Buccet failure source document] G2 BLACK BOX DECISION MAKING — Governance.
+Connects to: request text trigger `*G2: BLACK BOX DECISION MAKING*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G3
+What it is: [Buccet failure source document] G3 REGULATORY NON-COMPLIANCE — Governance.
+Connects to: request text trigger `*G3: REGULATORY NON-COMPLIANCE*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G4
+What it is: [Buccet failure source document] G4 MISSING DOCUMENTATION — Governance.
+Connects to: request text trigger `*G4: MISSING DOCUMENTATION*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G5
+What it is: [Buccet failure source document] G5 WORKFLOW TRACEABILITY GAP — Governance.
+Connects to: request text trigger `*G5: WORKFLOW TRACEABILITY GAP*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G6
+What it is: [Buccet failure source document] G6 HUMAN-IN-THE-LOOP THEATER — Governance.
+Connects to: request text trigger `*G6: HUMAN-IN-THE-LOOP THEATER*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.G7
+What it is: [Buccet failure source document] G7 FRAMEWORK INADEQUACY — Governance.
+Connects to: request text trigger `*G7: FRAMEWORK INADEQUACY*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T1
+What it is: [Buccet failure source document] T1 OPACITY — Trust.
+Connects to: request text trigger `*T1: OPACITY*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T2
+What it is: [Buccet failure source document] T2 EXECUTIVE DISTRUST — Trust.
+Connects to: request text trigger `*T2: EXECUTIVE DISTRUST*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T3
+What it is: [Buccet failure source document] T3 CONSUMER SKEPTICISM — Trust.
+Connects to: request text trigger `*T3: CONSUMER SKEPTICISM*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T4
+What it is: [Buccet failure source document] T4 WRONGFUL ARRESTS — Trust.
+Connects to: request text trigger `*T4: WRONGFUL ARRESTS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T5
+What it is: [Buccet failure source document] T5 LEGAL LIABILITY — Trust.
+Connects to: request text trigger `*T5: LEGAL LIABILITY*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T6
+What it is: [Buccet failure source document] T6 HALLUCINATED CITATIONS — Trust.
+Connects to: request text trigger `*T6: HALLUCINATED CITATIONS*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.BUCCET.FAILURE.T7
+What it is: [Buccet failure source document] T7 EXISTENTIAL SELF-HARM RISK — Trust.
+Connects to: request text trigger `*T7: EXISTENTIAL SELF-HARM RISK*`.
 Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
 Bounds: listed request-text triggers only; deny wins on overlap.
 

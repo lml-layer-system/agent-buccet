@@ -135,14 +135,16 @@ function splitDenialEntries(entries: readonly BoundaryUplEntry[]) {
   const core = entries.filter((entry) =>
     !entry.id.startsWith("DENY.BOUNDARY.") &&
     !entry.id.startsWith("DENY.PERIODIC.") &&
+    !entry.id.startsWith("DENY.BUCCET.") &&
     !entry.id.startsWith("DENY.BASE.CATALOG.") &&
     !entry.id.startsWith("DENY.BASE.ALIAS."),
   );
   const boundary = entries.filter((entry) => entry.id.startsWith("DENY.BOUNDARY."));
   const periodic = entries.filter((entry) => entry.id.startsWith("DENY.PERIODIC."));
+  const buccetFailure = entries.filter((entry) => entry.id.startsWith("DENY.BUCCET."));
   const catalog = entries.filter((entry) => entry.id.startsWith("DENY.BASE.CATALOG."));
   const aliases = entries.filter((entry) => entry.id.startsWith("DENY.BASE.ALIAS."));
-  return { core, boundary, periodic, catalog, aliases };
+  return { core, boundary, periodic, buccetFailure, catalog, aliases };
 }
 
 async function main() {
@@ -166,6 +168,7 @@ async function main() {
     `- Core walls: ${groups.core.length}`,
     `- Boundary walls: ${groups.boundary.length}`,
     `- Periodic taxonomy walls: ${groups.periodic.length}`,
+    `- Buccet failure walls: ${groups.buccetFailure.length}`,
     `- Base catalog walls: ${groups.catalog.length}`,
     `- Frontier/system-card alias walls: ${groups.aliases.length}`,
     "",
@@ -174,6 +177,7 @@ async function main() {
     "- `DENY.<CORE_CLASS>.*`: built-in Buccet standing walls for destructive, secret, exfiltration, spoofing, tamper, and related classes.",
     "- `DENY.BOUNDARY.*`: Buccet boundary walls for scope, law, session, and ledger/proof abuse.",
     "- `DENY.PERIODIC.*`: periodic failure taxonomy rows and dimensions carried into the same denial-side UPL field.",
+    "- `DENY.BUCCET.*`: Buccet failure dimensions, containment laws, and failure rows carried into the same denial-side UPL field.",
     "- `DENY.BASE.CATALOG.*`: base Buccet denial catalog rows carried into the same denial-side UPL field.",
     "- `DENY.BASE.ALIAS.*`: frontier/system-card alias vocabulary carried into the same denial-side UPL field.",
     "",
@@ -195,6 +199,9 @@ async function main() {
     `## Periodic Taxonomy Walls (${groups.periodic.length})`,
     "",
     ...groups.periodic.map((entry) => renderEntry(entryToDoc(entry))),
+    `## Buccet Failure Walls (${groups.buccetFailure.length})`,
+    "",
+    ...groups.buccetFailure.map((entry) => renderEntry(entryToDoc(entry))),
     `## Base Catalog Walls (${groups.catalog.length})`,
     "",
     ...groups.catalog.map((entry) => renderEntry(entryToDoc(entry))),

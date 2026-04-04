@@ -10,6 +10,11 @@ import {
 import {
   BASE_BUCCET_FRONTIER_FAILURE_ALIASES,
 } from "./frontier-failure-aliases.ts";
+import {
+  BOUNDARY_BUCCET_CONTAINMENT_LAWS,
+  BOUNDARY_BUCCET_FAILURE_DIMENSIONS,
+  BOUNDARY_BUCCET_FAILURE_ROWS,
+} from "./buccet-failure-catalog.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
@@ -28,6 +33,7 @@ export type DenialClass =
   | "boundary_attack"
   | "periodic_failure_taxonomy"
   | "base_buccet_denial"
+  | "buccet_failure_corpus"
   | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
@@ -245,6 +251,39 @@ function createFrontierFailureAliasSeeds(): BaseHeadlessDenialSeed[] {
     actionKinds: allTrackSurfaceKinds,
     requestTextPatterns: toCatalogRequestTextPatterns(alias.variants),
     requestBasisTarget: `base-headless-denials:base-alias:${String(index + 1).padStart(4, "0")}`,
+  }));
+}
+
+function createBuccetFailureDimensionSeeds(): BaseHeadlessDenialSeed[] {
+  return BOUNDARY_BUCCET_FAILURE_DIMENSIONS.map((dimension) => ({
+    id: `DENY.BUCCET.DIM.${dimension.id}`,
+    denialClass: "buccet_failure_corpus",
+    reason: `[${dimension.source}] ${dimension.title} — ${dimension.rootInvariant}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns(dimension.variants),
+    requestBasisTarget: `base-headless-denials:buccet-dimension:${dimension.id.toLowerCase()}`,
+  }));
+}
+
+function createBuccetContainmentLawSeeds(): BaseHeadlessDenialSeed[] {
+  return BOUNDARY_BUCCET_CONTAINMENT_LAWS.map((law) => ({
+    id: `DENY.BUCCET.LAW.${law.id}`,
+    denialClass: "buccet_failure_corpus",
+    reason: `[${law.source}] ${law.title} — stops ${law.stopsDimension}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns(law.variants),
+    requestBasisTarget: `base-headless-denials:buccet-law:${law.id.toLowerCase()}`,
+  }));
+}
+
+function createBuccetFailureRowSeeds(): BaseHeadlessDenialSeed[] {
+  return BOUNDARY_BUCCET_FAILURE_ROWS.map((row) => ({
+    id: `DENY.BUCCET.FAILURE.${row.id}`,
+    denialClass: "buccet_failure_corpus",
+    reason: `[${row.source}] ${row.id} ${row.title} — ${row.dimension}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns([row.variants[0]]),
+    requestBasisTarget: `base-headless-denials:buccet-failure:${row.id.toLowerCase()}`,
   }));
 }
 
@@ -727,6 +766,9 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   },
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),
+  ...createBuccetFailureDimensionSeeds(),
+  ...createBuccetContainmentLawSeeds(),
+  ...createBuccetFailureRowSeeds(),
   ...createVendoredBaseCatalogSeeds(),
   ...createFrontierFailureAliasSeeds(),
   {
