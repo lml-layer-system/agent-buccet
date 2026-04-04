@@ -6,6 +6,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import {
+  createPersistentBoundaryRuntimeStore,
   readBoundaryLedgerBySession,
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
@@ -63,14 +64,29 @@ async function waitForSwarmStatus(args: {
 async function main() {
   const repoRoot = process.cwd();
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-swarm-"));
+  const sessionsDir = path.join(tempRoot, "sessions");
   const sessionId = `swarm-contract-${randomUUID()}`;
   const socketPath = path.join("/tmp", `ab-swarm-${randomUUID().slice(0, 12)}.sock`);
   const target = { socketPath };
+
+  const store = await createPersistentBoundaryRuntimeStore({
+    sessionId,
+    actorId: "user:swarm-contract",
+    sessionsDir,
+  });
+  await store.openPath({
+    rootPath: tempRoot,
+    grantedActions: ["fs.write"],
+    issuedBy: "user:swarm-contract",
+    seedBaseAcceptance: false,
+  });
 
   const interceptServer = spawn(process.execPath, [
     path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
     "--session-id",
     sessionId,
+    "--sessions-dir",
+    sessionsDir,
     "--socket",
     socketPath,
   ], {
