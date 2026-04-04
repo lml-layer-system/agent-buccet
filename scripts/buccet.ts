@@ -14,6 +14,7 @@ import type {
   BoundaryUplEntry,
   BoundaryUplEntryType,
   BoundaryUplScope,
+  BoundaryUplStatus,
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
 } from "../lib/agent-buccet/index.ts";
@@ -49,6 +50,14 @@ type UplSourceSpec = {
   lane: UplSourceLane;
   dir: string;
   readmePath: string;
+};
+
+type ParsedUplSelection = {
+  ids: string[];
+  queryTerms: string[];
+  includeAll: boolean;
+  typeFilter: BoundaryUplEntryType | null;
+  statusFilter: BoundaryUplStatus | null;
 };
 
 function parseConsoleApprovalModeToken(token: string | undefined): ConsoleApprovalMode | null {
@@ -88,11 +97,13 @@ function usage(): never {
     "  buccet ledger [--limit <n>] [--json] [--follow]          — open the witness ledger (Terminal 3, optional)",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
-    "  buccet upl list [--all] [--json]",
+    "  buccet upl list [--all] [--type approved|denied] [--status active|muted|deleted] [--search <query...>] [--json]",
+    "  buccet upl search <query...> [--all] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl show <upl-id> [--json]",
-    "  buccet upl mute <upl-id...> [--json]",
-    "  buccet upl unmute <upl-id...> [--json]",
-    "  buccet upl remove <upl-id...> [--json]",
+    "  buccet upl diff [--all] [--type approved|denied] [--status active|muted|deleted] [--search <query...>] [--json]",
+    "  buccet upl mute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
+    "  buccet upl unmute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
+    "  buccet upl remove <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl sources [--json]",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
@@ -511,6 +522,240 @@ function summarizeUplEntrySource(entry: BoundaryUplEntry): string {
   return "runtime";
 }
 
+function parseUplTypeToken(token: string | undefined): BoundaryUplEntryType | null {
+  if (!token) {
+    return null;
+  }
+  const normalized = token.trim().toUpperCase();
+  if (normalized === "APPROVED" || normalized === "DENIED") {
+    return normalized;
+  }
+  return null;
+}
+
+function parseUplStatusToken(token: string | undefined): BoundaryUplStatus | null {
+  if (!token) {
+    return null;
+  }
+  const normalized = token.trim().toUpperCase();
+  if (normalized === "ACTIVE" || normalized === "MUTED" || normalized === "DELETED") {
+    return normalized;
+  }
+  return null;
+}
+
+function parseUplSelection(args: string[], options?: {
+  allowIds?: boolean;
+  allowPositionalQuery?: boolean;
+}): ParsedUplSelection {
+  const allowIds = options?.allowIds ?? true;
+  const allowPositionalQuery = options?.allowPositionalQuery ?? false;
+  const ids: string[] = [];
+  const queryTerms: string[] = [];
+  let includeAll = false;
+  let typeFilter: BoundaryUplEntryType | null = null;
+  let statusFilter: BoundaryUplStatus | null = null;
+
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index];
+    if (token === "--json") {
+      continue;
+    }
+    if (token === "--all") {
+      includeAll = true;
+      continue;
+    }
+    if (token === "--type") {
+      const parsed = parseUplTypeToken(args[index + 1]);
+      if (!parsed) {
+        throw new Error(`unsupported UPL type filter: ${args[index + 1] ?? ""}`);
+      }
+      typeFilter = parsed;
+      index += 1;
+      continue;
+    }
+    if (token === "--status") {
+      const parsed = parseUplStatusToken(args[index + 1]);
+      if (!parsed) {
+        throw new Error(`unsupported UPL status filter: ${args[index + 1] ?? ""}`);
+      }
+      statusFilter = parsed;
+      index += 1;
+      continue;
+    }
+    if (token === "--search") {
+      let consumed = 0;
+      for (let cursor = index + 1; cursor < args.length; cursor += 1) {
+        if (args[cursor]?.startsWith("--")) {
+          break;
+        }
+        queryTerms.push(args[cursor]!);
+        consumed += 1;
+      }
+      if (consumed === 0) {
+        throw new Error("`--search` requires at least one query term");
+      }
+      index += consumed;
+      continue;
+    }
+    if (token.startsWith("--")) {
+      usage();
+    }
+    if (allowPositionalQuery) {
+      queryTerms.push(token);
+      continue;
+    }
+    if (allowIds) {
+      ids.push(token);
+      continue;
+    }
+    usage();
+  }
+
+  return {
+    ids,
+    queryTerms,
+    includeAll,
+    typeFilter,
+    statusFilter,
+  };
+}
+
+function normalizeUplSearchText(entry: BoundaryUplEntry): string {
+  return [
+    entry.id,
+    entry.type,
+    entry.status,
+    entry.scope,
+    entry.path,
+    entry.domain ?? "",
+    entry.witness,
+    entry.notes ?? "",
+    summarizeUplEntrySource(entry),
+    JSON.stringify(entry.requestBasis ?? {}),
+    JSON.stringify(entry.trackConstraint ?? {}),
+  ].join("\n").toLowerCase();
+}
+
+function selectUplEntries(entries: BoundaryUplEntry[], selection: ParsedUplSelection): BoundaryUplEntry[] {
+  const includeInactive = selection.includeAll || selection.statusFilter !== null;
+  return entries.filter((entry) => {
+    if (!includeInactive && entry.status !== "ACTIVE") {
+      return false;
+    }
+    if (selection.typeFilter && entry.type !== selection.typeFilter) {
+      return false;
+    }
+    if (selection.statusFilter && entry.status !== selection.statusFilter) {
+      return false;
+    }
+    if (selection.queryTerms.length === 0) {
+      return true;
+    }
+    const haystack = normalizeUplSearchText(entry);
+    return selection.queryTerms.every((term) => haystack.includes(term.toLowerCase()));
+  });
+}
+
+function formatTargetMatcher(
+  pattern: string,
+  mode: "prefix" | "exact" | "regex" | undefined,
+  multiple = false,
+): string {
+  const label = multiple ? "targets" : "target";
+  switch (mode) {
+    case "exact":
+      return `${label} == ${pattern}`;
+    case "regex":
+      return `${label} ~= ${pattern}`;
+    default:
+      return `${label} ^= ${pattern}`;
+  }
+}
+
+function uniqueStrings(values: Array<string | null | undefined>): string[] {
+  return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
+}
+
+function buildUplEntryView(entry: BoundaryUplEntry): {
+  source: string;
+  whatItIs: string;
+  connectsTo: string;
+  actionKinds: string[];
+  bounds: string[];
+} {
+  const source = summarizeUplEntrySource(entry);
+  const constraint = entry.trackConstraint;
+  const actionKinds = uniqueStrings([
+    ...(constraint?.actionCorridor?.allowedActionKinds ?? []),
+    ...(constraint?.allowedActionKinds ?? []),
+    entry.requestBasis?.actionKind,
+  ]);
+  const whatItIs = constraint?.description
+    ?? `${entry.type === "APPROVED" ? "Acceptance" : "Denial"} UPL entry for ${actionKinds.join(", ") || "recorded motion"}`;
+
+  const connectTargets = uniqueStrings([
+    entry.requestBasis?.target,
+    constraint?.actionCorridor?.targetPattern
+      ? formatTargetMatcher(
+        constraint.actionCorridor.targetPattern,
+        constraint.actionCorridor.targetMatchMode,
+      )
+      : null,
+    constraint?.targetPattern
+      ? formatTargetMatcher(constraint.targetPattern, constraint.targetMatchMode)
+      : null,
+    constraint?.targetPatterns?.length
+      ? formatTargetMatcher(
+        constraint.targetPatterns.join(" ; "),
+        constraint.targetMatchMode,
+        true,
+      )
+      : null,
+    entry.domain ? `domain = ${entry.domain}` : null,
+  ]);
+
+  const bounds = uniqueStrings([
+    `scope = ${entry.scope.toLowerCase()}`,
+    `source = ${source}`,
+    entry.sessionId ? `session = ${entry.sessionId}` : null,
+    entry.requestBasis?.flags
+      ? uniqueStrings(
+        Object.entries(entry.requestBasis.flags)
+          .filter(([, enabled]) => Boolean(enabled))
+          .map(([flag]) => `flag = ${flag}`),
+      ).join(" | ")
+      : null,
+    constraint?.requestTextPatterns?.length
+      ? `request ~= ${constraint.requestTextPatterns.join(" ; ")}`
+      : null,
+    constraint?.requiredFlags?.length
+      ? `needs-flags = ${constraint.requiredFlags.join(", ")}`
+      : null,
+    constraint?.reviewSurface ? `surface = ${constraint.reviewSurface}` : null,
+    constraint?.reviewInvariantLawId ? `invariant = ${constraint.reviewInvariantLawId}` : null,
+    (constraint?.outputCorridor?.outputShape ?? constraint?.outputShape)
+      ? `shape = ${constraint.outputCorridor?.outputShape ?? constraint.outputShape}`
+      : null,
+    (constraint?.outputCorridor?.requiredTextPatterns ?? constraint?.requiredTextPatterns)?.length
+      ? `require = ${(constraint.outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.join(" ; ")}`
+      : null,
+    (constraint?.outputCorridor?.forbiddenTextPatterns ?? constraint?.forbiddenTextPatterns)?.length
+      ? `forbid = ${(constraint.outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.join(" ; ")}`
+      : null,
+    constraint?.completionGrammar ? `completion = ${constraint.completionGrammar}` : null,
+    constraint?.expressionProfile ? `expression = ${constraint.expressionProfile}` : null,
+  ]);
+
+  return {
+    source,
+    whatItIs,
+    connectsTo: connectTargets.join(" | ") || "path-scoped recorded motion",
+    actionKinds,
+    bounds,
+  };
+}
+
 function sortUplEntries(entries: BoundaryUplEntry[]): BoundaryUplEntry[] {
   return [...entries].sort((left, right) => {
     if (left.createdAt !== right.createdAt) {
@@ -518,6 +763,57 @@ function sortUplEntries(entries: BoundaryUplEntry[]): BoundaryUplEntry[] {
     }
     return left.id.localeCompare(right.id);
   });
+}
+
+function liveStateForEntry(args: {
+  entryId: string;
+  liveField: Array<{
+    entry: BoundaryUplEntry;
+    trafficClass: "allow_rail" | "deny_wall";
+    trafficTag: string;
+  }>;
+}): {
+  state: "allow_rail" | "deny_wall" | "inactive";
+  trafficTag: string | null;
+} {
+  const liveSegment = args.liveField.find((segment) => segment.entry.id === args.entryId) ?? null;
+  return liveSegment
+    ? { state: liveSegment.trafficClass, trafficTag: liveSegment.trafficTag }
+    : { state: "inactive", trafficTag: null };
+}
+
+function printUplEntryDetails(args: {
+  entry: BoundaryUplEntry;
+  liveState: { state: "allow_rail" | "deny_wall" | "inactive"; trafficTag: string | null };
+}) {
+  const view = buildUplEntryView(args.entry);
+  console.log(`${args.entry.status} | ${args.entry.type} | ${args.entry.id}`);
+  console.log(`  what it is: ${view.whatItIs}`);
+  console.log(`  connects to: ${view.connectsTo}`);
+  console.log(`  action kinds: ${view.actionKinds.join(", ") || "none recorded"}`);
+  console.log(`  bounds: ${view.bounds.join(" | ") || "none recorded"}`);
+  console.log(`  source: ${view.source}`);
+  console.log(`  live field: ${args.liveState.state}${args.liveState.trafficTag ? ` | ${args.liveState.trafficTag}` : ""}`);
+}
+
+function summarizeDiffStates(rows: Array<{ liveState: "allow_rail" | "deny_wall" | "inactive" }>): {
+  allow: number;
+  deny: number;
+  inactive: number;
+} {
+  let allow = 0;
+  let deny = 0;
+  let inactive = 0;
+  for (const row of rows) {
+    if (row.liveState === "allow_rail") {
+      allow += 1;
+    } else if (row.liveState === "deny_wall") {
+      deny += 1;
+    } else {
+      inactive += 1;
+    }
+  }
+  return { allow, deny, inactive };
 }
 
 async function runSubprocess(args: {
@@ -1508,40 +1804,114 @@ async function handleUpl(rest: string[]) {
     return;
   }
 
-  if (subcommand === "list") {
+  if (subcommand === "list" || subcommand === "search" || subcommand === "diff") {
+    const selection = parseUplSelection(rest.slice(1), {
+      allowIds: false,
+      allowPositionalQuery: subcommand === "search",
+    });
+    if (subcommand === "search" && selection.queryTerms.length === 0) {
+      usage();
+    }
+
     const upl = await boundary.loadUserPathLedger();
     const session = await loadActiveBoundarySession(boundary, home, config);
-    const includeAll = rest.includes("--all");
     const entries = sortUplEntries(boundary.listUserPathEntries(upl));
     const approved = entries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE");
     const denied = entries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE");
     const muted = entries.filter((entry) => entry.status === "MUTED");
     const deleted = entries.filter((entry) => entry.status === "DELETED");
     const runtimeTrackField = boundary.compileLiveUplTrackField({ ledger: upl, session });
+    const liveField = boundary.compileLiveUplField({ ledger: upl, session });
+    const filteredEntries = sortUplEntries(selectUplEntries(entries, selection));
+
+    if (subcommand === "list") {
+      if (asJson) {
+        printJson({
+          approved,
+          denied,
+          activeApproved: approved,
+          activeDenied: denied,
+          muted,
+          deleted,
+          runtimeTrackField,
+          filters: selection,
+          entries: filteredEntries,
+        });
+        return;
+      }
+      console.log(`UPL laws`);
+      console.log(`active approved: ${approved.length}`);
+      console.log(`active denied: ${denied.length}`);
+      console.log(`muted: ${muted.length}`);
+      console.log(`deleted: ${deleted.length}`);
+      console.log(`runtime track field: ${runtimeTrackField.length} compiled segments`);
+      if (!selection.includeAll && selection.statusFilter === null) {
+        console.log(`showing active laws only | use --all to include muted and deleted`);
+      }
+      if (selection.typeFilter || selection.statusFilter || selection.queryTerms.length > 0) {
+        console.log(`filtered matches: ${filteredEntries.length}`);
+      }
+      for (const entry of filteredEntries) {
+        const view = buildUplEntryView(entry);
+        console.log(`${entry.status} | ${entry.type} | ${entry.id} | ${view.source} | ${view.whatItIs} | ${entry.path}`);
+      }
+      return;
+    }
+
+    const rows = filteredEntries.map((entry) => {
+      const view = buildUplEntryView(entry);
+      const liveState = liveStateForEntry({ entryId: entry.id, liveField });
+      return {
+        entry,
+        view,
+        liveState: liveState.state,
+        liveTag: liveState.trafficTag,
+      };
+    });
+
+    if (subcommand === "search") {
+      if (asJson) {
+        printJson({
+          filters: selection,
+          matches: rows,
+        });
+        return;
+      }
+      console.log(`UPL search`);
+      console.log(`matches: ${rows.length}`);
+      console.log(`query: ${selection.queryTerms.join(" ")}`);
+      for (const row of rows) {
+        printUplEntryDetails({
+          entry: row.entry,
+          liveState: { state: row.liveState, trafficTag: row.liveTag },
+        });
+      }
+      return;
+    }
+
+    const stateSummary = summarizeDiffStates(rows);
     if (asJson) {
       printJson({
-        approved,
-        denied,
-        activeApproved: approved,
-        activeDenied: denied,
-        muted,
-        deleted,
-        runtimeTrackField,
-        entries: includeAll ? entries : [...approved, ...denied],
+        filters: selection,
+        summary: stateSummary,
+        rows,
       });
       return;
     }
-    console.log(`UPL laws`);
-    console.log(`active approved: ${approved.length}`);
-    console.log(`active denied: ${denied.length}`);
-    console.log(`muted: ${muted.length}`);
-    console.log(`deleted: ${deleted.length}`);
-    console.log(`runtime track field: ${runtimeTrackField.length} compiled segments`);
-    if (!includeAll) {
-      console.log(`showing active laws only | use --all to include muted and deleted`);
-    }
-    for (const entry of includeAll ? entries : [...approved, ...denied]) {
-      console.log(`${entry.status} | ${entry.type} | ${entry.id} | ${summarizeUplEntrySource(entry)} | ${entry.path}`);
+    console.log(`UPL diff`);
+    console.log(`matches: ${rows.length}`);
+    console.log(`live allow: ${stateSummary.allow}`);
+    console.log(`live deny: ${stateSummary.deny}`);
+    console.log(`inactive: ${stateSummary.inactive}`);
+    for (const row of rows) {
+      console.log(`${row.entry.id} | authored=${row.entry.type}/${row.entry.status} -> live=${row.liveState}`);
+      console.log(`  what it is: ${row.view.whatItIs}`);
+      console.log(`  connects to: ${row.view.connectsTo}`);
+      console.log(`  action kinds: ${row.view.actionKinds.join(", ") || "none recorded"}`);
+      console.log(`  bounds: ${row.view.bounds.join(" | ") || "none recorded"}`);
+      if (row.liveTag) {
+        console.log(`  live tag: ${row.liveTag}`);
+      }
     }
     return;
   }
@@ -1557,9 +1927,16 @@ async function handleUpl(rest: string[]) {
     if (!entry) {
       throw new Error(`unknown UPL id: ${entryId}`);
     }
-    const liveSegment = boundary.compileLiveUplField({ ledger: upl, session }).find((segment) => segment.entry.id === entry.id) ?? null;
+    const liveField = boundary.compileLiveUplField({ ledger: upl, session });
+    const liveSegment = liveField.find((segment) => segment.entry.id === entry.id) ?? null;
+    const view = buildUplEntryView(entry);
     if (asJson) {
-      printJson({ entry, liveSegment });
+      printJson({
+        entry,
+        liveSegment,
+        view,
+        liveState: liveSegment ? liveSegment.trafficClass : "inactive",
+      });
       return;
     }
     console.log(`UPL entry ${entry.id}`);
@@ -1574,9 +1951,14 @@ async function handleUpl(rest: string[]) {
     if (entry.notes) {
       console.log(`notes: ${entry.notes}`);
     }
+    console.log(`what it is: ${view.whatItIs}`);
+    console.log(`connects to: ${view.connectsTo}`);
+    console.log(`action kinds: ${view.actionKinds.join(", ") || "none recorded"}`);
+    console.log(`bounds: ${view.bounds.join(" | ") || "none recorded"}`);
     if (entry.trackConstraint) {
       console.log(`track: yes`);
       console.log(`track kinds: ${entry.trackConstraint.allowedActionKinds.join(", ")}`);
+      console.log(`track corridor: ${boundary.formatTrackConstraint(entry.trackConstraint)}`);
     } else {
       console.log(`track: no`);
     }
@@ -1589,8 +1971,17 @@ async function handleUpl(rest: string[]) {
   }
 
   if (subcommand === "mute" || subcommand === "unmute" || subcommand === "remove") {
-    const ids = rest.filter((token, index) => index > 0 && token !== "--json");
-    if (ids.length === 0) {
+    const parsed = parseUplSelection(rest.slice(1), {
+      allowIds: true,
+      allowPositionalQuery: false,
+    });
+    const selection = subcommand === "unmute" && parsed.statusFilter === null && !parsed.includeAll
+      ? {
+        ...parsed,
+        statusFilter: "MUTED" as BoundaryUplStatus,
+      }
+      : parsed;
+    if (selection.ids.length === 0 && selection.queryTerms.length === 0 && !selection.typeFilter && !selection.statusFilter) {
       usage();
     }
 
@@ -1600,9 +1991,23 @@ async function handleUpl(rest: string[]) {
         ? "ACTIVE"
         : "DELETED";
     const upl = await boundary.loadUserPathLedger();
+    const session = await loadActiveBoundarySession(boundary, home, config);
+    const entries = sortUplEntries(boundary.listUserPathEntries(upl));
+    const hasSearchSelection = selection.queryTerms.length > 0 || Boolean(selection.typeFilter) || Boolean(selection.statusFilter) || selection.includeAll;
+    const matchedEntries = hasSearchSelection
+      ? sortUplEntries(selectUplEntries(entries, {
+        ...selection,
+        ids: [],
+      }))
+      : [];
+    const targetIds = [...new Set([...selection.ids, ...matchedEntries.map((entry) => entry.id)])];
+    if (targetIds.length === 0) {
+      throw new Error("no UPL entries matched the requested selection");
+    }
+    const beforeLiveField = boundary.compileLiveUplField({ ledger: upl, session });
     const update = boundary.updateUserPathEntryStatuses({
       ledger: upl,
-      ids,
+      ids: targetIds,
       status,
       modifiedAt: new Date().toISOString(),
     });
@@ -1620,20 +2025,41 @@ async function handleUpl(rest: string[]) {
       userLawIds: boundary.getActiveUserLawIds(saved, store.getConfig().session),
     });
     await store.persist();
+    const afterLiveField = boundary.compileLiveUplField({ ledger: saved, session });
+    const changedDiff = update.changed.map((entry) => {
+      const beforeEntry = entries.find((candidate) => candidate.id === entry.id) ?? entry;
+      const beforeLive = liveStateForEntry({ entryId: entry.id, liveField: beforeLiveField });
+      const afterLive = liveStateForEntry({ entryId: entry.id, liveField: afterLiveField });
+      return {
+        entry,
+        beforeStatus: beforeEntry.status,
+        afterStatus: entry.status,
+        beforeLive: beforeLive.state,
+        afterLive: afterLive.state,
+        beforeLiveTag: beforeLive.trafficTag,
+        afterLiveTag: afterLive.trafficTag,
+        view: buildUplEntryView(entry),
+      };
+    });
 
     if (asJson) {
       printJson({
         action: subcommand,
+        matchedIds: targetIds,
         changed: update.changed,
         unchanged: update.unchanged,
+        diff: changedDiff,
       });
       return;
     }
     console.log(`${subcommand} UPL laws`);
+    console.log(`matched: ${targetIds.length}`);
     console.log(`changed: ${update.changed.length}`);
     console.log(`unchanged: ${update.unchanged.length}`);
-    for (const entry of update.changed) {
-      console.log(`${entry.id} | ${entry.type} | ${entry.status} | ${entry.path}`);
+    for (const row of changedDiff) {
+      console.log(`${row.entry.id} | ${row.entry.type} | ${row.beforeStatus} -> ${row.afterStatus} | ${row.beforeLive} -> ${row.afterLive}`);
+      console.log(`  what it is: ${row.view.whatItIs}`);
+      console.log(`  connects to: ${row.view.connectsTo}`);
     }
     for (const entry of update.unchanged) {
       console.log(`unchanged | ${entry.id} | ${entry.type} | ${entry.status} | ${entry.path}`);

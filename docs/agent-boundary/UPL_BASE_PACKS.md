@@ -238,8 +238,11 @@ Use the built-in UPL controls first:
 
 ```bash
 buccet upl list --all
+buccet upl search delete --type denied
 buccet upl show <upl-id>
+buccet upl diff --search delete
 buccet upl mute <upl-id>
+buccet upl mute --search delete --type denied
 buccet upl unmute <upl-id>
 buccet upl remove <upl-id>
 ```
@@ -247,10 +250,11 @@ buccet upl remove <upl-id>
 That gives you direct control over authored law without touching code:
 
 - `upl list --all` shows active, muted, and deleted laws
-- `upl show` shows the exact law, its source, and whether it is live in the runtime field
-- `upl mute` turns a law off without deleting it
+- `upl search` is the fast way to find laws by id, source, action kind, target, notes, or track shape
+- `upl show` shows the exact law, what it is, what it connects to, and whether it is live in the runtime field
+- `upl diff` shows authored law against live-field state so you can see what is active, inactive, rail, or wall
+- `upl mute --search ...` and `upl remove --search ...` let you bulk-change matching laws without touching code
 - `upl unmute` turns a muted law back on
-- `upl remove` marks a law deleted so it no longer participates in the live field
 
 If you want to inspect or edit the raw ledger file anyway, the canonical path is:
 

@@ -105,15 +105,43 @@ async function main() {
   assert.equal(uplShowResult.code, 0, uplShowResult.stderr);
   const shown = JSON.parse(uplShowResult.stdout) as {
     entry: BoundaryUplEntry;
+    view: {
+      whatItIs: string;
+      connectsTo: string;
+      actionKinds: string[];
+      bounds: string[];
+    };
+    liveState: string;
   };
   assert.equal(shown.entry.id, mutableEntry.id);
+  assert.ok(shown.view.whatItIs.length > 0);
+  assert.ok(Array.isArray(shown.view.actionKinds));
+  assert.equal(typeof shown.liveState, "string");
 
-  const muteResult = await runCli(["upl", "mute", mutableEntry.id, "--json"], env);
+  const searchResult = await runCli(["upl", "search", mutableEntry.id, "--json"], env);
+  assert.equal(searchResult.code, 0, searchResult.stderr);
+  const search = JSON.parse(searchResult.stdout) as {
+    matches: Array<{ entry: BoundaryUplEntry; liveState: string }>;
+  };
+  assert.ok(search.matches.some((match) => match.entry.id === mutableEntry.id));
+
+  const diffResult = await runCli(["upl", "diff", "--search", mutableEntry.id, "--json"], env);
+  assert.equal(diffResult.code, 0, diffResult.stderr);
+  const diff = JSON.parse(diffResult.stdout) as {
+    rows: Array<{ entry: BoundaryUplEntry; liveState: string }>;
+  };
+  assert.equal(diff.rows.length, 1);
+  assert.equal(diff.rows[0]?.entry.id, mutableEntry.id);
+  assert.equal(diff.rows[0]?.liveState, "deny_wall");
+
+  const muteResult = await runCli(["upl", "mute", "--search", mutableEntry.id, "--json"], env);
   assert.equal(muteResult.code, 0, muteResult.stderr);
   const muted = JSON.parse(muteResult.stdout) as {
     changed: BoundaryUplEntry[];
+    matchedIds: string[];
   };
   assert.equal(muted.changed.length, 1);
+  assert.equal(muted.matchedIds.length, 1);
   assert.equal(muted.changed[0]?.status, "MUTED");
 
   const listAllAfterMute = await runCli(["upl", "list", "--all", "--json"], env);
@@ -123,7 +151,7 @@ async function main() {
   };
   assert.equal(listedAfterMute.entries.find((entry) => entry.id === mutableEntry.id)?.status, "MUTED");
 
-  const unmuteResult = await runCli(["upl", "unmute", mutableEntry.id, "--json"], env);
+  const unmuteResult = await runCli(["upl", "unmute", "--search", mutableEntry.id, "--status", "muted", "--json"], env);
   assert.equal(unmuteResult.code, 0, unmuteResult.stderr);
   const unmuted = JSON.parse(unmuteResult.stdout) as {
     changed: BoundaryUplEntry[];
