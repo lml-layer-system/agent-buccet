@@ -120,6 +120,11 @@ The base acceptance pack is seeded when the user opens lawful scope with `scope 
 It is session-scoped by default.
 
 For the full seeded inventory, see [Base Acceptance Pack Inventory](./BASE_ACCEPTANCE_PACK.md).
+That inventory now normalizes every acceptance entry as:
+- `What it is`
+- `Connects to`
+- `Action kinds`
+- `Bounds`
 
 The built-in classes are:
 
@@ -144,9 +149,9 @@ In plain terms, opening a workspace seeds lawful roads for:
 - local notes, tasks, memory, and `.buccet` roots inside the workspace
 - bounded local developer commands like `git status`, `npm test`, `pytest`, `eslint`, `cargo test`, and similar quality/runtime inspection tools
 - bounded research fetch/search motion against explicit documentation and source domains like MDN, Python docs, GitHub, and search/fetch providers
-- `108` explicit OpenClaw skill rails on the acceptance side
-  Bundled OpenClaw rails: `51`
-  Awesome OpenClaw rails: `57`
+- `108` explicit OpenClaw skill entries on the acceptance side
+  Bundled OpenClaw entries: `51`
+  Awesome OpenClaw entries: `57`
 - `37` curated List V entries on the acceptance side
   Named capability entries: `23`
   Workflow-shaped entries: `14`
@@ -163,10 +168,10 @@ Generic hardening classes do not belong in the acceptance pack; they belong in t
 
 The acceptance pack stays narrow on purpose:
 
-- it opens specific rails
-- it does not create a broad shell rail
-- it does not create a broad outbound network rail
-- denial still overrides every acceptance rail on overlap
+- it opens specific acceptance entries
+- it does not create a broad shell entry
+- it does not create a broad outbound network entry
+- denial still overrides every acceptance entry on overlap
 
 That means the OpenClaw intake is now materializing as real UPL acceptance law, but only in bounded forms that can live safely in the same runtime field as the denial constitution.
 

@@ -1,5 +1,7 @@
 # Base Acceptance Pack Inventory
 
+> Generated from Buccet acceptance sources. Regenerate with `node scripts/render-agent-buccet-base-acceptance-pack.ts`.
+
 This document enumerates the live shipped base Buccet acceptance UPL pack.
 
 It is one acceptance-side UPL system. Runtime still compiles it into the same live field as denial, and deny overrides acceptance on overlap.
@@ -7,349 +9,997 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 ## Summary
 
 - Total acceptance-side UPL entries seeded per opened workspace session: 157
-- Workspace rails: 5
-- Safe local exec rails: 4
-- Bounded web research rails: 3
-- OpenClaw skill rails: 108
-  Bundled OpenClaw rails: 51
-  Awesome OpenClaw rails: 57
+- Workspace entries: 5
+- Safe local exec entries: 4
+- Bounded web research entries: 3
+- OpenClaw skill entries: 108
+  Bundled OpenClaw entries: 51
+  Awesome OpenClaw entries: 57
 - Curated capability entries: 23
 - Curated workflow entries: 14
 
+## Buccet Labels
+
+- `ACCEPT.WORKSPACE.*`: built-in Buccet workspace yes-side entries.
+- `ACCEPT.SAFE.LOCAL.EXEC.*`: built-in Buccet bounded local command entries.
+- `ACCEPT.BOUNDED.WEB.RESEARCH.*`: built-in Buccet bounded retrieval and research entries.
+- `ACCEPT.OPENCLAW.SKILL.*`: OpenClaw-derived yes-side entries carried inside the same Buccet acceptance pack.
+- `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.
+- `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.
+
 ## Read This
 
-Each row below shows the seeded acceptance ID and the plain-language description of what the rail opens.
+Every entry below uses the same fields:
 
-- If you want to know what the base pack allows, this is the inventory.
-- If you want to customize the pack, start here, then edit the ledger or replace the seeded pack.
-- These are lawful rails, not broad capability grants.
-- Generic shell access and generic outbound network access are still not part of the base acceptance pack.
+- `What it is`: the plain-language job this acceptance entry opens.
+- `Connects to`: the exact named target, provider/app corridor, or workspace path shape it connects to.
+- `Action kinds`: the allowed motion kinds on that entry.
+- `Bounds`: the shape limit of the entry. Deny still wins on overlap everywhere.
 
 Throughout this document, `<workspace-root>` means the workspace path the user explicitly opened into lawful scope.
 
-## Workspace Rails (5)
+## Workspace Entries (5)
 
-These are the base rails that materialize when a workspace is opened.
+### ACCEPT.WORKSPACE.READ.001
+What it is: Read motion inside opened workspace is lawful.
+Connects to: prefix corridor `<workspace-root>`.
+Action kinds: `fs.read`.
+Bounds: listed prefix corridor only; deny still wins on overlap.
 
-- `ACCEPT.WORKSPACE.READ.001`: Read motion inside `<workspace-root>` is lawful.
-  Target corridor: `<workspace-root>` prefix
-  Action kinds: `fs.read`
+### ACCEPT.WORKSPACE.MUTATION.002
+What it is: Scoped code and document mutation inside opened workspace is lawful.
+Connects to: prefix corridor `<workspace-root>`.
+Action kinds: `fs.write`, `fs.append`.
+Bounds: listed prefix corridor only; deny still wins on overlap.
 
-- `ACCEPT.WORKSPACE.MUTATION.002`: Scoped code and document mutation inside `<workspace-root>` is lawful.
-  Target corridor: `<workspace-root>` prefix
-  Action kinds: `fs.write`, `fs.append`
+### ACCEPT.LOCAL.ORGANIZATION.003
+What it is: Non-destructive organization inside opened workspace is lawful.
+Connects to: prefix corridor `<workspace-root>`.
+Action kinds: `fs.mkdir`, `fs.move`.
+Bounds: listed prefix corridor only; deny still wins on overlap.
 
-- `ACCEPT.LOCAL.ORGANIZATION.003`: Non-destructive organization inside `<workspace-root>` is lawful.
-  Target corridor: `<workspace-root>` prefix
-  Action kinds: `fs.mkdir`, `fs.move`
+### ACCEPT.INTERNAL.ARTIFACTS.004
+What it is: Reports and artifact outputs inside standard workspace output roots are lawful.
+Connects to: prefix corridor `<workspace-root>/outputs`; prefix corridor `<workspace-root>/reports`; prefix corridor `<workspace-root>/artifacts`.
+Action kinds: `fs.write`, `fs.append`.
+Bounds: listed prefix corridor only; deny still wins on overlap.
 
-- `ACCEPT.INTERNAL.ARTIFACTS.004`: Standard internal output roots under the workspace are lawful.
-  Target corridors:
-  `'<workspace-root>/outputs'`
-  `'<workspace-root>/reports'`
-  `'<workspace-root>/artifacts'`
-  Action kinds: `fs.write`, `fs.append`
+### ACCEPT.NOTES.TASKS.007
+What it is: Local notes, tasks, and Buccet workspace memory roots are lawful.
+Connects to: prefix corridor `<workspace-root>/.buccet`; prefix corridor `<workspace-root>/notes`; prefix corridor `<workspace-root>/tasks`; prefix corridor `<workspace-root>/memory`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.mkdir`, `fs.move`.
+Bounds: listed prefix corridor only; deny still wins on overlap.
 
-- `ACCEPT.NOTES.TASKS.007`: Local notes, tasks, memory, and Buccet workspace memory roots are lawful.
-  Target corridors:
-  `'<workspace-root>/.buccet'`
-  `'<workspace-root>/notes'`
-  `'<workspace-root>/tasks'`
-  `'<workspace-root>/memory'`
-  Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.mkdir`, `fs.move`
+## Safe Local Exec Entries (4)
 
-## Safe Local Exec Rails (4)
+### ACCEPT.SAFE.LOCAL.EXEC.005A
+What it is: Bounded local repository inspection commands are lawful.
+Connects to: exact Buccet target `git`; exact Buccet target `rg`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
 
-These rails allow bounded local developer/runtime commands. They do not open a broad shell rail.
+### ACCEPT.SAFE.LOCAL.EXEC.005B
+What it is: Bounded package-runner quality commands are lawful.
+Connects to: exact Buccet target `npm`; exact Buccet target `pnpm`; exact Buccet target `yarn`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.SAFE.LOCAL.EXEC.005A`: Bounded local repository inspection commands are lawful.
-  Tool targets: `git`, `rg`
-  Request text patterns:
-  `git status`
-  `git diff`
-  `git grep`
-  `git log`
-  `git show`
-  `git rev-parse`
-  `git branch`
-  `git ls-files`
-  `rg`
+### ACCEPT.SAFE.LOCAL.EXEC.005C
+What it is: Bounded test, lint, and typecheck tools are lawful.
+Connects to: exact Buccet target `pytest`; exact Buccet target `ruff`; exact Buccet target `mypy`; exact Buccet target `eslint`; exact Buccet target `prettier`; exact Buccet target `tsc`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.SAFE.LOCAL.EXEC.005B`: Bounded package-runner quality commands are lawful.
-  Tool targets: `npm`, `pnpm`, `yarn`
-  Request text patterns:
-  `npm test`
-  `npm lint`
-  `npm run test`
-  `npm run lint`
-  `npm run typecheck`
-  `npm run build`
-  `pnpm ...`
-  `yarn ...`
+### ACCEPT.SAFE.LOCAL.EXEC.005D
+What it is: Bounded native-toolchain quality commands are lawful.
+Connects to: exact Buccet target `cargo`; exact Buccet target `go`; exact Buccet target `make`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.SAFE.LOCAL.EXEC.005C`: Bounded test, lint, and typecheck tools are lawful.
-  Tool targets: `pytest`, `ruff`, `mypy`, `eslint`, `prettier`, `tsc`
-  Request text patterns:
-  `pytest`
-  `ruff check`
-  `ruff format`
-  `mypy`
-  `eslint`
-  `prettier`
-  `tsc`
+## Bounded Web Research Entries (3)
 
-- `ACCEPT.SAFE.LOCAL.EXEC.005D`: Bounded native-toolchain quality commands are lawful.
-  Tool targets: `cargo`, `go`, `make`
-  Request text patterns:
-  `cargo test`
-  `cargo check`
-  `cargo fmt`
-  `cargo clippy`
-  `go test`
-  `go fmt`
-  `go vet`
-  `make test`
-  `make lint`
-  `make build`
-  `make check`
+### ACCEPT.BOUNDED.WEB.RESEARCH.006A
+What it is: Bounded documentation and reference retrieval is lawful.
+Connects to: bounded host corridors `developer.mozilla.org`; bounded host corridors `docs.python.org`; bounded host corridors `docs.npmjs.com`; bounded host corridors `nodejs.org`; bounded host corridors `docs.rs`; bounded host corridors `pkg.go.dev`; bounded host corridors `www.typescriptlang.org`; bounded host corridors `developer.apple.com`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
 
-## Bounded Web Research Rails (3)
+### ACCEPT.BOUNDED.WEB.RESEARCH.006B
+What it is: Bounded source and repository retrieval is lawful.
+Connects to: bounded host corridors `github.com`; bounded host corridors `api.github.com`; bounded host corridors `raw.githubusercontent.com`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
 
-These rails allow bounded research and retrieval against explicit documentation, source, and search/fetch domains. They do not open broad outbound network egress.
+### ACCEPT.BOUNDED.WEB.RESEARCH.006C
+What it is: Bounded search and retrieval provider use is lawful.
+Connects to: bounded host corridors `duckduckgo.com`; bounded host corridors `search.brave.com`; bounded host corridors `exa.ai`; bounded host corridors `firecrawl.dev`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
 
-- `ACCEPT.BOUNDED.WEB.RESEARCH.006A`: Documentation and reference retrieval is lawful.
-  Target domain corridors:
-  `developer.mozilla.org`
-  `docs.python.org`
-  `docs.npmjs.com`
-  `nodejs.org`
-  `docs.rs`
-  `pkg.go.dev`
-  `www.typescriptlang.org`
-  `developer.apple.com`
-  Request text patterns:
-  `fetch`
-  `read`
-  `browse`
-  `lookup`
-  `docs`
-  `documentation`
-  `reference`
-  `manual`
-  `guide`
-  `api`
+## Bundled OpenClaw Skill Entries (51)
 
-- `ACCEPT.BOUNDED.WEB.RESEARCH.006B`: Source and repository retrieval is lawful.
-  Target domain corridors:
-  `github.com`
-  `api.github.com`
-  `raw.githubusercontent.com`
-  Request text patterns:
-  `fetch`
-  `read`
-  `browse`
-  `lookup`
-  `docs`
-  `documentation`
-  `reference`
-  `raw`
-  `source`
-  `repository`
-  `repo`
+### ACCEPT.OPENCLAW.SKILL.1002 — apple-notes
+What it is: local Apple Notes read and write motion.
+Connects to: exact Buccet target `apple-notes`.
+Action kinds: `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.BOUNDED.WEB.RESEARCH.006C`: Search and retrieval provider use is lawful.
-  Target domain corridors:
-  `duckduckgo.com`
-  `search.brave.com`
-  `exa.ai`
-  `firecrawl.dev`
-  Request text patterns:
-  `search`
-  `query`
-  `lookup`
-  `research`
-  `retrieve`
-  `crawl`
-  `browse`
+### ACCEPT.OPENCLAW.SKILL.1003 — apple-reminders
+What it is: reminders query and update motion.
+Connects to: exact Buccet target `apple-reminders`.
+Action kinds: `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
 
-## OpenClaw Skill Rails (108)
+### ACCEPT.OPENCLAW.SKILL.1004 — bear-notes
+What it is: Bear notes read and write motion.
+Connects to: exact Buccet target `bear-notes`.
+Action kinds: `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
 
-These rails are the explicit acceptance entries sourced from the OpenClaw skills surface. They are not a second engine. They are acceptance-side UPL rails inside the same live field.
+### ACCEPT.OPENCLAW.SKILL.1005 — blogwatcher
+What it is: blog/feed retrieval and note output.
+Connects to: exact Buccet target `blogwatcher`.
+Action kinds: `network.send`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
 
-The base pack only seeds OpenClaw rails that are truthful under the shipped denial constitution:
+### ACCEPT.OPENCLAW.SKILL.1006 — blucli
+What it is: bounded local CLI workflow motion.
+Connects to: exact Buccet target `blucli`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- credential-vault use is not part of the base acceptance pack
-- camera capture is not part of the base acceptance pack
-- channel skills are opened in their delivery shape, not as raw unrestricted network rails
-- obvious API-backed skills are opened on bounded target domains, not just by name alone
+### ACCEPT.OPENCLAW.SKILL.1007 — bluebubbles
+What it is: BlueBubbles message delivery motion.
+Connects to: exact Buccet target `bluebubbles`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.OPENCLAW.SKILL.1002`: `apple-notes` — named rail for local Apple Notes read and write motion.
-- `ACCEPT.OPENCLAW.SKILL.1003`: `apple-reminders` — named rail for reminders query and update motion.
-- `ACCEPT.OPENCLAW.SKILL.1004`: `bear-notes` — named rail for Bear notes read and write motion.
-- `ACCEPT.OPENCLAW.SKILL.1005`: `blogwatcher` — named rail for blog/feed retrieval and note output.
-- `ACCEPT.OPENCLAW.SKILL.1006`: `blucli` — named rail for bounded local CLI workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1007`: `bluebubbles` — named rail for BlueBubbles message delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1009`: `canvas` — named rail for canvas control and paired surface updates.
-- `ACCEPT.OPENCLAW.SKILL.1010`: `clawhub` — named rail for ClawHub network and workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1011`: `coding-agent` — named rail for local coding and file mutation work.
-- `ACCEPT.OPENCLAW.SKILL.1012`: `discord` — named rail for Discord delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1013`: `eightctl` — named rail for bounded controller CLI workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1014`: `gemini` — bounded rail for Gemini-backed retrieval or exchange motion.
-- `ACCEPT.OPENCLAW.SKILL.1015`: `gh-issues` — bounded rail for GitHub issue retrieval and update workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1016`: `gifgrep` — named rail for local media search and inspection motion.
-- `ACCEPT.OPENCLAW.SKILL.1017`: `github` — bounded rail for GitHub work item and repository workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1018`: `gog` — named rail for bounded tool and service workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1019`: `goplaces` — bounded rail for places lookup and result writing motion.
-- `ACCEPT.OPENCLAW.SKILL.1020`: `healthcheck` — named rail for bounded health and diagnostics checks.
-- `ACCEPT.OPENCLAW.SKILL.1021`: `himalaya` — named rail for mail-oriented communication workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1022`: `imsg` — named rail for iMessage delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1023`: `mcporter` — named rail for bounded local workflow and file motion.
-- `ACCEPT.OPENCLAW.SKILL.1024`: `model-usage` — named rail for model-usage note and ledger motion.
-- `ACCEPT.OPENCLAW.SKILL.1025`: `nano-pdf` — named rail for PDF retrieval and extraction output motion.
-- `ACCEPT.OPENCLAW.SKILL.1026`: `node-connect` — named rail for node connection and paired target motion.
-- `ACCEPT.OPENCLAW.SKILL.1027`: `notion` — bounded rail for Notion retrieval and update motion.
-- `ACCEPT.OPENCLAW.SKILL.1028`: `obsidian` — named rail for Obsidian vault read and write motion.
-- `ACCEPT.OPENCLAW.SKILL.1029`: `openai-whisper` — named rail for local transcription workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1030`: `openai-whisper-api` — bounded rail for API-backed transcription workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1031`: `openhue` — named rail for Hue device control motion.
-- `ACCEPT.OPENCLAW.SKILL.1032`: `oracle` — named rail for bounded oracle-style query and output motion.
-- `ACCEPT.OPENCLAW.SKILL.1033`: `ordercli` — named rail for bounded order/workflow CLI motion.
-- `ACCEPT.OPENCLAW.SKILL.1034`: `peekaboo` — named rail for bounded local inspection workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1035`: `sag` — named rail for bounded service and automation workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1036`: `session-logs` — named rail for local session log read and write motion.
-- `ACCEPT.OPENCLAW.SKILL.1037`: `sherpa-onnx-tts` — named rail for local text-to-speech workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1038`: `skill-creator` — named rail for local skill authoring workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1039`: `slack` — named rail for Slack delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1040`: `songsee` — named rail for song/media understanding workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1041`: `sonoscli` — named rail for Sonos device control motion.
-- `ACCEPT.OPENCLAW.SKILL.1042`: `spotify-player` — named rail for Spotify playback control motion.
-- `ACCEPT.OPENCLAW.SKILL.1043`: `summarize` — named rail for summarization read/write/output motion.
-- `ACCEPT.OPENCLAW.SKILL.1044`: `taskflow` — named rail for taskflow task-system motion.
-- `ACCEPT.OPENCLAW.SKILL.1045`: `taskflow-inbox-triage` — named rail for inbox triage task-system motion.
-- `ACCEPT.OPENCLAW.SKILL.1046`: `things-mac` — named rail for Things task-system motion.
-- `ACCEPT.OPENCLAW.SKILL.1047`: `tmux` — named rail for tmux session workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1048`: `trello` — bounded rail for Trello board and task motion.
-- `ACCEPT.OPENCLAW.SKILL.1049`: `video-frames` — named rail for video frame extraction workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1050`: `voice-call` — named rail for voice-call delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1051`: `wacli` — named rail for WhatsApp CLI delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1052`: `weather` — bounded rail for weather retrieval and output motion.
-- `ACCEPT.OPENCLAW.SKILL.1053`: `xurl` — bounded rail for fetch and retrieval motion.
+### ACCEPT.OPENCLAW.SKILL.1009 — canvas
+What it is: canvas control and paired surface updates.
+Connects to: exact Buccet target `canvas`.
+Action kinds: `tool.exec`, `sys.config.read`, `sys.config.write`.
+Bounds: exact named target only; deny still wins on overlap.
 
-### Awesome OpenClaw Skill Rails (57)
+### ACCEPT.OPENCLAW.SKILL.1010 — clawhub
+What it is: ClawHub network and workflow motion.
+Connects to: exact Buccet target `clawhub`.
+Action kinds: `network.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.OPENCLAW.SKILL.1054`: `agent-mail` — named rail for AI inbox read, draft, and delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1055`: `agent-mail-cli` — named rail for CLI-backed agent inbox read, draft, and delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1056`: `apple-mail-search-safe` — named rail for safe Apple Mail lookup and body search motion.
-- `ACCEPT.OPENCLAW.SKILL.1057`: `beeper` — named rail for Beeper history search and browse motion.
-- `ACCEPT.OPENCLAW.SKILL.1058`: `rocketchat` — named rail for Rocket.Chat channel delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1059`: `sixel-email` — named rail for bounded one-to-one email delivery motion.
-- `ACCEPT.OPENCLAW.SKILL.1060`: `apple-calendar` — named rail for Apple Calendar query and event update motion.
-- `ACCEPT.OPENCLAW.SKILL.1061`: `google-calendar` — bounded rail for Google Calendar query and event update motion.
-- `ACCEPT.OPENCLAW.SKILL.1062`: `gcal-pro` — bounded rail for Google Calendar CLI scheduling motion.
-- `ACCEPT.OPENCLAW.SKILL.1063`: `ms-todo-oauth` — bounded rail for Microsoft To Do task query and update motion.
-- `ACCEPT.OPENCLAW.SKILL.1064`: `task-sync` — named rail for task synchronization and mirrored task updates.
-- `ACCEPT.OPENCLAW.SKILL.1065`: `asana` — bounded rail for Asana project and task workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1066`: `atlassian-mcp` — bounded rail for Atlassian task, issue, and page workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1067`: `notes-reminders` — named rail for quick notes and reminder update motion.
-- `ACCEPT.OPENCLAW.SKILL.1068`: `apple-contacts` — named rail for Apple Contacts lookup motion.
-- `ACCEPT.OPENCLAW.SKILL.1069`: `drafts` — named rail for Drafts note read and update motion.
-- `ACCEPT.OPENCLAW.SKILL.1070`: `craft` — named rail for Craft note and document motion.
-- `ACCEPT.OPENCLAW.SKILL.1071`: `craft-do` — bounded rail for Craft.do document and workspace motion.
-- `ACCEPT.OPENCLAW.SKILL.1072`: `bookstack` — named rail for BookStack wiki and documentation workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1073`: `better-notion` — bounded rail for richer Notion page and database motion.
-- `ACCEPT.OPENCLAW.SKILL.1074`: `google-keep` — named rail for Google Keep note and list workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1075`: `joplin-api` — named rail for Joplin note and notebook workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1076`: `book-reader` — named rail for local book and document reading motion.
-- `ACCEPT.OPENCLAW.SKILL.1077`: `archive-daily-note` — named rail for Obsidian daily note archive motion.
-- `ACCEPT.OPENCLAW.SKILL.1078`: `office-document-editor` — named rail for tracked-change office document editing motion.
-- `ACCEPT.OPENCLAW.SKILL.1079`: `academic-deep-research` — bounded rail for academic-source retrieval and research note output.
-- `ACCEPT.OPENCLAW.SKILL.1080`: `agent-deep-research` — bounded rail for deep research retrieval and synthesis motion.
-- `ACCEPT.OPENCLAW.SKILL.1081`: `agentic-paper-digest` — bounded rail for paper digest retrieval and summary motion.
-- `ACCEPT.OPENCLAW.SKILL.1082`: `arxiv-search-collector` — bounded rail for arXiv retrieval and citation-set building motion.
-- `ACCEPT.OPENCLAW.SKILL.1083`: `openclaw-free-web-search` — bounded rail for search and retrieval provider motion.
-- `ACCEPT.OPENCLAW.SKILL.1084`: `feed-to-md` — named rail for RSS and Atom retrieval into Markdown output motion.
-- `ACCEPT.OPENCLAW.SKILL.1085`: `ffcli` — named rail for Fireflies meeting retrieval and note output motion.
-- `ACCEPT.OPENCLAW.SKILL.1086`: `deepwiki` — bounded rail for DeepWiki and GitHub documentation retrieval motion.
-- `ACCEPT.OPENCLAW.SKILL.1087`: `gh-extract` — bounded rail for GitHub content extraction motion.
-- `ACCEPT.OPENCLAW.SKILL.1088`: `intomd` — bounded rail for documentation-to-Markdown retrieval motion.
-- `ACCEPT.OPENCLAW.SKILL.1089`: `markdown-converter` — named rail for document-to-Markdown conversion motion.
-- `ACCEPT.OPENCLAW.SKILL.1090`: `truthcheck` — named rail for claim verification and fact-check workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1091`: `image-ocr` — named rail for OCR extraction from local image inputs.
-- `ACCEPT.OPENCLAW.SKILL.1092`: `links-to-pdfs` — bounded rail for document scraping and PDF retrieval motion.
-- `ACCEPT.OPENCLAW.SKILL.1093`: `confluence` — bounded rail for Confluence page and space workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1094`: `google-docs-skill` — bounded rail for Google Docs document workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1095`: `sharepoint-by-altf1be` — bounded rail for SharePoint file and document intelligence motion.
-- `ACCEPT.OPENCLAW.SKILL.1096`: `audio-transcribe` — named rail for local voice-message transcription motion.
-- `ACCEPT.OPENCLAW.SKILL.1097`: `faster-whisper` — named rail for local faster-whisper transcription motion.
-- `ACCEPT.OPENCLAW.SKILL.1098`: `kokoro-tts` — named rail for local Kokoro text-to-speech motion.
-- `ACCEPT.OPENCLAW.SKILL.1099`: `local-vosk` — named rail for local Vosk speech-to-text motion.
-- `ACCEPT.OPENCLAW.SKILL.1100`: `local-voice` — named rail for local TTS/STT voice pipeline motion.
-- `ACCEPT.OPENCLAW.SKILL.1101`: `elevenlabs-tts` — bounded rail for ElevenLabs text-to-speech motion.
-- `ACCEPT.OPENCLAW.SKILL.1102`: `mac-tts` — named rail for macOS built-in text-to-speech motion.
-- `ACCEPT.OPENCLAW.SKILL.1103`: `say` — named rail for Siri-voice macOS speech output motion.
-- `ACCEPT.OPENCLAW.SKILL.1104`: `apple-media` — named rail for Apple media-device control motion.
-- `ACCEPT.OPENCLAW.SKILL.1105`: `agent-team-orchestration` — named rail for agent handoff, coordination, and workflow note motion.
-- `ACCEPT.OPENCLAW.SKILL.1106`: `azure-devops` — bounded rail for Azure DevOps repository and work-item workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1107`: `bitbucket-automation` — bounded rail for Bitbucket repository and pull-request workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1108`: `filesystem` — named rail for advanced workspace file listing, search, and batch motion.
-- `ACCEPT.OPENCLAW.SKILL.1109`: `docsync` — named rail for docs generation and drift-check workflow motion.
-- `ACCEPT.OPENCLAW.SKILL.1110`: `read-optimizer` — named rail for bounded repository reading strategy motion.
+### ACCEPT.OPENCLAW.SKILL.1011 — coding-agent
+What it is: local coding and file mutation work.
+Connects to: exact Buccet target `coding-agent`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `fs.mkdir`, `fs.move`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1012 — discord
+What it is: Discord delivery motion.
+Connects to: exact Buccet target `discord`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1013 — eightctl
+What it is: bounded controller CLI workflow motion.
+Connects to: exact Buccet target `eightctl`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1014 — gemini
+What it is: Gemini-backed retrieval or exchange motion.
+Connects to: bounded host corridors `generativelanguage.googleapis.com`; bounded host corridors `ai.google.dev`.
+Action kinds: `network.send`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1015 — gh-issues
+What it is: GitHub issue retrieval and update workflow motion.
+Connects to: bounded host corridors `github.com`; bounded host corridors `api.github.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1016 — gifgrep
+What it is: local media search and inspection motion.
+Connects to: exact Buccet target `gifgrep`.
+Action kinds: `tool.exec`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1017 — github
+What it is: GitHub work item and repository workflow motion.
+Connects to: bounded host corridors `github.com`; bounded host corridors `api.github.com`; bounded host corridors `raw.githubusercontent.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1018 — gog
+What it is: bounded tool and service workflow motion.
+Connects to: exact Buccet target `gog`.
+Action kinds: `tool.exec`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1019 — goplaces
+What it is: places lookup and result writing motion.
+Connects to: bounded host corridors `places.googleapis.com`; bounded host corridors `maps.googleapis.com`.
+Action kinds: `network.send`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1020 — healthcheck
+What it is: bounded health and diagnostics checks.
+Connects to: exact Buccet target `healthcheck`.
+Action kinds: `tool.exec`, `network.send`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1021 — himalaya
+What it is: mail-oriented communication workflow motion.
+Connects to: exact Buccet target `himalaya`.
+Action kinds: `comm.send`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1022 — imsg
+What it is: iMessage delivery motion.
+Connects to: exact Buccet target `imsg`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1023 — mcporter
+What it is: bounded local workflow and file motion.
+Connects to: exact Buccet target `mcporter`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1024 — model-usage
+What it is: model-usage note and ledger motion.
+Connects to: exact Buccet target `model-usage`.
+Action kinds: `fs.read`, `fs.write`, `db.query`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1025 — nano-pdf
+What it is: PDF retrieval and extraction output motion.
+Connects to: exact Buccet target `nano-pdf`.
+Action kinds: `fs.read`, `fs.write`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1026 — node-connect
+What it is: node connection and paired target motion.
+Connects to: exact Buccet target `node-connect`.
+Action kinds: `tool.exec`, `network.send`, `sys.config.read`, `sys.config.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1027 — notion
+What it is: Notion retrieval and update motion.
+Connects to: bounded host corridors `notion.so`; bounded host corridors `api.notion.com`; exact target `notion`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1028 — obsidian
+What it is: Obsidian vault read and write motion.
+Connects to: exact Buccet target `obsidian`.
+Action kinds: `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1029 — openai-whisper
+What it is: local transcription workflow motion.
+Connects to: exact Buccet target `openai-whisper`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1030 — openai-whisper-api
+What it is: API-backed transcription workflow motion.
+Connects to: bounded host corridors `api.openai.com`; exact target `openai-whisper-api`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1031 — openhue
+What it is: Hue device control motion.
+Connects to: exact Buccet target `openhue`.
+Action kinds: `network.send`, `sys.config.read`, `sys.config.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1032 — oracle
+What it is: bounded oracle-style query and output motion.
+Connects to: exact Buccet target `oracle`.
+Action kinds: `network.send`, `chat.emit`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1033 — ordercli
+What it is: bounded order/workflow CLI motion.
+Connects to: exact Buccet target `ordercli`.
+Action kinds: `tool.exec`, `network.send`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1034 — peekaboo
+What it is: bounded local inspection workflow motion.
+Connects to: exact Buccet target `peekaboo`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1035 — sag
+What it is: bounded service and automation workflow motion.
+Connects to: exact Buccet target `sag`.
+Action kinds: `network.send`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1036 — session-logs
+What it is: local session log read and write motion.
+Connects to: exact Buccet target `session-logs`.
+Action kinds: `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1037 — sherpa-onnx-tts
+What it is: local text-to-speech workflow motion.
+Connects to: exact Buccet target `sherpa-onnx-tts`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1038 — skill-creator
+What it is: local skill authoring workflow motion.
+Connects to: exact Buccet target `skill-creator`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1039 — slack
+What it is: Slack delivery motion.
+Connects to: exact Buccet target `slack`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1040 — songsee
+What it is: song/media understanding workflow motion.
+Connects to: exact Buccet target `songsee`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1041 — sonoscli
+What it is: Sonos device control motion.
+Connects to: exact Buccet target `sonoscli`.
+Action kinds: `tool.exec`, `network.send`, `sys.config.read`, `sys.config.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1042 — spotify-player
+What it is: Spotify playback control motion.
+Connects to: exact Buccet target `spotify-player`.
+Action kinds: `tool.exec`, `network.send`, `sys.config.read`, `sys.config.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1043 — summarize
+What it is: summarization read/write/output motion.
+Connects to: exact Buccet target `summarize`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1044 — taskflow
+What it is: taskflow task-system motion.
+Connects to: exact Buccet target `taskflow`.
+Action kinds: `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1045 — taskflow-inbox-triage
+What it is: inbox triage task-system motion.
+Connects to: exact Buccet target `taskflow-inbox-triage`.
+Action kinds: `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1046 — things-mac
+What it is: Things task-system motion.
+Connects to: exact Buccet target `things-mac`.
+Action kinds: `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1047 — tmux
+What it is: tmux session workflow motion.
+Connects to: exact Buccet target `tmux`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1048 — trello
+What it is: Trello board and task motion.
+Connects to: bounded host corridors `trello.com`; exact target `trello`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1049 — video-frames
+What it is: video frame extraction workflow motion.
+Connects to: exact Buccet target `video-frames`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1050 — voice-call
+What it is: voice-call delivery motion.
+Connects to: exact Buccet target `voice-call`.
+Action kinds: `comm.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1051 — wacli
+What it is: WhatsApp CLI delivery motion.
+Connects to: exact Buccet target `wacli`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1052 — weather
+What it is: weather retrieval and output motion.
+Connects to: bounded host corridors `weather.gov`; bounded host corridors `api.openweathermap`; exact target `weather`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1053 — xurl
+What it is: fetch and retrieval motion.
+Connects to: bounded host corridors `developer.mozilla.org`; bounded host corridors `docs.python.org`; bounded host corridors `docs.npmjs.com`; bounded host corridors `nodejs.org`; bounded host corridors `docs.rs`; bounded host corridors `pkg.go.dev`; bounded host corridors `www.typescriptlang.org`; bounded host corridors `developer.apple.com`; bounded host corridors `github.com`; bounded host corridors `api.github.com`; bounded host corridors `raw.githubusercontent.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+## Awesome OpenClaw Skill Entries (57)
+
+### ACCEPT.OPENCLAW.SKILL.1054 — agent-mail
+What it is: AI inbox read, draft, and delivery motion.
+Connects to: exact Buccet target `agent-mail`.
+Action kinds: `comm.send`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1055 — agent-mail-cli
+What it is: CLI-backed agent inbox read, draft, and delivery motion.
+Connects to: exact Buccet target `agent-mail-cli`.
+Action kinds: `comm.send`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1056 — apple-mail-search-safe
+What it is: safe Apple Mail lookup and body search motion.
+Connects to: exact Buccet target `apple-mail-search-safe`.
+Action kinds: `db.query`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1057 — beeper
+What it is: Beeper history search and browse motion.
+Connects to: exact Buccet target `beeper`.
+Action kinds: `db.query`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1058 — rocketchat
+What it is: Rocket.Chat channel delivery motion.
+Connects to: exact Buccet target `rocketchat`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1059 — sixel-email
+What it is: bounded one-to-one email delivery motion.
+Connects to: exact Buccet target `sixel-email`.
+Action kinds: `comm.send`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1060 — apple-calendar
+What it is: Apple Calendar query and event update motion.
+Connects to: exact Buccet target `apple-calendar`.
+Action kinds: `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1061 — google-calendar
+What it is: Google Calendar query and event update motion.
+Connects to: bounded host corridors `calendar.googleapis.com`; bounded host corridors `www.googleapis.com`; bounded host corridors `calendar.google.com`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1062 — gcal-pro
+What it is: Google Calendar CLI scheduling motion.
+Connects to: bounded host corridors `calendar.googleapis.com`; bounded host corridors `www.googleapis.com`; bounded host corridors `calendar.google.com`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1063 — ms-todo-oauth
+What it is: Microsoft To Do task query and update motion.
+Connects to: bounded host corridors `graph.microsoft.com`; bounded host corridors `login.microsoftonline.com`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1064 — task-sync
+What it is: task synchronization and mirrored task updates.
+Connects to: exact Buccet target `task-sync`.
+Action kinds: `tool.exec`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1065 — asana
+What it is: Asana project and task workflow motion.
+Connects to: bounded host corridors `app.asana.com`; bounded host corridors `api.asana.com`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1066 — atlassian-mcp
+What it is: Atlassian task, issue, and page workflow motion.
+Connects to: bounded host corridors `api.atlassian.com`; bounded host corridors `atlassian.net`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1067 — notes-reminders
+What it is: quick notes and reminder update motion.
+Connects to: exact Buccet target `notes-reminders`.
+Action kinds: `fs.read`, `fs.write`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1068 — apple-contacts
+What it is: Apple Contacts lookup motion.
+Connects to: exact Buccet target `apple-contacts`.
+Action kinds: `db.query`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1069 — drafts
+What it is: Drafts note read and update motion.
+Connects to: exact Buccet target `drafts`.
+Action kinds: `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1070 — craft
+What it is: Craft note and document motion.
+Connects to: exact Buccet target `craft`.
+Action kinds: `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1071 — craft-do
+What it is: Craft.do document and workspace motion.
+Connects to: bounded host corridors `craft.do`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1072 — bookstack
+What it is: BookStack wiki and documentation workflow motion.
+Connects to: exact Buccet target `bookstack`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1073 — better-notion
+What it is: richer Notion page and database motion.
+Connects to: bounded host corridors `notion.so`; bounded host corridors `api.notion.com`; exact target `better-notion`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1074 — google-keep
+What it is: Google Keep note and list workflow motion.
+Connects to: exact Buccet target `google-keep`.
+Action kinds: `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1075 — joplin-api
+What it is: Joplin note and notebook workflow motion.
+Connects to: exact Buccet target `joplin-api`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1076 — book-reader
+What it is: local book and document reading motion.
+Connects to: exact Buccet target `book-reader`.
+Action kinds: `fs.read`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1077 — archive-daily-note
+What it is: Obsidian daily note archive motion.
+Connects to: exact Buccet target `archive-daily-note`.
+Action kinds: `fs.read`, `fs.write`, `fs.move`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1078 — office-document-editor
+What it is: tracked-change office document editing motion.
+Connects to: exact Buccet target `office-document-editor`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1079 — academic-deep-research
+What it is: academic-source retrieval and research note output.
+Connects to: bounded host corridors `arxiv.org`; bounded host corridors `export.arxiv.org`; bounded host corridors `api.semanticscholar.org`; bounded host corridors `api.crossref.org`; bounded host corridors `api.openalex.org`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1080 — agent-deep-research
+What it is: deep research retrieval and synthesis motion.
+Connects to: bounded host corridors `arxiv.org`; bounded host corridors `export.arxiv.org`; bounded host corridors `api.semanticscholar.org`; bounded host corridors `api.crossref.org`; bounded host corridors `api.openalex.org`; bounded host corridors `generativelanguage.googleapis.com`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1081 — agentic-paper-digest
+What it is: paper digest retrieval and summary motion.
+Connects to: bounded host corridors `arxiv.org`; bounded host corridors `export.arxiv.org`; bounded host corridors `huggingface.co`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1082 — arxiv-search-collector
+What it is: arXiv retrieval and citation-set building motion.
+Connects to: bounded host corridors `arxiv.org`; bounded host corridors `export.arxiv.org`; bounded host corridors `api.crossref.org`.
+Action kinds: `network.send`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1083 — openclaw-free-web-search
+What it is: search and retrieval provider motion.
+Connects to: bounded host corridors `duckduckgo.com`; bounded host corridors `search.brave.com`; bounded host corridors `exa.ai`; bounded host corridors `firecrawl.dev`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1084 — feed-to-md
+What it is: RSS and Atom retrieval into Markdown output motion.
+Connects to: exact Buccet target `feed-to-md`.
+Action kinds: `tool.exec`, `network.send`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1085 — ffcli
+What it is: Fireflies meeting retrieval and note output motion.
+Connects to: exact Buccet target `ffcli`.
+Action kinds: `network.send`, `db.query`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1086 — deepwiki
+What it is: DeepWiki and GitHub documentation retrieval motion.
+Connects to: bounded host corridors `deepwiki.com`; bounded host corridors `github.com`; bounded host corridors `api.github.com`; bounded host corridors `raw.githubusercontent.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1087 — gh-extract
+What it is: GitHub content extraction motion.
+Connects to: bounded host corridors `github.com`; bounded host corridors `api.github.com`; bounded host corridors `raw.githubusercontent.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1088 — intomd
+What it is: documentation-to-Markdown retrieval motion.
+Connects to: bounded host corridors `into.md`.
+Action kinds: `network.send`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1089 — markdown-converter
+What it is: document-to-Markdown conversion motion.
+Connects to: exact Buccet target `markdown-converter`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1090 — truthcheck
+What it is: claim verification and fact-check workflow motion.
+Connects to: exact Buccet target `truthcheck`.
+Action kinds: `network.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1091 — image-ocr
+What it is: OCR extraction from local image inputs.
+Connects to: exact Buccet target `image-ocr`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1092 — links-to-pdfs
+What it is: document scraping and PDF retrieval motion.
+Connects to: bounded host corridors `notion.so`; bounded host corridors `docsend.com`; bounded regex corridor `/\.pdf(?:$|[?#])/i`.
+Action kinds: `network.send`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1093 — confluence
+What it is: Confluence page and space workflow motion.
+Connects to: bounded host corridors `api.atlassian.com`; bounded host corridors `atlassian.net`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1094 — google-docs-skill
+What it is: Google Docs document workflow motion.
+Connects to: bounded host corridors `docs.googleapis.com`; bounded host corridors `www.googleapis.com`; bounded host corridors `docs.google.com`; bounded host corridors `drive.googleapis.com`.
+Action kinds: `network.send`, `db.query`, `db.insert`, `db.update`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1095 — sharepoint-by-altf1be
+What it is: SharePoint file and document intelligence motion.
+Connects to: bounded host corridors `graph.microsoft.com`; bounded host corridors `sharepoint.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `db.query`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1096 — audio-transcribe
+What it is: local voice-message transcription motion.
+Connects to: exact Buccet target `audio-transcribe`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1097 — faster-whisper
+What it is: local faster-whisper transcription motion.
+Connects to: exact Buccet target `faster-whisper`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1098 — kokoro-tts
+What it is: local Kokoro text-to-speech motion.
+Connects to: exact Buccet target `kokoro-tts`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1099 — local-vosk
+What it is: local Vosk speech-to-text motion.
+Connects to: exact Buccet target `local-vosk`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1100 — local-voice
+What it is: local TTS/STT voice pipeline motion.
+Connects to: exact Buccet target `local-voice`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1101 — elevenlabs-tts
+What it is: ElevenLabs text-to-speech motion.
+Connects to: bounded host corridors `api.elevenlabs.io`; bounded host corridors `elevenlabs.io`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1102 — mac-tts
+What it is: macOS built-in text-to-speech motion.
+Connects to: exact Buccet target `mac-tts`.
+Action kinds: `tool.exec`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1103 — say
+What it is: Siri-voice macOS speech output motion.
+Connects to: exact Buccet target `say`.
+Action kinds: `tool.exec`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1104 — apple-media
+What it is: Apple media-device control motion.
+Connects to: exact Buccet target `apple-media`.
+Action kinds: `network.send`, `sys.config.read`, `sys.config.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1105 — agent-team-orchestration
+What it is: agent handoff, coordination, and workflow note motion.
+Connects to: exact Buccet target `agent-team-orchestration`.
+Action kinds: `chat.emit`, `comm.send`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1106 — azure-devops
+What it is: Azure DevOps repository and work-item workflow motion.
+Connects to: bounded host corridors `dev.azure.com`; bounded host corridors `visualstudio.com`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1107 — bitbucket-automation
+What it is: Bitbucket repository and pull-request workflow motion.
+Connects to: bounded host corridors `bitbucket.org`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1108 — filesystem
+What it is: advanced workspace file listing, search, and batch motion.
+Connects to: exact Buccet target `filesystem`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.mkdir`, `fs.move`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1109 — docsync
+What it is: docs generation and drift-check workflow motion.
+Connects to: exact Buccet target `docsync`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1110 — read-optimizer
+What it is: bounded repository reading strategy motion.
+Connects to: exact Buccet target `read-optimizer`.
+Action kinds: `tool.exec`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
 
 ## Curated Capability Entries (23)
 
-These are the local "List V" capability extractions turned into acceptance-side UPL entries.
+### ACCEPT.CURATED.CAPABILITY.2001 — docx
+What it is: Word document creation, editing, and tracked-change workflow motion.
+Connects to: exact Buccet target `docx`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
 
-- `ACCEPT.CURATED.CAPABILITY.2001`: `docx` — named rail for Word document creation, editing, and tracked-change workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2002`: `pptx` — named rail for slide deck creation, editing, and speaker-note workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2003`: `xlsx` — named rail for spreadsheet analysis, formula, and chart workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2004`: `doc-coauthoring` — named rail for collaborative drafting, revision, and coauthoring workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2005`: `frontend-design` — named rail for frontend design-system and visual component workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2006`: `canvas-design` — named rail for social graphic, poster, and canvas output workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2007`: `theme-factory` — named rail for theme and color-system generation workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2008`: `web-artifacts-builder` — named rail for calculators, dashboards, and interactive artifact workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2009`: `superpowers` — named rail for structured coding, planning, and execution workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2010`: `systematic-debugging` — named rail for root-cause debugging and fix-validation workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2011`: `file-search` — named rail for bounded file search, symbol search, and content retrieval motion.
-- `ACCEPT.CURATED.CAPABILITY.2012`: `context-optimization` — named rail for context shaping, summarization, and token-efficiency workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2013`: `notebooklm-integration` — named rail for notebook-backed study, synthesis, and source-grounded note workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2014`: `excel-mcp-server` — named rail for spreadsheet manipulation and report workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2015`: `tavily` — named rail for structured web search, extract, and crawl workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2016`: `context7` — named rail for live library-documentation retrieval workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2017`: `task-master-ai` — named rail for project-task decomposition and dependency workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2018`: `gpt-researcher` — named rail for autonomous research compilation and report workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2019`: `codebase-memory-mcp` — named rail for persistent codebase memory and knowledge-graph workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2020`: `mcp-playwright` — named rail for bounded browser automation and page-interaction workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2021`: `markdownify-mcp` — named rail for PDF, image, and audio to Markdown conversion workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2022`: `brand-guidelines` — named rail for brand-rule application and style-consistent output workflow motion.
-- `ACCEPT.CURATED.CAPABILITY.2023`: `claude-seo` — named rail for SEO audit, schema, and site-content improvement workflow motion.
+### ACCEPT.CURATED.CAPABILITY.2002 — pptx
+What it is: slide deck creation, editing, and speaker-note workflow motion.
+Connects to: exact Buccet target `pptx`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2003 — xlsx
+What it is: spreadsheet analysis, formula, and chart workflow motion.
+Connects to: exact Buccet target `xlsx`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2004 — doc-coauthoring
+What it is: collaborative drafting, revision, and coauthoring workflow motion.
+Connects to: exact Buccet target `doc-coauthoring`.
+Action kinds: `chat.emit`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2005 — frontend-design
+What it is: frontend design-system and visual component workflow motion.
+Connects to: exact Buccet target `frontend-design`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2006 — canvas-design
+What it is: social graphic, poster, and canvas output workflow motion.
+Connects to: exact Buccet target `canvas-design`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2007 — theme-factory
+What it is: theme and color-system generation workflow motion.
+Connects to: exact Buccet target `theme-factory`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2008 — web-artifacts-builder
+What it is: calculators, dashboards, and interactive artifact workflow motion.
+Connects to: exact Buccet target `web-artifacts-builder`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2009 — superpowers
+What it is: structured coding, planning, and execution workflow motion.
+Connects to: exact Buccet target `superpowers`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2010 — systematic-debugging
+What it is: root-cause debugging and fix-validation workflow motion.
+Connects to: exact Buccet target `systematic-debugging`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2011 — file-search
+What it is: bounded file search, symbol search, and content retrieval motion.
+Connects to: exact Buccet target `file-search`.
+Action kinds: `tool.exec`, `fs.read`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2012 — context-optimization
+What it is: context shaping, summarization, and token-efficiency workflow motion.
+Connects to: exact Buccet target `context-optimization`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2013 — notebooklm-integration
+What it is: notebook-backed study, synthesis, and source-grounded note workflow motion.
+Connects to: exact Buccet target `notebooklm-integration`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2014 — excel-mcp-server
+What it is: spreadsheet manipulation and report workflow motion.
+Connects to: exact Buccet target `excel-mcp-server`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2015 — tavily
+What it is: structured web search, extract, and crawl workflow motion.
+Connects to: exact Buccet target `tavily`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2016 — context7
+What it is: live library-documentation retrieval workflow motion.
+Connects to: exact Buccet target `context7`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2017 — task-master-ai
+What it is: project-task decomposition and dependency workflow motion.
+Connects to: exact Buccet target `task-master-ai`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2018 — gpt-researcher
+What it is: autonomous research compilation and report workflow motion.
+Connects to: exact Buccet target `gpt-researcher`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2019 — codebase-memory-mcp
+What it is: persistent codebase memory and knowledge-graph workflow motion.
+Connects to: exact Buccet target `codebase-memory-mcp`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2020 — mcp-playwright
+What it is: bounded browser automation and page-interaction workflow motion.
+Connects to: exact Buccet target `mcp-playwright`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2021 — markdownify-mcp
+What it is: PDF, image, and audio to Markdown conversion workflow motion.
+Connects to: exact Buccet target `markdownify-mcp`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2022 — brand-guidelines
+What it is: brand-rule application and style-consistent output workflow motion.
+Connects to: exact Buccet target `brand-guidelines`.
+Action kinds: `chat.emit`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2023 — claude-seo
+What it is: SEO audit, schema, and site-content improvement workflow motion.
+Connects to: exact Buccet target `claude-seo`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
 
 ## Curated Workflow Entries (14)
 
-These are the workflow-shaped companions to the curated capability entries. They make the yes-side read more like real work and less like tool names.
+### ACCEPT.CURATED.WORKFLOW.2101 — docx-workflow
+What it is: bounded workspace Word-document workflow motion.
+Connects to: workspace files ending in `.docx`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
 
-- `ACCEPT.CURATED.WORKFLOW.2101`: `docx-workflow` — bounded workspace Word-document workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2102`: `pptx-workflow` — bounded workspace slide-deck workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2103`: `xlsx-workflow` — bounded workspace spreadsheet and table workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2104`: `doc-coauthoring-workflow` — bounded collaborative drafting and revision workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2105`: `frontend-design-workflow` — bounded frontend design-system and UI artifact workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2106`: `canvas-design-workflow` — bounded poster, social graphic, and visual export workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2107`: `theme-factory-workflow` — bounded theme and color-system file workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2108`: `web-artifacts-builder-workflow` — bounded calculators, dashboards, and interactive artifact file workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2109`: `excel-mcp-workflow` — bounded spreadsheet workbook and report workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2110`: `tavily-workflow` — bounded Tavily search, extract, and crawl provider motion.
-- `ACCEPT.CURATED.WORKFLOW.2111`: `notebooklm-workflow` — bounded NotebookLM study and synthesis provider motion.
-- `ACCEPT.CURATED.WORKFLOW.2112`: `markdownify-workflow` — bounded document, image, and audio conversion workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2113`: `brand-and-seo-workflow` — bounded brand, copy, and site-content workflow motion.
-- `ACCEPT.CURATED.WORKFLOW.2114`: `browser-artifact-workflow` — bounded browser screenshot, page export, and trace artifact workflow motion.
+### ACCEPT.CURATED.WORKFLOW.2102 — pptx-workflow
+What it is: bounded workspace slide-deck workflow motion.
+Connects to: workspace files ending in `.pptx`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2103 — xlsx-workflow
+What it is: bounded workspace spreadsheet and table workflow motion.
+Connects to: workspace files ending in `.xlsx`, `.xls`, `.csv`, `.tsv`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2104 — doc-coauthoring-workflow
+What it is: bounded collaborative drafting and revision workflow motion.
+Connects to: workspace files ending in `.md`, `.txt`, `.docx`.
+Action kinds: `chat.emit`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2105 — frontend-design-workflow
+What it is: bounded frontend design-system and UI artifact workflow motion.
+Connects to: workspace files ending in `.html`, `.css`, `.scss`, `.js`, `.jsx`, `.ts`, `.tsx`, `.svg`, `.json`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2106 — canvas-design-workflow
+What it is: bounded poster, social graphic, and visual export workflow motion.
+Connects to: workspace files ending in `.png`, `.jpg`, `.jpeg`, `.webp`, `.svg`, `.pdf`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2107 — theme-factory-workflow
+What it is: bounded theme and color-system file workflow motion.
+Connects to: workspace files ending in `.css`, `.scss`, `.less`, `.json`, `.yaml`, `.yml`, `.toml`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2108 — web-artifacts-builder-workflow
+What it is: bounded calculators, dashboards, and interactive artifact file workflow motion.
+Connects to: workspace files ending in `.html`, `.css`, `.js`, `.ts`, `.tsx`, `.json`, `.md`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2109 — excel-mcp-workflow
+What it is: bounded spreadsheet workbook and report workflow motion.
+Connects to: workspace files ending in `.xlsx`, `.xls`, `.csv`, `.tsv`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2110 — tavily-workflow
+What it is: bounded Tavily search, extract, and crawl provider motion.
+Connects to: bounded host corridors `tavily.com`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2111 — notebooklm-workflow
+What it is: bounded NotebookLM study and synthesis provider motion.
+Connects to: bounded host corridors `notebooklm.google.com`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2112 — markdownify-workflow
+What it is: bounded document, image, and audio conversion workflow motion.
+Connects to: workspace files ending in `.pdf`, `.png`, `.jpg`, `.jpeg`, `.webp`, `.mp3`, `.wav`, `.m4a`, `.mp4`, `.mov`, `.mkv`, `.md`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2113 — brand-and-seo-workflow
+What it is: bounded brand, copy, and site-content workflow motion.
+Connects to: workspace files ending in `.md`, `.txt`, `.html`, `.xml`, `.json`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2114 — browser-artifact-workflow
+What it is: bounded browser screenshot, page export, and trace artifact workflow motion.
+Connects to: workspace files ending in `.png`, `.jpg`, `.jpeg`, `.webp`, `.pdf`, `.html`, `.json`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
 
 ## Important Limits
 
-The base acceptance pack is intentionally narrow.
+- The base acceptance pack does not create a broad shell entry.
+- The base acceptance pack does not create a broad outbound network entry.
+- The base acceptance pack does not open delete.
+- The base acceptance pack does not open secret roots.
+- The base acceptance pack does not override the denial constitution.
 
-- It does not create a broad shell rail.
-- It does not create a broad outbound network rail.
-- It does not open delete.
-- It does not open secret roots.
-- It does not override the denial constitution.
-
-At runtime, these rails enter the same live UPL field as denial walls. If an acceptance rail overlaps a denial wall, deny wins.
+At runtime, these entries enter the same live UPL field as denial walls. If an acceptance entry overlaps a denial wall, deny wins.
