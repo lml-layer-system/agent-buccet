@@ -3,7 +3,7 @@
 This is the repeatable yes-side intake path.
 
 It is for users who want to browse external skill catalogs, choose the skill or
-workflow they want, paste the raw source text into the UPL acceptance side,
+workflow they want, paste raw source material into the UPL acceptance side,
 sync it, and keep doing that as long as they want.
 
 This is still the same Buccet acceptance-side UPL.
@@ -11,6 +11,10 @@ This is still the same Buccet acceptance-side UPL.
 - source catalogs stay open-ended
 - Buccet acceptance stays the finite compiled result
 - denial still overrides acceptance on overlap
+
+The same raw-source intake parser also works in the denial lane.
+If you paste the same material into `~/.buccet/upl-docs/denial` and run
+`buccet upl sync --lane denial`, Buccet compiles it into denied UPL instead.
 
 ## Source catalogs
 
@@ -22,20 +26,25 @@ This is still the same Buccet acceptance-side UPL.
 ## Fast pipeline
 
 1. Open one of the source catalogs above and choose the skill or workflow you want.
-2. Copy the source text, summary, or examples you care about.
+2. Copy the raw source material you care about.
+   That can be:
+   - source text or summary
+   - `SKILL.md`
+   - `README.md`
+   - extracted package markdown
 3. Open your authored acceptance lane:
 
 ```text
 ~/.buccet/upl-docs/acceptance
 ```
 
-4. Copy the intake template into a real markdown file:
+4. Either paste directly into a new markdown file, or copy the intake template into one:
 
 ```bash
 cp ~/.buccet/upl-docs/acceptance/SKILL_INTAKE_TEMPLATE.txt ~/.buccet/upl-docs/acceptance/my-skill.md
 ```
 
-5. Paste the copied source material into the `Source material` section.
+5. Paste the copied source material into that markdown file.
 6. Compile it into the live yes side:
 
 ```bash
@@ -50,9 +59,10 @@ buccet upl diff --search my-skill
 buccet upl show <upl-id>
 ```
 
-Buccet parses the copied source text into bounded acceptance-side UPL.
+Buccet parses raw source material into bounded acceptance-side UPL.
 
 The user does not have to hand-write the law just to get the intake through.
+If the file is already authored UPL law, Buccet keeps using the strict law parser first.
 
 ## Template shape
 
@@ -73,6 +83,9 @@ Paste the skill or workflow description here.
 What parses reliably:
 
 - real skill or workflow source text
+- real `SKILL.md` content
+- real `README.md` content
+- extracted package markdown
 - real capability summaries
 - real examples and normal usage text
 - low-hype descriptions of what the thing actually does

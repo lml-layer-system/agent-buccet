@@ -58,11 +58,12 @@ type UplAcceptanceSourceCatalog = {
   description: string;
 };
 
-type AcceptanceSourceIntakeDoc = {
+type SourceIntakeDoc = {
   name: string;
   catalog: string;
   url: string;
   sourceText: string;
+  mode: "template" | "raw_markdown";
 };
 
 type ParsedUplSelection = {
@@ -117,7 +118,7 @@ function usage(): never {
     "  buccet upl mute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl unmute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl remove <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl sources [--json]                               — show authored lanes plus external yes-side intake catalogs",
+    "  buccet upl sources [--json]                               — show authored lanes plus external UPL intake catalogs",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
     "  buccet hook build",
@@ -382,28 +383,30 @@ function acceptancePipelineGuideText(home: ReturnType<typeof resolveHomePaths>):
   return [
     "Agent Buccet acceptance source pipeline",
     "",
-    "Use this when you want to pull a skill or workflow from an external catalog into the UPL acceptance side.",
+      "Use this when you want to pull a skill or workflow from an external catalog into the UPL acceptance side.",
     "",
     "Source catalogs:",
     ...catalogs.map((catalog) => `- ${catalog.name} — ${catalog.url} — ${catalog.description}`),
     "",
     "Steps:",
     "1. Open one of the source catalogs above and choose the skill or workflow you want.",
-    "2. Copy the capability text, summary, or examples that matter.",
-    `3. Copy the intake template into a new markdown file in this lane:`,
-    `   ${commands.copyTemplate}`,
-    "4. Paste the copied source text into the Source material section.",
-    "5. Compile it into the live UPL acceptance side:",
+    "2. Copy the raw source text, SKILL.md, README, or extracted package markdown you want.",
+    "3. Put that raw material into a markdown file in this lane.",
+    `   Template path (optional): ${home.uplAcceptanceSkillTemplatePath}`,
+    `   Fast copy helper: ${commands.copyTemplate}`,
+    "4. Compile it into the live UPL acceptance side:",
     `   ${commands.sync}`,
-    "6. Inspect the result:",
+    "5. Inspect the result:",
     `   ${commands.inspectSearch}`,
     `   ${commands.inspectDiff}`,
     `   ${commands.inspectShow}`,
     "",
     "Rules:",
-    "- Paste real source text, not hype-only filler.",
-    "- Buccet turns the copied source into bounded yes-side UPL automatically.",
-    "- Denial still overrides acceptance on overlap.",
+    "- Paste real source text, SKILL.md content, README content, or extracted package markdown.",
+    "- Buccet parses raw source material into bounded yes-side UPL automatically.",
+    "- If the file is already real authored UPL law, Buccet keeps using the strict authored-law parser first.",
+      "- Put the same raw source material in the denial lane and sync denial to compile it into denied UPL instead.",
+      "- Denial still overrides acceptance on overlap.",
     "- Repeat this process as long as you want. The source side stays open-ended; Buccet acceptance stays the finite compiled result.",
   ].join("\n");
 }
@@ -420,12 +423,243 @@ function acceptanceSkillTemplateText(): string {
     "Paste the skill or workflow description here.",
     "",
     "Paste the raw source material only.",
+    "This can be copied catalog text, SKILL.md content, README content, or extracted package markdown.",
     "Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`.",
   ].join("\n");
 }
 
 function escapeRegexLiteral(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function uniqueOrderedStrings(values: Iterable<string>): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+  for (const value of values) {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (seen.has(trimmed)) {
+      continue;
+    }
+    seen.add(trimmed);
+    ordered.push(trimmed);
+  }
+  return ordered;
+}
+
+function inferSourceCatalog(text: string): string {
+  const lower = text.toLowerCase();
+  if (lower.includes("skillsmp.com")) {
+    return "SkillsMP";
+  }
+  if (lower.includes("aitmpl.com/skills")) {
+    return "AITmpl Skills";
+  }
+  if (lower.includes("skillhub.club")) {
+    return "SkillHub";
+  }
+  if (lower.includes("agentskills.io")) {
+    return "AgentSkills";
+  }
+  return "UPL Source";
+}
+
+function extractUrlsFromText(text: string): string[] {
+  return uniqueOrderedStrings(
+    [...text.matchAll(/https?:\/\/[^\s)>"']+/gi)].map((match) => (
+      match[0]?.replace(/[.,;:]+$/, "") ?? ""
+    )),
+  );
+}
+
+function inferSourceUrl(text: string, slug: string): string {
+  return extractUrlsFromText(text)[0] ?? `upl-source://${slug}`;
+}
+
+function inferSourceName(markdown: string, filePath?: string): string {
+  const headingMatch = markdown.match(/^#\s+(.+)$/m);
+  if (headingMatch?.[1]?.trim()) {
+    return headingMatch[1].trim();
+  }
+  const namedField = markdown.match(/^(?:name|title):\s*(.+)$/mi);
+  if (namedField?.[1]?.trim()) {
+    return namedField[1].trim();
+  }
+  if (filePath) {
+    return path.basename(filePath, path.extname(filePath));
+  }
+  return "source-intake";
+}
+
+function looksLikeSourceMaterial(markdown: string): boolean {
+  const lower = markdown.toLowerCase();
+  if (!lower.trim()) {
+    return false;
+  }
+  if (
+    /^catalog:\s*.+$/mi.test(markdown)
+    || /^url:\s*.+$/mi.test(markdown)
+    || /^##\s+source material\s*$/mi.test(markdown)
+  ) {
+    return true;
+  }
+  if (
+    /^##\s+(?:description|overview|usage|examples|capabilities|features|tools|installation|when to use|how to use)\s*$/mi.test(markdown)
+    || /```[\s\S]*?```/.test(markdown)
+    || /https?:\/\//i.test(markdown)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+function extractCommandTargets(text: string): string[] {
+  const snippets = [
+    ...[...text.matchAll(/```[\w-]*\n([\s\S]*?)```/g)].map((match) => match[1] ?? ""),
+    ...[...text.matchAll(/`([^`\n]+)`/g)].map((match) => match[1] ?? ""),
+  ];
+  const commandCandidates = new Set<string>();
+  const lines = snippets
+    .flatMap((snippet) => snippet.split(/\r?\n/))
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  for (const line of lines) {
+    const normalized = line.replace(/^\$\s*/, "").trim();
+    if (!normalized || normalized.startsWith("#")) {
+      continue;
+    }
+    const first = normalized.split(/\s+/)[0] ?? "";
+    const command = path.basename(first).replace(/[^\w.-].*$/, "");
+    if (!command) {
+      continue;
+    }
+    if (/^(?:https?:|cat|echo|cd|ls|pwd|export|set|env)$/i.test(command)) {
+      continue;
+    }
+    if (/^[a-z0-9][a-z0-9._-]{1,63}$/i.test(command)) {
+      commandCandidates.add(command.toLowerCase());
+    }
+  }
+
+  for (const known of [
+    "firecrawl",
+    "playwright",
+    "n8n",
+    "mcp",
+    "fastmcp",
+    "ollama",
+    "python",
+    "node",
+    "npm",
+    "pnpm",
+    "yarn",
+    "git",
+    "rg",
+    "pytest",
+    "tsc",
+    "docker",
+  ]) {
+    if (new RegExp(`\\b${escapeRegexLiteral(known)}\\b`, "i").test(text)) {
+      commandCandidates.add(known);
+    }
+  }
+
+  return [...commandCandidates];
+}
+
+function normalizeNetworkOrigin(value: string): string | null {
+  try {
+    const url = new URL(value.startsWith("http") ? value : `https://${value}`);
+    if (["skillsmp.com", "aitmpl.com", "skillhub.club", "agentskills.io"].includes(url.hostname)) {
+      return null;
+    }
+    return `${url.protocol}//${url.host}`;
+  } catch {
+    return null;
+  }
+}
+
+function extractNetworkTargets(text: string): string[] {
+  return uniqueOrderedStrings(
+    extractUrlsFromText(text)
+      .map((value) => normalizeNetworkOrigin(value))
+      .filter(Boolean) as string[],
+  );
+}
+
+function extractNamedTargets(args: {
+  actionKind: BoundaryActionKind;
+  text: string;
+  slug: string;
+}): string[] {
+  const lower = args.text.toLowerCase();
+  const channelTargets = [
+    "slack",
+    "discord",
+    "telegram",
+    "whatsapp",
+    "beeper",
+    "rocketchat",
+    "email",
+    "mail",
+    "bluebubbles",
+    "imsg",
+    "voice-call",
+  ];
+  const dataTargets = [
+    "notion",
+    "obsidian",
+    "trello",
+    "asana",
+    "google-calendar",
+    "google-sheets",
+    "google-workspace",
+    "apple-notes",
+    "apple-reminders",
+    "joplin",
+    "bookstack",
+  ];
+  const configTargets = [
+    "mcp",
+    "plugin",
+    "connector",
+    "workspace",
+    "google-workspace",
+    "playwright",
+  ];
+  if (args.actionKind === "tool.exec") {
+    return uniqueOrderedStrings([...extractCommandTargets(args.text), args.slug]);
+  }
+  if (args.actionKind === "network.send") {
+    return uniqueOrderedStrings([
+      ...extractNetworkTargets(args.text),
+      ...channelTargets.filter((target) => lower.includes(target)),
+      ...dataTargets.filter((target) => lower.includes(target)),
+      args.slug,
+    ]);
+  }
+  if (args.actionKind === "comm.send") {
+    return uniqueOrderedStrings([
+      ...channelTargets.filter((target) => lower.includes(target)),
+      args.slug,
+    ]);
+  }
+  if (args.actionKind.startsWith("db.")) {
+    return uniqueOrderedStrings([
+      ...dataTargets.filter((target) => lower.includes(target)),
+      args.slug,
+    ]);
+  }
+  if (args.actionKind.startsWith("sys.")) {
+    return uniqueOrderedStrings([
+      ...configTargets.filter((target) => lower.includes(target)),
+      args.slug,
+    ]);
+  }
+  return [args.slug];
 }
 
 function slugifyAcceptanceSourceName(value: string): string {
@@ -437,38 +671,52 @@ function slugifyAcceptanceSourceName(value: string): string {
     || "source-intake";
 }
 
-function parseAcceptanceSourceIntakeDoc(markdown: string): AcceptanceSourceIntakeDoc | null {
+function parseSourceIntakeDoc(markdown: string, filePath?: string): SourceIntakeDoc | null {
   const trimmed = markdown.trim();
   const titleMatch = trimmed.match(/^#\s+(.+)$/m);
   const catalogMatch = trimmed.match(/^Catalog:\s*(.+)$/mi);
   const urlMatch = trimmed.match(/^URL:\s*(.+)$/mi);
   const sourceSectionMatch = trimmed.match(/(?:^##\s+Source material\s*$)([\s\S]+)$/mi);
-  if (!titleMatch || !catalogMatch || !urlMatch || !sourceSectionMatch) {
+  if (titleMatch && catalogMatch && urlMatch && sourceSectionMatch) {
+    let sourceText = sourceSectionMatch[1]
+      .replace(/^Copied text:\s*/mi, "")
+      .trim();
+    sourceText = sourceText
+      .replace(/^Paste the skill or workflow description here\.\s*$/mi, "")
+      .replace(/^Paste the raw source material only\.\s*$/mi, "")
+      .replace(/^Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`\.\s*$/mi, "")
+      .trim();
+
+    if (!sourceText) {
+      return null;
+    }
+
+    return {
+      name: titleMatch[1].trim(),
+      catalog: catalogMatch[1].trim(),
+      url: urlMatch[1].trim(),
+      sourceText,
+      mode: "template",
+    };
+  }
+
+  if (!looksLikeSourceMaterial(trimmed)) {
     return null;
   }
 
-  let sourceText = sourceSectionMatch[1]
-    .replace(/^Copied text:\s*/mi, "")
-    .trim();
-  sourceText = sourceText
-    .replace(/^Paste the skill or workflow description here\.\s*$/mi, "")
-    .replace(/^Paste the raw source material only\.\s*$/mi, "")
-    .replace(/^Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`\.\s*$/mi, "")
-    .trim();
-
-  if (!sourceText) {
-    return null;
-  }
-
+  const inferredName = inferSourceName(trimmed, filePath);
+  const slug = slugifyAcceptanceSourceName(inferredName);
+  const inferredUrl = inferSourceUrl(trimmed, slug);
   return {
-    name: titleMatch[1].trim(),
-    catalog: catalogMatch[1].trim(),
-    url: urlMatch[1].trim(),
-    sourceText,
+    name: inferredName,
+    catalog: inferSourceCatalog(`${inferredUrl}\n${trimmed}`),
+    url: inferredUrl,
+    sourceText: trimmed,
+    mode: "raw_markdown",
   };
 }
 
-function inferAcceptanceIntakeActionKinds(text: string): BoundaryActionKind[] {
+function inferSourceIntakeActionKinds(text: string): BoundaryActionKind[] {
   const lower = text.toLowerCase();
   const kinds = new Set<BoundaryActionKind>();
 
@@ -484,7 +732,7 @@ function inferAcceptanceIntakeActionKinds(text: string): BoundaryActionKind[] {
   if (/\b(browser|playwright|crawl|search|research|fetch|extract|web|http|api|scrape|crawl|map)\b/.test(lower)) {
     kinds.add("network.send");
   }
-  if (/\b(debug|test|build|exec|run|tool|cli|automation|agent|workflow|pipeline|code|mcp|server|developer|design|artifact|generate|render)\b/.test(lower)) {
+  if (/```[\s\S]*?```/.test(text) || /\b(debug|test|build|exec|run|tool|cli|automation|agent|workflow|pipeline|code|mcp|server|developer|design|artifact|generate|render|bash|shell|npm|pnpm|yarn|node|python|cargo|go|make|docker|playwright|firecrawl)\b/.test(lower)) {
     kinds.add("tool.exec");
   }
   if (/\b(email|mail|slack|discord|telegram|whatsapp|message|chat|social|seo|marketing|brand|content)\b/.test(lower)) {
@@ -503,55 +751,121 @@ function inferAcceptanceIntakeActionKinds(text: string): BoundaryActionKind[] {
   return [...kinds];
 }
 
-function compileAcceptanceSourceIntakeDoc(args: {
+function compileSourceIntakeDoc(args: {
   filePath: string;
-  doc: AcceptanceSourceIntakeDoc;
+  lane: UplSourceLane;
+  doc: SourceIntakeDoc;
   scope: BoundaryUplScope;
 }): CompiledDocumentLaw[] {
   const slug = slugifyAcceptanceSourceName(args.doc.name);
-  const kinds = inferAcceptanceIntakeActionKinds([
+  const inferredKinds = inferSourceIntakeActionKinds([
     args.doc.name,
     args.doc.catalog,
     args.doc.url,
     args.doc.sourceText,
   ].join("\n"));
-  const namePattern = escapeRegexLiteral(args.doc.name.trim()).replace(/\s+/g, "\\s+");
-  const slugPattern = escapeRegexLiteral(slug).replace(/-/g, "[-\\s]?");
-  const requestTextPatterns = [
-    `/\\b(?:${slugPattern}|${namePattern})\\b/i`,
-  ];
   const summary = args.doc.sourceText
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 220);
+  const namePattern = escapeRegexLiteral(args.doc.name.trim()).replace(/\s+/g, "\\s+");
+  const slugPattern = escapeRegexLiteral(slug).replace(/-/g, "[-\\s]?");
+  const aliasPatterns = uniqueOrderedStrings([
+    `/\\b(?:${slugPattern}|${namePattern})\\b/i`,
+    ...extractCommandTargets(args.doc.sourceText).map((value) => `/\\b${escapeRegexLiteral(value)}\\b/i`),
+    ...extractNamedTargets({ actionKind: "comm.send", text: args.doc.sourceText, slug }).map((value) => `/\\b${escapeRegexLiteral(value)}\\b/i`),
+  ]);
+  const notes = formatUplSourceNote({
+    lane: args.lane,
+    filePath: args.filePath,
+    notes: `[${args.lane}-source-intake] mode=${args.doc.mode} catalog=${args.doc.catalog} url=${args.doc.url} name=${args.doc.name}`,
+  });
+  const type: BoundaryUplEntryType = args.lane === "acceptance" ? "APPROVED" : "DENIED";
+  const payloadPrefix = `${args.lane}-source-intake`;
 
-  return [{
-    type: "APPROVED",
-    scope: args.scope,
-    notes: formatUplSourceNote({
-      lane: "acceptance",
-      filePath: args.filePath,
-      notes: `[acceptance-source-intake] catalog=${args.doc.catalog} url=${args.doc.url} name=${args.doc.name}`,
-    }),
-    requestBasis: {
-      actionKind: kinds[0] ?? "tool.exec",
-      target: slug,
-      payloadSummary: `acceptance-source-intake:${args.doc.catalog}:${slug}`,
-      provenance: "trusted_system",
-      reviewContext: {
-        surface: "action",
-        title: `${args.doc.name} source intake`,
-        evidence: [args.doc.url],
+  const normalizedKinds = uniqueOrderedStrings(
+    inferredKinds
+      .filter((kind) => !kind.startsWith("fs."))
+      .concat(inferredKinds.every((kind) => kind.startsWith("fs.")) ? ["tool.exec"] : []),
+  ) as BoundaryActionKind[];
+
+  const entries: CompiledDocumentLaw[] = [];
+  const seen = new Set<string>();
+  for (const actionKind of normalizedKinds) {
+    const targets = extractNamedTargets({
+      actionKind,
+      text: [args.doc.name, args.doc.url, args.doc.sourceText].join("\n"),
+      slug,
+    });
+    for (const target of targets) {
+      const signature = `${actionKind}::${target}`;
+      if (seen.has(signature)) {
+        continue;
+      }
+      seen.add(signature);
+      const targetPatterns = actionKind === "network.send" && /^https?:\/\//i.test(target)
+        ? [`/^${escapeRegexLiteral(target)}(?:\\/.*)?$/i`]
+        : [target];
+      const targetMatchMode = actionKind === "network.send" && /^https?:\/\//i.test(target)
+        ? "regex"
+        : "exact";
+      entries.push({
+        type,
+        scope: args.scope,
+        notes,
+        requestBasis: {
+          actionKind,
+          target,
+          payloadSummary: `${payloadPrefix}:${args.doc.catalog}:${slug}:${actionKind}:${target}`,
+          provenance: "trusted_system",
+          reviewContext: {
+            surface: actionKind === "chat.emit" ? "chat" : "action",
+            title: `${args.doc.name} source intake`,
+            evidence: [args.doc.url],
+          },
+        },
+        trackConstraint: {
+          allowedActionKinds: [actionKind],
+          ...(actionKind === "chat.emit"
+            ? {}
+            : {
+                targetPatterns,
+                targetMatchMode,
+              }),
+          requestTextPatterns: aliasPatterns,
+          description: `${args.doc.name} — sourced from ${args.doc.catalog}; ${summary || "bounded source intake"}`,
+        },
+      });
+    }
+  }
+
+  if (entries.length === 0) {
+    entries.push({
+      type,
+      scope: args.scope,
+      notes,
+      requestBasis: {
+        actionKind: "tool.exec",
+        target: slug,
+        payloadSummary: `${payloadPrefix}:${args.doc.catalog}:${slug}:tool.exec:${slug}`,
+        provenance: "trusted_system",
+        reviewContext: {
+          surface: "action",
+          title: `${args.doc.name} source intake`,
+          evidence: [args.doc.url],
+        },
       },
-    },
-    trackConstraint: {
-      allowedActionKinds: kinds,
-      targetPatterns: [slug, args.doc.name.toLowerCase()],
-      targetMatchMode: "exact",
-      requestTextPatterns,
-      description: `${args.doc.name} — sourced from ${args.doc.catalog}; ${summary || "bounded acceptance source intake"}`,
-    },
-  }];
+      trackConstraint: {
+        allowedActionKinds: ["tool.exec"],
+        targetPatterns: [slug],
+        targetMatchMode: "exact",
+        requestTextPatterns: aliasPatterns,
+        description: `${args.doc.name} — sourced from ${args.doc.catalog}; ${summary || "bounded source intake"}`,
+      },
+    });
+  }
+
+  return entries;
 }
 
 function uplLaneTag(lane: UplSourceLane): string {
@@ -631,6 +945,7 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "- README files are ignored by `buccet upl sync`",
             "- The parser is strict and fail-closed",
             "- If a document compiles into denied law here, sync refuses it",
+            "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into approved UPL in this lane",
             "- For external skill catalogs, use PIPELINE.txt and SKILL_INTAKE_TEMPLATE.txt in this lane",
             "",
             "Useful commands:",
@@ -651,6 +966,7 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "- README files are ignored by `buccet upl sync`",
             "- The parser is strict and fail-closed",
             "- If a document compiles into approved law here, sync refuses it",
+            "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into denied UPL in this lane",
             "",
             "Useful commands:",
             "- buccet extract-laws <file.md> --lane denial",
@@ -749,6 +1065,12 @@ function muteLaneSourcedEntries(args: {
 }
 
 function summarizeUplEntrySource(entry: BoundaryUplEntry): string {
+  if (entry.notes?.includes("[acceptance-source-intake]")) {
+    return "acceptance-source-intake";
+  }
+  if (entry.notes?.includes("[denial-source-intake]")) {
+    return "denial-source-intake";
+  }
   if (entry.notes?.includes("[upl-doc-lane:acceptance]")) {
     return "acceptance-doc";
   }
@@ -2054,7 +2376,7 @@ async function handleUpl(rest: string[]) {
       }
     }
     console.log(``);
-    console.log(`Acceptance intake catalogs`);
+    console.log(`UPL intake catalogs`);
     for (const catalog of catalogs) {
       console.log(`- ${catalog.name}: ${catalog.url} (${catalog.description})`);
     }
@@ -2064,11 +2386,13 @@ async function handleUpl(rest: string[]) {
     console.log(`template: ${home.uplAcceptanceSkillTemplatePath}`);
     console.log(`1. choose a skill/workflow from a catalog above`);
     console.log(`2. copy the source text you want`);
-    console.log(`3. create a new acceptance doc from the template`);
+    console.log(`3. paste it into acceptance for approved UPL or denial for denied UPL`);
+    console.log(`4. create a new acceptance doc from the template if you want the scaffold`);
     console.log(`   ${commands.copyTemplate}`);
-    console.log(`4. compile it into live acceptance UPL`);
+    console.log(`5. compile it into live UPL`);
     console.log(`   ${commands.sync}`);
-    console.log(`5. inspect what landed`);
+    console.log(`   denial: buccet upl sync --lane denial`);
+    console.log(`6. inspect what landed`);
     console.log(`   ${commands.inspectSearch}`);
     console.log(`   ${commands.inspectDiff}`);
     console.log(`   ${commands.inspectShow}`);
@@ -2383,20 +2707,23 @@ async function handleUpl(rest: string[]) {
     for (const lane of laneFiles) {
       for (const filePath of lane.files) {
         const markdown = await fs.readFile(filePath, "utf8");
-        const intakeDoc = lane.spec.lane === "acceptance"
-          ? parseAcceptanceSourceIntakeDoc(markdown)
+        const extracted = boundary.extractDocumentLawsWithDiagnostics({
+          sourcePath: filePath,
+          markdown,
+        });
+        const hasCompiledLaw = extracted.laws.length > 0;
+        const hasStructuredSignals = /^(?:decision|invariant|enforcement|action|target|require|forbid|expression|output shape|completion grammar):/mi.test(markdown);
+        const intakeDoc = !hasCompiledLaw && !hasStructuredSignals
+          ? parseSourceIntakeDoc(markdown, filePath)
           : null;
         const tagged = intakeDoc
-          ? compileAcceptanceSourceIntakeDoc({
+          ? compileSourceIntakeDoc({
             filePath,
+            lane: lane.spec.lane,
             doc: intakeDoc,
             scope,
           })
           : (() => {
-            const extracted = boundary.extractDocumentLawsWithDiagnostics({
-              sourcePath: filePath,
-              markdown,
-            });
             validateExtractedDocumentLane({
               lane: lane.spec.lane,
               filePath,

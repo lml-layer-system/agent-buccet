@@ -325,9 +325,19 @@ That path gives users direct intake from:
 Then they can:
 
 - choose the skill or workflow they want
-- paste it into the authored acceptance lane
+- paste raw skill material into the authored acceptance lane
 - compile it with `buccet upl sync --lane acceptance`
 - repeat as long as they want
+
+That raw material can be copied skill text, `SKILL.md`, `README.md`, or
+extracted package markdown. If the markdown is already authored UPL law, Buccet
+keeps using the strict law parser first.
+
+The same parser also works in the denial lane:
+
+- put the raw source material in `~/.buccet/upl-docs/denial`
+- run `buccet upl sync --lane denial`
+- Buccet compiles it into denied UPL instead of approved UPL
 
 That path is good for:
 

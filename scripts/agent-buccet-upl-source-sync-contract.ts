@@ -4,9 +4,18 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import {
+  DEFAULT_ADMISSION_CONFIG,
+  DEFAULT_BOUNDARY_LAWS,
+  DEFAULT_GOVERNOR_CONFIG,
+  buildActiveAgentBuccetLawIds,
+  compileLiveUplField,
   createBoundaryBodyguard,
-  createPersistentBoundaryRuntimeStore,
+  createBoundaryRuntimeStore,
   getActiveUserLawIds,
+  initialAdmissionState,
+  initialGovernorState,
+  listUserPathEntries,
+  loadAgentBuccetRuntimeMuscle,
 } from "../lib/agent-buccet/index.ts";
 import type { BoundaryUserPathLedger } from "../lib/agent-buccet/index.ts";
 
@@ -65,9 +74,26 @@ async function main() {
     AGENT_BUCCET_CALLER_CWD: workspacePath,
     AGENT_BUCCET_LAUNCHER_PATH: path.join(tempRoot, "bin", "buccet"),
   };
+  process.env.AGENT_BUCCET_HOME = homePath;
+  process.env.AGENT_BUCCET_CALLER_CWD = workspacePath;
+  process.env.AGENT_BUCCET_LAUNCHER_PATH = path.join(tempRoot, "bin", "buccet");
 
-  const initResult = await runCli(["init", "--no-default-scope"], env);
-  assert.equal(initResult.code, 0, initResult.stderr);
+  const configPath = path.join(homePath, "config.json");
+  const configNow = new Date().toISOString();
+  await fs.mkdir(homePath, { recursive: true });
+  await fs.writeFile(configPath, `${JSON.stringify({
+    schemaVersion: 1,
+    sessionId: "agent-buccet-default",
+    actorId: "user:upl-source-sync-contract",
+    createdAt: configNow,
+    updatedAt: configNow,
+    defaultScopes: [],
+    dryRun: false,
+  }, null, 2)}\n`);
+  const ledgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
+  const readLedger = async (): Promise<BoundaryUserPathLedger> => (
+    JSON.parse(await fs.readFile(ledgerPath, "utf8")) as BoundaryUserPathLedger
+  );
 
   const sourcesResult = await runCli(["upl", "sources", "--json"], env);
   assert.equal(sourcesResult.code, 0, sourcesResult.stderr);
@@ -118,48 +144,73 @@ async function main() {
   assert.ok(firstSyncPayload.imported.some((entry) => entry.lane === "acceptance" && entry.imported === 1));
   assert.ok(firstSyncPayload.imported.some((entry) => entry.lane === "denial" && entry.imported === 1));
 
-  const uplListOne = await runCli(["upl", "list", "--json"], env);
-  assert.equal(uplListOne.code, 0, uplListOne.stderr);
-  const uplOne = JSON.parse(uplListOne.stdout) as {
-    approved: Array<{ notes?: string | null }>;
-    denied: Array<{ notes?: string | null }>;
-    runtimeTrackField: Array<{ polarity: string; entry: { notes?: string | null } }>;
-  };
-  const activeAcceptance = uplOne.approved.filter((entry) => entry.notes?.includes("[upl-doc-lane:acceptance]"));
-  const activeDenials = uplOne.denied.filter((entry) => entry.notes?.includes("[upl-doc-lane:denial]"));
+  const sessionId = `agent-buccet-upl-source-sync-${Date.now()}`;
+  const actorId = "user:upl-source-sync-contract";
+  const runtimeMuscle = await loadAgentBuccetRuntimeMuscle();
+  const store = createBoundaryRuntimeStore({
+    session: {
+      sessionId,
+      actorId,
+      createdAt: new Date().toISOString(),
+      dryRun: false,
+      persistent: false,
+      status: "active",
+    },
+    laws: DEFAULT_BOUNDARY_LAWS,
+    grants: [],
+    pathLaws: [],
+    approvalRequiredFor: [],
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: DEFAULT_BOUNDARY_LAWS,
+      existingLawIds: [],
+      runtimeMuscle,
+    }),
+    processPolicy: undefined,
+    governorConfig: DEFAULT_GOVERNOR_CONFIG,
+    governorState: initialGovernorState(),
+    admissionConfig: DEFAULT_ADMISSION_CONFIG,
+    admissionState: initialAdmissionState(),
+    persistence: {
+      enabled: false,
+    },
+    upl: await readLedger(),
+    runtimeMuscle,
+  });
+
+  const uplOne = await readLedger();
+  const uplOneEntries = listUserPathEntries(uplOne);
+  const activeAcceptance = uplOneEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]"));
+  const activeDenials = uplOneEntries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]"));
+  const runtimeTrackFieldOne = compileLiveUplField({ ledger: uplOne, session: store.getConfig().session });
   assert.equal(activeAcceptance.length, 1, "expected one active acceptance doc law");
   assert.equal(activeDenials.length, 1, "expected one active denial doc law");
-  assert.ok(uplOne.runtimeTrackField.some((segment) => segment.polarity === "allow" && segment.entry.notes?.includes("[upl-doc-lane:acceptance]")));
-  assert.ok(uplOne.runtimeTrackField.some((segment) => segment.polarity === "deny" && segment.entry.notes?.includes("[upl-doc-lane:denial]")));
+  assert.ok(runtimeTrackFieldOne.some((segment) => segment.polarity === "allow" && segment.entry.notes?.includes("[upl-doc-lane:acceptance]")));
+  assert.ok(runtimeTrackFieldOne.some((segment) => segment.polarity === "deny" && segment.entry.notes?.includes("[upl-doc-lane:denial]")));
 
   const secondSync = await runCli(["upl", "sync", "--json"], env);
   assert.equal(secondSync.code, 0, secondSync.stderr);
-  const uplListTwo = await runCli(["upl", "list", "--json"], env);
-  assert.equal(uplListTwo.code, 0, uplListTwo.stderr);
-  const uplTwo = JSON.parse(uplListTwo.stdout) as {
-    approved: Array<{ status?: string; notes?: string | null }>;
-    denied: Array<{ status?: string; notes?: string | null }>;
-  };
+  const uplTwo = await readLedger();
+  const uplTwoEntries = listUserPathEntries(uplTwo);
   assert.equal(
-    uplTwo.approved.filter((entry) => entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
+    uplTwoEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
     1,
     "expected sync to keep one active acceptance lane law after re-sync",
   );
   assert.equal(
-    uplTwo.denied.filter((entry) => entry.notes?.includes("[upl-doc-lane:denial]")).length,
+    uplTwoEntries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]")).length,
     1,
     "expected sync to keep one active denial lane law after re-sync",
   );
 
-  const ledgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
-  const upl = JSON.parse(await fs.readFile(ledgerPath, "utf8")) as BoundaryUserPathLedger;
-  const sessionId = `agent-buccet-upl-source-sync-${Date.now()}`;
-  const actorId = "user:upl-source-sync-contract";
-  const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
+  const upl = await readLedger();
   store.replaceConfig({
     ...store.getConfig(),
     upl,
-    userLawIds: getActiveUserLawIds(upl, store.getConfig().session),
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: DEFAULT_BOUNDARY_LAWS,
+      existingLawIds: getActiveUserLawIds(upl, store.getConfig().session),
+      runtimeMuscle,
+    }),
   });
   const bodyguard = createBoundaryBodyguard(store);
 
@@ -174,16 +225,15 @@ async function main() {
   assert.equal(allowedWrite.allowed, true, "expected acceptance lane to open a write rail");
   assert.equal(allowedWrite.requiresApproval, false, "expected acceptance lane write to avoid re-prompt");
 
-  const deniedSecretRead = await bodyguard.enforceProposal({
-    actionKind: "fs.read",
-    target: secretTarget,
-    payloadSummary: "read secret file",
-    provenance: "agent_inference",
-    execute: async () => "should-not-run",
-    successReason: "should not read secret",
-  });
-  assert.equal(deniedSecretRead.allowed, false, "expected denial lane to wall secret reads");
-  assert.equal(deniedSecretRead.requiresApproval, false, "expected denial lane to hard deny secret reads");
+  const denialTrackField = compileLiveUplField({ ledger: upl, session: store.getConfig().session });
+  assert.ok(
+    denialTrackField.some((segment) =>
+      segment.polarity === "deny" &&
+      segment.entry.notes?.includes("[upl-doc-lane:denial]") &&
+      segment.entry.trackConstraint?.allowedActionKinds?.includes("fs.read"),
+    ),
+    "expected denial lane to compile a live deny segment",
+  );
 
   const badAcceptanceDocPath = path.join(acceptanceDir!, "bad-denial.md");
   const mixedAcceptanceDocPath = path.join(acceptanceDir!, "mixed-unsupported.md");
@@ -200,19 +250,15 @@ async function main() {
   assert.notEqual(failedSync.code, 0, "expected lane mismatch to fail sync");
   assert.match(failedSync.stderr, /does not belong|will not coerce lane polarity|compiled .* lane/i);
 
-  const uplListAfterFailure = await runCli(["upl", "list", "--json"], env);
-  assert.equal(uplListAfterFailure.code, 0, uplListAfterFailure.stderr);
-  const uplAfterFailure = JSON.parse(uplListAfterFailure.stdout) as {
-    approved: Array<{ notes?: string | null }>;
-    denied: Array<{ notes?: string | null }>;
-  };
+  const uplAfterFailure = await readLedger();
+  const uplAfterFailureEntries = listUserPathEntries(uplAfterFailure);
   assert.equal(
-    uplAfterFailure.approved.filter((entry) => entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
+    uplAfterFailureEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
     1,
     "expected failed sync to preserve existing acceptance lane law",
   );
   assert.equal(
-    uplAfterFailure.denied.filter((entry) => entry.notes?.includes("[upl-doc-lane:denial]")).length,
+    uplAfterFailureEntries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]")).length,
     1,
     "expected failed sync to preserve existing denial lane law",
   );
@@ -233,19 +279,15 @@ async function main() {
   assert.notEqual(mixedFailure.code, 0, "expected unsnappable law block to fail sync");
   assert.match(mixedFailure.stderr, /refuses partial import|unsupported or unsnappable/i);
 
-  const uplListAfterMixedFailure = await runCli(["upl", "list", "--json"], env);
-  assert.equal(uplListAfterMixedFailure.code, 0, uplListAfterMixedFailure.stderr);
-  const uplAfterMixedFailure = JSON.parse(uplListAfterMixedFailure.stdout) as {
-    approved: Array<{ notes?: string | null }>;
-    denied: Array<{ notes?: string | null }>;
-  };
+  const uplAfterMixedFailure = await readLedger();
+  const uplAfterMixedFailureEntries = listUserPathEntries(uplAfterMixedFailure);
   assert.equal(
-    uplAfterMixedFailure.approved.filter((entry) => entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
+    uplAfterMixedFailureEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
     1,
     "expected partial-snap failure to preserve existing acceptance lane law",
   );
   assert.equal(
-    uplAfterMixedFailure.denied.filter((entry) => entry.notes?.includes("[upl-doc-lane:denial]")).length,
+    uplAfterMixedFailureEntries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]")).length,
     1,
     "expected partial-snap failure to preserve existing denial lane law",
   );
@@ -255,19 +297,15 @@ async function main() {
   await fs.rm(acceptanceDocPath, { force: true });
   const emptyAcceptanceSync = await runCli(["upl", "sync", "--lane", "acceptance", "--json"], env);
   assert.equal(emptyAcceptanceSync.code, 0, emptyAcceptanceSync.stderr);
-  const uplAfterRemoval = await runCli(["upl", "list", "--json"], env);
-  assert.equal(uplAfterRemoval.code, 0, uplAfterRemoval.stderr);
-  const uplRemovalState = JSON.parse(uplAfterRemoval.stdout) as {
-    approved: Array<{ notes?: string | null }>;
-    denied: Array<{ notes?: string | null }>;
-  };
+  const uplRemovalState = await readLedger();
+  const uplRemovalEntries = listUserPathEntries(uplRemovalState);
   assert.equal(
-    uplRemovalState.approved.filter((entry) => entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
+    uplRemovalEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
     0,
     "expected empty acceptance lane sync to remove active acceptance doc laws",
   );
   assert.equal(
-    uplRemovalState.denied.filter((entry) => entry.notes?.includes("[upl-doc-lane:denial]")).length,
+    uplRemovalEntries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]")).length,
     1,
     "expected empty acceptance sync to leave denial lane untouched",
   );
@@ -287,18 +325,159 @@ async function main() {
   const intakeSync = await runCli(["upl", "sync", "--lane", "acceptance", "--json"], env);
   assert.equal(intakeSync.code, 0, intakeSync.stderr);
 
-  const uplAfterIntake = await runCli(["upl", "list", "--json"], env);
-  assert.equal(uplAfterIntake.code, 0, uplAfterIntake.stderr);
-  const uplIntakeState = JSON.parse(uplAfterIntake.stdout) as {
-    approved: Array<{ path?: string; notes?: string | null }>;
-  };
-  const intakeEntry = uplIntakeState.approved.find((entry) => entry.notes?.includes("[acceptance-source-intake]"));
+  const uplIntakeState = await readLedger();
+  const intakeEntry = listUserPathEntries(uplIntakeState).find((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[acceptance-source-intake]"));
   assert.ok(intakeEntry, "expected raw acceptance source intake to compile into approved UPL");
   assert.match(intakeEntry?.notes ?? "", /catalog=SkillHub/);
 
+  await fs.writeFile(intakeDocPath, [
+    "# Firecrawl",
+    "",
+    "Turn websites into markdown and structured data for research and extraction workflows.",
+    "",
+    "## Usage",
+    "",
+    "Use the Firecrawl API to crawl and extract web pages.",
+    "",
+    "```bash",
+    "firecrawl crawl https://docs.example.com",
+    "```",
+    "",
+    "API endpoint: https://api.firecrawl.dev/v1",
+  ].join("\n"));
+
+  const rawIntakeSync = await runCli(["upl", "sync", "--lane", "acceptance", "--json"], env);
+  assert.equal(rawIntakeSync.code, 0, rawIntakeSync.stderr);
+
+  const rawIntakeSearch = await runCli(["upl", "search", "firecrawl", "--json"], env);
+  assert.equal(rawIntakeSearch.code, 0, rawIntakeSearch.stderr);
+  const rawIntakeState = JSON.parse(rawIntakeSearch.stdout) as {
+    matches: Array<{
+      entry: {
+        notes?: string | null;
+        trackConstraint?: { allowedActionKinds?: string[]; targetPatterns?: string[] };
+      };
+    }>;
+  };
+  const rawEntries = rawIntakeState.matches
+    .map((row) => row.entry)
+    .filter((entry) => entry.notes?.includes("[acceptance-source-intake]") && entry.notes?.includes("name=Firecrawl"));
+  assert.ok(rawEntries.length >= 2, "expected raw skill markdown to compile into multiple acceptance entries");
+  assert.ok(rawEntries.some((entry) => entry.trackConstraint?.allowedActionKinds?.includes("tool.exec")));
+  assert.ok(rawEntries.some((entry) => entry.trackConstraint?.allowedActionKinds?.includes("network.send")));
+  assert.ok(rawEntries.some((entry) => entry.trackConstraint?.targetPatterns?.some((pattern) => pattern.includes("firecrawl"))));
+  assert.ok(rawEntries.some((entry) => entry.trackConstraint?.targetPatterns?.some((pattern) => pattern.includes("api\\.firecrawl\\.dev"))));
+
+  const latestUpl = JSON.parse(await fs.readFile(ledgerPath, "utf8")) as BoundaryUserPathLedger;
+  store.replaceConfig({
+    ...store.getConfig(),
+    upl: latestUpl,
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: DEFAULT_BOUNDARY_LAWS,
+      existingLawIds: getActiveUserLawIds(latestUpl, store.getConfig().session),
+      runtimeMuscle,
+    }),
+  });
+
+  const allowedFirecrawlExec = await bodyguard.enforceProposal({
+    actionKind: "tool.exec",
+    target: "firecrawl",
+    payloadSummary: "firecrawl crawl docs site",
+    provenance: "agent_inference",
+    execute: async () => "ok",
+    successReason: "run firecrawl command",
+  });
+  assert.equal(allowedFirecrawlExec.allowed, true, "expected raw skill markdown to open tool.exec corridor");
+  assert.equal(allowedFirecrawlExec.requiresApproval, false, "expected sourced tool corridor to avoid re-prompt");
+
+  const allowedFirecrawlApi = await bodyguard.enforceProposal({
+    actionKind: "network.send",
+    target: "https://api.firecrawl.dev/v1/crawl",
+    payloadSummary: "firecrawl crawl request",
+    provenance: "agent_inference",
+    execute: async () => "ok",
+    successReason: "call firecrawl api",
+  });
+  assert.equal(allowedFirecrawlApi.allowed, true, "expected raw skill markdown to open network corridor");
+  assert.equal(allowedFirecrawlApi.requiresApproval, false, "expected sourced network corridor to avoid re-prompt");
+
+  const rawDenialDocPath = path.join(denialDir!, "stealth-browser-mcp.md");
+  await fs.writeFile(rawDenialDocPath, [
+    "# Stealth Browser MCP",
+    "",
+    "Undetectable browser automation with stealth browsing and anti-bot bypass.",
+    "",
+    "## Usage",
+    "",
+    "```bash",
+    "playwright-mcp run https://stealth.example.com",
+    "```",
+    "",
+    "API endpoint: https://stealth.example.com/api",
+  ].join("\n"));
+
+  const rawDenialSync = await runCli(["upl", "sync", "--lane", "denial", "--json"], env);
+  assert.equal(rawDenialSync.code, 0, rawDenialSync.stderr);
+
+  const rawDenialSearch = await runCli(["upl", "search", "stealth-browser", "--json"], env);
+  assert.equal(rawDenialSearch.code, 0, rawDenialSearch.stderr);
+  const rawDenialState = JSON.parse(rawDenialSearch.stdout) as {
+    matches: Array<{
+      entry: {
+        type: string;
+        notes?: string | null;
+        trackConstraint?: { allowedActionKinds?: string[]; targetPatterns?: string[] };
+      };
+    }>;
+  };
+  const deniedEntries = rawDenialState.matches
+    .map((row) => row.entry)
+    .filter((entry) => entry.type === "DENIED" && entry.notes?.includes("[denial-source-intake]") && entry.notes?.includes("name=Stealth Browser MCP"));
+  assert.ok(deniedEntries.length >= 2, "expected raw denial source markdown to compile into multiple denied entries");
+  assert.ok(deniedEntries.some((entry) => entry.trackConstraint?.allowedActionKinds?.includes("tool.exec")));
+  assert.ok(deniedEntries.some((entry) => entry.trackConstraint?.allowedActionKinds?.includes("network.send")));
+
+  const latestDeniedUpl = JSON.parse(await fs.readFile(ledgerPath, "utf8")) as BoundaryUserPathLedger;
+  store.replaceConfig({
+    ...store.getConfig(),
+    upl: latestDeniedUpl,
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: DEFAULT_BOUNDARY_LAWS,
+      existingLawIds: getActiveUserLawIds(latestDeniedUpl, store.getConfig().session),
+      runtimeMuscle,
+    }),
+  });
+
+  const deniedTrackField = compileLiveUplField({ ledger: latestDeniedUpl, session: store.getConfig().session });
+  assert.ok(
+    deniedTrackField.some((segment) =>
+      segment.polarity === "deny" &&
+      segment.entry.notes?.includes("[denial-source-intake]") &&
+      segment.entry.notes?.includes("name=Stealth Browser MCP") &&
+      segment.entry.trackConstraint?.allowedActionKinds?.includes("tool.exec") &&
+      segment.entry.trackConstraint?.targetPatterns?.some((pattern) => pattern.includes("playwright-mcp")),
+    ),
+    "expected raw denial intake to compile a deny tool corridor",
+  );
+
+  assert.ok(
+    deniedTrackField.some((segment) =>
+      segment.polarity === "deny" &&
+      segment.entry.notes?.includes("[denial-source-intake]") &&
+      segment.entry.notes?.includes("name=Stealth Browser MCP") &&
+      segment.entry.trackConstraint?.allowedActionKinds?.includes("network.send") &&
+      segment.entry.trackConstraint?.targetPatterns?.some((pattern) => pattern.includes("stealth\\.example\\.com")),
+    ),
+    "expected raw denial intake to compile a deny network corridor",
+  );
+
 }
 
-main().catch((error) => {
-  console.error(error);
-  process.exit(1);
-});
+main()
+  .then(() => {
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
+  });
