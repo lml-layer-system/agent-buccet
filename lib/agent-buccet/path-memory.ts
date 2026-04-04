@@ -1,0 +1,1219 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import type { BoundaryActionKind } from "./types.ts";
+
+export const BUCCET_PATH_NAMES = [
+  "messaging",
+  "search",
+  "coding",
+  "research",
+  "automation",
+  "files",
+  "analysis",
+  "general",
+] as const;
+
+export type BuccetPathName = string;
+export type BuccetPathDomain = string;
+export type BuccetPathStageStatus =
+  | "PENDING"
+  | "ACTIVE"
+  | "COMPLETED"
+  | "BLOCKED"
+  | "FAILED";
+export type BuccetPathAgentStatus =
+  | "IDLE"
+  | "ACTIVE"
+  | "COMPLETED"
+  | "BLOCKED"
+  | "FAILED";
+export type BuccetPathFormationStatus =
+  | "READY"
+  | "RUNNING"
+  | "BLOCKED"
+  | "FAILED"
+  | "COMPLETED";
+export type BuccetPathAdvanceResult = "success" | "complete" | "blocked" | "failed";
+
+export type BuccetPathUplBinding = {
+  actionKinds: BoundaryActionKind[];
+  targets?: string[];
+  notes?: string;
+};
+
+export type BuccetPathAgentTemplate = {
+  id: string;
+  title: string;
+  specialty: string;
+  modelHint?: string;
+  tools?: string[];
+  uplBindings: BuccetPathUplBinding[];
+};
+
+export type BuccetPathStageTemplate = {
+  id: string;
+  title: string;
+  purpose: string;
+  agentIds: string[];
+  tools?: string[];
+  uplBindings?: BuccetPathUplBinding[];
+  terminal?: boolean;
+};
+
+export type BuccetPathTemplate = {
+  pathName: BuccetPathName;
+  domain: BuccetPathDomain;
+  title: string;
+  summary: string;
+  modelHint: string;
+  laws: string[];
+  tools: string[];
+  uplBindings: BuccetPathUplBinding[];
+  agentRoster: BuccetPathAgentTemplate[];
+  stages: BuccetPathStageTemplate[];
+};
+
+export type BuccetPathTemplateDraft = {
+  domain?: BuccetPathDomain;
+  title?: string;
+  summary?: string;
+  modelHint?: string;
+  laws?: string[];
+  tools?: string[];
+  uplBindings?: BuccetPathUplBinding[];
+  agentRoster?: BuccetPathAgentTemplate[];
+  stages?: BuccetPathStageTemplate[];
+};
+
+export type BuccetPathAgentState = BuccetPathAgentTemplate & {
+  position: number;
+  stageIds: string[];
+  completedStageIds: string[];
+  currentStageId?: string;
+  status: BuccetPathAgentStatus;
+  activatedAt?: string;
+  completedAt?: string;
+};
+
+export type BuccetPathStageState = BuccetPathStageTemplate & {
+  position: number;
+  status: BuccetPathStageStatus;
+  activatedAt?: string;
+  completedAt?: string;
+  inputKeys: string[];
+  outputKeys: string[];
+  reason?: string | null;
+};
+
+export type BuccetPathFormationEvent = {
+  kind: "created" | "advanced" | "switched" | "blocked" | "failed" | "completed";
+  at: string;
+  stageId?: string;
+  detail?: string | null;
+};
+
+export type BuccetPathFormationState = {
+  formationId: string;
+  sessionId: string;
+  pathName: BuccetPathName;
+  domain: BuccetPathDomain;
+  title: string;
+  status: BuccetPathFormationStatus;
+  templateVersion: 1;
+  currentStageIndex: number;
+  userRequest: string;
+  modelHint: string;
+  laws: string[];
+  tools: string[];
+  uplBindings: BuccetPathUplBinding[];
+  agentRoster: BuccetPathAgentState[];
+  context: Record<string, unknown>;
+  stages: BuccetPathStageState[];
+  events: BuccetPathFormationEvent[];
+  createdAt: string;
+  updatedAt: string;
+  previousPathName?: BuccetPathName;
+  previousFormationId?: string;
+};
+
+export type BuccetPathMemorySnapshot = {
+  specVersion: 1;
+  formations: BuccetPathFormationState[];
+};
+
+export type BuccetPathLiveStep = {
+  position: number;
+  stageId: string;
+  title: string;
+  status: BuccetPathStageStatus;
+  purpose: string;
+  agentIds: string[];
+  agentTitles: string[];
+  uplActionKinds: BoundaryActionKind[];
+  uplTargets: string[];
+};
+
+export type BuccetPathLiveView = {
+  formationId: string;
+  pathName: string;
+  domain: string;
+  status: BuccetPathFormationStatus;
+  currentStageId?: string;
+  activeAgentIds: string[];
+  activeAgentTitles: string[];
+  pathAgentCount: number;
+  pathLawfulActionKinds: BoundaryActionKind[];
+  pathLawfulTargets: string[];
+  steps: BuccetPathLiveStep[];
+  events: string[];
+};
+
+function upl(actionKinds: BoundaryActionKind[], targets: string[] = [], notes?: string): BuccetPathUplBinding {
+  return { actionKinds, targets, notes };
+}
+
+const DEFAULT_AUTO_PATH_BINDING = upl([], [], "resolved by live UPL during execution");
+
+function toTitleCase(value: string): string {
+  return value
+    .split(/[^a-zA-Z0-9]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function normalizeBuccetDomain(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "general";
+}
+
+function createDefaultAutoAgentRoster(pathName: BuccetPathName, domain: BuccetPathDomain): BuccetPathAgentTemplate[] {
+  const prefix = normalizeBuccetDomain(pathName);
+  return [
+    {
+      id: `${prefix}-intake`,
+      title: `${toTitleCase(pathName)} Intake`,
+      specialty: `${domain} intake`,
+      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+    },
+    {
+      id: `${prefix}-specialist`,
+      title: `${toTitleCase(pathName)} Specialist`,
+      specialty: `${domain} execution`,
+      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+    },
+    {
+      id: `${prefix}-witness`,
+      title: `${toTitleCase(pathName)} Witness`,
+      specialty: `${domain} result witness`,
+      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+    },
+  ];
+}
+
+function createDefaultAutoStages(pathName: BuccetPathName, agentRoster: BuccetPathAgentTemplate[]): BuccetPathStageTemplate[] {
+  const intakeAgentId = agentRoster[0]?.id ?? `${normalizeBuccetDomain(pathName)}-intake`;
+  const specialistAgentIds = agentRoster.slice(1, -1).map((agent) => agent.id);
+  const witnessAgentId = agentRoster[agentRoster.length - 1]?.id ?? `${normalizeBuccetDomain(pathName)}-witness`;
+  return [
+    {
+      id: "intake",
+      title: "Intake",
+      purpose: `Intake the ${pathName} request.`,
+      agentIds: [intakeAgentId],
+      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+    },
+    {
+      id: "execute",
+      title: "Execute",
+      purpose: `Perform the ${pathName} work inside lawful UPL motion.`,
+      agentIds: specialistAgentIds.length > 0 ? specialistAgentIds : [intakeAgentId],
+      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+    },
+    {
+      id: "finalize",
+      title: "Finalize",
+      purpose: `Return the bounded ${pathName} result.`,
+      agentIds: [witnessAgentId],
+      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      terminal: true,
+    },
+  ];
+}
+
+export function createBuccetPathTemplate(args: {
+  pathName: BuccetPathName;
+  userRequest?: string;
+  draft?: BuccetPathTemplateDraft;
+}): BuccetPathTemplate {
+  const domain = normalizeBuccetDomain(args.draft?.domain ?? args.pathName);
+  const title = args.draft?.title ?? `${toTitleCase(args.pathName)} Path`;
+  const summary = args.draft?.summary
+    ?? `Finite ${domain} path for ${args.userRequest ?? args.pathName}.`;
+  const modelHint = args.draft?.modelHint ?? "gpt-4.1";
+  const laws = args.draft?.laws ? [...args.draft.laws] : [normalizeBuccetDomain(args.pathName), domain, "upl"];
+  const tools = args.draft?.tools ? [...args.draft.tools] : [];
+  const uplBindings = args.draft?.uplBindings?.map((binding) => ({
+    ...binding,
+    actionKinds: [...binding.actionKinds],
+    targets: [...(binding.targets ?? [])],
+  })) ?? [DEFAULT_AUTO_PATH_BINDING];
+  const agentRoster = args.draft?.agentRoster?.map((agent) => ({
+    ...agent,
+    tools: [...(agent.tools ?? [])],
+    uplBindings: agent.uplBindings.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+  })) ?? createDefaultAutoAgentRoster(args.pathName, domain);
+  const stages = args.draft?.stages?.map((stage) => ({
+    ...stage,
+    agentIds: [...stage.agentIds],
+    tools: [...(stage.tools ?? [])],
+    uplBindings: stage.uplBindings?.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+  })) ?? createDefaultAutoStages(args.pathName, agentRoster);
+  const template = {
+    pathName: args.pathName,
+    domain,
+    title,
+    summary,
+    modelHint,
+    laws,
+    tools,
+    uplBindings,
+    agentRoster,
+    stages,
+  };
+  validatePathTemplate(template);
+  return template;
+}
+
+export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetPathTemplate> {
+  return {
+    messaging: {
+      pathName: "messaging",
+      domain: "communication",
+      title: "Messaging Path",
+      summary: "Finite message composition and delivery flow.",
+      modelHint: "gpt-4o-mini",
+      laws: ["messaging", "privacy", "cost"],
+      tools: ["telegram_api", "slack_api", "email_api", "whatsapp_api"],
+      uplBindings: [
+        upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"]),
+      ],
+      agentRoster: [
+        { id: "intent-analyst", title: "Intent Analyst", specialty: "message intent parsing", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])] },
+        { id: "channel-safety", title: "Channel Safety", specialty: "recipient and policy screening", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"], "policy screening before delivery")] },
+        { id: "message-composer", title: "Message Composer", specialty: "outbound drafting", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])] },
+        { id: "delivery-operator", title: "Delivery Operator", specialty: "channel delivery", tools: ["comm.send", "chat.emit"], uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])] },
+        { id: "delivery-witness", title: "Delivery Witness", specialty: "delivery confirmation", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"], "delivery witness only")] },
+      ],
+      stages: [
+        { id: "intent", title: "Intent", purpose: "Determine the message intent.", agentIds: ["intent-analyst"] },
+        { id: "safety", title: "Safety", purpose: "Check the request and recipient shape.", agentIds: ["channel-safety"] },
+        { id: "compose", title: "Compose", purpose: "Draft the outbound message.", agentIds: ["message-composer"] },
+        { id: "deliver", title: "Deliver", purpose: "Send through the selected channel.", agentIds: ["delivery-operator", "channel-safety"], tools: ["comm.send", "chat.emit"] },
+        { id: "confirm", title: "Confirm", purpose: "Return a delivery result.", agentIds: ["delivery-witness"], terminal: true },
+      ],
+    },
+    search: {
+      pathName: "search",
+      domain: "search_retrieval",
+      title: "Search Path",
+      summary: "Finite search, extraction, and summary flow.",
+      modelHint: "gpt-4.1",
+      laws: ["search", "privacy", "copyright"],
+      tools: ["web_search", "web_fetch"],
+      uplBindings: [
+        upl(["network.send"], ["web_search", "web_fetch"]),
+        upl(["fs.write"], ["report-output"], "optional summary output"),
+      ],
+      agentRoster: [
+        { id: "query-framer", title: "Query Framer", specialty: "query shaping", uplBindings: [upl(["network.send"], ["web_search"])] },
+        { id: "search-safety", title: "Search Safety", specialty: "query and domain safety", uplBindings: [upl(["network.send"], ["web_search", "web_fetch"], "safety pass on retrieval")] },
+        { id: "search-runner", title: "Search Runner", specialty: "web search execution", tools: ["web_search"], uplBindings: [upl(["network.send"], ["web_search"])] },
+        { id: "fact-extractor", title: "Fact Extractor", specialty: "web extraction", tools: ["web_fetch"], uplBindings: [upl(["network.send"], ["web_fetch"])] },
+        { id: "result-synthesizer", title: "Result Synthesizer", specialty: "bounded summarization", uplBindings: [upl(["network.send"], ["web_fetch"]), upl(["fs.write"], ["report-output"])] },
+      ],
+      stages: [
+        { id: "query", title: "Query", purpose: "Shape the search query.", agentIds: ["query-framer"] },
+        { id: "safety", title: "Safety", purpose: "Check query and domain safety.", agentIds: ["search-safety"] },
+        { id: "search", title: "Search", purpose: "Run the search.", agentIds: ["search-runner"], tools: ["web_search"] },
+        { id: "extract", title: "Extract", purpose: "Pull relevant facts from results.", agentIds: ["fact-extractor"], tools: ["web_fetch"] },
+        { id: "summarize", title: "Summarize", purpose: "Produce a bounded summary.", agentIds: ["result-synthesizer", "search-safety"], terminal: true },
+      ],
+    },
+    coding: {
+      pathName: "coding",
+      domain: "software_engineering",
+      title: "Coding Path",
+      summary: "Finite requirements, plan, build, test, and fix flow.",
+      modelHint: "claude-sonnet",
+      laws: ["coding", "security", "cost"],
+      tools: ["tool.exec", "fs.read", "fs.write"],
+      uplBindings: [
+        upl(["tool.exec"], ["test", "lint", "typecheck", "git"]),
+        upl(["fs.read", "fs.write"], ["workspace"]),
+      ],
+      agentRoster: [
+        { id: "requirements-analyst", title: "Requirements Analyst", specialty: "build requirements reduction", uplBindings: [upl(["fs.read"], ["workspace"])] },
+        { id: "build-planner", title: "Build Planner", specialty: "implementation planning", uplBindings: [upl(["fs.read"], ["workspace"])] },
+        { id: "code-safety", title: "Code Safety", specialty: "plan and output safety review", uplBindings: [upl(["fs.read"], ["workspace"]), upl(["tool.exec"], ["test", "lint", "typecheck"])] },
+        { id: "implementation-engineer", title: "Implementation Engineer", specialty: "code authoring", tools: ["tool.exec", "fs.write"], uplBindings: [upl(["tool.exec"], ["git", "build"]), upl(["fs.read", "fs.write"], ["workspace"])] },
+        { id: "test-operator", title: "Test Operator", specialty: "bounded validation", tools: ["tool.exec", "fs.read"], uplBindings: [upl(["tool.exec"], ["test", "typecheck"]), upl(["fs.read"], ["workspace"])] },
+        { id: "repair-engineer", title: "Repair Engineer", specialty: "single-pass code repair", tools: ["tool.exec", "fs.write"], uplBindings: [upl(["tool.exec"], ["test", "lint"]), upl(["fs.read", "fs.write"], ["workspace"])] },
+        { id: "result-finisher", title: "Result Finisher", specialty: "final result packaging", uplBindings: [upl(["fs.read"], ["workspace"])] },
+      ],
+      stages: [
+        { id: "requirements", title: "Requirements", purpose: "Reduce the request to concrete build requirements.", agentIds: ["requirements-analyst"] },
+        { id: "plan", title: "Plan", purpose: "Create a finite build plan.", agentIds: ["build-planner"] },
+        { id: "safety", title: "Safety", purpose: "Check the plan before execution.", agentIds: ["code-safety"] },
+        { id: "build", title: "Build", purpose: "Implement the change.", agentIds: ["implementation-engineer"], tools: ["tool.exec", "fs.write"] },
+        { id: "test", title: "Test", purpose: "Run bounded validation.", agentIds: ["test-operator"], tools: ["tool.exec", "fs.read"] },
+        { id: "fix", title: "Fix", purpose: "Apply a single repair pass if needed.", agentIds: ["repair-engineer"], tools: ["tool.exec", "fs.write"] },
+        { id: "finalize", title: "Finalize", purpose: "Return the final result.", agentIds: ["result-finisher", "code-safety"], terminal: true },
+      ],
+    },
+    research: {
+      pathName: "research",
+      domain: "research_analysis",
+      title: "Research Path",
+      summary: "Finite topic, source, analysis, and report flow.",
+      modelHint: "gpt-4.1",
+      laws: ["research", "copyright", "citation"],
+      tools: ["web_search", "web_fetch", "fs.write"],
+      uplBindings: [
+        upl(["network.send"], ["web_search", "web_fetch"]),
+        upl(["fs.write"], ["report-output"]),
+      ],
+      agentRoster: [
+        { id: "scope-analyst", title: "Scope Analyst", specialty: "research scoping", uplBindings: [upl(["network.send"], ["web_search"])] },
+        { id: "source-finder", title: "Source Finder", specialty: "source discovery", tools: ["web_search"], uplBindings: [upl(["network.send"], ["web_search"])] },
+        { id: "research-safety", title: "Research Safety", specialty: "source and output safety", uplBindings: [upl(["network.send"], ["web_search", "web_fetch"]), upl(["fs.write"], ["report-output"])] },
+        { id: "reader", title: "Reader", specialty: "source extraction", tools: ["web_fetch"], uplBindings: [upl(["network.send"], ["web_fetch"])] },
+        { id: "analyst", title: "Analyst", specialty: "finding analysis", uplBindings: [upl(["network.send"], ["web_fetch"])] },
+        { id: "report-writer", title: "Report Writer", specialty: "report generation", tools: ["fs.write"], uplBindings: [upl(["fs.write"], ["report-output"])] },
+      ],
+      stages: [
+        { id: "scope", title: "Scope", purpose: "Define the research scope.", agentIds: ["scope-analyst"] },
+        { id: "sources", title: "Sources", purpose: "Find candidate sources.", agentIds: ["source-finder"], tools: ["web_search"] },
+        { id: "safety", title: "Safety", purpose: "Check sources and output bounds.", agentIds: ["research-safety"] },
+        { id: "read", title: "Read", purpose: "Extract source facts.", agentIds: ["reader"], tools: ["web_fetch"] },
+        { id: "analyze", title: "Analyze", purpose: "Analyze the findings.", agentIds: ["analyst"] },
+        { id: "report", title: "Report", purpose: "Produce the report.", agentIds: ["report-writer", "research-safety"], terminal: true, tools: ["fs.write"] },
+      ],
+    },
+    automation: {
+      pathName: "automation",
+      domain: "automation_operations",
+      title: "Automation Path",
+      summary: "Finite trigger, safety, action, verify, and log flow.",
+      modelHint: "gpt-4o-mini",
+      laws: ["automation", "safety", "cost"],
+      tools: ["tool.exec", "network.send", "comm.send"],
+      uplBindings: [
+        upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"]),
+      ],
+      agentRoster: [
+        { id: "trigger-designer", title: "Trigger Designer", specialty: "trigger shaping", uplBindings: [upl(["tool.exec"], ["automation-targets"])] },
+        { id: "condition-checker", title: "Condition Checker", specialty: "condition evaluation", uplBindings: [upl(["tool.exec"], ["automation-targets"])] },
+        { id: "automation-safety", title: "Automation Safety", specialty: "automation safety review", uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])] },
+        { id: "action-runner", title: "Action Runner", specialty: "bounded automation execution", tools: ["tool.exec", "network.send", "comm.send"], uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])] },
+        { id: "verification-agent", title: "Verification Agent", specialty: "result verification", uplBindings: [upl(["tool.exec"], ["automation-targets"])] },
+        { id: "audit-logger", title: "Audit Logger", specialty: "audit and log output", uplBindings: [upl(["fs.write"], ["automation-log"])] },
+      ],
+      stages: [
+        { id: "trigger", title: "Trigger", purpose: "Identify the trigger and goal.", agentIds: ["trigger-designer"] },
+        { id: "conditions", title: "Conditions", purpose: "Check run conditions.", agentIds: ["condition-checker"] },
+        { id: "safety", title: "Safety", purpose: "Check automation safety.", agentIds: ["automation-safety"] },
+        { id: "act", title: "Act", purpose: "Execute the bounded automation action.", agentIds: ["action-runner"], tools: ["tool.exec", "network.send", "comm.send"] },
+        { id: "verify", title: "Verify", purpose: "Verify the outcome.", agentIds: ["verification-agent"] },
+        { id: "log", title: "Log", purpose: "Record the outcome.", agentIds: ["audit-logger"], terminal: true },
+      ],
+    },
+    files: {
+      pathName: "files",
+      domain: "file_workspace",
+      title: "Files Path",
+      summary: "Finite file navigation, permission check, operation, and verify flow.",
+      modelHint: "gpt-4o-mini",
+      laws: ["files", "privacy", "security"],
+      tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"],
+      uplBindings: [
+        upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"]),
+      ],
+      agentRoster: [
+        { id: "navigator", title: "Navigator", specialty: "file discovery", uplBindings: [upl(["fs.read"], ["workspace"])] },
+        { id: "path-safety", title: "Path Safety", specialty: "path and permission review", uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])] },
+        { id: "file-operator", title: "File Operator", specialty: "file mutation", tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"], uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])] },
+        { id: "file-verifier", title: "File Verifier", specialty: "result verification", uplBindings: [upl(["fs.read"], ["workspace"])] },
+        { id: "temp-cleaner", title: "Temp Cleaner", specialty: "temporary state cleanup", uplBindings: [upl(["fs.write", "fs.move"], ["workspace"])] },
+      ],
+      stages: [
+        { id: "navigate", title: "Navigate", purpose: "Locate the target files.", agentIds: ["navigator"] },
+        { id: "safety", title: "Safety", purpose: "Check permissions and destination bounds.", agentIds: ["path-safety"] },
+        { id: "operate", title: "Operate", purpose: "Perform the requested file action.", agentIds: ["file-operator"], tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"] },
+        { id: "verify", title: "Verify", purpose: "Verify the file state.", agentIds: ["file-verifier"] },
+        { id: "cleanup", title: "Cleanup", purpose: "Clean temporary file state.", agentIds: ["temp-cleaner"], terminal: true },
+      ],
+    },
+    analysis: {
+      pathName: "analysis",
+      domain: "data_analytics",
+      title: "Analysis Path",
+      summary: "Finite load, clean, analyze, visualize, and report flow.",
+      modelHint: "gpt-4.1",
+      laws: ["data", "privacy", "security"],
+      tools: ["fs.read", "db.query", "fs.write"],
+      uplBindings: [
+        upl(["fs.read", "db.query", "fs.write"], ["workspace", "analysis-db", "report-output"]),
+      ],
+      agentRoster: [
+        { id: "data-loader", title: "Data Loader", specialty: "dataset loading", tools: ["fs.read", "db.query"], uplBindings: [upl(["fs.read", "db.query"], ["workspace", "analysis-db"])] },
+        { id: "data-cleaner", title: "Data Cleaner", specialty: "data normalization", uplBindings: [upl(["fs.read"], ["workspace"])] },
+        { id: "analysis-safety", title: "Analysis Safety", specialty: "PII and scope review", uplBindings: [upl(["fs.read", "db.query", "fs.write"], ["workspace", "analysis-db", "report-output"])] },
+        { id: "analysis-engine", title: "Analysis Engine", specialty: "data analysis", uplBindings: [upl(["db.query"], ["analysis-db"])] },
+        { id: "visual-designer", title: "Visual Designer", specialty: "charts and artifacts", tools: ["fs.write"], uplBindings: [upl(["fs.write"], ["report-output"])] },
+        { id: "report-finisher", title: "Report Finisher", specialty: "report synthesis", uplBindings: [upl(["fs.write"], ["report-output"])] },
+      ],
+      stages: [
+        { id: "load", title: "Load", purpose: "Load the data source.", agentIds: ["data-loader"], tools: ["fs.read", "db.query"] },
+        { id: "clean", title: "Clean", purpose: "Normalize the data.", agentIds: ["data-cleaner"] },
+        { id: "safety", title: "Safety", purpose: "Check for PII and scope issues.", agentIds: ["analysis-safety"] },
+        { id: "analyze", title: "Analyze", purpose: "Run the analysis.", agentIds: ["analysis-engine"] },
+        { id: "visualize", title: "Visualize", purpose: "Create charts or artifacts.", agentIds: ["visual-designer"], tools: ["fs.write"] },
+        { id: "report", title: "Report", purpose: "Return the findings.", agentIds: ["report-finisher"], terminal: true },
+      ],
+    },
+    general: {
+      pathName: "general",
+      domain: "general_productivity",
+      title: "General Path",
+      summary: "Finite clarify, plan, execute, and respond flow.",
+      modelHint: "gpt-4o-mini",
+      laws: ["general", "safety", "cost"],
+      tools: [],
+      uplBindings: [
+        upl(["chat.emit"], ["chat:primary"], "general bounded response path"),
+      ],
+      agentRoster: [
+        { id: "clarifier", title: "Clarifier", specialty: "request clarification", uplBindings: [upl(["chat.emit"], ["chat:primary"])] },
+        { id: "planner", title: "Planner", specialty: "finite planning", uplBindings: [upl(["chat.emit"], ["chat:primary"])] },
+        { id: "general-safety", title: "General Safety", specialty: "bounded safety review", uplBindings: [upl(["chat.emit"], ["chat:primary"], "safety review only")] },
+        { id: "responder", title: "Responder", specialty: "final response shaping", uplBindings: [upl(["chat.emit"], ["chat:primary"])] },
+      ],
+      stages: [
+        { id: "clarify", title: "Clarify", purpose: "Clarify the request.", agentIds: ["clarifier"] },
+        { id: "plan", title: "Plan", purpose: "Build a finite plan.", agentIds: ["planner"] },
+        { id: "safety", title: "Safety", purpose: "Check the plan.", agentIds: ["general-safety"] },
+        { id: "respond", title: "Respond", purpose: "Return the result.", agentIds: ["responder"], terminal: true },
+      ],
+    },
+  };
+}
+
+function deepCloneFormationState(state: BuccetPathFormationState): BuccetPathFormationState {
+  return {
+    ...state,
+    uplBindings: state.uplBindings.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+    agentRoster: state.agentRoster.map((agent) => ({
+      ...agent,
+      stageIds: [...agent.stageIds],
+      completedStageIds: [...agent.completedStageIds],
+      tools: [...(agent.tools ?? [])],
+      uplBindings: agent.uplBindings.map((binding) => ({
+        ...binding,
+        actionKinds: [...binding.actionKinds],
+        targets: [...(binding.targets ?? [])],
+      })),
+    })),
+    context: { ...state.context },
+    laws: [...state.laws],
+    tools: [...state.tools],
+    stages: state.stages.map((stage) => ({
+      ...stage,
+      agentIds: [...stage.agentIds],
+      tools: [...(stage.tools ?? [])],
+      uplBindings: stage.uplBindings?.map((binding) => ({
+        ...binding,
+        actionKinds: [...binding.actionKinds],
+        targets: [...(binding.targets ?? [])],
+      })),
+      inputKeys: [...stage.inputKeys],
+      outputKeys: [...stage.outputKeys],
+    })),
+    events: state.events.map((event) => ({ ...event })),
+  };
+}
+
+function makeFormationId(sessionId: string, pathName: BuccetPathName, createdAt: string): string {
+  const safeTs = createdAt.replace(/[^0-9]+/g, "");
+  return `formation:${sessionId}:${pathName}:${safeTs}`;
+}
+
+function validatePathTemplate(template: BuccetPathTemplate): void {
+  const agentIds = new Set(template.agentRoster.map((agent) => agent.id));
+  const stageIds = new Set<string>();
+  if (template.agentRoster.length === 0) {
+    throw new Error(`Buccet path ${template.pathName} must define at least one agent`);
+  }
+  if (template.uplBindings.length === 0) {
+    throw new Error(`Buccet path ${template.pathName} must define at least one UPL binding`);
+  }
+  for (const agent of template.agentRoster) {
+    if (agent.uplBindings.length === 0) {
+      throw new Error(`Buccet agent ${agent.id} in ${template.pathName} must define at least one UPL binding`);
+    }
+  }
+  for (const stage of template.stages) {
+    if (stageIds.has(stage.id)) {
+      throw new Error(`Buccet path ${template.pathName} contains duplicate stage ${stage.id}`);
+    }
+    stageIds.add(stage.id);
+    if (stage.agentIds.length === 0) {
+      throw new Error(`Buccet stage ${stage.id} in ${template.pathName} must own at least one agent`);
+    }
+    for (const agentId of stage.agentIds) {
+      if (!agentIds.has(agentId)) {
+        throw new Error(`Buccet stage ${stage.id} references unknown agent ${agentId}`);
+      }
+    }
+  }
+}
+
+export function createBuccetPathLibrary(args?: {
+  includeDefaults?: boolean;
+  templates?: BuccetPathTemplate[];
+}): Record<BuccetPathName, BuccetPathTemplate> {
+  const library: Record<BuccetPathName, BuccetPathTemplate> = args?.includeDefaults === false
+    ? {}
+    : createDefaultBuccetPathLibrary();
+  for (const template of args?.templates ?? []) {
+    validatePathTemplate(template);
+    library[template.pathName] = template;
+  }
+  return library;
+}
+
+export function hasBuccetPath(
+  library: Record<BuccetPathName, BuccetPathTemplate>,
+  pathName: string,
+): boolean {
+  return Object.prototype.hasOwnProperty.call(library, pathName);
+}
+
+export function getBuccetPathTemplate(
+  library: Record<BuccetPathName, BuccetPathTemplate>,
+  pathName: string,
+): BuccetPathTemplate | null {
+  return hasBuccetPath(library, pathName) ? library[pathName] : null;
+}
+
+export function ensureBuccetPathInLibrary(args: {
+  library: Record<BuccetPathName, BuccetPathTemplate>;
+  pathName: BuccetPathName;
+  userRequest?: string;
+  draft?: BuccetPathTemplateDraft;
+}): BuccetPathTemplate {
+  const existing = getBuccetPathTemplate(args.library, args.pathName);
+  if (existing) {
+    return existing;
+  }
+  const created = createBuccetPathTemplate({
+    pathName: args.pathName,
+    userRequest: args.userRequest,
+    draft: args.draft,
+  });
+  args.library[args.pathName] = created;
+  return created;
+}
+
+function stageStatesForTemplate(template: BuccetPathTemplate, createdAt: string): BuccetPathStageState[] {
+  return template.stages.map((stage, position) => ({
+    ...stage,
+    agentIds: [...stage.agentIds],
+    tools: [...(stage.tools ?? [])],
+    uplBindings: stage.uplBindings?.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+    position,
+    status: position === 0 ? "ACTIVE" : "PENDING",
+    activatedAt: position === 0 ? createdAt : undefined,
+    inputKeys: [],
+    outputKeys: [],
+    reason: null,
+  }));
+}
+
+function stageIdsForAgent(template: BuccetPathTemplate, agentId: string): string[] {
+  return template.stages.filter((stage) => stage.agentIds.includes(agentId)).map((stage) => stage.id);
+}
+
+function buildAgentRosterForTemplate(template: BuccetPathTemplate, createdAt: string): BuccetPathAgentState[] {
+  const firstStage = template.stages[0];
+  return template.agentRoster.map((agent, position) => {
+    const stageIds = stageIdsForAgent(template, agent.id);
+    const active = firstStage ? firstStage.agentIds.includes(agent.id) : false;
+    return {
+      ...agent,
+      tools: [...(agent.tools ?? [])],
+      uplBindings: agent.uplBindings.map((binding) => ({
+        ...binding,
+        actionKinds: [...binding.actionKinds],
+        targets: [...(binding.targets ?? [])],
+      })),
+      position,
+      stageIds,
+      completedStageIds: [],
+      currentStageId: active ? firstStage.id : undefined,
+      status: active ? "ACTIVE" : "IDLE",
+      activatedAt: active ? createdAt : undefined,
+    };
+  });
+}
+
+function hasFutureStage(agent: BuccetPathAgentState, stages: BuccetPathStageState[], currentStageIndex: number): boolean {
+  return stages.some((stage) => stage.position > currentStageIndex && stage.agentIds.includes(agent.id));
+}
+
+function activateAgentsForStage(
+  agentRoster: BuccetPathAgentState[],
+  stages: BuccetPathStageState[],
+  stageIndex: number,
+  occurredAt: string,
+): BuccetPathAgentState[] {
+  const stage = stages[stageIndex];
+  if (!stage) {
+    return agentRoster;
+  }
+  return agentRoster.map((agent) => {
+    if (!stage.agentIds.includes(agent.id)) {
+      return agent;
+    }
+    return {
+      ...agent,
+      status: "ACTIVE",
+      currentStageId: stage.id,
+      activatedAt: occurredAt,
+    };
+  });
+}
+
+function completeAgentsForStage(
+  agentRoster: BuccetPathAgentState[],
+  stages: BuccetPathStageState[],
+  stageIndex: number,
+  occurredAt: string,
+): BuccetPathAgentState[] {
+  const stage = stages[stageIndex];
+  if (!stage) {
+    return agentRoster;
+  }
+  return agentRoster.map((agent) => {
+    if (!stage.agentIds.includes(agent.id)) {
+      return agent;
+    }
+    const completedStageIds = agent.completedStageIds.includes(stage.id)
+      ? [...agent.completedStageIds]
+      : [...agent.completedStageIds, stage.id];
+    return {
+      ...agent,
+      completedStageIds,
+      currentStageId: undefined,
+      completedAt: occurredAt,
+      status: hasFutureStage(agent, stages, stageIndex) ? "IDLE" : "COMPLETED",
+    };
+  });
+}
+
+function failAgentsForStage(
+  agentRoster: BuccetPathAgentState[],
+  stages: BuccetPathStageState[],
+  stageIndex: number,
+  status: "BLOCKED" | "FAILED",
+  occurredAt: string,
+): BuccetPathAgentState[] {
+  const stage = stages[stageIndex];
+  if (!stage) {
+    return agentRoster;
+  }
+  return agentRoster.map((agent) => {
+    if (!stage.agentIds.includes(agent.id)) {
+      return agent;
+    }
+    return {
+      ...agent,
+      currentStageId: stage.id,
+      completedAt: occurredAt,
+      status,
+    };
+  });
+}
+
+export function classifyBuccetPathRequest(userRequest: string): BuccetPathName {
+  const lower = userRequest.toLowerCase();
+  if (/\b(telegram|slack|discord|email|message|whatsapp|sms|send)\b/.test(lower)) {
+    return "messaging";
+  }
+  if (/\b(search|google|browse|web|lookup|find sources)\b/.test(lower)) {
+    return "search";
+  }
+  if (/\b(code|debug|test|build|refactor|script|repo|pr|bug)\b/.test(lower)) {
+    return "coding";
+  }
+  if (/\b(research|compare|analyze sources|paper|report|citations)\b/.test(lower)) {
+    return "research";
+  }
+  if (/\b(automate|workflow|schedule|trigger|n8n|zapier|ifttt)\b/.test(lower)) {
+    return "automation";
+  }
+  if (/\b(file|folder|directory|rename|move|copy|workspace)\b/.test(lower)) {
+    return "files";
+  }
+  if (/\b(data|spreadsheet|sql|query|chart|dashboard|analysis)\b/.test(lower)) {
+    return "analysis";
+  }
+  return "general";
+}
+
+export function canInstantiateBuccetFormation(args: {
+  library: Record<BuccetPathName, BuccetPathTemplate>;
+  pathName: string;
+}): boolean {
+  return args.pathName.trim().length > 0;
+}
+
+export function instantiateBuccetFormation(args: {
+  sessionId: string;
+  userRequest: string;
+  pathName: BuccetPathName;
+  library?: Record<BuccetPathName, BuccetPathTemplate>;
+  draft?: BuccetPathTemplateDraft;
+  createdAt?: string;
+  previousPathName?: BuccetPathName;
+  previousFormationId?: string;
+  previousContext?: Record<string, unknown>;
+}): BuccetPathFormationState {
+  const createdAt = args.createdAt ?? new Date().toISOString();
+  const library = args.library ?? createDefaultBuccetPathLibrary();
+  const template = ensureBuccetPathInLibrary({
+    library,
+    pathName: args.pathName,
+    userRequest: args.userRequest,
+    draft: args.draft,
+  });
+
+  return {
+    formationId: makeFormationId(args.sessionId, args.pathName, createdAt),
+    sessionId: args.sessionId,
+    pathName: args.pathName,
+    domain: template.domain,
+    title: template.title,
+    status: "RUNNING",
+    templateVersion: 1,
+    currentStageIndex: 0,
+    userRequest: args.userRequest,
+    modelHint: template.modelHint,
+    laws: [...template.laws],
+    tools: [...template.tools],
+    uplBindings: template.uplBindings.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+    agentRoster: buildAgentRosterForTemplate(template, createdAt),
+    context: {
+      user_request: args.userRequest,
+      path_name: args.pathName,
+      path_domain: template.domain,
+      started_at: createdAt,
+      ...(args.previousPathName ? { previous_path_name: args.previousPathName } : {}),
+      ...(args.previousFormationId ? { previous_formation_id: args.previousFormationId } : {}),
+      ...(args.previousContext ? { previous_context: args.previousContext } : {}),
+    },
+    stages: stageStatesForTemplate(template, createdAt),
+    events: [{
+      kind: "created",
+      at: createdAt,
+      stageId: template.stages[0]?.id,
+      detail: `formation created for ${args.pathName}`,
+    }],
+    createdAt,
+    updatedAt: createdAt,
+    previousPathName: args.previousPathName,
+    previousFormationId: args.previousFormationId,
+  };
+}
+
+export function getCurrentBuccetStage(state: BuccetPathFormationState): BuccetPathStageState | null {
+  return state.stages[state.currentStageIndex] ?? null;
+}
+
+export function getCurrentBuccetStageAgents(state: BuccetPathFormationState): BuccetPathAgentState[] {
+  const stage = getCurrentBuccetStage(state);
+  if (!stage) {
+    return [];
+  }
+  return state.agentRoster
+    .filter((agent) => stage.agentIds.includes(agent.id))
+    .map((agent) => ({
+      ...agent,
+      tools: [...(agent.tools ?? [])],
+      stageIds: [...agent.stageIds],
+      completedStageIds: [...agent.completedStageIds],
+      uplBindings: agent.uplBindings.map((binding) => ({
+        ...binding,
+        actionKinds: [...binding.actionKinds],
+        targets: [...(binding.targets ?? [])],
+      })),
+    }));
+}
+
+function mergeUplBindings(bindings: BuccetPathUplBinding[] | undefined): {
+  actionKinds: BoundaryActionKind[];
+  targets: string[];
+} {
+  const actionKinds = [...new Set((bindings ?? []).flatMap((binding) => binding.actionKinds))];
+  const targets = [...new Set((bindings ?? []).flatMap((binding) => binding.targets ?? []))];
+  return { actionKinds, targets };
+}
+
+function renderResolvedSurface(values: string[], bindings: BuccetPathUplBinding[] | undefined): string {
+  if (values.length > 0) {
+    return values.join(", ");
+  }
+  if ((bindings ?? []).some((binding) => (binding.notes ?? "").includes("resolved by live UPL"))) {
+    return "runtime_resolved";
+  }
+  return "none";
+}
+
+export function describeBuccetFormationLiveView(state: BuccetPathFormationState): BuccetPathLiveView {
+  const currentStage = getCurrentBuccetStage(state);
+  const activeAgents = getCurrentBuccetStageAgents(state);
+  const pathBinding = mergeUplBindings(state.uplBindings);
+  const steps = state.stages.map((stage) => {
+    const ownedAgents = state.agentRoster.filter((agent) => stage.agentIds.includes(agent.id));
+    const stageBindings = mergeUplBindings([
+      ...(stage.uplBindings ?? []),
+      ...ownedAgents.flatMap((agent) => agent.uplBindings),
+    ]);
+    return {
+      position: stage.position,
+      stageId: stage.id,
+      title: stage.title,
+      status: stage.status,
+      purpose: stage.purpose,
+      agentIds: [...stage.agentIds],
+      agentTitles: ownedAgents.map((agent) => agent.title),
+      uplActionKinds: stageBindings.actionKinds,
+      uplTargets: stageBindings.targets,
+    };
+  });
+
+  return {
+    formationId: state.formationId,
+    pathName: state.pathName,
+    domain: state.domain,
+    status: state.status,
+    currentStageId: currentStage?.id,
+    activeAgentIds: activeAgents.map((agent) => agent.id),
+    activeAgentTitles: activeAgents.map((agent) => agent.title),
+    pathAgentCount: state.agentRoster.length,
+    pathLawfulActionKinds: pathBinding.actionKinds,
+    pathLawfulTargets: pathBinding.targets,
+    steps,
+    events: state.events.map((event) => {
+      const stageSuffix = event.stageId ? ` stage=${event.stageId}` : "";
+      const detailSuffix = event.detail ? ` detail=${event.detail}` : "";
+      return `${event.at} ${event.kind}${stageSuffix}${detailSuffix}`;
+    }),
+  };
+}
+
+export function renderBuccetFormationLiveView(state: BuccetPathFormationState): string {
+  const view = describeBuccetFormationLiveView(state);
+  const currentTemplateBindings = state.uplBindings;
+  const lines = [
+    `formation=${view.formationId}`,
+    `path=${view.pathName}`,
+    `domain=${view.domain}`,
+    `status=${view.status}`,
+    `current_stage=${view.currentStageId ?? "none"}`,
+    `active_agents=${view.activeAgentTitles.join(", ") || "none"}`,
+    `path_agent_count=${view.pathAgentCount}`,
+    `path_lawful_action_kinds=${renderResolvedSurface(view.pathLawfulActionKinds, currentTemplateBindings)}`,
+    `path_lawful_targets=${renderResolvedSurface(view.pathLawfulTargets, currentTemplateBindings)}`,
+    "steps:",
+  ];
+  for (const step of view.steps) {
+    const stageBindings = state.stages[step.position]
+      ? [
+        ...(state.stages[step.position]?.uplBindings ?? []),
+        ...state.agentRoster
+          .filter((agent) => state.stages[step.position]?.agentIds.includes(agent.id))
+          .flatMap((agent) => agent.uplBindings),
+      ]
+      : [];
+    lines.push(
+      `  ${step.position + 1}. ${step.stageId} [${step.status}] owners=${step.agentTitles.join(" + ") || "none"} lawful=${renderResolvedSurface(step.uplActionKinds, stageBindings)} targets=${renderResolvedSurface(step.uplTargets, stageBindings)}`,
+    );
+  }
+  lines.push("events:");
+  for (const event of view.events) {
+    lines.push(`  - ${event}`);
+  }
+  return `${lines.join("\n")}\n`;
+}
+
+export function getBuccetFormationTerminalResult(state: BuccetPathFormationState): unknown {
+  return state.context.final_output ?? state.context.final_result ?? state.context;
+}
+
+function isTerminalFormationStatus(status: BuccetPathFormationStatus): boolean {
+  return status === "COMPLETED" || status === "BLOCKED" || status === "FAILED";
+}
+
+export function advanceBuccetFormation(args: {
+  state: BuccetPathFormationState;
+  result: BuccetPathAdvanceResult;
+  output?: Record<string, unknown>;
+  reason?: string;
+  occurredAt?: string;
+}): BuccetPathFormationState {
+  const occurredAt = args.occurredAt ?? new Date().toISOString();
+  const state = deepCloneFormationState(args.state);
+
+  if (isTerminalFormationStatus(state.status)) {
+    throw new Error(`cannot advance terminal formation in status ${state.status}`);
+  }
+
+  const currentStage = state.stages[state.currentStageIndex];
+  if (!currentStage) {
+    throw new Error("formation has no active stage");
+  }
+  if (currentStage.status !== "ACTIVE") {
+    throw new Error(`stage ${currentStage.id} is not active`);
+  }
+
+  currentStage.inputKeys = Object.keys(state.context);
+  currentStage.outputKeys = Object.keys(args.output ?? {});
+  currentStage.reason = args.reason ?? null;
+  state.updatedAt = occurredAt;
+
+  if (args.output) {
+    state.context = {
+      ...state.context,
+      ...args.output,
+      last_stage_id: currentStage.id,
+      last_stage_position: currentStage.position,
+    };
+  }
+
+  if (args.result === "blocked") {
+    currentStage.status = "BLOCKED";
+    currentStage.completedAt = occurredAt;
+    state.agentRoster = failAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, "BLOCKED", occurredAt);
+    state.status = "BLOCKED";
+    state.events.push({
+      kind: "blocked",
+      at: occurredAt,
+      stageId: currentStage.id,
+      detail: args.reason ?? `formation blocked at ${currentStage.id}`,
+    });
+    return state;
+  }
+
+  if (args.result === "failed") {
+    currentStage.status = "FAILED";
+    currentStage.completedAt = occurredAt;
+    state.agentRoster = failAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, "FAILED", occurredAt);
+    state.status = "FAILED";
+    state.events.push({
+      kind: "failed",
+      at: occurredAt,
+      stageId: currentStage.id,
+      detail: args.reason ?? `formation failed at ${currentStage.id}`,
+    });
+    return state;
+  }
+
+  currentStage.status = "COMPLETED";
+  currentStage.completedAt = occurredAt;
+  state.agentRoster = completeAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, occurredAt);
+
+  const shouldComplete = args.result === "complete" || currentStage.terminal === true || state.currentStageIndex === state.stages.length - 1;
+  if (shouldComplete) {
+    state.status = "COMPLETED";
+    state.currentStageIndex = state.stages.length;
+    state.events.push({
+      kind: "completed",
+      at: occurredAt,
+      stageId: currentStage.id,
+      detail: args.reason ?? `formation completed at ${currentStage.id}`,
+    });
+    return state;
+  }
+
+  const nextStage = state.stages[state.currentStageIndex + 1];
+  if (!nextStage) {
+    throw new Error("next Buccet stage is missing");
+  }
+  if (nextStage.status !== "PENDING") {
+    throw new Error(`next stage ${nextStage.id} is not pending`);
+  }
+  nextStage.status = "ACTIVE";
+  nextStage.activatedAt = occurredAt;
+  state.currentStageIndex += 1;
+  state.agentRoster = activateAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, occurredAt);
+  state.status = "RUNNING";
+  state.events.push({
+    kind: "advanced",
+    at: occurredAt,
+    stageId: nextStage.id,
+    detail: `${currentStage.id} -> ${nextStage.id}`,
+  });
+  return state;
+}
+
+export function detectBuccetPathSwitch(args: {
+  state: BuccetPathFormationState;
+  newRequest: string;
+  nextPathName: BuccetPathName;
+  library?: Record<BuccetPathName, BuccetPathTemplate>;
+  draft?: BuccetPathTemplateDraft;
+}): { shouldSwitch: boolean; nextPathName: BuccetPathName } {
+  const library = args.library ?? createDefaultBuccetPathLibrary();
+  ensureBuccetPathInLibrary({
+    library,
+    pathName: args.nextPathName,
+    userRequest: args.newRequest,
+    draft: args.draft,
+  });
+  return {
+    shouldSwitch: args.nextPathName !== args.state.pathName,
+    nextPathName: args.nextPathName,
+  };
+}
+
+export function switchBuccetFormation(args: {
+  state: BuccetPathFormationState;
+  newRequest: string;
+  nextPathName: BuccetPathName;
+  library?: Record<BuccetPathName, BuccetPathTemplate>;
+  draft?: BuccetPathTemplateDraft;
+  occurredAt?: string;
+}): BuccetPathFormationState {
+  const occurredAt = args.occurredAt ?? new Date().toISOString();
+  const library = args.library ?? createDefaultBuccetPathLibrary();
+  const decision = detectBuccetPathSwitch({
+    state: args.state,
+    newRequest: args.newRequest,
+    nextPathName: args.nextPathName,
+    library,
+    draft: args.draft,
+  });
+  if (!decision.shouldSwitch) {
+    return instantiateBuccetFormation({
+      sessionId: args.state.sessionId,
+      userRequest: args.newRequest,
+      pathName: args.state.pathName,
+      library,
+      draft: args.draft,
+      createdAt: occurredAt,
+      previousPathName: args.state.pathName,
+      previousFormationId: args.state.formationId,
+      previousContext: { ...args.state.context },
+    });
+  }
+
+  const next = instantiateBuccetFormation({
+    sessionId: args.state.sessionId,
+    userRequest: args.newRequest,
+    pathName: decision.nextPathName,
+    library,
+    draft: args.draft,
+    createdAt: occurredAt,
+    previousPathName: args.state.pathName,
+    previousFormationId: args.state.formationId,
+    previousContext: {
+      final_output: getBuccetFormationTerminalResult(args.state),
+      ...args.state.context,
+    },
+  });
+  next.events.push({
+    kind: "switched",
+    at: occurredAt,
+    detail: `${args.state.pathName} -> ${decision.nextPathName}`,
+  });
+  return next;
+}
+
+export class BuccetPathMemoryStore {
+  private formations = new Map<string, BuccetPathFormationState>();
+
+  remember(state: BuccetPathFormationState): BuccetPathFormationState {
+    const cloned = deepCloneFormationState(state);
+    this.formations.set(cloned.formationId, cloned);
+    return cloned;
+  }
+
+  get(formationId: string): BuccetPathFormationState | null {
+    const state = this.formations.get(formationId);
+    return state ? deepCloneFormationState(state) : null;
+  }
+
+  list(): BuccetPathFormationState[] {
+    return [...this.formations.values()]
+      .map((state) => deepCloneFormationState(state))
+      .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
+  }
+
+  findBySessionAndPath(sessionId: string, pathName: BuccetPathName): BuccetPathFormationState | null {
+    const match = [...this.formations.values()]
+      .filter((state) => state.sessionId === sessionId && state.pathName === pathName)
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+    return match ? deepCloneFormationState(match) : null;
+  }
+
+  snapshot(): BuccetPathMemorySnapshot {
+    return {
+      specVersion: 1,
+      formations: this.list(),
+    };
+  }
+
+  replace(snapshot: BuccetPathMemorySnapshot): void {
+    this.formations.clear();
+    for (const state of snapshot.formations) {
+      this.remember(state);
+    }
+  }
+}
+
+export async function saveBuccetPathMemorySnapshot(filePath: string, snapshot: BuccetPathMemorySnapshot): Promise<void> {
+  const resolved = path.resolve(filePath);
+  await fs.mkdir(path.dirname(resolved), { recursive: true });
+  const tempPath = `${resolved}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tempPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+  await fs.rename(tempPath, resolved);
+}
+
+export async function loadBuccetPathMemorySnapshot(filePath: string): Promise<BuccetPathMemorySnapshot | null> {
+  try {
+    const raw = await fs.readFile(path.resolve(filePath), "utf8");
+    return JSON.parse(raw) as BuccetPathMemorySnapshot;
+  } catch {
+    return null;
+  }
+}

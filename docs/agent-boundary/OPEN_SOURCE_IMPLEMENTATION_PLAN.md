@@ -46,6 +46,12 @@ Keep outside the current runtime scope:
 - higher-order internals not required for defensive runtime behavior
 - deeper orchestration that increases model power rather than containment
 
+Optional finite path-memory/orchestration can exist beside the core so long as it stays:
+- forward-only
+- non-authoritative
+- terminating
+- subordinate to the same boundary decisions
+
 ## V1 Proof Target
 
 The first public release succeeds if a developer can install the runtime and immediately observe:
