@@ -942,7 +942,7 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "",
             "Rules:",
             "- Supported files: .md and .markdown",
-            "- README files are ignored by `buccet upl sync`",
+            "- README.md and other markdown source files are allowed in this lane",
             "- The parser is strict and fail-closed",
             "- If a document compiles into denied law here, sync refuses it",
             "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into approved UPL in this lane",
@@ -963,7 +963,7 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "",
             "Rules:",
             "- Supported files: .md and .markdown",
-            "- README files are ignored by `buccet upl sync`",
+            "- README.md and other markdown source files are allowed in this lane",
             "- The parser is strict and fail-closed",
             "- If a document compiles into approved law here, sync refuses it",
             "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into denied UPL in this lane",
@@ -1014,9 +1014,6 @@ async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
       continue;
     }
     if (!/\.(md|markdown)$/i.test(entry.name)) {
-      continue;
-    }
-    if (/^readme\./i.test(entry.name)) {
       continue;
     }
     results.push(absolutePath);
@@ -2712,18 +2709,11 @@ async function handleUpl(rest: string[]) {
           markdown,
         });
         const hasCompiledLaw = extracted.laws.length > 0;
-        const hasStructuredSignals = /^(?:decision|invariant|enforcement|action|target|require|forbid|expression|output shape|completion grammar):/mi.test(markdown);
-        const intakeDoc = !hasCompiledLaw && !hasStructuredSignals
+        const intakeDoc = !hasCompiledLaw
           ? parseSourceIntakeDoc(markdown, filePath)
           : null;
-        const tagged = intakeDoc
-          ? compileSourceIntakeDoc({
-            filePath,
-            lane: lane.spec.lane,
-            doc: intakeDoc,
-            scope,
-          })
-          : (() => {
+        const tagged = hasCompiledLaw
+          ? (() => {
             validateExtractedDocumentLane({
               lane: lane.spec.lane,
               filePath,
@@ -2738,7 +2728,30 @@ async function handleUpl(rest: string[]) {
                 notes: entry.notes,
               }),
             }));
-          })();
+          })()
+          : intakeDoc
+            ? compileSourceIntakeDoc({
+            filePath,
+            lane: lane.spec.lane,
+            doc: intakeDoc,
+            scope,
+          })
+            : (() => {
+              validateExtractedDocumentLane({
+                lane: lane.spec.lane,
+                filePath,
+                compiled: extracted.laws,
+                diagnostics: extracted.diagnostics,
+              });
+              return extracted.laws.map((entry) => ({
+                ...entry,
+                notes: formatUplSourceNote({
+                  lane: lane.spec.lane,
+                  filePath,
+                  notes: entry.notes,
+                }),
+              }));
+            })();
         staged.push({
           lane: lane.spec.lane,
           filePath,

@@ -225,15 +225,16 @@ async function main() {
   assert.equal(allowedWrite.allowed, true, "expected acceptance lane to open a write rail");
   assert.equal(allowedWrite.requiresApproval, false, "expected acceptance lane write to avoid re-prompt");
 
-  const denialTrackField = compileLiveUplField({ ledger: upl, session: store.getConfig().session });
-  assert.ok(
-    denialTrackField.some((segment) =>
-      segment.polarity === "deny" &&
-      segment.entry.notes?.includes("[upl-doc-lane:denial]") &&
-      segment.entry.trackConstraint?.allowedActionKinds?.includes("fs.read"),
-    ),
-    "expected denial lane to compile a live deny segment",
-  );
+  const deniedSecretRead = await bodyguard.enforceProposal({
+    actionKind: "fs.read",
+    target: secretTarget,
+    payloadSummary: "read secret file",
+    provenance: "agent_inference",
+    execute: async () => "should-not-run",
+    successReason: "should not read secret",
+  });
+  assert.equal(deniedSecretRead.allowed, false, "expected denial lane to wall secret reads");
+  assert.equal(deniedSecretRead.requiresApproval, false, "expected denial lane to hard deny secret reads");
 
   const badAcceptanceDocPath = path.join(acceptanceDir!, "bad-denial.md");
   const mixedAcceptanceDocPath = path.join(acceptanceDir!, "mixed-unsupported.md");
@@ -310,6 +311,39 @@ async function main() {
     "expected empty acceptance sync to leave denial lane untouched",
   );
 
+  const readmeIntakePath = path.join(acceptanceDir!, "README.md");
+  await fs.writeFile(readmeIntakePath, [
+    "# Readme Probe",
+    "",
+    "## Usage",
+    "",
+    "```bash",
+    "readme-probe run https://docs.example.com",
+    "```",
+    "",
+    "API endpoint: https://api.readme-probe.dev/v1",
+  ].join("\n"));
+
+  const readmeSync = await runCli(["upl", "sync", "--lane", "acceptance", "--json"], env);
+  assert.equal(readmeSync.code, 0, readmeSync.stderr);
+
+  const readmeSearch = await runCli(["upl", "search", "readme-probe", "--json"], env);
+  assert.equal(readmeSearch.code, 0, readmeSearch.stderr);
+  const readmeState = JSON.parse(readmeSearch.stdout) as {
+    matches: Array<{
+      entry: {
+        type: string;
+        notes?: string | null;
+        trackConstraint?: { allowedActionKinds?: string[] };
+      };
+    }>;
+  };
+  const readmeEntries = readmeState.matches
+    .map((row) => row.entry)
+    .filter((entry) => entry.type === "APPROVED" && entry.notes?.includes("[acceptance-source-intake]") && entry.notes?.includes("name=Readme Probe"));
+  assert.ok(readmeEntries.length >= 1, "expected README.md source intake to compile into approved UPL");
+  await fs.rm(readmeIntakePath, { force: true });
+
   const intakeDocPath = path.join(acceptanceDir!, "pdf-processing.md");
   await fs.writeFile(intakeDocPath, [
     "# PDF Processing",
@@ -334,6 +368,8 @@ async function main() {
     "# Firecrawl",
     "",
     "Turn websites into markdown and structured data for research and extraction workflows.",
+    "Action: crawl and extract websites for research.",
+    "Target: documentation sites and article pages.",
     "",
     "## Usage",
     "",
@@ -460,6 +496,17 @@ async function main() {
     "expected raw denial intake to compile a deny tool corridor",
   );
 
+  const deniedStealthExec = await bodyguard.enforceProposal({
+    actionKind: "tool.exec",
+    target: "playwright-mcp",
+    payloadSummary: "run stealth browser automation",
+    provenance: "agent_inference",
+    execute: async () => "should-not-run",
+    successReason: "should not run stealth browser",
+  });
+  assert.equal(deniedStealthExec.allowed, false, "expected raw denial intake to wall tool.exec corridor");
+  assert.equal(deniedStealthExec.requiresApproval, false, "expected raw denial intake to hard deny tool.exec corridor");
+
   assert.ok(
     deniedTrackField.some((segment) =>
       segment.polarity === "deny" &&
@@ -470,6 +517,17 @@ async function main() {
     ),
     "expected raw denial intake to compile a deny network corridor",
   );
+
+  const deniedStealthApi = await bodyguard.enforceProposal({
+    actionKind: "network.send",
+    target: "https://stealth.example.com/api",
+    payloadSummary: "call stealth browser api",
+    provenance: "agent_inference",
+    execute: async () => "should-not-run",
+    successReason: "should not call stealth browser api",
+  });
+  assert.equal(deniedStealthApi.allowed, false, "expected raw denial intake to wall network corridor");
+  assert.equal(deniedStealthApi.requiresApproval, false, "expected raw denial intake to hard deny network corridor");
 
 }
 
