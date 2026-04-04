@@ -8,15 +8,15 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 250
+- Total acceptance-side UPL entries seeded per opened workspace session: 279
 - Workspace entries: 5
 - Safe local exec entries: 4
 - Bounded web research entries: 3
 - OpenClaw skill entries: 110
   Bundled OpenClaw entries: 53
   Awesome OpenClaw entries: 57
-- Curated capability entries: 23
-- Curated workflow entries: 14
+- Curated capability entries: 43
+- Curated workflow entries: 23
 - Marketplace-derived entries: 91
   SkillsMP entries: 47
   SkillHub entries: 29
@@ -786,7 +786,7 @@ Connects to: exact Buccet target `read-optimizer`.
 Action kinds: `tool.exec`, `fs.read`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## Curated Capability Entries (23)
+## Curated Capability Entries (43)
 
 ### ACCEPT.CURATED.CAPABILITY.2001 — docx
 What it is: Word document creation, editing, and tracked-change workflow motion.
@@ -926,7 +926,127 @@ Connects to: exact Buccet target `claude-seo`.
 Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## Curated Workflow Entries (14)
+### ACCEPT.CURATED.CAPABILITY.2024 — pdf-processing
+What it is: PDF reading, extraction, form, merge, and split workflow motion.
+Connects to: exact Buccet target `pdf-processing`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2025 — algorithmic-art
+What it is: generative p5.js, fractal, and geometric-art workflow motion.
+Connects to: exact Buccet target `algorithmic-art`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2026 — remotion-best-practices
+What it is: Remotion-driven video and motion-artifact workflow motion.
+Connects to: exact Buccet target `remotion-best-practices`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2027 — marketing-skills
+What it is: copy, CRO, email sequence, and growth workflow motion.
+Connects to: exact Buccet target `marketing-skills`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2028 — obsidian-skills
+What it is: vault-native note, auto-linking, and PKM workflow motion.
+Connects to: exact Buccet target `obsidian-skills`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.move`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2029 — fastmcp
+What it is: minimal MCP server design and implementation workflow motion.
+Connects to: exact Buccet target `fastmcp`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2030 — mcphub
+What it is: multi-MCP server management and connector routing workflow motion.
+Connects to: exact Buccet target `mcphub`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2031 — firecrawl
+What it is: website crawling, extraction, and LLM-ready data workflow motion.
+Connects to: exact Buccet target `firecrawl`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2032 — vanna-ai
+What it is: natural-language SQL and database-analysis workflow motion.
+Connects to: exact Buccet target `vanna-ai`.
+Action kinds: `db.query`, `fs.read`, `fs.write`, `chat.emit`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2033 — dspy
+What it is: structured model-programming and optimization workflow motion.
+Connects to: exact Buccet target `dspy`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2034 — spec-kit
+What it is: spec-driven development and implementation workflow motion.
+Connects to: exact Buccet target `spec-kit`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2035 — copilotkit
+What it is: embedded copilot and app-assistant workflow motion.
+Connects to: exact Buccet target `copilotkit`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2036 — langflow
+What it is: visual pipeline and drag-and-drop workflow builder motion.
+Connects to: exact Buccet target `langflow`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2037 — extractthinker
+What it is: document intelligence, extraction, and structured-field workflow motion.
+Connects to: exact Buccet target `extractthinker`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2038 — ck
+What it is: semantic code search and meaning-based retrieval workflow motion.
+Connects to: exact Buccet target `ck`.
+Action kinds: `tool.exec`, `fs.read`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2039 — rendergit
+What it is: repo flattening and repo-to-single-file context workflow motion.
+Connects to: exact Buccet target `rendergit`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2040 — tdd-guard
+What it is: test-first guardrails and TDD workflow motion.
+Connects to: exact Buccet target `tdd-guard`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2041 — claude-deep-research-skill
+What it is: long-form staged deep-research workflow motion.
+Connects to: exact Buccet target `claude-deep-research-skill`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2042 — pydantic-ai
+What it is: type-safe agent and structured-model workflow motion.
+Connects to: exact Buccet target `pydantic-ai`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2043 — simonw-llm
+What it is: lightweight local and remote LLM CLI workflow motion.
+Connects to: exact Buccet target `simonw-llm`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## Curated Workflow Entries (23)
 
 ### ACCEPT.CURATED.WORKFLOW.2101 — docx-workflow
 What it is: bounded workspace Word-document workflow motion.
@@ -1009,6 +1129,60 @@ Bounds: listed bounded corridors only; deny still wins on overlap.
 ### ACCEPT.CURATED.WORKFLOW.2114 — browser-artifact-workflow
 What it is: bounded browser screenshot, page export, and trace artifact workflow motion.
 Connects to: workspace files ending in `.png`, `.jpg`, `.jpeg`, `.webp`, `.pdf`, `.html`, `.json`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2115 — pdf-workflow
+What it is: bounded workspace PDF extraction, merge, split, and form workflow motion.
+Connects to: workspace files ending in `.pdf`, `.json`, `.csv`, `.md`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2116 — algorithmic-art-workflow
+What it is: bounded generative-art and visual-code artifact workflow motion.
+Connects to: workspace files ending in `.js`, `.ts`, `.jsx`, `.tsx`, `.html`, `.svg`, `.png`, `.json`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2117 — video-artifact-workflow
+What it is: bounded video, motion, and render artifact workflow motion.
+Connects to: workspace files ending in `.tsx`, `.ts`, `.js`, `.json`, `.mp4`, `.mov`, `.gif`, `.webm`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2118 — marketing-content-workflow
+What it is: bounded campaign, brand, SEO, and content workflow motion.
+Connects to: workspace files ending in `.md`, `.txt`, `.html`, `.csv`, `.json`, `.xml`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2119 — obsidian-vault-workflow
+What it is: bounded vault, note-linking, and PKM workflow motion.
+Connects to: workspace files ending in `.md`, `.canvas`, `.json`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.move`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2120 — firecrawl-workflow
+What it is: bounded crawl, extract, and LLM-ready web data workflow motion.
+Connects to: bounded host corridors `firecrawl.dev`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2121 — data-query-workflow
+What it is: bounded SQL, workbook, and analytics report workflow motion.
+Connects to: workspace files ending in `.sql`, `.csv`, `.tsv`, `.xlsx`, `.xls`, `.json`, `.parquet`, `.md`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2122 — app-builder-workflow
+What it is: bounded spec-driven app, copilot, and flow-builder workflow motion.
+Connects to: workspace files ending in `.ts`, `.tsx`, `.js`, `.jsx`, `.json`, `.yaml`, `.yml`, `.md`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.CURATED.WORKFLOW.2123 — mcp-factory-workflow
+What it is: bounded MCP server, hub, and connector factory workflow motion.
+Connects to: workspace files ending in `.py`, `.ts`, `.js`, `.json`, `.yaml`, `.yml`, `.toml`, `.md`.
 Action kinds: `fs.read`, `fs.write`, `fs.append`.
 Bounds: listed bounded corridors only; deny still wins on overlap.
 

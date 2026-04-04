@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 250, "expected base acceptance pack to seed two hundred fifty session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 279, "expected base acceptance pack to seed two hundred seventy-nine session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -159,6 +159,42 @@ async function main() {
       "expected brand-guidelines curated capability entry",
     );
     assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "pdf-processing"),
+      "expected pdf-processing curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "algorithmic-art"),
+      "expected algorithmic-art curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "marketing-skills"),
+      "expected marketing-skills curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "firecrawl"),
+      "expected firecrawl curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "fastmcp"),
+      "expected fastmcp curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "spec-kit"),
+      "expected spec-kit curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "copilotkit"),
+      "expected copilotkit curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "langflow"),
+      "expected langflow curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "simonw-llm"),
+      "expected simonw-llm curated capability entry",
+    );
+    assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "openclaw-pr-maintainer"),
       "expected openclaw-pr-maintainer marketplace entry",
     );
@@ -237,6 +273,18 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2110")),
       "expected Tavily workflow entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2115")),
+      "expected pdf workflow entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2120")),
+      "expected firecrawl workflow entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2123")),
+      "expected mcp factory workflow entry",
     );
     assert.ok(
       !baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "1password"),

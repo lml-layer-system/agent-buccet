@@ -160,14 +160,16 @@ In plain terms, opening a workspace seeds lawful roads for:
 - `110` explicit OpenClaw skill entries on the acceptance side
   Bundled OpenClaw entries: `53`
   Awesome OpenClaw entries: `57`
-- `37` curated List V entries on the acceptance side
-  Named capability entries: `23`
-  Workflow-shaped entries: `14`
-  Office and document work: `docx`, `pptx`, `xlsx`, `doc-coauthoring`
-  Design and artifact work: `frontend-design`, `canvas-design`, `theme-factory`, `web-artifacts-builder`
-  Dev and workflow work: `superpowers`, `systematic-debugging`, `file-search`, `context-optimization`, `task-master-ai`, `codebase-memory-mcp`, `mcp-playwright`, `markdownify-mcp`
-  Research and knowledge work: `notebooklm-integration`, `tavily`, `context7`, `gpt-researcher`
-  Brand and site work: `brand-guidelines`, `claude-seo`
+- `66` curated List V entries on the acceptance side
+  Named capability entries: `43`
+  Workflow-shaped entries: `23`
+  Office and document work: `pdf-processing`, `docx`, `pptx`, `xlsx`, `doc-coauthoring`
+  Design and artifact work: `frontend-design`, `canvas-design`, `algorithmic-art`, `theme-factory`, `web-artifacts-builder`, `remotion-best-practices`
+  Dev and workflow work: `superpowers`, `systematic-debugging`, `file-search`, `context-optimization`, `task-master-ai`, `codebase-memory-mcp`, `spec-kit`, `copilotkit`, `langflow`, `dspy`, `rendergit`, `tdd-guard`
+  Research and knowledge work: `notebooklm-integration`, `obsidian-skills`, `tavily`, `context7`, `gpt-researcher`, `firecrawl`, `extractthinker`, `claude-deep-research-skill`
+  Data and analytics work: `excel-mcp-server`, `vanna-ai`
+  MCP and connector work: `mcp-playwright`, `markdownify-mcp`, `fastmcp`, `mcphub`
+  Brand and site work: `marketing-skills`, `brand-guidelines`, `claude-seo`
 - `91` marketplace-derived entries on the acceptance side
   SkillsMP entries: `47`
   SkillHub entries: `29`
