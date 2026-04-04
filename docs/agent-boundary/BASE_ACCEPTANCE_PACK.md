@@ -8,7 +8,7 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 157
+- Total acceptance-side UPL entries seeded per opened workspace session: 220
 - Workspace entries: 5
 - Safe local exec entries: 4
 - Bounded web research entries: 3
@@ -17,6 +17,11 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
   Awesome OpenClaw entries: 57
 - Curated capability entries: 23
 - Curated workflow entries: 14
+- Marketplace-derived entries: 63
+  SkillsMP entries: 34
+  SkillHub entries: 20
+  AITmpl entries: 4
+  AgentSkills entries: 5
 
 ## Buccet Labels
 
@@ -26,6 +31,7 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 - `ACCEPT.OPENCLAW.SKILL.*`: OpenClaw-derived yes-side entries carried inside the same Buccet acceptance pack.
 - `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.
 - `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.
+- `ACCEPT.MARKETPLACE.SKILL.*`: marketplace-derived yes-side entries pulled from broader public skill catalogs.
 
 ## Read This
 
@@ -993,6 +999,392 @@ What it is: bounded browser screenshot, page export, and trace artifact workflow
 Connects to: workspace files ending in `.png`, `.jpg`, `.jpeg`, `.webp`, `.pdf`, `.html`, `.json`.
 Action kinds: `fs.read`, `fs.write`, `fs.append`.
 Bounds: listed bounded corridors only; deny still wins on overlap.
+
+## SkillsMP Entries (34)
+
+### ACCEPT.MARKETPLACE.SKILL.3001 — openclaw-pr-maintainer
+What it is: pull-request triage, issue review, and maintainer workflow motion.
+Connects to: exact Buccet target `openclaw-pr-maintainer`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3002 — feishu-wiki
+What it is: Feishu wiki navigation, retrieval, and note workflow motion.
+Connects to: exact Buccet target `feishu-wiki`.
+Action kinds: `network.send`, `db.query`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3003 — rules-distill
+What it is: rule distillation and principle extraction workflow motion.
+Connects to: exact Buccet target `rules-distill`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3004 — search-first
+What it is: research-before-building workflow motion.
+Connects to: exact Buccet target `search-first`.
+Action kinds: `network.send`, `fs.read`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3005 — deep-research
+What it is: multi-source research and cited synthesis workflow motion.
+Connects to: exact Buccet target `deep-research`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3006 — python-expert
+What it is: Python coding, debugging, and clean implementation workflow motion.
+Connects to: exact Buccet target `python-expert`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3007 — technical-writer
+What it is: technical documentation, references, and guide-writing workflow motion.
+Connects to: exact Buccet target `technical-writer`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3008 — skill-writer
+What it is: skill authoring and SKILL.md workflow motion.
+Connects to: exact Buccet target `skill-writer`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3009 — project-overview
+What it is: architecture reading and project-structure walkthrough motion.
+Connects to: exact Buccet target `project-overview`.
+Action kinds: `fs.read`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3010 — fact-check
+What it is: technical fact-checking and accuracy review workflow motion.
+Connects to: exact Buccet target `fact-check`.
+Action kinds: `fs.read`, `network.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3011 — resource-curator
+What it is: source curation and external resource review workflow motion.
+Connects to: exact Buccet target `resource-curator`.
+Action kinds: `network.send`, `fs.read`, `fs.write`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3012 — jupyter-notebook
+What it is: notebook creation, editing, and experiment workflow motion.
+Connects to: exact Buccet target `jupyter-notebook`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3013 — file-organizer
+What it is: bounded file cleanup and organization workflow motion.
+Connects to: exact Buccet target `file-organizer`.
+Action kinds: `fs.read`, `fs.write`, `fs.mkdir`, `fs.move`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3014 — docs-write
+What it is: documentation drafting and style-consistent edit workflow motion.
+Connects to: exact Buccet target `docs-write`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3015 — write-release-notes
+What it is: release-note drafting and release-summary workflow motion.
+Connects to: exact Buccet target `write-release-notes`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3016 — ai-context
+What it is: AI context file maintenance and prompt-surface update workflow motion.
+Connects to: exact Buccet target `ai-context`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3017 — packages
+What it is: package discovery and dependency-surface exploration workflow motion.
+Connects to: exact Buccet target `packages`.
+Action kinds: `fs.read`, `network.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3018 — sharing-pr-agent-artifacts
+What it is: PR artifact preparation and share-out workflow motion.
+Connects to: exact Buccet target `sharing-pr-agent-artifacts`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3019 — updating-internal-docs
+What it is: internal-document review and correction workflow motion.
+Connects to: exact Buccet target `updating-internal-docs`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3020 — parallel-debugging
+What it is: parallel hypothesis debugging and root-cause workflow motion.
+Connects to: exact Buccet target `parallel-debugging`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3021 — debugging-strategies
+What it is: systematic debugging and fix-validation workflow motion.
+Connects to: exact Buccet target `debugging-strategies`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3022 — architecture-decision-records
+What it is: ADR drafting and technical-decision workflow motion.
+Connects to: exact Buccet target `architecture-decision-records`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3043 — data-analyst
+What it is: dataset analysis, SQL, and statistical insight workflow motion.
+Connects to: exact Buccet target `data-analyst`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3044 — visualization-expert
+What it is: chart, dashboard, and data-visualization workflow motion.
+Connects to: exact Buccet target `visualization-expert`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3045 — excel-analysis
+What it is: Excel analysis, pivot, chart, and spreadsheet workflow motion.
+Connects to: exact Buccet target `excel-analysis`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3046 — google-analytics
+What it is: analytics review and website-metrics workflow motion.
+Connects to: exact Buccet target `google-analytics`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3047 — market-research-reports
+What it is: market-research reporting and strategy workflow motion.
+Connects to: exact Buccet target `market-research-reports`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3048 — scientific-schematics
+What it is: scientific diagram and schematic generation workflow motion.
+Connects to: exact Buccet target `scientific-schematics`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3049 — mermaid
+What it is: Mermaid diagram and flowchart workflow motion.
+Connects to: exact Buccet target `mermaid`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3050 — data-analyzer
+What it is: data pattern analysis and trend workflow motion.
+Connects to: exact Buccet target `data-analyzer`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3051 — report-writer
+What it is: professional report writing and synthesis workflow motion.
+Connects to: exact Buccet target `report-writer`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3052 — exploratory-data-analysis
+What it is: exploratory data analysis and data-quality workflow motion.
+Connects to: exact Buccet target `exploratory-data-analysis`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3053 — fullstack-developer
+What it is: full-stack build, API, and application workflow motion.
+Connects to: exact Buccet target `fullstack-developer`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3054 — api-design
+What it is: REST API design and interface workflow motion.
+Connects to: exact Buccet target `api-design`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## SkillHub Entries (20)
+
+### ACCEPT.MARKETPLACE.SKILL.3023 — ai-content-pipeline
+What it is: content-pipeline drafting, editing, and publish-prep workflow motion.
+Connects to: exact Buccet target `ai-content-pipeline`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3024 — metabase-docs-review
+What it is: documentation review and doc-quality workflow motion.
+Connects to: exact Buccet target `metabase-docs-review`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3025 — azure-prepare
+What it is: Azure setup guidance and readiness workflow motion.
+Connects to: exact Buccet target `azure-prepare`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3026 — agentic-qe-test-data-management
+What it is: QE test-data preparation and validation workflow motion.
+Connects to: exact Buccet target `agentic-qe-test-data-management`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3027 — create-ex
+What it is: worked-example generation and explanation workflow motion.
+Connects to: exact Buccet target `create-ex`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3028 — academic-research-suite
+What it is: academic research, synthesis, and study workflow motion.
+Connects to: exact Buccet target `academic-research-suite`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3029 — ai-video-ad-generator
+What it is: ad-script, creative, and video-generation workflow motion.
+Connects to: exact Buccet target `ai-video-ad-generator`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3030 — niw-petition
+What it is: petition drafting and evidence-pack workflow motion.
+Connects to: exact Buccet target `niw-petition`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3031 — oss-investment-scorecard
+What it is: open-source scorecard analysis and reporting workflow motion.
+Connects to: exact Buccet target `oss-investment-scorecard`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3032 — resciencelab-solopreneur-pack
+What it is: solo-operator planning, content, and execution workflow motion.
+Connects to: exact Buccet target `resciencelab-solopreneur-pack`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3033 — the-startup-ceo-stack
+What it is: startup planning, memo, and decision workflow motion.
+Connects to: exact Buccet target `the-startup-ceo-stack`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `db.query`, `db.insert`, `db.update`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3055 — moai-workflow-jit-docs
+What it is: just-in-time documentation loading and source-grounding workflow motion.
+Connects to: exact Buccet target `moai-workflow-jit-docs`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3056 — ui-ux-pro-max
+What it is: UI and UX design-system workflow motion.
+Connects to: exact Buccet target `ui-ux-pro-max`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3057 — workflow-orchestrator
+What it is: project workflow orchestration and session-structure workflow motion.
+Connects to: exact Buccet target `workflow-orchestrator`.
+Action kinds: `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3058 — claude-api
+What it is: Claude API integration and application workflow motion.
+Connects to: exact Buccet target `claude-api`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `network.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3059 — testing-core
+What it is: unit, integration, and end-to-end testing workflow motion.
+Connects to: exact Buccet target `testing-core`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3060 — testing-basics
+What it is: baseline testing patterns and testing-setup workflow motion.
+Connects to: exact Buccet target `testing-basics`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3061 — test-writer
+What it is: test-file generation and fixture workflow motion.
+Connects to: exact Buccet target `test-writer`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3062 — discover-testing
+What it is: testing-skill discovery and testing workflow routing motion.
+Connects to: exact Buccet target `discover-testing`.
+Action kinds: `fs.read`, `chat.emit`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3063 — test-data-management
+What it is: synthetic test-data preparation and privacy-safe QA workflow motion.
+Connects to: exact Buccet target `test-data-management`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `db.insert`, `db.update`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## AITmpl Entries (4)
+
+### ACCEPT.MARKETPLACE.SKILL.3034 — webapp-testing
+What it is: webapp testing and app-quality workflow motion.
+Connects to: exact Buccet target `webapp-testing`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3035 — design-mirror
+What it is: design mirroring and visual comparison workflow motion.
+Connects to: exact Buccet target `design-mirror`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3036 — cf-crawl
+What it is: crawl-and-collect web workflow motion.
+Connects to: exact Buccet target `cf-crawl`.
+Action kinds: `network.send`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3037 — deslop
+What it is: output cleanup and anti-slop rewrite workflow motion.
+Connects to: exact Buccet target `deslop`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## AgentSkills Entries (5)
+
+### ACCEPT.MARKETPLACE.SKILL.3038 — agent-skills-quickstart
+What it is: agent-skill quickstart and scaffold workflow motion.
+Connects to: exact Buccet target `agent-skills-quickstart`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3039 — agent-skills-best-practices
+What it is: agent-skill best-practice and quality workflow motion.
+Connects to: exact Buccet target `agent-skills-best-practices`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3040 — agent-skills-evaluation
+What it is: agent-skill evaluation and review workflow motion.
+Connects to: exact Buccet target `agent-skills-evaluation`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3041 — agent-skills-description-optimization
+What it is: skill description tuning and wording workflow motion.
+Connects to: exact Buccet target `agent-skills-description-optimization`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3042 — agent-skills-scripts
+What it is: skill-script use and helper-script workflow motion.
+Connects to: exact Buccet target `agent-skills-scripts`.
+Action kinds: `fs.read`, `fs.write`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
 
 ## Important Limits
 

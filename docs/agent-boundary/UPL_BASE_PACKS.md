@@ -144,6 +144,7 @@ The built-in classes are:
 - `bounded_web_research`
 - `openclaw_skill`
 - `curated_capability`
+- `marketplace_skill`
 
 For the larger acceptance-side source intake pulled from OpenClaw capability surfaces, see [OpenClaw Acceptance Intake](./OPENCLAW_ACCEPTANCE_INTAKE.md).
 
@@ -167,6 +168,15 @@ In plain terms, opening a workspace seeds lawful roads for:
   Dev and workflow work: `superpowers`, `systematic-debugging`, `file-search`, `context-optimization`, `task-master-ai`, `codebase-memory-mcp`, `mcp-playwright`, `markdownify-mcp`
   Research and knowledge work: `notebooklm-integration`, `tavily`, `context7`, `gpt-researcher`
   Brand and site work: `brand-guidelines`, `claude-seo`
+- `63` marketplace-derived entries on the acceptance side
+  SkillsMP entries: `34`
+  SkillHub entries: `20`
+  AITmpl entries: `4`
+  AgentSkills entries: `5`
+  SkillsMP work: `openclaw-pr-maintainer`, `deep-research`, `technical-writer`, `jupyter-notebook`, `parallel-debugging`, `data-analyst`, `visualization-expert`, `excel-analysis`, `market-research-reports`, `api-design`
+  SkillHub work: `ai-content-pipeline`, `metabase-docs-review`, `azure-prepare`, `agentic-qe-test-data-management`, `academic-research-suite`, `ui-ux-pro-max`, `workflow-orchestrator`, `claude-api`, `testing-core`, `test-writer`, `test-data-management`
+  AITmpl work: `webapp-testing`, `design-mirror`, `cf-crawl`, `deslop`
+  AgentSkills work: `agent-skills-quickstart`, `agent-skills-best-practices`, `agent-skills-evaluation`, `agent-skills-description-optimization`, `agent-skills-scripts`
 
 Delete is not part of the base acceptance pack.
 Generic exec is not part of the base acceptance pack.

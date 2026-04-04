@@ -11,6 +11,13 @@ import {
   type ListVAcceptanceLane,
 } from "../lib/agent-buccet/list-v-acceptance.ts";
 import {
+  AGENTSKILLS_ACCEPTANCE_LANES,
+  AITMPL_ACCEPTANCE_LANES,
+  SKILLHUB_ACCEPTANCE_LANES,
+  SKILLSMP_ACCEPTANCE_LANES,
+  type MarketplaceAcceptanceLane,
+} from "../lib/agent-buccet/marketplace-acceptance.ts";
+import {
   BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES,
   type OpenClawSkillAcceptanceLane,
 } from "../lib/agent-buccet/openclaw-skill-acceptance.ts";
@@ -226,6 +233,18 @@ async function main() {
   const curatedWorkflowEntries = createListVWorkflowAcceptanceLanes(WORKSPACE_ROOT).map((lane) =>
     laneToEntry((lane as ListVAcceptanceLane).capability, lane),
   );
+  const skillsmpEntries = SKILLSMP_ACCEPTANCE_LANES.map((lane) =>
+    laneToEntry((lane as MarketplaceAcceptanceLane).name, lane),
+  );
+  const skillhubEntries = SKILLHUB_ACCEPTANCE_LANES.map((lane) =>
+    laneToEntry((lane as MarketplaceAcceptanceLane).name, lane),
+  );
+  const aitmplEntries = AITMPL_ACCEPTANCE_LANES.map((lane) =>
+    laneToEntry((lane as MarketplaceAcceptanceLane).name, lane),
+  );
+  const agentSkillsEntries = AGENTSKILLS_ACCEPTANCE_LANES.map((lane) =>
+    laneToEntry((lane as MarketplaceAcceptanceLane).name, lane),
+  );
 
   const totalCount =
     workspaceEntries.length +
@@ -234,7 +253,11 @@ async function main() {
     bundledOpenClawEntries.length +
     awesomeOpenClawEntries.length +
     curatedCapabilityEntries.length +
-    curatedWorkflowEntries.length;
+    curatedWorkflowEntries.length +
+    skillsmpEntries.length +
+    skillhubEntries.length +
+    aitmplEntries.length +
+    agentSkillsEntries.length;
 
   const doc = [
     "# Base Acceptance Pack Inventory",
@@ -256,6 +279,11 @@ async function main() {
     `  Awesome OpenClaw entries: ${awesomeOpenClawEntries.length}`,
     `- Curated capability entries: ${curatedCapabilityEntries.length}`,
     `- Curated workflow entries: ${curatedWorkflowEntries.length}`,
+    `- Marketplace-derived entries: ${skillsmpEntries.length + skillhubEntries.length + aitmplEntries.length + agentSkillsEntries.length}`,
+    `  SkillsMP entries: ${skillsmpEntries.length}`,
+    `  SkillHub entries: ${skillhubEntries.length}`,
+    `  AITmpl entries: ${aitmplEntries.length}`,
+    `  AgentSkills entries: ${agentSkillsEntries.length}`,
     "",
     "## Buccet Labels",
     "",
@@ -265,6 +293,7 @@ async function main() {
     "- `ACCEPT.OPENCLAW.SKILL.*`: OpenClaw-derived yes-side entries carried inside the same Buccet acceptance pack.",
     "- `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.",
     "- `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.",
+    "- `ACCEPT.MARKETPLACE.SKILL.*`: marketplace-derived yes-side entries pulled from broader public skill catalogs.",
     "",
     "## Read This",
     "",
@@ -305,6 +334,26 @@ async function main() {
     "",
     ...curatedWorkflowEntries.map((entry, index) =>
       renderEntry(entry, createListVWorkflowAcceptanceLanes(WORKSPACE_ROOT)[index]!.capability),
+    ),
+    `## SkillsMP Entries (${skillsmpEntries.length})`,
+    "",
+    ...skillsmpEntries.map((entry, index) =>
+      renderEntry(entry, SKILLSMP_ACCEPTANCE_LANES[index]!.name),
+    ),
+    `## SkillHub Entries (${skillhubEntries.length})`,
+    "",
+    ...skillhubEntries.map((entry, index) =>
+      renderEntry(entry, SKILLHUB_ACCEPTANCE_LANES[index]!.name),
+    ),
+    `## AITmpl Entries (${aitmplEntries.length})`,
+    "",
+    ...aitmplEntries.map((entry, index) =>
+      renderEntry(entry, AITMPL_ACCEPTANCE_LANES[index]!.name),
+    ),
+    `## AgentSkills Entries (${agentSkillsEntries.length})`,
+    "",
+    ...agentSkillsEntries.map((entry, index) =>
+      renderEntry(entry, AGENTSKILLS_ACCEPTANCE_LANES[index]!.name),
     ),
     "## Important Limits",
     "",

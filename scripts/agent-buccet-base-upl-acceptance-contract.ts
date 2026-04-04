@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 157, "expected base acceptance pack to seed one hundred fifty-seven session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 220, "expected base acceptance pack to seed two hundred twenty session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -149,6 +149,38 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "brand-guidelines"),
       "expected brand-guidelines curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "openclaw-pr-maintainer"),
+      "expected openclaw-pr-maintainer marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "ai-content-pipeline"),
+      "expected ai-content-pipeline marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "webapp-testing"),
+      "expected webapp-testing marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-skills-evaluation"),
+      "expected agent-skills-evaluation marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "data-analyst"),
+      "expected data-analyst marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "ui-ux-pro-max"),
+      "expected ui-ux-pro-max marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "workflow-orchestrator"),
+      "expected workflow-orchestrator marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "test-data-management"),
+      "expected test-data-management marketplace entry",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2101")),
@@ -349,6 +381,70 @@ async function main() {
       payloadSummary: "brand-guidelines rewrite homepage copy",
     }));
     assert.equal(brandGuidelinesDecision.result.decision, "allow", "expected brand-guidelines curated capability entry to allow style-bound output workflow motion");
+
+    const openclawPrMaintainerDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "openclaw-pr-maintainer",
+      payloadSummary: "review related pull requests and issues",
+    }));
+    assert.equal(openclawPrMaintainerDecision.result.decision, "allow", "expected openclaw-pr-maintainer marketplace entry to allow maintainer workflow motion");
+
+    const aiContentPipelineDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "chat.emit",
+      target: "ai-content-pipeline",
+      payloadSummary: "draft content pipeline summary",
+    }));
+    assert.equal(aiContentPipelineDecision.result.decision, "allow", "expected ai-content-pipeline marketplace entry to allow content workflow motion");
+
+    const webappTestingDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "webapp-testing",
+      payloadSummary: "run webapp testing workflow",
+    }));
+    assert.equal(webappTestingDecision.result.decision, "allow", "expected webapp-testing marketplace entry to allow app testing workflow motion");
+
+    const agentSkillsEvaluationDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "agent-skills-evaluation",
+      payloadSummary: "evaluate current skill package",
+    }));
+    assert.equal(agentSkillsEvaluationDecision.result.decision, "allow", "expected agent-skills-evaluation marketplace entry to allow skill evaluation workflow motion");
+
+    const dataAnalystDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "data-analyst",
+      payloadSummary: "analyze customer cohort data",
+    }));
+    assert.equal(dataAnalystDecision.result.decision, "allow", "expected data-analyst marketplace entry to allow data workflow motion");
+
+    const uiUxDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "chat.emit",
+      target: "ui-ux-pro-max",
+      payloadSummary: "review dashboard layout and accessibility",
+    }));
+    assert.equal(uiUxDecision.result.decision, "allow", "expected ui-ux-pro-max marketplace entry to allow design workflow motion");
+
+    const workflowOrchestratorDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "db.update",
+      target: "workflow-orchestrator",
+      payloadSummary: "update project workflow status",
+    }));
+    assert.equal(workflowOrchestratorDecision.result.decision, "allow", "expected workflow-orchestrator marketplace entry to allow workflow orchestration motion");
+
+    const testDataManagementDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "test-data-management",
+      payloadSummary: "generate synthetic qa test data",
+    }));
+    assert.equal(testDataManagementDecision.result.decision, "allow", "expected test-data-management marketplace entry to allow test-data workflow motion");
 
     const tavilyWorkflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,

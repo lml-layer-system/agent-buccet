@@ -3,6 +3,7 @@ import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
+import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
 import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
 import { getActiveUserLawIds, loadUserPathLedger, writeCompiledUserPathLaws } from "./user-path-ledger.ts";
 import type {
@@ -21,7 +22,8 @@ export type BaseAcceptanceClass =
   | "bounded_web_research"
   | "notes_and_tasks"
   | "openclaw_skill"
-  | "curated_capability";
+  | "curated_capability"
+  | "marketplace_skill";
 
 type BaseAcceptanceSeed = {
   id: string;
@@ -310,6 +312,21 @@ function buildBaseAcceptanceSeeds(args: {
       ...(lane.requestTextPatterns ? { requestTextPatterns: [...lane.requestTextPatterns] } : {}),
       requestBasisTarget: lane.capability,
       requestBasisSummary: `list-v-workflow:${lane.capability}`,
+    });
+  }
+
+  for (const lane of BASE_MARKETPLACE_ACCEPTANCE_LANES) {
+    seeds.push({
+      id: lane.id,
+      acceptanceClass: "marketplace_skill",
+      reason: `Marketplace entry '${lane.name}' is a lawful acceptance entry for ${lane.summary}.`,
+      actionKinds: [...lane.actionKinds],
+      ...(lane.targetPattern ? { targetPattern: lane.targetPattern } : {}),
+      ...(lane.targetPatterns ? { targetPatterns: [...lane.targetPatterns] } : {}),
+      ...(lane.targetMatchMode ? { targetMatchMode: lane.targetMatchMode } : {}),
+      ...(lane.requestTextPatterns ? { requestTextPatterns: [...lane.requestTextPatterns] } : {}),
+      requestBasisTarget: lane.name,
+      requestBasisSummary: `marketplace:${lane.source}:${lane.name}`,
     });
   }
 
