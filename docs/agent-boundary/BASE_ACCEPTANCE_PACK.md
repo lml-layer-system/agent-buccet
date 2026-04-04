@@ -8,7 +8,7 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 222
+- Total acceptance-side UPL entries seeded per opened workspace session: 250
 - Workspace entries: 5
 - Safe local exec entries: 4
 - Bounded web research entries: 3
@@ -17,11 +17,11 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
   Awesome OpenClaw entries: 57
 - Curated capability entries: 23
 - Curated workflow entries: 14
-- Marketplace-derived entries: 63
-  SkillsMP entries: 34
-  SkillHub entries: 20
-  AITmpl entries: 4
-  AgentSkills entries: 5
+- Marketplace-derived entries: 91
+  SkillsMP entries: 47
+  SkillHub entries: 29
+  AITmpl entries: 6
+  AgentSkills entries: 9
 
 ## Buccet Labels
 
@@ -1012,7 +1012,7 @@ Connects to: workspace files ending in `.png`, `.jpg`, `.jpeg`, `.webp`, `.pdf`,
 Action kinds: `fs.read`, `fs.write`, `fs.append`.
 Bounds: listed bounded corridors only; deny still wins on overlap.
 
-## SkillsMP Entries (34)
+## SkillsMP Entries (47)
 
 ### ACCEPT.MARKETPLACE.SKILL.3001 — openclaw-pr-maintainer
 What it is: pull-request triage, issue review, and maintainer workflow motion.
@@ -1218,7 +1218,85 @@ Connects to: exact Buccet target `api-design`.
 Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## SkillHub Entries (20)
+### ACCEPT.MARKETPLACE.SKILL.3064 — browser-automation
+What it is: bounded browser navigation, form interaction, and screenshot workflow motion.
+Connects to: exact Buccet target `browser-automation`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3065 — playwright-automation-expert
+What it is: Playwright testing, UI verification, and flaky-browser debug workflow motion.
+Connects to: exact Buccet target `playwright-automation-expert`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3066 — google-workspace
+What it is: Gmail, Drive, Docs, and Sheets workflow motion.
+Connects to: exact Buccet target `google-workspace`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3067 — google-workspace-cli
+What it is: gws-based Google Workspace CLI workflow motion across mail, calendar, drive, docs, and sheets.
+Connects to: exact Buccet target `google-workspace-cli`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3068 — gws
+What it is: direct gws Google Workspace command workflow motion.
+Connects to: exact Buccet target `gws`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3069 — googlesheets-automation
+What it is: Google Sheets read, write, formatting, and reporting workflow motion.
+Connects to: exact Buccet target `googlesheets-automation`.
+Action kinds: `network.send`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3070 — email
+What it is: email digest, search, draft, and reply workflow motion.
+Connects to: exact Buccet target `email`.
+Action kinds: `network.send`, `comm.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3084 — gws-workspace
+What it is: Google Workspace docs, drive, calendar, gmail, and slides workflow motion.
+Connects to: exact Buccet target `gws-workspace`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3085 — google-gogcli
+What it is: gogcli-based Google account workflow motion across mail, tasks, sheets, docs, and calendar.
+Connects to: exact Buccet target `google-gogcli`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3086 — playwright-parallel-tab-manager
+What it is: concurrent browser-context and multi-tab automation workflow motion.
+Connects to: exact Buccet target `playwright-parallel-tab-manager`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3087 — n8n-workflow-automation
+What it is: auditable n8n workflow design and workflow-json generation motion.
+Connects to: exact Buccet target `n8n-workflow-automation`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `tool.exec`, `chat.emit`, `network.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3088 — n8n
+What it is: n8n workflow management, execution review, and automation status workflow motion.
+Connects to: exact Buccet target `n8n`.
+Action kinds: `network.send`, `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3089 — n8n-expert
+What it is: advanced n8n creation, debugging, and optimization workflow motion.
+Connects to: exact Buccet target `n8n-expert`.
+Action kinds: `network.send`, `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## SkillHub Entries (29)
 
 ### ACCEPT.MARKETPLACE.SKILL.3023 — ai-content-pipeline
 What it is: content-pipeline drafting, editing, and publish-prep workflow motion.
@@ -1340,7 +1418,61 @@ Connects to: exact Buccet target `test-data-management`.
 Action kinds: `tool.exec`, `fs.read`, `fs.write`, `db.insert`, `db.update`, `chat.emit`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## AITmpl Entries (4)
+### ACCEPT.MARKETPLACE.SKILL.3071 — mcp-builder
+What it is: MCP server design, implementation, and evaluation workflow motion.
+Connects to: exact Buccet target `mcp-builder`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `fs.append`, `network.send`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3072 — agent-browser
+What it is: agentic browser navigation, form interaction, screenshot, and data-extraction workflow motion.
+Connects to: exact Buccet target `agent-browser`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3073 — playwright-browser
+What it is: Playwright browser automation, UI checks, and responsive-test workflow motion.
+Connects to: exact Buccet target `playwright-browser`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3074 — web-browser
+What it is: Chrome or Chromium remote-control browsing workflow motion.
+Connects to: exact Buccet target `web-browser`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3075 — dev-browser
+What it is: browser-backed research, testing, and web-app interaction workflow motion.
+Connects to: exact Buccet target `dev-browser`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3076 — chrome-devtools
+What it is: browser debugging, performance analysis, and screenshot workflow motion.
+Connects to: exact Buccet target `chrome-devtools`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3077 — browsing-with-playwright
+What it is: Playwright MCP browsing, extraction, and page-interaction workflow motion.
+Connects to: exact Buccet target `browsing-with-playwright`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3090 — n8n-automation
+What it is: n8n orchestration, workflow templates, and automation-integration workflow motion.
+Connects to: exact Buccet target `n8n-automation`.
+Action kinds: `network.send`, `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3091 — playwright-mcp
+What it is: Playwright MCP browser testing, responsive checks, and accessibility workflow motion.
+Connects to: exact Buccet target `playwright-mcp`.
+Action kinds: `tool.exec`, `network.send`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## AITmpl Entries (6)
 
 ### ACCEPT.MARKETPLACE.SKILL.3034 — webapp-testing
 What it is: webapp testing and app-quality workflow motion.
@@ -1366,7 +1498,19 @@ Connects to: exact Buccet target `deslop`.
 Action kinds: `fs.read`, `fs.write`, `chat.emit`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## AgentSkills Entries (5)
+### ACCEPT.MARKETPLACE.SKILL.3078 — mcp-builder-template
+What it is: MCP scaffold, template, and integration workflow motion.
+Connects to: exact Buccet target `mcp-builder-template`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `tool.exec`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3079 — email-composer
+What it is: email drafting, editing, and outbound composition workflow motion.
+Connects to: exact Buccet target `email-composer`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## AgentSkills Entries (9)
 
 ### ACCEPT.MARKETPLACE.SKILL.3038 — agent-skills-quickstart
 What it is: agent-skill quickstart and scaffold workflow motion.
@@ -1396,6 +1540,30 @@ Bounds: exact named target only; deny still wins on overlap.
 What it is: skill-script use and helper-script workflow motion.
 Connects to: exact Buccet target `agent-skills-scripts`.
 Action kinds: `fs.read`, `fs.write`, `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3080 — agent-skills-specification
+What it is: agent-skill specification and portable-skill structure workflow motion.
+Connects to: exact Buccet target `agent-skills-specification`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3081 — agent-skills-progressive-disclosure
+What it is: progressive-disclosure skill design and context-shaping workflow motion.
+Connects to: exact Buccet target `agent-skills-progressive-disclosure`.
+Action kinds: `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3082 — agent-skills-assets-resources
+What it is: skill assets, references, and resource-layout workflow motion.
+Connects to: exact Buccet target `agent-skills-assets-resources`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.MARKETPLACE.SKILL.3083 — agent-skills-validation
+What it is: skill validation and structure-check workflow motion.
+Connects to: exact Buccet target `agent-skills-validation`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
 Bounds: exact named target only; deny still wins on overlap.
 
 ## Important Limits

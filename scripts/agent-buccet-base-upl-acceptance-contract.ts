@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 222, "expected base acceptance pack to seed two hundred twenty-two session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 250, "expected base acceptance pack to seed two hundred fifty session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -189,6 +189,46 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "test-data-management"),
       "expected test-data-management marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "browser-automation"),
+      "expected browser-automation marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "google-workspace-cli"),
+      "expected google-workspace-cli marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-browser"),
+      "expected agent-browser marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "mcp-builder"),
+      "expected mcp-builder marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "email-composer"),
+      "expected email-composer marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-skills-validation"),
+      "expected agent-skills-validation marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "gws-workspace"),
+      "expected gws-workspace marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "n8n"),
+      "expected n8n marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "n8n-automation"),
+      "expected n8n-automation marketplace entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "playwright-mcp"),
+      "expected playwright-mcp marketplace entry",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2101")),
