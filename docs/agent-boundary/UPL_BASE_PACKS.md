@@ -157,8 +157,8 @@ In plain terms, opening a workspace seeds lawful roads for:
 - local notes, tasks, memory, and `.buccet` roots inside the workspace
 - bounded local developer commands like `git status`, `npm test`, `pytest`, `eslint`, `cargo test`, and similar quality/runtime inspection tools
 - bounded research fetch/search motion against explicit documentation and source domains like MDN, Python docs, GitHub, and search/fetch providers
-- `108` explicit OpenClaw skill entries on the acceptance side
-  Bundled OpenClaw entries: `51`
+- `110` explicit OpenClaw skill entries on the acceptance side
+  Bundled OpenClaw entries: `53`
   Awesome OpenClaw entries: `57`
 - `37` curated List V entries on the acceptance side
   Named capability entries: `23`

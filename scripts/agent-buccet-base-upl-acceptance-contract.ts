@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 220, "expected base acceptance pack to seed two hundred twenty session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 222, "expected base acceptance pack to seed two hundred twenty-two session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -113,6 +113,14 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "notion"),
       "expected notion OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "telegram"),
+      "expected telegram OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "whatsapp"),
+      "expected whatsapp OpenClaw skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-mail"),
@@ -285,6 +293,22 @@ async function main() {
       payloadSummary: "slack notify channel",
     }));
     assert.equal(slackChannelDecision.result.decision, "allow", "expected slack OpenClaw skill rail to allow channel-shaped chat delivery");
+
+    const telegramChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "chat.emit",
+      target: "telegram",
+      payloadSummary: "telegram bot delivery",
+    }));
+    assert.equal(telegramChannelDecision.result.decision, "allow", "expected telegram OpenClaw skill rail to allow channel-shaped chat delivery");
+
+    const whatsappChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "chat.emit",
+      target: "whatsapp",
+      payloadSummary: "whatsapp delivery",
+    }));
+    assert.equal(whatsappChannelDecision.result.decision, "allow", "expected whatsapp OpenClaw skill rail to allow channel-shaped chat delivery");
 
     const slackNetworkDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,

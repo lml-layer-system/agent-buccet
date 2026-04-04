@@ -8,12 +8,12 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 220
+- Total acceptance-side UPL entries seeded per opened workspace session: 222
 - Workspace entries: 5
 - Safe local exec entries: 4
 - Bounded web research entries: 3
-- OpenClaw skill entries: 108
-  Bundled OpenClaw entries: 51
+- OpenClaw skill entries: 110
+  Bundled OpenClaw entries: 53
   Awesome OpenClaw entries: 57
 - Curated capability entries: 23
 - Curated workflow entries: 14
@@ -122,7 +122,7 @@ Connects to: bounded host corridors `duckduckgo.com`; bounded host corridors `se
 Action kinds: `network.send`.
 Bounds: listed bounded corridors only; deny still wins on overlap.
 
-## Bundled OpenClaw Skill Entries (51)
+## Bundled OpenClaw Skill Entries (53)
 
 ### ACCEPT.OPENCLAW.SKILL.1002 — apple-notes
 What it is: local Apple Notes read and write motion.
@@ -346,6 +346,12 @@ Connects to: exact Buccet target `slack`.
 Action kinds: `chat.emit`, `comm.send`.
 Bounds: exact named target only; deny still wins on overlap.
 
+### ACCEPT.OPENCLAW.SKILL.1039A — telegram
+What it is: Telegram delivery motion.
+Connects to: exact Buccet target `telegram`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
 ### ACCEPT.OPENCLAW.SKILL.1040 — songsee
 What it is: song/media understanding workflow motion.
 Connects to: exact Buccet target `songsee`.
@@ -415,6 +421,12 @@ Bounds: exact named target only; deny still wins on overlap.
 ### ACCEPT.OPENCLAW.SKILL.1051 — wacli
 What it is: WhatsApp CLI delivery motion.
 Connects to: exact Buccet target `wacli`.
+Action kinds: `chat.emit`, `comm.send`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.OPENCLAW.SKILL.1051A — whatsapp
+What it is: WhatsApp delivery motion.
+Connects to: exact Buccet target `whatsapp`.
 Action kinds: `chat.emit`, `comm.send`.
 Bounds: exact named target only; deny still wins on overlap.
 

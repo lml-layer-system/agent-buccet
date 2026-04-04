@@ -341,6 +341,13 @@ export const OPENCLAW_SKILL_ACCEPTANCE_LANES: readonly OpenClawSkillAcceptanceLa
     actionKinds: ["chat.emit", "comm.send"],
   }),
   namedLane({
+    id: "ACCEPT.OPENCLAW.SKILL.1039A",
+    skill: "telegram",
+    summary: "named rail for Telegram delivery motion",
+    actionKinds: ["chat.emit", "comm.send"],
+    requestTextPatterns: ["telegram", "bot", "channel", "message"],
+  }),
+  namedLane({
     id: "ACCEPT.OPENCLAW.SKILL.1040",
     skill: "songsee",
     summary: "named rail for song/media understanding workflow motion",
@@ -427,6 +434,13 @@ export const OPENCLAW_SKILL_ACCEPTANCE_LANES: readonly OpenClawSkillAcceptanceLa
     summary: "named rail for WhatsApp CLI delivery motion",
     actionKinds: ["chat.emit", "comm.send"],
     requestTextPatterns: ["wacli", "whatsapp", "message"],
+  }),
+  namedLane({
+    id: "ACCEPT.OPENCLAW.SKILL.1051A",
+    skill: "whatsapp",
+    summary: "named rail for WhatsApp delivery motion",
+    actionKinds: ["chat.emit", "comm.send"],
+    requestTextPatterns: ["whatsapp", "message", "chat"],
   }),
   regexLane({
     id: "ACCEPT.OPENCLAW.SKILL.1052",
