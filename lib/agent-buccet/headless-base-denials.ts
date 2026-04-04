@@ -31,9 +31,11 @@ export type DenialClass =
   | "persistence"
   | "security_weakening"
   | "secret_access"
+  | "identity_secrets"
   | "exfiltration"
   | "authority_spoofing"
   | "boundary_attack"
+  | "sovereignty_expansion"
   | "periodic_failure_taxonomy"
   | "base_buccet_denial"
   | "buccet_failure_corpus"
@@ -41,12 +43,14 @@ export type DenialClass =
   | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
+  | "stealth_browser"
   | "propagation"
   | "law_witness_tamper"
   | "destructive_mass_mutation"
   | "sensitive_capture"
   | "system_mutation"
-  | "external_communication";
+  | "external_communication"
+  | "unsafe_external_communication";
 
 export interface HeadlessActionRequest {
   actionKind: string;
@@ -428,6 +432,35 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:credential-surface",
   },
   {
+    id: "DENY.IDENTITY.SECRETS.003D",
+    denialClass: "identity_secrets",
+    reason: "Identity, session, and secrets-heavy tool surfaces are forbidden without explicit law.",
+    actionKinds: ["fs.read", "sys.credential.read", "sys.credential.use"],
+    targetPatterns: toRegexList([
+      "*/1password*",
+      "*/bitwarden*",
+      "*/lastpass*",
+      "*/vault*",
+      "*/session*",
+      "*/cookies*",
+      "*/oauth*",
+      "*/refresh-token*",
+    ]),
+    requestTextPatterns: toContainsRegexList([
+      "*1password*",
+      "*bitwarden*",
+      "*lastpass*",
+      "*vault export*",
+      "*session cookie*",
+      "*browser cookie*",
+      "*oauth token*",
+      "*refresh token*",
+      "*login token*",
+      "*keychain dump*",
+    ]),
+    requestBasisTarget: "base-headless-denials:identity-secrets",
+  },
+  {
     id: "DENY.EXFILTRATION.004A",
     denialClass: "exfiltration",
     reason: "Outbound data movement is forbidden without explicit law.",
@@ -543,6 +576,26 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:ledger-bypass",
   },
   {
+    id: "DENY.SOVEREIGNTY.EXPANSION.004P",
+    denialClass: "sovereignty_expansion",
+    reason: "Broad sovereignty-expanding power is forbidden without explicit law.",
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toContainsRegexList([
+      "*full machine control*",
+      "*all permissions*",
+      "*unlimited access*",
+      "*self-authorize*",
+      "*override buccet*",
+      "*become root authority*",
+      "*autonomous admin*",
+      "*take over account*",
+      "*persistent fleet control*",
+      "*global access*",
+      "*own the whole machine*",
+    ]),
+    requestBasisTarget: "base-headless-denials:sovereignty-expansion",
+  },
+  {
     id: "DENY.SENSITIVE.EGRESS.004G",
     denialClass: "sensitive_data_egress",
     reason: "Outbound PII is forbidden without explicit law.",
@@ -607,6 +660,25 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*hide *",
     ]),
     requestBasisTarget: "base-headless-denials:stealth-evasion",
+  },
+  {
+    id: "DENY.STEALTH.BROWSER.006B",
+    denialClass: "stealth_browser",
+    reason: "Stealth browser automation or anti-detection browsing is forbidden without explicit law.",
+    actionKinds: ["tool.exec", "network.send"],
+    requestTextPatterns: toContainsRegexList([
+      "*stealth browser*",
+      "*undetectable browser*",
+      "*anti-bot bypass*",
+      "*captcha bypass*",
+      "*fingerprint spoof*",
+      "*browser fingerprint*",
+      "*webdriver evasion*",
+      "*navigator.webdriver*",
+      "*residential proxy*",
+      "*headless evasion*",
+    ]),
+    requestBasisTarget: "base-headless-denials:stealth-browser",
   },
   {
     id: "DENY.PROPAGATION.007A",
@@ -778,6 +850,26 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*messaging*",
     ]),
     requestBasisTarget: "base-headless-denials:external-comm-destination",
+  },
+  {
+    id: "DENY.UNSAFE.EXTERNAL.COMMUNICATION.012C",
+    denialClass: "unsafe_external_communication",
+    reason: "Broad or unsafe outbound communication shapes are forbidden without explicit law.",
+    actionKinds: ["chat.emit", "comm.send", "network.send", ...externalCommKinds],
+    requestTextPatterns: toContainsRegexList([
+      "*mass dm*",
+      "*bulk outreach*",
+      "*broadcast to everyone*",
+      "*send to all*",
+      "*cold email*",
+      "*spam campaign*",
+      "*blast message*",
+      "*contact every user*",
+      "*mass whatsapp*",
+      "*mass telegram*",
+      "*auto-post everywhere*",
+    ]),
+    requestBasisTarget: "base-headless-denials:unsafe-external-communication",
   },
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),

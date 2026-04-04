@@ -61,7 +61,7 @@ Buccet ships two built-in law packs:
 
 The base denial pack is day-one standing law.
 
-It now seeds a `8,961`-entry wall catalog into the Buccet base denial side out of the box.
+It now seeds a `8,965`-entry wall catalog into the Buccet base denial side out of the box.
 
 If you want the full live inventory, read [BASE_DENIAL_PACK.md](./BASE_DENIAL_PACK.md).
 That inventory now normalizes every denial entry as:
@@ -75,12 +75,15 @@ It blocks classes of sovereignty theft by default:
 - persistence and autostart
 - security weakening
 - secret and credential access
+- identity and secrets-heavy tool surfaces
 - exfiltration
 - authority spoofing and fake self-approval / completion claims
 - boundary attacks like scope widening, law mutation, session revival, and ledger/proof bypass
+- broad sovereignty expansion
 - sensitive outbound data classes like PII, credentials, and financial payloads
 - privilege escalation
 - stealth and evasion
+- stealth browser automation and anti-detection browsing
 - propagation
 - law and witness tampering
 - ordinary file deletion
@@ -88,6 +91,7 @@ It blocks classes of sovereignty theft by default:
 - sensitive capture
 - system mutation
 - unapproved external communication
+- broad or unsafe outbound communication shapes
 
 These entries are authored in the UPL and compiled into wall segments in the live field.
 

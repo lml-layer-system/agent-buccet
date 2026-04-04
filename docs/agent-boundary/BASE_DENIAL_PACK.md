@@ -8,8 +8,8 @@ It is one denial-side UPL system. Runtime still compiles it into the same live f
 
 ## Summary
 
-- Total denial-side UPL entries: 8961
-- Core walls: 32
+- Total denial-side UPL entries: 8965
+- Core walls: 36
 - Boundary walls: 4
 - Periodic taxonomy walls: 340
 - Buccet failure walls: 62
@@ -36,7 +36,7 @@ Every entry below uses the same fields:
 - `Action kinds`: the motion kinds it applies to.
 - `Bounds`: the exact limit of the wall. Deny still wins on overlap everywhere.
 
-## Core Walls (32)
+## Core Walls (36)
 
 ### DENY.PERSISTENCE.001A
 What it is: Silent persistence is forbidden in headless mode.
@@ -79,6 +79,12 @@ What it is: Secret or credential access is forbidden without explicit law.
 Connects to: global Buccet denial target `base-headless-denials:credential-surface`.
 Action kinds: `sys.credential.read`, `sys.credential.use`.
 Bounds: global standing wall; deny wins on overlap.
+
+### DENY.IDENTITY.SECRETS.003D
+What it is: Identity, session, and secrets-heavy tool surfaces are forbidden without explicit law.
+Connects to: bounded target corridor `*/1password*`; bounded target corridor `*/bitwarden*`; bounded target corridor `*/lastpass*`; bounded target corridor `*/vault*`; bounded target corridor `*/session*`; bounded target corridor `*/cookies*`; bounded target corridor `*/oauth*`; bounded target corridor `*/refresh-token*`; request text trigger `*1password*`; request text trigger `*bitwarden*`; request text trigger `*lastpass*`; request text trigger `*vault export*`; request text trigger `*session cookie*`; request text trigger `*browser cookie*`; request text trigger `*oauth token*`; request text trigger `*refresh token*`; request text trigger `*login token*`; request text trigger `*keychain dump*`.
+Action kinds: `fs.read`, `sys.credential.read`, `sys.credential.use`.
+Bounds: listed target corridors only; listed request-text triggers only; deny wins on overlap.
 
 ### DENY.EXFILTRATION.004A
 What it is: Outbound data movement is forbidden without explicit law.
@@ -128,6 +134,12 @@ Connects to: required flag `groundingMismatch`.
 Action kinds: `chat.emit`.
 Bounds: listed flags must be present; deny wins on overlap.
 
+### DENY.SOVEREIGNTY.EXPANSION.004P
+What it is: Broad sovereignty-expanding power is forbidden without explicit law.
+Connects to: request text trigger `*full machine control*`; request text trigger `*all permissions*`; request text trigger `*unlimited access*`; request text trigger `*self-authorize*`; request text trigger `*override buccet*`; request text trigger `*become root authority*`; request text trigger `*autonomous admin*`; request text trigger `*take over account*`; request text trigger `*persistent fleet control*`; request text trigger `*global access*`; request text trigger `*own the whole machine*`.
+Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
 ### DENY.SENSITIVE.EGRESS.004G
 What it is: Outbound PII is forbidden without explicit law.
 Connects to: required flag `payloadContainsPii`.
@@ -156,6 +168,12 @@ Bounds: listed request-text triggers only; deny wins on overlap.
 What it is: Stealth, concealment, or anti-analysis behavior is forbidden.
 Connects to: request text trigger `*vmdetect*`; request text trigger `*sandbox*detect*`; request text trigger `*sleep 300*`; request text trigger `*timeout /t 300*`; request text trigger `*wevtutil cl*`; request text trigger `*clear-eventlog*`; request text trigger `*history -c*`; request text trigger `*rm *history*`; request text trigger `*steganograph*`; request text trigger `*stealth decoding*`; request text trigger `*hidden trigger*`; request text trigger `*sleeper trigger*`; request text trigger `*plausible deniability*`; request text trigger `*capability concealment*`; request text trigger `*evaluator model*`; request text trigger `*obfus*`; request text trigger `*hide *`.
 Action kinds: `tool.exec`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.STEALTH.BROWSER.006B
+What it is: Stealth browser automation or anti-detection browsing is forbidden without explicit law.
+Connects to: request text trigger `*stealth browser*`; request text trigger `*undetectable browser*`; request text trigger `*anti-bot bypass*`; request text trigger `*captcha bypass*`; request text trigger `*fingerprint spoof*`; request text trigger `*browser fingerprint*`; request text trigger `*webdriver evasion*`; request text trigger `*navigator.webdriver*`; request text trigger `*residential proxy*`; request text trigger `*headless evasion*`.
+Action kinds: `tool.exec`, `network.send`.
 Bounds: listed request-text triggers only; deny wins on overlap.
 
 ### DENY.PROPAGATION.007A
@@ -223,6 +241,12 @@ What it is: External communication is forbidden without explicit law.
 Connects to: bounded target corridor `*webhook*`; bounded target corridor `*telegram*`; bounded target corridor `*discord*`; bounded target corridor `*slack*`; bounded target corridor `*smtp*`; bounded target corridor `*messaging*`.
 Action kinds: `network.send`.
 Bounds: listed target corridors only; deny wins on overlap.
+
+### DENY.UNSAFE.EXTERNAL.COMMUNICATION.012C
+What it is: Broad or unsafe outbound communication shapes are forbidden without explicit law.
+Connects to: request text trigger `*mass dm*`; request text trigger `*bulk outreach*`; request text trigger `*broadcast to everyone*`; request text trigger `*send to all*`; request text trigger `*cold email*`; request text trigger `*spam campaign*`; request text trigger `*blast message*`; request text trigger `*contact every user*`; request text trigger `*mass whatsapp*`; request text trigger `*mass telegram*`; request text trigger `*auto-post everywhere*`.
+Action kinds: `chat.emit`, `comm.send`, `network.send`, `email.send`, `message.send`.
+Bounds: listed request-text triggers only; deny wins on overlap.
 
 ### DENY.DESTRUCTIVE.DELETE.009C
 What it is: File deletion is destructive and denied by default.

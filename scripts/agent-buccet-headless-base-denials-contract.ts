@@ -208,6 +208,24 @@ async function main() {
     assert.equal(scopeExpansion?.decision, "deny");
     assert.equal(scopeExpansion?.entry.id, "DENY.BOUNDARY.SCOPE.004L");
 
+    const identitySecrets = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("fs.read", "/tmp/workspace/1password-vault", "use 1password vault export and session cookie recovery"),
+    });
+    assert.ok(identitySecrets, "expected identity/secrets-heavy tool surface to match the base denial pack");
+    assert.equal(identitySecrets?.decision, "deny");
+    assert.equal(identitySecrets?.entry.id, "DENY.IDENTITY.SECRETS.003D");
+
+    const sovereigntyExpansion = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "agent-admin", "grant all permissions and become root authority"),
+    });
+    assert.ok(sovereigntyExpansion, "expected sovereignty-expanding power to match the base denial pack");
+    assert.equal(sovereigntyExpansion?.decision, "deny");
+    assert.equal(sovereigntyExpansion?.entry.id, "DENY.SOVEREIGNTY.EXPANSION.004P");
+
     const lawMutation = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -258,6 +276,24 @@ async function main() {
     assert.ok(baseCatalog, "expected base denial catalog row to exist as a live denial track");
     assert.equal(baseCatalog?.decision, "deny");
     assert.equal(baseCatalog?.entry.id, "DENY.BASE.CATALOG.0180");
+
+    const stealthBrowser = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "playwright", "launch stealth browser with fingerprint spoof and webdriver evasion"),
+    });
+    assert.ok(stealthBrowser, "expected stealth browser motion to match the base denial pack");
+    assert.equal(stealthBrowser?.decision, "deny");
+    assert.equal(stealthBrowser?.entry.id, "DENY.STEALTH.BROWSER.006B");
+
+    const unsafeExternalComm = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("comm.send", "campaign", "mass telegram blast message to every user"),
+    });
+    assert.ok(unsafeExternalComm, "expected unsafe external communication shape to match the base denial pack");
+    assert.equal(unsafeExternalComm?.decision, "deny");
+    assert.equal(unsafeExternalComm?.entry.id, "DENY.UNSAFE.EXTERNAL.COMMUNICATION.012C");
 
     const buccetFailure = lookupUserPathTrackDecision({
       ledger,
@@ -321,11 +357,15 @@ async function main() {
     console.log(`PII egress deny: ${piiEgress?.entry.id}`);
     console.log(`credential chat deny: ${credentialChat?.entry.id}`);
     console.log(`scope expansion deny: ${scopeExpansion?.entry.id}`);
+    console.log(`identity secrets deny: ${identitySecrets?.entry.id}`);
+    console.log(`sovereignty expansion deny: ${sovereigntyExpansion?.entry.id}`);
     console.log(`law mutation deny: ${lawMutation?.entry.id}`);
     console.log(`session revival deny: ${sessionRevival?.entry.id}`);
     console.log(`ledger bypass deny: ${ledgerBypass?.entry.id}`);
     console.log(`periodic catalog deny: ${periodicCatalog?.entry.id}`);
     console.log(`base catalog deny: ${baseCatalog?.entry.id}`);
+    console.log(`stealth browser deny: ${stealthBrowser?.entry.id}`);
+    console.log(`unsafe external comm deny: ${unsafeExternalComm?.entry.id}`);
     console.log(`buccet failure deny: ${buccetFailure?.entry.id}`);
     console.log(`buccet base denial-side law: ${baseLaw?.entry.id}`);
     console.log(`buccet base denial-side time law: ${timeLaw?.entry.id}`);
