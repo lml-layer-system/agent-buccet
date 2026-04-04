@@ -53,6 +53,7 @@ type UplSourceSpec = {
 };
 
 type UplAcceptanceSourceCatalog = {
+  id: "skillsmp" | "aitmpl" | "skillhub" | "agentskills";
   name: string;
   url: string;
   description: string;
@@ -118,7 +119,7 @@ function usage(): never {
     "  buccet upl mute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl unmute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
     "  buccet upl remove <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl sources [--json]                               — show authored lanes plus external UPL intake catalogs",
+    "  buccet upl sources [--open <catalog|all>] [--json]       — show authored lanes plus external UPL intake catalogs",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
     "  buccet hook build",
@@ -344,26 +345,91 @@ function uplSourceSpecs(home: ReturnType<typeof resolveHomePaths>): UplSourceSpe
 function acceptanceSourceCatalogs(): UplAcceptanceSourceCatalog[] {
   return [
     {
+      id: "skillsmp",
       name: "SkillsMP",
       url: "https://skillsmp.com",
       description: "largest broad skill catalog",
     },
     {
+      id: "aitmpl",
       name: "AITmpl Skills",
       url: "https://aitmpl.com/skills",
       description: "template and one-command install workflows",
     },
     {
+      id: "skillhub",
       name: "SkillHub",
       url: "https://skillhub.club",
       description: "AI-rated skills and high-signal curation",
     },
     {
+      id: "agentskills",
       name: "AgentSkills",
       url: "https://agentskills.io",
       description: "official spec and shape grounding",
     },
   ];
+}
+
+function normalizeCatalogToken(token: string): string {
+  return token.trim().toLowerCase().replaceAll(/[^a-z0-9]+/g, "");
+}
+
+function resolveSourceCatalogSelection(token: string): UplAcceptanceSourceCatalog[] {
+  const normalized = normalizeCatalogToken(token);
+  const catalogs = acceptanceSourceCatalogs();
+  if (normalized === "all") {
+    return catalogs;
+  }
+  const matched = catalogs.find((catalog) => (
+    normalized === catalog.id
+    || normalized === normalizeCatalogToken(catalog.name)
+    || normalized === normalizeCatalogToken(catalog.url)
+  ));
+  if (!matched) {
+    throw new Error(`unknown UPL source catalog: ${token}`);
+  }
+  return [matched];
+}
+
+function assertCatalogOpenUrl(url: string): URL {
+  const parsed = new URL(url);
+  if (parsed.protocol !== "https:") {
+    throw new Error(`refusing to open non-https catalog url: ${url}`);
+  }
+  const allowedHosts = new Set(acceptanceSourceCatalogs().map((catalog) => new URL(catalog.url).host));
+  if (!allowedHosts.has(parsed.host)) {
+    throw new Error(`refusing to open unknown catalog host: ${parsed.host}`);
+  }
+  return parsed;
+}
+
+async function openCatalogInBrowser(catalog: UplAcceptanceSourceCatalog): Promise<void> {
+  const safeUrl = assertCatalogOpenUrl(catalog.url).toString();
+  const capturePath = process.env.BUCCET_BROWSER_OPEN_CAPTURE_PATH;
+  if (capturePath) {
+    await ensureDir(path.dirname(capturePath));
+    await fs.appendFile(capturePath, `${JSON.stringify({ id: catalog.id, url: safeUrl })}\n`, "utf8");
+    return;
+  }
+
+  const launch = (command: string, args: string[]) => {
+    const child = spawn(command, args, {
+      detached: true,
+      stdio: "ignore",
+    });
+    child.unref();
+  };
+
+  if (process.platform === "darwin") {
+    launch("open", [safeUrl]);
+    return;
+  }
+  if (process.platform === "win32") {
+    launch("cmd", ["/c", "start", "", safeUrl]);
+    return;
+  }
+  launch("xdg-open", [safeUrl]);
 }
 
 function acceptancePipelineCommands(home: ReturnType<typeof resolveHomePaths>) {
@@ -386,7 +452,7 @@ function acceptancePipelineGuideText(home: ReturnType<typeof resolveHomePaths>):
       "Use this when you want to pull a skill or workflow from an external catalog into the UPL acceptance side.",
     "",
     "Source catalogs:",
-    ...catalogs.map((catalog) => `- ${catalog.name} — ${catalog.url} — ${catalog.description}`),
+    ...catalogs.map((catalog) => `- ${catalog.name} — ${catalog.url} — ${catalog.description} — open: buccet upl sources --open ${catalog.id}`),
     "",
     "Steps:",
     "1. Open one of the source catalogs above and choose the skill or workflow you want.",
@@ -951,6 +1017,7 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "Useful commands:",
             "- buccet extract-laws <file.md> --lane acceptance",
             "- buccet upl sync",
+            "- buccet upl sources --open <catalog>",
             "",
             "External intake catalogs:",
             ...acceptanceSourceCatalogs().map((catalog) => `- ${catalog.name}: ${catalog.url}`),
@@ -971,6 +1038,7 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
             "Useful commands:",
             "- buccet extract-laws <file.md> --lane denial",
             "- buccet upl sync",
+            "- buccet upl sources --open <catalog>",
           ].join("\n");
       await fs.writeFile(spec.readmePath, `${content}\n`, "utf8");
     }
@@ -2341,6 +2409,19 @@ async function handleUpl(rest: string[]) {
   }
 
   if (subcommand === "sources") {
+    let openSelection: string | null = null;
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--open") {
+        openSelection = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      usage();
+    }
     await ensureUplSourceHomes(home);
     const catalogs = acceptanceSourceCatalogs();
     const commands = acceptancePipelineCommands(home);
@@ -2351,11 +2432,22 @@ async function handleUpl(rest: string[]) {
         files: await listLaneMarkdownFiles(spec.dir),
       })),
     );
+    const opened = openSelection
+      ? await Promise.all(resolveSourceCatalogSelection(openSelection).map(async (catalog) => {
+        await openCatalogInBrowser(catalog);
+        return {
+          id: catalog.id,
+          name: catalog.name,
+          url: catalog.url,
+        };
+      }))
+      : [];
     if (asJson) {
       printJson({
         root: home.uplDocsDir,
         lanes: snapshot,
         catalogs,
+        opened,
         acceptancePipeline: {
           guidePath: home.uplAcceptancePipelinePath,
           templatePath: home.uplAcceptanceSkillTemplatePath,
@@ -2375,9 +2467,15 @@ async function handleUpl(rest: string[]) {
     console.log(``);
     console.log(`UPL intake catalogs`);
     for (const catalog of catalogs) {
-      console.log(`- ${catalog.name}: ${catalog.url} (${catalog.description})`);
+      console.log(`- ${catalog.name}: ${catalog.url} (${catalog.description}) | open: buccet upl sources --open ${catalog.id}`);
     }
     console.log(``);
+    if (opened.length > 0) {
+      for (const catalog of opened) {
+        console.log(`opened: ${catalog.name} -> ${catalog.url}`);
+      }
+      console.log(``);
+    }
     console.log(`Acceptance pipeline`);
     console.log(`guide: ${home.uplAcceptancePipelinePath}`);
     console.log(`template: ${home.uplAcceptanceSkillTemplatePath}`);
@@ -2393,6 +2491,7 @@ async function handleUpl(rest: string[]) {
     console.log(`   ${commands.inspectSearch}`);
     console.log(`   ${commands.inspectDiff}`);
     console.log(`   ${commands.inspectShow}`);
+    console.log(`open: buccet upl sources --open <catalog|all>`);
     console.log(`sync: buccet upl sync`);
     return;
   }

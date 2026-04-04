@@ -64,6 +64,7 @@ async function main() {
     AGENT_BUCCET_CALLER_CWD: workspacePath,
     AGENT_BUCCET_LAUNCHER_PATH: path.join(tempRoot, "bin", "buccet"),
     AGENT_BUCCET_UPL_LEDGER_PATH: uplLedgerPath,
+    BUCCET_BROWSER_OPEN_CAPTURE_PATH: path.join(tempRoot, "browser-open.jsonl"),
   };
 
   const initResult = await runCli(["init"], env);
@@ -112,6 +113,18 @@ async function main() {
   await fs.access(uplSources.acceptancePipeline.guidePath);
   await fs.access(uplSources.acceptancePipeline.templatePath);
   assert.match(uplSources.acceptancePipeline.commands.sync, /buccet upl sync --lane acceptance/);
+
+  const uplOpenResult = await runCli(["upl", "sources", "--open", "skillsmp", "--json"], env);
+  assert.equal(uplOpenResult.code, 0, uplOpenResult.stderr);
+  const uplOpen = JSON.parse(uplOpenResult.stdout) as {
+    opened: Array<{ id: string; url: string }>;
+  };
+  assert.equal(uplOpen.opened.length, 1);
+  assert.equal(uplOpen.opened[0]?.id, "skillsmp");
+  assert.match(uplOpen.opened[0]?.url ?? "", /^https:\/\/skillsmp\.com\/?$/);
+  const openCaptureRaw = await fs.readFile(env.BUCCET_BROWSER_OPEN_CAPTURE_PATH!, "utf8");
+  assert.match(openCaptureRaw, /"id":"skillsmp"/);
+  assert.match(openCaptureRaw, /"url":"https:\/\/skillsmp\.com\/?"/);
 
   const uplListResult = await runCli(["upl", "list", "--json"], env);
   assert.equal(uplListResult.code, 0, uplListResult.stderr);

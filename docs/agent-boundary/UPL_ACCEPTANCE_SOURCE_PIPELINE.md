@@ -26,6 +26,11 @@ If you paste the same material into `~/.buccet/upl-docs/denial` and run
 ## Fast pipeline
 
 1. Open one of the source catalogs above and choose the skill or workflow you want.
+   Fast opener:
+   - `buccet upl sources --open skillsmp`
+   - `buccet upl sources --open aitmpl`
+   - `buccet upl sources --open skillhub`
+   - `buccet upl sources --open agentskills`
 2. Copy the raw source material you care about.
    That can be:
    - source text or summary

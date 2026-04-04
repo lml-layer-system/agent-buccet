@@ -214,6 +214,12 @@ That gives users the direct browse -> copy -> paste raw skill material -> parse 
 - [SkillHub](https://skillhub.club)
 - [AgentSkills](https://agentskills.io)
 
+You can also open them directly from Buccet:
+- `buccet upl sources --open skillsmp`
+- `buccet upl sources --open aitmpl`
+- `buccet upl sources --open skillhub`
+- `buccet upl sources --open agentskills`
+
 The raw material can be:
 - copied skill text
 - `SKILL.md`

@@ -322,6 +322,13 @@ That path gives users direct intake from:
 - [SkillHub](https://skillhub.club)
 - [AgentSkills](https://agentskills.io)
 
+Buccet can open those exact catalog sites directly:
+
+- `buccet upl sources --open skillsmp`
+- `buccet upl sources --open aitmpl`
+- `buccet upl sources --open skillhub`
+- `buccet upl sources --open agentskills`
+
 Then they can:
 
 - choose the skill or workflow they want
