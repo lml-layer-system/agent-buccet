@@ -15,6 +15,9 @@ import {
   BOUNDARY_BUCCET_FAILURE_DIMENSIONS,
   BOUNDARY_BUCCET_FAILURE_ROWS,
 } from "./buccet-failure-catalog.ts";
+import {
+  BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS,
+} from "./buccet-law-body-denial-catalog.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
@@ -34,6 +37,7 @@ export type DenialClass =
   | "periodic_failure_taxonomy"
   | "base_buccet_denial"
   | "buccet_failure_corpus"
+  | "buccet_law_body"
   | "sensitive_data_egress"
   | "privilege_escalation"
   | "stealth_evasion"
@@ -284,6 +288,17 @@ function createBuccetFailureRowSeeds(): BaseHeadlessDenialSeed[] {
     actionKinds: allTrackSurfaceKinds,
     requestTextPatterns: toCatalogRequestTextPatterns([row.variants[0]]),
     requestBasisTarget: `base-headless-denials:buccet-failure:${row.id.toLowerCase()}`,
+  }));
+}
+
+function createBuccetLawBodySeeds(): BaseHeadlessDenialSeed[] {
+  return BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS.map((row) => ({
+    id: `DENY.BUCCET.BASE.${row.projectedLawId}`,
+    denialClass: "buccet_law_body",
+    reason: `${row.projectedLawId} — ${row.projectedText}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns([row.projectedLawId]),
+    requestBasisTarget: `base-headless-denials:buccet-base:${row.projectedLawId.toLowerCase()}`,
   }));
 }
 
@@ -769,6 +784,7 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   ...createBuccetFailureDimensionSeeds(),
   ...createBuccetContainmentLawSeeds(),
   ...createBuccetFailureRowSeeds(),
+  ...createBuccetLawBodySeeds(),
   ...createVendoredBaseCatalogSeeds(),
   ...createFrontierFailureAliasSeeds(),
   {

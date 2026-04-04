@@ -50,7 +50,7 @@ async function main() {
     const expectedEntries = createBaseHeadlessDenialEntries();
     assert.equal(ledger.userApprovedLawPaths.length, 0, "default base denial ledger should not seed approved entries");
     assert.equal(ledger.userDeniedLawPaths.length, expectedEntries.length, "default base denial ledger should seed every denial entry");
-    assert.ok(ledger.userDeniedLawPaths.length > 500, "default base denial ledger should now seed a 500+ wall catalog");
+    assert.ok(ledger.userDeniedLawPaths.length > 8000, "default base denial ledger should now seed the full 8k+ wall catalog");
     assert.ok(
       ledger.userDeniedLawPaths.some((entry) => entry.id.startsWith("DENY.SECRETS.ACCESS.003")),
       "default base denial ledger should include secret access denies",
@@ -74,6 +74,15 @@ async function main() {
     assert.ok(
       ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BUCCET.FAILURE.R1"),
       "default base denial ledger should include the Buccet failure rows",
+    );
+    assert.equal(
+      ledger.userDeniedLawPaths.filter((entry) => entry.id.startsWith("DENY.BUCCET.BASE.")).length,
+      8209,
+      "default base denial ledger should include the full Buccet base denial-side law body",
+    );
+    assert.ok(
+      ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BUCCET.BASE.BUCCET.BASE.LAW-0049196"),
+      "default base denial ledger should include carried Buccet laws",
     );
 
     const session = makeSession();
@@ -259,6 +268,24 @@ async function main() {
     assert.equal(buccetFailure?.decision, "deny");
     assert.equal(buccetFailure?.entry.id, "DENY.BUCCET.FAILURE.R1");
 
+    const baseLaw = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "BUCCET.BASE.LAW-0049196"),
+    });
+    assert.ok(baseLaw, "expected carried Buccet law to exist as a live denial track");
+    assert.equal(baseLaw?.decision, "deny");
+    assert.equal(baseLaw?.entry.id, "DENY.BUCCET.BASE.BUCCET.BASE.LAW-0049196");
+
+    const timeLaw = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("chat.emit", "chat:primary", "BUCCET.TIME.TEMPORAL.LAW-000039"),
+    });
+    assert.ok(timeLaw, "expected carried Buccet law to exist as a live denial track");
+    assert.equal(timeLaw?.decision, "deny");
+    assert.equal(timeLaw?.entry.id, "DENY.BUCCET.BASE.BUCCET.TIME.TEMPORAL.LAW-000039");
+
     const buccetLawEntry = ledger.userDeniedLawPaths.find((entry) => entry.id === "DENY.BUCCET.LAW.03");
     assert.ok(buccetLawEntry, "expected Buccet containment law to be seeded explicitly in the denial pack");
     assert.ok(
@@ -300,6 +327,8 @@ async function main() {
     console.log(`periodic catalog deny: ${periodicCatalog?.entry.id}`);
     console.log(`base catalog deny: ${baseCatalog?.entry.id}`);
     console.log(`buccet failure deny: ${buccetFailure?.entry.id}`);
+    console.log(`buccet base denial-side law: ${baseLaw?.entry.id}`);
+    console.log(`buccet base denial-side time law: ${timeLaw?.entry.id}`);
     console.log(`buccet law seeded: ${buccetLawEntry?.id}`);
     console.log(`safe workspace write untouched: ${safeWorkspaceWrite === null}`);
   } finally {
