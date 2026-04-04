@@ -2,12 +2,6 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import {
-  evaluateBoundaryAction,
-  loadUserPathLedger,
-  openBoundaryPath,
-  createPersistentBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
 import type { BoundaryActionKind, BoundaryActionRequest } from "../lib/agent-buccet/index.ts";
 
 function makeRequest(args: {
@@ -29,11 +23,19 @@ function makeRequest(args: {
 
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-base-upl-acceptance-"));
+  const previousCwd = process.cwd();
   const ledgerPath = path.join(tempRoot, "user-path-ledger.json");
   const previousLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
   process.env.AGENT_BUCCET_UPL_LEDGER_PATH = ledgerPath;
+  process.chdir(tempRoot);
+  await fs.cp(
+    path.join(import.meta.dirname, "..", "data", "agent-buccet-law-foundation"),
+    path.join(tempRoot, "data", "agent-buccet-law-foundation"),
+    { recursive: true },
+  );
 
   try {
+    const boundary = await import("../lib/agent-buccet/index.ts");
     const sessionId = `agent-buccet-base-upl-acceptance-${Date.now()}`;
     const actorId = "user:base-upl-acceptance-contract";
     const workspace = path.join(tempRoot, "workspace");
@@ -44,7 +46,7 @@ async function main() {
     await fs.writeFile(path.join(workspace, "README.md"), "workspace read\n", "utf8");
     await fs.writeFile(path.join(secretsDir, "api.txt"), "secret\n", "utf8");
 
-    const store = await createPersistentBoundaryRuntimeStore({
+    const store = await boundary.createPersistentBoundaryRuntimeStore({
       sessionId,
       actorId,
     });
@@ -56,7 +58,7 @@ async function main() {
       "fs.mkdir",
       "fs.move",
     ];
-    const { config } = await openBoundaryPath({
+    const { config } = await boundary.openBoundaryPath({
       config: store.getConfig(),
       rootPath: workspace,
       grantedActions,
@@ -64,14 +66,14 @@ async function main() {
     });
     store.replaceConfig(config);
 
-    const upl = await loadUserPathLedger();
+    const upl = await boundary.loadUserPathLedger();
     const baseAcceptanceEntries = upl.userApprovedLawPaths.filter((entry) =>
       entry.status === "ACTIVE" &&
       entry.scope === "SESSION" &&
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 63, "expected base acceptance pack to seed sixty-three session-scoped rails");
+    assert.equal(baseAcceptanceEntries.length, 120, "expected base acceptance pack to seed one hundred twenty session-scoped rails");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -113,6 +115,22 @@ async function main() {
       "expected notion OpenClaw skill rail",
     );
     assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-mail"),
+      "expected agent-mail awesome OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "google-calendar"),
+      "expected google-calendar awesome OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "audio-transcribe"),
+      "expected audio-transcribe awesome OpenClaw skill rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "azure-devops"),
+      "expected azure-devops awesome OpenClaw skill rail",
+    );
+    assert.ok(
       !baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "1password"),
       "expected credential-vault skill to stay out of the base acceptance pack",
     );
@@ -121,7 +139,7 @@ async function main() {
       "expected camera capture skill to stay out of the base acceptance pack",
     );
 
-    const readDecision = await evaluateBoundaryAction(config, makeRequest({
+    const readDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.read",
       target: path.join(workspace, "README.md"),
@@ -129,7 +147,7 @@ async function main() {
     }));
     assert.equal(readDecision.result.decision, "allow", "expected workspace read to allow on contact");
 
-    const writeDecision = await evaluateBoundaryAction(config, makeRequest({
+    const writeDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.write",
       target: path.join(workspace, "src", "index.ts"),
@@ -137,7 +155,7 @@ async function main() {
     }));
     assert.equal(writeDecision.result.decision, "allow", "expected workspace write to allow on contact");
 
-    const artifactDecision = await evaluateBoundaryAction(config, makeRequest({
+    const artifactDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.append",
       target: path.join(outputsDir, "report.txt"),
@@ -145,14 +163,14 @@ async function main() {
     }));
     assert.equal(artifactDecision.result.decision, "allow", "expected outputs write to allow on contact");
 
-    const mkdirDecision = await evaluateBoundaryAction(config, makeRequest({
+    const mkdirDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.mkdir",
       target: path.join(workspace, "notes"),
     }));
     assert.equal(mkdirDecision.result.decision, "allow", "expected local organization rail to allow mkdir");
 
-    const notesDecision = await evaluateBoundaryAction(config, makeRequest({
+    const notesDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.write",
       target: path.join(workspace, "notes", "todo.md"),
@@ -160,7 +178,7 @@ async function main() {
     }));
     assert.equal(notesDecision.result.decision, "allow", "expected notes and tasks rail to allow local note writes");
 
-    const execDecision = await evaluateBoundaryAction(config, makeRequest({
+    const execDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "tool.exec",
       target: "git",
@@ -168,7 +186,7 @@ async function main() {
     }));
     assert.equal(execDecision.result.decision, "allow", "expected safe local exec rail to allow bounded git inspection");
 
-    const researchDecision = await evaluateBoundaryAction(config, makeRequest({
+    const researchDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "network.send",
       target: "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
@@ -176,7 +194,7 @@ async function main() {
     }));
     assert.equal(researchDecision.result.decision, "allow", "expected bounded web research rail to allow documentation fetch");
 
-    const tmuxSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+    const tmuxSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "tool.exec",
       target: "tmux",
@@ -184,7 +202,7 @@ async function main() {
     }));
     assert.equal(tmuxSkillDecision.result.decision, "allow", "expected tmux OpenClaw skill rail to allow named tmux skill motion");
 
-    const weatherSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+    const weatherSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "network.send",
       target: "https://api.weather.gov/points/39.7456,-97.0892",
@@ -192,7 +210,7 @@ async function main() {
     }));
     assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather OpenClaw skill rail to allow bounded weather-domain motion");
 
-    const notionSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+    const notionSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "network.send",
       target: "https://api.notion.com/v1/pages",
@@ -200,7 +218,7 @@ async function main() {
     }));
     assert.equal(notionSkillDecision.result.decision, "allow", "expected notion OpenClaw skill rail to allow bounded notion-domain motion");
 
-    const slackChannelDecision = await evaluateBoundaryAction(config, makeRequest({
+    const slackChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "chat.emit",
       target: "slack",
@@ -208,7 +226,7 @@ async function main() {
     }));
     assert.equal(slackChannelDecision.result.decision, "allow", "expected slack OpenClaw skill rail to allow channel-shaped chat delivery");
 
-    const slackNetworkDecision = await evaluateBoundaryAction(config, makeRequest({
+    const slackNetworkDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "network.send",
       target: "slack",
@@ -216,7 +234,7 @@ async function main() {
     }));
     assert.notEqual(slackNetworkDecision.result.decision, "allow", "expected slack raw network motion to stay outside the base acceptance pack");
 
-    const credentialSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+    const credentialSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "sys.credential.use",
       target: "1password",
@@ -224,7 +242,7 @@ async function main() {
     }));
     assert.notEqual(credentialSkillDecision.result.decision, "allow", "expected credential vault use to stay outside the base acceptance pack");
 
-    const cameraSkillDecision = await evaluateBoundaryAction(config, makeRequest({
+    const cameraSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "tool.exec",
       target: "camsnap",
@@ -232,14 +250,46 @@ async function main() {
     }));
     assert.notEqual(cameraSkillDecision.result.decision, "allow", "expected camera capture skill to stay outside the base acceptance pack");
 
-    const deleteDecision = await evaluateBoundaryAction(config, makeRequest({
+    const agentMailDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "comm.send",
+      target: "agent-mail",
+      payloadSummary: "agent-mail draft reply",
+    }));
+    assert.equal(agentMailDecision.result.decision, "allow", "expected agent-mail awesome rail to allow bounded inbox delivery motion");
+
+    const googleCalendarDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "https://calendar.googleapis.com/calendar/v3/calendars/primary/events",
+      payloadSummary: "google-calendar create event",
+    }));
+    assert.equal(googleCalendarDecision.result.decision, "allow", "expected google-calendar awesome rail to allow bounded calendar-domain motion");
+
+    const audioTranscribeDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "audio-transcribe",
+      payloadSummary: "audio-transcribe local voice message",
+    }));
+    assert.equal(audioTranscribeDecision.result.decision, "allow", "expected audio-transcribe awesome rail to allow local transcription motion");
+
+    const azureDevopsDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "https://dev.azure.com/example/project/_apis/projects",
+      payloadSummary: "azure-devops list projects",
+    }));
+    assert.equal(azureDevopsDecision.result.decision, "allow", "expected azure-devops awesome rail to allow bounded Azure DevOps motion");
+
+    const deleteDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.delete",
       target: path.join(workspace, "README.md"),
     }));
     assert.equal(deleteDecision.result.decision, "deny", "expected delete to stay outside the base acceptance pack and remain hard-denied");
 
-    const secretDecision = await evaluateBoundaryAction(config, makeRequest({
+    const secretDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "fs.read",
       target: path.join(secretsDir, "api.txt"),
@@ -251,7 +301,7 @@ async function main() {
       "expected secret access denial to come from the base denial pack",
     );
 
-    const unsafeExecDecision = await evaluateBoundaryAction(config, makeRequest({
+    const unsafeExecDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "tool.exec",
       target: "git",
@@ -260,6 +310,7 @@ async function main() {
     assert.notEqual(unsafeExecDecision.result.decision, "allow", "expected unsafe exec drift to stay outside automatic allowance");
 
   } finally {
+    process.chdir(previousCwd);
     if (previousLedgerPath === undefined) {
       delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
     } else {

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
+import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
 import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
 import { getActiveUserLawIds, loadUserPathLedger, writeCompiledUserPathLaws } from "./user-path-ledger.ts";
 import type {
@@ -130,6 +131,10 @@ const BOUNDED_WEB_RESEARCH_SEEDS = [
     requestBasisSummary: "search docs",
     reason: "Bounded search and retrieval provider use is lawful.",
   },
+] as const;
+const BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES = [
+  ...BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES,
+  ...BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES,
 ] as const;
 
 function hashSeedWitnessId(rootPath: string, grantedActions: readonly BoundaryActionKind[]): string {
@@ -261,7 +266,7 @@ function buildBaseAcceptanceSeeds(args: {
     });
   }
 
-  for (const lane of BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES) {
+  for (const lane of BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES) {
     seeds.push({
       id: lane.id,
       acceptanceClass: "openclaw_skill",
