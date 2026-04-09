@@ -50,6 +50,22 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, stdinInput?: string): Pr
   });
 }
 
+async function waitFor<T>(
+  fn: () => Promise<T | null>,
+  label: string,
+  attempts = 100,
+  delayMs = 100,
+): Promise<T> {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const value = await fn();
+    if (value !== null) {
+      return value;
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new Error(`timed out waiting for ${label}`);
+}
+
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-cli-"));
   const homePath = path.join(tempRoot, "home");
@@ -391,6 +407,17 @@ async function main() {
 
   const hookStopResult = await runCli(["hook", "stop"], env);
   assert.equal(hookStopResult.code, 0, hookStopResult.stderr);
+
+  await waitFor(async () => {
+    const stoppedStatusResult = await runCli(["hook", "status", "--json"], env);
+    if (stoppedStatusResult.code !== 0) {
+      return null;
+    }
+    const stoppedStatus = JSON.parse(stoppedStatusResult.stdout) as {
+      running: boolean;
+    };
+    return stoppedStatus.running === false ? true : null;
+  }, "hook daemon stop");
 
   const strictDoctorFailResult = await runCli(["doctor", "--strict"], env);
   assert.equal(strictDoctorFailResult.code, 1, strictDoctorFailResult.stderr);
