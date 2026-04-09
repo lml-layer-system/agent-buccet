@@ -66,6 +66,7 @@ Core docs:
 - [Release Checklist](RELEASE_CHECKLIST.md)
 - [Security Model](SECURITY_MODEL.md)
 - [UPL Base Packs](UPL_BASE_PACKS.md)
+- [Buccet Meta-EFUE Substrate Process](BUCCET_META_EFUE_SUBSTRATE_PROCESS.md)
 - [Buccet System Substrate](BUCCET_SYSTEM_SUBSTRATE.md)
 - [Current Limits](CURRENT_LIMITS.md)
 - [Law Catalog](LAW_CATALOG.md)

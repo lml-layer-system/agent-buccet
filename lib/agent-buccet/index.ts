@@ -44,4 +44,5 @@ export * from "./wrapper.ts";
 export * from "./integrations/index.ts";
 export * from "./admission.ts";
 export * from "./system-substrate.ts";
+export * from "./meta-efue-substrate-process.ts";
 export * from "./path-memory.ts";

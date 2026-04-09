@@ -2,6 +2,8 @@
 
 This document captures the full snapped Agent Buccet system as a finite substrate without dropping the moving parts.
 
+For the process that keeps collapsing open-ended authored growth into this executable substrate, see [Buccet Meta-EFUE Substrate Process](BUCCET_META_EFUE_SUBSTRATE_PROCESS.md).
+
 It is not a slogan.
 It is not a summary.
 It is the compressed execution substrate of the whole organism.
