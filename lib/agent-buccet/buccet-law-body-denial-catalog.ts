@@ -30,10 +30,20 @@ type RawProjectedLawRow = {
 
 function loadProjectedLawRows(): BuccetLawBodyDenialCatalogRow[] {
   const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const sourcePath = path.resolve(
-    moduleDir,
-    "../../data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
-  );
+  const candidates = [
+    path.resolve(
+      moduleDir,
+      "../data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
+    ),
+    path.resolve(
+      moduleDir,
+      "../../data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
+    ),
+  ];
+  const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!sourcePath) {
+    throw new Error("unable to locate projected-laws.json for Buccet law-body denial catalog");
+  }
   const raw = fs.readFileSync(sourcePath, "utf8");
   const parsed = JSON.parse(raw) as RawProjectedLawRow[];
 

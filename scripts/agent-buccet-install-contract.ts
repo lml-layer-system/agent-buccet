@@ -46,7 +46,14 @@ async function main() {
   const homePath = path.join(tempRoot, "home");
   const launcherDir = path.join(tempRoot, "bin");
   const workspacePath = path.join(tempRoot, "workspace");
+  const customPathName = "domain-workbench";
+  const customDomain = "specialized_domain_ops";
   await fs.mkdir(workspacePath, { recursive: true });
+  await fs.writeFile(
+    path.join(workspacePath, "domain-playbook.md"),
+    "# Domain Playbook\n\nDomain rules, source material, operating steps, and output expectations.\n",
+    "utf8",
+  );
 
   const installEnv = {
     ...process.env,
@@ -80,6 +87,58 @@ async function main() {
   const scopeRealPaths = await Promise.all(status.scopes.map((scope) => fs.realpath(scope).catch(() => scope)));
   assert.ok(scopeRealPaths.includes(workspaceRealPath));
 
+  const pathAddResult = await run(launcherPath, [
+    "path",
+    "sources",
+    "add",
+    customPathName,
+    "domain-playbook.md",
+    "--domain",
+    customDomain,
+    "--json",
+  ], cliEnv, workspacePath);
+  assert.equal(pathAddResult.code, 0, pathAddResult.stderr);
+  const added = JSON.parse(pathAddResult.stdout) as {
+    pathName: string;
+    domain: string;
+    totalSources: number;
+  };
+  assert.equal(added.pathName, customPathName);
+  assert.equal(added.domain, customDomain);
+  assert.equal(added.totalSources, 1);
+
+  const pathRunResult = await run(launcherPath, [
+    "path",
+    "run",
+    customPathName,
+    "--request",
+    "do the work for this domain",
+    "--all",
+    "--json",
+  ], cliEnv, workspacePath);
+  assert.equal(pathRunResult.code, 0, pathRunResult.stderr);
+  const pathRun = JSON.parse(pathRunResult.stdout) as {
+    formation: {
+      pathName: string;
+      status: string;
+    };
+    terminalResult: string | null;
+  };
+  assert.equal(pathRun.formation.pathName, customPathName);
+  assert.equal(pathRun.formation.status, "COMPLETED");
+  assert.match(pathRun.terminalResult ?? "", /Domain Workbench Path|domain-workbench/i);
+
+  const pathWatchResult = await run(launcherPath, ["path", "watch", customPathName, "--json"], cliEnv, workspacePath);
+  assert.equal(pathWatchResult.code, 0, pathWatchResult.stderr);
+  const pathWatch = JSON.parse(pathWatchResult.stdout) as {
+    liveView: {
+      pathName: string;
+      pathSourceCount: number;
+    };
+  };
+  assert.equal(pathWatch.liveView.pathName, customPathName);
+  assert.equal(pathWatch.liveView.pathSourceCount, 1);
+
   const uninstallResult = await run(launcherPath, ["uninstall"], cliEnv, workspacePath);
   assert.equal(uninstallResult.code, 0, uninstallResult.stderr);
 
@@ -88,6 +147,7 @@ async function main() {
 
   console.log(`installed launcher: ${launcherPath}`);
   console.log(`status scopes: ${status.scopes.length}`);
+  console.log(`path runtime: ${customPathName}`);
 }
 
 main().catch((error) => {
