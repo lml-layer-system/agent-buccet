@@ -185,7 +185,7 @@ The carried base-law foundation is also present in the repo and loaded into the 
 - Law must be ledgered.
 - Incomplete ledger traces are non-authoritative.
 - Authored approved and denied UPL law compiles into one live runtime field.
-- Terminal 2 is where that field is inspected, changed, and enforced.
+- The unified console is where that live field is inspected, changed, and enforced.
 
 ## Why It Exists
 

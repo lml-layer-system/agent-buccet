@@ -108,12 +108,12 @@ function usage(): never {
   console.error([
     "Usage:",
     "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
-    "  buccet console                                            — open the command center (Terminal 2)",
+    "  buccet console                                            — open the unified operator cockpit (shield + control + witness)",
     "  buccet doctor                                             — health check: platform, backend, intercept, ledger",
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
     "  buccet logs [--limit <n>] [--json]",
-    "  buccet ledger [--limit <n>] [--json] [--follow]          — open the witness ledger (Terminal 3, optional)",
+    "  buccet ledger [--limit <n>] [--json] [--follow]          — optional split witness view",
     "  buccet scope add <path> [--actions <csv>]",
     "  buccet scope list [--json]",
     "  buccet upl list [--all] [--type approved|denied] [--status active|muted|deleted] [--search <query...>] [--json]",
@@ -136,7 +136,7 @@ function usage(): never {
     "  buccet path sources list <path-name> [--json]",
     "  buccet hook build",
     "  buccet hook start",
-    "  buccet hook status [--json] [--watch]                     — Terminal 1 live shield / heartbeat",
+    "  buccet hook status [--json] [--watch]                     — optional split shield / heartbeat view",
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
@@ -2319,11 +2319,15 @@ async function handleInit(rest: string[]) {
   console.log(`  Session:          ${nextConfig.sessionId}`);
   console.log(`  Scopes:           ${nextConfig.defaultScopes.length}`);
   console.log(``);
-  console.log(`  This terminal is now Terminal 1: the protected execution lane.`);
+  console.log(`  This terminal is now the protected execution lane.`);
   console.log(``);
-  console.log(`  Open Terminal 2 and Terminal 3 like this:`);
+  console.log(`  Default operator cockpit:`);
   console.log(``);
   console.log(`    buccet console`);
+  console.log(``);
+  console.log(`  Optional split views:`);
+  console.log(``);
+  console.log(`    buccet hook status --watch`);
   console.log(`    buccet ledger --follow`);
   console.log(`    buccet upl sync`);
   console.log(``);
@@ -3923,6 +3927,32 @@ type HookStatusPayload = {
   pendingApprovals?: number;
 };
 
+function formatHookOperatorSummary(payload: HookStatusPayload): string {
+  const posture = payload.healthy ? "protected" : payload.running ? "degraded" : "offline";
+  const state = payload.state ?? (payload.running ? "running" : "missing");
+  return `${posture} | state: ${state} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`;
+}
+
+function printHookStatusDetails(payload: HookStatusPayload): void {
+  console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
+  console.log(`running: ${payload.running ? "yes" : "no"}`);
+  console.log(`healthy: ${payload.healthy ? "yes" : "no"}`);
+  console.log(`state: ${payload.state ?? "missing"}`);
+  console.log(`pid: ${payload.pid ?? "-"}`);
+  console.log(`intercept ready: ${payload.interceptReady ? "yes" : "no"}`);
+  console.log(`bridge ready: ${payload.bridgeReady ? "yes" : "no"}`);
+  console.log(`intercept socket: ${payload.interceptReachable ? "reachable" : "unreachable"}`);
+  console.log(`bridge socket: ${payload.gravityBridgeSocketPath ?? "-"}`);
+  console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
+  console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
+  console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
+  console.log(`brain status: ${payload.brainStatusPath}`);
+  console.log(`native library: ${payload.nativeLibraryPath}`);
+  if (payload.lastError) {
+    console.log(`last error: ${payload.lastError}`);
+  }
+}
+
 async function handleSwarm(rest: string[]) {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
@@ -4165,28 +4195,12 @@ async function handleHook(rest: string[]) {
       }
       if (watch) {
         process.stdout.write("\x1Bc");
-        console.log(`Buccet live | ${payload.healthy ? "protected" : "degraded"} | intercepted: ${payload.interceptedAttempts ?? 0} | canyon: ${payload.canyonHeld ?? 0} | pending: ${payload.pendingApprovals ?? 0}`);
+        console.log(`Buccet live | ${formatHookOperatorSummary(payload)}`);
         console.log(``);
       } else {
-        console.log(`Agent Buccet hook status — Terminal 1`);
+        console.log(`Agent Buccet hook status — split shield view`);
       }
-      console.log(`initialized: ${payload.initialized ? "yes" : "no"}`);
-      console.log(`running: ${payload.running ? "yes" : "no"}`);
-      console.log(`healthy: ${payload.healthy ? "yes" : "no"}`);
-      console.log(`state: ${payload.state ?? "missing"}`);
-      console.log(`pid: ${payload.pid ?? "-"}`);
-      console.log(`intercept ready: ${payload.interceptReady ? "yes" : "no"}`);
-      console.log(`bridge ready: ${payload.bridgeReady ? "yes" : "no"}`);
-      console.log(`intercept socket: ${payload.interceptReachable ? "reachable" : "unreachable"}`);
-      console.log(`bridge socket: ${payload.gravityBridgeSocketPath ?? "-"}`);
-      console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
-      console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
-      console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
-      console.log(`brain status: ${payload.brainStatusPath}`);
-      console.log(`native library: ${payload.nativeLibraryPath}`);
-      if (payload.lastError) {
-        console.log(`last error: ${payload.lastError}`);
-      }
+      printHookStatusDetails(payload);
       if (!watch && !payload.running) {
         console.log(`re-arm: buccet hook start`);
       }
@@ -4425,14 +4439,14 @@ async function handleConsole() {
 
   // Print the header once.
   console.log(``);
-  console.log(`  Agent Buccet — Command Center`);
+  console.log(`  Agent Buccet — Unified Operator Console`);
   console.log(`  ─────────────────────────────────────`);
   console.log(`  Platform:         ${platformLabel}`);
   console.log(`  Backend:          ${backendLabel}`);
   console.log(`  Protection mode:  ${protectionMode}`);
   console.log(`  Session:          ${config.sessionId}`);
   console.log(``);
-  console.log(`  This is Terminal 2: the command center. Terminal 1 is the protected execution lane.`);
+  console.log(`  One physical terminal. Three logical roles: shield, control, witness.`);
   console.log(``);
   console.log(`  Commands:`);
   console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
@@ -4449,12 +4463,14 @@ async function handleConsole() {
   console.log(`    laws               — list active scope laws for this session`);
   console.log(`    tracks             — list active UPL track corridors`);
   console.log(`    nsl [n]            — list or select a pending bodyguard move`);
+  console.log(`    shield             — show protected execution lane heartbeat`);
   console.log(`    status             — session status`);
-  console.log(`    logs [n]           — last n ledger entries (default 10)`);
-  console.log(`    feed               — toggle live event feed on/off`);
+  console.log(`    logs [n]           — last n witness ledger entries (default 10)`);
+  console.log(`    feed               — toggle live shield + witness feed on/off`);
   console.log(`    upl                — active UPL laws`);
   console.log(`    doctor             — health check`);
-  console.log(`    ledger --follow    — open Terminal 3 witness stream from another terminal`);
+  console.log(`    hook status --watch — optional split shield view`);
+  console.log(`    ledger --follow    — optional split witness view`);
   console.log(`    quit               — exit`);
   console.log(``);
 
@@ -4516,6 +4532,8 @@ async function handleConsole() {
     target?: string;
   };
   const nslSuggestions: ConsoleBodyguardSuggestion[] = [];
+  let currentHookPayload: HookStatusPayload | null = null;
+  let lastHookSummary: string | null = null;
 
   function ingressStateLabel(entry: typeof currentIngressEntries[number]): string {
     if (entry.state === "canyon") {
@@ -4849,6 +4867,21 @@ async function handleConsole() {
     }
   }
 
+  async function pollShield(force = false) {
+    try {
+      const payload = await buildHookStatusPayload(boundary, { home, config });
+      currentHookPayload = payload;
+      const summary = formatHookOperatorSummary(payload);
+      const changed = summary !== lastHookSummary;
+      lastHookSummary = summary;
+      if ((force || changed) && feedEnabled) {
+        console.log(`  ◉ SHIELD           ${summary}`);
+      }
+    } catch {
+      // Hook runtime may be offline during startup. Silent.
+    }
+  }
+
   // Seed lastSeenCount to avoid replaying old events on startup.
   try {
     const existing = await boundary.readBoundaryLedgerBySession(config.sessionId);
@@ -4859,11 +4892,13 @@ async function handleConsole() {
     void pollApprovals();
     void pollLedger();
     void pollIngress();
+    void pollShield();
   }, 1_000);
 
   // Initial approval poll.
   await pollApprovals();
   await pollIngress();
+  await pollShield(true);
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -4981,7 +5016,22 @@ async function handleConsole() {
 
         if (cmd === "feed") {
           feedEnabled = !feedEnabled;
-          console.log(`  Event feed: ${feedEnabled ? "on" : "off"}`);
+          console.log(`  Live feed: ${feedEnabled ? "on" : "off"}`);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "shield") {
+          const payload = currentHookPayload ?? await buildHookStatusPayload(boundary, { home, config });
+          console.log(``);
+          console.log(`  Protected execution lane`);
+          console.log(`  ─────────────────────────────────────`);
+          console.log(`  summary: ${formatHookOperatorSummary(payload)}`);
+          printHookStatusDetails(payload);
+          if (!payload.running) {
+            console.log(`re-arm: buccet hook start`);
+          }
+          console.log(``);
           rl.prompt();
           return;
         }
@@ -4993,11 +5043,13 @@ async function handleConsole() {
           });
           const scopes = (sessionState?.pathLaws ?? []).filter((l: { revokedAt?: string }) => !l.revokedAt);
           const grants = (sessionState?.grants ?? []).filter((g: { revokedAt?: string }) => !g.revokedAt);
+          const payload = currentHookPayload ?? await buildHookStatusPayload(boundary, { home, config });
           console.log(``);
           console.log(`  Session:    ${config.sessionId}`);
           console.log(`  Status:     ${sessionState?.session.status ?? "missing"}`);
           console.log(`  Scopes:     ${scopes.length}`);
           console.log(`  Grants:     ${grants.length}`);
+          console.log(`  Shield:     ${formatHookOperatorSummary(payload)}`);
           console.log(`  Mode:       ${formatConsoleApprovalMode(currentApprovalMode)}`);
           console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
           console.log(`  Pending:    ${currentWaitingGroups.length} action group(s) waiting`);

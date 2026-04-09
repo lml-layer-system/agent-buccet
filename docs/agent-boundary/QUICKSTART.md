@@ -105,6 +105,13 @@ Use:
 
 The agent never self-approves.
 
+Default operator posture:
+- run `buccet console`
+- one physical terminal renders the protected execution lane heartbeat, approval/control surface, and witness feed together
+- split views remain optional:
+  - `buccet hook status --watch`
+  - `buccet ledger --follow`
+
 ## 4b. UPL Tracks
 
 When a user approves or denies as law, Buccet can bind that decision into a standing track corridor.
@@ -183,11 +190,11 @@ After `DENY`, the Bodyguard checks the UPL — if there is a standing user law f
 
 If the user makes it a law, the same class of motion is denied on contact instead of recurring as the same problem again.
 
-When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in Terminal 2 with `tracks`.
+When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in the unified console with `tracks`.
 
 See [UPL Base Packs](UPL_BASE_PACKS.md) for the shipped acceptance and denial packs, plus how to replace them with personal, company, RLHF, constitutional, or regulator/business law.
 
-If you want split authored document lanes for Terminal 2:
+If you want split authored document lanes for the control surface:
 
 ```text
 ~/.buccet/upl-docs/acceptance

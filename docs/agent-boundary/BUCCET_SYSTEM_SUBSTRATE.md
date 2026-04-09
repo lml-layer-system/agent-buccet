@@ -168,6 +168,17 @@ Purpose:
 
 The three terminals are the execution posture of the six planes.
 
+In the product surface, these are logical roles, not a requirement to keep three physical windows open.
+
+Default operator posture:
+- one physical terminal
+- `buccet console`
+- shield, control, and witness rendered together
+
+Optional split posture:
+- `buccet hook status --watch`
+- `buccet ledger --follow`
+
 ### Terminal 1
 
 - TranslationPlane + BoundaryPlane contact edge
