@@ -39,11 +39,31 @@ async function main() {
     library,
     pathName: "finance",
     userRequest: "build a finance report",
+    draft: {
+      domain: "finance_ops",
+      pathSources: [
+        {
+          id: "finance-playbook",
+          title: "Finance Playbook",
+          kind: "manual",
+          summary: "House finance operating guidance.",
+          content: "Quarterly finance close, reporting, and review expectations.",
+        },
+        {
+          id: "board-deck-template",
+          title: "Board Deck Template",
+          kind: "template",
+          summary: "Board reporting template.",
+          content: "KPI structure and narrative shape for board updates.",
+        },
+      ],
+    },
   });
   assert.equal(financeTemplate.pathName, "finance", "expected missing path to materialize");
   assert.equal(hasBuccetPath(library, "finance"), true, "expected missing path to lock into library");
   assert.equal(financeTemplate.stages.at(-1)?.terminal, true, "expected auto-created path to stay finite");
   assert.equal(financeTemplate.agentRoster.length, 3, "expected auto-created path specialist roster");
+  assert.equal(financeTemplate.pathSources.length, 2, "expected auto-created path source box");
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({
       sessionId: "session-finance-path",
@@ -63,6 +83,16 @@ async function main() {
     })),
     /path_lawful_action_kinds=runtime_resolved/,
     "expected runtime-resolved lawful surface for auto-created path",
+  );
+  assert.match(
+    renderBuccetFormationLiveView(instantiateBuccetFormation({
+      sessionId: "session-finance-path",
+      userRequest: "build a finance report",
+      pathName: "finance",
+      library,
+    })),
+    /path_source_count=2/,
+    "expected auto-created path source count in live view",
   );
 
   let formation = instantiateBuccetFormation({
@@ -175,25 +205,43 @@ async function main() {
       modelHint: "claude-sonnet",
       laws: ["brand", "design", "safety"],
       tools: ["fs.write", "chat.emit"],
+      pathSources: [
+        {
+          id: "brand-bible",
+          title: "Brand Bible",
+          kind: "book",
+          summary: "Brand doctrine and visual rules.",
+          content: "Tone, palette, typography, and layout rules.",
+          tags: ["brand", "design"],
+        },
+        {
+          id: "launch-brief",
+          title: "Launch Brief",
+          kind: "brief",
+          summary: "Launch-specific campaign brief.",
+          content: "Audience, offer, CTA, and launch constraints.",
+          tags: ["campaign", "copy"],
+        },
+      ],
       uplBindings: [
         { actionKinds: ["fs.write"], targets: ["brand-assets"] },
         { actionKinds: ["chat.emit"], targets: ["chat:primary"] },
       ],
       agentRoster: [
-        { id: "brief-reader", title: "Brief Reader", specialty: "brief intake", uplBindings: [{ actionKinds: ["chat.emit"], targets: ["chat:primary"] }] },
-        { id: "brand-strategist", title: "Brand Strategist", specialty: "brand direction", uplBindings: [{ actionKinds: ["chat.emit"], targets: ["chat:primary"] }] },
-        { id: "copywriter", title: "Copywriter", specialty: "copy", uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
-        { id: "art-director", title: "Art Director", specialty: "visual direction", uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
-        { id: "layout-designer", title: "Layout Designer", specialty: "layout", uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
-        { id: "qa-reviewer", title: "QA Reviewer", specialty: "quality review", uplBindings: [{ actionKinds: ["chat.emit"], targets: ["chat:primary"] }] },
-        { id: "delivery-packer", title: "Delivery Packer", specialty: "delivery packaging", uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
+        { id: "brief-reader", title: "Brief Reader", specialty: "brief intake", sourceIds: ["launch-brief"], uplBindings: [{ actionKinds: ["chat.emit"], targets: ["chat:primary"] }] },
+        { id: "brand-strategist", title: "Brand Strategist", specialty: "brand direction", sourceIds: ["brand-bible", "launch-brief"], uplBindings: [{ actionKinds: ["chat.emit"], targets: ["chat:primary"] }] },
+        { id: "copywriter", title: "Copywriter", specialty: "copy", sourceIds: ["brand-bible", "launch-brief"], uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
+        { id: "art-director", title: "Art Director", specialty: "visual direction", sourceIds: ["brand-bible"], uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
+        { id: "layout-designer", title: "Layout Designer", specialty: "layout", sourceIds: ["brand-bible"], uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
+        { id: "qa-reviewer", title: "QA Reviewer", specialty: "quality review", sourceIds: ["brand-bible", "launch-brief"], uplBindings: [{ actionKinds: ["chat.emit"], targets: ["chat:primary"] }] },
+        { id: "delivery-packer", title: "Delivery Packer", specialty: "delivery packaging", sourceIds: ["launch-brief"], uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
       ],
       stages: [
-        { id: "brief", title: "Brief", purpose: "Read the brief.", agentIds: ["brief-reader"] },
-        { id: "direction", title: "Direction", purpose: "Set brand direction.", agentIds: ["brand-strategist", "art-director"] },
-        { id: "draft", title: "Draft", purpose: "Draft copy and layouts.", agentIds: ["copywriter", "layout-designer"], uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
-        { id: "qa", title: "QA", purpose: "Review the package.", agentIds: ["qa-reviewer", "brand-strategist"] },
-        { id: "deliver", title: "Deliver", purpose: "Package the final result.", agentIds: ["delivery-packer"], terminal: true, uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
+        { id: "brief", title: "Brief", purpose: "Read the brief.", agentIds: ["brief-reader"], sourceIds: ["launch-brief"] },
+        { id: "direction", title: "Direction", purpose: "Set brand direction.", agentIds: ["brand-strategist", "art-director"], sourceIds: ["brand-bible", "launch-brief"] },
+        { id: "draft", title: "Draft", purpose: "Draft copy and layouts.", agentIds: ["copywriter", "layout-designer"], sourceIds: ["brand-bible", "launch-brief"], uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
+        { id: "qa", title: "QA", purpose: "Review the package.", agentIds: ["qa-reviewer", "brand-strategist"], sourceIds: ["brand-bible", "launch-brief"] },
+        { id: "deliver", title: "Deliver", purpose: "Package the final result.", agentIds: ["delivery-packer"], sourceIds: ["launch-brief"], terminal: true, uplBindings: [{ actionKinds: ["fs.write"], targets: ["brand-assets"] }] },
       ],
     }],
   });
@@ -206,14 +254,24 @@ async function main() {
   });
   assert.equal(customFormation.domain, "creative_brand_ops", "expected arbitrary custom domain");
   assert.equal(customFormation.agentRoster.length, 7, "expected arbitrary specialist swarm size");
+  assert.equal(customFormation.pathSources.length, 2, "expected path-level source box on formation");
+  assert.deepEqual(
+    customFormation.agentRoster.find((agent) => agent.id === "art-director")?.memoryBank.sourceTitles,
+    ["Brand Bible"],
+    "expected agent-local memory bank collapse from shared path sources",
+  );
   const liveView = describeBuccetFormationLiveView(customFormation);
   assert.equal(liveView.pathAgentCount, 7, "expected live view to expose full swarm count");
+  assert.equal(liveView.pathSourceCount, 2, "expected live view path source count");
   assert.equal(liveView.currentStageId, "brief", "expected live view current stage");
   assert.ok(liveView.steps.some((step) => step.agentIds.length > 1), "expected multi-agent stage in live view");
   assert.ok(liveView.pathLawfulActionKinds.includes("fs.write"), "expected live view lawful binding surface");
+  assert.ok(liveView.pathSourceTitles.includes("Brand Bible"), "expected live view to expose path source titles");
   const rendered = renderBuccetFormationLiveView(customFormation);
   assert.match(rendered, /domain=creative_brand_ops/, "expected rendered live view to show domain");
   assert.match(rendered, /path_agent_count=7/, "expected rendered live view to show agent count");
+  assert.match(rendered, /path_sources=Brand Bible, Launch Brief/, "expected rendered live view to show path source summary");
+  assert.match(rendered, /sources=Launch Brief/, "expected rendered live view to show step source summary");
   assert.match(rendered, /owners=Brand Strategist \+ Art Director/, "expected rendered live view to show specialist ownership");
   const autoCreatedCustomTemplate = createBuccetPathTemplate({
     pathName: "tax-ops",

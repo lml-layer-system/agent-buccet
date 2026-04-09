@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type {
   BoundaryActionKind,
+  BuccetPathSource,
+  BuccetPathTemplate,
   DocumentLawDiagnosticEntry,
   BoundarySession,
   BoundaryUplEntry,
@@ -122,6 +124,10 @@ function usage(): never {
     "  buccet upl sources [--open <catalog|all>] [--json]       — show authored lanes plus external UPL intake catalogs",
     "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
+    "  buccet path list [--json]",
+    "  buccet path show <path-name> [--json]",
+    "  buccet path sources add <path-name> <file...> [--domain <domain>] [--json]",
+    "  buccet path sources list <path-name> [--json]",
     "  buccet hook build",
     "  buccet hook start",
     "  buccet hook status [--json] [--watch]                     — Terminal 1 live shield / heartbeat",
@@ -283,6 +289,7 @@ function resolveHomePaths(homePath: string) {
   const repoNativeSourceDir = path.resolve(currentScriptDir(), "..", "native", "deep-intercept");
   const nativeBuildDir = path.join(nativeDir, "build");
   const uplDocsDir = path.join(homePath, "upl-docs");
+  const pathMemoryDir = path.join(homePath, "path-memory");
   const isMac = process.platform === "darwin";
   const nativeLibraryName = isMac ? "libbuccet-hook.dylib" : "libbuccet-hook.so";
   return {
@@ -300,6 +307,8 @@ function resolveHomePaths(homePath: string) {
     uplDenialDocsDir: path.join(uplDocsDir, "denial"),
     uplAcceptancePipelinePath: path.join(uplDocsDir, "acceptance", "PIPELINE.txt"),
     uplAcceptanceSkillTemplatePath: path.join(uplDocsDir, "acceptance", "SKILL_INTAKE_TEMPLATE.txt"),
+    pathMemoryDir,
+    pathLibraryPath: path.join(pathMemoryDir, "library.json"),
     installedNativeSourceDir,
     repoNativeSourceDir,
     nativeBuildDir,
@@ -1067,6 +1076,142 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
       "Use `buccet upl sync` to compile both lanes into the active UPL.",
     ].join("\n") + "\n", "utf8");
   }
+}
+
+async function ensurePathMemoryHome(home: ReturnType<typeof resolveHomePaths>): Promise<void> {
+  await ensureDir(home.pathMemoryDir);
+  const readmePath = path.join(home.pathMemoryDir, "README.txt");
+  if (!(await pathExists(readmePath))) {
+    await fs.writeFile(readmePath, [
+      "Agent Buccet Path Memory",
+      "",
+      "This folder stores the persisted Buccet path library.",
+      "Path sources enrich a path with domain context.",
+      "They do not change UPL and they do not widen permissions.",
+      "",
+      "Useful commands:",
+      "- buccet path list",
+      "- buccet path show <path-name>",
+      "- buccet path sources add <path-name> <file...>",
+      "- buccet path sources list <path-name>",
+    ].join("\n") + "\n", "utf8");
+  }
+}
+
+async function loadPersistedBuccetPathLibrary(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+): Promise<Record<string, BuccetPathTemplate>> {
+  await ensurePathMemoryHome(home);
+  return await boundary.loadBuccetPathLibrary(home.pathLibraryPath) ?? boundary.createDefaultBuccetPathLibrary();
+}
+
+async function savePersistedBuccetPathLibrary(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+  library: Record<string, BuccetPathTemplate>,
+): Promise<void> {
+  await ensurePathMemoryHome(home);
+  await boundary.saveBuccetPathLibrary(home.pathLibraryPath, library);
+}
+
+async function collectPathSourceFiles(inputs: string[]): Promise<string[]> {
+  const collected = new Set<string>();
+  const visit = async (targetPath: string) => {
+    const resolved = path.resolve(targetPath);
+    const stat = await fs.stat(resolved);
+    if (stat.isDirectory()) {
+      const entries = await fs.readdir(resolved, { withFileTypes: true });
+      for (const entry of entries) {
+        await visit(path.join(resolved, entry.name));
+      }
+      return;
+    }
+    if (stat.isFile()) {
+      collected.add(resolved);
+    }
+  };
+  for (const input of inputs) {
+    await visit(input);
+  }
+  return [...collected].sort((left, right) => left.localeCompare(right));
+}
+
+function slugifyPathSourceId(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    || "path-source";
+}
+
+function inferPathSourceKind(filePath: string): string {
+  const extension = path.extname(filePath).toLowerCase();
+  switch (extension) {
+    case ".md":
+    case ".markdown":
+      return "markdown";
+    case ".txt":
+      return "text";
+    case ".json":
+      return "json";
+    case ".yaml":
+    case ".yml":
+      return "yaml";
+    case ".csv":
+      return "csv";
+    case ".html":
+    case ".htm":
+      return "html";
+    case ".ts":
+    case ".tsx":
+    case ".js":
+    case ".jsx":
+    case ".py":
+      return "code";
+    default:
+      return extension.replace(/^\./, "") || "document";
+  }
+}
+
+function inferPathSourceTitle(filePath: string, content: string): string {
+  const heading = content.match(/^#\s+(.+)$/m)?.[1]?.trim();
+  if (heading) {
+    return heading;
+  }
+  return path.basename(filePath, path.extname(filePath));
+}
+
+function summarizePathSourceContent(content: string): string {
+  return content.replace(/\s+/g, " ").trim().slice(0, 180);
+}
+
+function assertPathSourceTextContent(filePath: string, content: string): void {
+  if (content.includes("\u0000")) {
+    throw new Error(`path source is binary or unsupported text encoding: ${filePath}`);
+  }
+}
+
+async function compilePathSourcesFromFiles(args: {
+  filePaths: string[];
+}): Promise<BuccetPathSource[]> {
+  const sources: BuccetPathSource[] = [];
+  for (const filePath of args.filePaths) {
+    const content = await fs.readFile(filePath, "utf8");
+    assertPathSourceTextContent(filePath, content);
+    const title = inferPathSourceTitle(filePath, content);
+    sources.push({
+      id: slugifyPathSourceId(path.basename(filePath, path.extname(filePath))),
+      title,
+      kind: inferPathSourceKind(filePath),
+      content,
+      summary: summarizePathSourceContent(content),
+      sourceUri: filePath,
+      tags: [inferPathSourceKind(filePath)],
+    });
+  }
+  return sources;
 }
 
 async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
@@ -1970,6 +2115,7 @@ async function handleInit(rest: string[]) {
   await store.persist();
   await saveConfig(home.configPath, nextConfig);
   await ensureUplSourceHomes(home);
+  await ensurePathMemoryHome(home);
 
   const platformLabel = detectPlatformLabel();
   const backendLabel = detectBackendLabel();
@@ -3025,6 +3171,199 @@ async function handleUpl(rest: string[]) {
       console.log(`${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
     }
     return;
+  }
+
+  usage();
+}
+
+async function handlePath(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const callerCwd = resolveCallerCwd();
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  const boundary = await importBoundary(homePath);
+  const subcommand = rest[0];
+  const asJson = rest.includes("--json");
+  if (!subcommand) {
+    usage();
+  }
+
+  if (subcommand === "list") {
+    const library = await loadPersistedBuccetPathLibrary(boundary, home);
+    const templates = Object.values(library).sort((left, right) => left.pathName.localeCompare(right.pathName));
+    if (asJson) {
+      printJson({
+        libraryPath: home.pathLibraryPath,
+        paths: templates.map((template) => ({
+          pathName: template.pathName,
+          domain: template.domain,
+          sourceCount: template.pathSources.length,
+          agentCount: template.agentRoster.length,
+          stageCount: template.stages.length,
+        })),
+      });
+      return;
+    }
+    console.log(`Buccet paths`);
+    console.log(`library: ${home.pathLibraryPath}`);
+    for (const template of templates) {
+      console.log(`${template.pathName} | domain=${template.domain} | sources=${template.pathSources.length} | agents=${template.agentRoster.length} | stages=${template.stages.length}`);
+    }
+    return;
+  }
+
+  if (subcommand === "show") {
+    const pathName = rest.find((token, index) => index > 0 && token !== "--json");
+    if (!pathName) {
+      usage();
+    }
+    const library = await loadPersistedBuccetPathLibrary(boundary, home);
+    const template = boundary.getBuccetPathTemplate(library, pathName);
+    if (!template) {
+      throw new Error(`unknown Buccet path: ${pathName}`);
+    }
+    if (asJson) {
+      printJson({
+        libraryPath: home.pathLibraryPath,
+        path: template,
+      });
+      return;
+    }
+    console.log(`Buccet path ${template.pathName}`);
+    console.log(`domain: ${template.domain}`);
+    console.log(`title: ${template.title}`);
+    console.log(`sources: ${template.pathSources.length}`);
+    for (const source of template.pathSources) {
+      console.log(`  - ${source.id} | ${source.title} | kind=${source.kind}${source.sourceUri ? ` | ${source.sourceUri}` : ""}`);
+    }
+    console.log(`agents: ${template.agentRoster.length}`);
+    for (const agent of template.agentRoster) {
+      const sourceTitles = template.pathSources
+        .filter((source) => (agent.sourceIds ?? []).includes(source.id))
+        .map((source) => source.title);
+      console.log(`  - ${agent.id} | ${agent.title} | sources=${sourceTitles.join(", ") || "all path sources"}`);
+    }
+    console.log(`stages: ${template.stages.length}`);
+    for (const stage of template.stages) {
+      const sourceTitles = template.pathSources
+        .filter((source) => (stage.sourceIds ?? []).includes(source.id))
+        .map((source) => source.title);
+      console.log(`  - ${stage.id} | owners=${stage.agentIds.join(", ")} | sources=${sourceTitles.join(", ") || "agent memory banks"}`);
+    }
+    return;
+  }
+
+  if (subcommand === "sources") {
+    const action = rest[1];
+    if (action === "add") {
+      const pathName = rest[2];
+      if (!pathName) {
+        usage();
+      }
+      let domain: string | undefined;
+      const inputs: string[] = [];
+      for (let index = 3; index < rest.length; index += 1) {
+        const token = rest[index];
+        if (token === "--domain") {
+          domain = rest[index + 1] ?? usage();
+          index += 1;
+          continue;
+        }
+        if (token === "--json") {
+          continue;
+        }
+        inputs.push(path.resolve(callerCwd, token));
+      }
+      if (inputs.length === 0) {
+        usage();
+      }
+      const filePaths = await collectPathSourceFiles(inputs);
+      const newSources = await compilePathSourcesFromFiles({ filePaths });
+      const library = await loadPersistedBuccetPathLibrary(boundary, home);
+      const template = boundary.ensureBuccetPathInLibrary({
+        library,
+        pathName,
+        userRequest: `enrich path ${pathName} with sources`,
+        ...(domain ? { draft: { domain } } : {}),
+      }) as BuccetPathTemplate;
+      const nextSources = [...template.pathSources];
+      for (const source of newSources) {
+        const existingIndex = nextSources.findIndex((entry) => entry.id === source.id);
+        if (existingIndex >= 0) {
+          nextSources[existingIndex] = source;
+        } else {
+          nextSources.push(source);
+        }
+      }
+      library[pathName] = boundary.createBuccetPathTemplate({
+        pathName,
+        userRequest: `enrich path ${pathName} with sources`,
+        draft: {
+          domain: domain ?? template.domain,
+          title: template.title,
+          summary: template.summary,
+          modelHint: template.modelHint,
+          laws: template.laws,
+          tools: template.tools,
+          pathSources: nextSources,
+          uplBindings: template.uplBindings,
+          agentRoster: template.agentRoster,
+          stages: template.stages,
+        },
+      });
+      await savePersistedBuccetPathLibrary(boundary, home, library);
+      if (asJson) {
+        printJson({
+          libraryPath: home.pathLibraryPath,
+          pathName,
+          domain: library[pathName]!.domain,
+          addedSources: newSources,
+          totalSources: library[pathName]!.pathSources.length,
+        });
+        return;
+      }
+      console.log(`Added path sources`);
+      console.log(`path: ${pathName}`);
+      console.log(`domain: ${library[pathName]!.domain}`);
+      console.log(`added: ${newSources.length}`);
+      console.log(`total sources: ${library[pathName]!.pathSources.length}`);
+      for (const source of newSources) {
+        console.log(`- ${source.title} | ${source.sourceUri ?? source.id}`);
+      }
+      return;
+    }
+
+    if (action === "list") {
+      const pathName = rest.find((token, index) => index > 1 && token !== "--json");
+      if (!pathName) {
+        usage();
+      }
+      const library = await loadPersistedBuccetPathLibrary(boundary, home);
+      const template = boundary.getBuccetPathTemplate(library, pathName);
+      if (!template) {
+        throw new Error(`unknown Buccet path: ${pathName}`);
+      }
+      if (asJson) {
+        printJson({
+          libraryPath: home.pathLibraryPath,
+          pathName,
+          domain: template.domain,
+          sources: template.pathSources,
+        });
+        return;
+      }
+      console.log(`Path sources for ${pathName}`);
+      console.log(`domain: ${template.domain}`);
+      console.log(`count: ${template.pathSources.length}`);
+      for (const source of template.pathSources) {
+        console.log(`- ${source.id} | ${source.title} | ${source.kind}${source.sourceUri ? ` | ${source.sourceUri}` : ""}`);
+      }
+      return;
+    }
   }
 
   usage();
@@ -4155,7 +4494,7 @@ async function handleConsole() {
     input: process.stdin,
     output: process.stdout,
     prompt: "buccet> ",
-    terminal: true,
+    terminal: Boolean(process.stdin.isTTY && process.stdout.isTTY),
   });
 
   readline.emitKeypressEvents(process.stdin, rl);
@@ -4720,6 +5059,10 @@ async function main() {
   }
   if (parsed.command === "upl") {
     await handleUpl(parsed.rest);
+    return;
+  }
+  if (parsed.command === "path") {
+    await handlePath(parsed.rest);
     return;
   }
   if (parsed.command === "run") {

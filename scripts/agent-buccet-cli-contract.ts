@@ -57,6 +57,11 @@ async function main() {
   const uplLedgerPath = path.join(tempRoot, "upl-ledger.json");
   await fs.mkdir(workspacePath, { recursive: true });
   await fs.writeFile(path.join(workspacePath, "note.txt"), "hello\n", "utf8");
+  await fs.writeFile(
+    path.join(workspacePath, "finance-playbook.md"),
+    "# Finance Playbook\n\nQuarterly close steps, KPI definitions, and reporting rules.\n",
+    "utf8",
+  );
 
   const env = {
     ...process.env,
@@ -125,6 +130,65 @@ async function main() {
   const openCaptureRaw = await fs.readFile(env.BUCCET_BROWSER_OPEN_CAPTURE_PATH!, "utf8");
   assert.match(openCaptureRaw, /"id":"skillsmp"/);
   assert.match(openCaptureRaw, /"url":"https:\/\/skillsmp\.com\/?"/);
+
+  const pathListBeforeResult = await runCli(["path", "list", "--json"], env);
+  assert.equal(pathListBeforeResult.code, 0, pathListBeforeResult.stderr);
+  const pathListBefore = JSON.parse(pathListBeforeResult.stdout) as {
+    paths: Array<{ pathName: string }>;
+  };
+  assert.ok(pathListBefore.paths.some((entry) => entry.pathName === "search"));
+
+  const pathAddSourcesResult = await runCli([
+    "path",
+    "sources",
+    "add",
+    "finance",
+    "finance-playbook.md",
+    "--domain",
+    "finance_ops",
+    "--json",
+  ], env);
+  assert.equal(pathAddSourcesResult.code, 0, pathAddSourcesResult.stderr);
+  const pathAddSources = JSON.parse(pathAddSourcesResult.stdout) as {
+    pathName: string;
+    domain: string;
+    totalSources: number;
+    addedSources: Array<{ title: string; sourceUri?: string }>;
+  };
+  assert.equal(pathAddSources.pathName, "finance");
+  assert.equal(pathAddSources.domain, "finance_ops");
+  assert.equal(pathAddSources.totalSources, 1);
+  assert.equal(pathAddSources.addedSources[0]?.title, "Finance Playbook");
+
+  const pathSourceListResult = await runCli(["path", "sources", "list", "finance", "--json"], env);
+  assert.equal(pathSourceListResult.code, 0, pathSourceListResult.stderr);
+  const pathSourceList = JSON.parse(pathSourceListResult.stdout) as {
+    pathName: string;
+    sources: Array<{ title: string; sourceUri?: string }>;
+  };
+  assert.equal(pathSourceList.pathName, "finance");
+  assert.equal(pathSourceList.sources.length, 1);
+  assert.match(pathSourceList.sources[0]?.sourceUri ?? "", /finance-playbook\.md$/);
+
+  const pathShowResult = await runCli(["path", "show", "finance", "--json"], env);
+  assert.equal(pathShowResult.code, 0, pathShowResult.stderr);
+  const pathShow = JSON.parse(pathShowResult.stdout) as {
+    path: {
+      pathName: string;
+      domain: string;
+      pathSources: Array<{ title: string }>;
+    };
+  };
+  assert.equal(pathShow.path.pathName, "finance");
+  assert.equal(pathShow.path.domain, "finance_ops");
+  assert.ok(pathShow.path.pathSources.some((source) => source.title === "Finance Playbook"));
+
+  const pathListAfterResult = await runCli(["path", "list", "--json"], env);
+  assert.equal(pathListAfterResult.code, 0, pathListAfterResult.stderr);
+  const pathListAfter = JSON.parse(pathListAfterResult.stdout) as {
+    paths: Array<{ pathName: string; sourceCount: number }>;
+  };
+  assert.ok(pathListAfter.paths.some((entry) => entry.pathName === "finance" && entry.sourceCount === 1));
 
   const uplListResult = await runCli(["upl", "list", "--json"], env);
   assert.equal(uplListResult.code, 0, uplListResult.stderr);

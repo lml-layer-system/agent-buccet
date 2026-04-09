@@ -41,12 +41,30 @@ export type BuccetPathUplBinding = {
   notes?: string;
 };
 
+export type BuccetPathSource = {
+  id: string;
+  title: string;
+  kind: string;
+  content: string;
+  summary?: string;
+  sourceUri?: string;
+  tags?: string[];
+};
+
+export type BuccetPathAgentMemoryBank = {
+  sourceIds: string[];
+  sourceTitles: string[];
+  notes?: string;
+};
+
 export type BuccetPathAgentTemplate = {
   id: string;
   title: string;
   specialty: string;
   modelHint?: string;
   tools?: string[];
+  sourceIds?: string[];
+  memoryNotes?: string;
   uplBindings: BuccetPathUplBinding[];
 };
 
@@ -56,6 +74,7 @@ export type BuccetPathStageTemplate = {
   purpose: string;
   agentIds: string[];
   tools?: string[];
+  sourceIds?: string[];
   uplBindings?: BuccetPathUplBinding[];
   terminal?: boolean;
 };
@@ -68,6 +87,7 @@ export type BuccetPathTemplate = {
   modelHint: string;
   laws: string[];
   tools: string[];
+  pathSources: BuccetPathSource[];
   uplBindings: BuccetPathUplBinding[];
   agentRoster: BuccetPathAgentTemplate[];
   stages: BuccetPathStageTemplate[];
@@ -80,6 +100,7 @@ export type BuccetPathTemplateDraft = {
   modelHint?: string;
   laws?: string[];
   tools?: string[];
+  pathSources?: BuccetPathSource[];
   uplBindings?: BuccetPathUplBinding[];
   agentRoster?: BuccetPathAgentTemplate[];
   stages?: BuccetPathStageTemplate[];
@@ -89,6 +110,7 @@ export type BuccetPathAgentState = BuccetPathAgentTemplate & {
   position: number;
   stageIds: string[];
   completedStageIds: string[];
+  memoryBank: BuccetPathAgentMemoryBank;
   currentStageId?: string;
   status: BuccetPathAgentStatus;
   activatedAt?: string;
@@ -125,6 +147,7 @@ export type BuccetPathFormationState = {
   modelHint: string;
   laws: string[];
   tools: string[];
+  pathSources: BuccetPathSource[];
   uplBindings: BuccetPathUplBinding[];
   agentRoster: BuccetPathAgentState[];
   context: Record<string, unknown>;
@@ -141,6 +164,11 @@ export type BuccetPathMemorySnapshot = {
   formations: BuccetPathFormationState[];
 };
 
+export type BuccetPathLibrarySnapshot = {
+  specVersion: 1;
+  templates: BuccetPathTemplate[];
+};
+
 export type BuccetPathLiveStep = {
   position: number;
   stageId: string;
@@ -149,6 +177,8 @@ export type BuccetPathLiveStep = {
   purpose: string;
   agentIds: string[];
   agentTitles: string[];
+  sourceIds: string[];
+  sourceTitles: string[];
   uplActionKinds: BoundaryActionKind[];
   uplTargets: string[];
 };
@@ -162,6 +192,8 @@ export type BuccetPathLiveView = {
   activeAgentIds: string[];
   activeAgentTitles: string[];
   pathAgentCount: number;
+  pathSourceCount: number;
+  pathSourceTitles: string[];
   pathLawfulActionKinds: BoundaryActionKind[];
   pathLawfulTargets: string[];
   steps: BuccetPathLiveStep[];
@@ -184,6 +216,75 @@ function toTitleCase(value: string): string {
 
 function normalizeBuccetDomain(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "general";
+}
+
+function clonePathSource(source: BuccetPathSource): BuccetPathSource {
+  return {
+    ...source,
+    tags: [...(source.tags ?? [])],
+  };
+}
+
+function clonePathTemplate(template: BuccetPathTemplate): BuccetPathTemplate {
+  return {
+    ...template,
+    laws: [...template.laws],
+    tools: [...template.tools],
+    pathSources: template.pathSources.map((source) => clonePathSource(source)),
+    uplBindings: template.uplBindings.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+    agentRoster: template.agentRoster.map((agent) => ({
+      ...agent,
+      tools: [...(agent.tools ?? [])],
+      sourceIds: [...(agent.sourceIds ?? [])],
+      uplBindings: agent.uplBindings.map((binding) => ({
+        ...binding,
+        actionKinds: [...binding.actionKinds],
+        targets: [...(binding.targets ?? [])],
+      })),
+    })),
+    stages: template.stages.map((stage) => ({
+      ...stage,
+      agentIds: [...stage.agentIds],
+      tools: [...(stage.tools ?? [])],
+      sourceIds: [...(stage.sourceIds ?? [])],
+      uplBindings: stage.uplBindings?.map((binding) => ({
+        ...binding,
+        actionKinds: [...binding.actionKinds],
+        targets: [...(binding.targets ?? [])],
+      })),
+    })),
+  };
+}
+
+function buildAgentMemoryBank(
+  pathSources: BuccetPathSource[],
+  sourceIds?: string[],
+  notes?: string,
+): BuccetPathAgentMemoryBank {
+  const selected = sourceIds && sourceIds.length > 0
+    ? pathSources.filter((source) => sourceIds.includes(source.id))
+    : pathSources;
+  return {
+    sourceIds: selected.map((source) => source.id),
+    sourceTitles: selected.map((source) => source.title),
+    ...(notes ? { notes } : {}),
+  };
+}
+
+function resolveStageSources(
+  pathSources: BuccetPathSource[],
+  stageSourceIds: string[] | undefined,
+  ownedAgents: BuccetPathAgentState[],
+): BuccetPathSource[] {
+  if (stageSourceIds && stageSourceIds.length > 0) {
+    return pathSources.filter((source) => stageSourceIds.includes(source.id));
+  }
+  const fallbackIds = [...new Set(ownedAgents.flatMap((agent) => agent.memoryBank.sourceIds))];
+  return pathSources.filter((source) => fallbackIds.includes(source.id));
 }
 
 function createDefaultAutoAgentRoster(pathName: BuccetPathName, domain: BuccetPathDomain): BuccetPathAgentTemplate[] {
@@ -252,6 +353,7 @@ export function createBuccetPathTemplate(args: {
   const modelHint = args.draft?.modelHint ?? "gpt-4.1";
   const laws = args.draft?.laws ? [...args.draft.laws] : [normalizeBuccetDomain(args.pathName), domain, "upl"];
   const tools = args.draft?.tools ? [...args.draft.tools] : [];
+  const pathSources = args.draft?.pathSources?.map((source) => clonePathSource(source)) ?? [];
   const uplBindings = args.draft?.uplBindings?.map((binding) => ({
     ...binding,
     actionKinds: [...binding.actionKinds],
@@ -260,6 +362,7 @@ export function createBuccetPathTemplate(args: {
   const agentRoster = args.draft?.agentRoster?.map((agent) => ({
     ...agent,
     tools: [...(agent.tools ?? [])],
+    sourceIds: [...(agent.sourceIds ?? [])],
     uplBindings: agent.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -270,6 +373,7 @@ export function createBuccetPathTemplate(args: {
     ...stage,
     agentIds: [...stage.agentIds],
     tools: [...(stage.tools ?? [])],
+    sourceIds: [...(stage.sourceIds ?? [])],
     uplBindings: stage.uplBindings?.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -284,6 +388,7 @@ export function createBuccetPathTemplate(args: {
     modelHint,
     laws,
     tools,
+    pathSources,
     uplBindings,
     agentRoster,
     stages,
@@ -302,6 +407,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4o-mini",
       laws: ["messaging", "privacy", "cost"],
       tools: ["telegram_api", "slack_api", "email_api", "whatsapp_api"],
+      pathSources: [],
       uplBindings: [
         upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"]),
       ],
@@ -328,6 +434,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4.1",
       laws: ["search", "privacy", "copyright"],
       tools: ["web_search", "web_fetch"],
+      pathSources: [],
       uplBindings: [
         upl(["network.send"], ["web_search", "web_fetch"]),
         upl(["fs.write"], ["report-output"], "optional summary output"),
@@ -355,6 +462,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "claude-sonnet",
       laws: ["coding", "security", "cost"],
       tools: ["tool.exec", "fs.read", "fs.write"],
+      pathSources: [],
       uplBindings: [
         upl(["tool.exec"], ["test", "lint", "typecheck", "git"]),
         upl(["fs.read", "fs.write"], ["workspace"]),
@@ -386,6 +494,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4.1",
       laws: ["research", "copyright", "citation"],
       tools: ["web_search", "web_fetch", "fs.write"],
+      pathSources: [],
       uplBindings: [
         upl(["network.send"], ["web_search", "web_fetch"]),
         upl(["fs.write"], ["report-output"]),
@@ -415,6 +524,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4o-mini",
       laws: ["automation", "safety", "cost"],
       tools: ["tool.exec", "network.send", "comm.send"],
+      pathSources: [],
       uplBindings: [
         upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"]),
       ],
@@ -443,6 +553,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4o-mini",
       laws: ["files", "privacy", "security"],
       tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"],
+      pathSources: [],
       uplBindings: [
         upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"]),
       ],
@@ -469,6 +580,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4.1",
       laws: ["data", "privacy", "security"],
       tools: ["fs.read", "db.query", "fs.write"],
+      pathSources: [],
       uplBindings: [
         upl(["fs.read", "db.query", "fs.write"], ["workspace", "analysis-db", "report-output"]),
       ],
@@ -497,6 +609,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       modelHint: "gpt-4o-mini",
       laws: ["general", "safety", "cost"],
       tools: [],
+      pathSources: [],
       uplBindings: [
         upl(["chat.emit"], ["chat:primary"], "general bounded response path"),
       ],
@@ -519,6 +632,7 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
 function deepCloneFormationState(state: BuccetPathFormationState): BuccetPathFormationState {
   return {
     ...state,
+    pathSources: state.pathSources.map((source) => clonePathSource(source)),
     uplBindings: state.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -528,6 +642,12 @@ function deepCloneFormationState(state: BuccetPathFormationState): BuccetPathFor
       ...agent,
       stageIds: [...agent.stageIds],
       completedStageIds: [...agent.completedStageIds],
+      sourceIds: [...(agent.sourceIds ?? [])],
+      memoryBank: {
+        sourceIds: [...agent.memoryBank.sourceIds],
+        sourceTitles: [...agent.memoryBank.sourceTitles],
+        ...(agent.memoryBank.notes ? { notes: agent.memoryBank.notes } : {}),
+      },
       tools: [...(agent.tools ?? [])],
       uplBindings: agent.uplBindings.map((binding) => ({
         ...binding,
@@ -542,6 +662,7 @@ function deepCloneFormationState(state: BuccetPathFormationState): BuccetPathFor
       ...stage,
       agentIds: [...stage.agentIds],
       tools: [...(stage.tools ?? [])],
+      sourceIds: [...(stage.sourceIds ?? [])],
       uplBindings: stage.uplBindings?.map((binding) => ({
         ...binding,
         actionKinds: [...binding.actionKinds],
@@ -584,6 +705,18 @@ function validatePathTemplate(template: BuccetPathTemplate): void {
     for (const agentId of stage.agentIds) {
       if (!agentIds.has(agentId)) {
         throw new Error(`Buccet stage ${stage.id} references unknown agent ${agentId}`);
+      }
+    }
+    for (const sourceId of stage.sourceIds ?? []) {
+      if (!template.pathSources.some((source) => source.id === sourceId)) {
+        throw new Error(`Buccet stage ${stage.id} references unknown path source ${sourceId}`);
+      }
+    }
+  }
+  for (const agent of template.agentRoster) {
+    for (const sourceId of agent.sourceIds ?? []) {
+      if (!template.pathSources.some((source) => source.id === sourceId)) {
+        throw new Error(`Buccet agent ${agent.id} in ${template.pathName} references unknown path source ${sourceId}`);
       }
     }
   }
@@ -636,11 +769,49 @@ export function ensureBuccetPathInLibrary(args: {
   return created;
 }
 
+export function snapshotBuccetPathLibrary(
+  library: Record<BuccetPathName, BuccetPathTemplate>,
+): BuccetPathLibrarySnapshot {
+  return {
+    specVersion: 1,
+    templates: Object.values(library)
+      .map((template) => clonePathTemplate(template))
+      .sort((left, right) => left.pathName.localeCompare(right.pathName)),
+  };
+}
+
+export function restoreBuccetPathLibrary(
+  snapshot: BuccetPathLibrarySnapshot,
+): Record<BuccetPathName, BuccetPathTemplate> {
+  return createBuccetPathLibrary({
+    includeDefaults: false,
+    templates: snapshot.templates.map((template) => clonePathTemplate(template)),
+  });
+}
+
+export async function saveBuccetPathLibrary(filePath: string, library: Record<BuccetPathName, BuccetPathTemplate>): Promise<void> {
+  const resolved = path.resolve(filePath);
+  await fs.mkdir(path.dirname(resolved), { recursive: true });
+  const tempPath = `${resolved}.tmp-${process.pid}-${Date.now()}`;
+  await fs.writeFile(tempPath, `${JSON.stringify(snapshotBuccetPathLibrary(library), null, 2)}\n`, "utf8");
+  await fs.rename(tempPath, resolved);
+}
+
+export async function loadBuccetPathLibrary(filePath: string): Promise<Record<BuccetPathName, BuccetPathTemplate> | null> {
+  try {
+    const raw = await fs.readFile(path.resolve(filePath), "utf8");
+    return restoreBuccetPathLibrary(JSON.parse(raw) as BuccetPathLibrarySnapshot);
+  } catch {
+    return null;
+  }
+}
+
 function stageStatesForTemplate(template: BuccetPathTemplate, createdAt: string): BuccetPathStageState[] {
   return template.stages.map((stage, position) => ({
     ...stage,
     agentIds: [...stage.agentIds],
     tools: [...(stage.tools ?? [])],
+    sourceIds: [...(stage.sourceIds ?? [])],
     uplBindings: stage.uplBindings?.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -667,6 +838,8 @@ function buildAgentRosterForTemplate(template: BuccetPathTemplate, createdAt: st
     return {
       ...agent,
       tools: [...(agent.tools ?? [])],
+      sourceIds: [...(agent.sourceIds ?? [])],
+      memoryBank: buildAgentMemoryBank(template.pathSources, agent.sourceIds, agent.memoryNotes),
       uplBindings: agent.uplBindings.map((binding) => ({
         ...binding,
         actionKinds: [...binding.actionKinds],
@@ -826,6 +999,7 @@ export function instantiateBuccetFormation(args: {
     modelHint: template.modelHint,
     laws: [...template.laws],
     tools: [...template.tools],
+    pathSources: template.pathSources.map((source) => clonePathSource(source)),
     uplBindings: template.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -869,8 +1043,14 @@ export function getCurrentBuccetStageAgents(state: BuccetPathFormationState): Bu
     .map((agent) => ({
       ...agent,
       tools: [...(agent.tools ?? [])],
+      sourceIds: [...(agent.sourceIds ?? [])],
       stageIds: [...agent.stageIds],
       completedStageIds: [...agent.completedStageIds],
+      memoryBank: {
+        sourceIds: [...agent.memoryBank.sourceIds],
+        sourceTitles: [...agent.memoryBank.sourceTitles],
+        ...(agent.memoryBank.notes ? { notes: agent.memoryBank.notes } : {}),
+      },
       uplBindings: agent.uplBindings.map((binding) => ({
         ...binding,
         actionKinds: [...binding.actionKinds],
@@ -898,12 +1078,20 @@ function renderResolvedSurface(values: string[], bindings: BuccetPathUplBinding[
   return "none";
 }
 
+function renderPathSourcesSummary(sources: BuccetPathSource[]): string {
+  if (sources.length === 0) {
+    return "none";
+  }
+  return sources.map((source) => source.title).join(", ");
+}
+
 export function describeBuccetFormationLiveView(state: BuccetPathFormationState): BuccetPathLiveView {
   const currentStage = getCurrentBuccetStage(state);
   const activeAgents = getCurrentBuccetStageAgents(state);
   const pathBinding = mergeUplBindings(state.uplBindings);
   const steps = state.stages.map((stage) => {
     const ownedAgents = state.agentRoster.filter((agent) => stage.agentIds.includes(agent.id));
+    const stageSources = resolveStageSources(state.pathSources, stage.sourceIds, ownedAgents);
     const stageBindings = mergeUplBindings([
       ...(stage.uplBindings ?? []),
       ...ownedAgents.flatMap((agent) => agent.uplBindings),
@@ -916,6 +1104,8 @@ export function describeBuccetFormationLiveView(state: BuccetPathFormationState)
       purpose: stage.purpose,
       agentIds: [...stage.agentIds],
       agentTitles: ownedAgents.map((agent) => agent.title),
+      sourceIds: stageSources.map((source) => source.id),
+      sourceTitles: stageSources.map((source) => source.title),
       uplActionKinds: stageBindings.actionKinds,
       uplTargets: stageBindings.targets,
     };
@@ -930,6 +1120,8 @@ export function describeBuccetFormationLiveView(state: BuccetPathFormationState)
     activeAgentIds: activeAgents.map((agent) => agent.id),
     activeAgentTitles: activeAgents.map((agent) => agent.title),
     pathAgentCount: state.agentRoster.length,
+    pathSourceCount: state.pathSources.length,
+    pathSourceTitles: state.pathSources.map((source) => source.title),
     pathLawfulActionKinds: pathBinding.actionKinds,
     pathLawfulTargets: pathBinding.targets,
     steps,
@@ -952,6 +1144,8 @@ export function renderBuccetFormationLiveView(state: BuccetPathFormationState): 
     `current_stage=${view.currentStageId ?? "none"}`,
     `active_agents=${view.activeAgentTitles.join(", ") || "none"}`,
     `path_agent_count=${view.pathAgentCount}`,
+    `path_source_count=${view.pathSourceCount}`,
+    `path_sources=${renderPathSourcesSummary(state.pathSources)}`,
     `path_lawful_action_kinds=${renderResolvedSurface(view.pathLawfulActionKinds, currentTemplateBindings)}`,
     `path_lawful_targets=${renderResolvedSurface(view.pathLawfulTargets, currentTemplateBindings)}`,
     "steps:",
@@ -966,7 +1160,7 @@ export function renderBuccetFormationLiveView(state: BuccetPathFormationState): 
       ]
       : [];
     lines.push(
-      `  ${step.position + 1}. ${step.stageId} [${step.status}] owners=${step.agentTitles.join(" + ") || "none"} lawful=${renderResolvedSurface(step.uplActionKinds, stageBindings)} targets=${renderResolvedSurface(step.uplTargets, stageBindings)}`,
+      `  ${step.position + 1}. ${step.stageId} [${step.status}] owners=${step.agentTitles.join(" + ") || "none"} sources=${step.sourceTitles.join(" + ") || "none"} lawful=${renderResolvedSurface(step.uplActionKinds, stageBindings)} targets=${renderResolvedSurface(step.uplTargets, stageBindings)}`,
     );
   }
   lines.push("events:");

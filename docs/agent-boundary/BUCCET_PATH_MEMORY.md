@@ -24,9 +24,11 @@ Buccet Path Memory provides:
 
 - fixed path templates
 - explicit domain labels per path
+- path sources as path-level domain context boxes
 - specialist agent rosters per path
 - fixed stage order per path
 - stage-to-agent ownership
+- agent-local memory banks collapsed from shared path sources
 - path/agent/stage UPL bindings
 - exact path existence checks
 - one active stage at a time
@@ -65,6 +67,7 @@ Each path has:
 - a domain
 - a title
 - a model hint
+- a path source box
 - a law subset
 - a tool subset
 - an agent roster
@@ -72,16 +75,24 @@ Each path has:
 
 Each stage names the exact specialist agent or agents that own that stage.
 Each path and agent also carries the UPL surface it is supposed to stay inside.
+Each path can also carry domain-specific path sources that enrich the work without changing permissions.
 
 That means Buccet can say:
 
 - this path belongs to this domain
 - these are the agents assigned to it
+- these are the domain sources enriching it
 - this stage is currently owned by these agents
 - this is the lawful UPL surface those agents are operating inside
 
 The count is open-ended.
 You can define any number of specialist agents for a path as long as the path remains finite and the agents remain UPL-bound.
+You can also load any number of domain sources into the path source box to make those agents hyper-specialized without widening UPL.
+
+Path sources are not UPL.
+They do not authorize anything.
+They do not widen scope.
+They enrich the domain context available inside the fixed path.
 
 The path layer does not need to "think about the no side."
 It only sees lawful structure.
@@ -147,7 +158,9 @@ That means:
 
 - path structure is remembered
 - path domain is remembered
+- path sources are remembered
 - specialist roster is remembered
+- agent-local memory banks are remembered
 - UPL binding surface is remembered
 - previous context can be transferred
 - switching paths keeps continuity
@@ -174,6 +187,10 @@ Main entry points:
 - `hasBuccetPath(...)`
 - `getBuccetPathTemplate(...)`
 - `ensureBuccetPathInLibrary(...)`
+- `snapshotBuccetPathLibrary(...)`
+- `restoreBuccetPathLibrary(...)`
+- `saveBuccetPathLibrary(...)`
+- `loadBuccetPathLibrary(...)`
 - `canInstantiateBuccetFormation(...)`
 - `instantiateBuccetFormation(...)`
 - `advanceBuccetFormation(...)`
@@ -185,6 +202,18 @@ Main entry points:
 - `BuccetPathMemoryStore`
 - `saveBuccetPathMemorySnapshot(...)`
 - `loadBuccetPathMemorySnapshot(...)`
+
+## CLI Surface
+
+The user-facing path-source flow is:
+
+- `buccet path list`
+- `buccet path show <path-name>`
+- `buccet path sources add <path-name> <file...> [--domain <domain>]`
+- `buccet path sources list <path-name>`
+
+That is the NotebookLM-style source box for a path.
+It persists the path library and enriches the path with domain material without changing UPL.
 
 ## Position In The System
 
@@ -205,9 +234,11 @@ The live view is meant to show exactly what is happening:
 
 - which path is active
 - which domain it belongs to
+- which path sources are enriching it
 - how many agents are assigned
 - which stage is active now
 - which agents own that stage
+- which source slice those agents are using
 - what UPL action kinds and targets they are bound to
 - the event timeline of the formation so far
 

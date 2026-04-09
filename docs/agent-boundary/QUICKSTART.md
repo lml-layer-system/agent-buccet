@@ -245,6 +245,21 @@ buccet upl remove <upl-id>
 
 That is the easiest way to inspect, search, diff, mute, restore, or remove laws without editing code.
 
+If you want to enrich a path with domain sources, use Buccet path memory:
+
+```bash
+buccet path list
+buccet path show finance
+buccet path sources add finance ./finance-playbook.md --domain finance_ops
+buccet path sources list finance
+```
+
+That works like a NotebookLM-style source box for a fixed path:
+- it enriches the path with domain context
+- it does not widen UPL
+- it does not override denial
+- it lets the agents in that path work from richer specialized source material
+
 Document-imported law is bounded, not magical. Current guaranteed parse surface:
 - explicit invariant/enforcement markdown
 - required / forbidden text patterns
