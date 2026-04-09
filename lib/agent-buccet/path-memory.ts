@@ -204,7 +204,34 @@ function upl(actionKinds: BoundaryActionKind[], targets: string[] = [], notes?: 
   return { actionKinds, targets, notes };
 }
 
-const DEFAULT_AUTO_PATH_BINDING = upl([], [], "resolved by live UPL during execution");
+const RUNTIME_RESOLVED_UPL_NOTE = "resolved by live UPL during execution";
+const DEFAULT_AUTO_PATH_BINDING = upl([], [], RUNTIME_RESOLVED_UPL_NOTE);
+
+function cloneUplBinding(binding: BuccetPathUplBinding): BuccetPathUplBinding {
+  return {
+    ...binding,
+    actionKinds: [...binding.actionKinds],
+    targets: [...(binding.targets ?? [])],
+  };
+}
+
+function cloneUplBindings(bindings: BuccetPathUplBinding[]): BuccetPathUplBinding[] {
+  return bindings.map((binding) => cloneUplBinding(binding));
+}
+
+function isRuntimeResolvedUplBinding(binding: BuccetPathUplBinding): boolean {
+  return (binding.notes ?? "").includes(RUNTIME_RESOLVED_UPL_NOTE);
+}
+
+function replaceRuntimeResolvedBindings(
+  bindings: BuccetPathUplBinding[],
+  resolvedBindings: BuccetPathUplBinding[],
+): BuccetPathUplBinding[] {
+  if (!bindings.some((binding) => isRuntimeResolvedUplBinding(binding))) {
+    return cloneUplBindings(bindings);
+  }
+  return cloneUplBindings(resolvedBindings);
+}
 
 function toTitleCase(value: string): string {
   return value
@@ -287,31 +314,39 @@ function resolveStageSources(
   return pathSources.filter((source) => fallbackIds.includes(source.id));
 }
 
-function createDefaultAutoAgentRoster(pathName: BuccetPathName, domain: BuccetPathDomain): BuccetPathAgentTemplate[] {
+function createDefaultAutoAgentRoster(
+  pathName: BuccetPathName,
+  domain: BuccetPathDomain,
+  uplBindings: BuccetPathUplBinding[] = [DEFAULT_AUTO_PATH_BINDING],
+): BuccetPathAgentTemplate[] {
   const prefix = normalizeBuccetDomain(pathName);
   return [
     {
       id: `${prefix}-intake`,
       title: `${toTitleCase(pathName)} Intake`,
       specialty: `${domain} intake`,
-      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      uplBindings: cloneUplBindings(uplBindings),
     },
     {
       id: `${prefix}-specialist`,
       title: `${toTitleCase(pathName)} Specialist`,
       specialty: `${domain} execution`,
-      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      uplBindings: cloneUplBindings(uplBindings),
     },
     {
       id: `${prefix}-witness`,
       title: `${toTitleCase(pathName)} Witness`,
       specialty: `${domain} result witness`,
-      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      uplBindings: cloneUplBindings(uplBindings),
     },
   ];
 }
 
-function createDefaultAutoStages(pathName: BuccetPathName, agentRoster: BuccetPathAgentTemplate[]): BuccetPathStageTemplate[] {
+function createDefaultAutoStages(
+  pathName: BuccetPathName,
+  agentRoster: BuccetPathAgentTemplate[],
+  uplBindings: BuccetPathUplBinding[] = [DEFAULT_AUTO_PATH_BINDING],
+): BuccetPathStageTemplate[] {
   const intakeAgentId = agentRoster[0]?.id ?? `${normalizeBuccetDomain(pathName)}-intake`;
   const specialistAgentIds = agentRoster.slice(1, -1).map((agent) => agent.id);
   const witnessAgentId = agentRoster[agentRoster.length - 1]?.id ?? `${normalizeBuccetDomain(pathName)}-witness`;
@@ -321,21 +356,21 @@ function createDefaultAutoStages(pathName: BuccetPathName, agentRoster: BuccetPa
       title: "Intake",
       purpose: `Intake the ${pathName} request.`,
       agentIds: [intakeAgentId],
-      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      uplBindings: cloneUplBindings(uplBindings),
     },
     {
       id: "execute",
       title: "Execute",
       purpose: `Perform the ${pathName} work inside lawful UPL motion.`,
       agentIds: specialistAgentIds.length > 0 ? specialistAgentIds : [intakeAgentId],
-      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      uplBindings: cloneUplBindings(uplBindings),
     },
     {
       id: "finalize",
       title: "Finalize",
       purpose: `Return the bounded ${pathName} result.`,
       agentIds: [witnessAgentId],
-      uplBindings: [DEFAULT_AUTO_PATH_BINDING],
+      uplBindings: cloneUplBindings(uplBindings),
       terminal: true,
     },
   ];
@@ -354,32 +389,20 @@ export function createBuccetPathTemplate(args: {
   const laws = args.draft?.laws ? [...args.draft.laws] : [normalizeBuccetDomain(args.pathName), domain, "upl"];
   const tools = args.draft?.tools ? [...args.draft.tools] : [];
   const pathSources = args.draft?.pathSources?.map((source) => clonePathSource(source)) ?? [];
-  const uplBindings = args.draft?.uplBindings?.map((binding) => ({
-    ...binding,
-    actionKinds: [...binding.actionKinds],
-    targets: [...(binding.targets ?? [])],
-  })) ?? [DEFAULT_AUTO_PATH_BINDING];
+  const uplBindings = args.draft?.uplBindings?.map((binding) => cloneUplBinding(binding)) ?? [DEFAULT_AUTO_PATH_BINDING];
   const agentRoster = args.draft?.agentRoster?.map((agent) => ({
     ...agent,
     tools: [...(agent.tools ?? [])],
     sourceIds: [...(agent.sourceIds ?? [])],
-    uplBindings: agent.uplBindings.map((binding) => ({
-      ...binding,
-      actionKinds: [...binding.actionKinds],
-      targets: [...(binding.targets ?? [])],
-    })),
-  })) ?? createDefaultAutoAgentRoster(args.pathName, domain);
+    uplBindings: agent.uplBindings.map((binding) => cloneUplBinding(binding)),
+  })) ?? createDefaultAutoAgentRoster(args.pathName, domain, uplBindings);
   const stages = args.draft?.stages?.map((stage) => ({
     ...stage,
     agentIds: [...stage.agentIds],
     tools: [...(stage.tools ?? [])],
     sourceIds: [...(stage.sourceIds ?? [])],
-    uplBindings: stage.uplBindings?.map((binding) => ({
-      ...binding,
-      actionKinds: [...binding.actionKinds],
-      targets: [...(binding.targets ?? [])],
-    })),
-  })) ?? createDefaultAutoStages(args.pathName, agentRoster);
+    uplBindings: stage.uplBindings?.map((binding) => cloneUplBinding(binding)),
+  })) ?? createDefaultAutoStages(args.pathName, agentRoster, uplBindings);
   const template = {
     pathName: args.pathName,
     domain,
@@ -743,6 +766,69 @@ export function hasBuccetPath(
   return Object.prototype.hasOwnProperty.call(library, pathName);
 }
 
+export function buccetPathTemplateNeedsLawfulSurfaceMaterialization(
+  template: BuccetPathTemplate,
+): boolean {
+  return (
+    template.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding))
+    || template.agentRoster.some((agent) => agent.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)))
+    || template.stages.some((stage) => (stage.uplBindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding)))
+  );
+}
+
+export function materializeBuccetPathTemplateLawfulSurface(args: {
+  template: BuccetPathTemplate;
+  uplBindings: BuccetPathUplBinding[];
+}): BuccetPathTemplate {
+  const template = clonePathTemplate(args.template);
+  template.uplBindings = replaceRuntimeResolvedBindings(template.uplBindings, args.uplBindings);
+  template.agentRoster = template.agentRoster.map((agent) => ({
+    ...agent,
+    uplBindings: replaceRuntimeResolvedBindings(agent.uplBindings, args.uplBindings),
+  }));
+  template.stages = template.stages.map((stage) => (
+    stage.uplBindings
+      ? {
+        ...stage,
+        uplBindings: replaceRuntimeResolvedBindings(stage.uplBindings, args.uplBindings),
+      }
+      : stage
+  ));
+  validatePathTemplate(template);
+  return template;
+}
+
+export function buccetFormationNeedsLawfulSurfaceMaterialization(
+  state: BuccetPathFormationState,
+): boolean {
+  return (
+    state.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding))
+    || state.agentRoster.some((agent) => agent.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)))
+    || state.stages.some((stage) => (stage.uplBindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding)))
+  );
+}
+
+export function materializeBuccetFormationLawfulSurface(args: {
+  state: BuccetPathFormationState;
+  uplBindings: BuccetPathUplBinding[];
+}): BuccetPathFormationState {
+  const state = deepCloneFormationState(args.state);
+  state.uplBindings = replaceRuntimeResolvedBindings(state.uplBindings, args.uplBindings);
+  state.agentRoster = state.agentRoster.map((agent) => ({
+    ...agent,
+    uplBindings: replaceRuntimeResolvedBindings(agent.uplBindings, args.uplBindings),
+  }));
+  state.stages = state.stages.map((stage) => (
+    stage.uplBindings
+      ? {
+        ...stage,
+        uplBindings: replaceRuntimeResolvedBindings(stage.uplBindings, args.uplBindings),
+      }
+      : stage
+  ));
+  return state;
+}
+
 export function getBuccetPathTemplate(
   library: Record<BuccetPathName, BuccetPathTemplate>,
   pathName: string,
@@ -1072,7 +1158,7 @@ function renderResolvedSurface(values: string[], bindings: BuccetPathUplBinding[
   if (values.length > 0) {
     return values.join(", ");
   }
-  if ((bindings ?? []).some((binding) => (binding.notes ?? "").includes("resolved by live UPL"))) {
+  if ((bindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding))) {
     return "runtime_resolved";
   }
   return "none";

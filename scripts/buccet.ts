@@ -1175,6 +1175,79 @@ function isTerminalPathFormation(state: BuccetPathFormationState): boolean {
   return state.status === "COMPLETED" || state.status === "BLOCKED" || state.status === "FAILED";
 }
 
+function collectRuntimePathTargets(entry: BoundaryUplEntry): string[] {
+  const constraint = entry.trackConstraint;
+  const targets = [
+    ...(constraint?.targetPatterns ?? []),
+    ...(constraint?.targetPattern ? [constraint.targetPattern] : []),
+  ].filter((value): value is string => Boolean(value));
+  if (targets.length > 0) {
+    return targets;
+  }
+  return entry.requestBasis?.target ? [entry.requestBasis.target] : [];
+}
+
+async function resolveRuntimeBuccetPathUplBindings(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+  config: BuccetConfig,
+): Promise<Array<{ actionKinds: BoundaryActionKind[]; targets?: string[]; notes?: string }>> {
+  const session = await loadActiveBoundarySession(boundary, home, config);
+  const ledger = await boundary.loadUserPathLedger();
+  const allowTrackSegments = boundary
+    .compileLiveUplTrackField({ ledger, session })
+    .filter((segment) => segment.polarity === "allow");
+  const allowSegments = (allowTrackSegments.length > 0
+    ? allowTrackSegments
+    : boundary.compileLiveUplField({ ledger, session }).filter((segment) => segment.polarity === "allow"));
+  const actionKinds = [...new Set(allowSegments.flatMap((segment) => (
+    segment.entry.trackConstraint?.allowedActionKinds
+      ?? (segment.entry.requestBasis?.actionKind ? [segment.entry.requestBasis.actionKind] : [])
+  )))].sort();
+  const targets = [...new Set(allowSegments.flatMap((segment) => collectRuntimePathTargets(segment.entry)))].sort();
+  return [{
+    actionKinds,
+    ...(targets.length > 0 ? { targets } : {}),
+    ...(actionKinds.length === 0 && targets.length === 0
+      ? { notes: "no active approved UPL surface" }
+      : { notes: "resolved from live approved UPL" }),
+  }];
+}
+
+async function ensureConcreteBuccetPathTemplate(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  home: ReturnType<typeof resolveHomePaths>;
+  config: BuccetConfig;
+  library: Record<string, BuccetPathTemplate>;
+  pathName: string;
+  userRequest: string;
+  domain?: string;
+}): Promise<BuccetPathTemplate> {
+  const existing = args.boundary.getBuccetPathTemplate(args.library, args.pathName);
+  const resolvedBindings = await resolveRuntimeBuccetPathUplBindings(args.boundary, args.home, args.config);
+  if (!existing) {
+    const created = args.boundary.createBuccetPathTemplate({
+      pathName: args.pathName,
+      userRequest: args.userRequest,
+      draft: {
+        ...(args.domain ? { domain: args.domain } : {}),
+        uplBindings: resolvedBindings,
+      },
+    }) as BuccetPathTemplate;
+    args.library[args.pathName] = created;
+    return created;
+  }
+  if (!args.boundary.buccetPathTemplateNeedsLawfulSurfaceMaterialization(existing)) {
+    return existing;
+  }
+  const materialized = args.boundary.materializeBuccetPathTemplateLawfulSurface({
+    template: existing,
+    uplBindings: resolvedBindings,
+  }) as BuccetPathTemplate;
+  args.library[args.pathName] = materialized;
+  return materialized;
+}
+
 function formatPathStageOutput(state: BuccetPathFormationState): string {
   const stage = state.stages[state.currentStageIndex];
   if (!stage) {
@@ -3389,10 +3462,24 @@ async function handlePath(rest: string[]) {
       usage();
     }
     const library = await loadPersistedBuccetPathLibrary(boundary, home);
-    const template = boundary.getBuccetPathTemplate(library, pathName);
+    const existing = boundary.getBuccetPathTemplate(library, pathName);
+    if (!existing) {
+      throw new Error(`unknown Buccet path: ${pathName}`);
+    }
+    const template = boundary.buccetPathTemplateNeedsLawfulSurfaceMaterialization(existing)
+      ? await ensureConcreteBuccetPathTemplate({
+        boundary,
+        home,
+        config,
+        library,
+        pathName,
+        userRequest: `inspect path ${pathName}`,
+      })
+      : existing;
     if (!template) {
       throw new Error(`unknown Buccet path: ${pathName}`);
     }
+    await savePersistedBuccetPathLibrary(boundary, home, library);
     if (asJson) {
       printJson({
         libraryPath: home.pathLibraryPath,
@@ -3473,6 +3560,15 @@ async function handlePath(rest: string[]) {
     const boundary = await importBoundary(homePath);
     const library = await loadPersistedBuccetPathLibrary(boundary, home);
     const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    await ensureConcreteBuccetPathTemplate({
+      boundary,
+      home,
+      config,
+      library,
+      pathName,
+      userRequest: requestText ?? `run ${pathName}`,
+      ...(domain ? { domain } : {}),
+    });
     let formation = !fresh ? store.findBySessionAndPath(config.sessionId, pathName) as BuccetPathFormationState | null : null;
     let started = "resumed";
     if (!formation || isTerminalPathFormation(formation)) {
@@ -3481,7 +3577,6 @@ async function handlePath(rest: string[]) {
         userRequest: requestText ?? `run ${pathName}`,
         pathName,
         library,
-        ...(domain ? { draft: { domain } } : {}),
       }) as BuccetPathFormationState;
       started = "created";
     } else if (requestText) {
@@ -3494,13 +3589,11 @@ async function handlePath(rest: string[]) {
         },
       };
     }
-    if (!boundary.hasBuccetPath(library, pathName)) {
-      boundary.ensureBuccetPathInLibrary({
-        library,
-        pathName,
-        userRequest: formation.userRequest,
-        ...(domain ? { draft: { domain } } : {}),
-      });
+    if (boundary.buccetFormationNeedsLawfulSurfaceMaterialization(formation)) {
+      formation = boundary.materializeBuccetFormationLawfulSurface({
+        state: formation,
+        uplBindings: await resolveRuntimeBuccetPathUplBindings(boundary, home, config),
+      }) as BuccetPathFormationState;
     }
     let advancedSteps = 0;
     while (formation.status === "RUNNING" && (runAll || advancedSteps < steps)) {
@@ -3574,6 +3667,14 @@ async function handlePath(rest: string[]) {
     });
     if (!formation) {
       throw new Error(`unknown Buccet path formation or path: ${selector}`);
+    }
+    if (boundary.buccetFormationNeedsLawfulSurfaceMaterialization(formation)) {
+      formation = boundary.materializeBuccetFormationLawfulSurface({
+        state: formation,
+        uplBindings: await resolveRuntimeBuccetPathUplBindings(boundary, home, config),
+      }) as BuccetPathFormationState;
+      store.remember(formation);
+      await savePersistedBuccetPathMemoryStore(boundary, home, store);
     }
     if (asJson) {
       printJson({
@@ -3711,12 +3812,15 @@ async function handlePath(rest: string[]) {
       const filePaths = await collectPathSourceFiles(inputs);
       const newSources = await compilePathSourcesFromFiles({ filePaths });
       const library = await loadPersistedBuccetPathLibrary(boundary, home);
-      const template = boundary.ensureBuccetPathInLibrary({
+      const template = await ensureConcreteBuccetPathTemplate({
+        boundary,
+        home,
+        config,
         library,
         pathName,
         userRequest: `enrich path ${pathName} with sources`,
-        ...(domain ? { draft: { domain } } : {}),
-      }) as BuccetPathTemplate;
+        ...(domain ? { domain } : {}),
+      });
       const nextSources = [...template.pathSources];
       for (const source of newSources) {
         const existingIndex = nextSources.findIndex((entry) => entry.id === source.id);

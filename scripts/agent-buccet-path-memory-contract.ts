@@ -10,6 +10,7 @@ import {
   createBuccetPathLibrary,
   createBuccetPathTemplate,
   createDefaultBuccetPathLibrary,
+  materializeBuccetPathTemplateLawfulSurface,
   detectBuccetPathSwitch,
   describeBuccetFormationLiveView,
   ensureBuccetPathInLibrary,
@@ -66,6 +67,14 @@ async function main() {
   assert.equal(universalTemplate.stages.at(-1)?.terminal, true, "expected auto-created path to stay finite");
   assert.equal(universalTemplate.agentRoster.length, 3, "expected auto-created path specialist roster");
   assert.equal(universalTemplate.pathSources.length, 2, "expected auto-created path source box");
+  library[universalPathName] = materializeBuccetPathTemplateLawfulSurface({
+    template: universalTemplate,
+    uplBindings: [{
+      actionKinds: ["fs.read", "fs.write"],
+      targets: ["workspace", "report-output"],
+      notes: "resolved from live approved UPL",
+    }],
+  });
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({
       sessionId: "session-domain-path",
@@ -76,6 +85,16 @@ async function main() {
     new RegExp(`path=${universalPathName}`),
     "expected live view for auto-created path",
   );
+  assert.doesNotMatch(
+    renderBuccetFormationLiveView(instantiateBuccetFormation({
+      sessionId: "session-domain-path",
+      userRequest: "run the specialized domain workflow",
+      pathName: universalPathName,
+      library,
+    })),
+    /runtime_resolved/,
+    "expected auto-created path lawful surface to materialize cleanly",
+  );
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({
       sessionId: "session-domain-path",
@@ -83,8 +102,8 @@ async function main() {
       pathName: universalPathName,
       library,
     })),
-    /path_lawful_action_kinds=runtime_resolved/,
-    "expected runtime-resolved lawful surface for auto-created path",
+    /path_lawful_action_kinds=fs\.read, fs\.write|path_lawful_action_kinds=fs\.write, fs\.read/,
+    "expected concrete lawful surface for auto-created path",
   );
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({

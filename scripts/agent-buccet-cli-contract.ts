@@ -231,12 +231,16 @@ async function main() {
       pathName: string;
       currentStageId: string | null;
       pathSourceCount: number;
+      pathLawfulActionKinds: string[];
+      pathLawfulTargets: string[];
     };
   };
   assert.equal(pathRun.formation.pathName, customPathName);
   assert.equal(pathRun.advancedSteps, 1);
   assert.equal(pathRun.liveView.pathName, customPathName);
   assert.equal(pathRun.liveView.pathSourceCount, 1);
+  assert.ok(pathRun.liveView.pathLawfulActionKinds.length > 0, "expected concrete lawful surface for custom path");
+  assert.ok(pathRun.liveView.pathLawfulTargets.length > 0, "expected concrete lawful targets for custom path");
 
   const pathWatchResult = await runCli(["path", "watch", customPathName, "--json"], env);
   assert.equal(pathWatchResult.code, 0, pathWatchResult.stderr);
@@ -248,10 +252,12 @@ async function main() {
     liveView: {
       pathName: string;
       pathSourceCount: number;
+      pathLawfulActionKinds: string[];
     };
   };
   assert.equal(pathWatch.formation.formationId, pathRun.formation.formationId);
   assert.equal(pathWatch.liveView.pathSourceCount, 1);
+  assert.ok(pathWatch.liveView.pathLawfulActionKinds.length > 0, "expected watch view to preserve concrete lawful surface");
 
   const formationListResult = await runCli(["path", "formations", "list", "--json"], env);
   assert.equal(formationListResult.code, 0, formationListResult.stderr);
