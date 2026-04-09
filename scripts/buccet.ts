@@ -224,6 +224,29 @@ function uniquePaths(paths: string[]): string[] {
   return [...new Set(paths.map((entry) => path.resolve(entry)))];
 }
 
+function printCliHeader(title: string, subtitle?: string): void {
+  console.log(title);
+  if (subtitle) {
+    console.log(subtitle);
+  }
+}
+
+function printCliSection(title: string, rows: Array<string | null | undefined>): void {
+  console.log(``);
+  console.log(`  ${title}`);
+  console.log(`  ${"─".repeat(Math.max(24, title.length + 2))}`);
+  for (const row of rows) {
+    if (!row) {
+      continue;
+    }
+    console.log(`  ${row}`);
+  }
+}
+
+function formatCliKeyValue(label: string, value: string | number | boolean | null | undefined): string {
+  return `${label.padEnd(18, " ")} ${String(value ?? "-")}`;
+}
+
 function parseCsvActions(raw: string | undefined): BoundaryActionKind[] {
   if (!raw) {
     return FULL_FS_SCOPE_ACTIONS;
@@ -2402,24 +2425,36 @@ async function handleStatus(rest: string[]) {
     return;
   }
 
-  console.log(`Agent Buccet status`);
-  console.log(`home: ${payload.home}`);
-  console.log(`session: ${payload.sessionId}`);
-  console.log(`actor: ${payload.actorId}`);
-  console.log(`session status: ${payload.sessionStatus}`);
-  console.log(`scopes: ${payload.scopes.length}`);
-  console.log(`active grants: ${payload.grants}`);
-  console.log(`ledger entries: ${payload.ledger.entries}`);
-  console.log(`ledger chain: ${payload.ledger.chainOk ? "ok" : "broken"}`);
+  printCliHeader("Agent Buccet — Status Snapshot");
+  printCliSection("Session", [
+    formatCliKeyValue("home", payload.home),
+    formatCliKeyValue("session", payload.sessionId),
+    formatCliKeyValue("actor", payload.actorId),
+    formatCliKeyValue("session status", payload.sessionStatus),
+  ]);
+  printCliSection("Authority", [
+    formatCliKeyValue("scopes", payload.scopes.length),
+    formatCliKeyValue("active grants", payload.grants),
+  ]);
+  printCliSection("Ledger", [
+    formatCliKeyValue("entries", payload.ledger.entries),
+    formatCliKeyValue("chain", payload.ledger.chainOk ? "ok" : "broken"),
+    formatCliKeyValue("checked from", payload.ledger.checkedFrom ?? "-"),
+  ]);
   if (payload.witness) {
-    console.log(`witness: ${payload.witness.target}`);
-    console.log(`witness.mode: ${payload.witness.mode}`);
-    console.log(`witness.status: ${payload.witness.status}${payload.witness.fallback ? " (fallback: local file)" : ""}`);
-    if (payload.witness.published_at) {
-      console.log(`witness.published: ${payload.witness.published_at}`);
-    }
+    printCliSection("Witness", [
+      formatCliKeyValue("target", payload.witness.target),
+      formatCliKeyValue("mode", payload.witness.mode),
+      formatCliKeyValue(
+        "status",
+        `${payload.witness.status}${payload.witness.fallback ? " (fallback: local file)" : ""}`,
+      ),
+      payload.witness.published_at ? formatCliKeyValue("published", payload.witness.published_at) : null,
+    ]);
   } else {
-    console.log(`witness: unavailable (run package build to generate)`);
+    printCliSection("Witness", [
+      "unavailable (run package build to generate)",
+    ]);
   }
 }
 
@@ -3337,11 +3372,14 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Buccet paths`);
-    console.log(`library: ${home.pathLibraryPath}`);
-    for (const template of templates) {
-      console.log(`${template.pathName} | domain=${template.domain} | sources=${template.pathSources.length} | agents=${template.agentRoster.length} | stages=${template.stages.length}`);
-    }
+    printCliHeader("Buccet Path Library");
+    printCliSection("Library", [
+      formatCliKeyValue("path", home.pathLibraryPath),
+      formatCliKeyValue("templates", templates.length),
+    ]);
+    printCliSection("Paths", templates.map((template) => (
+      `${template.pathName}  |  domain=${template.domain}  |  sources=${template.pathSources.length}  |  agents=${template.agentRoster.length}  |  stages=${template.stages.length}`
+    )));
     return;
   }
 
@@ -3362,27 +3400,29 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Buccet path ${template.pathName}`);
-    console.log(`domain: ${template.domain}`);
-    console.log(`title: ${template.title}`);
-    console.log(`sources: ${template.pathSources.length}`);
-    for (const source of template.pathSources) {
-      console.log(`  - ${source.id} | ${source.title} | kind=${source.kind}${source.sourceUri ? ` | ${source.sourceUri}` : ""}`);
-    }
-    console.log(`agents: ${template.agentRoster.length}`);
-    for (const agent of template.agentRoster) {
+    printCliHeader(`Buccet Path — ${template.pathName}`);
+    printCliSection("Identity", [
+      formatCliKeyValue("domain", template.domain),
+      formatCliKeyValue("title", template.title),
+      formatCliKeyValue("sources", template.pathSources.length),
+      formatCliKeyValue("agents", template.agentRoster.length),
+      formatCliKeyValue("stages", template.stages.length),
+    ]);
+    printCliSection("Sources", template.pathSources.length > 0
+      ? template.pathSources.map((source) => `${source.id}  |  ${source.title}  |  kind=${source.kind}${source.sourceUri ? `  |  ${source.sourceUri}` : ""}`)
+      : ["none"]);
+    printCliSection("Agents", template.agentRoster.map((agent) => {
       const sourceTitles = template.pathSources
         .filter((source) => (agent.sourceIds ?? []).includes(source.id))
         .map((source) => source.title);
-      console.log(`  - ${agent.id} | ${agent.title} | sources=${sourceTitles.join(", ") || "all path sources"}`);
-    }
-    console.log(`stages: ${template.stages.length}`);
-    for (const stage of template.stages) {
+      return `${agent.id}  |  ${agent.title}  |  sources=${sourceTitles.join(", ") || "all path sources"}`;
+    }));
+    printCliSection("Stages", template.stages.map((stage) => {
       const sourceTitles = template.pathSources
         .filter((source) => (stage.sourceIds ?? []).includes(source.id))
         .map((source) => source.title);
-      console.log(`  - ${stage.id} | owners=${stage.agentIds.join(", ")} | sources=${sourceTitles.join(", ") || "agent memory banks"}`);
-    }
+      return `${stage.id}  |  owners=${stage.agentIds.join(", ")}  |  sources=${sourceTitles.join(", ") || "agent memory banks"}`;
+    }));
     return;
   }
 
@@ -3483,11 +3523,14 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Buccet path run`);
-    console.log(`path: ${formation.pathName}`);
-    console.log(`formation: ${formation.formationId}`);
-    console.log(`mode: ${started}`);
-    console.log(`advanced_steps: ${advancedSteps}`);
+    printCliHeader("Buccet Path Run");
+    printCliSection("Run", [
+      formatCliKeyValue("path", formation.pathName),
+      formatCliKeyValue("formation", formation.formationId),
+      formatCliKeyValue("mode", started),
+      formatCliKeyValue("advanced steps", advancedSteps),
+      formatCliKeyValue("status", formation.status),
+    ]);
     process.stdout.write(boundary.renderBuccetFormationLiveView(formation));
     if (isTerminalPathFormation(formation)) {
       console.log(`terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`);
@@ -3597,11 +3640,16 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Buccet path formations`);
-    console.log(`store: ${home.pathFormationSnapshotPath}`);
-    for (const formation of formations) {
-      console.log(`${formation.formationId} | path=${formation.pathName} | domain=${formation.domain} | status=${formation.status} | stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"} | sources=${formation.pathSources.length}`);
-    }
+    printCliHeader("Buccet Path Formations");
+    printCliSection("Store", [
+      formatCliKeyValue("path", home.pathFormationSnapshotPath),
+      formatCliKeyValue("formations", formations.length),
+    ]);
+    printCliSection("Formations", formations.length > 0
+      ? formations.map((formation) => (
+        `${formation.formationId}  |  path=${formation.pathName}  |  domain=${formation.domain}  |  status=${formation.status}  |  stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"}  |  sources=${formation.pathSources.length}`
+      ))
+      : ["none"]);
     return;
   }
 
@@ -5024,10 +5072,25 @@ async function handleConsole() {
         if (cmd === "shield") {
           const payload = currentHookPayload ?? await buildHookStatusPayload(boundary, { home, config });
           console.log(``);
-          console.log(`  Protected execution lane`);
-          console.log(`  ─────────────────────────────────────`);
-          console.log(`  summary: ${formatHookOperatorSummary(payload)}`);
-          printHookStatusDetails(payload);
+          printCliHeader("  Protected Execution Lane");
+          printCliSection("Shield", [
+            formatCliKeyValue("summary", formatHookOperatorSummary(payload)),
+            formatCliKeyValue("initialized", payload.initialized ? "yes" : "no"),
+            formatCliKeyValue("running", payload.running ? "yes" : "no"),
+            formatCliKeyValue("healthy", payload.healthy ? "yes" : "no"),
+            formatCliKeyValue("state", payload.state ?? "missing"),
+            formatCliKeyValue("pid", payload.pid ?? "-"),
+            formatCliKeyValue("intercept", payload.interceptReachable ? "reachable" : "unreachable"),
+            formatCliKeyValue("bridge", payload.bridgeReady ? "ready" : "missing"),
+            formatCliKeyValue("intercepted", payload.interceptedAttempts ?? 0),
+            formatCliKeyValue("canyon held", payload.canyonHeld ?? 0),
+            formatCliKeyValue("pending", payload.pendingApprovals ?? 0),
+          ]);
+          printCliSection("Runtime Files", [
+            formatCliKeyValue("brain status", payload.brainStatusPath),
+            formatCliKeyValue("native library", payload.nativeLibraryPath),
+            payload.lastError ? formatCliKeyValue("last error", payload.lastError) : null,
+          ]);
           if (!payload.running) {
             console.log(`re-arm: buccet hook start`);
           }
@@ -5045,15 +5108,23 @@ async function handleConsole() {
           const grants = (sessionState?.grants ?? []).filter((g: { revokedAt?: string }) => !g.revokedAt);
           const payload = currentHookPayload ?? await buildHookStatusPayload(boundary, { home, config });
           console.log(``);
-          console.log(`  Session:    ${config.sessionId}`);
-          console.log(`  Status:     ${sessionState?.session.status ?? "missing"}`);
-          console.log(`  Scopes:     ${scopes.length}`);
-          console.log(`  Grants:     ${grants.length}`);
-          console.log(`  Shield:     ${formatHookOperatorSummary(payload)}`);
-          console.log(`  Mode:       ${formatConsoleApprovalMode(currentApprovalMode)}`);
-          console.log(`  Feed:       ${feedEnabled ? "on" : "off"}`);
-          console.log(`  Pending:    ${currentWaitingGroups.length} action group(s) waiting`);
-          console.log(`  Canyon:     ${currentIngressEntries.filter((entry) => entry.state === "canyon").length} provenance(s) held`);
+          printCliHeader("  Unified Operator Snapshot");
+          printCliSection("Session", [
+            formatCliKeyValue("session", config.sessionId),
+            formatCliKeyValue("status", sessionState?.session.status ?? "missing"),
+            formatCliKeyValue("scopes", scopes.length),
+            formatCliKeyValue("grants", grants.length),
+          ]);
+          printCliSection("Operator", [
+            formatCliKeyValue("shield", formatHookOperatorSummary(payload)),
+            formatCliKeyValue("mode", formatConsoleApprovalMode(currentApprovalMode)),
+            formatCliKeyValue("feed", feedEnabled ? "on" : "off"),
+            formatCliKeyValue("pending groups", currentWaitingGroups.length),
+            formatCliKeyValue(
+              "canyon held",
+              currentIngressEntries.filter((entry) => entry.state === "canyon").length,
+            ),
+          ]);
           console.log(``);
           rl.prompt();
           return;
