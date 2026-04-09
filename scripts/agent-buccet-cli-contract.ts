@@ -362,6 +362,10 @@ async function main() {
   assert.equal(doctorResult.code, 0, doctorResult.stderr);
   assert.match(doctorResult.stdout, /Doctor/);
 
+  const strictDoctorResult = await runCli(["doctor", "--strict"], env);
+  assert.equal(strictDoctorResult.code, 0, strictDoctorResult.stderr);
+  assert.match(strictDoctorResult.stdout, /Strict posture: PASS/);
+
   const hookStatusResult = await runCli(["hook", "status", "--json"], env);
   assert.equal(hookStatusResult.code, 0, hookStatusResult.stderr);
   const hookStatus = JSON.parse(hookStatusResult.stdout) as {

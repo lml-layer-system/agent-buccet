@@ -109,7 +109,7 @@ function usage(): never {
     "Usage:",
     "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
     "  buccet console                                            — open the unified operator cockpit (shield + control + witness)",
-    "  buccet doctor                                             — health check: platform, backend, intercept, ledger",
+    "  buccet doctor [--strict]                                  — health check: platform, backend, intercept, ledger",
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
     "  buccet logs [--limit <n>] [--json]",
@@ -4388,10 +4388,11 @@ function detectBackendLabel(): string {
 
 // ─── buccet doctor ─────────────────────────────────────────────────────────
 
-async function handleDoctor() {
+async function handleDoctor(rest: string[] = []) {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
   const config = await loadConfig(home.configPath);
+  const strict = rest.includes("--strict");
 
   const platformLabel = detectPlatformLabel();
   const backendLabel = detectBackendLabel();
@@ -4455,6 +4456,12 @@ async function handleDoctor() {
   }
 
   const critical = !hookAlive || (hookAlive && !interceptReachable) || ledgerChainOk === false;
+  const strictFailure =
+    !config
+    || !nativeReady
+    || !hookAlive
+    || !interceptReachable
+    || ledgerChainOk !== true;
   if (critical) {
     console.log(`  One or more checks require attention.`);
     console.log(`  Run 'buccet hook start' to re-arm the protected execution lane.`);
@@ -4462,6 +4469,13 @@ async function handleDoctor() {
   } else {
     console.log(`  All systems active. This machine is guarded.`);
     console.log(``);
+  }
+  if (strict) {
+    console.log(`  Strict posture: ${strictFailure ? "FAIL" : "PASS"}`);
+    console.log(``);
+    if (strictFailure) {
+      process.exitCode = 1;
+    }
   }
 }
 
@@ -5536,7 +5550,7 @@ async function main() {
     return;
   }
   if (parsed.command === "doctor") {
-    await handleDoctor();
+    await handleDoctor(parsed.rest);
     return;
   }
   if (parsed.command === "status") {

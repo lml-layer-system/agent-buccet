@@ -2,6 +2,46 @@
 
 Use this before flipping the repo public.
 
+## One-Command Lock Gate
+
+If you want the full locked posture in one shot, run:
+
+```bash
+npm run check:agent-buccet:production
+```
+
+Alias:
+
+```bash
+npm run check:agent-buccet:locked
+```
+
+This gate covers:
+- typecheck
+- artifact/doc hygiene
+- stable contract lane
+- package build
+- CLI surface
+- path runtime
+- release/package surfaces
+- install and hosted-install flows
+
+Deep runtime proof remains available as a separate explicit check:
+
+```bash
+npm run check:agent-buccet:runtime-deep
+```
+
+That keeps the production lock gate deterministic while still preserving the hook runtime contract as a harder operational proof.
+
+For an installed machine-level posture check, run:
+
+```bash
+buccet doctor --strict
+```
+
+`--strict` fails closed if the install is not initialized, the native layer is missing, the hook daemon is down, the intercept socket is unreachable, or the ledger chain is not healthy.
+
 ## CI Gate
 
 These are the checks the current CI gate actually runs.
@@ -47,7 +87,7 @@ npm run build
 npm run test:agent-buccet:cli
 npm run test:agent-buccet:install
 npm run test:agent-buccet:hosted-install
-npm run test:agent-buccet:hook-runtime
+npm run check:agent-buccet:runtime-deep
 ```
 
 Confirm:
