@@ -68,9 +68,16 @@ exec "$BUCCET_JS_RUNTIME" "$BUCCET_HOME/current/bin/buccet.ts" "$@"
 LAUNCHER
 chmod +x "$LAUNCHER_PATH"
 
+if [ -f "$BUCCET_HOME/current/INSTALL_SNAP.txt" ]; then
+  printf '\n'
+  cat "$BUCCET_HOME/current/INSTALL_SNAP.txt"
+  printf '\n'
+fi
+
 printf '%s\n' "Agent Buccet installed." \
   "home: $BUCCET_HOME" \
-  "launcher: $LAUNCHER_PATH"
+  "launcher: $LAUNCHER_PATH" \
+  "start: buccet console"
 
 case ":$PATH:" in
   *":$LAUNCHER_DIR:"*)

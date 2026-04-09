@@ -54,12 +54,17 @@ async function main() {
 
   const releaseInstall = await fs.access(path.join(packagedRoot, "releases", "install.sh")).then(() => true).catch(() => false);
   assert.equal(releaseInstall, true, "standalone package should carry hosted install shell");
+  const installSnap = await fs.access(path.join(packagedRoot, "INSTALL_SNAP.txt")).then(() => true).catch(() => false);
+  assert.equal(installSnap, true, "standalone package should carry install snap summary");
+  const installSnapJson = await fs.access(path.join(packagedRoot, "SNAP_INSTALL.json")).then(() => true).catch(() => false);
+  assert.equal(installSnapJson, true, "standalone package should carry machine-readable install snap summary");
 
   console.log("Agent Buccet package surface contract");
   console.log("  root README install claim: truthful");
   console.log("  standalone package: publishable metadata present");
   console.log("  buccet bin: wired");
   console.log("  release shell: present");
+  console.log("  install snap summary: present");
 }
 
 main().catch((error) => {

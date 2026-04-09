@@ -116,4 +116,5 @@ printf '%s\n' \
   "Agent Buccet is now protecting your system." \
   "version: ${VERSION:-unknown}" \
   "home: $BUCCET_HOME" \
-  "launcher: $LAUNCHER_DIR/buccet"
+  "launcher: $LAUNCHER_DIR/buccet" \
+  "start: buccet console"

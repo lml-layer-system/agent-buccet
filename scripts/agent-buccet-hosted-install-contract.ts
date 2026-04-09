@@ -73,9 +73,15 @@ async function main() {
   const installResult = await run("sh", [installScript], installEnv, repoRoot);
   assert.equal(installResult.code, 0, installResult.stderr);
   assert.match(installResult.stdout, /Agent Buccet is now protecting your system\./);
+  assert.match(installResult.stdout, /Buccet snapped install:/);
+  assert.match(installResult.stdout, /repo body: \d+ artifacts -> \d+ snap bodies/);
+  assert.match(installResult.stdout, /start: buccet console/);
 
   const launcherPath = path.join(launcherDir, "buccet");
   await fs.access(launcherPath);
+  const snapSummaryPath = path.join(homePath, "current", "INSTALL_SNAP.txt");
+  const snapSummaryExists = await fs.access(snapSummaryPath).then(() => true).catch(() => false);
+  assert.equal(snapSummaryExists, true);
 
   const cliEnv = {
     ...process.env,

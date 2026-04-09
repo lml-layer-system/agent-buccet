@@ -16,6 +16,13 @@ One command:
 curl -fsSL https://buccet.lml.dev/install | sh
 ```
 
+That install now carries the snapped full Buccet body and prints the install snap summary directly.
+It lands you on the one-terminal cockpit:
+
+```bash
+buccet console
+```
+
 Then:
 
 ```bash
@@ -37,6 +44,7 @@ buccet uninstall
 ```bash
 sh scripts/install-agent-buccet.sh
 buccet init
+buccet console
 ```
 
 ## 1. Start a persistent session

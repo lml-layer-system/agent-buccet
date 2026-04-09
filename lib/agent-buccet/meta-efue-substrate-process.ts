@@ -129,6 +129,20 @@ export type BuccetMetaEfueSubstrateProcess = {
   };
 };
 
+export type BuccetInstallSnapSummary = {
+  repoArtifactCount: number;
+  repoSnapBodyCount: number;
+  repoCompressionRatio: number;
+  repoCompressionPercent: number;
+  runtimeNodeCount: number;
+  runtimeExecutablePrimitiveCount: number;
+  runtimeSnapAvgMs: number;
+  repoSnapAvgMs: number;
+  runtimeDeterministic: boolean;
+  repoDeterministic: boolean;
+  operatorConsoleCommand: string;
+};
+
 function repoRootFromHere(): string {
   const here = path.dirname(fileURLToPath(import.meta.url));
   return path.resolve(here, "..", "..");
@@ -503,6 +517,42 @@ export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProc
 
 function bulletList(values: string[]): string {
   return values.map((value) => `- ${value}`).join("\n");
+}
+
+function percentCompressedFromRatio(ratio: number): number {
+  return Number((100 - (100 / ratio)).toFixed(2));
+}
+
+export function buildBuccetInstallSnapSummary(
+  process: BuccetMetaEfueSubstrateProcess = runBuccetMetaEfueSubstrateProcess(),
+): BuccetInstallSnapSummary {
+  return {
+    repoArtifactCount: process.runtimeFacts.repoArtifactCount,
+    repoSnapBodyCount: process.runtimeFacts.repoSnapBodyCount,
+    repoCompressionRatio: process.runtimeFacts.repoSnapCompressionRatio,
+    repoCompressionPercent: percentCompressedFromRatio(process.runtimeFacts.repoSnapCompressionRatio),
+    runtimeNodeCount: process.runtimeFacts.substrateNodeCount,
+    runtimeExecutablePrimitiveCount: process.runtimeFacts.executableBodyCount,
+    runtimeSnapAvgMs: process.runtimeFacts.snapAvgMs,
+    repoSnapAvgMs: process.runtimeFacts.repoSnapAvgMs,
+    runtimeDeterministic: process.runtimeFacts.snapDeterministic,
+    repoDeterministic: process.runtimeFacts.repoSnapDeterministic,
+    operatorConsoleCommand: "buccet console",
+  };
+}
+
+export function renderBuccetInstallSnapSummaryText(
+  process: BuccetMetaEfueSubstrateProcess = runBuccetMetaEfueSubstrateProcess(),
+): string {
+  const summary = buildBuccetInstallSnapSummary(process);
+  return [
+    "Buccet snapped install:",
+    `  repo body: ${summary.repoArtifactCount} artifacts -> ${summary.repoSnapBodyCount} snap bodies (${summary.repoCompressionPercent}% compression)`,
+    `  runtime body: ${summary.runtimeNodeCount} nodes -> ${summary.runtimeExecutablePrimitiveCount} executable primitives`,
+    `  speed: runtime ${summary.runtimeSnapAvgMs.toFixed(6)}ms | whole repo ${summary.repoSnapAvgMs.toFixed(6)}ms`,
+    `  deterministic: runtime ${summary.runtimeDeterministic ? "yes" : "no"} | repo ${summary.repoDeterministic ? "yes" : "no"}`,
+    `  console: ${summary.operatorConsoleCommand}`,
+  ].join("\n");
 }
 
 export function renderBuccetMetaEfueSubstrateProcessMarkdown(

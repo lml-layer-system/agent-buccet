@@ -108,6 +108,13 @@ That installs a thin user-space shell under:
 - `~/.buccet`
 - `~/.local/bin/buccet`
 
+The install now carries the snapped full Buccet body and prints the install snap summary directly.
+Default operator surface after install:
+
+```bash
+buccet console
+```
+
 Then use:
 
 ```bash

@@ -2,7 +2,14 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { publishBoundaryReleaseWitness, type BoundaryReleaseWitnessStatus } from "../lib/agent-buccet/index.ts";
+import {
+  buildBuccetInstallSnapSummary,
+  publishBoundaryReleaseWitness,
+  renderBuccetInstallSnapSummaryText,
+  renderBuccetMetaEfueSubstrateProcessMarkdown,
+  runBuccetMetaEfueSubstrateProcess,
+  type BoundaryReleaseWitnessStatus,
+} from "../lib/agent-buccet/index.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
@@ -286,6 +293,8 @@ async function writeExtractionManifest() {
       "bin/buccet.ts",
       "install.sh",
       "README.md",
+      "INSTALL_SNAP.txt",
+      "SNAP_INSTALL.json",
       "package.json",
       "tsconfig.json",
       "native/**/*",
@@ -306,6 +315,26 @@ async function writeExtractionManifest() {
 async function writeStandaloneReadme() {
   const sourceReadme = await fs.readFile(path.join(sourceDocsDir, "README.md"), "utf8");
   await fs.writeFile(path.join(outDir, "README.md"), sourceReadme, "utf8");
+}
+
+async function writeSnapArtifacts() {
+  const process = runBuccetMetaEfueSubstrateProcess();
+  const summary = buildBuccetInstallSnapSummary(process);
+  await fs.writeFile(
+    path.join(outDir, "INSTALL_SNAP.txt"),
+    `${renderBuccetInstallSnapSummaryText(process)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(outDir, "SNAP_INSTALL.json"),
+    `${JSON.stringify(summary, null, 2)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(outDir, "docs", "BUCCET_META_EFUE_SUBSTRATE_PROCESS.md"),
+    `${renderBuccetMetaEfueSubstrateProcessMarkdown(process)}\n`,
+    "utf8",
+  );
 }
 
 async function writeStandaloneExample() {
@@ -563,6 +592,7 @@ async function main() {
   await writeStandalonePackageJson();
   await writeStandaloneTsconfig();
   await writeStandaloneReadme();
+  await writeSnapArtifacts();
   await writeExtractionManifest();
   await writeHostedInstaller();
   const witness = await publishBoundaryReleaseWitness({ releaseDir, env: process.env });
