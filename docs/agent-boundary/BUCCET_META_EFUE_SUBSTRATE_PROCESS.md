@@ -14,16 +14,16 @@ It is the executed 7-step collapse of the current Buccet system into an executab
 - substrate planes: `6`
 - substrate terminals: `3`
 - consequence boundaries: `4`
-- repo artifacts: `367`
+- repo artifacts: `362`
 - repo snap bodies: `9`
 - snap compression to planes: `4.83:1`
 - snap compression to executable body: `2.07:1`
-- repo snap compression: `40.78:1`
+- repo snap compression: `40.22:1`
 - executable body primitives: `14`
-- measured snap avg: `0.011885ms`
-- measured repo snap avg: `0.079601ms`
+- measured snap avg: `0.012442ms`
+- measured repo snap avg: `0.046824ms`
 - snap target: `10ms`
-- under target by: `841.39x`
+- under target by: `803.71x`
 - deterministic repeated snap: `yes`
 - deterministic repeated repo snap: `yes`
 
@@ -65,7 +65,7 @@ It is the executed 7-step collapse of the current Buccet system into an executab
 - path memory giving lawful work finite route structure
 - path sources enriching paths without changing permissions
 - install / hosted-install / CLI runtime proofs
-- 367 repo artifacts snapping into 9 executable bodies
+- 362 repo artifacts snapping into 9 executable bodies
 
 ## Step 2: Collision Point
 
@@ -142,22 +142,22 @@ return repo_body, runtime, witness
 
 ## Step 6: Measure Performance
 
-- Time: `0.079601ms`
-- Runtime speed tier (10 iterations): `0.018358ms`
-- Runtime speed tier (1,000 iterations): `0.030012ms`
-- Runtime speed tier (10,000 iterations): `0.011885ms`
-- Repo speed tier (10 iterations): `0.105764ms`
-- Repo speed tier (1,000 iterations): `0.164890ms`
-- Repo speed tier (10,000 iterations): `0.079601ms`
+- Time: `0.046824ms`
+- Runtime speed tier (10 iterations): `0.016616ms`
+- Runtime speed tier (1,000 iterations): `0.009973ms`
+- Runtime speed tier (10,000 iterations): `0.012442ms`
+- Repo speed tier (10 iterations): `1.082141ms`
+- Repo speed tier (1,000 iterations): `0.165219ms`
+- Repo speed tier (10,000 iterations): `0.046824ms`
 - Space model: finite repo snap bodies, finite substrate planes, finite terminals, finite consequence boundaries, finite active path/runtime state
-- Complexity check: repo snap benchmark confirms avg 0.079601ms over 10,000 iterations with deterministic repeated output while the runtime substrate snap stays at 0.011885ms
+- Complexity check: repo snap benchmark confirms avg 0.046824ms over 10,000 iterations with deterministic repeated output while the runtime substrate snap stays at 0.012442ms
 
 ## Step 7: Verify Correctness
 
 ### Checks
 
 - system substrate remains lossless across 29/29 nodes
-- repo organism remains covered across 367/367 artifacts
+- repo organism remains covered across 362/362 artifacts
 - substance compresses into 6 planes, 3 terminals, 4 consequence boundaries, and 1 finite lawful machine
 - repo body compresses into 9 executable bodies with 0 orphaned artifacts
 - path runtime and CLI proofs confirm the executable operator surface is real
@@ -181,11 +181,11 @@ Buccet keeps authored infinity outside runtime and collapses the active system i
 ### Exact Snap Result
 
 - Same function: same lawful consequence function: authored repo/world in -> lawful runtime, witness, operator state, and release surface out
-- Same power: same governing power preserved across 29/29 runtime nodes and 367/367 repo artifacts
+- Same power: same governing power preserved across 29/29 runtime nodes and 362/362 repo artifacts
 - New body: new executable body = 9 repo snap bodies carrying 6 planes, 3 terminals, 4 consequence boundaries, and 1 finite lawful machine
 - End-to-end runtime: no matter how much is added to either UPL side, anything Buccet controls still resolves end to end through the same finite runtime body
-- Speed: runtime `0.011885ms`, whole repo `0.079601ms`
-- Compression: runtime 29 nodes -> 14 executable substrate primitives; repo 367 artifacts -> 9 executable snap bodies
+- Speed: runtime `0.012442ms`, whole repo `0.046824ms`
+- Compression: runtime 29 nodes -> 14 executable substrate primitives; repo 362 artifacts -> 9 executable snap bodies
 - Deterministic: runtime same snap output on repeated runs; repo same snap output on repeated runs
 
 That is why:

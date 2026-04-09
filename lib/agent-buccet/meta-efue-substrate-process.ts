@@ -263,8 +263,16 @@ function createBuccetRepoArtifactManifest(repoRoot: string): BuccetRepoArtifact[
     return !(
       relativePath.startsWith(".git/")
       || relativePath === ".git"
+      || relativePath.startsWith(".next/")
+      || relativePath.startsWith("out/")
+      || relativePath.startsWith("coverage/")
       || relativePath.startsWith("node_modules/")
       || relativePath.startsWith("dist/")
+      || relativePath.startsWith("data/agent-boundary/")
+      || relativePath.startsWith("data/ledger/")
+      || relativePath.startsWith("artifacts/")
+      || relativePath.startsWith("demo/workspace/")
+      || relativePath.includes("/build/")
     );
   });
   return [...new Set(artifacts)]
