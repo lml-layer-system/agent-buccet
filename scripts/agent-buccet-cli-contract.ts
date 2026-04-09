@@ -389,6 +389,14 @@ async function main() {
   assert.equal(ledgerResult.code, 0, ledgerResult.stderr);
   assert.match(ledgerResult.stdout, /Witness Ledger/);
 
+  const hookStopResult = await runCli(["hook", "stop"], env);
+  assert.equal(hookStopResult.code, 0, hookStopResult.stderr);
+
+  const strictDoctorFailResult = await runCli(["doctor", "--strict"], env);
+  assert.equal(strictDoctorFailResult.code, 1, strictDoctorFailResult.stderr);
+  assert.match(strictDoctorFailResult.stdout, /Strict posture: FAIL/);
+  assert.match(strictDoctorFailResult.stdout, /Gravity bridge:/);
+
   const uninstallResult = await runCli(["uninstall"], env);
   assert.equal(uninstallResult.code, 0, uninstallResult.stderr);
   const homeExists = await fs.access(homePath).then(() => true).catch(() => false);

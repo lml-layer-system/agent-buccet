@@ -4398,30 +4398,24 @@ async function handleDoctor(rest: string[] = []) {
   const backendLabel = detectBackendLabel();
   const nativeReady = await pathExists(home.nativeLibraryPath);
   const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
-
-  const hookPid = await fs.readFile(home.hookPidPath, "utf8")
-    .then((raw) => Number(raw.trim())).catch(() => 0);
-  const hookAlive = hookPid ? await pidAlive(hookPid) : false;
-
-  let interceptReachable = false;
-  if (hookAlive) {
-    try {
-      const boundary = await importBoundary(homePath);
-      const out = await boundary.sendBoundaryInterceptServerInput({
-        target: { socketPath: home.interceptSocketPath },
-        input: { command: "status" },
-      });
-      interceptReachable = out.type === "status";
-    } catch {
-      interceptReachable = false;
-    }
-  }
+  const boundary = await importBoundary(homePath);
+  const hookHealth = await getHookRuntimeHealth(boundary, home).catch<HookRuntimeHealth>(() => ({
+    running: false,
+    healthy: false,
+    interceptReady: false,
+    bridgeReady: false,
+    reason: "hook runtime health check failed",
+  }));
+  const hookAlive = hookHealth.running;
+  const hookPid = hookHealth.pid ?? 0;
+  const hookState = hookHealth.state ?? "missing";
+  const interceptReachable = hookHealth.interceptReady;
+  const bridgeReachable = hookHealth.bridgeReady;
 
   let ledgerChainOk: boolean | null = null;
   let ledgerEntries = 0;
   if (config) {
     try {
-      const boundary = await importBoundary(homePath);
       const verify = await boundary.verifyBoundaryLedgerChain();
       const entries = await boundary.readBoundaryLedgerBySession(config.sessionId);
       ledgerChainOk = verify.ok;
@@ -4445,7 +4439,9 @@ async function handleDoctor(rest: string[] = []) {
     `  Backend:          ${backendLabel}`,
     `  Native library:   ${nativeReady ? `${passIcon} (${protectionMode})` : `${warnIcon} (${protectionMode} — run 'buccet hook build')`}`,
     `  Hook daemon:      ${hookAlive ? `${passIcon} (pid ${hookPid})` : `${failIcon} (not running — run 'buccet hook start')`}`,
-    `  Intercept socket: ${interceptReachable ? passIcon : hookAlive ? `${failIcon} (daemon alive but socket unreachable)` : `${warnIcon} (daemon not running)`}`,
+    `  Hook state:       ${hookAlive ? (hookState === "alive" ? passIcon : `${failIcon} (${hookState})`) : `${warnIcon} (not running)`}`,
+    `  Intercept socket: ${interceptReachable ? passIcon : hookAlive ? `${failIcon} (${hookHealth.reason ?? "unreachable"})` : `${warnIcon} (daemon not running)`}`,
+    `  Gravity bridge:   ${bridgeReachable ? passIcon : hookAlive ? `${failIcon} (${hookHealth.reason ?? "unreachable"})` : `${warnIcon} (daemon not running)`}`,
     `  Ledger chain:     ${ledgerChainOk === null ? `${warnIcon} (not checked)` : ledgerChainOk ? `${passIcon} (${ledgerEntries} entries)` : `${failIcon} (chain broken — run 'buccet ledger repair')`}`,
     `  Session:          ${sessionStatus}`,
     ``,
@@ -4455,12 +4451,11 @@ async function handleDoctor(rest: string[] = []) {
     console.log(line);
   }
 
-  const critical = !hookAlive || (hookAlive && !interceptReachable) || ledgerChainOk === false;
+  const critical = !hookHealth.healthy || ledgerChainOk === false;
   const strictFailure =
     !config
     || !nativeReady
-    || !hookAlive
-    || !interceptReachable
+    || !hookHealth.healthy
     || ledgerChainOk !== true;
   if (critical) {
     console.log(`  One or more checks require attention.`);

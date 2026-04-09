@@ -4,7 +4,7 @@ Use this before flipping the repo public.
 
 ## One-Command Lock Gate
 
-If you want the full locked posture in one shot, run:
+If you want the stable production lock gate in one shot, run:
 
 ```bash
 npm run check:agent-buccet:production
@@ -40,7 +40,7 @@ For an installed machine-level posture check, run:
 buccet doctor --strict
 ```
 
-`--strict` fails closed if the install is not initialized, the native layer is missing, the hook daemon is down, the intercept socket is unreachable, or the ledger chain is not healthy.
+`--strict` fails closed if the install is not initialized, the native layer is missing, the protected lane is unhealthy, or the ledger chain is not healthy.
 
 ## CI Gate
 
