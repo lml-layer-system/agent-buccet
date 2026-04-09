@@ -65,6 +65,7 @@ Core docs:
 - [Launch Proof](LAUNCH_PROOF.md)
 - [Release Checklist](RELEASE_CHECKLIST.md)
 - [Security Model](SECURITY_MODEL.md)
+- [Where To Add What](WHERE_TO_ADD_WHAT.md)
 - [UPL Base Packs](UPL_BASE_PACKS.md)
 - [Buccet Meta-EFUE Substrate Process](BUCCET_META_EFUE_SUBSTRATE_PROCESS.md)
 - [Buccet System Substrate](BUCCET_SYSTEM_SUBSTRATE.md)
@@ -114,6 +115,17 @@ Default operator surface after install:
 ```bash
 buccet console
 ```
+
+If you want the exact operator map for where to add approved UPL, denied UPL,
+path sources, and scope, run:
+
+```bash
+buccet where
+```
+
+If users forget to run `buccet upl sync`, Buccet now auto-syncs changed UPL
+docs before runtime surfaces like `buccet console`, `buccet run`, `buccet hook run`,
+and `buccet path run`.
 
 Then use:
 

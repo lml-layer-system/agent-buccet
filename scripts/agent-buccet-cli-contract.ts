@@ -94,6 +94,45 @@ async function main() {
   assert.equal(initResult.code, 0, initResult.stderr);
   assert.match(initResult.stdout, /Agent Buccet/);
 
+  const whereResult = await runCli(["where", "--json"], env);
+  assert.equal(whereResult.code, 0, whereResult.stderr);
+  const where = JSON.parse(whereResult.stdout) as {
+    operator: {
+      consoleCommand: string;
+      doctorCommand: string;
+    };
+    upl: {
+      acceptance: { dir: string; compileCommand: string };
+      denial: { dir: string; compileCommand: string };
+      pipelineGuidePath: string;
+      intakeTemplatePath: string;
+    };
+    pathSources: {
+      libraryPath: string;
+      addCommand: string;
+    };
+    scope: {
+      addCommand: string;
+    };
+    pathRuntime: {
+      runCommand: string;
+      watchCommand: string;
+    };
+  };
+  assert.match(where.operator.consoleCommand, /^buccet console$/);
+  assert.match(where.operator.doctorCommand, /^buccet doctor --strict$/);
+  assert.equal(where.upl.acceptance.dir, path.join(homePath, "upl-docs", "acceptance"));
+  assert.equal(where.upl.denial.dir, path.join(homePath, "upl-docs", "denial"));
+  assert.match(where.upl.acceptance.compileCommand, /buccet upl sync --lane acceptance/);
+  assert.match(where.upl.denial.compileCommand, /buccet upl sync --lane denial/);
+  await fs.access(where.upl.pipelineGuidePath);
+  await fs.access(where.upl.intakeTemplatePath);
+  assert.equal(where.pathSources.libraryPath, path.join(homePath, "path-memory", "library.json"));
+  assert.match(where.pathSources.addCommand, /buccet path sources add <path-name> <file\.\.\.> \[--domain <domain>\]/);
+  assert.match(where.scope.addCommand, /^buccet scope add <path>$/);
+  assert.match(where.pathRuntime.runCommand, /^buccet path run <path-name>/);
+  assert.match(where.pathRuntime.watchCommand, /^buccet path watch <path-name\|formation-id>/);
+
   const statusResult = await runCli(["status", "--json"], env);
   assert.equal(statusResult.code, 0, statusResult.stderr);
   const status = JSON.parse(statusResult.stdout) as {
@@ -136,6 +175,22 @@ async function main() {
   await fs.access(uplSources.acceptancePipeline.guidePath);
   await fs.access(uplSources.acceptancePipeline.templatePath);
   assert.match(uplSources.acceptancePipeline.commands.sync, /buccet upl sync --lane acceptance/);
+
+  const autoSyncDocPath = path.join(uplSources.lanes.find((lane) => lane.lane === "acceptance")!.dir, "autosync-demo.md");
+  await fs.writeFile(
+    autoSyncDocPath,
+    [
+      "# Autosync Demo",
+      "",
+      "Catalog: SkillsMP",
+      "URL: https://skillsmp.com/skills/autosync-demo",
+      "",
+      "## Source material",
+      "Copied text:",
+      "Browser automation and reporting workflow with firecrawl and playwright.",
+    ].join("\n"),
+    "utf8",
+  );
 
   const uplOpenResult = await runCli(["upl", "sources", "--open", "skillsmp", "--json"], env);
   assert.equal(uplOpenResult.code, 0, uplOpenResult.stderr);
@@ -303,6 +358,12 @@ async function main() {
   };
   assert.ok(uplList.activeApproved.length > 0, "expected base acceptance to seed active approved UPL");
   assert.ok(uplList.activeDenied.length > 0, "expected base denial pack to seed active denied UPL");
+  assert.ok(
+    uplList.activeApproved.some((entry) =>
+      entry.notes?.includes(`source=${autoSyncDocPath}`) &&
+      entry.notes?.includes("[acceptance-source-intake]")),
+    "expected runtime auto-sync to compile changed acceptance docs before path runtime",
+  );
 
   const mutableEntry = uplList.activeDenied[0];
   assert.ok(mutableEntry?.id, "expected an active denied UPL entry to mutate");

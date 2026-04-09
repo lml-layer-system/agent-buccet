@@ -56,6 +56,25 @@ type UplSourceSpec = {
   readmePath: string;
 };
 
+type UplSyncLaneFiles = {
+  spec: UplSourceSpec;
+  files: string[];
+};
+
+type UplSyncResult = {
+  scope: BoundaryUplScope;
+  root: string;
+  laneFiles: UplSyncLaneFiles[];
+  imported: Array<{ lane: UplSourceLane; file: string; imported: number; entries: string[] }>;
+  fingerprint: string;
+};
+
+type UplAutoSyncState = {
+  fingerprint: string;
+  syncedAt: string;
+  fileCount: number;
+};
+
 type UplAcceptanceSourceCatalog = {
   id: "skillsmp" | "aitmpl" | "skillhub" | "agentskills";
   name: string;
@@ -109,6 +128,7 @@ function usage(): never {
     "Usage:",
     "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
     "  buccet console                                            — open the unified operator cockpit (shield + control + witness)",
+    "  buccet where [--json]                                     — show exactly where approved law, denied law, path sources, and scopes go",
     "  buccet doctor [--strict]                                  — health check: platform, backend, intercept, ledger",
     "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
     "  buccet status [--json]",
@@ -336,6 +356,7 @@ function resolveHomePaths(homePath: string) {
     uplDenialDocsDir: path.join(uplDocsDir, "denial"),
     uplAcceptancePipelinePath: path.join(uplDocsDir, "acceptance", "PIPELINE.txt"),
     uplAcceptanceSkillTemplatePath: path.join(uplDocsDir, "acceptance", "SKILL_INTAKE_TEMPLATE.txt"),
+    uplAutoSyncStatePath: path.join(uplDocsDir, ".autosync-state.json"),
     pathMemoryDir,
     pathLibraryPath: path.join(pathMemoryDir, "library.json"),
     pathFormationSnapshotPath: path.join(pathMemoryDir, "formations.json"),
@@ -479,6 +500,80 @@ function acceptancePipelineCommands(home: ReturnType<typeof resolveHomePaths>) {
     inspectSearch: "buccet upl search my-skill",
     inspectDiff: "buccet upl diff --search my-skill",
     inspectShow: "buccet upl show <upl-id>",
+  };
+}
+
+function buildWherePayload(home: ReturnType<typeof resolveHomePaths>) {
+  const acceptanceCommands = acceptancePipelineCommands(home);
+  return {
+    home: home.homePath,
+    operator: {
+      initCommand: "buccet init",
+      consoleCommand: "buccet console",
+      doctorCommand: "buccet doctor --strict",
+      mapCommand: "buccet where --json",
+    },
+    upl: {
+      rootDir: home.uplDocsDir,
+      acceptance: {
+        dir: home.uplAcceptanceDocsDir,
+        putHere: [
+          "markdown law docs",
+          "raw skill text",
+          "SKILL.md",
+          "README.md",
+          "extracted package markdown",
+        ],
+        compileCommand: "buccet upl sync --lane acceptance",
+        inspectCommands: [
+          "buccet upl search <query>",
+          "buccet upl diff --search <query>",
+          "buccet upl show <upl-id>",
+        ],
+      },
+      denial: {
+        dir: home.uplDenialDocsDir,
+        putHere: [
+          "markdown law docs",
+          "raw skill text",
+          "SKILL.md",
+          "README.md",
+          "extracted package markdown",
+        ],
+        compileCommand: "buccet upl sync --lane denial",
+        inspectCommands: [
+          "buccet upl search <query> --type denied",
+          "buccet upl diff --type denied --search <query>",
+          "buccet upl show <upl-id>",
+        ],
+      },
+      externalCatalogs: acceptanceSourceCatalogs().map((catalog) => ({
+        id: catalog.id,
+        name: catalog.name,
+        url: catalog.url,
+        openCommand: `buccet upl sources --open ${catalog.id}`,
+      })),
+      pipelineGuidePath: home.uplAcceptancePipelinePath,
+      intakeTemplatePath: home.uplAcceptanceSkillTemplatePath,
+      templateCopyCommand: acceptanceCommands.copyTemplate,
+    },
+    pathSources: {
+      libraryPath: home.pathLibraryPath,
+      addCommand: "buccet path sources add <path-name> <file...> [--domain <domain>]",
+      listCommand: "buccet path sources list <path-name>",
+      showCommand: "buccet path show <path-name>",
+      note: "source files can live anywhere; Buccet ingests their content into the path as domain context",
+    },
+    scope: {
+      addCommand: "buccet scope add <path>",
+      listCommand: "buccet scope list",
+    },
+    pathRuntime: {
+      runCommand: "buccet path run <path-name> [--request <text>] [--steps <n>|--all]",
+      watchCommand: "buccet path watch <path-name|formation-id> [--follow]",
+      formationsCommand: "buccet path formations list",
+      closeCommand: "buccet path close <path-name|formation-id>",
+    },
   };
 }
 
@@ -1103,6 +1198,8 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
       `Acceptance source pipeline: ${home.uplAcceptancePipelinePath}`,
       `Acceptance intake template: ${home.uplAcceptanceSkillTemplatePath}`,
       "",
+      "Run `buccet where` for the full add-map.",
+      "",
       "Use `buccet upl sync` to compile both lanes into the active UPL.",
     ].join("\n") + "\n", "utf8");
   }
@@ -1118,6 +1215,7 @@ async function ensurePathMemoryHome(home: ReturnType<typeof resolveHomePaths>): 
       "This folder stores the persisted Buccet path library.",
       "Path sources enrich a path with domain context.",
       "They do not change UPL and they do not widen permissions.",
+      "Run `buccet where` for the full add-map.",
       "",
       "Useful commands:",
       "- buccet path list",
@@ -1130,6 +1228,63 @@ async function ensurePathMemoryHome(home: ReturnType<typeof resolveHomePaths>): 
       "- buccet path sources list <path-name>",
     ].join("\n") + "\n", "utf8");
   }
+}
+
+async function handleWhere(rest: string[]) {
+  const asJson = rest.includes("--json");
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  await ensureUplSourceHomes(home);
+  await ensurePathMemoryHome(home);
+
+  const payload = buildWherePayload(home);
+  if (asJson) {
+    printJson(payload);
+    return;
+  }
+
+  printCliHeader("Agent Buccet — Where To Add What");
+  printCliSection("Start Here", [
+    formatCliKeyValue("init", payload.operator.initCommand),
+    formatCliKeyValue("console", payload.operator.consoleCommand),
+    formatCliKeyValue("health", payload.operator.doctorCommand),
+  ]);
+  printCliSection("Approved UPL (yes side)", [
+    formatCliKeyValue("folder", payload.upl.acceptance.dir),
+    formatCliKeyValue("put here", payload.upl.acceptance.putHere.join(" | ")),
+    formatCliKeyValue("compile", payload.upl.acceptance.compileCommand),
+    formatCliKeyValue("inspect", payload.upl.acceptance.inspectCommands.join(" | ")),
+  ]);
+  printCliSection("Denied UPL (no side)", [
+    formatCliKeyValue("folder", payload.upl.denial.dir),
+    formatCliKeyValue("put here", payload.upl.denial.putHere.join(" | ")),
+    formatCliKeyValue("compile", payload.upl.denial.compileCommand),
+    formatCliKeyValue("inspect", payload.upl.denial.inspectCommands.join(" | ")),
+  ]);
+  printCliSection("External Yes-Side Intake", [
+    formatCliKeyValue("guide", payload.upl.pipelineGuidePath),
+    formatCliKeyValue("template", payload.upl.intakeTemplatePath),
+    formatCliKeyValue("copy template", payload.upl.templateCopyCommand),
+    ...payload.upl.externalCatalogs.map((catalog) =>
+      formatCliKeyValue(catalog.name, `${catalog.url} | open: ${catalog.openCommand}`)),
+  ]);
+  printCliSection("Path Sources (domain context)", [
+    formatCliKeyValue("add", payload.pathSources.addCommand),
+    formatCliKeyValue("list", payload.pathSources.listCommand),
+    formatCliKeyValue("show", payload.pathSources.showCommand),
+    formatCliKeyValue("persists in", payload.pathSources.libraryPath),
+    payload.pathSources.note,
+  ]);
+  printCliSection("Scopes", [
+    formatCliKeyValue("open scope", payload.scope.addCommand),
+    formatCliKeyValue("list scopes", payload.scope.listCommand),
+  ]);
+  printCliSection("Run Paths", [
+    formatCliKeyValue("run", payload.pathRuntime.runCommand),
+    formatCliKeyValue("watch", payload.pathRuntime.watchCommand),
+    formatCliKeyValue("formations", payload.pathRuntime.formationsCommand),
+    formatCliKeyValue("close", payload.pathRuntime.closeCommand),
+  ]);
 }
 
 async function loadPersistedBuccetPathLibrary(
@@ -1453,6 +1608,41 @@ async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
     results.push(absolutePath);
   }
   return results.sort((left, right) => left.localeCompare(right));
+}
+
+async function collectUplSyncLaneFiles(home: ReturnType<typeof resolveHomePaths>): Promise<UplSyncLaneFiles[]> {
+  return await Promise.all(
+    uplSourceSpecs(home).map(async (spec) => ({
+      spec,
+      files: await listLaneMarkdownFiles(spec.dir),
+    })),
+  );
+}
+
+async function computeUplSyncFingerprint(lanes: UplSyncLaneFiles[]): Promise<string> {
+  const digest = createHash("sha256");
+  for (const lane of lanes) {
+    digest.update(`${lane.spec.lane}\n`);
+    for (const filePath of lane.files) {
+      const stats = await fs.stat(filePath);
+      digest.update(`${filePath}\n${stats.size}\n${Math.floor(stats.mtimeMs)}\n`);
+    }
+  }
+  return digest.digest("hex");
+}
+
+async function loadUplAutoSyncState(statePath: string): Promise<UplAutoSyncState | null> {
+  try {
+    const raw = await fs.readFile(statePath, "utf8");
+    return JSON.parse(raw) as UplAutoSyncState;
+  } catch {
+    return null;
+  }
+}
+
+async function saveUplAutoSyncState(statePath: string, state: UplAutoSyncState): Promise<void> {
+  await ensureDir(path.dirname(statePath));
+  await fs.writeFile(statePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
 function muteLaneSourcedEntries(args: {
@@ -2420,6 +2610,7 @@ async function handleInit(rest: string[]) {
   console.log(`  Default operator cockpit:`);
   console.log(``);
   console.log(`    buccet console`);
+  console.log(`    buccet where`);
   console.log(``);
   console.log(`  Optional split views:`);
   console.log(``);
@@ -2774,6 +2965,169 @@ async function importCompiledDocumentLaws(args: {
     entryIds,
     imported: scoped.length,
   };
+}
+
+async function syncUplDocumentSources(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  home: ReturnType<typeof resolveHomePaths>;
+  config: BuccetConfig;
+  scope: BoundaryUplScope;
+  laneSelection?: UplSourceLane | null;
+}): Promise<UplSyncResult> {
+  await ensureUplSourceHomes(args.home);
+  const allLaneFiles = await collectUplSyncLaneFiles(args.home);
+  const fingerprint = await computeUplSyncFingerprint(allLaneFiles);
+  const laneFiles = allLaneFiles.filter((lane) => !args.laneSelection || lane.spec.lane === args.laneSelection);
+  const lanes = laneFiles.map((lane) => lane.spec);
+  const store = await ensureStore(args.boundary, {
+    config: args.config,
+    sessionsDir: args.home.sessionsDir,
+  });
+  const staged: Array<{ lane: UplSourceLane; filePath: string; compiled: CompiledDocumentLaw[] }> = [];
+  for (const lane of laneFiles) {
+    for (const filePath of lane.files) {
+      const markdown = await fs.readFile(filePath, "utf8");
+      const extracted = args.boundary.extractDocumentLawsWithDiagnostics({
+        sourcePath: filePath,
+        markdown,
+      });
+      const hasCompiledLaw = extracted.laws.length > 0;
+      const intakeDoc = !hasCompiledLaw
+        ? parseSourceIntakeDoc(markdown, filePath)
+        : null;
+      const tagged = hasCompiledLaw
+        ? (() => {
+          validateExtractedDocumentLane({
+            lane: lane.spec.lane,
+            filePath,
+            compiled: extracted.laws,
+            diagnostics: extracted.diagnostics,
+          });
+          return extracted.laws.map((entry) => ({
+            ...entry,
+            notes: formatUplSourceNote({
+              lane: lane.spec.lane,
+              filePath,
+              notes: entry.notes,
+            }),
+          }));
+        })()
+        : intakeDoc
+          ? compileSourceIntakeDoc({
+              filePath,
+              lane: lane.spec.lane,
+              doc: intakeDoc,
+              scope: args.scope,
+            })
+          : (() => {
+            validateExtractedDocumentLane({
+              lane: lane.spec.lane,
+              filePath,
+              compiled: extracted.laws,
+              diagnostics: extracted.diagnostics,
+            });
+            return extracted.laws.map((entry) => ({
+              ...entry,
+              notes: formatUplSourceNote({
+                lane: lane.spec.lane,
+                filePath,
+                notes: entry.notes,
+              }),
+            }));
+          })();
+      staged.push({
+        lane: lane.spec.lane,
+        filePath,
+        compiled: tagged,
+      });
+    }
+  }
+
+  let upl = await args.boundary.loadUserPathLedger();
+  const now = new Date().toISOString();
+  for (const lane of lanes) {
+    upl = muteLaneSourcedEntries({
+      ledger: upl,
+      lane: lane.lane,
+      scope: args.scope,
+      session: store.getConfig().session,
+      modifiedAt: now,
+    });
+  }
+  if (staged.length === 0) {
+    upl = await args.boundary.saveUserPathLedger(upl);
+  }
+
+  const imported: Array<{ lane: UplSourceLane; file: string; imported: number; entries: string[] }> = [];
+  for (const item of staged) {
+    const result = await importCompiledDocumentLaws({
+      boundary: args.boundary,
+      config: args.config,
+      store,
+      upl,
+      filePath: item.filePath,
+      compiled: item.compiled,
+      scope: args.scope,
+      importReason: `document law synced from ${item.lane} source`,
+      metadata: {
+        import_mode: "upl_sync",
+        document_lane: item.lane,
+      },
+    });
+    upl = result.upl;
+    imported.push({
+      lane: item.lane,
+      file: item.filePath,
+      imported: result.imported,
+      entries: result.entryIds,
+    });
+  }
+
+  store.replaceConfig({
+    ...store.getConfig(),
+    upl,
+    userLawIds: [
+      ...new Set([
+        ...(store.getConfig().userLawIds ?? []),
+        ...args.boundary.getActiveUserLawIds(upl, store.getConfig().session),
+      ]),
+    ],
+  });
+  await store.persist();
+
+  return {
+    scope: args.scope,
+    root: args.home.uplDocsDir,
+    laneFiles,
+    imported,
+    fingerprint,
+  };
+}
+
+async function ensureRuntimeUplAutoSync(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  home: ReturnType<typeof resolveHomePaths>;
+  config: BuccetConfig;
+}): Promise<boolean> {
+  await ensureUplSourceHomes(args.home);
+  const laneFiles = await collectUplSyncLaneFiles(args.home);
+  const fingerprint = await computeUplSyncFingerprint(laneFiles);
+  const previous = await loadUplAutoSyncState(args.home.uplAutoSyncStatePath);
+  if (previous?.fingerprint === fingerprint) {
+    return false;
+  }
+  const result = await syncUplDocumentSources({
+    boundary: args.boundary,
+    home: args.home,
+    config: args.config,
+    scope: "GLOBAL",
+  });
+  await saveUplAutoSyncState(args.home.uplAutoSyncStatePath, {
+    fingerprint: result.fingerprint,
+    syncedAt: new Date().toISOString(),
+    fileCount: laneFiles.reduce((sum, lane) => sum + lane.files.length, 0),
+  });
+  return true;
 }
 
 async function handleUpl(rest: string[]) {
@@ -3170,153 +3524,44 @@ async function handleUpl(rest: string[]) {
       usage();
     }
 
-    await ensureUplSourceHomes(home);
-    const lanes = uplSourceSpecs(home).filter((spec) => !laneSelection || spec.lane === laneSelection);
-    const laneFiles = await Promise.all(
-      lanes.map(async (spec) => ({
-        spec,
-        files: await listLaneMarkdownFiles(spec.dir),
-      })),
-    );
-    const store = await ensureStore(boundary, {
+    const result = await syncUplDocumentSources({
+      boundary,
+      home,
       config,
-      sessionsDir: home.sessionsDir,
+      scope,
+      laneSelection,
     });
-    const staged: Array<{ lane: UplSourceLane; filePath: string; compiled: CompiledDocumentLaw[] }> = [];
-    for (const lane of laneFiles) {
-      for (const filePath of lane.files) {
-        const markdown = await fs.readFile(filePath, "utf8");
-        const extracted = boundary.extractDocumentLawsWithDiagnostics({
-          sourcePath: filePath,
-          markdown,
-        });
-        const hasCompiledLaw = extracted.laws.length > 0;
-        const intakeDoc = !hasCompiledLaw
-          ? parseSourceIntakeDoc(markdown, filePath)
-          : null;
-        const tagged = hasCompiledLaw
-          ? (() => {
-            validateExtractedDocumentLane({
-              lane: lane.spec.lane,
-              filePath,
-              compiled: extracted.laws,
-              diagnostics: extracted.diagnostics,
-            });
-            return extracted.laws.map((entry) => ({
-              ...entry,
-              notes: formatUplSourceNote({
-                lane: lane.spec.lane,
-                filePath,
-                notes: entry.notes,
-              }),
-            }));
-          })()
-          : intakeDoc
-            ? compileSourceIntakeDoc({
-            filePath,
-            lane: lane.spec.lane,
-            doc: intakeDoc,
-            scope,
-          })
-            : (() => {
-              validateExtractedDocumentLane({
-                lane: lane.spec.lane,
-                filePath,
-                compiled: extracted.laws,
-                diagnostics: extracted.diagnostics,
-              });
-              return extracted.laws.map((entry) => ({
-                ...entry,
-                notes: formatUplSourceNote({
-                  lane: lane.spec.lane,
-                  filePath,
-                  notes: entry.notes,
-                }),
-              }));
-            })();
-        staged.push({
-          lane: lane.spec.lane,
-          filePath,
-          compiled: tagged,
-        });
-      }
-    }
-
-    let upl = await boundary.loadUserPathLedger();
-    const now = new Date().toISOString();
-    for (const lane of lanes) {
-      upl = muteLaneSourcedEntries({
-        ledger: upl,
-        lane: lane.lane,
-        scope,
-        session: store.getConfig().session,
-        modifiedAt: now,
+    if (scope === "GLOBAL" && !laneSelection) {
+      await saveUplAutoSyncState(home.uplAutoSyncStatePath, {
+        fingerprint: result.fingerprint,
+        syncedAt: new Date().toISOString(),
+        fileCount: result.laneFiles.reduce((sum, lane) => sum + lane.files.length, 0),
       });
     }
-    if (staged.length === 0) {
-      upl = await boundary.saveUserPathLedger(upl);
-    }
-
-    const imported: Array<{ lane: UplSourceLane; file: string; imported: number; entries: string[] }> = [];
-    for (const item of staged) {
-      const result = await importCompiledDocumentLaws({
-        boundary,
-        config,
-        store,
-        upl,
-        filePath: item.filePath,
-        compiled: item.compiled,
-        scope,
-        importReason: `document law synced from ${item.lane} source`,
-        metadata: {
-          import_mode: "upl_sync",
-          document_lane: item.lane,
-        },
-      });
-      upl = result.upl;
-      imported.push({
-        lane: item.lane,
-        file: item.filePath,
-        imported: result.imported,
-        entries: result.entryIds,
-      });
-    }
-
-    store.replaceConfig({
-      ...store.getConfig(),
-      upl,
-      userLawIds: [
-        ...new Set([
-          ...(store.getConfig().userLawIds ?? []),
-          ...boundary.getActiveUserLawIds(upl, store.getConfig().session),
-        ]),
-      ],
-    });
-    await store.persist();
 
     if (asJson) {
       printJson({
-        scope,
-        root: home.uplDocsDir,
-        lanes: laneFiles.map((lane) => ({
+        scope: result.scope,
+        root: result.root,
+        lanes: result.laneFiles.map((lane) => ({
           lane: lane.spec.lane,
           dir: lane.spec.dir,
           files: lane.files,
         })),
-        imported,
+        imported: result.imported,
       });
       return;
     }
     console.log(`Synced UPL document sources into authored law`);
-    console.log(`scope: ${scope}`);
-    for (const lane of laneFiles) {
+    console.log(`scope: ${result.scope}`);
+    for (const lane of result.laneFiles) {
       console.log(`${lane.spec.lane}: ${lane.files.length} file${lane.files.length === 1 ? "" : "s"} from ${lane.spec.dir}`);
     }
-    if (imported.length === 0) {
+    if (result.imported.length === 0) {
       console.log(`No authored UPL markdown documents found. Add .md files under acceptance or denial, then run \`buccet upl sync\` again.`);
       return;
     }
-    for (const entry of imported) {
+    for (const entry of result.imported) {
       console.log(`${entry.lane} | ${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
     }
     return;
@@ -3427,6 +3672,13 @@ async function handlePath(rest: string[]) {
   const asJson = rest.includes("--json");
   if (!subcommand) {
     usage();
+  }
+  if (subcommand === "show" || subcommand === "run" || subcommand === "watch") {
+    await ensureRuntimeUplAutoSync({
+      boundary,
+      home,
+      config,
+    });
   }
 
   if (subcommand === "list") {
@@ -3969,6 +4221,11 @@ async function handleRun(rest: string[]) {
   };
 
   await saveConfig(home.configPath, nextConfig);
+  await ensureRuntimeUplAutoSync({
+    boundary,
+    home,
+    config: nextConfig,
+  });
   const store = await ensureStore(boundary, {
     config: nextConfig,
     sessionsDir: home.sessionsDir,
@@ -4407,6 +4664,12 @@ async function handleHook(rest: string[]) {
     if (!config) {
       throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
     }
+    const boundary = await importBoundary(homePath);
+    await ensureRuntimeUplAutoSync({
+      boundary,
+      home,
+      config,
+    });
     const separatorIndex = rest.indexOf("--");
     if (separatorIndex === -1) {
       usage();
@@ -4419,7 +4682,6 @@ async function handleHook(rest: string[]) {
     if (!(await pathExists(home.nativeLibraryPath))) {
       await handleHook(["build"]);
     }
-    const boundary = await importBoundary(homePath);
     const health = await getHookRuntimeHealth(boundary, home);
     if (!health.healthy) {
       await handleHook(["start"]);
@@ -4591,6 +4853,11 @@ async function handleConsole() {
   }
 
   const boundary = await importBoundary(homePath);
+  await ensureRuntimeUplAutoSync({
+    boundary,
+    home,
+    config,
+  });
   const interceptTarget = { socketPath: home.interceptSocketPath };
 
   const platformLabel = detectPlatformLabel();
@@ -5646,6 +5913,10 @@ async function main() {
   }
   if (parsed.command === "console") {
     await handleConsole();
+    return;
+  }
+  if (parsed.command === "where") {
+    await handleWhere(parsed.rest);
     return;
   }
   if (parsed.command === "doctor") {

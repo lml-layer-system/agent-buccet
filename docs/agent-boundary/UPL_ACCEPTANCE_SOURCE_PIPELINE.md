@@ -16,6 +16,9 @@ The same raw-source intake parser also works in the denial lane.
 If you paste the same material into `~/.buccet/upl-docs/denial` and run
 `buccet upl sync --lane denial`, Buccet compiles it into denied UPL instead.
 
+If you want the shortest single-place operator map for UPL lanes, path sources,
+and scope, run `buccet where`.
+
 ## Source catalogs
 
 - [SkillsMP](https://skillsmp.com) — largest broad skill catalog
@@ -55,6 +58,9 @@ cp ~/.buccet/upl-docs/acceptance/SKILL_INTAKE_TEMPLATE.txt ~/.buccet/upl-docs/ac
 ```bash
 buccet upl sync --lane acceptance
 ```
+
+If you forget, Buccet auto-syncs changed UPL docs before runtime surfaces like
+`buccet console`, `buccet run`, `buccet hook run`, and `buccet path run`.
 
 7. Inspect what landed:
 

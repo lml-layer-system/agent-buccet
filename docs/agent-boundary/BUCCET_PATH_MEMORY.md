@@ -207,6 +207,7 @@ Main entry points:
 
 The user-facing path-source flow is:
 
+- `buccet where`
 - `buccet path list`
 - `buccet path show <path-name>`
 - `buccet path run <path-name> [--request <text>] [--steps <n>|--all]`

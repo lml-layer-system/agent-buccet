@@ -23,6 +23,13 @@ It lands you on the one-terminal cockpit:
 buccet console
 ```
 
+If you want the shortest exact map for where to add approved UPL, denied UPL,
+path sources, and scope:
+
+```bash
+buccet where
+```
+
 Then:
 
 ```bash
@@ -219,8 +226,15 @@ Acceptance docs compile into approved UPL law.
 Denial docs compile into denied UPL law.
 Runtime merges both into the same live field.
 
+If you forget to sync, Buccet auto-syncs changed UPL docs before runtime
+surfaces like `buccet console`, `buccet run`, `buccet hook run`, and
+`buccet path run`.
+
 If you want to keep widening the yes side from outside skill catalogs, use
 [UPL Acceptance Source Pipeline](UPL_ACCEPTANCE_SOURCE_PIPELINE.md).
+
+If you want the shortest single-page map for all of this, use
+[Where To Add What](WHERE_TO_ADD_WHAT.md) or run `buccet where`.
 
 That gives users the direct browse -> copy -> paste raw skill material -> parse -> sync path from:
 
