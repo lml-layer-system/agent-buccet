@@ -26,59 +26,61 @@ import {
 
 async function main() {
   const library = createDefaultBuccetPathLibrary();
+  const universalPathName = "domain-workbench";
+  const universalDomain = "specialized_domain_ops";
   assert.equal(classifyBuccetPathRequest("search the web for boundary docs"), "search", "expected search classification");
   assert.equal(classifyBuccetPathRequest("write code and run tests"), "coding", "expected coding classification");
   assert.equal(classifyBuccetPathRequest("send this on telegram"), "messaging", "expected messaging classification");
   assert.equal(hasBuccetPath(library, "search"), true, "expected exact path existence check");
-  assert.equal(hasBuccetPath(library, "finance"), false, "expected unknown path to stay absent");
+  assert.equal(hasBuccetPath(library, universalPathName), false, "expected unknown path to stay absent");
   assert.equal(canInstantiateBuccetFormation({ library, pathName: "search" }), true, "expected exact path instantiation check");
-  assert.equal(canInstantiateBuccetFormation({ library, pathName: "finance" }), true, "expected exact path miss to stay instantiable");
+  assert.equal(canInstantiateBuccetFormation({ library, pathName: universalPathName }), true, "expected exact path miss to stay instantiable");
   assert.equal(canInstantiateBuccetFormation({ library, pathName: "   " }), false, "expected blank path to fail instantiation");
   assert.equal(getBuccetPathTemplate(library, "search")?.pathName, "search", "expected exact path template lookup");
-  const financeTemplate = ensureBuccetPathInLibrary({
+  const universalTemplate = ensureBuccetPathInLibrary({
     library,
-    pathName: "finance",
-    userRequest: "build a finance report",
+    pathName: universalPathName,
+    userRequest: "run the specialized domain workflow",
     draft: {
-      domain: "finance_ops",
+      domain: universalDomain,
       pathSources: [
         {
-          id: "finance-playbook",
-          title: "Finance Playbook",
+          id: "domain-playbook",
+          title: "Domain Playbook",
           kind: "manual",
-          summary: "House finance operating guidance.",
-          content: "Quarterly finance close, reporting, and review expectations.",
+          summary: "Specialized domain operating guidance.",
+          content: "Working rules, review expectations, and output shape for this domain.",
         },
         {
-          id: "board-deck-template",
-          title: "Board Deck Template",
+          id: "domain-template",
+          title: "Domain Template",
           kind: "template",
-          summary: "Board reporting template.",
-          content: "KPI structure and narrative shape for board updates.",
+          summary: "Output template for the specialized domain.",
+          content: "Structure and narrative shape for domain outputs.",
         },
       ],
     },
   });
-  assert.equal(financeTemplate.pathName, "finance", "expected missing path to materialize");
-  assert.equal(hasBuccetPath(library, "finance"), true, "expected missing path to lock into library");
-  assert.equal(financeTemplate.stages.at(-1)?.terminal, true, "expected auto-created path to stay finite");
-  assert.equal(financeTemplate.agentRoster.length, 3, "expected auto-created path specialist roster");
-  assert.equal(financeTemplate.pathSources.length, 2, "expected auto-created path source box");
+  assert.equal(universalTemplate.pathName, universalPathName, "expected missing path to materialize");
+  assert.equal(hasBuccetPath(library, universalPathName), true, "expected missing path to lock into library");
+  assert.equal(universalTemplate.stages.at(-1)?.terminal, true, "expected auto-created path to stay finite");
+  assert.equal(universalTemplate.agentRoster.length, 3, "expected auto-created path specialist roster");
+  assert.equal(universalTemplate.pathSources.length, 2, "expected auto-created path source box");
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({
-      sessionId: "session-finance-path",
-      userRequest: "build a finance report",
-      pathName: "finance",
+      sessionId: "session-domain-path",
+      userRequest: "run the specialized domain workflow",
+      pathName: universalPathName,
       library,
     })),
-    /path=finance/,
+    new RegExp(`path=${universalPathName}`),
     "expected live view for auto-created path",
   );
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({
-      sessionId: "session-finance-path",
-      userRequest: "build a finance report",
-      pathName: "finance",
+      sessionId: "session-domain-path",
+      userRequest: "run the specialized domain workflow",
+      pathName: universalPathName,
       library,
     })),
     /path_lawful_action_kinds=runtime_resolved/,
@@ -86,9 +88,9 @@ async function main() {
   );
   assert.match(
     renderBuccetFormationLiveView(instantiateBuccetFormation({
-      sessionId: "session-finance-path",
-      userRequest: "build a finance report",
-      pathName: "finance",
+      sessionId: "session-domain-path",
+      userRequest: "run the specialized domain workflow",
+      pathName: universalPathName,
       library,
     })),
     /path_source_count=2/,
@@ -305,7 +307,11 @@ async function main() {
   store.remember(switched);
   store.remember(customFormation);
   assert.equal(store.list().length, 3, "expected remembered formations");
+  assert.equal(store.listBySession("session-path-memory").length, 2, "expected session-scoped listing");
   assert.equal(store.findBySessionAndPath("session-path-memory", "messaging")?.formationId, switched.formationId, "expected path lookup");
+  assert.equal(store.remove(switched.formationId), true, "expected explicit formation removal");
+  assert.equal(store.findBySessionAndPath("session-path-memory", "messaging"), null, "expected removed formation to disappear");
+  store.remember(switched);
 
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-path-memory-"));
   try {
@@ -314,8 +320,8 @@ async function main() {
     const loaded = await loadBuccetPathMemorySnapshot(snapshotPath);
     assert(loaded, "expected path memory snapshot to load");
     assert.equal(loaded.formations.length, 3, "expected persisted formation count");
-    assert.equal(loaded.formations[1]?.pathName, "messaging", "expected switched path to persist");
-    assert.equal(loaded.formations[2]?.pathName, "brand-studio", "expected custom path to persist");
+    assert.ok(loaded.formations.some((formation) => formation.pathName === "messaging"), "expected switched path to persist");
+    assert.ok(loaded.formations.some((formation) => formation.pathName === "brand-studio"), "expected custom path to persist");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

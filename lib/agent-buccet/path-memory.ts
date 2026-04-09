@@ -1373,11 +1373,19 @@ export class BuccetPathMemoryStore {
       .sort((left, right) => left.createdAt.localeCompare(right.createdAt));
   }
 
+  listBySession(sessionId: string): BuccetPathFormationState[] {
+    return this.list().filter((state) => state.sessionId === sessionId);
+  }
+
   findBySessionAndPath(sessionId: string, pathName: BuccetPathName): BuccetPathFormationState | null {
     const match = [...this.formations.values()]
       .filter((state) => state.sessionId === sessionId && state.pathName === pathName)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
     return match ? deepCloneFormationState(match) : null;
+  }
+
+  remove(formationId: string): boolean {
+    return this.formations.delete(formationId);
   }
 
   snapshot(): BuccetPathMemorySnapshot {

@@ -55,11 +55,13 @@ async function main() {
   const homePath = path.join(tempRoot, "home");
   const workspacePath = path.join(tempRoot, "workspace");
   const uplLedgerPath = path.join(tempRoot, "upl-ledger.json");
+  const customPathName = "domain-workbench";
+  const customDomain = "specialized_domain_ops";
   await fs.mkdir(workspacePath, { recursive: true });
   await fs.writeFile(path.join(workspacePath, "note.txt"), "hello\n", "utf8");
   await fs.writeFile(
-    path.join(workspacePath, "finance-playbook.md"),
-    "# Finance Playbook\n\nQuarterly close steps, KPI definitions, and reporting rules.\n",
+    path.join(workspacePath, "domain-playbook.md"),
+    "# Domain Playbook\n\nDomain rules, source material, operating steps, and output expectations.\n",
     "utf8",
   );
 
@@ -142,10 +144,10 @@ async function main() {
     "path",
     "sources",
     "add",
-    "finance",
-    "finance-playbook.md",
+    customPathName,
+    "domain-playbook.md",
     "--domain",
-    "finance_ops",
+    customDomain,
     "--json",
   ], env);
   assert.equal(pathAddSourcesResult.code, 0, pathAddSourcesResult.stderr);
@@ -155,22 +157,22 @@ async function main() {
     totalSources: number;
     addedSources: Array<{ title: string; sourceUri?: string }>;
   };
-  assert.equal(pathAddSources.pathName, "finance");
-  assert.equal(pathAddSources.domain, "finance_ops");
+  assert.equal(pathAddSources.pathName, customPathName);
+  assert.equal(pathAddSources.domain, customDomain);
   assert.equal(pathAddSources.totalSources, 1);
-  assert.equal(pathAddSources.addedSources[0]?.title, "Finance Playbook");
+  assert.equal(pathAddSources.addedSources[0]?.title, "Domain Playbook");
 
-  const pathSourceListResult = await runCli(["path", "sources", "list", "finance", "--json"], env);
+  const pathSourceListResult = await runCli(["path", "sources", "list", customPathName, "--json"], env);
   assert.equal(pathSourceListResult.code, 0, pathSourceListResult.stderr);
   const pathSourceList = JSON.parse(pathSourceListResult.stdout) as {
     pathName: string;
     sources: Array<{ title: string; sourceUri?: string }>;
   };
-  assert.equal(pathSourceList.pathName, "finance");
+  assert.equal(pathSourceList.pathName, customPathName);
   assert.equal(pathSourceList.sources.length, 1);
-  assert.match(pathSourceList.sources[0]?.sourceUri ?? "", /finance-playbook\.md$/);
+  assert.match(pathSourceList.sources[0]?.sourceUri ?? "", /domain-playbook\.md$/);
 
-  const pathShowResult = await runCli(["path", "show", "finance", "--json"], env);
+  const pathShowResult = await runCli(["path", "show", customPathName, "--json"], env);
   assert.equal(pathShowResult.code, 0, pathShowResult.stderr);
   const pathShow = JSON.parse(pathShowResult.stdout) as {
     path: {
@@ -179,16 +181,97 @@ async function main() {
       pathSources: Array<{ title: string }>;
     };
   };
-  assert.equal(pathShow.path.pathName, "finance");
-  assert.equal(pathShow.path.domain, "finance_ops");
-  assert.ok(pathShow.path.pathSources.some((source) => source.title === "Finance Playbook"));
+  assert.equal(pathShow.path.pathName, customPathName);
+  assert.equal(pathShow.path.domain, customDomain);
+  assert.ok(pathShow.path.pathSources.some((source) => source.title === "Domain Playbook"));
 
   const pathListAfterResult = await runCli(["path", "list", "--json"], env);
   assert.equal(pathListAfterResult.code, 0, pathListAfterResult.stderr);
   const pathListAfter = JSON.parse(pathListAfterResult.stdout) as {
     paths: Array<{ pathName: string; sourceCount: number }>;
   };
-  assert.ok(pathListAfter.paths.some((entry) => entry.pathName === "finance" && entry.sourceCount === 1));
+  assert.ok(pathListAfter.paths.some((entry) => entry.pathName === customPathName && entry.sourceCount === 1));
+
+  const pathRunResult = await runCli([
+    "path",
+    "run",
+    customPathName,
+    "--request",
+    "do the work for this domain",
+    "--steps",
+    "1",
+    "--json",
+  ], env);
+  assert.equal(pathRunResult.code, 0, pathRunResult.stderr);
+  const pathRun = JSON.parse(pathRunResult.stdout) as {
+    started: string;
+    advancedSteps: number;
+    formation: {
+      formationId: string;
+      pathName: string;
+      status: string;
+    };
+    liveView: {
+      pathName: string;
+      currentStageId: string | null;
+      pathSourceCount: number;
+    };
+  };
+  assert.equal(pathRun.formation.pathName, customPathName);
+  assert.equal(pathRun.advancedSteps, 1);
+  assert.equal(pathRun.liveView.pathName, customPathName);
+  assert.equal(pathRun.liveView.pathSourceCount, 1);
+
+  const pathWatchResult = await runCli(["path", "watch", customPathName, "--json"], env);
+  assert.equal(pathWatchResult.code, 0, pathWatchResult.stderr);
+  const pathWatch = JSON.parse(pathWatchResult.stdout) as {
+    formation: {
+      formationId: string;
+      pathName: string;
+    };
+    liveView: {
+      pathName: string;
+      pathSourceCount: number;
+    };
+  };
+  assert.equal(pathWatch.formation.formationId, pathRun.formation.formationId);
+  assert.equal(pathWatch.liveView.pathSourceCount, 1);
+
+  const formationListResult = await runCli(["path", "formations", "list", "--json"], env);
+  assert.equal(formationListResult.code, 0, formationListResult.stderr);
+  const formationList = JSON.parse(formationListResult.stdout) as {
+    formations: Array<{ formationId: string; pathName: string; sourceCount: number }>;
+  };
+  assert.ok(formationList.formations.some((entry) => entry.formationId === pathRun.formation.formationId && entry.pathName === customPathName && entry.sourceCount === 1));
+
+  const pathRunAllResult = await runCli(["path", "run", customPathName, "--all", "--json"], env);
+  assert.equal(pathRunAllResult.code, 0, pathRunAllResult.stderr);
+  const pathRunAll = JSON.parse(pathRunAllResult.stdout) as {
+    formation: {
+      formationId: string;
+      status: string;
+    };
+    terminalResult: string | null;
+  };
+  assert.equal(pathRunAll.formation.formationId, pathRun.formation.formationId);
+  assert.equal(pathRunAll.formation.status, "COMPLETED");
+  assert.match(pathRunAll.terminalResult ?? "", /Domain Workbench Path|domain-workbench/i);
+
+  const pathCloseResult = await runCli(["path", "close", customPathName, "--json"], env);
+  assert.equal(pathCloseResult.code, 0, pathCloseResult.stderr);
+  const pathClose = JSON.parse(pathCloseResult.stdout) as {
+    closedFormationId: string;
+    pathName: string;
+  };
+  assert.equal(pathClose.closedFormationId, pathRun.formation.formationId);
+  assert.equal(pathClose.pathName, customPathName);
+
+  const formationListAfterCloseResult = await runCli(["path", "formations", "list", "--json"], env);
+  assert.equal(formationListAfterCloseResult.code, 0, formationListAfterCloseResult.stderr);
+  const formationListAfterClose = JSON.parse(formationListAfterCloseResult.stdout) as {
+    formations: Array<{ formationId: string }>;
+  };
+  assert.ok(!formationListAfterClose.formations.some((entry) => entry.formationId === pathRun.formation.formationId));
 
   const uplListResult = await runCli(["upl", "list", "--json"], env);
   assert.equal(uplListResult.code, 0, uplListResult.stderr);

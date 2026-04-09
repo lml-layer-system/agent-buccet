@@ -209,11 +209,26 @@ The user-facing path-source flow is:
 
 - `buccet path list`
 - `buccet path show <path-name>`
+- `buccet path run <path-name> [--request <text>] [--steps <n>|--all]`
+- `buccet path watch <path-name|formation-id> [--follow]`
+- `buccet path formations list`
+- `buccet path close <path-name|formation-id>`
 - `buccet path sources add <path-name> <file...> [--domain <domain>]`
 - `buccet path sources list <path-name>`
 
+`<path-name>` and `<domain>` are fully user-defined.
+Finance, brand, legal, research, product, or anything else are just examples.
+The path layer is universal; UPL still determines what is lawful inside any custom path.
+
 That is the NotebookLM-style source box for a path.
 It persists the path library and enriches the path with domain material without changing UPL.
+It also gives Buccet a persisted formation runtime:
+
+- run a path
+- advance finite stages
+- watch the live formation
+- inspect current owners, source slices, and lawful surface
+- close the formation when you are done
 
 ## Position In The System
 

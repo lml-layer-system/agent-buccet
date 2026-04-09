@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type {
   BoundaryActionKind,
+  BuccetPathFormationState,
+  BuccetPathMemorySnapshot,
   BuccetPathSource,
   BuccetPathTemplate,
   DocumentLawDiagnosticEntry,
@@ -126,6 +128,10 @@ function usage(): never {
     "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
     "  buccet path list [--json]",
     "  buccet path show <path-name> [--json]",
+    "  buccet path run <path-name> [--request <text>] [--domain <domain>] [--steps <n>|--all] [--fresh] [--json]",
+    "  buccet path watch <path-name|formation-id> [--follow] [--interval-ms <n>] [--json]",
+    "  buccet path formations list [--all-sessions] [--json]",
+    "  buccet path close <path-name|formation-id> [--json]",
     "  buccet path sources add <path-name> <file...> [--domain <domain>] [--json]",
     "  buccet path sources list <path-name> [--json]",
     "  buccet hook build",
@@ -309,6 +315,7 @@ function resolveHomePaths(homePath: string) {
     uplAcceptanceSkillTemplatePath: path.join(uplDocsDir, "acceptance", "SKILL_INTAKE_TEMPLATE.txt"),
     pathMemoryDir,
     pathLibraryPath: path.join(pathMemoryDir, "library.json"),
+    pathFormationSnapshotPath: path.join(pathMemoryDir, "formations.json"),
     installedNativeSourceDir,
     repoNativeSourceDir,
     nativeBuildDir,
@@ -1092,6 +1099,10 @@ async function ensurePathMemoryHome(home: ReturnType<typeof resolveHomePaths>): 
       "Useful commands:",
       "- buccet path list",
       "- buccet path show <path-name>",
+      "- buccet path run <path-name>",
+      "- buccet path watch <path-name|formation-id>",
+      "- buccet path formations list",
+      "- buccet path close <path-name|formation-id>",
       "- buccet path sources add <path-name> <file...>",
       "- buccet path sources list <path-name>",
     ].join("\n") + "\n", "utf8");
@@ -1113,6 +1124,120 @@ async function savePersistedBuccetPathLibrary(
 ): Promise<void> {
   await ensurePathMemoryHome(home);
   await boundary.saveBuccetPathLibrary(home.pathLibraryPath, library);
+}
+
+async function loadPersistedBuccetPathMemoryStore(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+) {
+  await ensurePathMemoryHome(home);
+  const store = new boundary.BuccetPathMemoryStore();
+  const snapshot = await boundary.loadBuccetPathMemorySnapshot(home.pathFormationSnapshotPath);
+  if (snapshot) {
+    store.replace(snapshot);
+  }
+  return store;
+}
+
+async function savePersistedBuccetPathMemoryStore(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+  store: { snapshot(): BuccetPathMemorySnapshot },
+): Promise<void> {
+  await ensurePathMemoryHome(home);
+  await boundary.saveBuccetPathMemorySnapshot(home.pathFormationSnapshotPath, store.snapshot());
+}
+
+function isTerminalPathFormation(state: BuccetPathFormationState): boolean {
+  return state.status === "COMPLETED" || state.status === "BLOCKED" || state.status === "FAILED";
+}
+
+function formatPathStageOutput(state: BuccetPathFormationState): string {
+  const stage = state.stages[state.currentStageIndex];
+  if (!stage) {
+    return `${state.pathName} is complete.`;
+  }
+  const agents = state.agentRoster
+    .filter((agent) => stage.agentIds.includes(agent.id))
+    .map((agent) => agent.title);
+  const sources = state.pathSources
+    .filter((source) => (stage.sourceIds ?? []).length > 0
+      ? (stage.sourceIds ?? []).includes(source.id)
+      : state.agentRoster
+        .filter((agent) => stage.agentIds.includes(agent.id))
+        .some((agent) => (agent.memoryBank.sourceIds ?? []).includes(source.id)))
+    .map((source) => source.title);
+  const lawfulActionKinds = [...new Set([
+    ...(stage.uplBindings ?? []).flatMap((binding) => binding.actionKinds),
+    ...state.agentRoster
+      .filter((agent) => stage.agentIds.includes(agent.id))
+      .flatMap((agent) => agent.uplBindings.flatMap((binding) => binding.actionKinds)),
+  ])];
+  const lawfulTargets = [...new Set([
+    ...(stage.uplBindings ?? []).flatMap((binding) => binding.targets ?? []),
+    ...state.agentRoster
+      .filter((agent) => stage.agentIds.includes(agent.id))
+      .flatMap((agent) => agent.uplBindings.flatMap((binding) => binding.targets ?? [])),
+  ])];
+  return [
+    `Stage ${stage.title} advanced.`,
+    `Purpose: ${stage.purpose}`,
+    `Owners: ${agents.join(", ") || "none"}`,
+    `Sources: ${sources.join(", ") || "none"}`,
+    `Lawful action kinds: ${lawfulActionKinds.join(", ") || "runtime_resolved"}`,
+    `Lawful targets: ${lawfulTargets.join(", ") || "runtime_resolved"}`,
+  ].join(" ");
+}
+
+function advanceFormationStep(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  state: BuccetPathFormationState,
+): BuccetPathFormationState {
+  const stage = boundary.getCurrentBuccetStage(state) as typeof state.stages[number] | null;
+  if (!stage) {
+    return state;
+  }
+  const activeAgents = boundary.getCurrentBuccetStageAgents(state) as Array<{ id: string; title: string; memoryBank: { sourceTitles: string[] } }>;
+  const sourceTitles = [...new Set(activeAgents.flatMap((agent) => agent.memoryBank.sourceTitles))];
+  const output = {
+    last_stage_id: stage.id,
+    last_stage_title: stage.title,
+    last_stage_position: stage.position,
+    last_stage_summary: formatPathStageOutput(state),
+    last_stage_agents: activeAgents.map((agent) => agent.title),
+    last_stage_sources: sourceTitles,
+    [`stage_${stage.id}_completed`]: true,
+    [`stage_${stage.id}_summary`]: formatPathStageOutput(state),
+    ...(stage.terminal ? {
+      final_output: `${state.title} completed for request: ${state.userRequest}`,
+      final_stage_id: stage.id,
+    } : {}),
+  };
+  return boundary.advanceBuccetFormation({
+    state,
+    result: stage.terminal ? "complete" : "success",
+    output,
+    reason: `${stage.id} advanced by Buccet path runtime`,
+  }) as BuccetPathFormationState;
+}
+
+function resolveFormationSelector(args: {
+  store: {
+    get(id: string): BuccetPathFormationState | null;
+    findBySessionAndPath(sessionId: string, pathName: string): BuccetPathFormationState | null;
+  };
+  selector: string;
+  sessionId: string;
+}): BuccetPathFormationState | null {
+  const byId = args.store.get(args.selector);
+  if (byId) {
+    return byId;
+  }
+  const byPath = args.store.findBySessionAndPath(args.sessionId, args.selector);
+  if (byPath) {
+    return byPath;
+  }
+  return null;
 }
 
 async function collectPathSourceFiles(inputs: string[]): Promise<string[]> {
@@ -3254,6 +3379,256 @@ async function handlePath(rest: string[]) {
         .map((source) => source.title);
       console.log(`  - ${stage.id} | owners=${stage.agentIds.join(", ")} | sources=${sourceTitles.join(", ") || "agent memory banks"}`);
     }
+    return;
+  }
+
+  if (subcommand === "run") {
+    const pathName = rest[1];
+    if (!pathName) {
+      usage();
+    }
+    let requestText: string | undefined;
+    let domain: string | undefined;
+    let steps = 1;
+    let runAll = false;
+    let fresh = false;
+    for (let index = 2; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--request") {
+        requestText = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--domain") {
+        domain = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--steps") {
+        const parsed = Number(rest[index + 1] ?? usage());
+        if (!Number.isFinite(parsed) || parsed < 0) {
+          throw new Error(`invalid --steps value: ${rest[index + 1]}`);
+        }
+        steps = Math.floor(parsed);
+        index += 1;
+        continue;
+      }
+      if (token === "--all") {
+        runAll = true;
+        continue;
+      }
+      if (token === "--fresh") {
+        fresh = true;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    const library = await loadPersistedBuccetPathLibrary(boundary, home);
+    const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    let formation = !fresh ? store.findBySessionAndPath(config.sessionId, pathName) as BuccetPathFormationState | null : null;
+    let started = "resumed";
+    if (!formation || isTerminalPathFormation(formation)) {
+      formation = boundary.instantiateBuccetFormation({
+        sessionId: config.sessionId,
+        userRequest: requestText ?? `run ${pathName}`,
+        pathName,
+        library,
+        ...(domain ? { draft: { domain } } : {}),
+      }) as BuccetPathFormationState;
+      started = "created";
+    } else if (requestText) {
+      formation = {
+        ...formation,
+        userRequest: requestText,
+        context: {
+          ...formation.context,
+          user_request: requestText,
+        },
+      };
+    }
+    if (!boundary.hasBuccetPath(library, pathName)) {
+      boundary.ensureBuccetPathInLibrary({
+        library,
+        pathName,
+        userRequest: formation.userRequest,
+        ...(domain ? { draft: { domain } } : {}),
+      });
+    }
+    let advancedSteps = 0;
+    while (formation.status === "RUNNING" && (runAll || advancedSteps < steps)) {
+      formation = advanceFormationStep(boundary, formation);
+      advancedSteps += 1;
+    }
+    store.remember(formation);
+    await savePersistedBuccetPathLibrary(boundary, home, library);
+    await savePersistedBuccetPathMemoryStore(boundary, home, store);
+    const liveView = boundary.describeBuccetFormationLiveView(formation);
+    if (asJson) {
+      printJson({
+        libraryPath: home.pathLibraryPath,
+        formationsPath: home.pathFormationSnapshotPath,
+        started,
+        advancedSteps,
+        formation,
+        liveView,
+        terminalResult: isTerminalPathFormation(formation) ? boundary.getBuccetFormationTerminalResult(formation) : null,
+      });
+      return;
+    }
+    console.log(`Buccet path run`);
+    console.log(`path: ${formation.pathName}`);
+    console.log(`formation: ${formation.formationId}`);
+    console.log(`mode: ${started}`);
+    console.log(`advanced_steps: ${advancedSteps}`);
+    process.stdout.write(boundary.renderBuccetFormationLiveView(formation));
+    if (isTerminalPathFormation(formation)) {
+      console.log(`terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`);
+    }
+    return;
+  }
+
+  if (subcommand === "watch") {
+    const selector = rest.find((token, index) => index > 0 && !token.startsWith("--"));
+    if (!selector) {
+      usage();
+    }
+    let follow = false;
+    let intervalMs = 1000;
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--follow") {
+        follow = true;
+        continue;
+      }
+      if (token === "--interval-ms") {
+        const parsed = Number(rest[index + 1] ?? usage());
+        if (!Number.isFinite(parsed) || parsed <= 0) {
+          throw new Error(`invalid --interval-ms value: ${rest[index + 1]}`);
+        }
+        intervalMs = Math.floor(parsed);
+        index += 1;
+        continue;
+      }
+      if (token === "--json" || !token.startsWith("--")) {
+        continue;
+      }
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    let store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    let formation = resolveFormationSelector({
+      store,
+      selector,
+      sessionId: config.sessionId,
+    });
+    if (!formation) {
+      throw new Error(`unknown Buccet path formation or path: ${selector}`);
+    }
+    if (asJson) {
+      printJson({
+        formationsPath: home.pathFormationSnapshotPath,
+        formation,
+        liveView: boundary.describeBuccetFormationLiveView(formation),
+        terminalResult: isTerminalPathFormation(formation) ? boundary.getBuccetFormationTerminalResult(formation) : null,
+      });
+      return;
+    }
+    let lastRendered = "";
+    for (;;) {
+      const rendered = boundary.renderBuccetFormationLiveView(formation);
+      if (rendered !== lastRendered) {
+        if (lastRendered) {
+          console.log("");
+        }
+        process.stdout.write(rendered);
+        if (isTerminalPathFormation(formation)) {
+          console.log(`terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`);
+        }
+        lastRendered = rendered;
+      }
+      if (!follow || isTerminalPathFormation(formation)) {
+        return;
+      }
+      await sleep(intervalMs);
+      store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+      const next = resolveFormationSelector({
+        store,
+        selector: formation.formationId,
+        sessionId: config.sessionId,
+      });
+      if (!next) {
+        throw new Error(`formation disappeared while watching: ${formation.formationId}`);
+      }
+      formation = next;
+    }
+  }
+
+  if (subcommand === "formations") {
+    const action = rest[1];
+    if (action !== "list") {
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    const includeAllSessions = rest.includes("--all-sessions");
+    const formations = (includeAllSessions ? store.list() : store.listBySession(config.sessionId))
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    if (asJson) {
+      printJson({
+        formationsPath: home.pathFormationSnapshotPath,
+        formations: formations.map((formation) => ({
+          formationId: formation.formationId,
+          sessionId: formation.sessionId,
+          pathName: formation.pathName,
+          domain: formation.domain,
+          status: formation.status,
+          currentStageId: formation.stages[formation.currentStageIndex]?.id ?? null,
+          updatedAt: formation.updatedAt,
+          sourceCount: formation.pathSources.length,
+        })),
+      });
+      return;
+    }
+    console.log(`Buccet path formations`);
+    console.log(`store: ${home.pathFormationSnapshotPath}`);
+    for (const formation of formations) {
+      console.log(`${formation.formationId} | path=${formation.pathName} | domain=${formation.domain} | status=${formation.status} | stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"} | sources=${formation.pathSources.length}`);
+    }
+    return;
+  }
+
+  if (subcommand === "close") {
+    const selector = rest.find((token, index) => index > 0 && token !== "--json");
+    if (!selector) {
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    const formation = resolveFormationSelector({
+      store,
+      selector,
+      sessionId: config.sessionId,
+    });
+    if (!formation) {
+      throw new Error(`unknown Buccet path formation or path: ${selector}`);
+    }
+    store.remove(formation.formationId);
+    await savePersistedBuccetPathMemoryStore(boundary, home, store);
+    if (asJson) {
+      printJson({
+        formationsPath: home.pathFormationSnapshotPath,
+        closedFormationId: formation.formationId,
+        pathName: formation.pathName,
+      });
+      return;
+    }
+    console.log(`Closed Buccet formation`);
+    console.log(`formation: ${formation.formationId}`);
+    console.log(`path: ${formation.pathName}`);
     return;
   }
 

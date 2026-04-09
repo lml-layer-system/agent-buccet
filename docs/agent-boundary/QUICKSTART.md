@@ -249,9 +249,13 @@ If you want to enrich a path with domain sources, use Buccet path memory:
 
 ```bash
 buccet path list
-buccet path show finance
-buccet path sources add finance ./finance-playbook.md --domain finance_ops
-buccet path sources list finance
+buccet path show <path-name>
+buccet path sources add <path-name> ./domain-playbook.md --domain <domain>
+buccet path sources list <path-name>
+buccet path run <path-name> --request "do the work for this domain" --steps 2
+buccet path watch <path-name>
+buccet path formations list
+buccet path close <path-name>
 ```
 
 That works like a NotebookLM-style source box for a fixed path:
@@ -259,6 +263,11 @@ That works like a NotebookLM-style source box for a fixed path:
 - it does not widen UPL
 - it does not override denial
 - it lets the agents in that path work from richer specialized source material
+- it gives you a real persisted formation runtime for that path
+
+`<path-name>` and `<domain>` are not fixed categories.
+They can be whatever the user wants.
+Buccet keeps the structure finite, while UPL and denial still govern what is actually lawful inside that path.
 
 Document-imported law is bounded, not magical. Current guaranteed parse surface:
 - explicit invariant/enforcement markdown
