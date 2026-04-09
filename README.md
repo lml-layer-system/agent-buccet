@@ -1,288 +1,166 @@
 # Agent Buccet
-Building Ultimate Containment Constraints Every Time
-![IMG_9302](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
-**Agent Buccet is a boundary enforcement layer for AI agents.**
+Building Ultimate Containment Constraints Every Time.
 
-Your model is aligned. But alignment doesn't enforce — it shapes.
-Buccet enforces, at the exact action boundaries where agent behavior becomes consequence.
+Agent Buccet is a law-bound control layer for AI agents.
 
-## 5-Minute Quickstart
+It sits at the action boundary, not at the prompt layer. Agents can propose. They cannot authorize. Buccet decides what can happen, what must stop, what needs approval, and what gets recorded in the ledger.
+
+## What You Get
+
+- one live UPL field compiled from approved and denied law
+- one-terminal operator cockpit with shield, approval/control, and witness feed together
+- path runtime for structured lawful work
+- path sources for domain context without widening permissions
+- interactive and headless modes on the same lawful body
+- durable ledger and witness trail
+
+## Install
+
+Hosted install:
 
 ```bash
-# From this repo
+curl -fsSL https://buccet.lml.dev/install | sh
+```
+
+Repo install:
+
+```bash
 npm install
-
-# See it work
-npm run demo:agent-buccet
+sh scripts/install-agent-buccet.sh
 ```
 
-Packaged release surface:
+After install:
 
 ```bash
-npm run package:agent-buccet
-sh dist/releases/install.sh
+buccet init
+buccet console
+```
+
+## First Run
+
+Open scope and run one guarded command:
+
+```bash
+buccet scope add .
+buccet run -- /bin/echo protected
 buccet status
+buccet logs
 ```
 
-Or from source:
+If you want the shortest operator map:
 
-```typescript
-import {
-  createBoundaryBodyguard,
-  createBoundaryHeadlessApprovalHandler,
-  createPersistentBoundaryRuntimeStore,
-  openBoundaryPath,
-} from "agent-buccet";
-
-// 1. Create a session
-const store = await createPersistentBoundaryRuntimeStore({
-  sessionId: "my-agent",
-  actorId: "agent:demo",
-});
-
-// 2. Open a lawful scope
-const { config } = await openBoundaryPath({
-  config: store.getConfig(),
-  rootPath: "/tmp/workspace",
-  grantedActions: ["fs.write", "fs.read"],
-  issuedBy: "user:operator",
-});
-store.replaceConfig({
-  ...config,
-  approvalHandler: createBoundaryHeadlessApprovalHandler({ mode: "deny_all" }),
-});
-
-// 3. Every agent action goes through the bodyguard
-const bodyguard = createBoundaryBodyguard(store);
-
-const result = await bodyguard.enforceProposal({
-  actionKind: "fs.write",
-  target: "/tmp/workspace/output.txt",   // inside scope → ALLOW
-  successReason: "wrote output",
-  execute: async () => { /* write the file */ },
-});
-
-console.log(result.allowed); // true
-
-const blocked = await bodyguard.enforceProposal({
-  actionKind: "fs.write",
-  target: "/etc/hosts",                  // outside scope → DENY
-  successReason: "wrote hosts",
-  execute: async () => { /* never runs */ },
-});
-
-console.log(blocked.allowed); // false
+```bash
+buccet where
 ```
 
----
+If you want the full machine posture check:
 
-Persistent, CPU-friendly law and scope enforcement for AI agents.
+```bash
+buccet doctor --strict
+```
 
-Agent Buccet is the containment layer you add to the agent stack you already run.
+## Where Things Go
 
-Core of Agent Buccet:
-- Agents can propose. They cannot authorize.
-- No ambient authority.
-- No out-of-scope actions.
-- No silent destructive tool use.
+Approved UPL:
 
-It works across agent stacks because the protected boundary is the same:
-- filesystem changes
+```text
+~/.buccet/upl-docs/acceptance
+```
+
+Denied UPL:
+
+```text
+~/.buccet/upl-docs/denial
+```
+
+Path sources:
+
+```bash
+buccet path sources add <path-name> <file...> [--domain <domain>]
+```
+
+Paths:
+
+```bash
+buccet path run <path-name> [--request <text>] [--steps <n>|--all]
+buccet path watch <path-name|formation-id> [--follow]
+```
+
+If users forget `buccet upl sync`, Buccet now auto-syncs changed UPL docs before runtime surfaces like `buccet console`, `buccet run`, `buccet hook run`, and `buccet path run`.
+
+## What Buccet Enforces
+
+The same live law body governs:
+
+- filesystem motion
 - process execution
 - network and recipient sends
-- database mutations
+- database actions
 - system and credential access
 
-That means the same Agent Buccet Interceptor and Agent Buccet Gravity path can sit under:
-- Claude Cowork
-- Claude Dispatch
-- OpenClaw
-- NemoClaw
+The runtime returns only:
+
+- `ALLOW`
+- `DENY`
+- `REQUIRE_APPROVAL`
+
+## Product Shape
+
+Buccet is not a new agent framework.
+
+It is the control body under the agent stack you already run:
+
+- Claude Code style workflows
 - OpenAI Agents
 - LangGraph
-- xAI API
-- other tools and future agents that still cross a real action boundary
+- OpenClaw
+- NeMo / NemoClaw style runtimes
+- custom tool-using agents
 
-The agent stack can change.
-Agents can evolve.
-The action boundary does not.
-Agent Buccet is built to attach there.
+Paths organize lawful work.
+Path sources enrich lawful work.
+UPL stays the authority.
+Denial overrides acceptance.
 
-The public repo is centered on the shared Buccet brain.
-Additional deep kernel OS-level Agent Buccet interception can be added later for private environments without changing that core model.
+## Docs
 
-## Open-Source World
+Start here:
 
-Agent Buccet is built for the open-source world as much as the closed one.
-
-Open-source builders should not have to choose between freedom and responsibility.
-With Agent Buccet, open systems can ship with visible boundaries, enforceable consequence control, and durable proof of what was allowed, denied, contained, or stopped.
-
-This means open-source teams can show, not just claim, that their agent deployments are governed:
-	•	what boundaries exist
-	•	what actions were allowed or denied
-	•	what payload physics were enforced
-	•	what input was blocked before the brain woke
-	•	what output was stopped before consequence landed
-	•	what the ledger recorded from first input to final consequence
-
-Agent Buccet does not ask the world to blindly trust open systems.
-It gives open systems a way to demonstrate bounded, auditable, enforceable behavior in the real world.
-
-Build with it. Ship with it. Extend it. Defend your agents with it.
-
-We ask only one thing:
-Let Agent Buccet be your bodyguard.
-
-## Closed-Source World
-
-Closed-source teams should not have to choose between capability and control.
-With Agent Buccet, private systems can bind internal policy, compliance rules, operating procedures, and business constraints at the same consequence boundaries where agent behavior becomes real.
-
-This means closed-source teams can keep their own stack, their own models, and their own internal policies while still making those constraints enforceable:
-	•	internal policy can become standing law through UPL
-	•	private operating rules can snap into tracks
-	•	approval and denial can be carried as durable runtime law
-	•	output, action, input-admission, and payload-physics boundaries can all be governed without exposing internal systems
-	•	the ledger can prove what was allowed, denied, contained, or stopped inside private deployments
-
-Agent Buccet does not ask closed teams to replace their existing safety stack.
-It gives them a way to bind their own safety intent at consequence time, inside the systems they already own.
-
-
-## Start Here
-
-- [Agent Buccet README](docs/agent-boundary/README.md)
+- [Docs Home](docs/agent-boundary/README.md)
 - [Quickstart](docs/agent-boundary/QUICKSTART.md)
+- [Where To Add What](docs/agent-boundary/WHERE_TO_ADD_WHAT.md)
+
+Operator and law:
+
+- [UPL Base Packs](docs/agent-boundary/UPL_BASE_PACKS.md)
+- [UPL Acceptance Source Pipeline](docs/agent-boundary/UPL_ACCEPTANCE_SOURCE_PIPELINE.md)
+- [Buccet Path Memory](docs/agent-boundary/BUCCET_PATH_MEMORY.md)
 - [Law Catalog](docs/agent-boundary/LAW_CATALOG.md)
 - [Law Reference](docs/agent-boundary/LAW_REFERENCE.md)
-- [Integrations](docs/agent-boundary/INTEGRATIONS.md)
-- [Launch Boundary](docs/agent-boundary/LAUNCH_BOUNDARY.md)
+
+Proof and release:
+
 - [Launch Proof](docs/agent-boundary/LAUNCH_PROOF.md)
 - [Release Checklist](docs/agent-boundary/RELEASE_CHECKLIST.md)
 - [Security Model](docs/agent-boundary/SECURITY_MODEL.md)
-- [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
 - [Threat Model Traceability](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
+
+System shape:
+
+- [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
+- [Buccet Meta-EFUE Substrate Process](docs/agent-boundary/BUCCET_META_EFUE_SUBSTRATE_PROCESS.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
-- [Examples](docs/agent-boundary/examples/README.md)
-- [Repo Boundary](docs/REPO_BOUNDARY.md)
-
-## Agent Buccet Laws
-
-The active Agent Buccet law body in this repo is documented here:
-- [Law Catalog](docs/agent-boundary/LAW_CATALOG.md)
-- [Law Reference](docs/agent-boundary/LAW_REFERENCE.md)
-
-That catalog covers:
-- Buccet base laws
-- Buccet meta laws
-- Agent action boundary laws
-- Agent Buccet session and grant lifecycle laws
-- Buccet ledger laws
-
-To see exactly what Agent Buccet is enforcing, see [`LAW_REFERENCE.md`](docs/agent-boundary/LAW_REFERENCE.md).
-
-## Hosted Install
-
-Hosted-ready release assets are generated under `dist/releases/`.
-The standalone npm publish surface is generated under `dist/agent-buccet/`.
-
-Example hosted flow:
-
-```bash
-sh dist/releases/install.sh
-buccet status
-buccet scope add .
-buccet run -- /bin/echo protected
-buccet logs
-buccet uninstall
-```
-
-Local repo install remains available:
-
-```bash
-sh scripts/install-agent-buccet.sh
-buccet init
-buccet scope add .
-```
 
 ## Proof Commands
 
-Runnable example:
-
 ```bash
-npm run demo:agent-buccet
+npm run check:agent-buccet:production
+npm run check:agent-buccet:locked
 ```
 
-Gravity contract:
+For the deepest hook-runtime proof:
 
 ```bash
-npm run test:agent-buccet:gravity-contract
+npm run check:agent-buccet:runtime-deep
 ```
-
-Ledger contracts:
-
-```bash
-npm run test:agent-buccet:ledger-contract
-npm run test:agent-buccet:ledger-rollup
-npm run test:agent-buccet:ledger-writer
-npm run agent-buccet:ledger -- verify --format json
-npm run agent-buccet:ledger -- key --format json
-npm run agent-buccet:ledger -- seal --format json
-npm run agent-buccet:ledger -- checkpoint --write --format json
-npm run agent-buccet:ledger -- witness-file --path ./ledger-witness.jsonl --format json
-npm run agent-buccet:ledger -- witness-http --url http://127.0.0.1:8080/witness --format json
-```
-
-CLI and install contracts:
-
-```bash
-npm run test:agent-buccet:cli
-npm run test:agent-buccet:install
-npm run test:agent-buccet:hosted-install
-```
-
-Other core contracts:
-
-```bash
-npm run test:agent-buccet:action-classes
-npm run test:agent-buccet:gravity-supervisor
-npm run test:agent-buccet:wrapper-contract
-npm run test:agent-buccet:swarm
-npm run test:agent-buccet:intercept-daemon
-npm run test:agent-buccet:intercept-server
-npm run test:agent-buccet:system-intercept
-npm run test:agent-buccet:hook-runtime
-```
-
-Runtime entrypoints:
-
-```bash
-npm run agent-buccet:gravity-daemon -- --session-id my-session
-npm run agent-buccet:intercept-daemon -- --session-id my-session
-npm run agent-buccet:intercept-server -- --session-id my-session --port 7788
-npm run agent-buccet:gravity-bridge -- --listen-socket /tmp/buccet.sock --upstream-socket /tmp/agent-buccet-intercept.sock
-buccet hook build
-buccet hook start
-buccet hook status
-buccet hook run -- /bin/echo protected
-```
-
-Standalone export:
-
-```bash
-npm run package:agent-buccet
-```
-
-## Repo Boundary
-
-What is first-class here:
-- `docs/agent-boundary/`
-- `lib/agent-buccet/`
-- `scripts/agent-buccet-*`
-- `scripts/buccet.ts`
-- `scripts/install-agent-buccet.sh`
-- `scripts/install-agent-buccet-hosted.sh`
-- `scripts/prepare-agent-buccet-package.ts`
-- `native/`

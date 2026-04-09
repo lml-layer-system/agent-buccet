@@ -1,527 +1,197 @@
 # Quickstart
 
-This quickstart is for the Agent Buccet runtime.
+This quickstart is the shortest correct path into Agent Buccet.
 
 Goal:
-- start a persistent boundary session
-- open one lawful path
-- run one guarded action
-- understand where approval and ledger fit
 
-## 0. Install
+- install Buccet
+- initialize the machine
+- open lawful scope
+- run one guarded command
+- add law
+- add path sources
+- run one path
 
-One command:
+## 1. Install
+
+Hosted install:
 
 ```bash
 curl -fsSL https://buccet.lml.dev/install | sh
 ```
 
-That install now carries the snapped full Buccet body and prints the install snap summary directly.
-It lands you on the one-terminal cockpit:
+Repo install:
 
 ```bash
-buccet console
+npm install
+sh scripts/install-agent-buccet.sh
 ```
 
-If you want the shortest exact map for where to add approved UPL, denied UPL,
-path sources, and scope:
-
-```bash
-buccet where
-```
-
-Then:
+After install:
 
 ```bash
 buccet init
+buccet console
+```
+
+Useful first commands:
+
+```bash
+buccet where
+buccet doctor --strict
+buccet status
+```
+
+## 2. Open Scope And Run One Guarded Command
+
+Open lawful scope:
+
+```bash
 buccet scope add .
+```
+
+Run:
+
+```bash
 buccet run -- /bin/echo protected
+```
+
+Inspect:
+
+```bash
 buccet status
 buccet logs
 ```
 
-To remove it cleanly:
+The runtime returns only:
 
-```bash
-buccet uninstall
-```
-
-**For repo contributors** (working directly from source):
-
-```bash
-sh scripts/install-agent-buccet.sh
-buccet init
-buccet console
-```
-
-## 1. Start a persistent session
-
-Use:
-- `startPersistentBoundarySession(...)`
-
-Or for a live shared attachment layer:
-- `createPersistentBoundaryRuntimeStore(...)`
-- `createBoundaryBodyguard(...)`
-
-This creates a buccet that survives restart until the user ends it.
-
-## 2. Open lawful scope
-
-Use:
-- `openBoundaryPath(...)`
-
-This does not merely remember permission.
-It instantiates lawful session scope.
-
-The ledger records:
-- `PATH_OPENED`
-- `PATH_LAW_INSTANTIATED`
-
-Opening lawful scope also seeds the built-in Buccet base acceptance pack for that scope.
-Those authored laws compile into the same live UPL field as your deny walls.
-
-## 3. Run actions through Buccet
-
-For filesystem:
-- `boundaryReadFile(...)`
-- `boundaryWriteFile(...)`
-- `boundaryAppendFile(...)`
-- `boundaryDeletePath(...)`
-- `boundaryMkdir(...)`
-- `boundaryMovePath(...)`
-
-For other action classes:
-- `boundaryRecipientSend(...)`
-- `boundaryNetworkSend(...)`
-- `boundaryToolExec(...)`
-- `boundaryDatabaseAction(...)`
-- `boundarySystemAction(...)`
-
-For framework integration:
-- `createNemoBoundaryGuard(...)`
-- `createOpenAIAgentsBoundaryGuard(...)`
-- `createLangGraphBoundaryGuard(...)`
-- `createTelegramBoundaryBridge(...)`
-
-For one bodyguard that follows the agent everywhere:
-- create one shared runtime store
-- attach one bodyguard to that store
-- route NeMo / OpenAI / LangGraph / Telegram through that same bodyguard
-- route many protected processes through that same Buccet brain when swarm mode is needed
-
-## 4. Approval
-
-If an action is dangerous, Buccet returns:
-- `REQUIRE_APPROVAL`
-
-Use:
-- `createApprovalQueueAdapter(...)`
-- or a custom approval handler
-
-The agent never self-approves.
-
-Default operator posture:
-- run `buccet console`
-- one physical terminal renders the protected execution lane heartbeat, approval/control surface, and witness feed together
-- split views remain optional:
-  - `buccet hook status --watch`
-  - `buccet ledger --follow`
-
-## 4b. UPL Tracks
-
-When a user approves or denies as law, Buccet can bind that decision into a standing track corridor.
-
-That means:
-- approved motion can continue inside the exact corridor without re-prompting
-- out-of-corridor motion returns to Terminal 2
-- denied corridors block repeated motion on contact
-
-This is law in motion, not just stored approval state.
-
-## 5. Ledger
-
-Every meaningful action must be ledgered.
-
-Use:
-- `readBoundaryLedgerBySession(...)`
-- `readBoundaryLedgerByRequest(...)`
-- `auditBoundaryRequestLedger(...)`
-- `auditBoundarySessionLedger(...)`
-
-If the trace is incomplete:
-- do not trust the action
-- route back to user via Bodyguard / lawful recovery
-
-## 6. Remote / async control
-
-For Telegram-style or other remote channels:
-- build a proposal with `buildTelegramBoundaryProposal(...)`
-- or use `buildRemoteBoundaryProposal(...)`
-
-These mark remote input as:
-- proposal
-- not authority
-
-and attach meta-law flags for:
-- authority claims
-- scope expansion attempts
-- law mutation attempts
-- session revival attempts
-- ledger bypass attempts
-
-## 7. Scope lifecycle
-
-Use:
-- `issueBoundaryGrant(...)`
-- `revokeBoundaryGrant(...)`
-- `expireBoundaryGrants(...)`
-
-This keeps authority reversible.
-
-## 8. The minimum mental model
-
-The chain:
-
-```
-INTERCEPT  freezes it.   Motion stops. Nothing crosses without being seen.
-GRAVITY    holds it.     Keeps the proposal frozen inside the boundary.
-BODYGUARD  decides.      Checks the UPL and the live law field every time.
-  → UPL match:    user's law decides on contact. Always.
-  → No match:     user is asked. Their answer becomes a new UPL law.
-LEDGER     signs it all. Every step, chained. The agent cannot erase it.
-```
-
-Someone says:
-- “clean up the temp files”
-
-The agent proposes an action.
-
-Before anything becomes real, Buccet decides:
 - `ALLOW`
 - `DENY`
 - `REQUIRE_APPROVAL`
 
-After `DENY`, the Bodyguard checks the UPL — if there is a standing user law for this target, it applies on contact. If not, the human is asked: make this a law, or keep it as a one-time deny?
+## 3. Add Approved Or Denied Law
 
-If the user makes it a law, the same class of motion is denied on contact instead of recurring as the same problem again.
-
-When the user records `allow_as_law`, a **UPL Track** is automatically bound. The track narrows the active execution corridor to exactly what was approved — the model does not return to open-ended agency after approval. If a subsequent request exits the approved corridor (different directory, different command, different domain), `REQUIRE_APPROVAL` surfaces again so the user can consciously expand — or hold. View active corridors in the unified console with `tracks`.
-
-See [UPL Base Packs](UPL_BASE_PACKS.md) for the shipped acceptance and denial packs, plus how to replace them with personal, company, RLHF, constitutional, or regulator/business law.
-
-If you want split authored document lanes for the control surface:
+Approved UPL goes here:
 
 ```text
 ~/.buccet/upl-docs/acceptance
+```
+
+Denied UPL goes here:
+
+```text
 ~/.buccet/upl-docs/denial
 ```
 
-Put your markdown law on the appropriate side, then run:
+Compile manually:
 
 ```bash
 buccet upl sync
 ```
 
-Acceptance docs compile into approved UPL law.
-Denial docs compile into denied UPL law.
-Runtime merges both into the same live field.
+If you forget, Buccet auto-syncs changed UPL docs before runtime surfaces like:
 
-If you forget to sync, Buccet auto-syncs changed UPL docs before runtime
-surfaces like `buccet console`, `buccet run`, `buccet hook run`, and
-`buccet path run`.
+- `buccet console`
+- `buccet run -- ...`
+- `buccet hook run -- ...`
+- `buccet path run ...`
+- `buccet path watch ...`
 
-If you want to keep widening the yes side from outside skill catalogs, use
-[UPL Acceptance Source Pipeline](UPL_ACCEPTANCE_SOURCE_PIPELINE.md).
+Inspect compiled law:
 
-If you want the shortest single-page map for all of this, use
-[Where To Add What](WHERE_TO_ADD_WHAT.md) or run `buccet where`.
+```bash
+buccet upl search <query>
+buccet upl diff --search <query>
+buccet upl show <upl-id>
+```
 
-That gives users the direct browse -> copy -> paste raw skill material -> parse -> sync path from:
+## 4. Import External Yes-Side Material
 
-- [SkillsMP](https://skillsmp.com)
-- [AITmpl Skills](https://aitmpl.com/skills)
-- [SkillHub](https://skillhub.club)
-- [AgentSkills](https://agentskills.io)
+Open the supported catalogs directly:
 
-You can also open them directly from Buccet:
-- `buccet upl sources --open skillsmp`
-- `buccet upl sources --open aitmpl`
-- `buccet upl sources --open skillhub`
-- `buccet upl sources --open agentskills`
+```bash
+buccet upl sources --open skillsmp
+buccet upl sources --open aitmpl
+buccet upl sources --open skillhub
+buccet upl sources --open agentskills
+```
 
-The raw material can be:
-- copied skill text
+You can paste any of this into the acceptance or denial lanes:
+
+- raw skill text
 - `SKILL.md`
 - `README.md`
 - extracted package markdown
 
-Put it in:
-- `~/.buccet/upl-docs/acceptance` to compile approved UPL
-- `~/.buccet/upl-docs/denial` to compile denied UPL
+Operator map:
 
-If you want to inspect or customize the live authored law directly:
+- [Where To Add What](WHERE_TO_ADD_WHAT.md)
+- [UPL Acceptance Source Pipeline](UPL_ACCEPTANCE_SOURCE_PIPELINE.md)
+
+## 5. Add Path Sources
+
+Path sources are domain context, not permissions.
+
+Add them:
 
 ```bash
-buccet upl list --all
-buccet upl search delete
-buccet upl show <upl-id>
-buccet upl diff --search delete
-buccet upl mute <upl-id>
-buccet upl mute --search delete --type denied
-buccet upl unmute <upl-id>
-buccet upl remove <upl-id>
+buccet path sources add <path-name> <file...> [--domain <domain>]
 ```
 
-That is the easiest way to inspect, search, diff, mute, restore, or remove laws without editing code.
-
-If you want to enrich a path with domain sources, use Buccet path memory:
+List them:
 
 ```bash
-buccet path list
-buccet path show <path-name>
-buccet path sources add <path-name> ./domain-playbook.md --domain <domain>
 buccet path sources list <path-name>
-buccet path run <path-name> --request "do the work for this domain" --steps 2
-buccet path watch <path-name>
+```
+
+Show the path:
+
+```bash
+buccet path show <path-name>
+```
+
+## 6. Run A Path
+
+Run:
+
+```bash
+buccet path run <path-name> [--request <text>] [--steps <n>|--all]
+```
+
+Watch:
+
+```bash
+buccet path watch <path-name|formation-id> [--follow]
+```
+
+List formations:
+
+```bash
 buccet path formations list
-buccet path close <path-name>
 ```
 
-That works like a NotebookLM-style source box for a fixed path:
-- it enriches the path with domain context
-- it does not widen UPL
-- it does not override denial
-- it lets the agents in that path work from richer specialized source material
-- it gives you a real persisted formation runtime for that path
-
-`<path-name>` and `<domain>` are not fixed categories.
-They can be whatever the user wants.
-Buccet keeps the structure finite, while UPL and denial still govern what is actually lawful inside that path.
-
-Document-imported law is bounded, not magical. Current guaranteed parse surface:
-- explicit invariant/enforcement markdown
-- required / forbidden text patterns
-- output shape
-- completion grammar
-- expression corridor traits
-- action kind + concrete target rails
-
-Current non-guaranteed surface:
-- vague prose without operative corridor meaning
-- metaphor / hype / decorative style as if it were a precise rule
-- partially specified blocks that do not snap into an enforceable corridor
-
-See [Track Extractor](TRACK_EXTRACTOR.md) for the exact parseability contract.
-
-That is the whole point.
-
-## 9. Run the end-to-end example
-
-From the repo root:
+Close a formation:
 
 ```bash
-npm run demo:agent-buccet
+buccet path close <path-name|formation-id>
 ```
 
-This runs one concrete flow through the real runtime:
-- opened path becomes law
-- in-scope write executes
-- out-of-scope write becomes an open-as-law offer
-- destructive delete is denied by default
-- restored session keeps lawful scope
-- ended session denies later motion
+## 7. Mental Model
 
-## 10. Run the gravity contract harness
+The short version:
 
-From the repo root:
+- UPL is the authority
+- denial overrides acceptance
+- paths organize lawful work
+- path sources enrich lawful work
+- the ledger proves what happened
+- interactive and headless are the same Buccet body underneath
 
-```bash
-npm run test:agent-buccet:gravity-contract
-```
+## 8. Next Docs
 
-This asserts the deeper gravity contract:
-- out-of-scope -> `bodyguard_grant_offer`
-- authority claim -> `deny`
-
-## 10.4 Run the swarm contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:swarm
-```
-
-This asserts:
-- many concurrent frozen requests can hit the same Buccet brain
-- matching unresolved requests collapse into one shared swarm group
-- one approval can release all waiting matching requests
-
-## 10.5 Run the ledger contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:ledger-contract
-```
-
-This asserts:
-- the canonical ledger entry structure is present
-- sequential IDs are preserved
-- new entries are hash-chained
-- query surfaces can read the updated ledger shape
-
-## 10.6 Run the ledger rollup and writer harnesses
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:ledger-rollup
-npm run test:agent-buccet:ledger-writer
-```
-
-This asserts:
-- rollup generation works on top of the live ledger
-- an isolated writer sidecar can accept append requests over a local socket
-
-## 10.7 Use the ledger CLI
-
-From the repo root:
-
-```bash
-npm run agent-buccet:ledger -- verify --format json
-npm run agent-buccet:ledger -- stats --format json
-npm run agent-buccet:ledger -- rollup --period today --write --format json
-```
-
-If the live ledger ever needs normalization after a bad append race:
-
-```bash
-npm run agent-buccet:ledger -- repair --format json
-```
-
-## 11. Prepare the standalone export
-
-From the repo root:
-
-```bash
-npm run package:agent-buccet
-```
-
-This produces:
-- `dist/agent-buccet/src`
-- `dist/agent-buccet/docs`
-- `dist/agent-buccet/examples`
-- `dist/agent-buccet/bin/buccet.ts`
-- `dist/agent-buccet/install.sh`
-
-## 12. Run the public gravity demo
-
-From the repo root:
-
-```bash
-npm run demo:agent-buccet:gravity
-```
-
-This shows the public no-leak behavior:
-- lawful motion is allowed
-- unlawful motion is collapsed to `null`
-- recovery stays outside the active motion path
-
-## 13. Run the wrapper CLI
-
-From the repo root:
-
-```bash
-npm run agent-buccet:run -- --scope /tmp -- /bin/echo wrapped-ok
-```
-
-This is the current public wrapper phase:
-- explicit command authorization at the action boundary
-- process command allow/block policy
-- scoped working directory enforcement
-- filtered child environment
-- persistent session + ledger attachment
-- child process lifecycle recorded in the ledger
-- child process launched with Agent Buccet runtime context
-
-## 14. Run the wrapper contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:wrapper-contract
-```
-
-This asserts:
-- blocked command -> denied by process policy
-- out-of-scope cwd -> denied
-- blocked env vars are filtered
-- allowed wrapped command still executes
-
-## 15. Run the action-classes contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:action-classes
-```
-
-This asserts:
-- out-of-scope database -> open-as-law offer
-- out-of-scope system target -> open-as-law offer
-- database query remains approval-gated
-- system env write remains denied by default
-
-## 16. Run the gravity supervisor contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:gravity-supervisor
-```
-
-This asserts:
-- supervisor starts
-- event-driven heartbeats flow when motion enters the system
-- audit-driven daemon loop is alive
-
-## 17. Run the intercept server contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:intercept-server
-```
-
-This asserts:
-- a local client can connect to Agent Buccet over socket transport
-- status works over that transport
-- finite action-boundary decisions flow through the same buccet
-- restart and shutdown work without changing the runtime core
-
-## 18. Run the Method 1 system-intercept contract harness
-
-From the repo root:
-
-```bash
-npm run test:agent-buccet:system-intercept
-```
-
-This asserts:
-- a future OS-level hook can send low-level event shapes to Agent Buccet
-- those events map into the same finite action classes already enforced by the runtime
-- the current server seam is enough to support deeper intercept layers later without changing the core
-
-Use that export when you want to split Agent Buccet into its own repo without taking unrelated workspace code with it.
-
-## Relevant docs
-
-- [README.md](README.md)
-- [INTEGRATIONS.md](INTEGRATIONS.md)
-- [INTEGRATION_SURFACE.md](INTEGRATION_SURFACE.md)
-- [Examples Index](examples/README.md)
-- [Filesystem Policy Example](examples/policies/filesystem-only.json)
-- [Remote Recipient Policy Example](examples/policies/remote-recipient.json)
-- [Tool Lockdown Policy Example](examples/policies/tool-lockdown.json)
-- [Approval Flow Example](examples/approval-flow.md)
-- [Ledger Audit Example](examples/ledger-audit.md)
+- [Where To Add What](WHERE_TO_ADD_WHAT.md)
+- [Buccet Path Memory](BUCCET_PATH_MEMORY.md)
+- [UPL Base Packs](UPL_BASE_PACKS.md)
+- [Law Catalog](LAW_CATALOG.md)
+- [Security Model](SECURITY_MODEL.md)
+- [Launch Proof](LAUNCH_PROOF.md)

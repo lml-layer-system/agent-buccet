@@ -1,6 +1,6 @@
 # Where To Add What
 
-This is the shortest correct map for Agent Buccet.
+This is the shortest correct operator map for Agent Buccet.
 
 ## Start Here
 
@@ -9,7 +9,7 @@ This is the shortest correct map for Agent Buccet.
 - full machine posture: `buccet doctor --strict`
 - full add-map from the CLI: `buccet where`
 
-## Add Approved UPL
+## Approved UPL
 
 Put approved law or raw yes-side source material in:
 
@@ -25,7 +25,7 @@ What can go there:
 - `README.md`
 - extracted package markdown
 
-Compile it:
+Compile it if you want to do it manually:
 
 ```bash
 buccet upl sync --lane acceptance
@@ -47,7 +47,7 @@ buccet upl diff --search <query>
 buccet upl show <upl-id>
 ```
 
-## Add Denied UPL
+## Denied UPL
 
 Put denied law or raw no-side source material in:
 
@@ -63,7 +63,7 @@ What can go there:
 - `README.md`
 - extracted package markdown
 
-Compile it:
+Compile it if you want to do it manually:
 
 ```bash
 buccet upl sync --lane denial
@@ -79,7 +79,7 @@ buccet upl diff --type denied --search <query>
 buccet upl show <upl-id>
 ```
 
-## Add External Yes-Side Skills
+## External Yes-Side Skills
 
 Catalogs:
 
@@ -101,7 +101,7 @@ Fast scaffold:
 cp ~/.buccet/upl-docs/acceptance/SKILL_INTAKE_TEMPLATE.txt ~/.buccet/upl-docs/acceptance/my-skill.md
 ```
 
-## Add Path Sources
+## Path Sources
 
 Path sources are domain context, not permissions.
 
@@ -135,7 +135,7 @@ Persisted path library:
 ~/.buccet/path-memory/library.json
 ```
 
-## Add Scope
+## Scope
 
 Open lawful scope with:
 
@@ -149,7 +149,7 @@ List active scopes:
 buccet scope list
 ```
 
-## Run The Path
+## Path Runtime
 
 Run it:
 
