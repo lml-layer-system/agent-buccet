@@ -399,6 +399,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
   }
 
   async function evaluateOrWait(request: BoundaryInterceptRequest): Promise<BoundaryInterceptResult> {
+    await store.hydrate();
     const result = await evaluateBoundaryIntercept({
       config: enableBodyguardControl(store.getConfig()),
       request,
@@ -459,7 +460,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       waitingCount: group.waitingCount,
       actorId: args.issuedBy,
     });
-    const config = store.getConfig();
+    const config = args.asLaw ? await store.hydrate() : store.getConfig();
     if (args.asLaw && config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
       const nextConfig = await recordBodyguardUserLawDecision({
@@ -508,7 +509,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       waitingCount: group.waitingCount,
       actorId: args.deniedBy,
     });
-    const config = store.getConfig();
+    const config = args.asLaw ? await store.hydrate() : store.getConfig();
     if (args.asLaw && config.upl) {
       const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
       const nextConfig = await recordBodyguardUserLawDecision({

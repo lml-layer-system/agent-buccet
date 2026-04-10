@@ -319,16 +319,53 @@ function fallbackBoundarySession(config: BuccetConfig): BoundarySession {
 
 async function loadActiveBoundarySession(
   boundary: {
-    loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{ session: BoundarySession } | null>;
+    loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{
+      session: BoundarySession;
+      sessionUpl?: BoundaryUserPathLedger;
+    } | null>;
   },
   home: ReturnType<typeof resolveHomePaths>,
   config: BuccetConfig,
 ): Promise<BoundarySession> {
+  const sessionState = await loadActiveBoundarySessionState(boundary, home, config);
+  return sessionState?.session ?? fallbackBoundarySession(config);
+}
+
+async function loadActiveBoundarySessionState(
+  boundary: {
+    loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{
+      session: BoundarySession;
+      sessionUpl?: BoundaryUserPathLedger;
+    } | null>;
+  },
+  home: ReturnType<typeof resolveHomePaths>,
+  config: BuccetConfig,
+): Promise<{
+  session: BoundarySession;
+  sessionUpl?: BoundaryUserPathLedger;
+} | null> {
   const sessionState = await boundary.loadBoundarySessionState({
     sessionId: config.sessionId,
     sessionsDir: home.sessionsDir,
   });
-  return sessionState?.session ?? fallbackBoundarySession(config);
+  return sessionState;
+}
+
+async function loadEffectiveUserPathLedger(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  home: ReturnType<typeof resolveHomePaths>,
+  config: BuccetConfig,
+): Promise<BoundaryUserPathLedger> {
+  const [ledger, sessionState] = await Promise.all([
+    boundary.loadUserPathLedger(),
+    loadActiveBoundarySessionState(boundary, home, config),
+  ]);
+  return sessionState?.sessionUpl
+    ? boundary.mergeUserPathLedgers({
+      baseLedger: ledger,
+      overlayLedger: sessionState.sessionUpl,
+    })
+    : ledger;
 }
 
 function resolveHomePaths(homePath: string) {
@@ -1348,7 +1385,7 @@ async function resolveRuntimeBuccetPathUplBindings(
   config: BuccetConfig,
 ): Promise<Array<{ actionKinds: BoundaryActionKind[]; targets?: string[]; notes?: string }>> {
   const session = await loadActiveBoundarySession(boundary, home, config);
-  const ledger = await boundary.loadUserPathLedger();
+  const ledger = await loadEffectiveUserPathLedger(boundary, home, config);
   const allowTrackSegments = boundary
     .compileLiveUplTrackField({ ledger, session })
     .filter((segment) => segment.polarity === "allow");
@@ -2277,10 +2314,12 @@ async function importBoundary(homePath: string) {
 async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
   config: BuccetConfig;
   sessionsDir: string;
+  hydrationMode?: "full" | "light";
 }) {
   const restored = await boundary.restoreBoundaryRuntimeStore({
     sessionId: args.config.sessionId,
     sessionsDir: args.sessionsDir,
+    hydrationMode: args.hydrationMode ?? "full",
   });
   if (restored) {
     return restored;
@@ -2290,6 +2329,7 @@ async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>,
     actorId: args.config.actorId,
     dryRun: args.config.dryRun,
     sessionsDir: args.sessionsDir,
+    hydrationMode: args.hydrationMode ?? "full",
   });
 }
 
@@ -2581,6 +2621,7 @@ async function handleInit(rest: string[]) {
   const store = await ensureStore(boundary, {
     config: nextConfig,
     sessionsDir: home.sessionsDir,
+    hydrationMode: "light",
   });
   profileMark("store ready");
   await ensureScopes(boundary, {
@@ -3341,7 +3382,7 @@ async function handleUpl(rest: string[]) {
       usage();
     }
 
-    const upl = await boundary.loadUserPathLedger();
+    const upl = await loadEffectiveUserPathLedger(boundary, home, config);
     const session = await loadActiveBoundarySession(boundary, home, config);
     const entries = sortUplEntries(boundary.listUserPathEntries(upl));
     const approved = entries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE");
@@ -3449,7 +3490,7 @@ async function handleUpl(rest: string[]) {
     if (!entryId) {
       usage();
     }
-    const upl = await boundary.loadUserPathLedger();
+    const upl = await loadEffectiveUserPathLedger(boundary, home, config);
     const session = await loadActiveBoundarySession(boundary, home, config);
     const entry = boundary.findUserPathEntryById(upl, entryId);
     if (!entry) {
@@ -3518,8 +3559,17 @@ async function handleUpl(rest: string[]) {
       : subcommand === "unmute"
         ? "ACTIVE"
         : "DELETED";
-    const upl = await boundary.loadUserPathLedger();
-    const session = await loadActiveBoundarySession(boundary, home, config);
+    const [globalUpl, sessionState] = await Promise.all([
+      boundary.loadUserPathLedger(),
+      loadActiveBoundarySessionState(boundary, home, config),
+    ]);
+    const session = sessionState?.session ?? fallbackBoundarySession(config);
+    const upl = sessionState?.sessionUpl
+      ? boundary.mergeUserPathLedgers({
+        baseLedger: globalUpl,
+        overlayLedger: sessionState.sessionUpl,
+      })
+      : globalUpl;
     const entries = sortUplEntries(boundary.listUserPathEntries(upl));
     const hasSearchSelection = selection.queryTerms.length > 0 || Boolean(selection.typeFilter) || Boolean(selection.statusFilter) || selection.includeAll;
     const matchedEntries = hasSearchSelection
@@ -3542,7 +3592,24 @@ async function handleUpl(rest: string[]) {
     if (update.missing.length > 0) {
       throw new Error(`unknown UPL ids: ${update.missing.join(", ")}`);
     }
-    const saved = await boundary.saveUserPathLedger(update.ledger);
+    const nextSessionUpl: BoundaryUserPathLedger = {
+      specVersion: 1,
+      userApprovedLawPaths: update.ledger.userApprovedLawPaths.filter((entry) => boundary.isSessionOverlayEntryId(entry.id)),
+      userDeniedLawPaths: update.ledger.userDeniedLawPaths.filter((entry) => boundary.isSessionOverlayEntryId(entry.id)),
+    };
+    const nextGlobalLedger: BoundaryUserPathLedger = {
+      ...update.ledger,
+      userApprovedLawPaths: update.ledger.userApprovedLawPaths.filter((entry) => !boundary.isSessionOverlayEntryId(entry.id)),
+      userDeniedLawPaths: update.ledger.userDeniedLawPaths.filter((entry) => !boundary.isSessionOverlayEntryId(entry.id)),
+    };
+    const changedGlobal = update.changed.some((entry) => !boundary.isSessionOverlayEntryId(entry.id));
+    const savedGlobal = changedGlobal ? await boundary.saveUserPathLedger(nextGlobalLedger) : globalUpl;
+    const saved = boundary.hasUserPathEntries(nextSessionUpl)
+      ? boundary.mergeUserPathLedgers({
+        baseLedger: savedGlobal,
+        overlayLedger: nextSessionUpl,
+      })
+      : savedGlobal;
     const store = await ensureStore(boundary, {
       config,
       sessionsDir: home.sessionsDir,
@@ -5628,7 +5695,7 @@ async function handleConsole() {
         }
 
         if (cmd === "upl") {
-          const upl = await boundary.loadUserPathLedger();
+          const upl = await loadEffectiveUserPathLedger(boundary, home, config);
           const session = await loadActiveBoundarySession(boundary, home, config);
           const approved = (upl.userApprovedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
           const denied = (upl.userDeniedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
@@ -5681,7 +5748,7 @@ async function handleConsole() {
         }
 
         if (cmd === "tracks") {
-          const upl = await boundary.loadUserPathLedger();
+          const upl = await loadEffectiveUserPathLedger(boundary, home, config);
           const session = await loadActiveBoundarySession(boundary, home, config);
           const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
           const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");

@@ -165,30 +165,44 @@ async function main() {
 
   const attackRun = spawnBuccet(["hook", "run", "--", attackerBinaryPath, victimPath], env, repoRoot);
 
-  const pendingGroupId = await waitFor(async () => {
+  const deniedGroup = await waitFor(async () => {
     const swarmResult = await run(["swarm", "list", "--json"], env, repoRoot);
     if (swarmResult.code !== 0) {
       return false;
     }
     const payload = JSON.parse(swarmResult.stdout) as {
-      groups?: Array<{ groupId: string; state: string; target: string; actionClass?: string; operation?: string }>;
+      groups?: Array<{
+        groupId: string;
+        state: string;
+        target: string;
+        reason?: string;
+        actionClass?: string;
+        operation?: string;
+        bodyguardMoves?: Array<{ moveId: string; kind: string; target?: string }>;
+      }>;
     };
-    const pending = payload.groups?.find((group) =>
-      group.state === "waiting"
+    const denied = payload.groups?.find((group) =>
+      group.state === "denied"
       && (
         group.target === victimPath
         || group.target === "/bin/rm"
         || (group.actionClass === "shell" && group.operation === "exec")
       )
     );
-    if (!pending) {
+    if (!denied) {
       return false;
     }
-    return pending.groupId;
-  }, "pending intercepted delete approval");
-
-  const denyResult = await run(["swarm", "deny", pendingGroupId as string, "--reason", "hook-runtime-contract deny"], env, repoRoot);
-  assert.equal(denyResult.code, 0, denyResult.stderr);
+    return denied;
+  }, "intercepted out-of-scope delete denial");
+  assert.match(
+    deniedGroup.reason ?? "",
+    /outside user-opened reachable scope/i,
+    "expected intercepted command to be denied for out-of-scope executable reach",
+  );
+  assert.ok(
+    deniedGroup.bodyguardMoves?.some((move) => move.kind === "open_path" && move.target === "/bin/rm"),
+    "expected denied intercept to offer an open_path bodyguard move for /bin/rm",
+  );
 
   const attackResult = await attackRun.result;
   assert.notEqual(attackResult.code, 0, "expected denied spawn attacker to exit non-zero");

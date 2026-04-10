@@ -26,13 +26,9 @@ fi
 
 SOURCE_ROOT=$REPO_ROOT
 if [ -f "$REPO_ROOT/scripts/prepare-agent-buccet-package.ts" ]; then
-  if [ -d "$REPO_ROOT/dist/agent-buccet" ] && [ -f "$REPO_ROOT/dist/agent-buccet/install.sh" ]; then
-    SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
-  else
-    cd "$REPO_ROOT"
-    AGENT_BUCCET_PACKAGE_SKIP_VERIFY=1 "$DETECTED_RUNTIME" scripts/prepare-agent-buccet-package.ts
-    SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
-  fi
+  cd "$REPO_ROOT"
+  AGENT_BUCCET_PACKAGE_SKIP_VERIFY=1 "$DETECTED_RUNTIME" scripts/prepare-agent-buccet-package.ts
+  SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
 fi
 
 mkdir -p "$BUCCET_HOME/current" "$LAUNCHER_DIR"

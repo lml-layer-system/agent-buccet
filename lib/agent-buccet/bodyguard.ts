@@ -1388,9 +1388,14 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     return guarded;
   }
 
+  async function getHydratedGuardedConfig() {
+    await store.hydrate();
+    return getGuardedConfig();
+  }
+
   async function enforceProposal<T>(proposal: BoundaryToolProposal<T>): Promise<BoundaryExecutionResult<T>> {
     const result = await enforceBoundaryProposal({
-      config: getGuardedConfig(),
+      config: await getHydratedGuardedConfig(),
       proposal,
     });
     store.replaceConfig(result.config);
@@ -1399,7 +1404,7 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
 
   async function emitChat<T = string>(proposal: BoundaryChatEmissionProposal<T>): Promise<BoundaryExecutionResult<T>> {
     const result = await guardBoundaryChatEmission({
-      config: getGuardedConfig(),
+      config: await getHydratedGuardedConfig(),
       proposal,
     });
     store.replaceConfig(result.config);
@@ -1408,7 +1413,7 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
 
   function wrapTool<TInput, TOutput>(envelope: BoundaryToolEnvelope<TInput, TOutput>) {
     return async (input: TInput) => {
-      const result = await wrapBoundaryTool(getGuardedConfig(), envelope)(input);
+      const result = await wrapBoundaryTool(await getHydratedGuardedConfig(), envelope)(input);
       store.replaceConfig(result.config);
       return result;
     };

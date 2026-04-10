@@ -50,7 +50,7 @@ type BuccetRepoArtifact = {
   body: BuccetRepoSnapBody | "orphaned";
 };
 
-export type BuccetMetaEfueRuntimeFacts = {
+export type BuccetFullSystemBodyRuntimeFacts = {
   baseAcceptanceCount: number;
   baseDenialCount: number;
   defaultPathCount: number;
@@ -90,9 +90,9 @@ export type BuccetMetaEfueRuntimeFacts = {
   endToEndRuntimeStatement: string;
 };
 
-export type BuccetMetaEfueSubstrateProcess = {
+export type BuccetFullSystemBody = {
   concept: string;
-  runtimeFacts: BuccetMetaEfueRuntimeFacts;
+  runtimeFacts: BuccetFullSystemBodyRuntimeFacts;
   step1: {
     infinite: string[];
     finiteRequirements: string[];
@@ -249,6 +249,7 @@ function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | 
       || file.startsWith("buccet-law-body-denial-catalog")
       || file.startsWith("law")
       || file.startsWith("meta")
+      || file.startsWith("full-system-body")
       || file.startsWith("foundation")
     ) {
       return "LawBody";
@@ -328,7 +329,7 @@ function benchmarkBuccetRepoArtifactSnap(manifest: BuccetRepoArtifact[], iterati
   };
 }
 
-export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProcess {
+export function runBuccetFullSystemBody(): BuccetFullSystemBody {
   const repoRoot = repoRootFromHere();
   const baseAcceptance = createBaseAcceptanceLaws({
     rootPath: WORKSPACE_ROOT,
@@ -353,7 +354,7 @@ export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProc
   const snapTargetMs = 10;
   const repoCoverageCount = repoManifest.length - repoSnap.orphanedArtifacts.length;
 
-  const runtimeFacts: BuccetMetaEfueRuntimeFacts = {
+  const runtimeFacts: BuccetFullSystemBodyRuntimeFacts = {
     baseAcceptanceCount: baseAcceptance.length,
     baseDenialCount: baseDenial.length,
     defaultPathCount: Object.keys(defaultPaths).length,
@@ -486,13 +487,13 @@ export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProc
     },
     step5: {
       implementationSurface: [
-        { label: "system body process", path: "lib/agent-buccet/meta-efue-substrate-process.ts" },
+        { label: "system body process", path: "lib/agent-buccet/full-system-body.ts" },
         { label: "live UPL field and traffic", path: "lib/agent-buccet/user-path-ledger.ts" },
         { label: "track snap", path: "lib/agent-buccet/track-extractor.ts" },
         { label: "path runtime and path sources", path: "lib/agent-buccet/path-memory.ts" },
         { label: "system substrate", path: "lib/agent-buccet/system-substrate.ts" },
         { label: "operator/runtime surface", path: "scripts/buccet.ts" },
-        { label: "rendered snap result", path: "docs/agent-boundary/BUCCET_META_EFUE_SUBSTRATE_PROCESS.md" },
+        { label: "rendered snap result", path: "docs/agent-boundary/BUCCET_FULL_SYSTEM_BODY.md" },
       ],
     },
     step6: {
@@ -513,7 +514,7 @@ export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProc
       ],
       proofSurface: [
         { label: "substrate snap proof", path: "scripts/agent-buccet-system-substrate-contract.ts" },
-        { label: "system body proof", path: "scripts/agent-buccet-meta-efue-substrate-process-contract.ts" },
+        { label: "system body proof", path: "scripts/agent-buccet-full-system-body-contract.ts" },
         { label: "path/runtime proof", path: "scripts/agent-buccet-path-memory-contract.ts" },
         { label: "CLI/runtime proof", path: "scripts/agent-buccet-cli-contract.ts" },
         { label: "install proof", path: "scripts/agent-buccet-install-contract.ts" },
@@ -532,7 +533,7 @@ function percentCompressedFromRatio(ratio: number): number {
 }
 
 export function buildBuccetInstallSnapSummary(
-  process: BuccetMetaEfueSubstrateProcess = runBuccetMetaEfueSubstrateProcess(),
+  process: BuccetFullSystemBody = runBuccetFullSystemBody(),
 ): BuccetInstallSnapSummary {
   return {
     repoArtifactCount: process.runtimeFacts.repoArtifactCount,
@@ -550,7 +551,7 @@ export function buildBuccetInstallSnapSummary(
 }
 
 export function renderBuccetInstallSnapSummaryText(
-  process: BuccetMetaEfueSubstrateProcess = runBuccetMetaEfueSubstrateProcess(),
+  process: BuccetFullSystemBody = runBuccetFullSystemBody(),
 ): string {
   const summary = buildBuccetInstallSnapSummary(process);
   return [
@@ -563,8 +564,8 @@ export function renderBuccetInstallSnapSummaryText(
   ].join("\n");
 }
 
-export function renderBuccetMetaEfueSubstrateProcessMarkdown(
-  process: BuccetMetaEfueSubstrateProcess = runBuccetMetaEfueSubstrateProcess(),
+export function renderBuccetFullSystemBodyMarkdown(
+  process: BuccetFullSystemBody = runBuccetFullSystemBody(),
 ): string {
   return [
     "# Buccet Full System Body",

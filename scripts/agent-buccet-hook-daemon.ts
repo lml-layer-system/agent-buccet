@@ -157,6 +157,25 @@ async function main() {
     restartCount,
   });
 
+  function attachChildExitHandler(name: ChildName, child: ChildProcess) {
+    child.on("exit", () => {
+      if (name === "intercept") {
+        if (interceptChild === child) {
+          interceptChild = null;
+        }
+      } else if (gravityBridgeChild === child) {
+        gravityBridgeChild = null;
+      }
+      if (!stopping) {
+        void restartChild(name);
+      }
+    });
+  }
+
+  function stopChild(child: ChildProcess | null | undefined) {
+    child?.kill("SIGTERM");
+  }
+
   async function spawnIntercept() {
     await fs.rm(args.interceptSocketPath, { force: true }).catch(() => undefined);
     const child = spawn(process.execPath, [
@@ -176,12 +195,7 @@ async function main() {
     });
     await waitForReady(child, "intercept server running", "intercept");
     interceptChild = child;
-    child.on("exit", () => {
-      interceptChild = null;
-      if (!stopping) {
-        void restartChild("intercept");
-      }
-    });
+    return child;
   }
 
   async function spawnGravityBridge() {
@@ -199,12 +213,7 @@ async function main() {
     });
     await waitForReady(child, "gravity bridge running", "gravity_bridge");
     gravityBridgeChild = child;
-    child.on("exit", () => {
-      gravityBridgeChild = null;
-      if (!stopping) {
-        void restartChild("gravity_bridge");
-      }
-    });
+    return child;
   }
 
   async function markDead(reason: string) {
@@ -230,9 +239,9 @@ async function main() {
     });
     try {
       if (name === "intercept") {
-        await spawnIntercept();
+        attachChildExitHandler(name, await spawnIntercept());
       } else {
-        await spawnGravityBridge();
+        attachChildExitHandler(name, await spawnGravityBridge());
       }
       await writeStatus(args, {
         state: "alive",
@@ -246,13 +255,20 @@ async function main() {
   }
 
   try {
-    await spawnIntercept();
-    await spawnGravityBridge();
+    const [interceptReadyChild, gravityReadyChild] = await Promise.all([
+      spawnIntercept(),
+      spawnGravityBridge(),
+    ]);
+    attachChildExitHandler("intercept", interceptReadyChild);
+    attachChildExitHandler("gravity_bridge", gravityReadyChild);
     await writeStatus(args, {
       state: "alive",
       restartCount,
     });
   } catch (error) {
+    stopping = true;
+    stopChild(interceptChild);
+    stopChild(gravityBridgeChild);
     await markDead(error instanceof Error ? error.message : "hook daemon failed to start");
     process.exit(1);
   }

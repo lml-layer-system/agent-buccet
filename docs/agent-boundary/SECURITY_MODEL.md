@@ -218,7 +218,7 @@ Both map into the same finite boundary action classes.
 Both collapse into the same Gravity funnel and route to the same Buccet brain.
 ```
 
-`buccet init` now does the fast machine bring-up by default. Strong-path intercept can then be armed explicitly with `buccet hook start`, or it is armed when the protected hook path is actually used. If a C compiler is not available, Agent Buccet runs in user-space bridge mode — the same brain, law body, and ledger, with framework-level interception only.
+`buccet init` now does the fast machine bring-up by default. When the native layer is already present, `buccet init` also arms strong-path immediately. `buccet hook start` remains the explicit recovery/re-arm command, and if a C compiler is not available Agent Buccet runs in user-space bridge mode — the same brain, law body, and ledger, with framework-level interception only until native build becomes available.
 
 `agent-buccet:intercept-daemon` is a stdin/stdout transport over the intercept server path. It is not a separate adjudicator.
 

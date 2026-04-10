@@ -730,24 +730,19 @@ async function appendIndexEntryBatch(filePath: string, values: string[]) {
 }
 
 async function updateBoundaryLedgerIndexes(record: BoundaryLedgerRecord): Promise<void> {
-  const source = sanitizeIndexKey(record.INPUT.source || "unknown-source");
-  const action = sanitizeIndexKey(record.INPUT.action || "unknown-action");
-  const decision = sanitizeIndexKey(record.DECISION.verdict);
-
-  await appendIndexEntry(timeIndexPath(record.META.timestamp), record.META.id);
-  await appendIndexEntry(path.join(INDEX_DIR, "by_source", `${source}.idx`), record.META.id);
-  await appendIndexEntry(path.join(INDEX_DIR, "by_action", `${action}.idx`), record.META.id);
-  await appendIndexEntry(path.join(INDEX_DIR, "by_decision", `${decision}.idx`), record.META.id);
-
-  for (const law of record.PATH.laws_evaluated) {
-    await appendIndexEntry(
-      path.join(INDEX_DIR, "by_law", `${sanitizeIndexKey(law.law)}.idx`),
-      record.META.id,
-    );
+  for (const entry of buildBoundaryLedgerIndexEntries(record)) {
+    await appendIndexEntry(entry.filePath, entry.value);
   }
 }
 
 function buildBoundaryLedgerIndexEntries(record: BoundaryLedgerRecord): Array<{ filePath: string; value: string }> {
+  if (record.eventType === "UPL_TRACK_ACTIVATED") {
+    return [
+      { filePath: timeIndexPath(record.META.timestamp), value: record.META.id },
+      { filePath: path.join(INDEX_DIR, "by_decision", `${sanitizeIndexKey(record.DECISION.verdict)}.idx`), value: record.META.id },
+    ];
+  }
+
   const entries = [
     { filePath: timeIndexPath(record.META.timestamp), value: record.META.id },
     { filePath: path.join(INDEX_DIR, "by_source", `${sanitizeIndexKey(record.INPUT.source || "unknown-source")}.idx`), value: record.META.id },

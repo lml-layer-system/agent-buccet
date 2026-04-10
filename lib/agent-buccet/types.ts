@@ -735,6 +735,7 @@ export type BoundaryPersistedSessionState = {
   pathLaws: BoundaryPathLaw[];
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds: string[];
+  sessionUpl?: BoundaryUserPathLedger;
   processPolicy?: BoundaryProcessPolicy;
   governorConfig?: BoundaryGovernorConfig;
   governorState?: BoundaryGovernorState;

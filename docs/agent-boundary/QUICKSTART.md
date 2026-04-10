@@ -36,7 +36,9 @@ buccet console
 
 `buccet init` now does the fast machine bring-up.
 
-If you want to arm the strong-path intercept immediately on a cold machine:
+If the packaged native layer is present, `buccet init` also arms strong-path immediately on a cold machine.
+
+If you need to re-arm or recover the hook path manually:
 
 ```bash
 buccet hook start

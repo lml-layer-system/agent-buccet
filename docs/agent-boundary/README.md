@@ -32,7 +32,7 @@ If you are new, start with these three:
 ## Product Shape
 
 - [Buccet System Substrate](BUCCET_SYSTEM_SUBSTRATE.md): runtime body
-- [Buccet Full System Body](BUCCET_META_EFUE_SUBSTRATE_PROCESS.md): full repo/body snap
+- [Buccet Full System Body](BUCCET_FULL_SYSTEM_BODY.md): full repo/body snap
 - [Public Private Boundary](PUBLIC_PRIVATE_BOUNDARY.md): shared core vs private extensions
 - [Current Limits](CURRENT_LIMITS.md): what is still intentionally bounded
 

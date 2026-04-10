@@ -2,8 +2,8 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  renderBuccetMetaEfueSubstrateProcessMarkdown,
-} from "../lib/agent-buccet/meta-efue-substrate-process.ts";
+  renderBuccetFullSystemBodyMarkdown,
+} from "../lib/agent-buccet/full-system-body.ts";
 
 function repoRootFromHere() {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -12,8 +12,8 @@ function repoRootFromHere() {
 
 async function main() {
   const repoRoot = repoRootFromHere();
-  const outputPath = path.join(repoRoot, "docs/agent-boundary/BUCCET_META_EFUE_SUBSTRATE_PROCESS.md");
-  await fs.writeFile(outputPath, `${renderBuccetMetaEfueSubstrateProcessMarkdown()}\n`, "utf8");
+  const outputPath = path.join(repoRoot, "docs/agent-boundary/BUCCET_FULL_SYSTEM_BODY.md");
+  await fs.writeFile(outputPath, `${renderBuccetFullSystemBodyMarkdown()}\n`, "utf8");
   console.log(`wrote ${path.relative(repoRoot, outputPath)}`);
 }
 

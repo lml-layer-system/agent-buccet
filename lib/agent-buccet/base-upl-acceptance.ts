@@ -5,7 +5,14 @@ import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
 import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
 import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
-import { getActiveUserLawIds, loadUserPathLedger, writeCompiledUserPathLaws } from "./user-path-ledger.ts";
+import {
+  createEmptyUserPathLedger,
+  getActiveUserLawIds,
+  isSessionScopedUserPathLedger,
+  loadUserPathLedger,
+  SESSION_UPL_ENTRY_ID_PREFIX,
+  writeCompiledUserPathLaws,
+} from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryRuntimeConfig,
@@ -403,7 +410,15 @@ export async function seedBaseAcceptanceIntoConfig(args: {
     return args.config;
   }
 
-  const ledger = args.config.upl ?? await loadUserPathLedger();
+  const useSessionOverlayFastPath = (args.scope ?? "SESSION") === "SESSION" && (
+    !args.config.upl ||
+    isSessionScopedUserPathLedger({
+      ledger: args.config.upl,
+      sessionId: args.config.session.sessionId,
+    })
+  );
+  const ledger = args.config.upl
+    ?? (useSessionOverlayFastPath ? createEmptyUserPathLedger() : await loadUserPathLedger());
   profileMark("ledger ready");
   const approvedCountBefore = ledger.userApprovedLawPaths.length;
   const witness = await appendBoundaryLedger("UPL_ALLOW_RECORDED", {
@@ -431,6 +446,13 @@ export async function seedBaseAcceptanceIntoConfig(args: {
     compiledLaws: compiledLaws.map((compiledLaw) => ({ compiledLaw, witness })),
     session: args.config.session,
     skipReplacement: true,
+    persist: !useSessionOverlayFastPath,
+    ...(useSessionOverlayFastPath
+      ? {
+          entryIdFactory: ({ itemIndex }: { itemIndex: number }) =>
+            `${SESSION_UPL_ENTRY_ID_PREFIX}${args.config.session.sessionId}-${hashSeedWitnessId(args.rootPath, args.grantedActions)}-${String(itemIndex + 1).padStart(4, "0")}`,
+        }
+      : {}),
   });
   profileMark("ledger updated");
 

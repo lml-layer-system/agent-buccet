@@ -4,16 +4,16 @@ import {
   BUCCET_SUBSTRATE_PLANES,
   BUCCET_SYSTEM_NODES,
   BUCCET_TERMINALS,
-  renderBuccetMetaEfueSubstrateProcessMarkdown,
-  runBuccetMetaEfueSubstrateProcess,
+  renderBuccetFullSystemBodyMarkdown,
+  runBuccetFullSystemBody,
 } from "../lib/agent-buccet/index.ts";
 
 async function main() {
-  const process = runBuccetMetaEfueSubstrateProcess();
-  const markdown = renderBuccetMetaEfueSubstrateProcessMarkdown(process);
+  const process = runBuccetFullSystemBody();
+  const markdown = renderBuccetFullSystemBodyMarkdown(process);
 
-  assert.ok(process.runtimeFacts.baseAcceptanceCount > 0, "expected acceptance side to be present in meta-EFUE process");
-  assert.ok(process.runtimeFacts.baseDenialCount > 0, "expected denial side to be present in meta-EFUE process");
+  assert.ok(process.runtimeFacts.baseAcceptanceCount > 0, "expected acceptance side to be present in the full system body");
+  assert.ok(process.runtimeFacts.baseDenialCount > 0, "expected denial side to be present in the full system body");
   assert.equal(process.runtimeFacts.defaultPathCount, 8, "expected default path library size");
   assert.equal(process.runtimeFacts.substrateNodeCount, BUCCET_SYSTEM_NODES.length, "expected full substrate node count");
   assert.equal(process.runtimeFacts.substratePlaneCount, BUCCET_SUBSTRATE_PLANES.length, "expected substrate plane count");
@@ -68,7 +68,7 @@ async function main() {
   assert.match(markdown, /UPL can keep growing on the denial side/, "expected explicit denial-side growth result");
   assert.match(markdown, /repo snap compression:/, "expected repo compression result in markdown");
 
-  console.log("Agent Buccet meta-EFUE substrate process contract");
+  console.log("Agent Buccet full system body contract");
   console.log(`acceptance entries: ${process.runtimeFacts.baseAcceptanceCount}`);
   console.log(`denial entries: ${process.runtimeFacts.baseDenialCount}`);
   console.log(`default paths: ${process.runtimeFacts.defaultPathCount}`);

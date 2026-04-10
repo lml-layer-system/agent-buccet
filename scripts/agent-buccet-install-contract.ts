@@ -49,12 +49,17 @@ async function main() {
   const workspacePath = path.join(tempRoot, "workspace");
   const customPathName = "domain-workbench";
   const customDomain = "specialized_domain_ops";
+  const staleSnapMarker = "STALE DIST SHOULD NOT SHIP\n";
   await fs.mkdir(workspacePath, { recursive: true });
   await fs.writeFile(
     path.join(workspacePath, "domain-playbook.md"),
     "# Domain Playbook\n\nDomain rules, source material, operating steps, and output expectations.\n",
     "utf8",
   );
+  const staleDistRoot = path.join(repoRoot, "dist", "agent-buccet");
+  await fs.mkdir(staleDistRoot, { recursive: true });
+  await fs.writeFile(path.join(staleDistRoot, "install.sh"), "#!/bin/sh\nexit 0\n", "utf8");
+  await fs.writeFile(path.join(staleDistRoot, "INSTALL_SNAP.txt"), staleSnapMarker, "utf8");
 
   const installEnv = {
     ...process.env,
@@ -78,6 +83,7 @@ async function main() {
   const snapSummaryExists = await fs.access(snapSummaryPath).then(() => true).catch(() => false);
   assert.equal(snapSummaryExists, true);
   const snapSummary = await fs.readFile(snapSummaryPath, "utf8");
+  assert.notEqual(snapSummary, staleSnapMarker, "source install should rebuild package artifacts instead of copying stale dist output");
   assert.match(snapSummary, /Agent Buccet full system install:/);
   assert.match(snapSummary, /console: buccet console/);
 

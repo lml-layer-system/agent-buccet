@@ -19,9 +19,18 @@ import { buildAutoTrackConstraint, checkTrackConstraint, isTrackSurface } from "
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const UPL_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "user-path-ledger.json");
+export const SESSION_UPL_ENTRY_ID_PREFIX = "UPL-SESSION-";
 
 function getDefaultLedger(): BoundaryUserPathLedger {
   return createBaseHeadlessDenialLedger();
+}
+
+export function createEmptyUserPathLedger(): BoundaryUserPathLedger {
+  return {
+    specVersion: 1,
+    userApprovedLawPaths: [],
+    userDeniedLawPaths: [],
+  };
 }
 
 function stablePathDescriptor(request: BoundaryActionRequest) {
@@ -167,6 +176,63 @@ function normalizeLedger(ledger: BoundaryUserPathLedger): BoundaryUserPathLedger
     userApprovedLawPaths: ledger.userApprovedLawPaths.map(normalizeEntry),
     userDeniedLawPaths: ledger.userDeniedLawPaths.map(normalizeEntry),
   };
+}
+
+export function mergeUserPathLedgers(args: {
+  baseLedger: BoundaryUserPathLedger;
+  overlayLedger?: BoundaryUserPathLedger | null;
+}): BoundaryUserPathLedger {
+  if (!args.overlayLedger) {
+    return normalizeLedger(args.baseLedger);
+  }
+
+  const approvedById = new Map(args.baseLedger.userApprovedLawPaths.map((entry) => [entry.id, entry]));
+  const deniedById = new Map(args.baseLedger.userDeniedLawPaths.map((entry) => [entry.id, entry]));
+
+  for (const entry of args.overlayLedger.userApprovedLawPaths) {
+    approvedById.set(entry.id, entry);
+  }
+  for (const entry of args.overlayLedger.userDeniedLawPaths) {
+    deniedById.set(entry.id, entry);
+  }
+
+  return normalizeLedger({
+    ...args.baseLedger,
+    userApprovedLawPaths: [...approvedById.values()],
+    userDeniedLawPaths: [...deniedById.values()],
+  });
+}
+
+export function extractSessionScopedUserPathLedger(args: {
+  ledger: BoundaryUserPathLedger;
+  sessionId: string;
+}): BoundaryUserPathLedger {
+  return normalizeLedger({
+    ...createEmptyUserPathLedger(),
+    userApprovedLawPaths: args.ledger.userApprovedLawPaths.filter((entry) =>
+      entry.scope === "SESSION" && entry.sessionId === args.sessionId
+    ),
+    userDeniedLawPaths: args.ledger.userDeniedLawPaths.filter((entry) =>
+      entry.scope === "SESSION" && entry.sessionId === args.sessionId
+    ),
+  });
+}
+
+export function isSessionScopedUserPathLedger(args: {
+  ledger: BoundaryUserPathLedger;
+  sessionId: string;
+}): boolean {
+  return listUserPathEntries(args.ledger).every((entry) =>
+    entry.scope === "SESSION" && entry.sessionId === args.sessionId
+  );
+}
+
+export function hasUserPathEntries(ledger: BoundaryUserPathLedger): boolean {
+  return ledger.userApprovedLawPaths.length > 0 || ledger.userDeniedLawPaths.length > 0;
+}
+
+export function isSessionOverlayEntryId(entryId: string): boolean {
+  return entryId.startsWith(SESSION_UPL_ENTRY_ID_PREFIX);
 }
 
 export async function loadUserPathLedger(): Promise<BoundaryUserPathLedger> {
@@ -585,6 +651,7 @@ function createEntry(args: {
   session: BoundarySession;
   decision?: BoundaryApprovalDecision;
   trackConstraintOverride?: BoundaryUplEntry["trackConstraint"];
+  entryId?: string;
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
   // Attach a track constraint to every UPL entry that lives on a tracked surface.
@@ -597,7 +664,7 @@ function createEntry(args: {
       : undefined
     );
   return {
-    id: makeEntryId(args.ledger),
+    id: args.entryId ?? makeEntryId(args.ledger),
     type: args.type,
     path: describeUserPath(args.request),
     pathHash: hashUserPath(args.request),
@@ -695,12 +762,59 @@ export async function writeCompiledUserPathLaws(args: {
   }>;
   session: BoundarySession;
   skipReplacement?: boolean;
+  persist?: boolean;
+  entryIdFactory?: (args: {
+    itemIndex: number;
+    compiledLaw: CompiledDocumentLaw;
+    ledger: BoundaryUserPathLedger;
+  }) => string;
 }): Promise<BoundaryUserPathLedger> {
+  if (args.skipReplacement) {
+    const approvedEntries = [...args.ledger.userApprovedLawPaths];
+    const deniedEntries = [...args.ledger.userDeniedLawPaths];
+    const nextLedger: BoundaryUserPathLedger = {
+      ...args.ledger,
+      userApprovedLawPaths: approvedEntries,
+      userDeniedLawPaths: deniedEntries,
+    };
+
+    for (const [itemIndex, item] of args.compiledLaws.entries()) {
+      const request = requestFromBasis(item.compiledLaw.requestBasis, args.session.sessionId);
+      const decision: BoundaryApprovalDecision = {
+        choice: item.compiledLaw.type === "APPROVED" ? "allow_as_law" : "deny_as_law",
+        scope: item.compiledLaw.scope ?? "GLOBAL",
+        notes: item.compiledLaw.notes ?? undefined,
+      };
+      const scope = normalizeScope({ decision });
+      const entry = createEntry({
+        ledger: nextLedger,
+        request,
+        witness: item.witness,
+        type: item.compiledLaw.type,
+        session: args.session,
+        decision: withNormalizedScope(decision, scope),
+        trackConstraintOverride: item.compiledLaw.trackConstraint,
+        entryId: args.entryIdFactory?.({
+          itemIndex,
+          compiledLaw: item.compiledLaw,
+          ledger: nextLedger,
+        }),
+      });
+      if (item.compiledLaw.type === "APPROVED") {
+        approvedEntries.push(entry);
+      } else {
+        deniedEntries.push(entry);
+      }
+    }
+
+    return args.persist === false ? normalizeLedger(nextLedger) : saveUserPathLedger(nextLedger);
+  }
+
   let nextLedger = args.ledger;
   let approvedEntries = nextLedger.userApprovedLawPaths;
   let deniedEntries = nextLedger.userDeniedLawPaths;
 
-  for (const item of args.compiledLaws) {
+  for (const [itemIndex, item] of args.compiledLaws.entries()) {
     const request = requestFromBasis(item.compiledLaw.requestBasis, args.session.sessionId);
     const decision: BoundaryApprovalDecision = {
       choice: item.compiledLaw.type === "APPROVED" ? "allow_as_law" : "deny_as_law",
@@ -730,6 +844,11 @@ export async function writeCompiledUserPathLaws(args: {
       session: args.session,
       decision: withNormalizedScope(decision, scope),
       trackConstraintOverride: item.compiledLaw.trackConstraint,
+      entryId: args.entryIdFactory?.({
+        itemIndex,
+        compiledLaw: item.compiledLaw,
+        ledger: nextLedger,
+      }),
     });
     approvedEntries = nextLedger.userApprovedLawPaths;
     deniedEntries = nextLedger.userDeniedLawPaths;
@@ -740,11 +859,12 @@ export async function writeCompiledUserPathLaws(args: {
     }
   }
 
-  return saveUserPathLedger({
+  const finalLedger = {
     ...nextLedger,
     userApprovedLawPaths: approvedEntries,
     userDeniedLawPaths: deniedEntries,
-  });
+  };
+  return args.persist === false ? normalizeLedger(finalLedger) : saveUserPathLedger(finalLedger);
 }
 
 export async function pruneSessionScopedUserPathLaws(args: {
@@ -760,7 +880,12 @@ export async function pruneSessionScopedUserPathLaws(args: {
       (entry) => !(entry.scope === "SESSION" && entry.sessionId === args.sessionId),
     ),
   };
-  return saveUserPathLedger(next);
+  return isSessionScopedUserPathLedger({
+    ledger: args.ledger,
+    sessionId: args.sessionId,
+  })
+    ? normalizeLedger(next)
+    : saveUserPathLedger(next);
 }
 
 export function getActiveUserLawIds(ledger: BoundaryUserPathLedger, session: BoundarySession): string[] {

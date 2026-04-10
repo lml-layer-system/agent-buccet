@@ -160,11 +160,13 @@ async function main() {
   const restored = await restoreBoundaryRuntimeStore({
     sessionId: args.sessionId,
     sessionsDir: args.sessionsDir,
+    hydrationMode: "light",
   });
   const store = restored ?? await createPersistentBoundaryRuntimeStore({
     sessionId: args.sessionId,
     actorId: args.actorId,
     sessionsDir: args.sessionsDir,
+    hydrationMode: "light",
   });
 
   const supervisor = createBoundaryGravitySupervisor({

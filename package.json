@@ -108,7 +108,7 @@
     "test:agent-buccet:doc-links": "node scripts/agent-buccet-doc-links-contract.ts",
     "test:agent-buccet:artifact-hygiene": "node scripts/agent-buccet-artifact-hygiene-contract.ts",
     "test:agent-buccet:system-substrate": "node scripts/agent-buccet-system-substrate-contract.ts",
-    "test:agent-buccet:meta-efue-substrate-process": "node scripts/agent-buccet-meta-efue-substrate-process-contract.ts",
+    "test:agent-buccet:full-system-body": "node scripts/agent-buccet-full-system-body-contract.ts",
     "test:agent-buccet:path-memory": "node scripts/agent-buccet-path-memory-contract.ts",
     "test:agent-buccet:release-surface": "node scripts/agent-buccet-release-surface-contract.ts",
     "test:agent-buccet:package-surface": "node scripts/agent-buccet-package-surface-contract.ts",

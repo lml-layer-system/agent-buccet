@@ -37,7 +37,9 @@ buccet init
 buccet console
 ```
 
-If you want immediate strong-path intercept on a cold machine:
+`buccet init` now does the fast machine bring-up and will arm strong-path immediately when the packaged native layer is already present.
+
+If you need to re-arm or recover the hook path manually:
 
 ```bash
 buccet hook start
@@ -155,7 +157,7 @@ Proof and release:
 System shape:
 
 - [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
-- [Buccet Full System Body](docs/agent-boundary/BUCCET_META_EFUE_SUBSTRATE_PROCESS.md)
+- [Buccet Full System Body](docs/agent-boundary/BUCCET_FULL_SYSTEM_BODY.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
 
 ## Proof Commands
