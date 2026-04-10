@@ -26,15 +26,24 @@ fi
 
 SOURCE_ROOT=$REPO_ROOT
 if [ -f "$REPO_ROOT/scripts/prepare-agent-buccet-package.ts" ]; then
-  cd "$REPO_ROOT"
-  "$DETECTED_RUNTIME" scripts/prepare-agent-buccet-package.ts
-  SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
+  if [ -d "$REPO_ROOT/dist/agent-buccet" ] && [ -f "$REPO_ROOT/dist/agent-buccet/install.sh" ]; then
+    SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
+  else
+    cd "$REPO_ROOT"
+    AGENT_BUCCET_PACKAGE_SKIP_VERIFY=1 "$DETECTED_RUNTIME" scripts/prepare-agent-buccet-package.ts
+    SOURCE_ROOT="$REPO_ROOT/dist/agent-buccet"
+  fi
 fi
 
 mkdir -p "$BUCCET_HOME/current" "$LAUNCHER_DIR"
 rm -rf "$BUCCET_HOME/current"
 mkdir -p "$BUCCET_HOME/current"
 cp -R "$SOURCE_ROOT/." "$BUCCET_HOME/current"
+
+if [ -d "$BUCCET_HOME/current/native/build" ]; then
+  mkdir -p "$BUCCET_HOME/native/build"
+  cp -R "$BUCCET_HOME/current/native/build/." "$BUCCET_HOME/native/build/"
+fi
 
 # Write the launcher. It detects bun or node at each invocation so the runtime
 # preference is always correct regardless of what was available at install time.

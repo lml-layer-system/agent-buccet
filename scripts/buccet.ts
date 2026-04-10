@@ -126,7 +126,7 @@ function formatConsoleApprovalMode(mode: ConsoleApprovalMode): string {
 function usage(): never {
   console.error([
     "Usage:",
-    "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope]",
+    "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope] [--arm-now]",
     "  buccet console                                            — open the unified operator cockpit (shield + control + witness)",
     "  buccet where [--json]                                     — show exactly where approved law, denied law, path sources, and scopes go",
     "  buccet doctor [--strict]                                  — health check: platform, backend, intercept, ledger",
@@ -2227,11 +2227,23 @@ async function waitForHookRuntimeHealthy(
 ): Promise<HookRuntimeHealth> {
   const startedAt = Date.now();
   let lastHealth: HookRuntimeHealth | null = null;
+  let lastReason = "";
+  const profileInit = process.env.BUCCET_PROFILE_INIT === "1";
 
   while (Date.now() - startedAt < timeoutMs) {
     lastHealth = await getHookRuntimeHealth(boundary, home);
     if (lastHealth.healthy) {
+      if (profileInit) {
+        console.error(`[buccet-init-profile] hook healthy in ${Date.now() - startedAt}ms`);
+      }
       return lastHealth;
+    }
+    if (profileInit && lastHealth.reason && lastHealth.reason !== lastReason) {
+      lastReason = lastHealth.reason;
+      console.error(`[buccet-init-profile] hook wait reason: ${lastReason}`);
+    }
+    if (lastHealth.state === "dead") {
+      throw new Error(lastHealth.reason ?? "hook runtime entered dead state");
     }
     await sleep(100);
   }
@@ -2287,6 +2299,14 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
   actorId: string;
   grantedActions?: BoundaryActionKind[];
 }) {
+  const profileInit = process.env.BUCCET_PROFILE_INIT === "1";
+  const profileStartedAt = Date.now();
+  const profileMark = (label: string) => {
+    if (!profileInit) {
+      return;
+    }
+    console.error(`[buccet-init-profile] ensureScopes ${label}: ${Date.now() - profileStartedAt}ms`);
+  };
   const grantedActions = args.grantedActions ?? FULL_FS_SCOPE_ACTIONS;
   const existing = new Set(
     args.store.getConfig().pathLaws
@@ -2298,12 +2318,17 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
     if (existing.has(scopePath)) {
       continue;
     }
+    const scopeStartedAt = Date.now();
     await args.store.openPath({
       rootPath: scopePath,
       grantedActions,
       issuedBy: args.actorId,
     });
+    if (profileInit) {
+      console.error(`[buccet-init-profile] ensureScopes openPath ${scopePath}: ${Date.now() - scopeStartedAt}ms`);
+    }
   }
+  profileMark("path openings complete");
 
   if (process.platform === "darwin") {
     const runtimeSupportGrants = [
@@ -2322,6 +2347,15 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
         ),
     );
 
+    const pendingRuntimeSupportGrants: Array<{
+      resourceKind: "path";
+      resourceValue: string;
+      grantedActions: BoundaryActionKind[];
+      issuedBy: string;
+      metadata: Record<string, string | number | boolean>;
+    }> = [];
+    const pendingGrantTargets: string[] = [];
+
     for (const grant of runtimeSupportGrants) {
       const missingAction = grant.actions.find((action) =>
         !existingExactGrantKeys.has(`${path.resolve(grant.target)}:${action}`)
@@ -2332,7 +2366,7 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
       if (!(await pathExists(grant.target))) {
         continue;
       }
-      await args.store.issueGrant({
+      pendingRuntimeSupportGrants.push({
         resourceKind: "path",
         resourceValue: grant.target,
         grantedActions: grant.actions,
@@ -2342,8 +2376,25 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
           runtime_support: true,
         },
       });
+      pendingGrantTargets.push(grant.target);
+    }
+
+    if (pendingRuntimeSupportGrants.length > 0) {
+      const batchStartedAt = Date.now();
+      const result = await boundary.issueBoundaryGrantBatch({
+        config: args.store.getConfig(),
+        grants: pendingRuntimeSupportGrants,
+      });
+      args.store.replaceConfig(result.config);
+      if (profileInit) {
+        for (const target of pendingGrantTargets) {
+          console.error(`[buccet-init-profile] ensureScopes runtime grant ${target}: batched`);
+        }
+        console.error(`[buccet-init-profile] ensureScopes runtime grants batch: ${Date.now() - batchStartedAt}ms`);
+      }
     }
   }
+  profileMark("complete");
 }
 
 function printJson(value: unknown) {
@@ -2465,6 +2516,7 @@ async function handleInit(rest: string[]) {
   let actorId = defaultActorId();
   let dryRun = false;
   let includeDefaultScope = true;
+  let armNow = false;
   const scopes: string[] = [];
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -2492,6 +2544,10 @@ async function handleInit(rest: string[]) {
       includeDefaultScope = false;
       continue;
     }
+    if (token === "--arm-now") {
+      armNow = true;
+      continue;
+    }
     usage();
   }
 
@@ -2513,25 +2569,40 @@ async function handleInit(rest: string[]) {
     ]),
     updatedAt: new Date().toISOString(),
   };
+  const profileInit = process.env.BUCCET_PROFILE_INIT === "1";
+  const initStartedAt = Date.now();
+  const profileMark = (label: string) => {
+    if (!profileInit) {
+      return;
+    }
+    console.error(`[buccet-init-profile] ${label}: ${Date.now() - initStartedAt}ms`);
+  };
 
   const store = await ensureStore(boundary, {
     config: nextConfig,
     sessionsDir: home.sessionsDir,
   });
+  profileMark("store ready");
   await ensureScopes(boundary, {
     store,
     scopePaths: nextConfig.defaultScopes,
     actorId: nextConfig.actorId,
   });
+  profileMark("scopes ready");
   await store.persist();
+  profileMark("store persisted");
   await saveConfig(home.configPath, nextConfig);
+  profileMark("config saved");
   await ensureUplSourceHomes(home);
+  profileMark("upl homes ready");
   await ensurePathMemoryHome(home);
+  profileMark("path memory ready");
 
   const platformLabel = detectPlatformLabel();
   const backendLabel = detectBackendLabel();
   const nativeReady = await pathExists(home.nativeLibraryPath);
   const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+  const shouldArmNow = armNow || nativeReady;
 
   console.log(``);
   console.log(`  Agent Buccet`);
@@ -2540,64 +2611,89 @@ async function handleInit(rest: string[]) {
   console.log(`  Backend:          ${backendLabel}`);
   console.log(`  Protection mode:  ${protectionMode}`);
 
-  // Auto-enable the libc-level intercept layer.
-  // If a C compiler is available, build the native hook library and start the
-  // hook daemon so that LD_PRELOAD / DYLD_INSERT_LIBRARIES interception is
-  // active immediately after init — no separate `buccet hook build && buccet hook start` needed.
-  // If the compiler is not found, Agent Buccet continues in user-space bridge mode.
-  let interceptLine = "compatibility_path (run 'buccet hook build' after installing gcc)";
-  try {
-    await ensureDir(home.nativeBuildDir);
-    await ensureDir(home.runDir);
-    const nativeSourceDir = await resolveNativeSourceDir(home);
-    const compileArgs = process.platform === "darwin"
-      ? ["-dynamiclib", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"]
-      : ["-shared", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"];
-    const buildResult = await runSubprocess({
-      command: process.env.CC ?? "cc",
-      args: compileArgs,
-      cwd: home.homePath,
-    });
-    if (buildResult.code !== 0) {
-      interceptLine = "compatibility_path (native build failed; run 'buccet hook build' after installing gcc)";
-    } else {
+  let interceptLine = "deferred (run 'buccet hook start' when you want strong-path interception)";
+  if (shouldArmNow) {
+    try {
+      await ensureDir(home.nativeBuildDir);
+      await ensureDir(home.runDir);
+      profileMark("native/run dirs ready");
+      let strongPathReady = nativeReady;
+      if (!strongPathReady) {
+        const nativeSourceDir = await resolveNativeSourceDir(home);
+        const compileArgs = process.platform === "darwin"
+          ? ["-dynamiclib", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"]
+          : ["-shared", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"];
+        const buildResult = await runSubprocess({
+          command: process.env.CC ?? "cc",
+          args: compileArgs,
+          cwd: home.homePath,
+        });
+        if (buildResult.code !== 0) {
+          interceptLine = "compatibility_path (native build failed; run 'buccet hook build' after installing gcc)";
+        } else {
+          strongPathReady = true;
+          profileMark("native hook built");
+        }
+      }
+
+      if (strongPathReady) {
+        const existingPid = await readHookPid(home.hookPidPath);
+        if (existingPid && await pidAlive(existingPid)) {
+          const health = await getHookRuntimeHealth(boundary, home);
+          if (health.healthy) {
+            interceptLine = `strong_path (libc-level, pid ${existingPid})`;
+          } else {
+            interceptLine = "compatibility_path (hook runtime unhealthy; run 'buccet hook start')";
+          }
+        } else {
+          const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+          const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+          const hookChild = spawn(daemonExec, [
+            daemonScriptPath,
+            "--session-id", nextConfig.sessionId,
+            "--actor-id", nextConfig.actorId,
+            "--sessions-dir", home.sessionsDir,
+            "--intercept-socket", home.interceptSocketPath,
+            "--gravity-bridge-socket", home.gravityBridgeSocketPath,
+            "--brain-status-file", home.brainStatusPath,
+            "--pid-file", home.hookPidPath,
+          ], {
+            cwd: home.homePath,
+            detached: true,
+            stdio: "ignore",
+            env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
+          });
+          hookChild.unref();
+          profileMark("hook daemon spawned");
+          try {
+            await waitForHookRuntimeHealthy(boundary, home);
+            profileMark("hook runtime healthy");
+            interceptLine = "strong_path (libc-level)";
+          } catch {
+            profileMark("hook runtime fell back");
+            interceptLine = "compatibility_path (hook runtime failed to become healthy; run 'buccet hook start')";
+          }
+        }
+      }
+    } catch {
+      interceptLine = "compatibility_path (cc not found; run 'buccet hook build' after installing gcc)";
+    }
+  } else {
+    try {
       const existingPid = await readHookPid(home.hookPidPath);
       if (existingPid && await pidAlive(existingPid)) {
         const health = await getHookRuntimeHealth(boundary, home);
         if (health.healthy) {
           interceptLine = `strong_path (libc-level, pid ${existingPid})`;
         } else {
-          interceptLine = "compatibility_path (hook runtime unhealthy; run 'buccet hook start')";
+          interceptLine = "deferred (hook present but not healthy; run 'buccet hook start')";
         }
-      } else {
-        const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
-        const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
-        const hookChild = spawn(daemonExec, [
-          daemonScriptPath,
-          "--session-id", nextConfig.sessionId,
-          "--actor-id", nextConfig.actorId,
-          "--sessions-dir", home.sessionsDir,
-          "--intercept-socket", home.interceptSocketPath,
-          "--gravity-bridge-socket", home.gravityBridgeSocketPath,
-          "--brain-status-file", home.brainStatusPath,
-          "--pid-file", home.hookPidPath,
-        ], {
-          cwd: home.homePath,
-          detached: true,
-          stdio: "ignore",
-          env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
-        });
-        hookChild.unref();
-        try {
-          await waitForHookRuntimeHealthy(boundary, home);
-          interceptLine = "strong_path (libc-level)";
-        } catch {
-          interceptLine = "compatibility_path (hook runtime failed to become healthy; run 'buccet hook start')";
-        }
+      } else if (nativeReady) {
+        interceptLine = "deferred (native hook ready; run 'buccet hook start' to arm strong-path interception)";
       }
+    } catch {
+      interceptLine = "deferred (run 'buccet hook start' when you want strong-path interception)";
     }
-  } catch {
-    interceptLine = "compatibility_path (cc not found; run 'buccet hook build' after installing gcc)";
   }
 
   console.log(`  Intercept:        ${interceptLine}`);
@@ -2605,12 +2701,15 @@ async function handleInit(rest: string[]) {
   console.log(`  Session:          ${nextConfig.sessionId}`);
   console.log(`  Scopes:           ${nextConfig.defaultScopes.length}`);
   console.log(``);
-  console.log(`  This terminal is now the protected execution lane.`);
+  console.log(`  Machine ready.`);
   console.log(``);
   console.log(`  Default operator cockpit:`);
   console.log(``);
   console.log(`    buccet console`);
   console.log(`    buccet where`);
+  if (!shouldArmNow) {
+    console.log(`    buccet hook start   # optional immediate strong-path arm`);
+  }
   console.log(``);
   console.log(`  Optional split views:`);
   console.log(``);
@@ -4845,11 +4944,16 @@ async function handleDoctor(rest: string[] = []) {
 async function handleConsole() {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
-  const config = await loadConfig(home.configPath);
+  let config = await loadConfig(home.configPath);
 
   if (!config) {
-    console.error(`Agent Buccet is not initialized. Run 'buccet init' first.`);
-    process.exit(1);
+    console.log(`Agent Buccet is not initialized. Bringing the machine up now...`);
+    await handleInit(["--no-default-scope", "--arm-now"]);
+    config = await loadConfig(home.configPath);
+    if (!config) {
+      console.error(`Agent Buccet could not initialize. Run 'buccet init' first.`);
+      process.exit(1);
+    }
   }
 
   const boundary = await importBoundary(homePath);

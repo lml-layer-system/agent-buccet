@@ -317,6 +317,18 @@ async function writeStandaloneReadme() {
   await fs.writeFile(path.join(outDir, "README.md"), sourceReadme, "utf8");
 }
 
+async function writePrebuiltNativeHook() {
+  const deepInterceptDir = path.join(outDir, "native", "deep-intercept");
+  const buildScriptPath = path.join(deepInterceptDir, "build.sh");
+  const packagedBuildDir = path.join(outDir, "native", "build");
+  try {
+    await mkdirp(packagedBuildDir);
+    await runCommand("sh", [buildScriptPath, packagedBuildDir], repoRoot);
+  } catch {
+    // Prebuilt native hook is a speed optimization, not a packaging requirement.
+  }
+}
+
 async function writeSnapArtifacts() {
   const process = runBuccetMetaEfueSubstrateProcess();
   const summary = buildBuccetInstallSnapSummary(process);
@@ -574,10 +586,13 @@ async function writeReleaseArtifacts(version: string, witness: BoundaryReleaseWi
 }
 
 async function main() {
-  await runCommand("npm", ["run", "test:agent-buccet:doc-links"], repoRoot);
-  await runCommand("npm", ["run", "test:agent-buccet:artifact-hygiene"], repoRoot);
-  await runCommand("npm", ["run", "check:agent-buccet:contracts-stable"], repoRoot);
-  await runCommand("npm", ["run", "test:agent-buccet:release-witness"], repoRoot);
+  const skipVerification = process.env.AGENT_BUCCET_PACKAGE_SKIP_VERIFY === "1";
+  if (!skipVerification) {
+    await runCommand("npm", ["run", "test:agent-buccet:doc-links"], repoRoot);
+    await runCommand("npm", ["run", "test:agent-buccet:artifact-hygiene"], repoRoot);
+    await runCommand("npm", ["run", "check:agent-buccet:contracts-stable"], repoRoot);
+    await runCommand("npm", ["run", "test:agent-buccet:release-witness"], repoRoot);
+  }
 
   const version = await readPackageVersion();
   await rmrf(outDir);
@@ -587,6 +602,7 @@ async function main() {
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
   await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "agent-buccet-law-foundation"));
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
+  await writePrebuiltNativeHook();
   await writeStandaloneExample();
   await writeStandaloneWrapper();
   await writeStandalonePackageJson();
@@ -597,6 +613,9 @@ async function main() {
   await writeHostedInstaller();
   const witness = await publishBoundaryReleaseWitness({ releaseDir, env: process.env });
   await writeReleaseArtifacts(version, witness);
+  if (skipVerification) {
+    console.log("Prepared Agent Buccet package in fast install mode (verification skipped).");
+  }
   console.log(`Prepared Agent Buccet standalone package at ${outDir}`);
   console.log(`Prepared Agent Buccet release artifacts at ${releaseDir}`);
 }

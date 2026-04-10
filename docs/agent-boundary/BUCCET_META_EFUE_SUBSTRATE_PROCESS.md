@@ -1,6 +1,6 @@
-# Buccet Meta-EFUE Substrate Process
+# Buccet Full System Body
 
-This document is generated from the live Buccet meta-EFUE substrate process.
+This document is generated from the live Buccet full-system body process.
 
 It is not just a description.
 It is the executed 7-step collapse of the current Buccet system into an executable finite substrate.
@@ -20,10 +20,10 @@ It is the executed 7-step collapse of the current Buccet system into an executab
 - snap compression to executable body: `2.07:1`
 - repo snap compression: `40.22:1`
 - executable body primitives: `14`
-- measured snap avg: `0.012442ms`
-- measured repo snap avg: `0.046824ms`
+- measured snap avg: `0.007353ms`
+- measured repo snap avg: `0.042511ms`
 - snap target: `10ms`
-- under target by: `803.71x`
+- under target by: `1360.04x`
 - deterministic repeated snap: `yes`
 - deterministic repeated repo snap: `yes`
 
@@ -132,7 +132,7 @@ return repo_body, runtime, witness
 
 ## Step 5: Implement In Code
 
-- meta-EFUE snap process: [lib/agent-buccet/meta-efue-substrate-process.ts](../../lib/agent-buccet/meta-efue-substrate-process.ts)
+- system body process: [lib/agent-buccet/meta-efue-substrate-process.ts](../../lib/agent-buccet/meta-efue-substrate-process.ts)
 - live UPL field and traffic: [lib/agent-buccet/user-path-ledger.ts](../../lib/agent-buccet/user-path-ledger.ts)
 - track snap: [lib/agent-buccet/track-extractor.ts](../../lib/agent-buccet/track-extractor.ts)
 - path runtime and path sources: [lib/agent-buccet/path-memory.ts](../../lib/agent-buccet/path-memory.ts)
@@ -142,15 +142,15 @@ return repo_body, runtime, witness
 
 ## Step 6: Measure Performance
 
-- Time: `0.046824ms`
-- Runtime speed tier (10 iterations): `0.016616ms`
-- Runtime speed tier (1,000 iterations): `0.009973ms`
-- Runtime speed tier (10,000 iterations): `0.012442ms`
-- Repo speed tier (10 iterations): `1.082141ms`
-- Repo speed tier (1,000 iterations): `0.165219ms`
-- Repo speed tier (10,000 iterations): `0.046824ms`
+- Time: `0.042511ms`
+- Runtime speed tier (10 iterations): `0.064531ms`
+- Runtime speed tier (1,000 iterations): `0.010067ms`
+- Runtime speed tier (10,000 iterations): `0.007353ms`
+- Repo speed tier (10 iterations): `0.262209ms`
+- Repo speed tier (1,000 iterations): `0.062446ms`
+- Repo speed tier (10,000 iterations): `0.042511ms`
 - Space model: finite repo snap bodies, finite substrate planes, finite terminals, finite consequence boundaries, finite active path/runtime state
-- Complexity check: repo snap benchmark confirms avg 0.046824ms over 10,000 iterations with deterministic repeated output while the runtime substrate snap stays at 0.012442ms
+- Complexity check: repo snap benchmark confirms avg 0.042511ms over 10,000 iterations with deterministic repeated output while the runtime substrate snap stays at 0.007353ms
 
 ## Step 7: Verify Correctness
 
@@ -168,7 +168,7 @@ return repo_body, runtime, witness
 ### Proof Surface
 
 - substrate snap proof: [scripts/agent-buccet-system-substrate-contract.ts](../../scripts/agent-buccet-system-substrate-contract.ts)
-- meta-EFUE snap proof: [scripts/agent-buccet-meta-efue-substrate-process-contract.ts](../../scripts/agent-buccet-meta-efue-substrate-process-contract.ts)
+- system body proof: [scripts/agent-buccet-meta-efue-substrate-process-contract.ts](../../scripts/agent-buccet-meta-efue-substrate-process-contract.ts)
 - path/runtime proof: [scripts/agent-buccet-path-memory-contract.ts](../../scripts/agent-buccet-path-memory-contract.ts)
 - CLI/runtime proof: [scripts/agent-buccet-cli-contract.ts](../../scripts/agent-buccet-cli-contract.ts)
 - install proof: [scripts/agent-buccet-install-contract.ts](../../scripts/agent-buccet-install-contract.ts)
@@ -184,7 +184,7 @@ Buccet keeps authored infinity outside runtime and collapses the active system i
 - Same power: same governing power preserved across 29/29 runtime nodes and 362/362 repo artifacts
 - New body: new executable body = 9 repo snap bodies carrying 6 planes, 3 terminals, 4 consequence boundaries, and 1 finite lawful machine
 - End-to-end runtime: no matter how much is added to either UPL side, anything Buccet controls still resolves end to end through the same finite runtime body
-- Speed: runtime `0.012442ms`, whole repo `0.046824ms`
+- Speed: runtime `0.007353ms`, whole repo `0.042511ms`
 - Compression: runtime 29 nodes -> 14 executable substrate primitives; repo 362 artifacts -> 9 executable snap bodies
 - Deterministic: runtime same snap output on repeated runs; repo same snap output on repeated runs
 

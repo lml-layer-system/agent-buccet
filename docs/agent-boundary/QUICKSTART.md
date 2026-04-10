@@ -34,6 +34,14 @@ buccet init
 buccet console
 ```
 
+`buccet init` now does the fast machine bring-up.
+
+If you want to arm the strong-path intercept immediately on a cold machine:
+
+```bash
+buccet hook start
+```
+
 Useful first commands:
 
 ```bash

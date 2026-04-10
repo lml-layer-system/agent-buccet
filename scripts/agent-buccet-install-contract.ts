@@ -3,6 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
+import { performance } from "node:perf_hooks";
 
 const repoRoot = process.cwd();
 const installScript = await (async () => {
@@ -61,10 +62,12 @@ async function main() {
     AGENT_BUCCET_LAUNCHER_DIR: launcherDir,
   };
 
+  const installStartedAt = performance.now();
   const installResult = await run("sh", [installScript], installEnv, repoRoot);
+  const installMs = performance.now() - installStartedAt;
   assert.equal(installResult.code, 0, installResult.stderr);
   assert.match(installResult.stdout, /Agent Buccet installed\./);
-  assert.match(installResult.stdout, /Buccet snapped install:/);
+  assert.match(installResult.stdout, /Agent Buccet full system install:/);
   assert.match(installResult.stdout, /repo body: \d+ artifacts -> \d+ snap bodies/);
   assert.match(installResult.stdout, /start: buccet console/);
 
@@ -75,7 +78,7 @@ async function main() {
   const snapSummaryExists = await fs.access(snapSummaryPath).then(() => true).catch(() => false);
   assert.equal(snapSummaryExists, true);
   const snapSummary = await fs.readFile(snapSummaryPath, "utf8");
-  assert.match(snapSummary, /Buccet snapped install:/);
+  assert.match(snapSummary, /Agent Buccet full system install:/);
   assert.match(snapSummary, /console: buccet console/);
 
   const cliEnv = {
@@ -84,9 +87,28 @@ async function main() {
     AGENT_BUCCET_LAUNCHER_PATH: launcherPath,
   };
 
+  const initStartedAt = performance.now();
   const initResult = await run(launcherPath, ["init"], cliEnv, workspacePath);
+  const initMs = performance.now() - initStartedAt;
   assert.equal(initResult.code, 0, initResult.stderr);
   assert.match(initResult.stdout, /Agent Buccet/);
+  if (process.env.BUCCET_PROFILE_INIT === "1" && initResult.stderr.trim()) {
+    console.log(initResult.stderr.trim());
+  }
+  const initProtectionMode = /Intercept:\s+strong_path/.test(initResult.stdout)
+    ? "strong_path"
+    : /Intercept:\s+compatibility_path/.test(initResult.stdout)
+    ? "compatibility_path"
+    : "unknown";
+
+  const hookStatusResult = await run(launcherPath, ["hook", "status", "--json"], cliEnv, workspacePath);
+  assert.equal(hookStatusResult.code, 0, hookStatusResult.stderr);
+  const hookStatus = JSON.parse(hookStatusResult.stdout) as {
+    running: boolean;
+    healthy: boolean;
+    state?: string;
+    lastError?: string;
+  };
 
   const statusResult = await run(launcherPath, ["status", "--json"], cliEnv, workspacePath);
   assert.equal(statusResult.code, 0, statusResult.stderr);
@@ -155,6 +177,13 @@ async function main() {
   assert.equal(homeExists, false);
 
   console.log(`installed launcher: ${launcherPath}`);
+  console.log(`install ms: ${installMs.toFixed(2)}`);
+  console.log(`cold init ms: ${initMs.toFixed(2)}`);
+  console.log(`init protection mode: ${initProtectionMode}`);
+  console.log(`hook running: ${hookStatus.running}`);
+  console.log(`hook healthy: ${hookStatus.healthy}`);
+  console.log(`hook state: ${hookStatus.state ?? "missing"}`);
+  console.log(`hook last error: ${hookStatus.lastError ?? "-"}`);
   console.log(`status scopes: ${status.scopes.length}`);
   console.log(`path runtime: ${customPathName}`);
 }

@@ -694,6 +694,7 @@ export async function writeCompiledUserPathLaws(args: {
     witness: BoundaryLedgerRecord;
   }>;
   session: BoundarySession;
+  skipReplacement?: boolean;
 }): Promise<BoundaryUserPathLedger> {
   let nextLedger = args.ledger;
   let approvedEntries = nextLedger.userApprovedLawPaths;
@@ -707,17 +708,20 @@ export async function writeCompiledUserPathLaws(args: {
       notes: item.compiledLaw.notes ?? undefined,
     };
     const scope = normalizeScope({ decision });
-    nextLedger = applyUserLawReplacement({
-      ledger: {
-        ...nextLedger,
-        userApprovedLawPaths: approvedEntries,
-        userDeniedLawPaths: deniedEntries,
-      },
-      request,
-      session: args.session,
-      scope,
-      modifiedAt: item.witness.META.timestamp,
-    });
+    const workingLedger = {
+      ...nextLedger,
+      userApprovedLawPaths: approvedEntries,
+      userDeniedLawPaths: deniedEntries,
+    };
+    nextLedger = args.skipReplacement
+      ? workingLedger
+      : applyUserLawReplacement({
+        ledger: workingLedger,
+        request,
+        session: args.session,
+        scope,
+        modifiedAt: item.witness.META.timestamp,
+      });
     const entry = createEntry({
       ledger: nextLedger,
       request,

@@ -215,8 +215,8 @@ export function getLiopeStats(): { queueDepth: number; shedCount: number; shedBy
 
 export { LIOPE_MAX_QUEUE_SIZE, LIOPE_FLUSH_INTERVAL_MS, LIOPE_MAX_FILE_SIZE_BYTES, LIOPE_MATERIAL_EVENTS };
 
-async function appendBoundaryLedgerBatch(entries: LiopeQueueEntry[]): Promise<void> {
-  if (entries.length === 0) return;
+async function appendBoundaryLedgerBatch(entries: LiopeQueueEntry[]): Promise<BoundaryLedgerRecord[]> {
+  if (entries.length === 0) return [];
   const release = await acquireBoundaryLedgerLock();
   try {
     await ensureLedgerDir();
@@ -248,9 +248,8 @@ async function appendBoundaryLedgerBatch(entries: LiopeQueueEntry[]): Promise<vo
     await appendLineAtomic(BOUNDARY_LEDGER_WAL_FILE, batchContent);
     await appendLineAtomic(BOUNDARY_LEDGER_FILE, batchContent);
     await writeAtomic(BOUNDARY_LEDGER_WAL_FILE, "");
-    for (const record of records) {
-      await updateBoundaryLedgerIndexes(record);
-    }
+    await updateBoundaryLedgerIndexesBatch(records);
+    return records;
   } finally {
     await release();
   }
@@ -722,6 +721,14 @@ async function appendIndexEntry(filePath: string, value: string) {
   await appendLineAtomic(filePath, `${value}\n`);
 }
 
+async function appendIndexEntryBatch(filePath: string, values: string[]) {
+  if (values.length === 0) {
+    return;
+  }
+  await fs.mkdir(path.dirname(filePath), { recursive: true });
+  await appendLineAtomic(filePath, `${values.join("\n")}\n`);
+}
+
 async function updateBoundaryLedgerIndexes(record: BoundaryLedgerRecord): Promise<void> {
   const source = sanitizeIndexKey(record.INPUT.source || "unknown-source");
   const action = sanitizeIndexKey(record.INPUT.action || "unknown-action");
@@ -756,6 +763,24 @@ function buildBoundaryLedgerIndexEntries(record: BoundaryLedgerRecord): Array<{ 
   }
 
   return entries;
+}
+
+async function updateBoundaryLedgerIndexesBatch(records: BoundaryLedgerRecord[]): Promise<void> {
+  const grouped = new Map<string, string[]>();
+  for (const record of records) {
+    for (const entry of buildBoundaryLedgerIndexEntries(record)) {
+      const bucket = grouped.get(entry.filePath);
+      if (bucket) {
+        bucket.push(entry.value);
+      } else {
+        grouped.set(entry.filePath, [entry.value]);
+      }
+    }
+  }
+
+  for (const [filePath, values] of grouped) {
+    await appendIndexEntryBatch(filePath, values);
+  }
 }
 
 function buildBoundaryLedgerRecord(args: {
@@ -960,6 +985,32 @@ export async function appendBoundaryLedger(
       event_type: eventType,
     },
   });
+}
+
+export async function appendBoundaryLedgerDurableBatch(entries: Array<{
+  eventType: BoundaryLedgerEventType;
+  payload: BoundaryLedgerPayload;
+}>): Promise<void> {
+  if (entries.length === 0) {
+    return;
+  }
+
+  const writerTarget = resolveLedgerWriterTargetFromEnv();
+  if (writerTarget) {
+    for (const entry of entries) {
+      await appendBoundaryLedger(entry.eventType, entry.payload);
+    }
+    return;
+  }
+
+  if (entries.every((entry) => LIOPE_MATERIAL_EVENTS.has(entry.eventType))) {
+    await appendBoundaryLedgerBatch(entries);
+    return;
+  }
+
+  for (const entry of entries) {
+    await appendBoundaryLedger(entry.eventType, entry.payload);
+  }
 }
 
 export async function readBoundaryLedgerBySession(sessionId: string): Promise<BoundaryLedgerRecord[]> {

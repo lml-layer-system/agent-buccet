@@ -486,7 +486,7 @@ export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProc
     },
     step5: {
       implementationSurface: [
-        { label: "meta-EFUE snap process", path: "lib/agent-buccet/meta-efue-substrate-process.ts" },
+        { label: "system body process", path: "lib/agent-buccet/meta-efue-substrate-process.ts" },
         { label: "live UPL field and traffic", path: "lib/agent-buccet/user-path-ledger.ts" },
         { label: "track snap", path: "lib/agent-buccet/track-extractor.ts" },
         { label: "path runtime and path sources", path: "lib/agent-buccet/path-memory.ts" },
@@ -513,7 +513,7 @@ export function runBuccetMetaEfueSubstrateProcess(): BuccetMetaEfueSubstrateProc
       ],
       proofSurface: [
         { label: "substrate snap proof", path: "scripts/agent-buccet-system-substrate-contract.ts" },
-        { label: "meta-EFUE snap proof", path: "scripts/agent-buccet-meta-efue-substrate-process-contract.ts" },
+        { label: "system body proof", path: "scripts/agent-buccet-meta-efue-substrate-process-contract.ts" },
         { label: "path/runtime proof", path: "scripts/agent-buccet-path-memory-contract.ts" },
         { label: "CLI/runtime proof", path: "scripts/agent-buccet-cli-contract.ts" },
         { label: "install proof", path: "scripts/agent-buccet-install-contract.ts" },
@@ -554,7 +554,7 @@ export function renderBuccetInstallSnapSummaryText(
 ): string {
   const summary = buildBuccetInstallSnapSummary(process);
   return [
-    "Buccet snapped install:",
+    "Agent Buccet full system install:",
     `  repo body: ${summary.repoArtifactCount} artifacts -> ${summary.repoSnapBodyCount} snap bodies (${summary.repoCompressionPercent}% compression)`,
     `  runtime body: ${summary.runtimeNodeCount} nodes -> ${summary.runtimeExecutablePrimitiveCount} executable primitives`,
     `  speed: runtime ${summary.runtimeSnapAvgMs.toFixed(6)}ms | whole repo ${summary.repoSnapAvgMs.toFixed(6)}ms`,
@@ -567,9 +567,9 @@ export function renderBuccetMetaEfueSubstrateProcessMarkdown(
   process: BuccetMetaEfueSubstrateProcess = runBuccetMetaEfueSubstrateProcess(),
 ): string {
   return [
-    "# Buccet Meta-EFUE Substrate Process",
+    "# Buccet Full System Body",
     "",
-    "This document is generated from the live Buccet meta-EFUE substrate process.",
+    "This document is generated from the live Buccet full-system body process.",
     "",
     "It is not just a description.",
     "It is the executed 7-step collapse of the current Buccet system into an executable finite substrate.",

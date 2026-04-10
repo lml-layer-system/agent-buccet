@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 
 const repoRoot = process.cwd();
 
@@ -70,10 +71,12 @@ async function main() {
     AGENT_BUCCET_MANIFEST_URL: `file://${manifestPath}`,
   };
 
+  const installStartedAt = performance.now();
   const installResult = await run("sh", [installScript], installEnv, repoRoot);
+  const installMs = performance.now() - installStartedAt;
   assert.equal(installResult.code, 0, installResult.stderr);
-  assert.match(installResult.stdout, /Agent Buccet is now protecting your system\./);
-  assert.match(installResult.stdout, /Buccet snapped install:/);
+  assert.match(installResult.stdout, /Agent Buccet installed\./);
+  assert.match(installResult.stdout, /Agent Buccet full system install:/);
   assert.match(installResult.stdout, /repo body: \d+ artifacts -> \d+ snap bodies/);
   assert.match(installResult.stdout, /start: buccet console/);
 
@@ -91,9 +94,14 @@ async function main() {
 
   const statusResult = await run(launcherPath, ["status", "--json"], cliEnv, workspacePath);
   assert.equal(statusResult.code, 0, statusResult.stderr);
-  const status = JSON.parse(statusResult.stdout) as { initialized: boolean; scopes: string[] };
-  assert.equal(status.initialized, true);
-  assert.equal(status.scopes.length, 0);
+  const status = JSON.parse(statusResult.stdout) as { initialized: boolean; scopes?: string[] };
+  assert.equal(status.initialized, false);
+  assert.equal((status.scopes ?? []).length, 0);
+
+  const initStartedAt = performance.now();
+  const initResult = await run(launcherPath, ["init", "--no-default-scope"], cliEnv, workspacePath);
+  const initMs = performance.now() - initStartedAt;
+  assert.equal(initResult.code, 0, initResult.stderr);
 
   const pathAddResult = await run(launcherPath, [
     "path",
@@ -141,7 +149,9 @@ async function main() {
   assert.equal(homeExists, false);
 
   console.log(`hosted install launcher: ${launcherPath}`);
-  console.log(`status scopes: ${status.scopes.length}`);
+  console.log(`hosted install ms: ${installMs.toFixed(2)}`);
+  console.log(`hosted cold init ms: ${initMs.toFixed(2)}`);
+  console.log(`status scopes: ${(status.scopes ?? []).length}`);
   console.log(`path runtime: ${customPathName}`);
 }
 

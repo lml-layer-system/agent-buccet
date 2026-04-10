@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { appendBoundaryLedger } from "./ledger.ts";
+import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
 import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
 import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
@@ -385,16 +385,26 @@ export async function seedBaseAcceptanceIntoConfig(args: {
   issuedBy: string;
   scope?: BoundaryUplScope;
 }): Promise<BoundaryRuntimeConfig> {
+  const profileInit = process.env.BUCCET_PROFILE_INIT === "1";
+  const startedAt = Date.now();
+  const profileMark = (label: string) => {
+    if (!profileInit) {
+      return;
+    }
+    console.error(`[buccet-init-profile] base acceptance ${label}: ${Date.now() - startedAt}ms`);
+  };
   const compiledLaws = createBaseAcceptanceLaws({
     rootPath: args.rootPath,
     grantedActions: args.grantedActions,
     scope: args.scope ?? "SESSION",
   });
+  profileMark("compiled laws ready");
   if (compiledLaws.length === 0) {
     return args.config;
   }
 
   const ledger = args.config.upl ?? await loadUserPathLedger();
+  profileMark("ledger ready");
   const approvedCountBefore = ledger.userApprovedLawPaths.length;
   const witness = await appendBoundaryLedger("UPL_ALLOW_RECORDED", {
     sessionId: args.config.session.sessionId,
@@ -414,35 +424,42 @@ export async function seedBaseAcceptanceIntoConfig(args: {
     },
     createdAt: new Date().toISOString(),
   });
+  profileMark("allow witness written");
 
   const upl = await writeCompiledUserPathLaws({
     ledger,
     compiledLaws: compiledLaws.map((compiledLaw) => ({ compiledLaw, witness })),
     session: args.config.session,
+    skipReplacement: true,
   });
+  profileMark("ledger updated");
 
   const newEntries = upl.userApprovedLawPaths.slice(approvedCountBefore);
-  for (const [index, entry] of newEntries.entries()) {
+  await appendBoundaryLedgerDurableBatch(newEntries.map((entry, index) => {
     const law = compiledLaws[index];
-    await appendBoundaryLedger("UPL_TRACK_ACTIVATED", {
-      sessionId: args.config.session.sessionId,
-      actorId: args.issuedBy,
-      requestId: `upl-base-acceptance-track-${entry.id}`,
-      actionKind: law?.requestBasis.actionKind ?? entry.requestBasis?.actionKind,
-      target: law?.requestBasis.target ?? entry.requestBasis?.target ?? path.resolve(args.rootPath),
-      decision: "allow",
-      reason: `Buccet base acceptance corridor activated: ${law?.trackConstraint?.description ?? entry.trackConstraint?.description ?? entry.id}`,
-      lawIds: [entry.id],
-      metadata: entryTrackMetadata(entry.id, law ?? {
-        type: "APPROVED",
-        requestBasis: entry.requestBasis ?? {
-          actionKind: "fs.read",
-          target: path.resolve(args.rootPath),
-        },
-      }),
-      createdAt: new Date().toISOString(),
-    });
-  }
+    return {
+      eventType: "UPL_TRACK_ACTIVATED" as const,
+      payload: {
+        sessionId: args.config.session.sessionId,
+        actorId: args.issuedBy,
+        requestId: `upl-base-acceptance-track-${entry.id}`,
+        actionKind: law?.requestBasis.actionKind ?? entry.requestBasis?.actionKind,
+        target: law?.requestBasis.target ?? entry.requestBasis?.target ?? path.resolve(args.rootPath),
+        decision: "allow" as const,
+        reason: `Buccet base acceptance corridor activated: ${law?.trackConstraint?.description ?? entry.trackConstraint?.description ?? entry.id}`,
+        lawIds: [entry.id],
+        metadata: entryTrackMetadata(entry.id, law ?? {
+          type: "APPROVED",
+          requestBasis: entry.requestBasis ?? {
+            actionKind: "fs.read",
+            target: path.resolve(args.rootPath),
+          },
+        }),
+        createdAt: new Date().toISOString(),
+      },
+    };
+  }));
+  profileMark("track activations written");
 
   return {
     ...args.config,

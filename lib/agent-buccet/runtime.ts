@@ -1,4 +1,4 @@
-import { appendBoundaryLedger } from "./ledger.ts";
+import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
 import { adjudicateBoundaryRequest, enableBodyguardControl } from "./bodyguard.ts";
 import { seedBaseAcceptanceIntoConfig } from "./base-upl-acceptance.ts";
 import {
@@ -84,6 +84,57 @@ export async function issueBoundaryGrant(args: {
   };
   await persistBoundarySessionState(nextConfig);
   return { grant, config: nextConfig };
+}
+
+export async function issueBoundaryGrantBatch(args: {
+  config: BoundaryRuntimeConfig;
+  grants: Array<{
+    resourceKind: BoundaryResourceKind;
+    resourceValue: string;
+    grantedActions: BoundaryActionKind[];
+    issuedBy: string;
+    expiresAt?: string;
+    metadata?: Record<string, string | number | boolean>;
+  }>;
+}): Promise<{ grants: BoundaryGrant[]; config: BoundaryRuntimeConfig }> {
+  if (args.grants.length === 0) {
+    return { grants: [], config: args.config };
+  }
+
+  const issuedAt = new Date().toISOString();
+  const grants = args.grants.map((entry) => instantiateBoundaryGrant({
+    session: args.config.session,
+    resourceKind: entry.resourceKind,
+    resourceValue: entry.resourceValue,
+    grantedActions: entry.grantedActions,
+    issuedBy: entry.issuedBy,
+    issuedAt,
+    expiresAt: entry.expiresAt,
+    metadata: entry.metadata,
+  }));
+
+  await appendBoundaryLedgerDurableBatch(grants.map((grant, index) => ({
+    eventType: "GRANT_ISSUED" as const,
+    payload: {
+      sessionId: args.config.session.sessionId,
+      actorId: args.grants[index]!.issuedBy,
+      grantId: grant.grantId,
+      target: grant.resourceValue,
+      reason: "resource grant issued by user",
+      metadata: {
+        resource_kind: grant.resourceKind,
+        granted_actions: grant.grantedActions.join(","),
+      },
+      createdAt: issuedAt,
+    },
+  })));
+
+  const nextConfig: BoundaryRuntimeConfig = {
+    ...args.config,
+    grants: [...args.config.grants, ...grants],
+  };
+  await persistBoundarySessionState(nextConfig);
+  return { grants, config: nextConfig };
 }
 
 export async function revokeBoundaryGrant(args: {

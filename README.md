@@ -37,6 +37,12 @@ buccet init
 buccet console
 ```
 
+If you want immediate strong-path intercept on a cold machine:
+
+```bash
+buccet hook start
+```
+
 ## First Run
 
 Open scope and run one guarded command:
@@ -149,7 +155,7 @@ Proof and release:
 System shape:
 
 - [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
-- [Buccet Meta-EFUE Substrate Process](docs/agent-boundary/BUCCET_META_EFUE_SUBSTRATE_PROCESS.md)
+- [Buccet Full System Body](docs/agent-boundary/BUCCET_META_EFUE_SUBSTRATE_PROCESS.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
 
 ## Proof Commands
