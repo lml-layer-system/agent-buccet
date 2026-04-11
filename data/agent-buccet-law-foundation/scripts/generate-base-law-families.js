@@ -463,5 +463,7 @@ reportLines.push(
   'This is a one-pass substrate collision over the full 68k corpus. It does not replace the raw corpus. It squeezes surviving defensive law rows into the 11 Agent Buccet base-law families and records every excluded row with an explicit exclusion reason.'
 );
 
-fs.writeFileSync(reportPath, reportLines.join('\n') + '\n');
+if (fs.existsSync(path.dirname(reportPath))) {
+  fs.writeFileSync(reportPath, reportLines.join('\n') + '\n');
+}
 console.log(JSON.stringify(manifest, null, 2));

@@ -695,7 +695,9 @@ const report = [
 fs.writeFileSync(path.join(outDir, `${familyId}.json`), JSON.stringify(familyDoc, null, 2) + '\n');
 fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 fs.writeFileSync(contractPath, JSON.stringify(contract, null, 2) + '\n');
-fs.writeFileSync(reportPath, report + '\n');
+if (fs.existsSync(path.dirname(reportPath))) {
+  fs.writeFileSync(reportPath, report + '\n');
+}
 
 console.log(`recovered time laws=${familySourceLaws.length}`);
 console.log(`time family=${familyId}`);

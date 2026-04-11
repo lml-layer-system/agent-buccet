@@ -41,7 +41,6 @@ If you are new, start with these three:
 - [Release Checklist](RELEASE_CHECKLIST.md): production gate and release posture
 - [Launch Boundary](LAUNCH_BOUNDARY.md): what is in the public release surface
 - [Launch Proof](LAUNCH_PROOF.md): shortest demonstration path
-- [Packaging Plan](PACKAGING_PLAN.md): packaged release shape
 
 ## Reference Docs
 

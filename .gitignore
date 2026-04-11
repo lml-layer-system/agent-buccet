@@ -15,6 +15,7 @@ data/generated_backups/
 data/lml-context/
 data/agent-boundary/
 data/ledger/
+data/agent-buccet-law-foundation/data/working/runtime-law-substrate/
 artifacts/
 native/*/build/
 demo/workspace/

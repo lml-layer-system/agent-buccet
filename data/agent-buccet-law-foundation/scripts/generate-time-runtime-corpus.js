@@ -139,6 +139,8 @@ const report = [
 
 fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n');
 fs.writeFileSync(path.join(outDir, 'projected-laws.json'), JSON.stringify(projectedLaws, null, 2) + '\n');
-fs.writeFileSync(reportPath, report + '\n');
+if (fs.existsSync(path.dirname(reportPath))) {
+  fs.writeFileSync(reportPath, report + '\n');
+}
 
 console.log(`projected time laws=${projectedLaws.length}`);

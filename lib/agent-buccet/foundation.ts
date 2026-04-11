@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,27 +10,21 @@ import type {
 } from "./types.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-const FOUNDATION_RUNTIME_SUBSTRATE_MANIFEST_RELATIVE_PATH = path.join(
+const FOUNDATION_ACTIVE_LAW_BODY_MANIFEST_RELATIVE_PATH = path.join(
   "data",
   "agent-buccet-law-foundation",
   "data",
   "working",
-  "runtime-law-substrate",
+  "active-law-body",
   "manifest.json",
 );
-const FOUNDATION_RUNTIME_SUBSTRATE_RELATIVE_PATH = path.join(
+const FOUNDATION_ACTIVE_LAW_BODY_RELATIVE_PATH = path.join(
   "data",
   "agent-buccet-law-foundation",
   "data",
   "working",
-  "runtime-law-substrate",
-  "agent-buccet-runtime-substrate.json",
-);
-const FOUNDATION_RUNTIME_MODULE_RELATIVE_PATH = path.join(
-  "data",
-  "agent-buccet-law-foundation",
-  "runtime",
-  "agent-buccet-law-substrate.js",
+  "active-law-body",
+  "projected-laws.json",
 );
 
 const AGENT_BUCCET_BASE_LAW_IDS = [
@@ -42,9 +37,20 @@ const AGENT_BUCCET_BASE_LAW_IDS = [
 ] as const;
 
 export const AGENT_BUCCET_ACTIVE_FOUNDATION_EXCLUDED_LAW_IDS = [165, 166, 167, 169, 243] as const;
-type RuntimeSubstrateModule = {
-  loadRuntimeSubstrate: (options?: { substratePath?: string; repoRoot?: string }) => unknown;
-  materializeRuntimeLawBody: (substrate: unknown) => Array<{ projectedLawId: string; gate?: string; category?: string }>;
+
+type ActiveLawBodyManifest = {
+  generatedAt: string;
+  baseProjectedLawCount: number;
+  timeProjectedLawCount: number;
+  projectedLawCount: number;
+  familyCount: number;
+};
+
+type ProjectedLawRow = {
+  projectedLawId: string;
+  sourceLawId: string;
+  gate?: string;
+  category?: string;
 };
 
 let cachedRuntimeMuscle: Promise<BoundaryRuntimeMuscle> | null = null;
@@ -61,8 +67,8 @@ function resolveFoundationCandidates(relativePath: string): string[] {
   ];
 }
 
-async function resolveRuntimeMuscleManifestPath(): Promise<string> {
-  for (const candidate of resolveFoundationCandidates(FOUNDATION_RUNTIME_SUBSTRATE_MANIFEST_RELATIVE_PATH)) {
+async function resolveFoundationPath(relativePath: string): Promise<string> {
+  for (const candidate of resolveFoundationCandidates(relativePath)) {
     try {
       await fs.access(candidate);
       return candidate;
@@ -71,47 +77,18 @@ async function resolveRuntimeMuscleManifestPath(): Promise<string> {
     }
   }
 
-  throw new Error(
-    `unable to locate Agent Buccet runtime law substrate manifest at ${FOUNDATION_RUNTIME_SUBSTRATE_MANIFEST_RELATIVE_PATH}`,
-  );
+  throw new Error(`unable to locate Agent Buccet foundation artifact at ${relativePath}`);
 }
 
-async function resolveRuntimeSubstratePath(): Promise<string> {
-  for (const candidate of resolveFoundationCandidates(FOUNDATION_RUNTIME_SUBSTRATE_RELATIVE_PATH)) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error(
-    `unable to locate Agent Buccet runtime law substrate at ${FOUNDATION_RUNTIME_SUBSTRATE_RELATIVE_PATH}`,
-  );
+function sha256(buffer: string | Buffer): string {
+  return createHash("sha256").update(buffer).digest("hex");
 }
 
-async function resolveRuntimeModulePath(): Promise<string> {
-  for (const candidate of resolveFoundationCandidates(FOUNDATION_RUNTIME_MODULE_RELATIVE_PATH)) {
-    try {
-      await fs.access(candidate);
-      return candidate;
-    } catch {
-      continue;
-    }
-  }
-
-  throw new Error(
-    `unable to locate Agent Buccet runtime law substrate module at ${FOUNDATION_RUNTIME_MODULE_RELATIVE_PATH}`,
-  );
+function normalizeArtifactPath(relativePath: string): string {
+  return relativePath.split(path.sep).join("/");
 }
 
-async function loadRuntimeSubstrateModule(): Promise<RuntimeSubstrateModule> {
-  const modulePath = await resolveRuntimeModulePath();
-  return import(modulePath) as Promise<RuntimeSubstrateModule>;
-}
-
-function buildTimeIndexes(rows: Array<{ projectedLawId: string; gate?: string; category?: string }>) {
+function buildTimeIndexes(rows: ProjectedLawRow[]) {
   const timeLawIdsByGate: Record<string, string[]> = Object.create(null);
   const timeLawIdsByCategory: Record<string, string[]> = Object.create(null);
 
@@ -145,9 +122,6 @@ export async function buildActiveAgentBuccetLawIds(args: {
   const executableLawIds = args.executableLaws.map((law) => law.lawId);
   const timeReferenceLawIds = AGENT_BUCCET_TIME_LAW_REFERENCES.map((law) => normalizeTimeReferenceLawId(law.lawId));
 
-  // Only carry forward existingLawIds that are valid in the current execution context.
-  // This prevents stale law IDs from a different law configuration (e.g. DEFAULT_BOUNDARY_LAWS
-  // session restored with wrapperLaws) from activating muscle rules they no longer belong to.
   const knownLawIdSet = new Set([
     ...AGENT_BUCCET_BASE_LAW_IDS,
     ...runtimeMuscle.activeLawIds,
@@ -174,20 +148,54 @@ export function getAgentBuccetBaseLawIds(): readonly string[] {
 export async function loadAgentBuccetRuntimeMuscle(): Promise<BoundaryRuntimeMuscle> {
   if (!cachedRuntimeMuscle) {
     cachedRuntimeMuscle = Promise.all([
-      resolveRuntimeMuscleManifestPath(),
-      resolveRuntimeSubstratePath(),
-      loadRuntimeSubstrateModule(),
-    ]).then(async ([manifestPath, substratePath, runtimeModule]) => {
-      const manifest = JSON.parse(
-        await fs.readFile(manifestPath, "utf8"),
-      ) as BoundaryRuntimeMuscleManifest;
-      const substrate = runtimeModule.loadRuntimeSubstrate({ substratePath });
-      const materialized = runtimeModule.materializeRuntimeLawBody(substrate);
+      resolveFoundationPath(FOUNDATION_ACTIVE_LAW_BODY_MANIFEST_RELATIVE_PATH),
+      resolveFoundationPath(FOUNDATION_ACTIVE_LAW_BODY_RELATIVE_PATH),
+    ]).then(async ([manifestPath, projectedLawBodyPath]) => {
+      const [manifestRaw, projectedLawBodyRaw] = await Promise.all([
+        fs.readFile(manifestPath, "utf8"),
+        fs.readFile(projectedLawBodyPath, "utf8"),
+      ]);
+      const activeLawBodyManifest = JSON.parse(manifestRaw) as ActiveLawBodyManifest;
+      const materialized = JSON.parse(projectedLawBodyRaw) as ProjectedLawRow[];
+      if (materialized.length !== activeLawBodyManifest.projectedLawCount) {
+        throw new Error(
+          `active-law-body row count ${materialized.length} does not match manifest count ${activeLawBodyManifest.projectedLawCount}`,
+        );
+      }
+
+      const activeLawBodyHash = sha256(projectedLawBodyRaw);
+      const activeLawBodyBytes = Buffer.byteLength(projectedLawBodyRaw);
+      const uniqueSourceKernelCount = new Set(materialized.map((row) => row.sourceLawId)).size;
+      const artifactPath = normalizeArtifactPath(FOUNDATION_ACTIVE_LAW_BODY_RELATIVE_PATH);
+      const manifest: BoundaryRuntimeMuscleManifest = {
+        generatedAt: activeLawBodyManifest.generatedAt,
+        activeBaseLawCount: activeLawBodyManifest.baseProjectedLawCount,
+        activeTimeLawCount: activeLawBodyManifest.timeProjectedLawCount,
+        activeLawBodyCount: activeLawBodyManifest.projectedLawCount,
+        substrateFamilyCount: activeLawBodyManifest.familyCount,
+        substrateSourceKernelCount: uniqueSourceKernelCount,
+        hashes: {
+          runtimeSubstrateSha256: activeLawBodyHash,
+          materializedActiveLawBodySha256: activeLawBodyHash,
+        },
+        sizes: {
+          runtimeSubstrateBytes: activeLawBodyBytes,
+          materializedActiveLawBodyBytes: activeLawBodyBytes,
+        },
+        artifactPaths: {
+          substrate: artifactPath,
+          activeLawBodySource: artifactPath,
+        },
+      };
       const { timeLawIdsByGate, timeLawIdsByCategory } = buildTimeIndexes(materialized);
 
       return {
         manifest,
-        substrate,
+        substrate: {
+          source: artifactPath,
+          derivedFrom: "active-law-body",
+          rowCount: materialized.length,
+        },
         activeLawIds: materialized.map((row) => row.projectedLawId),
         timeLawIdsByGate,
         timeLawIdsByCategory,

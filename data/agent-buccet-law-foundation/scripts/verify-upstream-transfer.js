@@ -2,10 +2,6 @@
 
 const fs = require("fs");
 const path = require("path");
-const {
-  loadRuntimeSubstrate,
-  materializeRuntimeLawBody,
-} = require("../runtime/agent-buccet-law-substrate");
 
 const repoRoot = path.resolve(__dirname, "..");
 const contractPath = path.join(repoRoot, "UPSTREAM_TRANSFER_CONTRACT.json");
@@ -18,21 +14,6 @@ function assert(condition, message) {
   if (!condition) {
     throw new Error(message);
   }
-}
-
-function canonicalize(value) {
-  if (Array.isArray(value)) {
-    return value.map(canonicalize);
-  }
-  if (value && typeof value === "object") {
-    return Object.keys(value)
-      .sort()
-      .reduce((result, key) => {
-        result[key] = canonicalize(value[key]);
-        return result;
-      }, {});
-  }
-  return value;
 }
 
 const contract = readJson(contractPath);
@@ -184,8 +165,8 @@ assert(
   `full projected-laws.json row count ${fullProjectedLaws.length} does not match expected ${contract.sourcePayload.runtimeProjectedFullLawCount}`,
 );
 
-const index = readJson(path.join(repoRoot, 'data/working/active-law-body/index.json'));
-assert(typeof index === 'object' && index !== null, 'active-law-body index.json must be an object');
+const index = readJson(path.join(repoRoot, "data/working/active-law-body/index.json"));
+assert(typeof index === "object" && index !== null, "active-law-body index.json must be an object");
 assert(
   index.lawCount === contract.sourcePayload.runtimeProjectedFullLawCount,
   `index lawCount ${index.lawCount} does not match expected ${contract.sourcePayload.runtimeProjectedFullLawCount}`,
@@ -195,28 +176,10 @@ assert(
   `index.byId key count ${Object.keys(index.byId).length} does not match expected ${contract.sourcePayload.runtimeProjectedFullLawCount}`,
 );
 
-const runtimeSubstrateManifest = readJson(
-  path.join(repoRoot, "data/working/runtime-law-substrate/manifest.json"),
-);
-assert(typeof runtimeSubstrateManifest === "object" && runtimeSubstrateManifest !== null, "runtime-law-substrate manifest must be an object");
+const sourceKernelCount = new Set(fullProjectedLaws.map((row) => row.sourceLawId)).size;
 assert(
-  runtimeSubstrateManifest.activeLawBodyCount === contract.sourcePayload.runtimeSubstrateFullLawCount,
-  `runtime substrate active law count ${runtimeSubstrateManifest.activeLawBodyCount} does not match expected ${contract.sourcePayload.runtimeSubstrateFullLawCount}`,
-);
-
-const runtimeSubstrate = loadRuntimeSubstrate({ repoRoot });
-const materializedFromSubstrate = materializeRuntimeLawBody(runtimeSubstrate);
-assert(
-  Array.isArray(materializedFromSubstrate),
-  "materialized runtime substrate must be an array",
-);
-assert(
-  materializedFromSubstrate.length === contract.sourcePayload.runtimeSubstrateFullLawCount,
-  `materialized runtime substrate row count ${materializedFromSubstrate.length} does not match expected ${contract.sourcePayload.runtimeSubstrateFullLawCount}`,
-);
-assert(
-  JSON.stringify(canonicalize(materializedFromSubstrate)) === JSON.stringify(canonicalize(fullProjectedLaws)),
-  "runtime substrate does not exactly materialize the current active-law-body artifact",
+  sourceKernelCount === contract.sourcePayload.survivingBaseLawCount + contract.sourcePayload.runtimeProjectedTimeLawCount / contract.sourcePayload.timeRuntimeLayerCount,
+  `runtime-ready source kernel count ${sourceKernelCount} does not match expected ${contract.sourcePayload.survivingBaseLawCount + contract.sourcePayload.runtimeProjectedTimeLawCount / contract.sourcePayload.timeRuntimeLayerCount}`,
 );
 
 const attachPoints = contract.upstreamTarget.attachPoints;
@@ -239,12 +202,12 @@ assert(
 );
 
 console.log("agent-buccet-base-laws manifest integrity: OK");
-console.log("scope: file presence, count consistency, and substrate semantic equivalence");
+console.log("scope: file presence, count consistency, and runtime-ready active law body continuity");
 console.log(`surviving base laws=${baseManifest.survivingLawCount}`);
 console.log(`active base laws=${runtimeManifest.projectedLawCount}`);
 console.log(`active time laws=${timeRuntimeManifest.projectedLawCount}`);
 console.log(`full active law body=${fullManifest.projectedLawCount}`);
-console.log(`runtime substrate active laws=${runtimeSubstrateManifest.activeLawBodyCount}`);
+console.log(`runtime-ready source kernels=${sourceKernelCount}`);
 console.log(`user path ledger governing laws=${uplLawIds.size}`);
 console.log(`upstream repo=${contract.upstreamTarget.repo}`);
 console.log(`foundation loader=${attachPoints.foundationLoader}`);

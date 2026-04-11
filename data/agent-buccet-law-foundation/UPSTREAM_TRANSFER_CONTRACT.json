@@ -15,16 +15,13 @@
       "data/working/user-path-ledger-spec.json",
       "data/working/active-law-body/manifest.json",
       "data/working/active-law-body/projected-laws.json",
-      "data/working/active-law-body/index.json",
-      "data/working/runtime-law-substrate/manifest.json",
-      "data/working/runtime-law-substrate/agent-buccet-runtime-substrate.json"
+      "data/working/active-law-body/index.json"
     ],
     "survivingBaseLawCount": 2407,
     "runtimeProjectedBaseLawCount": 7221,
     "timeFamilyCount": 1,
     "runtimeProjectedTimeLawCount": 988,
     "runtimeProjectedFullLawCount": 8209,
-    "runtimeSubstrateFullLawCount": 8209,
     "familyCount": 12,
     "runtimeLayerCount": 3,
     "timeRuntimeLayerCount": 4

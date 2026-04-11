@@ -248,5 +248,7 @@ lines.push(
   'This corpus projects the 1,887 surviving Agent Buccet base laws across base/state/output levels so the active runtime base body is always present at all three enforcement surfaces.'
 );
 
-fs.writeFileSync(reportPath, lines.join('\n') + '\n');
+if (fs.existsSync(path.dirname(reportPath))) {
+  fs.writeFileSync(reportPath, lines.join('\n') + '\n');
+}
 console.log(JSON.stringify(runtimeManifest, null, 2));

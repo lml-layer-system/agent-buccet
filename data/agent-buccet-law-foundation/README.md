@@ -30,12 +30,12 @@ Notes:
 - `MT-00401` through `MT-00420` are authored Agent Buccet time laws added after reverse-EFUE stress and hostile review exposed missing user-path memory and continuity enforcement surfaces
 - the base corpus is family-compressed: active enforcement text at the family-law level, source law IDs retained as coverage trace
 - time laws are the dynamic defense family and are actively layered across `BASE`, `STATE`, `OUTPUT`, and `TEMPORAL`
-- the runtime substrate is the snapped always-on form of the same `8,209` active laws; it changes size and compute shape, not law logic or coverage
+- the runtime repo now derives muscle directly from `data/working/active-law-body/projected-laws.json`; this vendored copy no longer carries a separate snapped substrate artifact
 - the User Path Ledger uses two linked specs:
   - `user-path-ledger-spec.json` for behavior and entry schema
   - `data/working/user-path-ledger-spec.json` for governing law membership
 - this repo verifies transfer-surface integrity only; live upstream runtime existence and ingestion must be verified in the `agent-buccet` runtime repo
-- `reports/` is historical pass history only; it is not the authoritative transfer surface
+- this vendored copy is intentionally trimmed to the runtime-relevant foundation surface and core provenance docs
 
 ---
 
@@ -73,12 +73,12 @@ Expected output (all assertions pass):
 
 ```text
 agent-buccet-base-laws manifest integrity: OK
-scope: file presence, count consistency, and substrate semantic equivalence
+scope: file presence, count consistency, and runtime-ready active law body continuity
 surviving base laws=2407
 active base laws=7221
 active time laws=988
 full active law body=8209
-runtime substrate active laws=8209
+runtime-ready source kernels=2654
 user path ledger governing laws=20
 upstream repo=agent-buccet
 foundation loader=lib/agent-buccet/foundation.ts
@@ -102,8 +102,8 @@ law body index=OK (8209 entries, 37 family-layers)
    `data/working/time-law-runtime-corpus/`
 5. **Combined active body** — base + time merged into `data/working/active-law-body/` for
    transfer and verification
-6. **Runtime substrate snap** — the same combined body is snapped into
-   `data/working/runtime-law-substrate/` as the compressed always-on runtime form
+6. **Runtime-ready transfer** — the same combined body is kept in
+   `data/working/active-law-body/` as the inspectable transfer surface the runtime consumes directly
 
 Exclusion criteria are documented in `EXCLUSION_CRITERIA.md`.
 Transfer contract is machine-readable at `UPSTREAM_TRANSFER_CONTRACT.json`.
@@ -120,8 +120,6 @@ Transfer contract is machine-readable at `UPSTREAM_TRANSFER_CONTRACT.json`.
 - `data/working/time-law-runtime-corpus/projected-laws.json` — flattened runtime-ready time-law corpus
 - `data/working/active-law-body/manifest.json` — combined active law body manifest
 - `data/working/active-law-body/projected-laws.json` — combined active base+time law body for transfer
-- `data/working/runtime-law-substrate/manifest.json` — compressed runtime substrate manifest
-- `data/working/runtime-law-substrate/agent-buccet-runtime-substrate.json` — compressed always-on runtime substrate
 - `data/working/user-path-ledger-spec.json` — canonical governing-law list for the User Path Ledger
 - `user-path-ledger-spec.json` — behavioral User Path Ledger spec (entry schema, NSL contract, upstream attach points)
 
@@ -134,7 +132,6 @@ Transfer contract is machine-readable at `UPSTREAM_TRANSFER_CONTRACT.json`.
 - `scripts/generate-time-law-family.js` — regenerates the time-law family from the preserved ancestor payload
 - `scripts/generate-time-runtime-corpus.js` — regenerates active time-law runtime corpus
 - `scripts/generate-active-law-body.js` — regenerates the combined active law body
-- `scripts/generate-runtime-law-substrate.js` — regenerates the snapped runtime substrate
 
 ---
 
@@ -151,35 +148,19 @@ agent-buccet-base-laws/
 │       ├── time-law-family/             # Time-law family definition + manifest
 │       ├── time-law-runtime-corpus/     # Per-law time laws (988), manifest
 │       ├── active-law-body/             # Combined base+time corpus (8,209), manifest
-│       ├── runtime-law-substrate/       # Compressed always-on runtime substrate, manifest
 │       └── user-path-ledger-spec.json   # Governing-law list for the User Path Ledger
-├── reports/                             # Historical remodeling pass logs (provenance only)
-├── runtime/
-│   └── agent-buccet-law-substrate.js    # Runtime substrate loader/materializer/resolver
 ├── scripts/
 │   ├── verify-upstream-transfer.js      # Transfer readiness check (runnable)
 │   ├── generate-active-law-body.js      # Combines base+time projected-laws into active-law-body
 │   ├── generate-base-law-families.js    # Regenerates surviving base-law family manifests
 │   ├── generate-base-runtime-corpus.js  # Regenerates active base-law runtime corpus
 │   ├── generate-time-law-family.js      # Regenerates time-law family from ancestor payload
-│   ├── generate-time-runtime-corpus.js  # Regenerates active time-law runtime corpus
-│   └── generate-runtime-law-substrate.js# Regenerates the snapped runtime substrate
-├── .github/workflows/verify.yml         # CI: gates every PR on verify:upstream-transfer
-├── AGENTS.md                            # Work protocol for contributors and Claude agents
-├── CONTRIBUTING.md                      # How to contribute
+│   └── generate-time-runtime-corpus.js  # Regenerates active time-law runtime corpus
 ├── EXCLUSION_CRITERIA.md                # What was excluded and why
 ├── LICENSE                              # Apache 2.0
 ├── UPSTREAM_TRANSFER_CONTRACT.json      # Machine-readable transfer contract
 └── user-path-ledger-spec.json           # Full behavioral contract for the User Path Ledger
 ```
-
----
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md).
-
-The hard rules for all contributors — human and AI agent — are in [AGENTS.md](AGENTS.md).
 
 ---
 
