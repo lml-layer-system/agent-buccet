@@ -61,6 +61,39 @@ There is no separate recursive skill registry above it.
 - interactive and headless modes on the same control body
 - durable audit trail from first proposal to final consequence
 
+## What Boundaries Buccet Actually Governs
+
+Buccet is not one vague safety layer.
+It governs several explicit boundaries, each with a different job.
+
+- action boundary: every real-world action proposal is intercepted before it lands
+- input admission boundary: hostile inbound force is screened before tokenization, inference, or API spend
+- motion governor: runaway outbound behavior is slowed, frozen, or stopped by session force limits
+- payload physics boundary: even approved processes stay inside hard ceilings for time, memory, process count, file growth, and I/O shape
+- approval boundary: the runtime only returns `ALLOW`, `DENY`, or `REQUIRE_APPROVAL`
+- ledger boundary: every crossing is recorded from first input pressure to final consequence
+
+So the boundaries are not implied.
+They are named, enforced, and auditable.
+
+## How Buccet Handles Flooding And Cost
+
+Buccet does not wait for an agent to wake up, think, and spend money before trying to defend itself.
+
+Inbound pressure is governed first.
+The input admission boundary evaluates velocity, density, mass, and weak provenance.
+If a source looks hostile or starts a DDoS-style flood against the system, Buccet can deny it or drop it into a tarpit before the brain wakes.
+
+Outbound pressure is governed too.
+The motion governor uses velocity, mass, and action weight so dangerous actions cost more than lightweight reads.
+That means repeated tool execution, destructive file motion, or heavy outbound sending burns through the session budget faster than safe low-impact work.
+
+In Buccet, cost governance is structural.
+It is governed as weighted inbound work and weighted outbound motion, not just as provider token billing after the fact.
+
+So the system is not only deciding "is this allowed."
+It is also deciding whether the inbound load, outbound force, and process shape are acceptable before consequence or spend expands.
+
 ## How Skills And Sources Enter Buccet
 
 There are two different intake paths, and they do different jobs.
