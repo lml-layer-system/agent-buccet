@@ -177,7 +177,7 @@ function currentScriptDir(): string {
 
 function shortSocketPath(homePath: string, label: string): string {
   const digest = createHash("sha256").update(`${homePath}:${label}`).digest("hex").slice(0, 12);
-  const socketRoot = process.platform === "darwin" ? "/tmp" : os.tmpdir();
+  const socketRoot = os.tmpdir();
   return path.join(socketRoot, `buccet-${label}-${digest}.sock`);
 }
 
