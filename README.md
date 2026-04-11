@@ -1,14 +1,44 @@
 # Agent Buccet
 
-Persistent, CPU-friendly enforcement for AI agents.
+Action-boundary law for AI agents.
 
 Building Ultimate Containment Constraints Every Time.
 
 ![Agent Buccet](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
 
-Agent Buccet is a law-bound control layer for AI agents.
+Agent Buccet is not another agent framework, wrapper, or prompt strategy.
 
-It sits at the action boundary, not at the prompt layer. Agents can propose. They cannot authorize. Buccet decides what can happen, what must stop, what needs approval, and what gets recorded in the ledger.
+It is a different layer in the stack: a law-bound control body that sits at the action boundary where agent behavior becomes real.
+
+Agents can propose. They cannot authorize.
+
+Buccet decides:
+
+- what can happen
+- what must stop
+- what needs approval
+- what becomes standing user law
+- what gets recorded in the ledger
+
+## Why This Changes The Stack
+
+Most agent tooling lives above the consequence boundary:
+
+- prompts try to steer behavior
+- frameworks coordinate tools
+- model providers improve or regress
+- wrappers shape developer ergonomics
+
+Buccet lives below that layer, at the point where an agent tries to touch the world.
+
+That is the shift:
+
+- the model can change
+- the framework can change
+- the workflow can change
+- the action boundary does not change
+
+If you control the action boundary, you control every agent stack above it on the same machine.
 
 ## What You Get
 
