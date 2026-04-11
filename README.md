@@ -40,14 +40,23 @@ That is the shift:
 
 If you control the action boundary, you control every agent stack above it on the same machine.
 
+## Plain-English Map
+
+- `UPL` = User Policy Layer, the live rulebook built from what the user allows and forbids
+- `acceptance` = the allow side of that rulebook
+- `denial` = the stop side of that rulebook
+- `paths` = named workflows that stay inside the rulebook
+- `path sources` = files and notes attached to a path to add context, not permission
+- `ledger` = the audit trail of what was proposed, allowed, denied, approved, and executed
+
 ## What You Get
 
-- one live UPL field compiled from approved and denied law
-- one-terminal operator cockpit with shield, approval/control, and witness feed together
-- path runtime for structured lawful work
-- path sources for domain context without widening permissions
-- interactive and headless modes on the same lawful body
-- durable ledger and witness trail
+- one live rulebook built from allowed rules and blocked rules
+- one terminal where you can run, approve, deny, inspect, and audit
+- reusable workflows for repeatable safe work
+- attached context for each workflow without widening permission
+- interactive and headless modes on the same control body
+- durable audit trail from first proposal to final consequence
 
 ## Install
 
@@ -71,9 +80,9 @@ buccet init
 buccet console
 ```
 
-`buccet init` now does the fast machine bring-up and will arm strong-path immediately when the packaged native layer is already present.
+`buccet init` now does the fast machine bring-up and will arm the deepest packaged enforcement path immediately when the native layer is already present.
 
-If you need to re-arm or recover the hook path manually:
+If you need to re-arm or recover the native enforcement path manually:
 
 ```bash
 buccet hook start
@@ -104,13 +113,13 @@ buccet doctor --strict
 
 ## Where Things Go
 
-Approved UPL:
+Allowed rules:
 
 ```text
 ~/.buccet/upl-docs/acceptance
 ```
 
-Denied UPL:
+Blocked rules:
 
 ```text
 ~/.buccet/upl-docs/denial
@@ -129,11 +138,11 @@ buccet path run <path-name> [--request <text>] [--steps <n>|--all]
 buccet path watch <path-name|formation-id> [--follow]
 ```
 
-If users forget `buccet upl sync`, Buccet now auto-syncs changed UPL docs before runtime surfaces like `buccet console`, `buccet run`, `buccet hook run`, and `buccet path run`.
+If users forget `buccet upl sync`, Buccet now auto-syncs changed rule docs before runtime surfaces like `buccet console`, `buccet run`, `buccet hook run`, and `buccet path run`.
 
 ## What Buccet Enforces
 
-The same live law body governs:
+The same live rulebook governs:
 
 - filesystem motion
 - process execution
@@ -161,10 +170,10 @@ It is the control body under the agent stack you already run:
 - NeMo / NemoClaw style runtimes
 - custom tool-using agents
 
-Paths organize lawful work.
-Path sources enrich lawful work.
-UPL stays the authority.
-Denial overrides acceptance.
+Workflows organize repeatable safe work.
+Attached sources add context without adding permission.
+The user rulebook stays the authority.
+Blocked rules override allowed rules.
 
 ## Open-Source World
 
@@ -194,9 +203,9 @@ With Agent Buccet, private systems can bind internal policy, compliance rules, o
 
 This means closed-source teams can keep their own stack, their own models, and their own internal policies while still making those constraints enforceable:
 
-- internal policy can become standing law through UPL
-- private operating rules can snap into tracks
-- approval and denial can be carried as durable runtime law
+- internal policy can become standing runtime rules
+- private operating rules can compile into enforceable action controls
+- approval and denial can be carried as durable runtime rules
 - output, action, input-admission, and payload-physics boundaries can all be governed without exposing internal systems
 - the ledger can prove what was allowed, denied, contained, or stopped inside private deployments
 
@@ -211,13 +220,13 @@ Start here:
 - [Quickstart](docs/agent-boundary/QUICKSTART.md)
 - [Where To Add What](docs/agent-boundary/WHERE_TO_ADD_WHAT.md)
 
-Operator and law:
+Operator and rules:
 
-- [UPL Base Packs](docs/agent-boundary/UPL_BASE_PACKS.md)
-- [UPL Acceptance Source Pipeline](docs/agent-boundary/UPL_ACCEPTANCE_SOURCE_PIPELINE.md)
-- [Buccet Path Memory](docs/agent-boundary/BUCCET_PATH_MEMORY.md)
-- [Law Catalog](docs/agent-boundary/LAW_CATALOG.md)
-- [Law Reference](docs/agent-boundary/LAW_REFERENCE.md)
+- [UPL Base Packs](docs/agent-boundary/UPL_BASE_PACKS.md): starter allow and block rules
+- [UPL Acceptance Source Pipeline](docs/agent-boundary/UPL_ACCEPTANCE_SOURCE_PIPELINE.md): how copied source material becomes allowed rules
+- [Buccet Path Memory](docs/agent-boundary/BUCCET_PATH_MEMORY.md): saved workflows, attached context, and agent memory
+- [Law Catalog](docs/agent-boundary/LAW_CATALOG.md): grouped rule inventory
+- [Law Reference](docs/agent-boundary/LAW_REFERENCE.md): active rule reference
 
 Proof and release:
 
