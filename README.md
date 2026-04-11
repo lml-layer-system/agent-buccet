@@ -54,6 +54,139 @@ If you control the action boundary, you control every agent stack above it on th
 In Buccet, that live rulebook becomes the standing skill surface.
 There is no separate recursive skill registry above it.
 
+## What You Get
+
+- one live rulebook built from allowed rules and blocked rules
+- one terminal where you can run, approve, deny, inspect, and audit
+- reusable workflows for repeatable safe work
+- attached context for each workflow without widening permission
+- interactive and headless modes on the same control body
+- durable audit trail from first proposal to final consequence
+
+## What Boundaries Buccet Actually Governs
+
+Buccet is not one vague safety layer.
+It governs several explicit boundaries, each with a different job.
+
+- action boundary: every real-world action proposal is intercepted before it lands
+- chat boundary: model output is governed before it is emitted as visible chat or agent response
+- input admission boundary: hostile inbound force is screened before tokenization, inference, or API spend
+- motion governor: runaway outbound behavior is slowed, frozen, or stopped by session force limits
+- payload physics boundary: even approved processes stay inside hard ceilings for time, memory, process count, file growth, and I/O shape
+- approval boundary: the runtime only returns `ALLOW`, `DENY`, or `REQUIRE_APPROVAL`
+- ledger boundary: every crossing is recorded from first input pressure to final consequence
+
+So the boundaries are not implied.
+They are named, enforced, and auditable.
+
+## How Buccet Runs In Practice
+
+Buccet has two operating modes, but they are the same boundary body underneath.
+
+### Interactive mode
+
+Use `buccet console` when you want a human at the boundary in real time.
+
+- proposals freeze at the boundary
+- the human can approve, deny, or turn repeated decisions into standing law
+- approved judgment can be compiled into the live UPL so the same decision does not need to be re-made forever
+
+### 24/7 headless mode
+
+Use headless mode when you want the same governed system to run continuously without a human sitting at Terminal 2.
+
+- the runtime follows standing human law already recorded in the UPL
+- the same boundaries, rails, walls, ledger, and governor still apply
+- unclear, unlawful, or out-of-lane motion still fails closed instead of silently self-authorizing
+
+Autonomous mode does not mean "the human is gone."
+It means the human already authored or approved the law, and that standing UPL becomes the approval surface in the loop now.
+
+In that sense, the UPL becomes the operational form of the human in the loop:
+stored human judgment the system follows at runtime.
+
+## Install
+
+Hosted install:
+
+```bash
+curl -fsSL https://buccet.lml.dev/install | sh
+```
+
+Repo install:
+
+```bash
+npm install
+sh scripts/install-agent-buccet.sh
+```
+
+After install:
+
+```bash
+buccet init
+buccet console
+```
+
+`buccet init` now does the fast machine bring-up and will arm the deepest packaged enforcement path immediately when the native layer is already present.
+
+If you need to re-arm or recover the native enforcement path manually:
+
+```bash
+buccet hook start
+```
+
+## First Run
+
+Open scope and run one guarded command:
+
+```bash
+buccet scope add .
+buccet run -- /bin/echo protected
+buccet status
+buccet logs
+```
+
+If you want the shortest operator map:
+
+```bash
+buccet where
+```
+
+If you want the full machine posture check:
+
+```bash
+buccet doctor --strict
+```
+
+## Where Things Go
+
+Allowed rules:
+
+```text
+~/.buccet/upl-docs/acceptance
+```
+
+Blocked rules:
+
+```text
+~/.buccet/upl-docs/denial
+```
+
+Path sources:
+
+```bash
+buccet path sources add <path-name> <file...> [--domain <domain>]
+```
+
+Paths:
+
+```bash
+buccet path run <path-name> [--request <text>] [--steps <n>|--all]
+buccet path watch <path-name|formation-id> [--follow]
+```
+
+If users forget `buccet upl sync`, Buccet now auto-syncs changed rule docs before runtime surfaces like `buccet console`, `buccet run`, `buccet hook run`, and `buccet path run`.
+
 ## What "Agent" Means Here
 
 In Buccet, an agent is not the law.
@@ -99,49 +232,6 @@ It holds the boundary, surfaces the drift, and fails closed instead of widening 
 
 Paths cut recursion at the orchestration layer in the same spirit.
 They keep higher-order work forward-only, finite, and stage-bound instead of recursively replanning forever.
-
-## What You Get
-
-- one live rulebook built from allowed rules and blocked rules
-- one terminal where you can run, approve, deny, inspect, and audit
-- reusable workflows for repeatable safe work
-- attached context for each workflow without widening permission
-- interactive and headless modes on the same control body
-- durable audit trail from first proposal to final consequence
-
-## What Boundaries Buccet Actually Governs
-
-Buccet is not one vague safety layer.
-It governs several explicit boundaries, each with a different job.
-
-- action boundary: every real-world action proposal is intercepted before it lands
-- chat boundary: model output is governed before it is emitted as visible chat or agent response
-- input admission boundary: hostile inbound force is screened before tokenization, inference, or API spend
-- motion governor: runaway outbound behavior is slowed, frozen, or stopped by session force limits
-- payload physics boundary: even approved processes stay inside hard ceilings for time, memory, process count, file growth, and I/O shape
-- approval boundary: the runtime only returns `ALLOW`, `DENY`, or `REQUIRE_APPROVAL`
-- ledger boundary: every crossing is recorded from first input pressure to final consequence
-
-So the boundaries are not implied.
-They are named, enforced, and auditable.
-
-## How Buccet Handles Flooding And Cost
-
-Buccet does not wait for an agent to wake up, think, and spend money before trying to defend itself.
-
-Inbound pressure is governed first.
-The input admission boundary evaluates velocity, density, mass, and weak provenance.
-If a source looks hostile or starts a DDoS-style flood against the system, Buccet can deny it or drop it into a tarpit before the brain wakes.
-
-Outbound pressure is governed too.
-The motion governor uses velocity, mass, and action weight so dangerous actions cost more than lightweight reads.
-That means repeated tool execution, destructive file motion, or heavy outbound sending burns through the session budget faster than safe low-impact work.
-
-In Buccet, cost governance is structural.
-It is governed as weighted inbound work and weighted outbound motion, not just as provider token billing after the fact.
-
-So the system is not only deciding "is this allowed."
-It is also deciding whether the inbound load, outbound force, and process shape are acceptable before consequence or spend expands.
 
 ## Why Swarms Do Not Change The Boundary
 
@@ -226,87 +316,23 @@ So the split is:
 - denial still overrides acceptance
 - the ledger records what happened
 
-## Install
+## How Buccet Handles Flooding And Cost
 
-Hosted install:
+Buccet does not wait for an agent to wake up, think, and spend money before trying to defend itself.
 
-```bash
-curl -fsSL https://buccet.lml.dev/install | sh
-```
+Inbound pressure is governed first.
+The input admission boundary evaluates velocity, density, mass, and weak provenance.
+If a source looks hostile or starts a DDoS-style flood against the system, Buccet can deny it or drop it into a tarpit before the brain wakes.
 
-Repo install:
+Outbound pressure is governed too.
+The motion governor uses velocity, mass, and action weight so dangerous actions cost more than lightweight reads.
+That means repeated tool execution, destructive file motion, or heavy outbound sending burns through the session budget faster than safe low-impact work.
 
-```bash
-npm install
-sh scripts/install-agent-buccet.sh
-```
+In Buccet, cost governance is structural.
+It is governed as weighted inbound work and weighted outbound motion, not just as provider token billing after the fact.
 
-After install:
-
-```bash
-buccet init
-buccet console
-```
-
-`buccet init` now does the fast machine bring-up and will arm the deepest packaged enforcement path immediately when the native layer is already present.
-
-If you need to re-arm or recover the native enforcement path manually:
-
-```bash
-buccet hook start
-```
-
-## First Run
-
-Open scope and run one guarded command:
-
-```bash
-buccet scope add .
-buccet run -- /bin/echo protected
-buccet status
-buccet logs
-```
-
-If you want the shortest operator map:
-
-```bash
-buccet where
-```
-
-If you want the full machine posture check:
-
-```bash
-buccet doctor --strict
-```
-
-## Where Things Go
-
-Allowed rules:
-
-```text
-~/.buccet/upl-docs/acceptance
-```
-
-Blocked rules:
-
-```text
-~/.buccet/upl-docs/denial
-```
-
-Path sources:
-
-```bash
-buccet path sources add <path-name> <file...> [--domain <domain>]
-```
-
-Paths:
-
-```bash
-buccet path run <path-name> [--request <text>] [--steps <n>|--all]
-buccet path watch <path-name|formation-id> [--follow]
-```
-
-If users forget `buccet upl sync`, Buccet now auto-syncs changed rule docs before runtime surfaces like `buccet console`, `buccet run`, `buccet hook run`, and `buccet path run`.
+So the system is not only deciding "is this allowed."
+It is also deciding whether the inbound load, outbound force, and process shape are acceptable before consequence or spend expands.
 
 ## What Buccet Enforces
 
