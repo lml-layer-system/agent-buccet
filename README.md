@@ -2,6 +2,8 @@
 
 Building Ultimate Containment Constraints Every Time.
 
+![Agent Buccet](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
+
 Agent Buccet is a law-bound control layer for AI agents.
 
 It sits at the action boundary, not at the prompt layer. Agents can propose. They cannot authorize. Buccet decides what can happen, what must stop, what needs approval, and what gets recorded in the ledger.
