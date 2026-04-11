@@ -67,6 +67,7 @@ Buccet is not one vague safety layer.
 It governs several explicit boundaries, each with a different job.
 
 - action boundary: every real-world action proposal is intercepted before it lands
+- chat boundary: model output is governed before it is emitted as visible chat or agent response
 - input admission boundary: hostile inbound force is screened before tokenization, inference, or API spend
 - motion governor: runaway outbound behavior is slowed, frozen, or stopped by session force limits
 - payload physics boundary: even approved processes stay inside hard ceilings for time, memory, process count, file growth, and I/O shape
@@ -249,6 +250,7 @@ If users forget `buccet upl sync`, Buccet now auto-syncs changed rule docs befor
 
 The same live rulebook governs:
 
+- chat and output emission
 - filesystem motion
 - process execution
 - network and recipient sends
