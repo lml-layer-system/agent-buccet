@@ -1,0 +1,19 @@
+{
+  "name": "buccet-substrate",
+  "type": "module",
+  "description": "Production-grade enforcement substrate. Ancestor lineage: D=Docker · K=Kubernetes · Q=Qubes. verified=True · ∀i: Snap(S)(i) = S(i)",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "files": [
+    "buccet_substrate_bg.wasm",
+    "buccet_substrate.js",
+    "buccet_substrate_bg.js",
+    "buccet_substrate.d.ts"
+  ],
+  "main": "buccet_substrate.js",
+  "types": "buccet_substrate.d.ts",
+  "sideEffects": [
+    "./buccet_substrate.js",
+    "./snippets/*"
+  ]
+}

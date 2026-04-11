@@ -31,6 +31,10 @@ async function main() {
   const requiredFiles = [
     "Cargo.toml",
     "README.md",
+    "pkg/buccet_substrate.js",
+    "pkg/buccet_substrate_bg.js",
+    "pkg/buccet_substrate_bg.wasm",
+    "pkg/buccet_substrate.d.ts",
     "src/lib.rs",
     "src/types.rs",
     "src/d_containment.rs",
@@ -55,9 +59,45 @@ async function main() {
   const builtEntries = await fs.readdir(targetReleaseDir).catch(() => []);
   assert.ok(builtEntries.length > 0, "expected cargo build to produce release artifacts");
 
+  const adapterPath = path.join(repoRoot, "lib", "agent-buccet", "substrate-rust.ts");
+  const adapterExists = await fs.access(adapterPath).then(() => true).catch(() => false);
+  assert.equal(adapterExists, true, "expected Buccet TypeScript adapter for the Rust substrate");
+
+  const loaderScript = `
+    import { substrate, PolicyDecision } from ${JSON.stringify(new URL("../lib/agent-buccet/substrate-rust.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    await substrate.init();
+    const isolation = substrate.dApplyIsolation("unit-1", {});
+    const decision = substrate.enforce("agent-1", {
+      subject: "agent",
+      action: "write",
+      resource: "secret",
+      roles: [],
+    });
+    const trust = substrate.qAssignTrustDomain("vault-01", {});
+    console.log(JSON.stringify({ ready: substrate.ready, active: isolation.active, decision, trust, deny: PolicyDecision.Deny }));
+  `;
+  const loaderResult = await run(
+    "node",
+    ["--experimental-wasm-modules", "--input-type=module", "-e", loaderScript],
+    repoRoot,
+  );
+  assert.equal(loaderResult.code, 0, loaderResult.stderr);
+  const loaderPayload = JSON.parse(loaderResult.stdout.trim()) as {
+    ready: boolean;
+    active: boolean;
+    decision: string;
+    trust: string;
+    deny: string;
+  };
+  assert.equal(loaderPayload.ready, true);
+  assert.equal(loaderPayload.decision, loaderPayload.deny);
+  assert.equal(loaderPayload.trust, "vault");
+
   console.log("Agent Buccet substrate rust contract");
   console.log("  vendored crate: present");
   console.log("  native cargo build: ok");
+  console.log("  wasm pkg: present");
+  console.log("  typescript adapter: ok");
 }
 
 main().catch((error) => {

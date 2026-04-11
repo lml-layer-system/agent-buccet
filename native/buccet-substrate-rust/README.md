@@ -14,6 +14,8 @@ What it is for:
 
 - native Rust build for substrate verification and future low-level integration
 - WASM build for TypeScript-side consumers that want the fused substrate functions without a second repo
+- vendored `pkg/` bundle already built for the current repo
+- Buccet-owned adapter at `lib/agent-buccet/substrate-rust.ts`
 
 What it is not:
 

@@ -13,6 +13,7 @@ This is the D/K/Q fused surface:
 - `Q` = Qubes lineage
 
 It contains the native and WASM build targets for the vendored substrate crate.
+It also now carries the built `pkg/` WASM bundle and a Buccet-owned TypeScript adapter.
 
 ## What It Means
 
@@ -35,8 +36,32 @@ What this pass closes is the repo/system split:
 
 - the substrate is now inside the Buccet repo
 - the build surface is repo-owned
+- the built WASM package is now inside the repo too
+- the TypeScript adapter is now inside Buccet's library surface
 - the release package carries it
 - the docs surface names it explicitly
+
+## WASM Bridge
+
+Vendored WASM package:
+
+```text
+native/buccet-substrate-rust/pkg
+```
+
+Buccet-owned TypeScript adapter:
+
+```text
+lib/agent-buccet/substrate-rust.ts
+```
+
+The adapter wraps the generated exports and exposes a `BuccetSubstrate` class plus the shared `substrate` singleton.
+
+Node note:
+
+- Node can load the vendored WASM package with `--experimental-wasm-modules`
+- bundler environments can load the package directly
+- full live cutover of the hot Buccet runtime into this substrate remains a separate parity phase
 
 ## Build
 

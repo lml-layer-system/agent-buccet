@@ -67,6 +67,10 @@ async function main() {
   assert.equal(fullSystemBodyDoc, true, "standalone package should carry the renamed full system body document");
   const packagedRustSubstrate = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "Cargo.toml")).then(() => true).catch(() => false);
   assert.equal(packagedRustSubstrate, true, "standalone package should carry the vendored Buccet Rust substrate");
+  const packagedRustWasm = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "pkg", "buccet_substrate_bg.wasm")).then(() => true).catch(() => false);
+  assert.equal(packagedRustWasm, true, "standalone package should carry the vendored Buccet Rust substrate WASM package");
+  const packagedRustAdapter = await fs.access(path.join(packagedRoot, "src", "substrate-rust.ts")).then(() => true).catch(() => false);
+  assert.equal(packagedRustAdapter, true, "standalone package should carry the Buccet TS adapter for the Rust substrate");
   const nativeLibraryName = process.platform === "darwin" ? "libbuccet-hook.dylib" : "libbuccet-hook.so";
   const packagedNativeHookPath = path.join(packagedRoot, "native", "build", nativeLibraryName);
   const packagedNativeHook = await fs.access(packagedNativeHookPath).then(() => true).catch(() => false);
@@ -89,6 +93,7 @@ async function main() {
   console.log("  release shell: present");
   console.log("  install snap summary: present");
   console.log(`  packaged rust substrate: ${packagedRustSubstrate ? "present" : "missing"}`);
+  console.log(`  packaged rust wasm bridge: ${packagedRustWasm && packagedRustAdapter ? "present" : "missing"}`);
   console.log(`  packaged native hook freshness: ${packagedNativeHook ? "enforced" : "skipped (no prebuilt hook on this machine)"}`);
 }
 

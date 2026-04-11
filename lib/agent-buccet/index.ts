@@ -46,3 +46,14 @@ export * from "./admission.ts";
 export * from "./system-substrate.ts";
 export * from "./full-system-body.ts";
 export * from "./path-memory.ts";
+export {
+  BuccetSubstrate as BuccetRustSubstrate,
+  PolicyDecision,
+  substrate,
+} from "./substrate-rust.ts";
+export type {
+  BuccetAction,
+  IsolationContext,
+  RouteResult,
+  ValidationResult,
+} from "./substrate-rust.ts";
