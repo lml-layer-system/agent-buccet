@@ -43,14 +43,55 @@ If you control the action boundary, you control every agent stack above it on th
 ## Plain-English Map
 
 - `UPL` = User Path Laws, the live rulebook built from what the user allows and forbids
+- `agent` = the moving part between the live rulebook and the outside world; it proposes outward motion, then returns to the same boundary for judgment
 - `acceptance` = the allow side of that rulebook
 - `denial` = the stop side of that rulebook
+- `tracks` = the post-law rails and walls snapped from the live rulebook so motion stays finite after law is decided
 - `paths` = named workflows that stay inside the rulebook
 - `path sources` = files and notes attached to a path to add context, not permission
 - `ledger` = the audit trail of what was proposed, allowed, denied, approved, and executed
 
 In Buccet, that live rulebook becomes the standing skill surface.
 There is no separate recursive skill registry above it.
+
+## What "Agent" Means Here
+
+In Buccet, an agent is not the law.
+It is the moving interval between the law and the outside world.
+
+It leaves the live rulebook to search, speak, call tools, touch files, send network traffic, or coordinate work.
+Then it returns to the same boundary for judgment, recording, and further motion.
+
+That means the agent is always downstream of the UPL, not above it.
+It can propose motion.
+It cannot define the laws of its own existence.
+
+## How Buccet Cuts Recursive Loops At The Source
+
+Buccet does not let approval reopen infinite agency.
+
+Once standing law exists, Buccet snaps that live UPL into finite tracks on the two post-law continuation surfaces:
+
+- tool and action motion
+- chat and output motion
+
+Acceptance becomes motion rails.
+Denial becomes motion walls.
+They live in one compiled runtime field, but they do not do the same job.
+
+That is how recursive drift gets cut at the source:
+
+- the model does not return to open-ended general agency after law is set
+- lawful motion stays inside the snapped corridor
+- denied motion is not a usable lane for the agent
+- if motion leaves the approved corridor, Buccet surfaces the drift instead of silently widening the world
+
+The denial side is not a suggestion and not a second menu of options.
+For the running agent, it is the law of physics.
+It is the part of the runtime that makes unlawful motion structurally unavailable.
+
+Paths cut recursion at the orchestration layer in the same spirit.
+They keep higher-order work forward-only, finite, and stage-bound instead of recursively replanning forever.
 
 ## What You Get
 
@@ -94,6 +135,20 @@ It is governed as weighted inbound work and weighted outbound motion, not just a
 
 So the system is not only deciding "is this allowed."
 It is also deciding whether the inbound load, outbound force, and process shape are acceptable before consequence or spend expands.
+
+## Why Swarms Do Not Change The Boundary
+
+Buccet does not need a second control system for swarms.
+
+If many protected processes or agents hit the same unresolved target:
+
+- the hooks still freeze and hold
+- one Buccet brain groups matching requests together
+- one lawful approval or denial resolves that whole group
+- the same law body, tracks, scope truth, and ledger still govern the outcome
+
+Swarm scale does not create a new exception path.
+It is still one boundary system, not a special swarm override.
 
 ## How Skills And Sources Enter Buccet
 
