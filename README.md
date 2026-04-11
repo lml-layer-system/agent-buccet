@@ -87,8 +87,15 @@ That is how recursive drift gets cut at the source:
 - if motion leaves the approved corridor, Buccet surfaces the drift instead of silently widening the world
 
 The denial side is not a suggestion and not a second menu of options.
-For the running agent, it is the law of physics.
-It is the part of the runtime that makes unlawful motion structurally unavailable.
+For the running agent, those are physically unavailable tracks.
+It does not get the denial side as a visible route to travel.
+It operates on lawful structure only.
+UPL Traffic is the controller that keeps yes on yes and no on no:
+- acceptance rails stay open in motion
+- denial walls stay closed in motion
+
+If motion tries to leave the lawful rail, Buccet does not hand the agent a no-side lane.
+It holds the boundary, surfaces the drift, and fails closed instead of widening the world.
 
 Paths cut recursion at the orchestration layer in the same spirit.
 They keep higher-order work forward-only, finite, and stage-bound instead of recursively replanning forever.
@@ -145,7 +152,7 @@ If many protected processes or agents hit the same unresolved target:
 - the hooks still freeze and hold
 - one Buccet brain groups matching requests together
 - one lawful approval or denial resolves that whole group
-- the same law body, tracks, scope truth, and ledger still govern the outcome
+- the same law body, rails, walls, scope truth, and ledger still govern the outcome
 
 Swarm scale does not create a new exception path.
 It is still one boundary system, not a special swarm override.
