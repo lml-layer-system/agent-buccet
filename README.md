@@ -42,7 +42,7 @@ If you control the action boundary, you control every agent stack above it on th
 
 ## Plain-English Map
 
-- `UPL` = User Policy Layer, the live rulebook built from what the user allows and forbids
+- `UPL` = User Path Laws, the live rulebook built from what the user allows and forbids
 - `acceptance` = the allow side of that rulebook
 - `denial` = the stop side of that rulebook
 - `paths` = named workflows that stay inside the rulebook
