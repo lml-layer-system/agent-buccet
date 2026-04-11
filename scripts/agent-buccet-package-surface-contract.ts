@@ -65,9 +65,20 @@ async function main() {
   assert.equal(installSnapJson, true, "standalone package should carry machine-readable install snap summary");
   const fullSystemBodyDoc = await fs.access(path.join(packagedRoot, "docs", "BUCCET_FULL_SYSTEM_BODY.md")).then(() => true).catch(() => false);
   assert.equal(fullSystemBodyDoc, true, "standalone package should carry the renamed full system body document");
+  const nativeLibraryName = process.platform === "darwin" ? "libbuccet-hook.dylib" : "libbuccet-hook.so";
+  const packagedNativeHookPath = path.join(packagedRoot, "native", "build", nativeLibraryName);
+  const packagedNativeHook = await fs.access(packagedNativeHookPath).then(() => true).catch(() => false);
   const packagedDocs = await fs.readdir(path.join(packagedRoot, "docs"));
   assert.equal(packagedDocs.includes("BUCCET_FULL_SYSTEM_BODY.md"), true, "standalone package should surface the renamed full system body document");
   assert.equal(packagedDocs.some((entry) => /^BUCCET_[A-Z]+_SUBSTRATE_PROCESS\.md$/.test(entry)), false, "standalone package should not carry the old full-system-body filename");
+
+  if (packagedNativeHook) {
+    await fs.rm(packagedNativeHookPath, { force: true });
+    const rebuildResult = await run("node", ["scripts/prepare-agent-buccet-package.ts"], repoRoot);
+    assert.equal(rebuildResult.code, 0, rebuildResult.stderr);
+    const rebuiltNativeHook = await fs.access(packagedNativeHookPath).then(() => true).catch(() => false);
+    assert.equal(rebuiltNativeHook, true, "package freshness check should rebuild the prebuilt native hook when it is missing");
+  }
 
   console.log("Agent Buccet package surface contract");
   console.log("  root README install claim: truthful");
@@ -75,6 +86,7 @@ async function main() {
   console.log("  buccet bin: wired");
   console.log("  release shell: present");
   console.log("  install snap summary: present");
+  console.log(`  packaged native hook freshness: ${packagedNativeHook ? "enforced" : "skipped (no prebuilt hook on this machine)"}`);
 }
 
 main().catch((error) => {

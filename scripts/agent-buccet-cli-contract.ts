@@ -66,15 +66,28 @@ async function waitFor<T>(
   throw new Error(`timed out waiting for ${label}`);
 }
 
+async function readPersistedSessionState(homePath: string, sessionId = "agent-buccet-default"): Promise<{
+  userLawIds: string[];
+}> {
+  const statePath = path.join(homePath, "data", "agent-boundary", "sessions", `${sessionId}.json`);
+  return JSON.parse(await fs.readFile(statePath, "utf8")) as { userLawIds: string[] };
+}
+
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-cli-"));
   const homePath = path.join(tempRoot, "home");
   const workspacePath = path.join(tempRoot, "workspace");
   const uplLedgerPath = path.join(tempRoot, "upl-ledger.json");
+  const autoConsoleRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-cli-console-"));
+  const autoConsoleHomePath = path.join(autoConsoleRoot, "home");
+  const autoConsoleWorkspacePath = path.join(autoConsoleRoot, "workspace");
+  const autoConsoleUplLedgerPath = path.join(autoConsoleRoot, "upl-ledger.json");
   const customPathName = "domain-workbench";
   const customDomain = "specialized_domain_ops";
   await fs.mkdir(workspacePath, { recursive: true });
+  await fs.mkdir(autoConsoleWorkspacePath, { recursive: true });
   await fs.writeFile(path.join(workspacePath, "note.txt"), "hello\n", "utf8");
+  await fs.writeFile(path.join(autoConsoleWorkspacePath, "note.txt"), "hello\n", "utf8");
   await fs.writeFile(
     path.join(workspacePath, "domain-playbook.md"),
     "# Domain Playbook\n\nDomain rules, source material, operating steps, and output expectations.\n",
@@ -89,6 +102,28 @@ async function main() {
     AGENT_BUCCET_UPL_LEDGER_PATH: uplLedgerPath,
     BUCCET_BROWSER_OPEN_CAPTURE_PATH: path.join(tempRoot, "browser-open.jsonl"),
   };
+  const autoConsoleEnv = {
+    ...process.env,
+    AGENT_BUCCET_HOME: autoConsoleHomePath,
+    AGENT_BUCCET_CALLER_CWD: autoConsoleWorkspacePath,
+    AGENT_BUCCET_LAUNCHER_PATH: path.join(autoConsoleRoot, "bin", "buccet"),
+    AGENT_BUCCET_UPL_LEDGER_PATH: autoConsoleUplLedgerPath,
+    BUCCET_BROWSER_OPEN_CAPTURE_PATH: path.join(autoConsoleRoot, "browser-open.jsonl"),
+  };
+
+  const autoConsoleResult = await runCli(["console"], autoConsoleEnv, "quit\n");
+  assert.equal(autoConsoleResult.code, 0, autoConsoleResult.stderr);
+  assert.match(autoConsoleResult.stdout, /Bringing the machine up now/);
+  const autoConsoleStatusResult = await runCli(["status", "--json"], autoConsoleEnv);
+  assert.equal(autoConsoleStatusResult.code, 0, autoConsoleStatusResult.stderr);
+  const autoConsoleStatus = JSON.parse(autoConsoleStatusResult.stdout) as {
+    scopes: string[];
+    initialized: boolean;
+  };
+  assert.equal(autoConsoleStatus.initialized, true);
+  assert.ok(autoConsoleStatus.scopes.includes(autoConsoleWorkspacePath), "auto-boot console should seed the caller workspace scope");
+  const autoConsoleUninstallResult = await runCli(["uninstall"], autoConsoleEnv);
+  assert.equal(autoConsoleUninstallResult.code, 0, autoConsoleUninstallResult.stderr);
 
   const initResult = await runCli(["init"], env);
   assert.equal(initResult.code, 0, initResult.stderr);
@@ -410,6 +445,11 @@ async function main() {
   assert.equal(muted.changed.length, 1);
   assert.equal(muted.matchedIds.length, 1);
   assert.equal(muted.changed[0]?.status, "MUTED");
+  const persistedAfterMute = await readPersistedSessionState(homePath);
+  assert.ok(
+    persistedAfterMute.userLawIds.includes("BUCCET.BASE.01"),
+    "UPL controls must preserve base law IDs in persisted session state",
+  );
 
   const listAllAfterMute = await runCli(["upl", "list", "--all", "--json"], env);
   assert.equal(listAllAfterMute.code, 0, listAllAfterMute.stderr);

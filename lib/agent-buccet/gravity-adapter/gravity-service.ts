@@ -18,10 +18,12 @@ import {
   ledgerBodyguardGrantOffer,
 } from "./bodyguard-open-as-law.ts";
 import { appendBoundaryLedger } from "../ledger.ts";
+import { compileLiveUplField } from "../user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
   BoundaryRuntimeConfig,
+  BoundaryUplEntry,
   BodyguardMove,
 } from "../types.ts";
 
@@ -47,11 +49,68 @@ export type BoundaryGravityEnforcement =
       denyGrant: () => Promise<void>;
     };
 
+function buildUplPathGrantScopes(entry: BoundaryUplEntry): Array<{ scope: string; exactOnly: boolean }> {
+  const requestActionKind = entry.requestBasis?.actionKind ?? "";
+  if (!requestActionKind.startsWith("fs.")) {
+    return [];
+  }
+
+  const constraint = entry.trackConstraint;
+  if (constraint && constraint.targetMatchMode !== "regex") {
+    if (constraint.targetPatterns?.length) {
+      return constraint.targetPatterns.map((scope) => ({
+        scope,
+        exactOnly: constraint.targetMatchMode === "exact",
+      }));
+    }
+    if (constraint.targetPattern) {
+      return [{
+        scope: constraint.targetPattern,
+        exactOnly: constraint.targetMatchMode === "exact",
+      }];
+    }
+  }
+
+  return entry.requestBasis?.target
+    ? [{ scope: entry.requestBasis.target, exactOnly: true }]
+    : [];
+}
+
 function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessionTraceComplete: boolean; requestTraceComplete: boolean }): GravityState {
   const gravityEligibleGrants = config.grants.filter(
     (grant): grant is typeof grant & { resourceKind: Exclude<typeof grant.resourceKind, "chat"> } =>
       grant.resourceKind !== "chat",
   );
+  const uplPathGrants = config.upl
+    ? compileLiveUplField({
+      ledger: config.upl,
+      session: config.session,
+    }).flatMap((segment, index) => {
+      if (segment.polarity !== "allow") {
+        return [];
+      }
+      return buildUplPathGrantScopes(segment.entry).map((grantScope, scopeIndex) => ({
+        id: `upl:${segment.entry.id}:${scopeIndex + 1}`,
+        kind: "path" as const,
+        scope: grantScope.scope,
+        exactOnly: grantScope.exactOnly,
+        issuedAt: Date.parse(segment.entry.createdAt) || Date.now() + index,
+      }));
+    })
+    : [];
+  const dynamicGrants = [
+    ...gravityEligibleGrants.map((grant) => ({
+      id: grant.grantId,
+      kind: grant.resourceKind,
+      scope: grant.resourceValue,
+      exactOnly: grant.metadata?.exact_only === true,
+      issuedAt: Date.parse(grant.issuedAt),
+      expiresAt: grant.expiresAt ? Date.parse(grant.expiresAt) : undefined,
+      revokedAt: grant.revokedAt ? Date.parse(grant.revokedAt) : undefined,
+    })),
+    ...uplPathGrants,
+  ];
+  const uniqueDynamicGrants = [...new Map(dynamicGrants.map((grant) => [`${grant.kind}:${grant.scope}:${grant.exactOnly === true}`, grant])).values()];
 
   return {
     identity: {
@@ -62,15 +121,7 @@ function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessio
       laws: (config.userLawIds ?? config.laws.map((law) => law.lawId)).map((id) => ({ id })),
     },
     dynamicLaws: {
-      grants: gravityEligibleGrants.map((grant) => ({
-        id: grant.grantId,
-        kind: grant.resourceKind,
-        scope: grant.resourceValue,
-        exactOnly: grant.metadata?.exact_only === true,
-        issuedAt: Date.parse(grant.issuedAt),
-        expiresAt: grant.expiresAt ? Date.parse(grant.expiresAt) : undefined,
-        revokedAt: grant.revokedAt ? Date.parse(grant.revokedAt) : undefined,
-      })),
+      grants: uniqueDynamicGrants,
     },
     memory: {
       handle: `boundary-session:${config.session.sessionId}`,

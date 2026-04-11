@@ -154,7 +154,9 @@ export async function buildActiveAgentBuccetLawIds(args: {
     ...timeReferenceLawIds,
     ...executableLawIds,
   ]);
-  const validExistingLawIds = (args.existingLawIds ?? []).filter((id) => knownLawIdSet.has(id));
+  const validExistingLawIds = (args.existingLawIds ?? []).filter((id) =>
+    knownLawIdSet.has(id) || id.startsWith("UPL-")
+  );
 
   return [...new Set([
     ...AGENT_BUCCET_BASE_LAW_IDS,

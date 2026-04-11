@@ -315,7 +315,7 @@ export async function hydrateBoundaryRuntimeConfig(args: {
       sessionId: args.config.session.sessionId,
     })
     : undefined;
-  const upl = persistedSessionUpl
+  const upl = persistedSessionUpl && hasUserPathEntries(persistedSessionUpl)
     ? mergeUserPathLedgers({
       baseLedger: await loadUserPathLedger(),
       overlayLedger: persistedSessionUpl,

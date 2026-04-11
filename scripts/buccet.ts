@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type {
   BoundaryActionKind,
+  BoundaryRuntimeConfig,
   BuccetPathFormationState,
   BuccetPathMemorySnapshot,
   BuccetPathSource,
@@ -366,6 +367,18 @@ async function loadEffectiveUserPathLedger(
       overlayLedger: sessionState.sessionUpl,
     })
     : ledger;
+}
+
+async function buildEffectiveUserLawIds(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  config: BoundaryRuntimeConfig,
+  upl: BoundaryUserPathLedger,
+): Promise<string[]> {
+  return boundary.buildActiveAgentBuccetLawIds({
+    executableLaws: config.laws,
+    existingLawIds: boundary.getActiveUserLawIds(upl, config.session),
+    runtimeMuscle: config.runtimeMuscle,
+  });
 }
 
 function resolveHomePaths(homePath: string) {
@@ -3226,12 +3239,7 @@ async function syncUplDocumentSources(args: {
   store.replaceConfig({
     ...store.getConfig(),
     upl,
-    userLawIds: [
-      ...new Set([
-        ...(store.getConfig().userLawIds ?? []),
-        ...args.boundary.getActiveUserLawIds(upl, store.getConfig().session),
-      ]),
-    ],
+    userLawIds: await buildEffectiveUserLawIds(args.boundary, store.getConfig(), upl),
   });
   await store.persist();
 
@@ -3617,7 +3625,7 @@ async function handleUpl(rest: string[]) {
     store.replaceConfig({
       ...store.getConfig(),
       upl: saved,
-      userLawIds: boundary.getActiveUserLawIds(saved, store.getConfig().session),
+      userLawIds: await buildEffectiveUserLawIds(boundary, store.getConfig(), saved),
     });
     await store.persist();
     const afterLiveField = boundary.compileLiveUplField({ ledger: saved, session });
@@ -3800,12 +3808,7 @@ async function handleUpl(rest: string[]) {
     store.replaceConfig({
       ...store.getConfig(),
       upl,
-      userLawIds: [
-        ...new Set([
-          ...(store.getConfig().userLawIds ?? []),
-          ...boundary.getActiveUserLawIds(upl, store.getConfig().session),
-        ]),
-      ],
+      userLawIds: await buildEffectiveUserLawIds(boundary, store.getConfig(), upl),
     });
     await store.persist();
 
@@ -5015,7 +5018,7 @@ async function handleConsole() {
 
   if (!config) {
     console.log(`Agent Buccet is not initialized. Bringing the machine up now...`);
-    await handleInit(["--no-default-scope", "--arm-now"]);
+    await handleInit(["--arm-now"]);
     config = await loadConfig(home.configPath);
     if (!config) {
       console.error(`Agent Buccet could not initialize. Run 'buccet init' first.`);

@@ -218,7 +218,17 @@ async function computeFileHash(targetPath: string): Promise<string> {
   return createHash("sha256").update(buffer).digest("hex");
 }
 
-function packageFreshnessTargets(version: string): Array<{ relativePath: string; absolutePath: string }> {
+function packagedNativeHookArtifactTarget(): { relativePath: string; absolutePath: string } {
+  const nativeLibraryName = process.platform === "darwin"
+    ? "libbuccet-hook.dylib"
+    : "libbuccet-hook.so";
+  return {
+    relativePath: `native/build/${nativeLibraryName}`,
+    absolutePath: path.join(outDir, "native", "build", nativeLibraryName),
+  };
+}
+
+function requiredPackageFreshnessTargets(version: string): Array<{ relativePath: string; absolutePath: string }> {
   const archiveBaseName = `agent-buccet-${version}.tar.gz`;
   return [
     { relativePath: "install.sh", absolutePath: path.join(outDir, "install.sh") },
@@ -231,6 +241,13 @@ function packageFreshnessTargets(version: string): Array<{ relativePath: string;
     { relativePath: `releases/${archiveBaseName}`, absolutePath: path.join(releaseDir, archiveBaseName) },
     { relativePath: `releases/${archiveBaseName}.sha256`, absolutePath: path.join(releaseDir, `${archiveBaseName}.sha256`) },
   ];
+}
+
+async function optionalPackageFreshnessTargets(): Promise<Array<{ relativePath: string; absolutePath: string }>> {
+  const nativeHookTarget = packagedNativeHookArtifactTarget();
+  return await fs.access(nativeHookTarget.absolutePath)
+    .then(() => [nativeHookTarget])
+    .catch(() => []);
 }
 
 async function readPackageBuildState(): Promise<PackageBuildState | null> {
@@ -247,8 +264,11 @@ async function packageArtifactsAreFresh(inputHash: string, version: string): Pro
   if (!state || state.inputHash !== inputHash || state.version !== version) {
     return false;
   }
-  const targets = packageFreshnessTargets(version);
-  for (const target of targets) {
+  const requiredTargets = requiredPackageFreshnessTargets(version);
+  const knownTargets = new Map(requiredTargets.map((target) => [target.relativePath, target]));
+  knownTargets.set(packagedNativeHookArtifactTarget().relativePath, packagedNativeHookArtifactTarget());
+
+  for (const target of requiredTargets) {
     const expectedHash = state.outputHashes[target.relativePath];
     if (!expectedHash) {
       return false;
@@ -262,12 +282,35 @@ async function packageArtifactsAreFresh(inputHash: string, version: string): Pro
       return false;
     }
   }
+
+  for (const [relativePath, expectedHash] of Object.entries(state.outputHashes)) {
+    if (requiredTargets.some((target) => target.relativePath === relativePath)) {
+      continue;
+    }
+    const target = knownTargets.get(relativePath);
+    if (!target) {
+      return false;
+    }
+    try {
+      const actualHash = await computeFileHash(target.absolutePath);
+      if (actualHash !== expectedHash) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
   return true;
 }
 
 async function writePackageBuildState(inputHash: string, version: string) {
+  const targets = [
+    ...requiredPackageFreshnessTargets(version),
+    ...await optionalPackageFreshnessTargets(),
+  ];
   const outputHashes = Object.fromEntries(
-    await Promise.all(packageFreshnessTargets(version).map(async (target) => {
+    await Promise.all(targets.map(async (target) => {
       return [target.relativePath, await computeFileHash(target.absolutePath)] as const;
     })),
   );
