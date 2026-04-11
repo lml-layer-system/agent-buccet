@@ -142,6 +142,29 @@ function waitForReady(child: ChildProcess, readyText: string, childName: ChildNa
   });
 }
 
+function waitForChildExit(child: ChildProcess | null | undefined, timeoutMs = 5_000): Promise<void> {
+  return new Promise((resolve) => {
+    if (!child || child.exitCode !== null || child.signalCode !== null) {
+      resolve();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      child.kill("SIGKILL");
+      resolve();
+    }, timeoutMs);
+
+    child.once("exit", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+    child.once("error", () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const scriptDir = path.dirname(new URL(import.meta.url).pathname);
@@ -278,12 +301,14 @@ async function main() {
       return;
     }
     stopping = true;
-    if (interceptChild) {
-      interceptChild.kill("SIGTERM");
-    }
-    if (gravityBridgeChild) {
-      gravityBridgeChild.kill("SIGTERM");
-    }
+    const interceptToStop = interceptChild;
+    const gravityBridgeToStop = gravityBridgeChild;
+    interceptToStop?.kill("SIGTERM");
+    gravityBridgeToStop?.kill("SIGTERM");
+    await Promise.all([
+      waitForChildExit(interceptToStop),
+      waitForChildExit(gravityBridgeToStop),
+    ]);
     await fs.rm(args.interceptSocketPath, { force: true }).catch(() => undefined);
     await fs.rm(args.gravityBridgeSocketPath, { force: true }).catch(() => undefined);
     await markDead(reason);

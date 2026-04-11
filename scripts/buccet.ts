@@ -4455,16 +4455,9 @@ async function handleUninstall() {
   const home = resolveHomePaths(homePath);
 
   // Stop the hook daemon before removing home so it cannot recreate run-dir files.
-  const hookPid = await fs.readFile(home.hookPidPath, "utf8")
-    .then((raw) => Number(raw.trim())).catch(() => 0);
-  if (hookPid && await pidAlive(hookPid)) {
-    try {
-      process.kill(hookPid, "SIGTERM");
-      // Give the daemon a moment to exit before we rm the directory.
-      await new Promise<void>((resolve) => setTimeout(resolve, 150));
-    } catch {
-      // already dead — fine
-    }
+  const hookPid = await readHookPid(home.hookPidPath);
+  if (hookPid) {
+    await stopHookDaemonPid(hookPid);
   }
 
   const launcherCandidates = uniquePaths([
@@ -4885,15 +4878,16 @@ async function handleHook(rest: string[]) {
   }
 
   if (subcommand === "stop") {
-    const pid = await fs.readFile(home.hookPidPath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+    const pid = await readHookPid(home.hookPidPath);
     if (!pid) {
       console.log("hook daemon not running");
       return;
     }
     try {
-      process.kill(pid, "SIGTERM");
-    } catch {
-      console.log("hook daemon not running");
+      await stopHookDaemonPid(pid);
+    } catch (error) {
+      console.error(error instanceof Error ? error.message : String(error));
+      process.exitCode = 1;
       return;
     }
     console.log(`hook daemon stopped: ${pid}`);
