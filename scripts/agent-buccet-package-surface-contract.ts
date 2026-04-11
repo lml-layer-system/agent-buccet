@@ -65,6 +65,8 @@ async function main() {
   assert.equal(installSnapJson, true, "standalone package should carry machine-readable install snap summary");
   const fullSystemBodyDoc = await fs.access(path.join(packagedRoot, "docs", "BUCCET_FULL_SYSTEM_BODY.md")).then(() => true).catch(() => false);
   assert.equal(fullSystemBodyDoc, true, "standalone package should carry the renamed full system body document");
+  const packagedRustSubstrate = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "Cargo.toml")).then(() => true).catch(() => false);
+  assert.equal(packagedRustSubstrate, true, "standalone package should carry the vendored Buccet Rust substrate");
   const nativeLibraryName = process.platform === "darwin" ? "libbuccet-hook.dylib" : "libbuccet-hook.so";
   const packagedNativeHookPath = path.join(packagedRoot, "native", "build", nativeLibraryName);
   const packagedNativeHook = await fs.access(packagedNativeHookPath).then(() => true).catch(() => false);
@@ -86,6 +88,7 @@ async function main() {
   console.log("  buccet bin: wired");
   console.log("  release shell: present");
   console.log("  install snap summary: present");
+  console.log(`  packaged rust substrate: ${packagedRustSubstrate ? "present" : "missing"}`);
   console.log(`  packaged native hook freshness: ${packagedNativeHook ? "enforced" : "skipped (no prebuilt hook on this machine)"}`);
 }
 

@@ -38,6 +38,9 @@
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "build:native:physwrap": "sh native/physwrap/build.sh",
+    "build:agent-buccet:substrate:native": "cargo build --manifest-path native/buccet-substrate-rust/Cargo.toml --release",
+    "build:agent-buccet:substrate:check": "cargo check --manifest-path native/buccet-substrate-rust/Cargo.toml",
+    "build:agent-buccet:substrate:wasm": "wasm-pack build native/buccet-substrate-rust --target bundler --features wasm --no-default-features",
     "build:types": "tsc -p tsconfig.build.json",
     "lint": "biome check lib/agent-buccet scripts",
     "lint:fix": "biome check --write lib/agent-buccet scripts",
@@ -108,6 +111,7 @@
     "test:agent-buccet:doc-links": "node scripts/agent-buccet-doc-links-contract.ts",
     "test:agent-buccet:artifact-hygiene": "node scripts/agent-buccet-artifact-hygiene-contract.ts",
     "test:agent-buccet:system-substrate": "node scripts/agent-buccet-system-substrate-contract.ts",
+    "test:agent-buccet:substrate-rust": "node scripts/agent-buccet-substrate-rust-contract.ts",
     "test:agent-buccet:full-system-body": "node scripts/agent-buccet-full-system-body-contract.ts",
     "test:agent-buccet:path-memory": "node scripts/agent-buccet-path-memory-contract.ts",
     "test:agent-buccet:release-surface": "node scripts/agent-buccet-release-surface-contract.ts",
