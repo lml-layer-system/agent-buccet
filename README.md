@@ -136,6 +136,43 @@ Path sources enrich lawful work.
 UPL stays the authority.
 Denial overrides acceptance.
 
+## Open-Source World
+
+Agent Buccet is built for the open-source world as much as the closed one.
+
+Open-source builders should not have to choose between freedom and responsibility.
+With Agent Buccet, open systems can ship with visible boundaries, enforceable consequence control, and durable proof of what was allowed, denied, contained, or stopped.
+
+This means open-source teams can show, not just claim, that their agent deployments are governed:
+
+- what boundaries exist
+- what actions were allowed or denied
+- what payload physics were enforced
+- what input was blocked before the brain woke
+- what output was stopped before consequence landed
+- what the ledger recorded from first input to final consequence
+
+Agent Buccet does not ask the world to blindly trust open systems.
+It gives open systems a way to demonstrate bounded, auditable, enforceable behavior in the real world.
+
+Build with it. Ship with it. Extend it. Defend your agents with it.
+
+## Closed-Source World
+
+Closed-source teams should not have to choose between capability and control.
+With Agent Buccet, private systems can bind internal policy, compliance rules, operating procedures, and business constraints at the same consequence boundaries where agent behavior becomes real.
+
+This means closed-source teams can keep their own stack, their own models, and their own internal policies while still making those constraints enforceable:
+
+- internal policy can become standing law through UPL
+- private operating rules can snap into tracks
+- approval and denial can be carried as durable runtime law
+- output, action, input-admission, and payload-physics boundaries can all be governed without exposing internal systems
+- the ledger can prove what was allowed, denied, contained, or stopped inside private deployments
+
+Agent Buccet does not ask closed teams to replace their existing safety stack.
+It gives them a way to bind their own safety intent at consequence time, inside the systems they already own.
+
 ## Docs
 
 Start here:
@@ -156,6 +193,7 @@ Proof and release:
 
 - [Launch Proof](docs/agent-boundary/LAUNCH_PROOF.md)
 - [Release Checklist](docs/agent-boundary/RELEASE_CHECKLIST.md)
+- [Public / Private Boundary](docs/agent-boundary/PUBLIC_PRIVATE_BOUNDARY.md)
 - [Security Model](docs/agent-boundary/SECURITY_MODEL.md)
 - [Threat Model Traceability](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
 
