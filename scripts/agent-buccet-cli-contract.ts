@@ -445,6 +445,12 @@ async function main() {
   assert.equal(doctorResult.code, 0, doctorResult.stderr);
   assert.match(doctorResult.stdout, /Doctor/);
 
+  const hookBuildResult = await runCli(["hook", "build"], env);
+  assert.equal(hookBuildResult.code, 0, hookBuildResult.stderr);
+
+  const hookStartResult = await runCli(["hook", "start"], env);
+  assert.equal(hookStartResult.code, 0, hookStartResult.stderr);
+
   const strictDoctorResult = await runCli(["doctor", "--strict"], env);
   assert.equal(strictDoctorResult.code, 0, strictDoctorResult.stderr);
   assert.match(strictDoctorResult.stdout, /Strict posture: PASS/);
