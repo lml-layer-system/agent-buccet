@@ -49,6 +49,9 @@ If you control the action boundary, you control every agent stack above it on th
 - `path sources` = files and notes attached to a path to add context, not permission
 - `ledger` = the audit trail of what was proposed, allowed, denied, approved, and executed
 
+In Buccet, that live rulebook becomes the standing skill surface.
+There is no separate recursive skill registry above it.
+
 ## What You Get
 
 - one live rulebook built from allowed rules and blocked rules
@@ -57,6 +60,75 @@ If you control the action boundary, you control every agent stack above it on th
 - attached context for each workflow without widening permission
 - interactive and headless modes on the same control body
 - durable audit trail from first proposal to final consequence
+
+## How Skills And Sources Enter Buccet
+
+There are two different intake paths, and they do different jobs.
+
+### 1. External skills and workflows become rules
+
+If you find a skill, template, or workflow in a source catalog, you bring the raw material into Buccet's rule layer.
+
+Example sources:
+
+- `SkillsMP`
+- `AITmpl Skills`
+- `SkillHub`
+- `AgentSkills`
+
+Fast openers:
+
+```bash
+buccet upl sources --open skillsmp
+buccet upl sources --open aitmpl
+buccet upl sources --open skillhub
+buccet upl sources --open agentskills
+```
+
+Then the flow is:
+
+1. pick the skill or workflow you want
+2. copy the real source material
+3. paste it into the allow side or the block side
+4. sync it
+5. Buccet compiles it into the live rulebook
+
+That copied source material can be:
+
+- raw skill text
+- `SKILL.md`
+- `README.md`
+- extracted package markdown
+- normal workflow descriptions
+
+So the user does not need to hand-write law just to bring a skill into the system.
+Buccet parses the source material into standing rules.
+
+### 2. Path sources add context, not permission
+
+Path sources are different.
+
+They do not decide what the agent is allowed to do.
+They only enrich a named workflow with domain context.
+
+Example:
+
+- the rulebook may allow research work inside a project
+- a path source can attach books, notes, specs, or reference files to the `research` path
+- that makes the path smarter without making it more powerful
+
+Add path sources with:
+
+```bash
+buccet path sources add <path-name> <file...> [--domain <domain>]
+```
+
+So the split is:
+
+- rules decide permission
+- path sources add context
+- denial still overrides acceptance
+- the ledger records what happened
 
 ## Install
 
