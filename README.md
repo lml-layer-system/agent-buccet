@@ -4,7 +4,7 @@ Action-boundary law for AI agents.
 
 Building Ultimate Containment Constraints Every Time.
 
-![Agent Buccet](https://github.com/user-attachments/assets/44141a3b-9b0b-40a9-978d-703d6f5970bf)
+![Agent Buccet](docs/assets/agent-buccet-hero.jpg)
 
 Agent Buccet is not another agent framework, wrapper, or prompt strategy.
 
