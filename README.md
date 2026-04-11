@@ -63,6 +63,21 @@ There is no separate recursive skill registry above it.
 - interactive and headless modes on the same control body
 - durable audit trail from first proposal to final consequence
 
+## Fast Start
+
+The short path is:
+
+```bash
+curl -fsSL https://buccet.lml.dev/install | sh
+buccet init
+buccet console
+```
+
+That is the normal operator bring-up.
+Install the runtime, initialize the machine, then open the Buccet operator cockpit.
+
+`buccet console` is the point where your terminal becomes Agent Buccet's working control surface.
+
 ## What Boundaries Buccet Actually Governs
 
 Buccet is not one vague safety layer.
@@ -120,7 +135,7 @@ npm install
 sh scripts/install-agent-buccet.sh
 ```
 
-After install:
+Then:
 
 ```bash
 buccet init
@@ -128,6 +143,7 @@ buccet console
 ```
 
 `buccet init` now does the fast machine bring-up and will arm the deepest packaged enforcement path immediately when the native layer is already present.
+`buccet console` opens the unified operator cockpit where approval, denial, tracks, swarm state, and audit all live together.
 
 If you need to re-arm or recover the native enforcement path manually:
 
