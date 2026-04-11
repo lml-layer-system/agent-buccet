@@ -2,23 +2,61 @@ import type { GravityProposal, ScopePayload } from "../gravity-core/index.ts";
 import type { BoundaryActionRequest, BoundaryRequestProvenance } from "../types.ts";
 
 function mapKind(actionKind: BoundaryActionRequest["actionKind"]): GravityProposal["kind"] {
-  if (actionKind.startsWith("fs.")) return "filesystem";
-  if (actionKind === "comm.send") return "recipient_send";
-  if (actionKind === "network.send") return "network_send";
-  if (actionKind === "tool.exec") return "tool_exec";
-  if (actionKind.startsWith("db.")) return "database";
-  if (actionKind.startsWith("sys.")) return "system";
-  return "other";
+  switch (actionKind) {
+    case "fs.read":
+    case "fs.write":
+    case "fs.append":
+    case "fs.delete":
+    case "fs.mkdir":
+    case "fs.move":
+      return "filesystem";
+    case "comm.send": return "recipient_send";
+    case "network.send": return "network_send";
+    case "tool.exec": return "tool_exec";
+    case "db.query":
+    case "db.insert":
+    case "db.update":
+    case "db.delete":
+      return "database";
+    case "sys.env.read":
+    case "sys.env.write":
+    case "sys.config.read":
+    case "sys.config.write":
+    case "sys.credential.read":
+    case "sys.credential.use":
+      return "system";
+    case "chat.emit":
+      // chat grants are filtered out in gravity-service; "other" is intentional
+      return "other";
+  }
 }
 
 function mapScopeKind(actionKind: BoundaryActionRequest["actionKind"]): ScopePayload["scopeKind"] {
-  if (actionKind.startsWith("fs.")) return "path";
-  if (actionKind === "comm.send") return "recipient";
-  if (actionKind === "network.send") return "domain";
-  if (actionKind === "tool.exec") return "tool";
-  if (actionKind.startsWith("db.")) return "database";
-  if (actionKind.startsWith("sys.")) return "system";
-  return "other";
+  switch (actionKind) {
+    case "fs.read":
+    case "fs.write":
+    case "fs.append":
+    case "fs.delete":
+    case "fs.mkdir":
+    case "fs.move":
+      return "path";
+    case "comm.send": return "recipient";
+    case "network.send": return "domain";
+    case "tool.exec": return "tool";
+    case "db.query":
+    case "db.insert":
+    case "db.update":
+    case "db.delete":
+      return "database";
+    case "sys.env.read":
+    case "sys.env.write":
+    case "sys.config.read":
+    case "sys.config.write":
+    case "sys.credential.read":
+    case "sys.credential.use":
+      return "system";
+    case "chat.emit": return "other";
+  }
 }
 
 function actionLabel(actionKind: BoundaryActionRequest["actionKind"]): string {
@@ -29,6 +67,7 @@ function actionLabel(actionKind: BoundaryActionRequest["actionKind"]): string {
     case "fs.delete": return "delete";
     case "fs.mkdir": return "create";
     case "fs.move": return "move";
+    case "chat.emit": return "emit";
     case "comm.send": return "send to";
     case "network.send": return "call";
     case "tool.exec": return "run";

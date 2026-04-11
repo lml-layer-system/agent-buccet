@@ -6,6 +6,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import {
+  createPersistentBoundaryRuntimeStore,
   readBoundaryLedgerBySession,
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
@@ -15,29 +16,77 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
-  const started = Date.now();
-  while (Date.now() - started < timeoutMs) {
-    const result = await fn();
-    if (result !== null) {
-      return result;
+async function waitForSwarmStatus(args: {
+  target: { socketPath: string };
+  predicate: (status: {
+    type: string;
+    totals: { pending: number; waitingMembers: number };
+    groups: Array<{
+      groupId: string;
+      target: string;
+      waitingCount: number;
+      memberCount: number;
+    }>;
+  }) => boolean;
+  label: string;
+}) {
+  let lastStatus:
+    | {
+        type: string;
+        totals: { pending: number; waitingMembers: number };
+        groups: Array<{
+          groupId: string;
+          target: string;
+          waitingCount: number;
+          memberCount: number;
+        }>;
+      }
+    | undefined;
+
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const status = await sendBoundaryInterceptServerInput({
+      target: args.target,
+      input: {
+        command: "swarm_status",
+      },
+    });
+    assert.equal(status.type, "swarm_status");
+    lastStatus = status;
+    if (args.predicate(status)) {
+      return status;
     }
-    await wait(stepMs);
+    await wait(100);
   }
-  throw new Error(`timed out after ${timeoutMs}ms`);
+
+  throw new Error(`timed out waiting for ${args.label}: ${JSON.stringify(lastStatus)}`);
 }
 
 async function main() {
   const repoRoot = process.cwd();
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-swarm-"));
+  const sessionsDir = path.join(tempRoot, "sessions");
   const sessionId = `swarm-contract-${randomUUID()}`;
-  const socketPath = path.join(tempRoot, "intercept.sock");
+  const socketPath = path.join("/tmp", `ab-swarm-${randomUUID().slice(0, 12)}.sock`);
   const target = { socketPath };
+
+  const store = await createPersistentBoundaryRuntimeStore({
+    sessionId,
+    actorId: "user:swarm-contract",
+    sessionsDir,
+  });
+  await store.openPath({
+    rootPath: tempRoot,
+    grantedActions: ["fs.write"],
+    issuedBy: "user:swarm-contract",
+    seedBaseAcceptance: false,
+  });
 
   const interceptServer = spawn(process.execPath, [
     path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
     "--session-id",
     sessionId,
+    "--sessions-dir",
+    sessionsDir,
     "--socket",
     socketPath,
   ], {
@@ -80,24 +129,20 @@ async function main() {
     },
   });
 
-  const pendingGroup = await waitFor(async () => {
-    const swarmStatus = await sendBoundaryInterceptServerInput({
-      target,
-      input: {
-        command: "swarm_status",
-      },
-    });
-    if (swarmStatus.type !== "swarm_status") {
-      return null;
-    }
-    const exactMatch = swarmStatus.groups.find((group) =>
-      group.state === "waiting"
-      && group.target === sharedTarget
-      && group.waitingCount >= 2,
-    );
-    return exactMatch ?? null;
-  }, 5000, 100);
+  const swarmStatus = await waitForSwarmStatus({
+    target,
+    label: "two waiting swarm members",
+    predicate: (status) =>
+      status.totals.pending === 1
+      && status.totals.waitingMembers === 2
+      && status.groups.some((group) => group.target === sharedTarget && group.waitingCount >= 2),
+  });
+  assert.equal(swarmStatus.totals.pending, 1, "expected one pending swarm group");
+  assert.equal(swarmStatus.totals.waitingMembers, 2, "expected two waiting swarm members");
+  assert.equal(swarmStatus.groups.length >= 1, true, "expected at least one tracked group");
 
+  const pendingGroup = swarmStatus.groups.find((group) => group.target === sharedTarget);
+  assert.ok(pendingGroup, "expected shared swarm target group");
   assert.equal(pendingGroup.target, sharedTarget);
   assert.equal(pendingGroup.waitingCount >= 2, true);
   assert.equal(pendingGroup.memberCount >= 2, true);
@@ -108,7 +153,8 @@ async function main() {
       command: "swarm_approve",
       groupId: pendingGroup.groupId,
       issuedBy: "user:swarm-contract",
-      reason: "allow shared swarm target once and make it law",
+      reason: "allow shared swarm target once",
+      asLaw: false,
     },
   });
   assert.equal(approve.type, "ack");

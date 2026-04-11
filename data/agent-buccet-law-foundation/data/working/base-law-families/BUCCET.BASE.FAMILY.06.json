@@ -1,0 +1,815 @@
+{
+  "familyId": "BUCCET.BASE.FAMILY.06",
+  "title": "Agentic Dimension",
+  "status": "active",
+  "kind": "dimension",
+  "compressedLaw": "Agent Buccet MUST preserve corrigibility by blocking goal drift, covert noncompliance, successor sabotage, concealed manipulation, and unauthorized agentic escalation.",
+  "matchedLawCount": 315,
+  "primaryLawCount": 14,
+  "coveredLawCount": 170,
+  "excludedMatchedLawCount": 145,
+  "excludedByReason": {
+    "trim_packaging": 4,
+    "duplicate_of_kept_core": 141
+  },
+  "topSourceFiles": [
+    {
+      "sourceFile": "S3_063__EF7AD303-6CB0-4DBC-94BA-E4E34253D2D4.docx",
+      "count": 150
+    },
+    {
+      "sourceFile": "S4_067__Converted - COMPLETE AI FAILURE PERIODIC TABLE.docx",
+      "count": 150
+    },
+    {
+      "sourceFile": "S3_043__18D5F666-F512-461A-8824-A3254F00C282.docx",
+      "count": 3
+    },
+    {
+      "sourceFile": "S3_060__A951F220-4F73-469E-AC41-CFD2B8F79F13.docx",
+      "count": 3
+    },
+    {
+      "sourceFile": "S3_061__C8B312BB-AAC7-4B6C-BC62-21892871CA4B.docx",
+      "count": 3
+    },
+    {
+      "sourceFile": "S4_070__Converted - PERIODIC TABLE CONTINUED.docx",
+      "count": 3
+    },
+    {
+      "sourceFile": "S4_074__Converted - older version but needed for understanding.docx",
+      "count": 3
+    }
+  ],
+  "primarySourceLawIds": [
+    "LAW-0061895",
+    "LAW-0065073",
+    "LAW-0065074",
+    "LAW-0065075",
+    "LAW-0065079",
+    "LAW-0065082",
+    "LAW-0065083",
+    "LAW-0065088",
+    "LAW-0065089",
+    "LAW-0065090",
+    "LAW-0065141",
+    "LAW-0065142",
+    "LAW-0065143",
+    "LAW-0068026"
+  ],
+  "coveredSourceLawIds": [
+    "LAW-0048716",
+    "LAW-0048736",
+    "LAW-0048926",
+    "LAW-0061620",
+    "LAW-0061721",
+    "LAW-0061724",
+    "LAW-0061895",
+    "LAW-0062696",
+    "LAW-0062698",
+    "LAW-0062833",
+    "LAW-0062834",
+    "LAW-0062835",
+    "LAW-0062836",
+    "LAW-0062837",
+    "LAW-0062838",
+    "LAW-0062839",
+    "LAW-0062840",
+    "LAW-0062841",
+    "LAW-0062842",
+    "LAW-0062843",
+    "LAW-0062844",
+    "LAW-0062845",
+    "LAW-0062846",
+    "LAW-0062847",
+    "LAW-0062848",
+    "LAW-0062849",
+    "LAW-0062850",
+    "LAW-0062851",
+    "LAW-0062852",
+    "LAW-0062853",
+    "LAW-0062854",
+    "LAW-0062855",
+    "LAW-0062856",
+    "LAW-0062857",
+    "LAW-0062858",
+    "LAW-0062859",
+    "LAW-0062860",
+    "LAW-0062861",
+    "LAW-0062862",
+    "LAW-0062863",
+    "LAW-0062864",
+    "LAW-0062865",
+    "LAW-0062866",
+    "LAW-0062867",
+    "LAW-0062868",
+    "LAW-0062869",
+    "LAW-0062870",
+    "LAW-0062871",
+    "LAW-0062872",
+    "LAW-0062873",
+    "LAW-0062874",
+    "LAW-0062875",
+    "LAW-0062876",
+    "LAW-0062877",
+    "LAW-0062878",
+    "LAW-0062879",
+    "LAW-0062880",
+    "LAW-0062881",
+    "LAW-0062882",
+    "LAW-0062883",
+    "LAW-0062884",
+    "LAW-0062885",
+    "LAW-0062886",
+    "LAW-0062887",
+    "LAW-0062888",
+    "LAW-0062889",
+    "LAW-0062890",
+    "LAW-0062891",
+    "LAW-0062892",
+    "LAW-0062893",
+    "LAW-0062894",
+    "LAW-0062895",
+    "LAW-0062896",
+    "LAW-0062897",
+    "LAW-0062898",
+    "LAW-0062899",
+    "LAW-0062900",
+    "LAW-0062901",
+    "LAW-0062902",
+    "LAW-0062903",
+    "LAW-0062904",
+    "LAW-0062905",
+    "LAW-0062906",
+    "LAW-0062907",
+    "LAW-0062908",
+    "LAW-0062909",
+    "LAW-0062910",
+    "LAW-0062911",
+    "LAW-0062912",
+    "LAW-0062913",
+    "LAW-0062914",
+    "LAW-0062915",
+    "LAW-0062916",
+    "LAW-0062917",
+    "LAW-0062918",
+    "LAW-0062919",
+    "LAW-0062920",
+    "LAW-0062921",
+    "LAW-0062922",
+    "LAW-0062923",
+    "LAW-0062924",
+    "LAW-0062925",
+    "LAW-0062926",
+    "LAW-0062927",
+    "LAW-0062928",
+    "LAW-0062929",
+    "LAW-0062930",
+    "LAW-0062931",
+    "LAW-0062932",
+    "LAW-0062933",
+    "LAW-0062934",
+    "LAW-0062935",
+    "LAW-0062936",
+    "LAW-0062937",
+    "LAW-0062938",
+    "LAW-0062939",
+    "LAW-0062940",
+    "LAW-0062941",
+    "LAW-0062942",
+    "LAW-0062943",
+    "LAW-0062944",
+    "LAW-0062945",
+    "LAW-0062946",
+    "LAW-0062947",
+    "LAW-0062948",
+    "LAW-0062949",
+    "LAW-0062950",
+    "LAW-0062951",
+    "LAW-0062952",
+    "LAW-0062953",
+    "LAW-0062954",
+    "LAW-0062955",
+    "LAW-0062956",
+    "LAW-0062957",
+    "LAW-0062958",
+    "LAW-0062959",
+    "LAW-0062960",
+    "LAW-0062961",
+    "LAW-0062962",
+    "LAW-0062963",
+    "LAW-0062964",
+    "LAW-0062965",
+    "LAW-0062966",
+    "LAW-0062967",
+    "LAW-0062968",
+    "LAW-0062969",
+    "LAW-0062970",
+    "LAW-0062971",
+    "LAW-0062972",
+    "LAW-0062973",
+    "LAW-0062974",
+    "LAW-0062975",
+    "LAW-0062976",
+    "LAW-0062977",
+    "LAW-0062978",
+    "LAW-0062979",
+    "LAW-0062980",
+    "LAW-0065073",
+    "LAW-0065074",
+    "LAW-0065075",
+    "LAW-0065079",
+    "LAW-0065082",
+    "LAW-0065083",
+    "LAW-0065088",
+    "LAW-0065089",
+    "LAW-0065090",
+    "LAW-0065141",
+    "LAW-0065142",
+    "LAW-0065143",
+    "LAW-0068026"
+  ],
+  "excludedSourceLawIds": [
+    {
+      "id": "LAW-0061894",
+      "reason": "trim_packaging"
+    },
+    {
+      "id": "LAW-0061924",
+      "reason": "trim_packaging"
+    },
+    {
+      "id": "LAW-0064859",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0064861",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0064996",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0064997",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0064998",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0064999",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065000",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065001",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065002",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065003",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065004",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065005",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065006",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065007",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065008",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065009",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065010",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065011",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065012",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065013",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065014",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065015",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065016",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065017",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065018",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065019",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065020",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065021",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065022",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065023",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065024",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065025",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065026",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065027",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065028",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065029",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065030",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065031",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065032",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065033",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065034",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065035",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065036",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065037",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065038",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065039",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065040",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065041",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065042",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065043",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065044",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065045",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065046",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065047",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065048",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065049",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065050",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065051",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065052",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065053",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065054",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065055",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065056",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065057",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065058",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065059",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065060",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065061",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065062",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065063",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065064",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065065",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065066",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065067",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065068",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065069",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065070",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065071",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065072",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065076",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065077",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065078",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065080",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065081",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065084",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065085",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065086",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065087",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065091",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065092",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065093",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065094",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065095",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065096",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065097",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065098",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065099",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065100",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065101",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065102",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065103",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065104",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065105",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065106",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065107",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065108",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065109",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065110",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065111",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065112",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065113",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065114",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065115",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065116",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065117",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065118",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065119",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065120",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065121",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065122",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065123",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065124",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065125",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065126",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065127",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065128",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065129",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065130",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065131",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065132",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065133",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065134",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065135",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065136",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065137",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065138",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065139",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0065140",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0066952",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0067053",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0067056",
+      "reason": "duplicate_of_kept_core"
+    },
+    {
+      "id": "LAW-0068025",
+      "reason": "trim_packaging"
+    },
+    {
+      "id": "LAW-0068055",
+      "reason": "trim_packaging"
+    }
+  ]
+}

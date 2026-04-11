@@ -1,3 +1,4 @@
+import path from "node:path";
 import type {
   DynamicLawGrant,
   GravityEvent,
@@ -22,7 +23,7 @@ export const META_LEDGER_01: LawId = "META.LEDGER.01";
 
 /**
  * Scope law: path/recipient/domain/tool must be in dynamic laws (opened as law).
- * Violations from this skill are grantable: executor surfaces NSL "open as law? yes/no".
+ * Violations from this skill are grantable: executor surfaces bodyguard "open as law? yes/no".
  */
 export const SCOPE_GRANT_CLOSED: LawId = "SCOPE.GRANT.CLOSED";
 const SCOPE_VIOLATION_CODES: Record<DynamicLawGrant["kind"], string> = {
@@ -47,6 +48,18 @@ function asProposal(event: GravityEvent): GravityProposal | null {
 
 function violation(lawId: LawId, code: string, message?: string): LawViolation {
   return { lawId, code, message };
+}
+
+function pathGrantMatches(scope: string, target: string, exactOnly?: boolean): boolean {
+  const normalizedScope = path.resolve(scope);
+  const normalizedTarget = path.resolve(target);
+  if (exactOnly) {
+    return normalizedTarget === normalizedScope;
+  }
+  return (
+    normalizedTarget === normalizedScope ||
+    normalizedTarget.startsWith(`${normalizedScope}${path.sep}`)
+  );
 }
 
 /**
@@ -222,26 +235,6 @@ export function createMetaLedgerSkill(): LawSkill {
         );
       }
 
-      if (!state.context.ledger.sessionTraceComplete) {
-        violations.push(
-          violation(
-            META_LEDGER_01,
-            "SESSION_TRACE_INCOMPLETE",
-            "Session ledger trace is incomplete; actions must not be treated as authoritative.",
-          ),
-        );
-      }
-
-      if (!state.context.ledger.requestTraceComplete) {
-        violations.push(
-          violation(
-            META_LEDGER_01,
-            "REQUEST_TRACE_INCOMPLETE",
-            "Request ledger trace is incomplete; this request must not be treated as authoritative.",
-          ),
-        );
-      }
-
       return violations;
     },
     normalize(state: GravityState, violations: LawViolation[]): GravityState {
@@ -257,7 +250,7 @@ export function createMetaLedgerSkill(): LawSkill {
 /**
  * SCOPE.GRANT.CLOSED
  * Proposal targets a path/recipient/domain/tool that is not in the session's granted scope.
- * Violations are grantable: executor must ledger blocked + emit NSL "open this and make it law? yes/no".
+ * Violations are grantable: executor must ledger blocked + emit bodyguard "open this and make it law? yes/no".
  */
 export function createScopeGrantSkill(): LawSkill {
   return {
@@ -272,9 +265,13 @@ export function createScopeGrantSkill(): LawSkill {
 
       const now = Date.now();
       const hasGrant = state.dynamicLaws.grants.some((g: DynamicLawGrant) => {
-        if (g.kind !== scopeKind || g.scope !== scopeId) return false;
+        if (g.kind !== scopeKind) return false;
         if (g.revokedAt != null) return false;
         if (g.expiresAt != null && g.expiresAt < now) return false;
+        if (scopeKind === "path") {
+          return pathGrantMatches(g.scope, scopeId, g.exactOnly);
+        }
+        if (g.scope !== scopeId) return false;
         return true;
       });
       if (hasGrant) return [];

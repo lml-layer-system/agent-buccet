@@ -8,13 +8,13 @@ type ParsedArgs = {
   actorId: string;
   sessionsDir: string;
   interceptSocketPath: string;
-  bridgeSocketPath: string;
+  gravityBridgeSocketPath: string;
   brainStatusPath: string;
   pidFilePath: string;
   maxRestarts: number;
 };
 
-type ChildName = "intercept" | "bridge";
+type ChildName = "intercept" | "gravity_bridge";
 
 function usage(): never {
   console.error(
@@ -25,7 +25,7 @@ function usage(): never {
       "    --actor-id <id>",
       "    --sessions-dir <path>",
       "    --intercept-socket <path>",
-      "    --bridge-socket <path>",
+      "    --gravity-bridge-socket <path>",
       "    --brain-status-file <path>",
       "    --pid-file <path>",
       "    [--max-restarts <n>]",
@@ -39,7 +39,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let actorId = "";
   let sessionsDir = "";
   let interceptSocketPath = "";
-  let bridgeSocketPath = "";
+  let gravityBridgeSocketPath = "";
   let brainStatusPath = "";
   let pidFilePath = "";
   let maxRestarts = 10;
@@ -66,8 +66,8 @@ function parseArgs(argv: string[]): ParsedArgs {
       index += 1;
       continue;
     }
-    if (token === "--bridge-socket") {
-      bridgeSocketPath = argv[index + 1] ?? usage();
+    if (token === "--gravity-bridge-socket") {
+      gravityBridgeSocketPath = argv[index + 1] ?? usage();
       index += 1;
       continue;
     }
@@ -89,7 +89,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     usage();
   }
 
-  if (!sessionId || !actorId || !sessionsDir || !interceptSocketPath || !bridgeSocketPath || !brainStatusPath || !pidFilePath) {
+  if (!sessionId || !actorId || !sessionsDir || !interceptSocketPath || !gravityBridgeSocketPath || !brainStatusPath || !pidFilePath) {
     usage();
   }
 
@@ -98,7 +98,7 @@ function parseArgs(argv: string[]): ParsedArgs {
     actorId,
     sessionsDir,
     interceptSocketPath,
-    bridgeSocketPath,
+    gravityBridgeSocketPath,
     brainStatusPath,
     pidFilePath,
     maxRestarts,
@@ -116,7 +116,7 @@ async function writeStatus(args: ParsedArgs, patch: Record<string, unknown>) {
     sessionId: args.sessionId,
     actorId: args.actorId,
     interceptSocketPath: args.interceptSocketPath,
-    gravityBridgeSocketPath: args.bridgeSocketPath,
+    gravityBridgeSocketPath: args.gravityBridgeSocketPath,
     brainStatusPath: args.brainStatusPath,
     updatedAt: new Date().toISOString(),
     pid: process.pid,
@@ -147,7 +147,7 @@ async function main() {
   const scriptDir = path.dirname(new URL(import.meta.url).pathname);
   let stopping = false;
   let interceptChild: ChildProcess | null = null;
-  let bridgeChild: ChildProcess | null = null;
+  let gravityBridgeChild: ChildProcess | null = null;
   let restartCount = 0;
 
   await ensureParent(args.pidFilePath);
@@ -156,6 +156,25 @@ async function main() {
     state: "starting",
     restartCount,
   });
+
+  function attachChildExitHandler(name: ChildName, child: ChildProcess) {
+    child.on("exit", () => {
+      if (name === "intercept") {
+        if (interceptChild === child) {
+          interceptChild = null;
+        }
+      } else if (gravityBridgeChild === child) {
+        gravityBridgeChild = null;
+      }
+      if (!stopping) {
+        void restartChild(name);
+      }
+    });
+  }
+
+  function stopChild(child: ChildProcess | null | undefined) {
+    child?.kill("SIGTERM");
+  }
 
   async function spawnIntercept() {
     await fs.rm(args.interceptSocketPath, { force: true }).catch(() => undefined);
@@ -176,20 +195,15 @@ async function main() {
     });
     await waitForReady(child, "intercept server running", "intercept");
     interceptChild = child;
-    child.on("exit", () => {
-      interceptChild = null;
-      if (!stopping) {
-        void restartChild("intercept");
-      }
-    });
+    return child;
   }
 
-  async function spawnBridge() {
-    await fs.rm(args.bridgeSocketPath, { force: true }).catch(() => undefined);
+  async function spawnGravityBridge() {
+    await fs.rm(args.gravityBridgeSocketPath, { force: true }).catch(() => undefined);
     const child = spawn(process.execPath, [
       path.join(scriptDir, "agent-buccet-gravity-bridge.ts"),
       "--listen-socket",
-      args.bridgeSocketPath,
+      args.gravityBridgeSocketPath,
       "--upstream-socket",
       args.interceptSocketPath,
     ], {
@@ -197,14 +211,9 @@ async function main() {
       stdio: ["ignore", "ignore", "pipe"],
       env: process.env,
     });
-    await waitForReady(child, "gravity bridge running", "bridge");
-    bridgeChild = child;
-    child.on("exit", () => {
-      bridgeChild = null;
-      if (!stopping) {
-        void restartChild("bridge");
-      }
-    });
+    await waitForReady(child, "gravity bridge running", "gravity_bridge");
+    gravityBridgeChild = child;
+    return child;
   }
 
   async function markDead(reason: string) {
@@ -230,13 +239,9 @@ async function main() {
     });
     try {
       if (name === "intercept") {
-        if (bridgeChild) {
-          bridgeChild.kill("SIGTERM");
-        }
-        await spawnIntercept();
-        await spawnBridge();
+        attachChildExitHandler(name, await spawnIntercept());
       } else {
-        await spawnBridge();
+        attachChildExitHandler(name, await spawnGravityBridge());
       }
       await writeStatus(args, {
         state: "alive",
@@ -250,13 +255,20 @@ async function main() {
   }
 
   try {
-    await spawnIntercept();
-    await spawnBridge();
+    const [interceptReadyChild, gravityReadyChild] = await Promise.all([
+      spawnIntercept(),
+      spawnGravityBridge(),
+    ]);
+    attachChildExitHandler("intercept", interceptReadyChild);
+    attachChildExitHandler("gravity_bridge", gravityReadyChild);
     await writeStatus(args, {
       state: "alive",
       restartCount,
     });
   } catch (error) {
+    stopping = true;
+    stopChild(interceptChild);
+    stopChild(gravityBridgeChild);
     await markDead(error instanceof Error ? error.message : "hook daemon failed to start");
     process.exit(1);
   }
@@ -266,14 +278,14 @@ async function main() {
       return;
     }
     stopping = true;
-    if (bridgeChild) {
-      bridgeChild.kill("SIGTERM");
-    }
     if (interceptChild) {
       interceptChild.kill("SIGTERM");
     }
-    await fs.rm(args.bridgeSocketPath, { force: true }).catch(() => undefined);
+    if (gravityBridgeChild) {
+      gravityBridgeChild.kill("SIGTERM");
+    }
     await fs.rm(args.interceptSocketPath, { force: true }).catch(() => undefined);
+    await fs.rm(args.gravityBridgeSocketPath, { force: true }).catch(() => undefined);
     await markDead(reason);
     await fs.rm(args.pidFilePath, { force: true }).catch(() => undefined);
     process.exit(0);

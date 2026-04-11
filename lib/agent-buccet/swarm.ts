@@ -1,9 +1,21 @@
 import { createHash, randomUUID } from "node:crypto";
+import { enableBodyguardControl, recordBodyguardUserLawDecision } from "./bodyguard.ts";
+import { createBoundaryHeadlessApprovalHandler } from "./headless.ts";
 import path from "node:path";
 import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
-import type { BoundaryActionKind, BoundaryResourceKind } from "./types.ts";
+import type {
+  BoundaryActionKind,
+  BoundaryAdmissionState,
+  BoundaryApprovalPrompt,
+  BoundaryActionRequest,
+  BoundaryResourceKind,
+  BoundaryReviewContext,
+  BoundaryUserPathLedger,
+  BodyguardMove,
+} from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
+import { loadUserPathLedger } from "./user-path-ledger.ts";
 
 export type BoundarySwarmGroupState = "waiting" | "approved" | "denied";
 
@@ -17,7 +29,10 @@ export type BoundarySwarmGroup = {
   operation: string;
   target: string;
   reason: string;
+  payloadSummary?: string;
+  reviewContext?: BoundaryReviewContext;
   lawIds: string[];
+  bodyguardMoves: BodyguardMove[];
   memberCount: number;
   waitingCount: number;
   requestIds: string[];
@@ -25,6 +40,7 @@ export type BoundarySwarmGroup = {
 
 type BoundarySwarmResolution =
   | { kind: "retry" }
+  | { kind: "allow_once"; reason: string }
   | { kind: "deny"; reason: string };
 
 type BoundarySwarmWaiter = {
@@ -121,6 +137,64 @@ function approvalGrantShape(request: BoundaryInterceptRequest): {
   }
 }
 
+function toBoundaryActionRequest(store: BoundaryRuntimeStore, request: BoundaryInterceptRequest, requestId: string): BoundaryActionRequest {
+  const config = store.getConfig();
+  return {
+    requestId,
+    sessionId: config.session.sessionId,
+    actionKind: mapInterceptToBoundaryAction(request),
+    target: normalizeTarget(request),
+    payloadSummary: request.payloadSummary,
+    reviewContext: request.reviewContext,
+    requestedAt: new Date().toISOString(),
+    provenance: request.provenance ?? "agent_inference",
+    flags: request.flags,
+  };
+}
+
+function buildDefaultAttemptLines(request: BoundaryActionRequest): string[] {
+  const baseLine = request.actionKind === "tool.exec"
+    ? `$ ${request.target}`
+    : `$ ${request.actionKind} ${request.target}`;
+  return request.payloadSummary ? [baseLine, `  ${request.payloadSummary}`] : [baseLine];
+}
+
+function buildSwarmApprovalPrompt(group: BoundarySwarmPendingGroup, request: BoundaryActionRequest): BoundaryApprovalPrompt {
+  const context = group.representative.reviewContext;
+  if (context?.surface === "chat") {
+    return {
+      title: context.title ?? "Standing-law review",
+      question: context.question ?? group.reason,
+      surface: "chat",
+      lawIds: [...group.lawIds],
+      userInput: context.userInput,
+      attemptedOutput: context.attemptedOutput,
+      invariantLawId: context.invariantLawId ?? group.lawIds[0],
+      invariantLabel: context.invariantLabel ?? group.reason,
+      evidence: context.evidence ?? [],
+      violations: context.violations ?? [],
+      options: [],
+    };
+  }
+
+  return {
+    title: context?.title ?? "Standing-law review",
+    question: context?.question ?? group.reason,
+    surface: "action",
+    lawIds: [...group.lawIds],
+    attemptLines: context?.attemptLines ?? buildDefaultAttemptLines(request),
+    invariantLawId: context?.invariantLawId ?? group.lawIds[0],
+    invariantLabel: context?.invariantLabel ?? group.reason,
+    violations: context?.violations ?? [],
+    options: [],
+  };
+}
+
+function standingLawReason(notes: string | null | undefined, fallback: string): string {
+  const trimmed = notes?.trim();
+  return trimmed ? `standing-law: ${trimmed}` : fallback;
+}
+
 async function appendSwarmLedger(args: {
   store: BoundaryRuntimeStore;
   eventType: "APPROVAL_REQUESTED" | "APPROVAL_GRANTED" | "APPROVAL_DENIED";
@@ -133,9 +207,9 @@ async function appendSwarmLedger(args: {
   waitingCount: number;
   actorId?: string;
   joined?: boolean;
-}) {
+}): Promise<Awaited<ReturnType<typeof appendBoundaryLedger>>> {
   const config = args.store.getConfig();
-  await appendBoundaryLedger(args.eventType, {
+  return appendBoundaryLedger(args.eventType, {
     sessionId: config.session.sessionId,
     actorId: args.actorId ?? config.session.actorId,
     requestId: args.requestId,
@@ -162,6 +236,16 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
   const pendingGroups = new Map<string, BoundarySwarmPendingGroup>();
   const recentGroups = new Map<string, BoundarySwarmGroup>();
 
+  function applyInterceptState(result: BoundaryInterceptResult & { admissionState?: BoundaryAdmissionState }) {
+    if (!result.admissionState) {
+      return;
+    }
+    store.replaceConfig({
+      ...store.getConfig(),
+      admissionState: result.admissionState,
+    });
+  }
+
   function snapshotGroup(group: BoundarySwarmPendingGroup | BoundarySwarmGroup): BoundarySwarmGroup {
     return {
       groupId: group.groupId,
@@ -173,7 +257,10 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       operation: group.operation,
       target: group.target,
       reason: group.reason,
+      payloadSummary: "representative" in group ? group.representative.payloadSummary : group.payloadSummary,
+      reviewContext: "representative" in group ? group.representative.reviewContext : group.reviewContext,
       lawIds: [...group.lawIds],
+      bodyguardMoves: [...group.bodyguardMoves],
       memberCount: group.memberCount,
       waitingCount: group.waitingCount,
       requestIds: [...group.requestIds],
@@ -182,6 +269,38 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
 
   function rememberRecent(group: BoundarySwarmPendingGroup) {
     recentGroups.set(group.groupId, snapshotGroup(group));
+    const resolved = [...recentGroups.values()]
+      .filter((entry) => entry.state !== "waiting")
+      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    for (const stale of resolved.slice(50)) {
+      recentGroups.delete(stale.groupId);
+    }
+  }
+
+  function rememberImmediateResolution(
+    request: BoundaryInterceptRequest,
+    result: BoundaryInterceptResult,
+  ) {
+    const now = new Date().toISOString();
+    const resolvedGroup: BoundarySwarmGroup = {
+      groupId: `swarm-${randomUUID()}`,
+      key: buildSwarmKey(request),
+      state: result.decision === "allow" ? "approved" : "denied",
+      createdAt: now,
+      updatedAt: now,
+      actionClass: request.actionClass,
+      operation: request.operation,
+      target: normalizeTarget(request),
+      reason: result.reason,
+      payloadSummary: request.payloadSummary,
+      reviewContext: request.reviewContext,
+      lawIds: [...result.lawIds],
+      bodyguardMoves: [...result.bodyguardMoves],
+      memberCount: 1,
+      waitingCount: 0,
+      requestIds: [result.requestId],
+    };
+    recentGroups.set(resolvedGroup.groupId, resolvedGroup);
     const resolved = [...recentGroups.values()]
       .filter((entry) => entry.state !== "waiting")
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
@@ -216,6 +335,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       target: normalizeTarget(request),
       reason: result.reason,
       lawIds: [...result.lawIds],
+      bodyguardMoves: [...result.bodyguardMoves],
       memberCount: 1,
       waitingCount: 1,
       requestIds: [result.requestId],
@@ -267,15 +387,26 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       };
     }
 
+    if (resolution.kind === "allow_once") {
+      return {
+        ...result,
+        decision: "allow",
+        reason: resolution.reason,
+      };
+    }
+
     return evaluateOrWait(request);
   }
 
   async function evaluateOrWait(request: BoundaryInterceptRequest): Promise<BoundaryInterceptResult> {
+    await store.hydrate();
     const result = await evaluateBoundaryIntercept({
-      config: store.getConfig(),
+      config: enableBodyguardControl(store.getConfig()),
       request,
     });
+    applyInterceptState(result);
     if (result.decision !== "require_approval") {
+      rememberImmediateResolution(request, result);
       return result;
     }
     return waitForResolution(request, result);
@@ -285,47 +416,66 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     groupId: string;
     issuedBy: string;
     reason?: string;
+    asLaw?: boolean;
   }) {
     const group = [...pendingGroups.values()].find((entry) => entry.groupId === args.groupId);
     if (!group) {
       return null;
     }
 
-    const grant = approvalGrantShape(group.representative);
-    if (grant.resourceKind === "path") {
-      await store.openPath({
-        rootPath: grant.resourceValue,
-        grantedActions: [grant.actionKind],
-        issuedBy: args.issuedBy,
-      });
-    } else {
-      await store.issueGrant({
-        resourceKind: grant.resourceKind,
-        resourceValue: grant.resourceValue,
-        grantedActions: [grant.actionKind],
-        issuedBy: args.issuedBy,
-      });
+    if (args.asLaw) {
+      const grant = approvalGrantShape(group.representative);
+      if (grant.resourceKind === "path") {
+        await store.openPath({
+          rootPath: grant.resourceValue,
+          grantedActions: [grant.actionKind],
+          issuedBy: args.issuedBy,
+        });
+      } else {
+        await store.issueGrant({
+          resourceKind: grant.resourceKind,
+          resourceValue: grant.resourceValue,
+          grantedActions: [grant.actionKind],
+          issuedBy: args.issuedBy,
+        });
+      }
     }
 
     group.state = "approved";
     group.updatedAt = new Date().toISOString();
     pendingGroups.delete(group.key);
 
-    await appendSwarmLedger({
+    const approveReason = args.reason ?? (args.asLaw
+      ? "swarm approval granted and lawful scope updated"
+      : "swarm approval granted once without changing standing law");
+    const witness = await appendSwarmLedger({
       store,
       eventType: "APPROVAL_GRANTED",
       requestId: requestIdForGroup(group),
       request: group.representative,
-      reason: args.reason ?? "swarm approval granted and lawful scope updated",
+      reason: approveReason,
       lawIds: group.lawIds,
       groupId: group.groupId,
       memberCount: group.memberCount,
       waitingCount: group.waitingCount,
       actorId: args.issuedBy,
     });
+    const config = args.asLaw ? await store.hydrate() : store.getConfig();
+    if (args.asLaw && config.upl) {
+      const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
+      const nextConfig = await recordBodyguardUserLawDecision({
+        config,
+        request: boundaryRequest,
+        witness,
+        decision: { choice: "allow_as_law" },
+      });
+      store.replaceConfig(nextConfig);
+    }
 
     for (const waiter of group.waiters) {
-      waiter.settle({ kind: "retry" });
+      waiter.settle(args.asLaw
+        ? { kind: "retry" }
+        : { kind: "allow_once", reason: approveReason });
     }
     rememberRecent(group);
     return snapshotGroup(group);
@@ -335,6 +485,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     groupId: string;
     deniedBy: string;
     reason?: string;
+    asLaw?: boolean;
   }) {
     const group = [...pendingGroups.values()].find((entry) => entry.groupId === args.groupId);
     if (!group) {
@@ -346,7 +497,7 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     pendingGroups.delete(group.key);
 
     const denyReason = args.reason ?? "swarm approval denied";
-    await appendSwarmLedger({
+    const witness = await appendSwarmLedger({
       store,
       eventType: "APPROVAL_DENIED",
       requestId: requestIdForGroup(group),
@@ -358,6 +509,17 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
       waitingCount: group.waitingCount,
       actorId: args.deniedBy,
     });
+    const config = args.asLaw ? await store.hydrate() : store.getConfig();
+    if (args.asLaw && config.upl) {
+      const boundaryRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
+      const nextConfig = await recordBodyguardUserLawDecision({
+        config,
+        request: boundaryRequest,
+        witness,
+        decision: { choice: "deny_as_law" },
+      });
+      store.replaceConfig(nextConfig);
+    }
 
     for (const waiter of group.waiters) {
       waiter.settle({ kind: "deny", reason: denyReason });
@@ -386,10 +548,73 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     };
   }
 
+  async function resolveWaitingGroupsFromUpl(args: {
+    actorId: string;
+    getLedger?: () => Promise<BoundaryUserPathLedger>;
+  }): Promise<number> {
+    const handler = createBoundaryHeadlessApprovalHandler({
+      mode: "follow_upl",
+      getLedger: args.getLedger ?? (() => loadUserPathLedger()),
+    });
+    const groups = [...pendingGroups.values()].filter((group) => group.state === "waiting" && group.waitingCount > 0);
+    let resolved = 0;
+
+    for (const group of groups) {
+      if (!pendingGroups.has(group.key)) {
+        continue;
+      }
+
+      const approvalRequest = toBoundaryActionRequest(store, group.representative, requestIdForGroup(group));
+      const rawDecision = await handler({
+        session: store.getConfig().session,
+        request: approvalRequest,
+        reason: group.reason,
+        lawIds: [...group.lawIds],
+        bodyguardMoves: [...group.bodyguardMoves],
+        prompt: buildSwarmApprovalPrompt(group, approvalRequest),
+      });
+      const decision = typeof rawDecision === "boolean"
+        ? { choice: rawDecision ? "allow_once" as const : "deny_once" as const, notes: null }
+        : "approved" in rawDecision
+          ? {
+              choice: rawDecision.approved ? "allow_once" as const : "deny_once" as const,
+              notes: rawDecision.notes,
+            }
+          : rawDecision;
+
+      const allowed = decision.choice === "allow_once" || decision.choice === "allow_as_law";
+      if (allowed) {
+        const approved = await approveGroup({
+          groupId: group.groupId,
+          issuedBy: args.actorId,
+          reason: standingLawReason(decision.notes, "standing-law: existing UPL law allowed this request"),
+          asLaw: false,
+        });
+        if (approved) {
+          resolved += 1;
+        }
+        continue;
+      }
+
+      const denied = await denyGroup({
+        groupId: group.groupId,
+        deniedBy: args.actorId,
+        reason: standingLawReason(decision.notes, "standing-law: no standing UPL law matched this request"),
+        asLaw: false,
+      });
+      if (denied) {
+        resolved += 1;
+      }
+    }
+
+    return resolved;
+  }
+
   return {
     evaluateOrWait,
     approveGroup,
     denyGroup,
     listGroups,
+    resolveWaitingGroupsFromUpl,
   };
 }

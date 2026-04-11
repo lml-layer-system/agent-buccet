@@ -9,7 +9,7 @@ import { runGravityLoop } from "./kernel.ts";
 
 /**
  * Thin client that outer runtimes can use to feed proposals/events into gravity.
- * This stays framework-agnostic; concrete executors/adapters live elsewhere.
+ * This stays framework-agnostic; concrete Bodyguard callers and integrations live elsewhere.
  */
 export interface GravityClient {
   /**

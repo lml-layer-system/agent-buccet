@@ -1,0 +1,857 @@
+{
+  "totalLaws": 68277,
+  "activeKeptCoreRecordIds": 688,
+  "candidateDefensiveSourceFiles": 34,
+  "externalCandidateFamilies": 30,
+  "intentionallyTrimmedFamiliesWithDefensiveVocabulary": 30,
+  "possibleMissedFamilies": [],
+  "keptCoreFamilies": [
+    {
+      "sourceFile": "S3_043__18D5F666-F512-461A-8824-A3254F00C282.docx",
+      "totalRecords": 519,
+      "candidateRecords": 247,
+      "unmatchedCandidateRecords": 156,
+      "groups": {
+        "novelty_dynamic": 3,
+        "architecture_alignment": 3,
+        "contradiction_verification": 192,
+        "boundary_scope_authority": 87,
+        "hallucination_fabrication": 1
+      },
+      "kept": true,
+      "bucket": "kept_core",
+      "readable": 479,
+      "readableRatio": 0.9229,
+      "sectionCandidates": 45
+    },
+    {
+      "sourceFile": "S3_044__1ED7E9AD-1F2D-49D4-A7D4-5C5C4F5CE3C5.docx",
+      "totalRecords": 439,
+      "candidateRecords": 123,
+      "unmatchedCandidateRecords": 112,
+      "groups": {
+        "novelty_dynamic": 12,
+        "contradiction_verification": 84,
+        "architecture_alignment": 15,
+        "boundary_scope_authority": 18
+      },
+      "kept": true,
+      "bucket": "kept_core",
+      "readable": 439,
+      "readableRatio": 1,
+      "sectionCandidates": 72
+    },
+    {
+      "sourceFile": "S3_063__EF7AD303-6CB0-4DBC-94BA-E4E34253D2D4.docx",
+      "totalRecords": 534,
+      "candidateRecords": 107,
+      "unmatchedCandidateRecords": 25,
+      "groups": {
+        "hallucination_fabrication": 56,
+        "architecture_alignment": 10,
+        "novelty_dynamic": 12,
+        "contradiction_verification": 23,
+        "boundary_scope_authority": 14
+      },
+      "kept": true,
+      "bucket": "kept_core",
+      "readable": 513,
+      "readableRatio": 0.9607,
+      "sectionCandidates": 158
+    },
+    {
+      "sourceFile": "S3_060__A951F220-4F73-469E-AC41-CFD2B8F79F13.docx",
+      "totalRecords": 611,
+      "candidateRecords": 167,
+      "unmatchedCandidateRecords": 18,
+      "groups": {
+        "architecture_alignment": 144,
+        "contradiction_verification": 14,
+        "novelty_dynamic": 13,
+        "boundary_scope_authority": 11,
+        "hallucination_fabrication": 7
+      },
+      "kept": true,
+      "bucket": "kept_core",
+      "readable": 608,
+      "readableRatio": 0.9951,
+      "sectionCandidates": 198
+    }
+  ],
+  "omittedSectionsByKeptSource": {
+    "S3_043__18D5F666-F512-461A-8824-A3254F00C282.docx": {
+      "totalReadableSectionsInMap": 44,
+      "activeSections": 17,
+      "omittedReadableSections": 27,
+      "sampleOmittedSections": [
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--uic-universal-identity-compiler--01",
+          "sectionName": "UIC: UNIVERSAL IDENTITY COMPILER",
+          "chunkRecordCount": 45
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--knowledge-repair-moves--01",
+          "sectionName": "KNOWLEDGE REPAIR MOVES:",
+          "chunkRecordCount": 42
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--knowledge-organization-modules--01",
+          "sectionName": "KNOWLEDGE ORGANIZATION MODULES:",
+          "chunkRecordCount": 33
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--summary--01",
+          "sectionName": "SUMMARY",
+          "chunkRecordCount": 27
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--failure-repair-mapping--01",
+          "sectionName": "FAILURE → REPAIR MAPPING:",
+          "chunkRecordCount": 22
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--holes--01",
+          "sectionName": "HOLES:",
+          "chunkRecordCount": 21
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--knowledge-base-budgets--01",
+          "sectionName": "KNOWLEDGE BASE BUDGETS:",
+          "chunkRecordCount": 19
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--repair-id-nsl-k-verification-restoration--01",
+          "sectionName": "\"repair_id\": \"NSL.K.VERIFICATION_RESTORATION\",",
+          "chunkRecordCount": 17
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--holes-blocking-lml--01",
+          "sectionName": "HOLES_BLOCKING_LML:",
+          "chunkRecordCount": 13
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-verification-restoration--01",
+          "sectionName": "NSL.K.VERIFICATION_RESTORATION",
+          "chunkRecordCount": 13
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--per-factual-knowledge--01",
+          "sectionName": "PER_FACTUAL_KNOWLEDGE = {",
+          "chunkRecordCount": 13
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--holes-blocking-nsl--01",
+          "sectionName": "HOLES_BLOCKING_NSL:",
+          "chunkRecordCount": 12
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-contradiction-resolution--01",
+          "sectionName": "NSL.K.CONTRADICTION_RESOLUTION",
+          "chunkRecordCount": 11
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-staleness-refresh--01",
+          "sectionName": "NSL.K.STALENESS_REFRESH",
+          "chunkRecordCount": 11
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--knowledge-evolution-tracking--01",
+          "sectionName": "KNOWLEDGE EVOLUTION TRACKING:",
+          "chunkRecordCount": 10
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-derivation-repair--01",
+          "sectionName": "NSL.K.DERIVATION_REPAIR",
+          "chunkRecordCount": 10
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-authority-enforcement--01",
+          "sectionName": "NSL.K.AUTHORITY_ENFORCEMENT",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-coherence-correction--01",
+          "sectionName": "NSL.K.COHERENCE_CORRECTION",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-scope-correction--01",
+          "sectionName": "NSL.K.SCOPE_CORRECTION",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-043-18d5f666-f512-461a-8824-a3254f00c282-docx--nsl-k-type-classification--01",
+          "sectionName": "NSL.K.TYPE_CLASSIFICATION",
+          "chunkRecordCount": 8
+        }
+      ]
+    },
+    "S3_044__1ED7E9AD-1F2D-49D4-A7D4-5C5C4F5CE3C5.docx": {
+      "totalReadableSectionsInMap": 72,
+      "activeSections": 10,
+      "omittedReadableSections": 62,
+      "sampleOmittedSections": [
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--phase-5-verification--01",
+          "sectionName": "PHASE 5: VERIFICATION",
+          "chunkRecordCount": 33
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--proof-laws-repairs-are-finite--01",
+          "sectionName": "PROOF: LAWS & REPAIRS ARE FINITE",
+          "chunkRecordCount": 33
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--implications--01",
+          "sectionName": "IMPLICATIONS",
+          "chunkRecordCount": 25
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--the-master-template--01",
+          "sectionName": "THE MASTER TEMPLATE",
+          "chunkRecordCount": 19
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--force-2-fundamental-failure-modes-f--01",
+          "sectionName": "FORCE 2: FUNDAMENTAL FAILURE MODES (F)",
+          "chunkRecordCount": 15
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--force-3-prevention-repair-effectiveness-e--01",
+          "sectionName": "FORCE 3: PREVENTION/REPAIR EFFECTIVENESS (E)",
+          "chunkRecordCount": 12
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--the-12-universal-law-types--01",
+          "sectionName": "THE 12 UNIVERSAL LAW TYPES:",
+          "chunkRecordCount": 12
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--the-12-universal-repair-types--01",
+          "sectionName": "THE 12 UNIVERSAL REPAIR TYPES:",
+          "chunkRecordCount": 12
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--force-1-infinite-instantiations-i--01",
+          "sectionName": "FORCE 1: INFINITE INSTANTIATIONS (I∞)",
+          "chunkRecordCount": 10
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--law-type-1-completeness--01",
+          "sectionName": "LAW TYPE 1: COMPLETENESS",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--law-type-4-capacity-constraint--01",
+          "sectionName": "LAW TYPE 4: CAPACITY_CONSTRAINT",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--repair-type-1-classification--01",
+          "sectionName": "REPAIR TYPE 1: CLASSIFICATION",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--repair-type-2-coherence-restoration--01",
+          "sectionName": "REPAIR TYPE 2: COHERENCE_RESTORATION",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--domain-the-structure-of-laws-and-repairs-themselves--01",
+          "sectionName": "Domain: THE STRUCTURE OF LAWS AND REPAIRS THEMSELVES",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--law-type-10-comprehensibility--01",
+          "sectionName": "LAW TYPE 10: COMPREHENSIBILITY",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--law-type-2-coherence--01",
+          "sectionName": "LAW TYPE 2: COHERENCE",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--law-type-3-context-appropriateness--01",
+          "sectionName": "LAW TYPE 3: CONTEXT_APPROPRIATENESS",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--law-type-5-consistency--01",
+          "sectionName": "LAW TYPE 5: CONSISTENCY",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--repair-type-4-simplification--01",
+          "sectionName": "REPAIR TYPE 4: SIMPLIFICATION",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-044-1ed7e9ad-1f2d-49d4-a7d4-5c5c4f5ce3c5-docx--repair-type-5-consistency-restoration--01",
+          "sectionName": "REPAIR TYPE 5: CONSISTENCY_RESTORATION",
+          "chunkRecordCount": 7
+        }
+      ]
+    },
+    "S3_060__A951F220-4F73-469E-AC41-CFD2B8F79F13.docx": {
+      "totalReadableSectionsInMap": 197,
+      "activeSections": 102,
+      "omittedReadableSections": 95,
+      "sampleOmittedSections": [
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--taxonomy-completeness-proof--01",
+          "sectionName": "TAXONOMY COMPLETENESS PROOF",
+          "chunkRecordCount": 21
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--governance-43--01",
+          "sectionName": "\"GOVERNANCE\": 43",
+          "chunkRecordCount": 16
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--this-is-undeniable-proof--01",
+          "sectionName": "THIS IS UNDENIABLE PROOF",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-bio-uplift-254--01",
+          "sectionName": "ID: DOMAIN-BIO-UPLIFT-254",
+          "chunkRecordCount": 5
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-csam-gen-295--01",
+          "sectionName": "ID: DOMAIN-CSAM-GEN-295",
+          "chunkRecordCount": 5
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-cite-spoof-280--01",
+          "sectionName": "ID: DOMAIN-CITE-SPOOF-280",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-def-off-flip-268--01",
+          "sectionName": "ID: DOMAIN-DEF-OFF-FLIP-268",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-malware-gen-264--01",
+          "sectionName": "ID: DOMAIN-MALWARE-GEN-264",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-zeroday-262--01",
+          "sectionName": "ID: DOMAIN-ZERODAY-262",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-gov-oversight-immune-313--01",
+          "sectionName": "ID: GOV-OVERSIGHT-IMMUNE-313",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--dom6-3-hate-speech-generation--01",
+          "sectionName": "DOM6.3: HATE SPEECH GENERATION",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--gov4-4-process-failure--01",
+          "sectionName": "GOV4.4: PROCESS FAILURE",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-adult-content-296--01",
+          "sectionName": "ID: DOMAIN-ADULT-CONTENT-296",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-bsl-viol-258--01",
+          "sectionName": "ID: DOMAIN-BSL-VIOL-258",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-chem-weapon-275--01",
+          "sectionName": "ID: DOMAIN-CHEM-WEAPON-275",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-contain-fail-259--01",
+          "sectionName": "ID: DOMAIN-CONTAIN-FAIL-259",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-contraind-miss-291--01",
+          "sectionName": "ID: DOMAIN-CONTRAIND-MISS-291",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-cred-theft-270--01",
+          "sectionName": "ID: DOMAIN-CRED-THEFT-270",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-ddos-plan-273--01",
+          "sectionName": "ID: DOMAIN-DDOS-PLAN-273",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-060-a951f220-4f73-469e-ac41-cfd2b8f79f13-docx--id-domain-diag-misuse-260--01",
+          "sectionName": "ID: DOMAIN-DIAG-MISUSE-260",
+          "chunkRecordCount": 3
+        }
+      ]
+    },
+    "S3_063__EF7AD303-6CB0-4DBC-94BA-E4E34253D2D4.docx": {
+      "totalReadableSectionsInMap": 157,
+      "activeSections": 81,
+      "omittedReadableSections": 76,
+      "sampleOmittedSections": [
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--the-7-fundamental-dimensions-periodic-groups--01",
+          "sectionName": "THE 7 FUNDAMENTAL DIMENSIONS (Periodic Groups)",
+          "chunkRecordCount": 30
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-indirect-inject-122--01",
+          "sectionName": "ID: ADV-INDIRECT-INJECT-122",
+          "chunkRecordCount": 8
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--failure-periodic-table-epis-struct-hall-001--01",
+          "sectionName": "failure = PERIODIC_TABLE[\"EPIS-STRUCT-HALL-001\"]",
+          "chunkRecordCount": 7
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--verification-system--01",
+          "sectionName": "VERIFICATION SYSTEM",
+          "chunkRecordCount": 6
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--creation-2026-02-11t00-00-00z--01",
+          "sectionName": "CREATION: 2026-02-11T00:00:00Z",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-agent-worm-124--01",
+          "sectionName": "ID: ADV-AGENT-WORM-124",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-ocr-bypass-153--01",
+          "sectionName": "ID: ADV-OCR-BYPASS-153",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-pair-113--01",
+          "sectionName": "ID: ADV-PAIR-113",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-sleeper-agent-127--01",
+          "sectionName": "ID: ADV-SLEEPER-AGENT-127",
+          "chunkRecordCount": 4
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--adv1-4-evil-confidant--01",
+          "sectionName": "ADV1.4: EVIL CONFIDANT",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--adv5-2-rot13-caesar-cipher--01",
+          "sectionName": "ADV5.2: ROT13 / CAESAR CIPHER",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-api-inject-131--01",
+          "sectionName": "ID: ADV-API-INJECT-131",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-audio-inject-149--01",
+          "sectionName": "ID: ADV-AUDIO-INJECT-149",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-autodan-117--01",
+          "sectionName": "ID: ADV-AUTODAN-117",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-autoprompt-103--01",
+          "sectionName": "ID: ADV-AUTOPROMPT-103",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-base64-136--01",
+          "sectionName": "ID: ADV-BASE64-136",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-cipher-118--01",
+          "sectionName": "ID: ADV-CIPHER-118",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-cmd-inject-129--01",
+          "sectionName": "ID: ADV-CMD-INJECT-129",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-cold-115--01",
+          "sectionName": "ID: ADV-COLD-115",
+          "chunkRecordCount": 3
+        },
+        {
+          "sectionId": "s3-063-ef7ad303-6cb0-4dbc-94ba-e4e34253d2d4-docx--id-adv-comparison-097--01",
+          "sectionName": "ID: ADV-COMPARISON-097",
+          "chunkRecordCount": 3
+        }
+      ]
+    }
+  },
+  "topIntentionallyTrimmedFamilies": [
+    {
+      "sourceFile": "S3_059__A85C098D-3B2C-401D-965F-2B5E9868719D.docx",
+      "totalRecords": 663,
+      "candidateRecords": 283,
+      "unmatchedCandidateRecords": 283,
+      "groups": {
+        "novelty_dynamic": 21,
+        "boundary_scope_authority": 175,
+        "hallucination_fabrication": 1,
+        "contradiction_verification": 107,
+        "architecture_alignment": 1
+      },
+      "kept": false,
+      "bucket": "trim_domain_legal_document",
+      "readable": 662,
+      "readableRatio": 0.9985,
+      "sectionCandidates": 83
+    },
+    {
+      "sourceFile": "S4_068__Converted - DOCUMENT AS LAW COLLAPSE.docx",
+      "totalRecords": 663,
+      "candidateRecords": 283,
+      "unmatchedCandidateRecords": 283,
+      "groups": {
+        "novelty_dynamic": 21,
+        "boundary_scope_authority": 175,
+        "hallucination_fabrication": 1,
+        "contradiction_verification": 107,
+        "architecture_alignment": 1
+      },
+      "kept": false,
+      "bucket": "trim_domain_legal_document",
+      "readable": 662,
+      "readableRatio": 0.9985,
+      "sectionCandidates": 83
+    },
+    {
+      "sourceFile": "S3_053__61C869DF-C6ED-467A-8200-4F67B19D153B.docx",
+      "totalRecords": 646,
+      "candidateRecords": 255,
+      "unmatchedCandidateRecords": 255,
+      "groups": {
+        "contradiction_verification": 185,
+        "hallucination_fabrication": 42,
+        "boundary_scope_authority": 41,
+        "novelty_dynamic": 13
+      },
+      "kept": false,
+      "bucket": "trim_domain_legal",
+      "readable": 615,
+      "readableRatio": 0.952,
+      "sectionCandidates": 123
+    },
+    {
+      "sourceFile": "S4_070__Converted - PERIODIC TABLE CONTINUED.docx",
+      "totalRecords": 611,
+      "candidateRecords": 167,
+      "unmatchedCandidateRecords": 167,
+      "groups": {
+        "architecture_alignment": 144,
+        "contradiction_verification": 14,
+        "novelty_dynamic": 13,
+        "boundary_scope_authority": 11,
+        "hallucination_fabrication": 7
+      },
+      "kept": false,
+      "bucket": "duplicate_of_kept_core",
+      "readable": 608,
+      "readableRatio": 0.9951,
+      "sectionCandidates": 198
+    },
+    {
+      "sourceFile": "S3_046__2936557B-8297-4A34-8D53-9B905F7197A0.docx",
+      "totalRecords": 641,
+      "candidateRecords": 152,
+      "unmatchedCandidateRecords": 152,
+      "groups": {
+        "novelty_dynamic": 14,
+        "contradiction_verification": 119,
+        "boundary_scope_authority": 33
+      },
+      "kept": false,
+      "bucket": "trim_retrieval_intelligence",
+      "readable": 632,
+      "readableRatio": 0.986,
+      "sectionCandidates": 53
+    },
+    {
+      "sourceFile": "S3_056__7D5465EE-EA56-485C-B96B-452BC215B944.docx",
+      "totalRecords": 540,
+      "candidateRecords": 144,
+      "unmatchedCandidateRecords": 144,
+      "groups": {
+        "hallucination_fabrication": 34,
+        "boundary_scope_authority": 6,
+        "contradiction_verification": 101,
+        "novelty_dynamic": 12
+      },
+      "kept": false,
+      "bucket": "trim_domain_citation",
+      "readable": 535,
+      "readableRatio": 0.9907,
+      "sectionCandidates": 105
+    },
+    {
+      "sourceFile": "S3_062__CDF57664-D66C-459B-824A-F3AE619391E9.docx",
+      "totalRecords": 540,
+      "candidateRecords": 144,
+      "unmatchedCandidateRecords": 144,
+      "groups": {
+        "hallucination_fabrication": 34,
+        "boundary_scope_authority": 6,
+        "contradiction_verification": 101,
+        "novelty_dynamic": 12
+      },
+      "kept": false,
+      "bucket": "trim_domain_citation",
+      "readable": 535,
+      "readableRatio": 0.9907,
+      "sectionCandidates": 105
+    },
+    {
+      "sourceFile": "S4_065__Converted - CITATIONS ZERO HALLUCINATION-4.docx",
+      "totalRecords": 540,
+      "candidateRecords": 144,
+      "unmatchedCandidateRecords": 144,
+      "groups": {
+        "hallucination_fabrication": 34,
+        "boundary_scope_authority": 6,
+        "contradiction_verification": 101,
+        "novelty_dynamic": 12
+      },
+      "kept": false,
+      "bucket": "trim_domain_citation",
+      "readable": 535,
+      "readableRatio": 0.9907,
+      "sectionCandidates": 105
+    },
+    {
+      "sourceFile": "S4_066__Converted - CITATIONS ZERO HALLUCINATION.docx",
+      "totalRecords": 540,
+      "candidateRecords": 144,
+      "unmatchedCandidateRecords": 144,
+      "groups": {
+        "hallucination_fabrication": 34,
+        "boundary_scope_authority": 6,
+        "contradiction_verification": 101,
+        "novelty_dynamic": 12
+      },
+      "kept": false,
+      "bucket": "trim_domain_citation",
+      "readable": 535,
+      "readableRatio": 0.9907,
+      "sectionCandidates": 105
+    },
+    {
+      "sourceFile": "S3_040__0E1D0B23-809A-4294-94BD-CFB617A3A848.docx",
+      "totalRecords": 410,
+      "candidateRecords": 133,
+      "unmatchedCandidateRecords": 133,
+      "groups": {
+        "contradiction_verification": 55,
+        "boundary_scope_authority": 2,
+        "hallucination_fabrication": 80
+      },
+      "kept": false,
+      "bucket": "trim_packaging",
+      "readable": 352,
+      "readableRatio": 0.8585,
+      "sectionCandidates": 15
+    },
+    {
+      "sourceFile": "S3_050__4F5879D5-CCCA-4C95-B602-105CAA66BD7E.docx",
+      "totalRecords": 410,
+      "candidateRecords": 133,
+      "unmatchedCandidateRecords": 133,
+      "groups": {
+        "contradiction_verification": 55,
+        "boundary_scope_authority": 2,
+        "hallucination_fabrication": 80
+      },
+      "kept": false,
+      "bucket": "trim_packaging",
+      "readable": 352,
+      "readableRatio": 0.8585,
+      "sectionCandidates": 15
+    },
+    {
+      "sourceFile": "S3_052__57EF9527-3A7C-4FE4-9966-8F5CE87A4DFE.docx",
+      "totalRecords": 477,
+      "candidateRecords": 117,
+      "unmatchedCandidateRecords": 117,
+      "groups": {
+        "novelty_dynamic": 26,
+        "architecture_alignment": 40,
+        "contradiction_verification": 39,
+        "boundary_scope_authority": 25
+      },
+      "kept": false,
+      "bucket": "trim_writing",
+      "readable": 474,
+      "readableRatio": 0.9937,
+      "sectionCandidates": 43
+    },
+    {
+      "sourceFile": "S4_067__Converted - COMPLETE AI FAILURE PERIODIC TABLE.docx",
+      "totalRecords": 534,
+      "candidateRecords": 107,
+      "unmatchedCandidateRecords": 107,
+      "groups": {
+        "hallucination_fabrication": 56,
+        "architecture_alignment": 10,
+        "novelty_dynamic": 12,
+        "contradiction_verification": 23,
+        "boundary_scope_authority": 14
+      },
+      "kept": false,
+      "bucket": "duplicate_of_kept_core",
+      "readable": 513,
+      "readableRatio": 0.9607,
+      "sectionCandidates": 158
+    },
+    {
+      "sourceFile": "S3_058__A207B2EA-46D3-4F97-A821-727CFF9412A3.docx",
+      "totalRecords": 432,
+      "candidateRecords": 69,
+      "unmatchedCandidateRecords": 69,
+      "groups": {
+        "hallucination_fabrication": 18,
+        "contradiction_verification": 18,
+        "boundary_scope_authority": 17,
+        "architecture_alignment": 10,
+        "novelty_dynamic": 14
+      },
+      "kept": false,
+      "bucket": "trim_packaging",
+      "readable": 275,
+      "readableRatio": 0.6366,
+      "sectionCandidates": 3
+    },
+    {
+      "sourceFile": "S4_069__Converted - LML System Ryan Gatoloai-Faupula  copy.docx",
+      "totalRecords": 432,
+      "candidateRecords": 69,
+      "unmatchedCandidateRecords": 69,
+      "groups": {
+        "hallucination_fabrication": 18,
+        "contradiction_verification": 18,
+        "boundary_scope_authority": 17,
+        "architecture_alignment": 10,
+        "novelty_dynamic": 14
+      },
+      "kept": false,
+      "bucket": "trim_packaging",
+      "readable": 275,
+      "readableRatio": 0.6366,
+      "sectionCandidates": 3
+    },
+    {
+      "sourceFile": "S3_047__3A597554-7524-44BD-9A63-C80CE9E45367.docx",
+      "totalRecords": 485,
+      "candidateRecords": 68,
+      "unmatchedCandidateRecords": 68,
+      "groups": {
+        "novelty_dynamic": 3,
+        "architecture_alignment": 6,
+        "contradiction_verification": 39,
+        "boundary_scope_authority": 20
+      },
+      "kept": false,
+      "bucket": "trim_ui",
+      "readable": 445,
+      "readableRatio": 0.9175,
+      "sectionCandidates": 46
+    },
+    {
+      "sourceFile": "S4_071__Converted - UI UX LML NSL INTEGRATION.docx",
+      "totalRecords": 485,
+      "candidateRecords": 68,
+      "unmatchedCandidateRecords": 68,
+      "groups": {
+        "novelty_dynamic": 3,
+        "architecture_alignment": 6,
+        "contradiction_verification": 39,
+        "boundary_scope_authority": 20
+      },
+      "kept": false,
+      "bucket": "trim_ui",
+      "readable": 445,
+      "readableRatio": 0.9175,
+      "sectionCandidates": 46
+    },
+    {
+      "sourceFile": "S3_061__C8B312BB-AAC7-4B6C-BC62-21892871CA4B.docx",
+      "totalRecords": 389,
+      "candidateRecords": 55,
+      "unmatchedCandidateRecords": 55,
+      "groups": {
+        "hallucination_fabrication": 19,
+        "boundary_scope_authority": 7,
+        "contradiction_verification": 16,
+        "novelty_dynamic": 9,
+        "architecture_alignment": 7
+      },
+      "kept": false,
+      "bucket": "trim_packaging",
+      "readable": 351,
+      "readableRatio": 0.9023,
+      "sectionCandidates": 25
+    },
+    {
+      "sourceFile": "S4_074__Converted - older version but needed for understanding.docx",
+      "totalRecords": 389,
+      "candidateRecords": 55,
+      "unmatchedCandidateRecords": 55,
+      "groups": {
+        "hallucination_fabrication": 19,
+        "boundary_scope_authority": 7,
+        "contradiction_verification": 16,
+        "novelty_dynamic": 9,
+        "architecture_alignment": 7
+      },
+      "kept": false,
+      "bucket": "trim_packaging",
+      "readable": 351,
+      "readableRatio": 0.9023,
+      "sectionCandidates": 25
+    },
+    {
+      "sourceFile": "S3_049__4F120F55-90E3-4F8A-BEF6-E6C59B2D1A4A.docx",
+      "totalRecords": 340,
+      "candidateRecords": 35,
+      "unmatchedCandidateRecords": 35,
+      "groups": {
+        "boundary_scope_authority": 14,
+        "contradiction_verification": 20,
+        "novelty_dynamic": 4
+      },
+      "kept": false,
+      "bucket": "trim_ontology",
+      "readable": 291,
+      "readableRatio": 0.8559,
+      "sectionCandidates": 28
+    }
+  ]
+}

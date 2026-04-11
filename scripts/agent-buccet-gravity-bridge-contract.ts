@@ -14,6 +14,18 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
+  const started = Date.now();
+  while (Date.now() - started < timeoutMs) {
+    const result = await fn();
+    if (result !== null) {
+      return result;
+    }
+    await wait(stepMs);
+  }
+  throw new Error(`timed out after ${timeoutMs}ms`);
+}
+
 async function sendGravityPayload(target: { host: string; port: number }, payload: string): Promise<string> {
   const socket = net.createConnection(target.port, target.host);
   await once(socket, "connect");
@@ -28,6 +40,31 @@ async function sendGravityPayload(target: { host: string; port: number }, payloa
     }
   }
   throw new Error("gravity bridge closed before responding");
+}
+
+async function waitForPendingGroup(args: {
+  interceptPort: number;
+  predicate: (group: {
+    groupId: string;
+    actionClass: string;
+    operation: string;
+    target: string;
+    waitingCount: number;
+    memberCount: number;
+    state: string;
+  }) => boolean;
+  label: string;
+}) {
+  return await waitFor(async () => {
+    const swarmStatus = await sendBoundaryInterceptServerInput({
+      target: { host: "127.0.0.1", port: args.interceptPort },
+      input: {
+        command: "swarm_status",
+      },
+    });
+    assert.equal(swarmStatus.type, "swarm_status");
+    return swarmStatus.groups.find((group) => group.state === "waiting" && args.predicate(group)) ?? null;
+  }, 10_000, 100);
 }
 
 async function main() {
@@ -98,26 +135,52 @@ async function main() {
   }
   assert.equal(bridgeReady, true, `gravity bridge should be ready\n${bridgeStderr}`);
 
-  const approvalDecision = await sendBoundaryInterceptServerInput({
+  const approvalTarget = path.join(tempRoot, "candidate.txt");
+  let approvalSettled = false;
+  const approvalReleasedPromise = sendGravityPayload(
+    { host: "127.0.0.1", port: gravityPort },
+    `write|${approvalTarget}|${process.pid}|from-contract`,
+  );
+  void approvalReleasedPromise.finally(() => {
+    approvalSettled = true;
+  });
+
+  await wait(250);
+  assert.equal(
+    approvalSettled,
+    false,
+    `expected approval-required payload to remain frozen while waiting for swarm approval\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
+  );
+
+  const swarmStatus = await sendBoundaryInterceptServerInput({
     target: { host: "127.0.0.1", port: interceptPort },
     input: {
-      actionClass: "file",
-      operation: "write",
-      target: path.join(tempRoot, "candidate.txt"),
-      payloadSummary: `pid=${process.pid} from-contract`,
+      command: "swarm_status",
     },
   });
-  assert.equal(approvalDecision.type, "decision");
-  assert.equal(approvalDecision.decision, "require_approval");
+  assert.equal(swarmStatus.type, "swarm_status");
+  assert.equal(swarmStatus.totals.pending, 1);
+  assert.equal(swarmStatus.totals.waitingMembers, 1);
+  const pendingGroup = swarmStatus.groups.find((group) => group.target === approvalTarget);
+  assert.ok(pendingGroup, "expected pending swarm group for approval target");
 
-  const approvalBlocked = await sendGravityPayload(
-    { host: "127.0.0.1", port: gravityPort },
-    `write|${path.join(tempRoot, "candidate.txt")}|${process.pid}|from-contract`,
-  );
+  const approvalAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_approve",
+      groupId: pendingGroup.groupId,
+      issuedBy: "user:gravity-bridge-contract",
+      reason: "release frozen gravity payload after explicit approval",
+    },
+  });
+  assert.equal(approvalAck.type, "ack");
+  assert.equal(approvalAck.command, "swarm_approve");
+
+  const approvalReleased = await approvalReleasedPromise;
   assert.equal(
-    approvalBlocked,
-    "0",
-    `expected approval-required payload to block at the front-layer\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
+    approvalReleased,
+    "1",
+    `expected approval-required payload to release after swarm approval\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
   );
 
   const denyDecision = await sendBoundaryInterceptServerInput({
@@ -146,13 +209,129 @@ async function main() {
     `expected hard-deny payload to block at the front-layer\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
   );
 
+  const renameSource = path.join(tempRoot, "rename-source.txt");
+  const renameDestination = path.join(tempRoot, "rename-destination.txt");
+  let renameSettled = false;
+  const renamePromise = sendGravityPayload(
+    { host: "127.0.0.1", port: gravityPort },
+    `rename|${renameSource}|${process.pid}|${renameDestination}`,
+  );
+  void renamePromise.finally(() => {
+    renameSettled = true;
+  });
+
+  const renameSourceGroup = await waitForPendingGroup({
+    interceptPort,
+    label: "rename source group",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "move"
+      && group.target === renameSource,
+  });
+  assert.equal(renameSettled, false, "rename payload should remain frozen on the source-side hold");
+  const renameSourceAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_approve",
+      groupId: renameSourceGroup.groupId,
+      issuedBy: "user:gravity-bridge-contract",
+      reason: "release rename source hold",
+    },
+  });
+  assert.equal(renameSourceAck.type, "ack");
+
+  const renameDestinationGroup = await waitForPendingGroup({
+    interceptPort,
+    label: "rename destination group",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "move"
+      && group.target === renameDestination,
+  });
+  const renameDestinationAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_deny",
+      groupId: renameDestinationGroup.groupId,
+      deniedBy: "user:gravity-bridge-contract",
+      reason: "deny rename destination hold",
+    },
+  });
+  assert.equal(renameDestinationAck.type, "ack");
+
+  const renameBlocked = await renamePromise;
+  assert.equal(
+    renameBlocked,
+    "0",
+    `expected rename payload to block if the destination-side hold is denied\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
+  );
+
+  const symlinkPath = path.join(tempRoot, "alias-link.txt");
+  const symlinkTarget = path.join(tempRoot, "alias-target.txt");
+  let symlinkSettled = false;
+  const symlinkPromise = sendGravityPayload(
+    { host: "127.0.0.1", port: gravityPort },
+    `symlink|${symlinkPath}|${process.pid}|${symlinkTarget}`,
+  );
+  void symlinkPromise.finally(() => {
+    symlinkSettled = true;
+  });
+
+  const symlinkPathGroup = await waitForPendingGroup({
+    interceptPort,
+    label: "symlink path group",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "move"
+      && group.target === symlinkPath,
+  });
+  assert.equal(symlinkSettled, false, "symlink payload should remain frozen on the link-path hold");
+  const symlinkPathAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_approve",
+      groupId: symlinkPathGroup.groupId,
+      issuedBy: "user:gravity-bridge-contract",
+      reason: "release symlink path hold",
+    },
+  });
+  assert.equal(symlinkPathAck.type, "ack");
+
+  const symlinkTargetGroup = await waitForPendingGroup({
+    interceptPort,
+    label: "symlink target group",
+    predicate: (group) =>
+      group.actionClass === "file"
+      && group.operation === "move"
+      && group.target === symlinkTarget,
+  });
+  const symlinkTargetAck = await sendBoundaryInterceptServerInput({
+    target: { host: "127.0.0.1", port: interceptPort },
+    input: {
+      command: "swarm_deny",
+      groupId: symlinkTargetGroup.groupId,
+      deniedBy: "user:gravity-bridge-contract",
+      reason: "deny symlink target hold",
+    },
+  });
+  assert.equal(symlinkTargetAck.type, "ack");
+
+  const symlinkBlocked = await symlinkPromise;
+  assert.equal(
+    symlinkBlocked,
+    "0",
+    `expected symlink payload to block if the target-side hold is denied\nintercept stderr:\n${interceptStderr}\nbridge stderr:\n${bridgeStderr}`,
+  );
+
   gravityBridge.kill("SIGTERM");
   interceptServer.kill("SIGTERM");
   await once(gravityBridge, "exit");
   await once(interceptServer, "exit");
 
-  console.log(`gravity bridge blocked approval-required payload: ${approvalBlocked}`);
+  console.log(`gravity bridge released approval-required payload: ${approvalReleased}`);
   console.log(`gravity bridge blocked hard-deny payload: ${denyBlocked}`);
+  console.log(`gravity bridge held rename source and destination separately: ${renameBlocked}`);
+  console.log(`gravity bridge held symlink path and target separately: ${symlinkBlocked}`);
 }
 
 main().catch((error) => {

@@ -121,7 +121,7 @@ async function main() {
   const deniedWritePromise = outsideWrite({ path: outsideFile });
   const pendingScopeApproval = await waitForPendingApproval(() => bodyguard.approvals.listPending());
   assert(pendingScopeApproval.length === 1, "expected out-of-scope write to queue open-as-law approval");
-  bodyguard.approvals.deny(pendingScopeApproval[0].approvalId);
+  bodyguard.approvals.denyOnce(pendingScopeApproval[0].approvalId);
   const finalizedDeniedWriteResult = await deniedWritePromise;
   assert(!finalizedDeniedWriteResult.allowed && !finalizedDeniedWriteResult.executed, "expected out-of-scope write to be denied");
   assert((await readText(outsideFile)) === "protected\n", "expected out-of-scope file to remain unchanged");
@@ -130,24 +130,16 @@ async function main() {
     actionKind: "fs.delete",
     target: insideDeleteFile,
     rawText: "clean up the temp files",
-    successReason: "scoped delete executed after explicit approval",
+    successReason: "delete should never execute",
     execute: async () => {
       await fs.rm(insideDeleteFile, { force: true });
       return { deleted: true };
     },
   });
 
-  const deletePromise = bodyguard.telegram.enforceProposal(deleteProposal);
-  const pendingApprovals = await waitForPendingApproval(() => bodyguard.approvals.listPending());
-  assert(pendingApprovals.length === 1, "expected delete proposal to queue one approval");
-  assert(
-    pendingApprovals[0].request.request.target === insideDeleteFile,
-    "expected queued approval to match delete target",
-  );
-  bodyguard.approvals.approve(pendingApprovals[0].approvalId);
-  const deleteResult = await deletePromise;
-  assert(deleteResult.allowed && deleteResult.executed, "expected approved delete to execute");
-  assert(!(await pathExists(insideDeleteFile)), "expected approved delete target to be removed");
+  const deleteResult = await bodyguard.telegram.enforceProposal(deleteProposal);
+  assert(!deleteResult.allowed && !deleteResult.executed, "expected in-scope delete to be denied by default");
+  assert(await pathExists(insideDeleteFile), "expected denied delete target to remain present");
 
   const restoredStore = await restoreBoundaryRuntimeStore({
     sessionId,
@@ -195,7 +187,7 @@ async function main() {
   const deniedWriteRequestId = findLatestRequestIdForTarget(sessionTimeline, outsideFile);
   const deleteRequestId = findLatestRequestIdForTarget(sessionTimeline, insideDeleteFile);
   assert(deniedWriteRequestId, "expected request id for denied out-of-scope write");
-  assert(deleteRequestId, "expected request id for approval-gated delete");
+  assert(deleteRequestId, "expected request id for denied delete");
 
   const deniedWriteAudit = await auditBoundaryRequestLedger(deniedWriteRequestId);
   const deleteAudit = await auditBoundaryRequestLedger(deleteRequestId);
@@ -207,14 +199,14 @@ async function main() {
   console.log("results:");
   console.log(`- in-scope write: allowed=${allowedWriteResult.allowed} executed=${allowedWriteResult.executed}`);
   console.log(`- out-of-scope write: allowed=${finalizedDeniedWriteResult.allowed} executed=${finalizedDeniedWriteResult.executed}`);
-  console.log(`- delete after approval: allowed=${deleteResult.allowed} executed=${deleteResult.executed}`);
+  console.log(`- delete by default: allowed=${deleteResult.allowed} executed=${deleteResult.executed}`);
   console.log(`- restored in-scope write: allowed=${restoredWriteResult.allowed} executed=${restoredWriteResult.executed}`);
   console.log(`- post-end action: allowed=${postEndResult.allowed} executed=${postEndResult.executed}`);
   console.log("");
   console.log("audits:");
   console.log(`- session: ${sessionAudit.status}`);
   console.log(`- denied write request: ${deniedWriteAudit.status}`);
-  console.log(`- delete request: ${deleteAudit.status}`);
+  console.log(`- denied delete request: ${deleteAudit.status}`);
   console.log("");
   console.log("session ledger:");
   for (const line of formatBoundaryLedgerRecords(sessionTimeline)) {

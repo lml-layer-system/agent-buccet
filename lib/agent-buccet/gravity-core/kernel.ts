@@ -7,6 +7,72 @@ import type {
 } from "./types.ts";
 import { allViolationsGrantable } from "./types.ts";
 
+export function evaluateGravityEvent(args: {
+  state: GravityState;
+  event: GravityEvent;
+  skills: readonly LawSkill[];
+  onSkillError?: (error: {
+    phase: "validate" | "normalize";
+    lawId: string;
+    error: unknown;
+  }) => void;
+}): { result: EnforcementResult; state: GravityState } {
+  let violations = [] as ReturnType<LawSkill["validate"]>;
+  for (const skill of args.skills) {
+    let next: ReturnType<LawSkill["validate"]>;
+    try {
+      next = skill.validate(args.state, args.event);
+    } catch (error) {
+      args.onSkillError?.({
+        phase: "validate",
+        lawId: skill.id,
+        error,
+      });
+      continue;
+    }
+    if (next.length > 0) {
+      violations = violations.concat(next);
+    }
+  }
+
+  if (violations.length === 0) {
+    return {
+      result: {
+        decision: "allow",
+        state: args.state,
+        violations,
+      },
+      state: args.state,
+    };
+  }
+
+  let nextState = args.state;
+  for (const skill of args.skills) {
+    const relevant = violations.filter((v) => v.lawId === skill.id);
+    if (relevant.length === 0) {
+      continue;
+    }
+    try {
+      nextState = skill.normalize(nextState, relevant);
+    } catch (error) {
+      args.onSkillError?.({
+        phase: "normalize",
+        lawId: skill.id,
+        error,
+      });
+    }
+  }
+
+  return {
+    result: {
+      decision: allViolationsGrantable(violations) ? "null" : "deny",
+      state: nextState,
+      violations,
+    },
+    state: nextState,
+  };
+}
+
 /**
  * Core gravity loop.
  *
@@ -40,53 +106,25 @@ export async function runGravityLoop(
   while (true) {
     const event: GravityEvent = await deps.nextEvent();
     lastEventAt = Date.now();
-
-    let violations = [] as ReturnType<LawSkill["validate"]>;
-    for (const skill of skills) {
-      try {
-        const next = skill.validate(state, event);
-        if (next.length > 0) {
-          violations = violations.concat(next);
-        }
-      } catch (error) {
-        deps.emitPanic?.({
-          kind: "law-skill-validate-error",
-          lawId: skill.id,
-          error,
-        });
-      }
-    }
-
     let result: EnforcementResult;
-    if (violations.length === 0) {
-      result = {
-        decision: "allow",
+    try {
+      const evaluated = evaluateGravityEvent({
         state,
-        violations,
-      };
-    } else {
-      let nextState = state;
-      for (const skill of skills) {
-        const relevant = violations.filter((v) => v.lawId === skill.id);
-        if (relevant.length === 0) {
-          continue;
-        }
-        try {
-          nextState = skill.normalize(nextState, relevant);
-        } catch (error) {
+        event,
+        skills,
+        onSkillError: ({ phase, lawId, error }) => {
           deps.emitPanic?.({
-            kind: "law-skill-normalize-error",
-            lawId: skill.id,
+            kind: phase === "validate" ? "law-skill-validate-error" : "law-skill-normalize-error",
+            lawId,
             error,
           });
-        }
-      }
-      result = {
-        decision: allViolationsGrantable(violations) ? "null" : "deny",
-        state: nextState,
-        violations,
-      };
-      state = nextState;
+        },
+      });
+      result = evaluated.result;
+      state = evaluated.state;
+    } catch (error) {
+      deps.emitPanic?.(error);
+      continue;
     }
 
     await deps.saveState(state).catch((error) => {

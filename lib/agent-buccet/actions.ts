@@ -1,9 +1,11 @@
+import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   createBoundaryActionRequest,
-  executeBoundaryControlledAction,
+  runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./executor.ts";
+} from "./bodyguard.ts";
 import type {
+  BoundaryReviewContext,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
 } from "./types.ts";
@@ -23,10 +25,11 @@ export async function boundaryNetworkSend<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
-    config: args.config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: "network.send",
@@ -34,6 +37,7 @@ export async function boundaryNetworkSend<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "network send executed inside boundary runtime",
@@ -54,10 +58,11 @@ export async function boundaryRecipientSend<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
-    config: args.config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: "comm.send",
@@ -65,6 +70,7 @@ export async function boundaryRecipientSend<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "recipient send executed inside boundary runtime",
@@ -85,10 +91,11 @@ export async function boundaryToolExec<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
-    config: args.config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: "tool.exec",
@@ -96,6 +103,7 @@ export async function boundaryToolExec<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "tool execution executed inside boundary runtime",
@@ -117,10 +125,11 @@ export async function boundaryDatabaseAction<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
-    config: args.config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: args.actionKind,
@@ -128,6 +137,7 @@ export async function boundaryDatabaseAction<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "database action executed inside boundary runtime",
@@ -155,10 +165,11 @@ export async function boundarySystemAction<T>(args: {
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
   execute?: () => Promise<T>;
 }): Promise<BoundaryActionResult<T>> {
-  return executeBoundaryControlledAction({
-    config: args.config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
       config: args.config,
       actionKind: args.actionKind,
@@ -166,6 +177,7 @@ export async function boundarySystemAction<T>(args: {
       payloadSummary: args.payloadSummary,
       provenance: args.provenance,
       flags: args.flags,
+      reviewContext: args.reviewContext,
     }),
     execute: args.execute,
     successReason: "system action executed inside boundary runtime",

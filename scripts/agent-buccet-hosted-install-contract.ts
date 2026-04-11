@@ -3,6 +3,7 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { performance } from "node:perf_hooks";
 
 const repoRoot = process.cwd();
 
@@ -47,6 +48,8 @@ async function main() {
   const releaseDir = await resolveReleaseDir();
   const installScript = path.join(releaseDir, "install.sh");
   const manifestPath = path.join(releaseDir, "latest.json");
+  const customPathName = "domain-workbench";
+  const customDomain = "specialized_domain_ops";
   await fs.access(installScript);
   await fs.access(manifestPath);
 
@@ -55,6 +58,11 @@ async function main() {
   const launcherDir = path.join(tempRoot, "bin");
   const workspacePath = path.join(tempRoot, "workspace");
   await fs.mkdir(workspacePath, { recursive: true });
+  await fs.writeFile(
+    path.join(workspacePath, "domain-playbook.md"),
+    "# Domain Playbook\n\nDomain rules, source material, operating steps, and output expectations.\n",
+    "utf8",
+  );
 
   const installEnv = {
     ...process.env,
@@ -63,12 +71,20 @@ async function main() {
     AGENT_BUCCET_MANIFEST_URL: `file://${manifestPath}`,
   };
 
+  const installStartedAt = performance.now();
   const installResult = await run("sh", [installScript], installEnv, repoRoot);
+  const installMs = performance.now() - installStartedAt;
   assert.equal(installResult.code, 0, installResult.stderr);
-  assert.match(installResult.stdout, /Agent Buccet is now protecting your system\./);
+  assert.match(installResult.stdout, /Agent Buccet installed\./);
+  assert.match(installResult.stdout, /Agent Buccet full system install:/);
+  assert.match(installResult.stdout, /repo body: \d+ artifacts -> \d+ snap bodies/);
+  assert.match(installResult.stdout, /start: buccet console/);
 
   const launcherPath = path.join(launcherDir, "buccet");
   await fs.access(launcherPath);
+  const snapSummaryPath = path.join(homePath, "current", "INSTALL_SNAP.txt");
+  const snapSummaryExists = await fs.access(snapSummaryPath).then(() => true).catch(() => false);
+  assert.equal(snapSummaryExists, true);
 
   const cliEnv = {
     ...process.env,
@@ -78,9 +94,53 @@ async function main() {
 
   const statusResult = await run(launcherPath, ["status", "--json"], cliEnv, workspacePath);
   assert.equal(statusResult.code, 0, statusResult.stderr);
-  const status = JSON.parse(statusResult.stdout) as { initialized: boolean; scopes: string[] };
-  assert.equal(status.initialized, true);
-  assert.equal(status.scopes.length, 0);
+  const status = JSON.parse(statusResult.stdout) as { initialized: boolean; scopes?: string[] };
+  assert.equal(status.initialized, false);
+  assert.equal((status.scopes ?? []).length, 0);
+
+  const initStartedAt = performance.now();
+  const initResult = await run(launcherPath, ["init", "--no-default-scope"], cliEnv, workspacePath);
+  const initMs = performance.now() - initStartedAt;
+  assert.equal(initResult.code, 0, initResult.stderr);
+
+  const pathAddResult = await run(launcherPath, [
+    "path",
+    "sources",
+    "add",
+    customPathName,
+    "domain-playbook.md",
+    "--domain",
+    customDomain,
+    "--json",
+  ], cliEnv, workspacePath);
+  assert.equal(pathAddResult.code, 0, pathAddResult.stderr);
+  const added = JSON.parse(pathAddResult.stdout) as {
+    pathName: string;
+    domain: string;
+    totalSources: number;
+  };
+  assert.equal(added.pathName, customPathName);
+  assert.equal(added.domain, customDomain);
+  assert.equal(added.totalSources, 1);
+
+  const pathRunResult = await run(launcherPath, [
+    "path",
+    "run",
+    customPathName,
+    "--request",
+    "do the work for this domain",
+    "--all",
+    "--json",
+  ], cliEnv, workspacePath);
+  assert.equal(pathRunResult.code, 0, pathRunResult.stderr);
+  const pathRun = JSON.parse(pathRunResult.stdout) as {
+    formation: {
+      pathName: string;
+      status: string;
+    };
+  };
+  assert.equal(pathRun.formation.pathName, customPathName);
+  assert.equal(pathRun.formation.status, "COMPLETED");
 
   const uninstallResult = await run(launcherPath, ["uninstall"], cliEnv, workspacePath);
   assert.equal(uninstallResult.code, 0, uninstallResult.stderr);
@@ -89,7 +149,10 @@ async function main() {
   assert.equal(homeExists, false);
 
   console.log(`hosted install launcher: ${launcherPath}`);
-  console.log(`status scopes: ${status.scopes.length}`);
+  console.log(`hosted install ms: ${installMs.toFixed(2)}`);
+  console.log(`hosted cold init ms: ${initMs.toFixed(2)}`);
+  console.log(`status scopes: ${(status.scopes ?? []).length}`);
+  console.log(`path runtime: ${customPathName}`);
 }
 
 main().catch((error) => {

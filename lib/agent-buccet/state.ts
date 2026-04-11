@@ -4,10 +4,29 @@ import {
   appendBoundaryLedger,
   readAllBoundaryLedgerRecords,
 } from "./ledger.ts";
-import { buildActiveAgentBuccetLawIds } from "./foundation.ts";
+import {
+  buildActiveAgentBuccetLawIds,
+  getAgentBuccetBaseLawIds,
+  loadAgentBuccetRuntimeMuscle,
+  normalizeTimeReferenceLawId,
+} from "./foundation.ts";
+import { AGENT_BUCCET_TIME_LAW_REFERENCES } from "./time.ts";
+import { DEFAULT_ADMISSION_CONFIG } from "./admission.ts";
+import { initialAdmissionState } from "./admission.ts";
+import { DEFAULT_GOVERNOR_CONFIG, initialGovernorState } from "./governor.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
+import { instantiateBoundaryGrant } from "./orchestrator.ts";
+import {
+  extractSessionScopedUserPathLedger,
+  getActiveUserLawIds,
+  hasUserPathEntries,
+  loadUserPathLedger,
+  mergeUserPathLedgers,
+  pruneSessionScopedUserPathLaws,
+} from "./user-path-ledger.ts";
 import type {
   BoundaryActionKind,
+  BoundaryGrant,
   BoundaryLaw,
   BoundaryPersistedSessionState,
   BoundaryProcessPolicy,
@@ -16,6 +35,8 @@ import type {
 } from "./types.ts";
 
 const DEFAULT_SESSIONS_DIR = path.join(process.cwd(), "data", "agent-boundary", "sessions");
+
+export type BoundaryRuntimeHydrationMode = "full" | "light";
 
 function resolveSessionsDir(runtimeConfig?: BoundaryRuntimeConfig, sessionsDir?: string): string {
   return sessionsDir ?? runtimeConfig?.persistence?.sessionsDir ?? DEFAULT_SESSIONS_DIR;
@@ -30,6 +51,12 @@ function sessionBackupStatePath(sessionId: string, sessionsDir?: string): string
 }
 
 function toPersistedState(config: BoundaryRuntimeConfig): BoundaryPersistedSessionState {
+  const sessionUpl = config.upl
+    ? extractSessionScopedUserPathLedger({
+      ledger: config.upl,
+      sessionId: config.session.sessionId,
+    })
+    : undefined;
   return {
     schemaVersion: 1,
     session: config.session,
@@ -37,7 +64,12 @@ function toPersistedState(config: BoundaryRuntimeConfig): BoundaryPersistedSessi
     pathLaws: config.pathLaws,
     approvalRequiredFor: config.approvalRequiredFor,
     userLawIds: config.userLawIds ?? [],
+    ...(sessionUpl && hasUserPathEntries(sessionUpl) ? { sessionUpl } : {}),
     processPolicy: config.processPolicy,
+    governorConfig: config.governorConfig,
+    governorState: config.governorState,
+    admissionConfig: config.admissionConfig,
+    admissionState: config.admissionState,
     savedAt: new Date().toISOString(),
   };
 }
@@ -227,6 +259,87 @@ export async function loadBoundarySessionState(args: {
   return rebuildBoundarySessionStateFromLedger({ sessionId: args.sessionId });
 }
 
+function ensureDefaultChatGrant(
+  grants: BoundaryGrant[],
+  session: BoundarySession,
+  issuedAt = new Date().toISOString(),
+): BoundaryGrant[] {
+  const hasChatGrant = grants.some((grant) =>
+    grant.resourceKind === "chat" &&
+    grant.resourceValue === "chat:primary" &&
+    grant.grantedActions.includes("chat.emit") &&
+    !grant.revokedAt
+  );
+  if (hasChatGrant) {
+    return grants;
+  }
+  return [
+    ...grants,
+    instantiateBoundaryGrant({
+      session,
+      resourceKind: "chat",
+      resourceValue: "chat:primary",
+      grantedActions: ["chat.emit"],
+      issuedBy: session.actorId,
+      issuedAt,
+      metadata: {
+        default_surface: true,
+        boundary_surface: "chat",
+      },
+    }),
+  ];
+}
+
+function buildBootLawIds(args: {
+  executableLaws: BoundaryLaw[];
+  existingLawIds?: string[];
+}): string[] {
+  const executableLawIds = args.executableLaws.map((law) => law.lawId);
+  const timeReferenceLawIds = AGENT_BUCCET_TIME_LAW_REFERENCES.map((law) => normalizeTimeReferenceLawId(law.lawId));
+  return [...new Set([
+    ...getAgentBuccetBaseLawIds(),
+    ...timeReferenceLawIds,
+    ...(args.existingLawIds ?? []),
+    ...executableLawIds,
+  ])];
+}
+
+export async function hydrateBoundaryRuntimeConfig(args: {
+  config: BoundaryRuntimeConfig;
+  laws?: BoundaryLaw[];
+}): Promise<BoundaryRuntimeConfig> {
+  const laws = args.laws ?? args.config.laws ?? DEFAULT_BOUNDARY_LAWS;
+  const persistedSessionUpl = args.config.upl
+    ? extractSessionScopedUserPathLedger({
+      ledger: args.config.upl,
+      sessionId: args.config.session.sessionId,
+    })
+    : undefined;
+  const upl = persistedSessionUpl && hasUserPathEntries(persistedSessionUpl)
+    ? mergeUserPathLedgers({
+      baseLedger: await loadUserPathLedger(),
+      overlayLedger: persistedSessionUpl,
+    })
+    : (args.config.upl ?? await loadUserPathLedger());
+  const runtimeMuscle = args.config.runtimeMuscle ?? await loadAgentBuccetRuntimeMuscle();
+  const userLawIds = await buildActiveAgentBuccetLawIds({
+    executableLaws: laws,
+    existingLawIds: [
+      ...(args.config.userLawIds ?? []),
+      ...getActiveUserLawIds(upl, args.config.session),
+    ],
+    runtimeMuscle,
+  });
+
+  return {
+    ...args.config,
+    laws,
+    upl,
+    runtimeMuscle,
+    userLawIds,
+  };
+}
+
 export async function startPersistentBoundarySession(args: {
   sessionId: string;
   actorId: string;
@@ -235,6 +348,7 @@ export async function startPersistentBoundarySession(args: {
   laws?: BoundaryLaw[];
   approvalRequiredFor?: BoundaryActionKind[];
   sessionsDir?: string;
+  hydrationMode?: BoundaryRuntimeHydrationMode;
 }): Promise<BoundaryRuntimeConfig> {
   const createdAt = new Date().toISOString();
   const session: BoundarySession = {
@@ -247,21 +361,48 @@ export async function startPersistentBoundarySession(args: {
     status: "active",
   };
 
-  const config: BoundaryRuntimeConfig = {
+  const defaultChatGrant = instantiateBoundaryGrant({
     session,
-    laws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-    grants: [],
+    resourceKind: "chat",
+    resourceValue: "chat:primary",
+    grantedActions: ["chat.emit"],
+    issuedBy: session.actorId,
+    issuedAt: createdAt,
+    metadata: {
+      default_surface: true,
+      boundary_surface: "chat",
+    },
+  });
+
+  const executableLaws = args.laws ?? DEFAULT_BOUNDARY_LAWS;
+  const hydrationMode = args.hydrationMode ?? "full";
+  let config: BoundaryRuntimeConfig = {
+    session,
+    laws: executableLaws,
+    grants: [defaultChatGrant],
     pathLaws: [],
     approvalRequiredFor: args.approvalRequiredFor ?? [],
-    userLawIds: await buildActiveAgentBuccetLawIds({
-      executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
+    userLawIds: buildBootLawIds({
+      executableLaws,
     }),
     processPolicy: undefined,
+    governorConfig: DEFAULT_GOVERNOR_CONFIG,
+    governorState: initialGovernorState(),
+    admissionConfig: DEFAULT_ADMISSION_CONFIG,
+    admissionState: initialAdmissionState(),
     persistence: {
       enabled: true,
       sessionsDir: args.sessionsDir,
     },
+    upl: undefined,
+    runtimeMuscle: undefined,
   };
+  if (hydrationMode === "full") {
+    config = await hydrateBoundaryRuntimeConfig({
+      config,
+      laws: executableLaws,
+    });
+  }
 
   await appendBoundaryLedger("SESSION_STARTED", {
     sessionId: session.sessionId,
@@ -274,6 +415,20 @@ export async function startPersistentBoundarySession(args: {
     createdAt,
   });
 
+  await appendBoundaryLedger("GRANT_ISSUED", {
+    sessionId: session.sessionId,
+    actorId: session.actorId,
+    grantId: defaultChatGrant.grantId,
+    target: defaultChatGrant.resourceValue,
+    reason: "default chat emission boundary surface attached to active session",
+    metadata: {
+      resource_kind: defaultChatGrant.resourceKind,
+      granted_actions: defaultChatGrant.grantedActions.join(","),
+      default_surface: true,
+    },
+    createdAt,
+  });
+
   await persistBoundarySessionState(config);
   return config;
 }
@@ -282,6 +437,7 @@ export async function restorePersistentBoundarySession(args: {
   sessionId: string;
   laws?: BoundaryLaw[];
   sessionsDir?: string;
+  hydrationMode?: BoundaryRuntimeHydrationMode;
 }): Promise<BoundaryRuntimeConfig | null> {
   const state = await loadBoundarySessionState({
     sessionId: args.sessionId,
@@ -291,25 +447,40 @@ export async function restorePersistentBoundarySession(args: {
     return null;
   }
 
-  const config: BoundaryRuntimeConfig = {
+  const executableLaws = args.laws ?? DEFAULT_BOUNDARY_LAWS;
+  const hydrationMode = args.hydrationMode ?? "full";
+  let config: BoundaryRuntimeConfig = {
     session: {
       ...state.session,
       persistent: true,
     },
-    laws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-    grants: state.grants,
+    laws: executableLaws,
+    grants: ensureDefaultChatGrant(state.grants, state.session, state.session.createdAt),
     pathLaws: state.pathLaws,
     approvalRequiredFor: state.approvalRequiredFor,
-    userLawIds: await buildActiveAgentBuccetLawIds({
-      executableLaws: args.laws ?? DEFAULT_BOUNDARY_LAWS,
-      existingLawIds: state.userLawIds,
-    }),
+    userLawIds: state.userLawIds.length > 0
+      ? state.userLawIds
+      : buildBootLawIds({
+        executableLaws,
+      }),
     processPolicy: state.processPolicy as BoundaryProcessPolicy | undefined,
+    governorConfig: state.governorConfig ?? DEFAULT_GOVERNOR_CONFIG,
+    governorState: state.governorState ?? initialGovernorState(),
+    admissionConfig: state.admissionConfig ?? DEFAULT_ADMISSION_CONFIG,
+    admissionState: state.admissionState ?? initialAdmissionState(),
     persistence: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),
     },
+    upl: state.sessionUpl,
+    runtimeMuscle: undefined,
   };
+  if (hydrationMode === "full") {
+    config = await hydrateBoundaryRuntimeConfig({
+      config,
+      laws: executableLaws,
+    });
+  }
 
   await appendBoundaryLedger("SESSION_RESTORED", {
     sessionId: config.session.sessionId,
@@ -332,6 +503,7 @@ export async function endPersistentBoundarySession(args: {
   reason?: string;
 }): Promise<BoundaryRuntimeConfig> {
   const endedAt = new Date().toISOString();
+  const drainedPendingApprovals = await args.config.drainPendingApprovals?.("session ended");
   const nextConfig: BoundaryRuntimeConfig = {
     ...args.config,
     session: {
@@ -347,9 +519,22 @@ export async function endPersistentBoundarySession(args: {
     reason: args.reason ?? "persistent boundary session ended by user",
     metadata: {
       persistent: nextConfig.session.persistent,
+      pending_approvals_drained: drainedPendingApprovals ?? 0,
     },
     createdAt: endedAt,
   });
+
+  if (nextConfig.upl) {
+    nextConfig.upl = await pruneSessionScopedUserPathLaws({
+      ledger: nextConfig.upl,
+      sessionId: nextConfig.session.sessionId,
+    });
+    nextConfig.userLawIds = await buildActiveAgentBuccetLawIds({
+      executableLaws: nextConfig.laws,
+      existingLawIds: getActiveUserLawIds(nextConfig.upl, nextConfig.session),
+      runtimeMuscle: nextConfig.runtimeMuscle,
+    });
+  }
 
   await persistBoundarySessionState(nextConfig);
   return nextConfig;

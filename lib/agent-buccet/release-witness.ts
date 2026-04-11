@@ -11,6 +11,7 @@ export type BoundaryReleaseWitnessStatus = {
   status: "published" | "skipped";
   mode: "file" | "http";
   target: string;
+  fallback?: boolean;
   checkpoint_id?: string;
   signer_id?: string;
   receipt?: {
@@ -42,16 +43,20 @@ function resolveOptOutReason(env: NodeJS.ProcessEnv): string | null {
 }
 
 function resolveTarget(releaseDir: string, env: NodeJS.ProcessEnv): { mode: "file" | "http"; target: string } {
-  if (env.AGENT_BUCCET_WITNESS_HTTP_URL) {
-    return {
-      mode: "http",
-      target: env.AGENT_BUCCET_WITNESS_HTTP_URL,
-    };
+  // BUCCET_WITNESS_URL is the short-form env var for pointing to your own witness server.
+  // AGENT_BUCCET_WITNESS_HTTP_URL is the legacy alias — both are supported.
+  const httpUrl = env.BUCCET_WITNESS_URL ?? env.AGENT_BUCCET_WITNESS_HTTP_URL;
+  if (httpUrl) {
+    return { mode: "http", target: httpUrl };
   }
-
+  if (env.AGENT_BUCCET_WITNESS_FILE) {
+    return { mode: "file", target: env.AGENT_BUCCET_WITNESS_FILE };
+  }
+  // Default: local file. Local-first, no network call unless operator-configured.
+  // Set BUCCET_WITNESS_URL to point to your own witness server for off-machine anchoring.
   return {
     mode: "file",
-    target: env.AGENT_BUCCET_WITNESS_FILE ?? path.join(releaseDir, "witness", "latest.checkpoints.jsonl"),
+    target: path.join(releaseDir, "witness", "latest.checkpoints.jsonl"),
   };
 }
 
@@ -89,17 +94,43 @@ export async function publishBoundaryReleaseWitness(args: {
     return skipped;
   }
 
-  const published = await publishBoundaryLedgerCheckpoint({
-    adapter: mode === "http"
-      ? createHttpBoundaryLedgerWitness({ targetUrl: target })
-      : createFileBoundaryLedgerWitness(target),
-  });
+  let published: Awaited<ReturnType<typeof publishBoundaryLedgerCheckpoint>>;
+  let resolvedMode = mode;
+  let resolvedTarget = target;
+  let usedFallback = false;
+
+  if (mode === "http") {
+    try {
+      published = await publishBoundaryLedgerCheckpoint({
+        adapter: createHttpBoundaryLedgerWitness({ targetUrl: target }),
+      });
+    } catch {
+      // User's witness server is unreachable — fall back to local file so the
+      // release is not blocked. The fallback flag in the status file makes this
+      // visible so the user knows to check their server.
+      const localTarget = path.join(args.releaseDir, "witness", "latest.checkpoints.jsonl");
+      process.stderr.write(
+        `[agent-buccet] witness HTTP publish failed (${target}); falling back to local file: ${localTarget}\n`,
+      );
+      published = await publishBoundaryLedgerCheckpoint({
+        adapter: createFileBoundaryLedgerWitness(localTarget),
+      });
+      resolvedMode = "file";
+      resolvedTarget = localTarget;
+      usedFallback = true;
+    }
+  } else {
+    published = await publishBoundaryLedgerCheckpoint({
+      adapter: createFileBoundaryLedgerWitness(target),
+    });
+  }
 
   const status: BoundaryReleaseWitnessStatus = {
     required,
     status: "published",
-    mode,
-    target,
+    mode: resolvedMode,
+    target: resolvedTarget,
+    ...(usedFallback ? { fallback: true } : {}),
     checkpoint_id: published.checkpoint.checkpoint_id,
     signer_id: published.checkpoint.signer_id,
     receipt: published.receipt,

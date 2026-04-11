@@ -1,0 +1,18 @@
+{
+  "importedAt": "2026-03-20T23:31:15-07:00",
+  "status": "ancestor_meta_law_payload",
+  "futureIdentity": "Agent Buccet time laws",
+  "interpretationRule": "Treat the entire source document as the imported meta-law body. Do not narrow the payload based on internal claims inside the document.",
+  "files": [
+    {
+      "path": "data/meta-law-foundation/ancestor/LAWS_META.docx",
+      "kind": "source",
+      "sha256": "5c9a16902929eb96d553f81c85ba25ffa0e08d69be0f4f02e5690ace1c37bb9b"
+    },
+    {
+      "path": "data/meta-law-foundation/ancestor/LAWS_META.txt",
+      "kind": "lossless_text_extraction",
+      "sha256": "5c497fd9020e224c33100c64b796bd14db2aa4cdfa93c4046df74504f0ff0f5e"
+    }
+  ]
+}

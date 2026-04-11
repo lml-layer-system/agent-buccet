@@ -1,10 +1,10 @@
 import path from "node:path";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { enforceBoundaryProposal } from "./adapters.ts";
-import { createStaticApprovalHandler } from "./approval.ts";
+import { enableBodyguardControl, enforceBoundaryProposal } from "./bodyguard.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
 import { loadBoundaryPolicyConfig, applyBoundaryPolicyConfig } from "./policy.ts";
 import { prepareBoundaryProcess, runBoundaryProcess } from "./process.ts";
+import { sendBoundaryInterceptServerInput } from "./system-intercept.ts";
 import { createPersistentBoundaryRuntimeStore, restoreBoundaryRuntimeStore } from "./store.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import type {
@@ -14,6 +14,16 @@ import type {
 
 function commandTarget(command: string): string {
   return path.basename(command);
+}
+
+function buildCommandAttemptLines(command: string, commandArgs: string[]): string[] {
+  if (commandArgs.length === 0) {
+    return [`$ ${command}`];
+  }
+  return [
+    `$ ${command} ${commandArgs[0]}`,
+    ...commandArgs.slice(1).map((arg) => `  ${arg}`),
+  ];
 }
 
 function createWrapperExecLaws(allowedCommandTarget: string): BoundaryLaw[] {
@@ -66,6 +76,24 @@ async function getOrCreateStore(args: {
     dryRun: args.dryRun,
     laws: args.wrapperLaws,
   });
+}
+
+async function assertDirectInterceptPathActive(socketPath = process.env.BUCCET_SOCKET_PATH) {
+  if (!socketPath) {
+    throw new Error("direct intercept path is not active: BUCCET_SOCKET_PATH is missing");
+  }
+
+  const status = await sendBoundaryInterceptServerInput({
+    target: { socketPath },
+    input: { command: "status", requestId: "wrapper-strict-path-status" },
+  }).catch((error) => {
+    const message = error instanceof Error ? error.message : String(error);
+    throw new Error(`direct intercept path is not active: ${message}`);
+  });
+
+  if (status.type !== "status" || status.running !== true) {
+    throw new Error("direct intercept path is not active: intercept server did not report ready");
+  }
 }
 
 export async function runBoundaryWrappedCommand(args: {
@@ -123,10 +151,10 @@ export async function runBoundaryWrappedCommand(args: {
     },
   });
 
-  const config = {
-    ...store.getConfig(),
-    approvalHandler: createStaticApprovalHandler(true),
-  };
+  const config = enableBodyguardControl(store.getConfig());
+  await assertDirectInterceptPathActive(
+    args.env?.AGENT_BUCCET_INTERCEPT_SOCKET ?? args.env?.BUCCET_SOCKET_PATH,
+  );
 
   try {
     await prepareBoundaryProcess({
@@ -168,6 +196,12 @@ export async function runBoundaryWrappedCommand(args: {
       target,
       payloadSummary: `spawn:${[args.command, ...args.commandArgs].join(" ")}`,
       provenance: args.provenance ?? "trusted_user",
+      reviewContext: {
+        surface: "action",
+        title: "Would you like to run the following command?",
+        question: "Does this command match your intent?",
+        attemptLines: buildCommandAttemptLines(args.command, args.commandArgs),
+      },
       successReason: "wrapper launched explicitly granted command",
       successMetadata: {
         wrapper: true,

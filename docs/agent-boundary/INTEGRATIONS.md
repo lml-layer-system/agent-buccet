@@ -7,6 +7,26 @@ They are explicit boundary entrypoints that make the compatibility claim concret
 
 ## Included
 
+### Anthropic Claude SDK
+- [claude-sdk.ts](../../lib/agent-buccet/integrations/claude-sdk.ts)
+- [Example](examples/claude-sdk.md)
+
+Exports:
+- `guardClaudeToolUse(...)`
+- `createClaudeSDKBoundaryGuard(...)`
+
+Use this when a Claude SDK tool_use loop wants to evaluate each `tool_use` block through the full boundary chain before execution. Map tool names to boundary action classes via a registry:
+
+```ts
+const guard = createClaudeSDKBoundaryGuard(config, {
+  write_file: { actionClass: "file", operation: "write", describeTarget: (i) => i.path },
+  run_shell:  { actionClass: "shell", operation: "exec", describeTarget: (i) => i.command },
+});
+const result = await guard.evaluate(block.name, block.input);
+```
+
+Unknown tools are denied by default (`BOUNDARY.TOOL.UNMAPPED`). No `@anthropic-ai/sdk` dependency required — works with any loop that receives Claude tool_use blocks.
+
 ### NeMo Guardrails
 - [nemo.ts](../../lib/agent-buccet/integrations/nemo.ts)
 - [Example](examples/nemo.md)
@@ -58,6 +78,7 @@ This bridge includes:
 These first-party wrappers are examples, not the limit.
 
 Agent Buccet also fits runtimes like:
+- `@anthropic-ai/sdk` (Claude SDK) — use `createClaudeSDKBoundaryGuard`
 - Claude CoWork
 - Claude Dispatch
 - OpenClaw

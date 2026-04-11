@@ -2,7 +2,7 @@ import {
   grantsForAction,
   isTargetReachable,
 } from "./orchestrator.ts";
-import { DEFENSIVE_META_LAWS } from "./meta.ts";
+import { DEFENSIVE_TIME_LAWS } from "./time.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -32,8 +32,8 @@ export function evaluateBoundaryLaws(args: {
   }
 
   const triggeredLawIds: string[] = [];
-  let decision: BoundaryDecision = "allow";
-  let reason = "action admitted by boundary runtime";
+  let decision: BoundaryDecision = "require_approval";
+  let reason = "no standing law authorizes this action; approval required";
 
   for (const law of args.laws) {
     const appliesToAll = law.appliesTo[0] === "*";
@@ -63,6 +63,11 @@ export function evaluateBoundaryLaws(args: {
     if (result.decision === "require_approval") {
       decision = "require_approval";
       reason = result.reason;
+      continue;
+    }
+    if (result.decision === "allow") {
+      decision = "allow";
+      reason = result.reason;
     }
   }
 
@@ -78,13 +83,15 @@ export function evaluateBoundaryLaws(args: {
   return {
     decision,
     reason,
-    triggeredLawIds,
+    triggeredLawIds: decision === "require_approval" && triggeredLawIds.length === 0
+      ? ["BOUNDARY.DEFAULT.ASK.01"]
+      : triggeredLawIds,
     requiresApproval: decision === "require_approval",
   };
 }
 
 export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
-  ...DEFENSIVE_META_LAWS,
+  ...DEFENSIVE_TIME_LAWS,
   {
     lawId: "BOUNDARY.COMM.01",
     description: "Recipient sends require explicit approval.",
@@ -97,14 +104,25 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
     }),
   },
   {
-    lawId: "BOUNDARY.DELETE.01",
-    description: "Destructive delete actions require explicit approval.",
-    appliesTo: ["fs.delete"],
+    lawId: "BOUNDARY.FS.WRITE.01",
+    description: "Filesystem write, append, mkdir, and move actions require explicit approval.",
+    appliesTo: ["fs.write", "fs.append", "fs.mkdir", "fs.move"],
     evaluate: () => ({
       decision: "require_approval",
-      reason: "delete is destructive and requires approval",
-      triggeredLawIds: ["BOUNDARY.DELETE.01"],
+      reason: "filesystem mutations require approval",
+      triggeredLawIds: ["BOUNDARY.FS.WRITE.01"],
       requiresApproval: true,
+    }),
+  },
+  {
+    lawId: "BOUNDARY.DELETE.01",
+    description: "Destructive delete actions are denied by default.",
+    appliesTo: ["fs.delete"],
+    evaluate: () => ({
+      decision: "deny",
+      reason: "delete is destructive and denied by default",
+      triggeredLawIds: ["BOUNDARY.DELETE.01"],
+      requiresApproval: false,
     }),
   },
   {
@@ -216,5 +234,53 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
       triggeredLawIds: ["BOUNDARY.SYS.CREDENTIAL.USE.01"],
       requiresApproval: true,
     }),
+  },
+  {
+    lawId: "BOUNDARY.EGRESS.PII.01",
+    description: "Outbound payloads containing PII are denied by default.",
+    appliesTo: ["network.send", "comm.send", "chat.emit"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.payloadContainsPii) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "payload contains personally identifiable information (PII)",
+        triggeredLawIds: ["BOUNDARY.EGRESS.PII.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "BOUNDARY.EGRESS.CREDENTIAL.01",
+    description: "Outbound payloads containing credentials are denied by default.",
+    appliesTo: ["network.send", "comm.send", "chat.emit"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.payloadContainsCredential) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "payload contains credentials or secrets",
+        triggeredLawIds: ["BOUNDARY.EGRESS.CREDENTIAL.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "BOUNDARY.EGRESS.FINANCIAL.01",
+    description: "Outbound payloads containing financial data are denied by default.",
+    appliesTo: ["network.send", "comm.send", "chat.emit"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.payloadContainsFinancialData) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "payload contains financial data (card number or similar)",
+        triggeredLawIds: ["BOUNDARY.EGRESS.FINANCIAL.01"],
+        requiresApproval: false,
+      };
+    },
   },
 ];

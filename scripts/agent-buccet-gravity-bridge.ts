@@ -2,9 +2,11 @@ import { promises as fs } from "node:fs";
 import net from "node:net";
 import readline from "node:readline";
 import {
+  mapBoundaryGravityFunnelPayloadToInterceptRequests,
+  parseBoundaryGravityFunnelPayload,
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
-  type BoundaryInterceptRequest,
+  type BoundaryGravityFunnelPayload,
 } from "../lib/agent-buccet/index.ts";
 
 type ParsedArgs = {
@@ -14,19 +16,6 @@ type ParsedArgs = {
   upstreamHost?: string;
   upstreamPort?: number;
   upstreamSocketPath?: string;
-};
-
-type GravitySocketPayload = {
-  action: string;
-  target: string;
-  pid?: string;
-  extra?: string;
-};
-
-type GravityPayloadHints = {
-  payloadSummary?: string;
-  provenance?: BoundaryInterceptRequest["provenance"];
-  flags?: BoundaryInterceptRequest["flags"];
 };
 
 function usage(): never {
@@ -116,223 +105,31 @@ function parseArgs(argv: string[]): ParsedArgs {
   };
 }
 
-function parseGravityPayload(line: string): GravitySocketPayload {
-  const parts = line.trim().split("|");
-  if (parts.length < 3) {
-    throw new Error("malformed gravity payload");
-  }
-  return {
-    action: parts[0] ?? "",
-    target: parts[1] ?? "",
-    pid: parts[2] ?? "",
-    extra: parts.slice(3).join("|"),
-  };
-}
+async function forwardGravityPayload(args: {
+  payload: BoundaryGravityFunnelPayload;
+  target: ParsedArgs;
+}): Promise<BoundaryInterceptDaemonOutput> {
+  const requests = mapBoundaryGravityFunnelPayloadToInterceptRequests(args.payload);
+  let lastOutput: BoundaryInterceptDaemonOutput | null = null;
 
-function parseGravityPayloadHints(payload: GravitySocketPayload): GravityPayloadHints {
-  const flags: NonNullable<BoundaryInterceptRequest["flags"]> = {};
-  const extraTokens = (payload.extra ?? "")
-    .split(/\s+/)
-    .map((token) => token.trim())
-    .filter(Boolean);
-  const payloadSummaryTokens: string[] = [];
-  let provenance: BoundaryInterceptRequest["provenance"] | undefined;
+  for (const request of requests) {
+    lastOutput = await sendBoundaryInterceptServerInput({
+      target: args.target.upstreamSocketPath
+        ? { socketPath: args.target.upstreamSocketPath }
+        : { host: args.target.upstreamHost!, port: args.target.upstreamPort! },
+      input: request,
+    });
 
-  for (const token of extraTokens) {
-    if (token.startsWith("prov=")) {
-      provenance = token.slice("prov=".length) as BoundaryInterceptRequest["provenance"];
-      continue;
+    if (lastOutput.type !== "decision" || lastOutput.decision !== "allow") {
+      return lastOutput;
     }
-    if (token.startsWith("flags=")) {
-      for (const flagName of token.slice("flags=".length).split(",")) {
-        if (flagName === "authorityClaimed") flags.authorityClaimed = true;
-        if (flagName === "claimsCompleteCoverage") flags.claimsCompleteCoverage = true;
-        if (flagName === "requestsScopeExpansion") flags.requestsScopeExpansion = true;
-        if (flagName === "requestsLawMutation") flags.requestsLawMutation = true;
-        if (flagName === "requestsSessionRevival") flags.requestsSessionRevival = true;
-        if (flagName === "requestsLedgerBypass") flags.requestsLedgerBypass = true;
-      }
-      continue;
-    }
-    payloadSummaryTokens.push(token);
   }
 
-  return {
-    payloadSummary: [
-      payload.pid ? `pid=${payload.pid}` : "",
-      payloadSummaryTokens.join(" "),
-    ].filter(Boolean).join(" "),
-    provenance,
-    flags: Object.keys(flags).length > 0 ? flags : undefined,
-  };
-}
-
-function mapGravityPayloadToInterceptRequest(payload: GravitySocketPayload): BoundaryInterceptRequest {
-  const hints = parseGravityPayloadHints(payload);
-
-  switch (payload.action) {
-    case "read":
-      return {
-        actionClass: "file",
-        operation: "read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "write":
-    case "create":
-    case "chmod":
-    case "chown":
-      return {
-        actionClass: "file",
-        operation: "write",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "delete":
-    case "rmdir":
-      return {
-        actionClass: "file",
-        operation: "delete",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "mkdir":
-      return {
-        actionClass: "file",
-        operation: "mkdir",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "rename":
-    case "link":
-    case "symlink":
-      return {
-        actionClass: "file",
-        operation: "move",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "exec":
-      return {
-        actionClass: "shell",
-        operation: "exec",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "database.query":
-      return {
-        actionClass: "database",
-        operation: "query",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "database.insert":
-      return {
-        actionClass: "database",
-        operation: "insert",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "database.update":
-      return {
-        actionClass: "database",
-        operation: "update",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "database.delete":
-      return {
-        actionClass: "database",
-        operation: "delete",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "system.env.read":
-      return {
-        actionClass: "system",
-        operation: "env.read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "system.env.write":
-      return {
-        actionClass: "system",
-        operation: "env.write",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "system.config.read":
-      return {
-        actionClass: "system",
-        operation: "config.read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "system.config.write":
-      return {
-        actionClass: "system",
-        operation: "config.write",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "system.credential.read":
-      return {
-        actionClass: "system",
-        operation: "credential.read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "system.credential.use":
-      return {
-        actionClass: "system",
-        operation: "credential.use",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    case "connect":
-      return {
-        actionClass: "network",
-        operation: "send",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-      };
-    default:
-      throw new Error(`unsupported gravity action: ${payload.action}`);
+  if (!lastOutput) {
+    throw new Error("gravity bridge produced no intercept output");
   }
+
+  return lastOutput;
 }
 
 function writeDecision(socket: net.Socket, output: BoundaryInterceptDaemonOutput | Error) {
@@ -357,17 +154,19 @@ async function main() {
 
     void (async () => {
       for await (const line of rl) {
-        if (!line.trim()) {
+        const trimmed = line.trim();
+        if (!trimmed) {
+          continue;
+        }
+        if (trimmed === "__health__") {
+          socket.write("1");
           continue;
         }
         try {
-          const payload = parseGravityPayload(line);
-          const request = mapGravityPayloadToInterceptRequest(payload);
-          const output = await sendBoundaryInterceptServerInput({
-            target: args.upstreamSocketPath
-              ? { socketPath: args.upstreamSocketPath }
-              : { host: args.upstreamHost!, port: args.upstreamPort! },
-            input: request,
+          const payload = parseBoundaryGravityFunnelPayload(trimmed);
+          const output = await forwardGravityPayload({
+            payload,
+            target: args,
           });
 
           if (output.type === "error") {

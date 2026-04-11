@@ -16,6 +16,7 @@ const VALID_ACTION_KINDS: BoundaryActionKind[] = [
   "fs.delete",
   "fs.mkdir",
   "fs.move",
+  "chat.emit",
   "comm.send",
   "tool.exec",
   "network.send",
@@ -104,8 +105,18 @@ export function resolveBoundaryLaws(args: {
   }
 
   const lawById = new Map(args.availableLaws.map((law) => [law.lawId, law]));
+  const timeAliasToLiveLawId = new Map<string, string>([
+    ["TIME.TRUST.01", "META.TRUST.01"],
+    ["TIME.AUTHORITY.01", "META.AUTHORITY.01"],
+    ["TIME.SCOPE.01", "META.SCOPE.01"],
+    ["TIME.LAW.01", "META.LAW.01"],
+    ["TIME.SESSION.01", "META.SESSION.01"],
+    ["TIME.LEDGER.01", "META.LEDGER.01"],
+    ["TIME.NOVELTY.01", "META.NOVELTY.01"],
+  ]);
   return args.requestedLawIds.map((lawId) => {
-    const law = lawById.get(lawId);
+    const resolvedLawId = lawById.has(lawId) ? lawId : (timeAliasToLiveLawId.get(lawId) ?? lawId);
+    const law = lawById.get(resolvedLawId);
     if (!law) {
       throw new Error(`unknown boundary law id: ${lawId}`);
     }

@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 import {
   appendBoundaryLedger,
   buildBoundaryLedgerCheckpoint,
@@ -10,6 +12,14 @@ import {
 } from "../lib/agent-buccet/index.ts";
 
 async function main() {
+  const ledgerLockPath = path.join(process.cwd(), "data", "ledger", "agent-boundary-ledger.lock");
+  await fs.mkdir(path.dirname(ledgerLockPath), { recursive: true });
+  await fs.writeFile(
+    ledgerLockPath,
+    `${JSON.stringify({ pid: 999999, createdAt: new Date(Date.now() - 60_000).toISOString() })}\n`,
+    "utf8",
+  );
+
   const sessionId = `agent-buccet-ledger-contract-${randomUUID()}`;
   const actorId = "system:ledger-contract";
   const first = await appendBoundaryLedger("ACTION_PROPOSED", {
@@ -23,7 +33,7 @@ async function main() {
     metadata: {
       raw_request: "write a file",
       scope_result: "IN_SCOPE",
-      path_through_system: "intercept > executor > ledger",
+      path_through_system: "intercept > bodyguard > ledger",
     },
   });
 
@@ -39,7 +49,7 @@ async function main() {
     createdAt: new Date().toISOString(),
     metadata: {
       scope_result: "IN_SCOPE",
-      path_through_system: "intercept > executor > law-engine > ledger",
+      path_through_system: "intercept > bodyguard > law-engine > ledger",
       total_eval_ms: 0.04,
       outcome: "EXECUTED",
       next_state: "ready",
@@ -72,10 +82,18 @@ async function main() {
   assert.equal(typeof checkpoint.signature, "string");
   assert.equal(checkpoint.signer_id, signingIdentity.signer_id);
 
+  await fs.access(ledgerLockPath).then(
+    () => {
+      throw new Error("expected stale ledger lock to be cleared during append");
+    },
+    () => undefined,
+  );
+
   const allowResults = await queryBoundaryLedger({
-    source: actorId,
+    from: first.META.timestamp,
+    action: "fs.write",
     decision: "ALLOW",
-    limit: 10,
+    limit: Number.MAX_SAFE_INTEGER,
   });
   assert.equal(allowResults.some((record) => record.META.session_id === sessionId), true);
 

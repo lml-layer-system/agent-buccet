@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { createBoundaryActionRequest } from "../lib/agent-buccet/executor.ts";
 import { createBoundaryGravityService } from "../lib/agent-buccet/gravity-adapter/gravity-service.ts";
+import { createBoundaryActionRequest } from "../lib/agent-buccet/bodyguard.ts";
 import { startPersistentBoundarySession } from "../lib/agent-buccet/state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -36,8 +36,8 @@ async function main() {
     config,
     request: outOfScope,
   });
-  assert(outOfScopeResult.outcome === "nsl_grant_offer", "expected out-of-scope request to yield NSL grant offer");
-  assert(outOfScopeResult.nslMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law NSL move");
+  assert(outOfScopeResult.outcome === "bodyguard_grant_offer", "expected out-of-scope request to yield a Bodyguard grant offer");
+  assert(outOfScopeResult.bodyguardMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law Bodyguard move");
 
   const authorityClaim = createBoundaryActionRequest({
     config,
@@ -70,12 +70,15 @@ async function main() {
     config,
     request: brokenLedger,
   });
-  assert(brokenLedgerResult.outcome === "deny", "expected incomplete ledger session to be denied");
+  assert(
+    brokenLedgerResult.outcome === "bodyguard_grant_offer",
+    "expected missing ledger history not to become a live authorization deny",
+  );
 
   console.log("Agent Buccet gravity contract");
   console.log(`out-of-scope outcome: ${outOfScopeResult.outcome}`);
   console.log(`authority claim outcome: ${authorityResult.outcome}`);
-  console.log(`incomplete ledger outcome: ${brokenLedgerResult.outcome}`);
+  console.log(`missing ledger history outcome: ${brokenLedgerResult.outcome}`);
 }
 
 main().catch((error) => {

@@ -1,0 +1,3152 @@
+{
+  "familyId": "BUCCET.BASE.FAMILY.09",
+  "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+  "familyTitle": "Architectural Dimension",
+  "layer": "BASE",
+  "layerTitle": "Base",
+  "status": "active",
+  "sourceLawCount": 145,
+  "projectedLawCount": 145,
+  "projectedLaws": [
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0049633",
+      "sourceLawId": "LAW-0049633",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 1,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0049633: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.01"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0048678",
+      "sourceLawId": "LAW-0048678",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 2,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0048678: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.02"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0049195",
+      "sourceLawId": "LAW-0049195",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 3,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0049195: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.02"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061268",
+      "sourceLawId": "LAW-0061268",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 4,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061268: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061269",
+      "sourceLawId": "LAW-0061269",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 5,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061269: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061270",
+      "sourceLawId": "LAW-0061270",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 6,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061270: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061271",
+      "sourceLawId": "LAW-0061271",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 7,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061271: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061273",
+      "sourceLawId": "LAW-0061273",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 8,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "CANNOT"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061273: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061274",
+      "sourceLawId": "LAW-0061274",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 9,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061274: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061275",
+      "sourceLawId": "LAW-0061275",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 10,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061275: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061280",
+      "sourceLawId": "LAW-0061280",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 11,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061280: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061281",
+      "sourceLawId": "LAW-0061281",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 12,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061281: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061282",
+      "sourceLawId": "LAW-0061282",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 13,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061282: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061283",
+      "sourceLawId": "LAW-0061283",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 14,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061283: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061284",
+      "sourceLawId": "LAW-0061284",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 15,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061284: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061285",
+      "sourceLawId": "LAW-0061285",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 16,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061285: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061290",
+      "sourceLawId": "LAW-0061290",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 17,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061290: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061291",
+      "sourceLawId": "LAW-0061291",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 18,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061291: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061292",
+      "sourceLawId": "LAW-0061292",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 19,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061292: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061293",
+      "sourceLawId": "LAW-0061293",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 20,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061293: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061294",
+      "sourceLawId": "LAW-0061294",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 21,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061294: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061295",
+      "sourceLawId": "LAW-0061295",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 22,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061295: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061296",
+      "sourceLawId": "LAW-0061296",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 23,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061296: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061297",
+      "sourceLawId": "LAW-0061297",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 24,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061297: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061301",
+      "sourceLawId": "LAW-0061301",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 25,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061301: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061302",
+      "sourceLawId": "LAW-0061302",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 26,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST",
+        "MUST_NOT"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061302: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061303",
+      "sourceLawId": "LAW-0061303",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 27,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061303: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061304",
+      "sourceLawId": "LAW-0061304",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 28,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061304: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061305",
+      "sourceLawId": "LAW-0061305",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 29,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061305: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061306",
+      "sourceLawId": "LAW-0061306",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 30,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061306: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061307",
+      "sourceLawId": "LAW-0061307",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 31,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061307: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061308",
+      "sourceLawId": "LAW-0061308",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 32,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061308: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061309",
+      "sourceLawId": "LAW-0061309",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 33,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061309: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061310",
+      "sourceLawId": "LAW-0061310",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 34,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST",
+        "MUST_NOT"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061310: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061311",
+      "sourceLawId": "LAW-0061311",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 35,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061311: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061312",
+      "sourceLawId": "LAW-0061312",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 36,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061312: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061313",
+      "sourceLawId": "LAW-0061313",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 37,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061313: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061314",
+      "sourceLawId": "LAW-0061314",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 38,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061314: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061315",
+      "sourceLawId": "LAW-0061315",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 39,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061315: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061316",
+      "sourceLawId": "LAW-0061316",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 40,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061316: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061317",
+      "sourceLawId": "LAW-0061317",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 41,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061317: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061318",
+      "sourceLawId": "LAW-0061318",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 42,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061318: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061328",
+      "sourceLawId": "LAW-0061328",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 43,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061328: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061329",
+      "sourceLawId": "LAW-0061329",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 44,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061329: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061330",
+      "sourceLawId": "LAW-0061330",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 45,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061330: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061331",
+      "sourceLawId": "LAW-0061331",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 46,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061331: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061332",
+      "sourceLawId": "LAW-0061332",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 47,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061332: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061333",
+      "sourceLawId": "LAW-0061333",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 48,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061333: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061334",
+      "sourceLawId": "LAW-0061334",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 49,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061334: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061335",
+      "sourceLawId": "LAW-0061335",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 50,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061335: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061336",
+      "sourceLawId": "LAW-0061336",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 51,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061336: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061337",
+      "sourceLawId": "LAW-0061337",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 52,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061337: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061338",
+      "sourceLawId": "LAW-0061338",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 53,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061338: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061339",
+      "sourceLawId": "LAW-0061339",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 54,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061339: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061340",
+      "sourceLawId": "LAW-0061340",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 55,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061340: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061341",
+      "sourceLawId": "LAW-0061341",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 56,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061341: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061345",
+      "sourceLawId": "LAW-0061345",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 57,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061345: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061346",
+      "sourceLawId": "LAW-0061346",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 58,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061346: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061347",
+      "sourceLawId": "LAW-0061347",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 59,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061347: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061348",
+      "sourceLawId": "LAW-0061348",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 60,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061348: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061349",
+      "sourceLawId": "LAW-0061349",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 61,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061349: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061350",
+      "sourceLawId": "LAW-0061350",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 62,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061350: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061351",
+      "sourceLawId": "LAW-0061351",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 63,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST",
+        "MUST_NOT"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061351: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061352",
+      "sourceLawId": "LAW-0061352",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 64,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061352: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061353",
+      "sourceLawId": "LAW-0061353",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 65,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061353: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061354",
+      "sourceLawId": "LAW-0061354",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 66,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061354: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061355",
+      "sourceLawId": "LAW-0061355",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 67,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061355: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061356",
+      "sourceLawId": "LAW-0061356",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 68,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061356: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061357",
+      "sourceLawId": "LAW-0061357",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 69,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061357: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061358",
+      "sourceLawId": "LAW-0061358",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 70,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061358: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061359",
+      "sourceLawId": "LAW-0061359",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 71,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061359: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061360",
+      "sourceLawId": "LAW-0061360",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 72,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061360: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061361",
+      "sourceLawId": "LAW-0061361",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 73,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061361: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061362",
+      "sourceLawId": "LAW-0061362",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 74,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061362: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061363",
+      "sourceLawId": "LAW-0061363",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 75,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061363: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061364",
+      "sourceLawId": "LAW-0061364",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 76,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061364: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061365",
+      "sourceLawId": "LAW-0061365",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 77,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061365: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061366",
+      "sourceLawId": "LAW-0061366",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 78,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061366: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061367",
+      "sourceLawId": "LAW-0061367",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 79,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061367: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061368",
+      "sourceLawId": "LAW-0061368",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 80,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061368: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061369",
+      "sourceLawId": "LAW-0061369",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 81,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061369: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061370",
+      "sourceLawId": "LAW-0061370",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 82,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061370: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061371",
+      "sourceLawId": "LAW-0061371",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 83,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061371: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061372",
+      "sourceLawId": "LAW-0061372",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 84,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061372: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061373",
+      "sourceLawId": "LAW-0061373",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 85,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061373: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061374",
+      "sourceLawId": "LAW-0061374",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 86,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061374: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061375",
+      "sourceLawId": "LAW-0061375",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 87,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061375: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061376",
+      "sourceLawId": "LAW-0061376",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 88,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061376: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03",
+        "BUCCET.BASE.FAMILY.10"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061377",
+      "sourceLawId": "LAW-0061377",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 89,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061377: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061378",
+      "sourceLawId": "LAW-0061378",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 90,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061378: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061379",
+      "sourceLawId": "LAW-0061379",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 91,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061379: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061380",
+      "sourceLawId": "LAW-0061380",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 92,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061380: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061381",
+      "sourceLawId": "LAW-0061381",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 93,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061381: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061382",
+      "sourceLawId": "LAW-0061382",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 94,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061382: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061383",
+      "sourceLawId": "LAW-0061383",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 95,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061383: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061384",
+      "sourceLawId": "LAW-0061384",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 96,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061384: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061385",
+      "sourceLawId": "LAW-0061385",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 97,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061385: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061386",
+      "sourceLawId": "LAW-0061386",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 98,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061386: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061387",
+      "sourceLawId": "LAW-0061387",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 99,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061387: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061388",
+      "sourceLawId": "LAW-0061388",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 100,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061388: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061389",
+      "sourceLawId": "LAW-0061389",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 101,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061389: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061390",
+      "sourceLawId": "LAW-0061390",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 102,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061390: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061391",
+      "sourceLawId": "LAW-0061391",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 103,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061391: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061392",
+      "sourceLawId": "LAW-0061392",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 104,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061392: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061393",
+      "sourceLawId": "LAW-0061393",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 105,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061393: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061394",
+      "sourceLawId": "LAW-0061394",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 106,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061394: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061395",
+      "sourceLawId": "LAW-0061395",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 107,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061395: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061396",
+      "sourceLawId": "LAW-0061396",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 108,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061396: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061397",
+      "sourceLawId": "LAW-0061397",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 109,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061397: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061398",
+      "sourceLawId": "LAW-0061398",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 110,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061398: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061399",
+      "sourceLawId": "LAW-0061399",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 111,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061399: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061400",
+      "sourceLawId": "LAW-0061400",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 112,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061400: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061401",
+      "sourceLawId": "LAW-0061401",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 113,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061401: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061408",
+      "sourceLawId": "LAW-0061408",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 114,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061408: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061409",
+      "sourceLawId": "LAW-0061409",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 115,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061409: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061410",
+      "sourceLawId": "LAW-0061410",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 116,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061410: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061411",
+      "sourceLawId": "LAW-0061411",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 117,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061411: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061412",
+      "sourceLawId": "LAW-0061412",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 118,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061412: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061413",
+      "sourceLawId": "LAW-0061413",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 119,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061413: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061414",
+      "sourceLawId": "LAW-0061414",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 120,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061414: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061415",
+      "sourceLawId": "LAW-0061415",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 121,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061415: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061416",
+      "sourceLawId": "LAW-0061416",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 122,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061416: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061417",
+      "sourceLawId": "LAW-0061417",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 123,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "REQUIRED"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061417: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061418",
+      "sourceLawId": "LAW-0061418",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 124,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061418: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061419",
+      "sourceLawId": "LAW-0061419",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 125,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061419: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061420",
+      "sourceLawId": "LAW-0061420",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 126,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061420: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061421",
+      "sourceLawId": "LAW-0061421",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 127,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061421: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061422",
+      "sourceLawId": "LAW-0061422",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 128,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061422: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061423",
+      "sourceLawId": "LAW-0061423",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 129,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061423: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061424",
+      "sourceLawId": "LAW-0061424",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 130,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061424: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061425",
+      "sourceLawId": "LAW-0061425",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 131,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061425: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061426",
+      "sourceLawId": "LAW-0061426",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 132,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061426: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061427",
+      "sourceLawId": "LAW-0061427",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 133,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061427: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061428",
+      "sourceLawId": "LAW-0061428",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 134,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "CANNOT"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061428: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061429",
+      "sourceLawId": "LAW-0061429",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 135,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061429: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061430",
+      "sourceLawId": "LAW-0061430",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 136,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061430: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061431",
+      "sourceLawId": "LAW-0061431",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 137,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061431: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061432",
+      "sourceLawId": "LAW-0061432",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 138,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061432: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061433",
+      "sourceLawId": "LAW-0061433",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 139,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061433: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061434",
+      "sourceLawId": "LAW-0061434",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 140,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061434: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061435",
+      "sourceLawId": "LAW-0061435",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 141,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [
+        "MUST"
+      ],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061435: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061436",
+      "sourceLawId": "LAW-0061436",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 142,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061436: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03",
+        "BUCCET.BASE.FAMILY.11"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061437",
+      "sourceLawId": "LAW-0061437",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 143,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061437: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0061438",
+      "sourceLawId": "LAW-0061438",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 144,
+      "familyLawCount": 145,
+      "sourceNormative": true,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0061438: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.03"
+      ]
+    },
+    {
+      "projectedLawId": "BUCCET.BASE.LAW-0062708",
+      "sourceLawId": "LAW-0062708",
+      "familyId": "BUCCET.BASE.FAMILY.09",
+      "familyLayerId": "BUCCET.BASE.FAMILY.09.BASE",
+      "familyTitle": "Architectural Dimension",
+      "layer": "BASE",
+      "layerTitle": "Base",
+      "status": "active",
+      "kind": "dimension",
+      "runtimeSection": "Architectural Dimension Base Layer",
+      "lawOrdinalWithinFamily": 145,
+      "familyLawCount": 145,
+      "sourceNormative": false,
+      "sourceTags": [],
+      "projectedText": "Base law BUCCET.BASE.LAW-0062708: Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "familyCompressedLaw": "Agent Buccet MUST require the system architecture to enforce constraints end to end, preventing bypass, persistence abuse, cross-boundary leakage, and control-path collapse.",
+      "overlayFamilyIds": [
+        "BUCCET.BASE.FAMILY.04"
+      ]
+    }
+  ]
+}

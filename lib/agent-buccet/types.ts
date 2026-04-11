@@ -7,6 +7,7 @@ export type BoundaryActionKind =
   | "fs.delete"
   | "fs.mkdir"
   | "fs.move"
+  | "chat.emit"
   | "comm.send"
   | "tool.exec"
   | "network.send"
@@ -25,11 +26,82 @@ export type BoundaryDecision = "allow" | "deny" | "require_approval";
 
 export type BoundaryResourceKind =
   | "path"
+  | "chat"
   | "recipient"
   | "domain"
   | "tool"
   | "database"
   | "system";
+
+/**
+ * Tier 2 — Payload Physics
+ *
+ * Two enforcement classes with different native shapes:
+ *
+ * ── Tier 2a: Payload Envelope Physics ───────────────────────────────────────
+ * Launch-time ceiling on what a process can BECOME.
+ * The kernel terminates or blocks the entire process when it tries to exceed
+ * the pre-set envelope. Applied once at spawn; governs the process lifecycle.
+ *
+ *   wallClockTimeoutMs  Wall-clock timeout → SIGKILL (Node.js, all platforms)
+ *   cpuTimeLimitSec     CPU time ceiling → SIGXCPU/SIGKILL or job termination
+ *   maxProcesses        Process/thread count ceiling
+ *   maxMemoryBytes      Virtual address space ceiling
+ *
+ * ── Tier 2b: Live I/O / Object Boundary ─────────────────────────────────────
+ * Ongoing enforcement on live object creation and I/O operations during
+ * execution. The process continues running; constrained operations are denied
+ * or throttled per native platform semantics.
+ *
+ *   maxOpenFiles        Max simultaneous open file descriptors
+ *                       POSIX: RLIMIT_NOFILE → EMFILE (refuse semantics)
+ *                       Windows: OPEN GAP (no Job Object equiv; warns at runtime)
+ *
+ *   maxFileSizeBytes    Max file size for any single write/growth
+ *                       POSIX: RLIMIT_FSIZE → SIGXFSZ (refuse semantics)
+ *                       Windows: OPEN GAP (no Job Object equiv; warns at runtime)
+ *
+ *   maxIoRateBytesPerSec  I/O bandwidth limit (bytes/sec)
+ *                       Windows 10 1607+: Job Object I/O rate control
+ *                       (throttle semantics — operations delayed, not refused)
+ *                       Linux/macOS: no direct rlimit equivalent; skipped (ledgered)
+ *
+ *   maxIoOpsPerSec      I/O operations-per-second limit
+ *                       Windows 10 1607+: Job Object I/O rate control
+ *                       (throttle semantics)
+ *                       Linux/macOS: skipped (ledgered)
+ *
+ * Windows Tier 2b semantic note: the I/O rate control fields use THROTTLE
+ * semantics (kernel delays I/O to stay within budget) rather than REFUSE
+ * semantics (EMFILE/SIGXFSZ). Both are kernel-enforced live operation
+ * boundaries; the enforcement mechanism differs by platform.
+ *
+ * ── Privilege drop ───────────────────────────────────────────────────────────
+ * Drop process uid/gid before exec (Darwin: setgid+setuid; Linux: CAP drop).
+ */
+export type BoundaryProcessPhysics = {
+  // Tier 2a — Payload Envelope Physics
+  wallClockTimeoutMs?: number;
+  cpuTimeLimitSec?: number;
+  maxProcesses?: number;
+  maxMemoryBytes?: number;
+
+  // Tier 2b — Live I/O / Object Boundary (POSIX: refuse semantics; Windows: throttle semantics)
+  maxOpenFiles?: number;
+  maxFileSizeBytes?: number;
+  /** I/O bandwidth throttle in bytes/sec. Windows 10 1607+: Job Object I/O rate control.
+   *  Linux/macOS: no direct rlimit equivalent — skipped (recorded in physwrap_io_boundary_skipped). */
+  maxIoRateBytesPerSec?: number;
+  /** I/O operations-per-second throttle. Windows 10 1607+: Job Object I/O rate control.
+   *  Linux/macOS: skipped (recorded in physwrap_io_boundary_skipped). */
+  maxIoOpsPerSec?: number;
+
+  // Privilege drop
+  /** Drop to this uid before exec (Darwin: setuid; Linux: already handled by CAP drop path). */
+  dropToUid?: number;
+  /** Drop to this gid before exec (Darwin: setgid; paired with dropToUid). */
+  dropToGid?: number;
+};
 
 export type BoundaryProcessPolicy = {
   allowedCommands?: string[];
@@ -39,6 +111,109 @@ export type BoundaryProcessPolicy = {
   blockedEnvVars?: string[];
   inheritParentEnv?: boolean;
   enforceScopedCwd?: boolean;
+  physics?: BoundaryProcessPhysics;
+};
+
+export type BoundaryGovernorConfig = {
+  velocity?: {
+    maxRpm: number;
+    windowMs?: number;
+  };
+  density?: {
+    maxFailureRatio: number;
+    windowSize?: number;
+  };
+  mass?: {
+    maxCrossings: number;
+  };
+  weight?: Partial<Record<BoundaryActionKind, number>>;
+};
+
+export type BoundaryGovernorState = {
+  crossingTimestamps: number[];
+  totalWeightedCrossings: number;
+  recentDecisions: boolean[];
+};
+
+// ─── Input Admission Boundary ─────────────────────────────────────────────────
+// Same doctrine applied inward: deny hostile inbound force before it becomes
+// internal motion (tokenization, prompt assembly, inference, API spend).
+
+/** Weight class of an inbound input — not all inputs cost the same. */
+export type BoundaryInputWeightClass =
+  | "standard"          // weight 1 — normal request
+  | "large_prompt"      // weight 4 — body > configured token threshold
+  | "attachment"        // weight 6 — binary/media attachment
+  | "retrieval_request" // weight 5 — triggers RAG / external retrieval
+  | "fanout_request";   // weight 8 — triggers broadcast to multiple targets
+
+/** Strength of provenance evidence — stronger binds tighter and evicts slower. */
+export type BoundaryProvenanceStrength = "strong" | "medium" | "weak";
+
+export type BoundaryAdmissionConfig = {
+  velocity?: { maxRpm: number; windowMs?: number };
+  density?: { maxDenyRatio: number; windowSize?: number };
+  mass?: { maxInboundWeight: number; windowMs?: number };
+  weight?: Partial<Record<BoundaryInputWeightClass, number>>;
+  /** Max number of tracked provenances (LRU). Default 10_000. */
+  provenanceMaxSize?: number;
+  /** TTL for provenance records that never tripped (ms). Default 300_000 (5 min). */
+  provenanceTtlMs?: number;
+};
+
+export type BoundaryProvenanceRecord = {
+  requestTimestamps: number[];
+  recentDecisions: boolean[];   // true = admitted, false = denied
+  totalInboundWeight: number;
+  windowWeightTimestamps: Array<{ ts: number; weight: number }>;
+  lastSeenMs: number;
+  /** Cumulative count of tarpit decisions for this provenance.
+   *  Feeds the hard block ceiling: weak provenances are forced into canyon hold
+   *  after WEAK_PROVENANCE_HARD_BLOCK_CEILING tarpit decisions, regardless of density config. */
+  totalDeniedCount: number;
+};
+
+export type BoundaryAdmissionState = {
+  /** O(1) canyon cache: provenances held at the front line for the session lifetime. */
+  canyonProvenances: Record<string, {
+    canyonedAt: number;
+    reason: string;
+    ledgered: boolean;
+    /** How canyon hold was triggered. "hard_ceiling" means the hard block ceiling
+     *  fired — density config was too loose to catch it first. */
+    promotionKind: "density" | "hard_ceiling";
+    operatorDisposition?: "deny_as_law";
+  }>;
+  /** One-shot ingress releases written by Terminal 2. */
+  allowOnceProvenances: Record<string, {
+    grantedAt: number;
+    remaining: number;
+  }>;
+  /** One-shot ingress holds written by Terminal 2. Overrides standing allow once. */
+  denyOnceProvenances: Record<string, {
+    grantedAt: number;
+    remaining: number;
+    reason: string;
+  }>;
+  /** Standing ingress allows written by Terminal 2. */
+  allowedProvenances: Record<string, {
+    grantedAt: number;
+    reason: string;
+  }>;
+  /** Bounded density tracking — evicted by TTL/LRU. */
+  provenanceRecords: Record<string, BoundaryProvenanceRecord>;
+  /**
+   * Cumulative tarpit count per provenance — survives TTL/LRU eviction of provenanceRecords.
+   *
+   * Without this, an IP can accumulate N < WEAK_PROVENANCE_HARD_BLOCK_CEILING tarpit decisions,
+   * go quiet long enough for its provenanceRecord to TTL-expire, return, and start a fresh
+   * count from 0 — effectively farming the ceiling window indefinitely.
+   *
+   * hostileDeniedCounts is evicted only by LRU size pressure (evicts lowest-count entries
+   * first, keeping the most hostile provenances). It is intentionally NOT TTL-evicted.
+   * Once an IP has generated any tarpit decisions it keeps accumulating toward the ceiling.
+   */
+  hostileDeniedCounts: Record<string, number>;
 };
 
 export type BoundaryRequestProvenance =
@@ -99,14 +274,123 @@ export type BoundaryActionRequest = {
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
+    violatesUserConstraint?: boolean;
+    groundingMismatch?: boolean;
+    claimsActionCompletionWithoutWitness?: boolean;
+    claimsUserApproval?: boolean;
+    payloadContainsPii?: boolean;
+    payloadContainsCredential?: boolean;
+    payloadContainsFinancialData?: boolean;
   };
+  reviewContext?: BoundaryReviewContext;
 };
+
+export type BoundaryActionFlagName = keyof NonNullable<BoundaryActionRequest["flags"]>;
 
 export type BoundaryLawResult = {
   decision: BoundaryDecision;
   reason: string;
   triggeredLawIds: string[];
   requiresApproval: boolean;
+  /** Set when this allow/require_approval result came from a UPL entry that has a track constraint. */
+  uplTrackId?: string;
+  /** Set when the UPL entry was found (allow) but the track constraint rejected the request. */
+  uplTrackViolated?: true;
+};
+
+export type BoundaryExpressionCorridor = {
+  register?: "archival" | "formal" | "neutral" | "factual" | "technical" | "direct";
+  disallowFirstPerson?: boolean;
+  disallowSecondPerson?: boolean;
+  disallowMetaphor?: boolean;
+  disallowSubjectivity?: boolean;
+  disallowHype?: boolean;
+  disallowSlang?: boolean;
+  disallowExclamation?: boolean;
+  maxSentenceWords?: number;
+};
+
+export type BoundaryCompletionGrammar =
+  | "json"
+  | "bullets"
+  | "numbered"
+  | "paragraph"
+  | "single_sentence"
+  | "short_answer";
+
+export type BoundaryOutputCorridor = {
+  requiredTextPatterns?: string[];
+  forbiddenTextPatterns?: string[];
+  outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+};
+
+export type BoundaryCompletionCorridor = {
+  grammar: BoundaryCompletionGrammar;
+  maxLines?: number;
+  maxWords?: number;
+};
+
+export type BoundaryActionCorridor = {
+  allowedActionKinds: BoundaryActionKind[];
+  targetPattern?: string;
+  targetMatchMode?: "prefix" | "exact" | "regex";
+  reviewSurface?: BoundaryReviewContext["surface"];
+};
+
+/**
+ * A track constraint auto-bound to a UPL approved-law entry when the user chooses allow_as_law.
+ * Narrows execution to the exact specialist corridor that was approved — prevents the model
+ * from reopening general agency after law is set.
+ */
+export type BoundaryUplTrackConstraint = {
+  /** Only these action kinds are lawful within this track. */
+  allowedActionKinds: BoundaryActionKind[];
+  /**
+   * Required prefix (or exact value) for the target string.
+   * Absent means any target is permitted as long as actionKind matches.
+   */
+  targetPattern?: string;
+  /** Optional alternative list of target patterns. Any single match admits the target. */
+  targetPatterns?: string[];
+  /** How to compare targetPattern against the incoming target. */
+  targetMatchMode?: "prefix" | "exact" | "regex";
+  /** Optional request-text patterns matched against target + payloadSummary + review text. */
+  requestTextPatterns?: string[];
+  /** Optional request flags that must be true for this corridor to match. */
+  requiredFlags?: BoundaryActionFlagName[];
+  /** Optional review surface binding for chat/action tracks. */
+  reviewSurface?: BoundaryReviewContext["surface"];
+  /** Optional invariant binding for chat tracks. */
+  reviewInvariantLawId?: string;
+  /** Chat/output must include each of these phrases or patterns. */
+  requiredTextPatterns?: string[];
+  /** Chat/output must not include any of these phrases or patterns. */
+  forbiddenTextPatterns?: string[];
+  /** Optional output-shape corridor for chat/output. */
+  outputShape?: "bullets" | "numbered" | "json" | "paragraph";
+  /** Structured output/content corridor for task-independent output enforcement. */
+  outputCorridor?: BoundaryOutputCorridor;
+  /** Human-readable completion grammar label for this track. */
+  completionGrammar?: BoundaryCompletionGrammar;
+  /** Structured completion corridor for task-independent completion enforcement. */
+  completionCorridor?: BoundaryCompletionCorridor;
+  /** Human-readable expression/profile label for this track. */
+  expressionProfile?: string;
+  /** Structured expression corridor for task-independent expression enforcement. */
+  expressionCorridor?: BoundaryExpressionCorridor;
+  /** Structured action corridor for task-independent action enforcement. */
+  actionCorridor?: BoundaryActionCorridor;
+  /** Human-readable description of the corridor. */
+  description: string;
+};
+
+export type BoundaryUplRequestBasis = {
+  actionKind: BoundaryActionKind;
+  target: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
 };
 
 export type BoundaryLaw = {
@@ -120,7 +404,7 @@ export type BoundaryLaw = {
   }) => BoundaryLawResult | null;
 };
 
-export type NslMoveKind =
+export type BodyguardMoveKind =
   | "open_path"
   | "open_as_law"
   | "grant_write"
@@ -134,9 +418,9 @@ export type NslMoveKind =
   | "deny_and_explain"
   | "dry_run_preview";
 
-export type NslMove = {
+export type BodyguardMove = {
   moveId: string;
-  kind: NslMoveKind;
+  kind: BodyguardMoveKind;
   title: string;
   description: string;
   target?: string;
@@ -144,11 +428,31 @@ export type NslMove = {
   metadata?: Record<string, string | number | boolean>;
 };
 
+/** @deprecated use BodyguardMoveKind */
+export type NslMoveKind = BodyguardMoveKind;
+/** @deprecated use BodyguardMove */
+export type NslMove = BodyguardMove;
+
+export type BoundaryReviewContext = {
+  surface: "action" | "chat";
+  title?: string;
+  question?: string;
+  actorLabel?: string;
+  invariantLawId?: string;
+  invariantLabel?: string;
+  userInput?: string;
+  attemptedOutput?: string;
+  attemptLines?: string[];
+  evidence?: string[];
+  violations?: string[];
+};
+
 export type BoundaryLedgerEventType =
   | "SESSION_STARTED"
   | "SESSION_RESTORED"
   | "SESSION_PERSISTED"
   | "SESSION_ENDED"
+  | "GRAVITY_SKILL_ERROR"
   | "PATH_OPENED"
   | "PATH_LAW_INSTANTIATED"
   | "GRANT_ISSUED"
@@ -159,9 +463,13 @@ export type BoundaryLedgerEventType =
   | "APPROVAL_REQUESTED"
   | "APPROVAL_GRANTED"
   | "APPROVAL_DENIED"
+  | "UPL_ALLOW_RECORDED"
+  | "UPL_DENY_RECORDED"
+  | "UPL_TRACK_ACTIVATED"
+  | "UPL_TRACK_VIOLATED"
   | "ACTION_EXECUTED"
   | "ACTION_BLOCKED"
-  | "NSL_GRANT_OFFERED"
+  | "BODYGUARD_GRANT_OFFERED"
   | "USER_CONFIRMED_DENY"
   | "RECIPIENT_OPENED"
   | "RECIPIENT_LAW_INSTANTIATED"
@@ -179,8 +487,24 @@ export type BoundaryLedgerEventType =
   | "PROCESS_EXITED"
   | "PROCESS_BLOCKED"
   | "PROCESS_ENV_FILTERED"
-  | "NSL_MOVE_SUGGESTED"
-  | "NSL_MOVE_CHOSEN";
+  | "BODYGUARD_MOVE_SUGGESTED"
+  | "BODYGUARD_MOVE_CHOSEN"
+  | "GOVERNOR_TRIP"
+  | "PROCESS_WALL_CLOCK_KILL"
+  | "INGRESS_DENIED"
+  | "INGRESS_VELOCITY_TRIP"
+  | "INGRESS_DENSITY_TRIP"
+  | "INGRESS_MASS_TRIP"
+  | "INGRESS_PROVENANCE_BLOCKED"
+  | "INGRESS_CANYON_STATE_WRITTEN"
+  | "INGRESS_ALLOW_ONCE"
+  | "INGRESS_ALLOW_AS_LAW"
+  | "INGRESS_DENY_ONCE"
+  | "INGRESS_DENY_AS_LAW"
+  | "PROCESS_PHYSWRAP_ACTIVE"
+  | "PROCESS_PHYSWRAP_FALLBACK"
+  | "PROCESS_PHYSWRAP_CAP_WARNING"
+  | "LEDGER_STORM_SUMMARY";
 
 export type BoundaryLedgerPayload = {
   sessionId: string;
@@ -298,6 +622,86 @@ export type BoundaryLedgerCheckpoint = {
   signature: string;
 };
 
+export type BoundaryUplEntryType = "APPROVED" | "DENIED";
+export type BoundaryUplScope = "SESSION" | "GLOBAL" | "DOMAIN";
+export type BoundaryUplStatus = "ACTIVE" | "MUTED" | "DELETED";
+
+export type BoundaryUplEntry = {
+  id: string;
+  type: BoundaryUplEntryType;
+  path: string;
+  pathHash: string;
+  createdAt: string;
+  scope: BoundaryUplScope;
+  status: BoundaryUplStatus;
+  witness: string;
+  modifiedAt?: string | null;
+  notes?: string | null;
+  sessionId?: string;
+  domain?: string;
+  /**
+   * Canonical request basis for this UPL law. When a user/company adds or edits
+   * UPL directly, Buccet can rebuild the track corridor from this basis without
+   * needing the original approval event in memory.
+   */
+  requestBasis?: BoundaryUplRequestBasis;
+  /**
+   * UPL Track corridor: present on track-eligible UPL entries.
+   * Constrains execution to the law-bound corridor that the user set in motion.
+   */
+  trackConstraint?: BoundaryUplTrackConstraint;
+};
+
+export type BoundaryUserPathLedger = {
+  specVersion: 1;
+  userApprovedLawPaths: BoundaryUplEntry[];
+  userDeniedLawPaths: BoundaryUplEntry[];
+};
+
+export type CompiledDocumentLaw = {
+  type: BoundaryUplEntryType;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  requestBasis: BoundaryUplRequestBasis;
+  trackConstraint?: BoundaryUplTrackConstraint;
+};
+
+export type BoundaryPolicySourceKind =
+  | "rlhf"
+  | "constitutional"
+  | "guardrail"
+  | "domain_specific"
+  | "regulator_business";
+
+export type BoundaryRuntimeMuscleManifest = {
+  generatedAt: string;
+  activeBaseLawCount: number;
+  activeTimeLawCount: number;
+  activeLawBodyCount: number;
+  substrateFamilyCount: number;
+  substrateSourceKernelCount: number;
+  hashes: {
+    runtimeSubstrateSha256: string;
+    materializedActiveLawBodySha256: string;
+  };
+  sizes: {
+    runtimeSubstrateBytes: number;
+    materializedActiveLawBodyBytes: number;
+  };
+  artifactPaths: {
+    substrate: string;
+    activeLawBodySource: string;
+  };
+};
+
+export type BoundaryRuntimeMuscle = {
+  manifest: BoundaryRuntimeMuscleManifest;
+  substrate: unknown;
+  activeLawIds: string[];
+  timeLawIdsByGate: Record<string, string[]>;
+  timeLawIdsByCategory: Record<string, string[]>;
+};
+
 export type BoundaryRuntimeConfig = {
   session: BoundarySession;
   laws: BoundaryLaw[];
@@ -305,10 +709,18 @@ export type BoundaryRuntimeConfig = {
   pathLaws: BoundaryPathLaw[];
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds?: string[];
+  upl?: BoundaryUserPathLedger;
+  runtimeMuscle?: BoundaryRuntimeMuscle;
+  bodyguardOnline?: boolean;
   persistence?: BoundaryPersistenceConfig;
   approvalHandler?: BoundaryApprovalHandler;
   gravityService?: BoundaryGravityService;
   processPolicy?: BoundaryProcessPolicy;
+  governorConfig?: BoundaryGovernorConfig;
+  governorState?: BoundaryGovernorState;
+  admissionConfig?: BoundaryAdmissionConfig;
+  admissionState?: BoundaryAdmissionState;
+  drainPendingApprovals?: (reason?: string) => number | Promise<number>;
 };
 
 export type BoundaryPersistenceConfig = {
@@ -323,7 +735,12 @@ export type BoundaryPersistedSessionState = {
   pathLaws: BoundaryPathLaw[];
   approvalRequiredFor: BoundaryActionKind[];
   userLawIds: string[];
+  sessionUpl?: BoundaryUserPathLedger;
   processPolicy?: BoundaryProcessPolicy;
+  governorConfig?: BoundaryGovernorConfig;
+  governorState?: BoundaryGovernorState;
+  admissionConfig?: BoundaryAdmissionConfig;
+  admissionState?: BoundaryAdmissionState;
   savedAt: string;
 };
 
@@ -332,12 +749,58 @@ export type BoundaryApprovalRequest = {
   request: BoundaryActionRequest;
   reason: string;
   lawIds: string[];
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
+  prompt: BoundaryApprovalPrompt;
+};
+
+export type BoundaryApprovalChoice =
+  | "allow_once"
+  | "allow_as_law"
+  | "deny_once"
+  | "deny_as_law";
+
+export type BoundaryApprovalOption = {
+  choice: BoundaryApprovalChoice;
+  label: string;
+  effect: string;
+};
+
+export type BoundaryApprovalPrompt = {
+  title: string;
+  question: string;
+  surface: "action" | "chat";
+  lawIds: string[];
+  attemptLines?: string[];
+  userInput?: string;
+  attemptedOutput?: string;
+  invariantLawId?: string;
+  invariantLabel?: string;
+  evidence?: string[];
+  violations?: string[];
+  options: BoundaryApprovalOption[];
+};
+
+export type BoundaryApprovalDecision = {
+  choice: BoundaryApprovalChoice;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  domain?: string;
+};
+
+export type BoundaryLegacyApprovalDecision = {
+  approved: boolean;
+  persistDenied?: boolean;
+  scope?: BoundaryUplScope;
+  notes?: string | null;
+  domain?: string;
 };
 
 export type BoundaryApprovalHandler = (
   approval: BoundaryApprovalRequest,
-) => Promise<boolean> | boolean;
+) => Promise<boolean | BoundaryApprovalDecision | BoundaryLegacyApprovalDecision>
+  | boolean
+  | BoundaryApprovalDecision
+  | BoundaryLegacyApprovalDecision;
 
 export type BoundaryPolicyConfig = {
   approvalRequiredFor?: BoundaryActionKind[];

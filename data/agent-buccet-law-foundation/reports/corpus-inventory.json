@@ -1,0 +1,25 @@
+{
+  "generatedAt": "2026-03-20T21:46:11.414Z",
+  "corpus": {
+    "lawsJsonRecords": 68277,
+    "lawWeb": {
+      "floor": 220,
+      "state": 68289,
+      "output": 68289,
+      "meta": 400
+    }
+  },
+  "lawsJsonQuality": {
+    "normativeCount": 1369,
+    "nonNormativeCount": 66908,
+    "weirdSectionCount": 50897,
+    "weirdTextCount": 22717,
+    "sourceFileCount": 74,
+    "uniqueSectionCount": 1895
+  },
+  "canonicalStateQuality": {
+    "sectionFamilyCount": 1956,
+    "uniqueGateCount": 4,
+    "uniqueSourceLawCount": 68289
+  }
+}

@@ -1,6 +1,6 @@
-import { appendBoundaryLedger } from "./ledger.ts";
-import { evaluateBoundaryLaws } from "./laws.ts";
-import { buildBoundaryNslMoves } from "./nsl.ts";
+import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
+import { adjudicateBoundaryRequest, enableBodyguardControl } from "./bodyguard.ts";
+import { seedBaseAcceptanceIntoConfig } from "./base-upl-acceptance.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
@@ -14,12 +14,12 @@ import type {
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
   BoundaryLawResult,
-  NslMove,
+  BodyguardMove,
 } from "./types.ts";
 
 export type BoundaryEvaluation = {
   result: BoundaryLawResult;
-  nslMoves: NslMove[];
+  bodyguardMoves: BodyguardMove[];
 };
 
 export type OpenPathResult = {
@@ -84,6 +84,57 @@ export async function issueBoundaryGrant(args: {
   };
   await persistBoundarySessionState(nextConfig);
   return { grant, config: nextConfig };
+}
+
+export async function issueBoundaryGrantBatch(args: {
+  config: BoundaryRuntimeConfig;
+  grants: Array<{
+    resourceKind: BoundaryResourceKind;
+    resourceValue: string;
+    grantedActions: BoundaryActionKind[];
+    issuedBy: string;
+    expiresAt?: string;
+    metadata?: Record<string, string | number | boolean>;
+  }>;
+}): Promise<{ grants: BoundaryGrant[]; config: BoundaryRuntimeConfig }> {
+  if (args.grants.length === 0) {
+    return { grants: [], config: args.config };
+  }
+
+  const issuedAt = new Date().toISOString();
+  const grants = args.grants.map((entry) => instantiateBoundaryGrant({
+    session: args.config.session,
+    resourceKind: entry.resourceKind,
+    resourceValue: entry.resourceValue,
+    grantedActions: entry.grantedActions,
+    issuedBy: entry.issuedBy,
+    issuedAt,
+    expiresAt: entry.expiresAt,
+    metadata: entry.metadata,
+  }));
+
+  await appendBoundaryLedgerDurableBatch(grants.map((grant, index) => ({
+    eventType: "GRANT_ISSUED" as const,
+    payload: {
+      sessionId: args.config.session.sessionId,
+      actorId: args.grants[index]!.issuedBy,
+      grantId: grant.grantId,
+      target: grant.resourceValue,
+      reason: "resource grant issued by user",
+      metadata: {
+        resource_kind: grant.resourceKind,
+        granted_actions: grant.grantedActions.join(","),
+      },
+      createdAt: issuedAt,
+    },
+  })));
+
+  const nextConfig: BoundaryRuntimeConfig = {
+    ...args.config,
+    grants: [...args.config.grants, ...grants],
+  };
+  await persistBoundarySessionState(nextConfig);
+  return { grants, config: nextConfig };
 }
 
 export async function revokeBoundaryGrant(args: {
@@ -175,6 +226,7 @@ export async function openBoundaryPath(args: {
   grantedActions: BoundaryActionKind[];
   issuedBy: string;
   expiresAt?: string;
+  seedBaseAcceptance?: boolean;
 }): Promise<OpenPathResult & { config: BoundaryRuntimeConfig }> {
   const openedAt = new Date().toISOString();
   const { grant, pathLaw } = instantiatePathLaw({
@@ -217,39 +269,29 @@ export async function openBoundaryPath(args: {
     grants: [...args.config.grants, grant],
     pathLaws: [...args.config.pathLaws, pathLaw],
   };
-  await persistBoundarySessionState(nextConfig);
+  const scopedConfig = args.seedBaseAcceptance === false
+    ? nextConfig
+    : await seedBaseAcceptanceIntoConfig({
+        config: nextConfig,
+        rootPath: args.rootPath,
+        grantedActions: args.grantedActions,
+        issuedBy: args.issuedBy,
+        scope: "SESSION",
+      });
+  await persistBoundarySessionState(scopedConfig);
 
-  return { grant, pathLaw, config: nextConfig };
+  return { grant, pathLaw, config: scopedConfig };
 }
 
 export async function evaluateBoundaryAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
 ): Promise<BoundaryEvaluation> {
-  if (config.session.status === "ended") {
-    const result: BoundaryLawResult = {
-      decision: "deny",
-      reason: "session has been ended by the user and can no longer authorize actions",
-      triggeredLawIds: ["BOUNDARY.SESSION.ENDED.01"],
-      requiresApproval: false,
-    };
-    await appendBoundaryLedger("ACTION_BLOCKED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
-      requestId: request.requestId,
-      actionKind: request.actionKind,
-      target: request.target,
-      decision: result.decision,
-      reason: result.reason,
-      lawIds: result.triggeredLawIds,
-      createdAt: new Date().toISOString(),
-    });
-    return { result, nslMoves: [] };
-  }
+  const activeConfig = enableBodyguardControl(config);
 
   await appendBoundaryLedger("ACTION_PROPOSED", {
-    sessionId: config.session.sessionId,
-    actorId: config.session.actorId,
+    sessionId: activeConfig.session.sessionId,
+    actorId: activeConfig.session.actorId,
     requestId: request.requestId,
     actionKind: request.actionKind,
     target: request.target,
@@ -257,41 +299,49 @@ export async function evaluateBoundaryAction(
     createdAt: request.requestedAt,
   });
 
-  const result = evaluateBoundaryLaws({
-    session: config.session,
-    request,
-    laws: config.laws,
-    grants: config.grants,
-    approvalRequiredFor: config.approvalRequiredFor,
-  });
+  const adjudication = await adjudicateBoundaryRequest({ config: activeConfig, request });
+
+  if (adjudication.result.decision === "deny") {
+    await appendBoundaryLedger("ACTION_BLOCKED", {
+      sessionId: activeConfig.session.sessionId,
+      actorId: activeConfig.session.actorId,
+      requestId: request.requestId,
+      actionKind: request.actionKind,
+      target: request.target,
+      decision: adjudication.result.decision,
+      reason: adjudication.result.reason,
+      lawIds: adjudication.result.triggeredLawIds,
+      createdAt: new Date().toISOString(),
+    });
+    return adjudication;
+  }
 
   await appendBoundaryLedger("DECISION_RETURNED", {
-    sessionId: config.session.sessionId,
-    actorId: config.session.actorId,
+    sessionId: activeConfig.session.sessionId,
+    actorId: activeConfig.session.actorId,
     requestId: request.requestId,
     actionKind: request.actionKind,
     target: request.target,
-    decision: result.decision,
-    reason: result.reason,
-    lawIds: result.triggeredLawIds,
+    decision: adjudication.result.decision,
+    reason: adjudication.result.reason,
+    lawIds: adjudication.result.triggeredLawIds,
     createdAt: new Date().toISOString(),
   });
 
-  const nslMoves = buildBoundaryNslMoves(request, result);
-  for (const move of nslMoves) {
-    await appendBoundaryLedger("NSL_MOVE_SUGGESTED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
+  for (const move of adjudication.bodyguardMoves) {
+    await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
+      sessionId: activeConfig.session.sessionId,
+      actorId: activeConfig.session.actorId,
       requestId: request.requestId,
       moveId: move.moveId,
       actionKind: request.actionKind,
       target: request.target,
-      decision: result.decision,
+      decision: adjudication.result.decision,
       reason: move.description,
-      lawIds: result.triggeredLawIds,
+      lawIds: adjudication.result.triggeredLawIds,
       createdAt: new Date().toISOString(),
     });
   }
 
-  return { result, nslMoves };
+  return adjudication;
 }

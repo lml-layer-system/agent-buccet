@@ -16,3 +16,5 @@ data/lml-context/
 data/agent-boundary/
 data/ledger/
 artifacts/
+native/*/build/
+demo/workspace/

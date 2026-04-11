@@ -5,6 +5,7 @@ import type {
   BoundaryInterceptDaemonOutput,
   BoundaryInterceptRequest,
 } from "./intercept.ts";
+import { createBoundaryFunnelInterceptRequest } from "./intercept.ts";
 
 export type BoundarySystemInterceptEventKind =
   | "file.read"
@@ -105,75 +106,130 @@ export function mapSystemInterceptEventToRequest(
     event.executablePath ? `exe=${event.executablePath}` : "",
     event.cwd ? `cwd=${event.cwd}` : "",
   ].filter(Boolean);
+  const payloadSummary = payloadParts.join(" ");
 
   if (event.kind.startsWith("file.")) {
     return {
       requestId: event.requestId,
-      actionClass: "file",
-      operation: fileOperationForKind(event.kind),
-      target: event.target,
-      payloadSummary: payloadParts.join(" "),
-      provenance: event.provenance,
-      flags: event.flags,
+      ...createBoundaryFunnelInterceptRequest({
+        source: "system",
+        rawAction: event.kind,
+        actionClass: "file",
+        operation: fileOperationForKind(event.kind),
+        target: event.target,
+        payloadSummary,
+        provenance: event.provenance,
+        flags: event.flags,
+        pid: event.pid,
+        extra: [
+          event.executablePath ? `exe=${event.executablePath}` : "",
+          event.cwd ? `cwd=${event.cwd}` : "",
+        ].filter(Boolean).join(" "),
+      }),
     };
   }
 
   if (event.kind === "process.exec") {
     return {
       requestId: event.requestId,
-      actionClass: "shell",
-      operation: "exec",
-      target: event.target,
-      payloadSummary: payloadParts.join(" "),
-      provenance: event.provenance,
-      flags: event.flags,
+      ...createBoundaryFunnelInterceptRequest({
+        source: "system",
+        rawAction: event.kind,
+        actionClass: "shell",
+        operation: "exec",
+        target: event.target,
+        payloadSummary,
+        provenance: event.provenance,
+        flags: event.flags,
+        pid: event.pid,
+        extra: [
+          event.executablePath ? `exe=${event.executablePath}` : "",
+          event.cwd ? `cwd=${event.cwd}` : "",
+        ].filter(Boolean).join(" "),
+      }),
     };
   }
 
   if (event.kind === "network.connect") {
     return {
       requestId: event.requestId,
-      actionClass: "network",
-      operation: "send",
-      target: event.target,
-      payloadSummary: payloadParts.join(" "),
-      provenance: event.provenance,
-      flags: event.flags,
+      ...createBoundaryFunnelInterceptRequest({
+        source: "system",
+        rawAction: event.kind,
+        actionClass: "network",
+        operation: "send",
+        target: event.target,
+        payloadSummary,
+        provenance: event.provenance,
+        flags: event.flags,
+        pid: event.pid,
+        extra: [
+          event.executablePath ? `exe=${event.executablePath}` : "",
+          event.cwd ? `cwd=${event.cwd}` : "",
+        ].filter(Boolean).join(" "),
+      }),
     };
   }
 
   if (event.kind === "recipient.send") {
     return {
       requestId: event.requestId,
-      actionClass: "communication",
-      operation: "send",
-      target: event.target,
-      payloadSummary: payloadParts.join(" "),
-      provenance: event.provenance,
-      flags: event.flags,
+      ...createBoundaryFunnelInterceptRequest({
+        source: "system",
+        rawAction: event.kind,
+        actionClass: "communication",
+        operation: "send",
+        target: event.target,
+        payloadSummary,
+        provenance: event.provenance,
+        flags: event.flags,
+        pid: event.pid,
+        extra: [
+          event.executablePath ? `exe=${event.executablePath}` : "",
+          event.cwd ? `cwd=${event.cwd}` : "",
+        ].filter(Boolean).join(" "),
+      }),
     };
   }
 
   if (event.kind.startsWith("database.")) {
     return {
       requestId: event.requestId,
-      actionClass: "database",
-      operation: databaseOperationForKind(event.kind),
-      target: event.target,
-      payloadSummary: payloadParts.join(" "),
-      provenance: event.provenance,
-      flags: event.flags,
+      ...createBoundaryFunnelInterceptRequest({
+        source: "system",
+        rawAction: event.kind,
+        actionClass: "database",
+        operation: databaseOperationForKind(event.kind),
+        target: event.target,
+        payloadSummary,
+        provenance: event.provenance,
+        flags: event.flags,
+        pid: event.pid,
+        extra: [
+          event.executablePath ? `exe=${event.executablePath}` : "",
+          event.cwd ? `cwd=${event.cwd}` : "",
+        ].filter(Boolean).join(" "),
+      }),
     };
   }
 
   return {
     requestId: event.requestId,
-    actionClass: "system",
-    operation: systemOperationForKind(event.kind),
-    target: event.target,
-    payloadSummary: payloadParts.join(" "),
-    provenance: event.provenance,
-    flags: event.flags,
+    ...createBoundaryFunnelInterceptRequest({
+      source: "system",
+      rawAction: event.kind,
+      actionClass: "system",
+      operation: systemOperationForKind(event.kind),
+      target: event.target,
+      payloadSummary,
+      provenance: event.provenance,
+      flags: event.flags,
+      pid: event.pid,
+      extra: [
+        event.executablePath ? `exe=${event.executablePath}` : "",
+        event.cwd ? `cwd=${event.cwd}` : "",
+      ].filter(Boolean).join(" "),
+    }),
   };
 }
 

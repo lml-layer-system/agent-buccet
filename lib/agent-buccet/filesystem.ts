@@ -1,11 +1,12 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   createBoundaryActionRequest,
-  executeBoundaryControlledAction,
+  runBoundaryControlledAction,
   type BoundaryExecutionResult,
-} from "./executor.ts";
-import type { BoundaryRuntimeConfig } from "./types.ts";
+} from "./bodyguard.ts";
+import type { BoundaryReviewContext, BoundaryRuntimeConfig } from "./types.ts";
 
 export type BoundaryFsResult<T = void> = BoundaryExecutionResult<T>;
 
@@ -17,15 +18,17 @@ export async function boundaryReadFile(
   config: BoundaryRuntimeConfig,
   targetPath: string,
   encoding: BufferEncoding = "utf8",
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<string>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
-    config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.read",
       target,
       payloadSummary: `read:${encoding}`,
+      reviewContext,
     }),
     execute: async () => fs.readFile(target, encoding),
     successReason: "filesystem read executed inside boundary runtime",
@@ -36,15 +39,17 @@ export async function boundaryWriteFile(
   config: BoundaryRuntimeConfig,
   targetPath: string,
   contents: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
-    config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.write",
       target,
       payloadSummary: `write:${contents.length}bytes`,
+      reviewContext,
     }),
     execute: async () => {
       await fs.writeFile(target, contents, "utf8");
@@ -58,15 +63,17 @@ export async function boundaryAppendFile(
   config: BoundaryRuntimeConfig,
   targetPath: string,
   contents: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
-    config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.append",
       target,
       payloadSummary: `append:${contents.length}bytes`,
+      reviewContext,
     }),
     execute: async () => {
       await fs.appendFile(target, contents, "utf8");
@@ -79,14 +86,16 @@ export async function boundaryAppendFile(
 export async function boundaryDeletePath(
   config: BoundaryRuntimeConfig,
   targetPath: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
-    config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.delete",
       target,
+      reviewContext,
     }),
     execute: async () => {
       await fs.rm(target, { recursive: true, force: false });
@@ -99,14 +108,16 @@ export async function boundaryDeletePath(
 export async function boundaryMkdir(
   config: BoundaryRuntimeConfig,
   targetPath: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const target = normalizeBoundaryPath(targetPath);
-  return executeBoundaryControlledAction({
-    config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.mkdir",
       target,
+      reviewContext,
     }),
     execute: async () => {
       await fs.mkdir(target, { recursive: true });
@@ -120,17 +131,19 @@ export async function boundaryMovePath(
   config: BoundaryRuntimeConfig,
   sourcePath: string,
   destinationPath: string,
+  reviewContext?: BoundaryReviewContext,
 ): Promise<BoundaryFsResult<void>> {
   const source = normalizeBoundaryPath(sourcePath);
   const destination = normalizeBoundaryPath(destinationPath);
 
-  const sourceAdmission = await executeBoundaryControlledAction<void>({
-    config,
+  const sourceAdmission = await runBoundaryControlledAction<void>({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.move",
       target: source,
       payloadSummary: `move-source:${destination}`,
+      reviewContext,
     }),
     successReason: "source path admitted for move",
   });
@@ -138,13 +151,14 @@ export async function boundaryMovePath(
     return sourceAdmission;
   }
 
-  return executeBoundaryControlledAction({
-    config,
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(config),
     request: createBoundaryActionRequest({
       config,
       actionKind: "fs.move",
       target: destination,
       payloadSummary: `move-destination:${source}`,
+      reviewContext,
     }),
     execute: async () => {
       await fs.rename(source, destination);

@@ -1,6 +1,6 @@
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryGravityResult } from "./gravity.ts";
-import type { BoundaryToolProposal } from "./adapters.ts";
+import type { BoundaryToolProposal } from "./bodyguard.ts";
 import type { BoundaryApprovalHandler } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 

@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-03-21T23:32:32.174Z",
+  "baseProjectedLawCount": 7221,
+  "timeProjectedLawCount": 988,
+  "projectedLawCount": 8209,
+  "familyCount": 12,
+  "formula": "7221 active base laws + 988 active time laws = 8209 full active Agent Buccet laws",
+  "partitions": [
+    {
+      "id": "base",
+      "projectedLawCount": 7221,
+      "sourcePath": "data/working/base-law-runtime-corpus/projected-laws.json"
+    },
+    {
+      "id": "time",
+      "projectedLawCount": 988,
+      "sourcePath": "data/working/time-law-runtime-corpus/projected-laws.json"
+    }
+  ]
+}

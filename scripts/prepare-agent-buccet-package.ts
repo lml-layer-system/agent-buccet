@@ -2,7 +2,14 @@ import { promises as fs } from "node:fs";
 import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
-import { publishBoundaryReleaseWitness, type BoundaryReleaseWitnessStatus } from "../lib/agent-buccet/index.ts";
+import {
+  buildBuccetInstallSnapSummary,
+  publishBoundaryReleaseWitness,
+  renderBuccetInstallSnapSummaryText,
+  renderBuccetFullSystemBodyMarkdown,
+  runBuccetFullSystemBody,
+  type BoundaryReleaseWitnessStatus,
+} from "../lib/agent-buccet/index.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
@@ -43,6 +50,14 @@ const sourceLedgerCliScript = path.join(repoRoot, "scripts", "agent-buccet-ledge
 const sourceInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet.sh");
 const sourceHostedInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet-hosted.sh");
 const sourceNativeDir = path.join(repoRoot, "native");
+const packageBuildStatePath = path.join(outDir, "PACKAGE_BUILD_STATE.json");
+
+type PackageBuildState = {
+  version: string;
+  inputHash: string;
+  generatedAt: string;
+  outputHashes: Record<string, string>;
+};
 
 async function rmrf(targetPath: string) {
   await fs.rm(targetPath, { recursive: true, force: true });
@@ -113,12 +128,236 @@ async function readPackageVersion(): Promise<string> {
   return pkg.version ?? "0.1.0";
 }
 
+async function walkRelativeFiles(rootPath: string, relativeRoot: string): Promise<string[]> {
+  const entries = await fs.readdir(rootPath, { withFileTypes: true });
+  const out: string[] = [];
+  for (const entry of entries) {
+    if (entry.name === ".DS_Store" || entry.name.startsWith("._")) {
+      continue;
+    }
+    const absPath = path.join(rootPath, entry.name);
+    const relPath = path.join(relativeRoot, entry.name).split(path.sep).join("/");
+    if (entry.isDirectory()) {
+      out.push(...await walkRelativeFiles(absPath, relPath));
+      continue;
+    }
+    if (entry.isFile()) {
+      out.push(relPath);
+    }
+  }
+  return out;
+}
+
+async function computePackageInputHash(): Promise<string> {
+  const hash = createHash("sha256");
+  const directoryInputs = [
+    { rootPath: sourceRuntimeDir, relativeRoot: "lib/agent-buccet" },
+    { rootPath: sourceDocsDir, relativeRoot: "docs/agent-boundary" },
+    { rootPath: sourceLawFoundationDir, relativeRoot: "data/agent-buccet-law-foundation" },
+    { rootPath: sourceNativeDir, relativeRoot: "native" },
+  ];
+  const fileInputs = [
+    "package.json",
+    "scripts/prepare-agent-buccet-package.ts",
+    "scripts/agent-buccet-package-surface-contract.ts",
+    "scripts/install-agent-buccet.sh",
+    "scripts/install-agent-buccet-hosted.sh",
+    "scripts/agent-buccet-install-contract.ts",
+    "scripts/agent-buccet-hosted-install-contract.ts",
+    "scripts/agent-buccet-release-witness-contract.ts",
+    "scripts/agent-buccet-e2e.ts",
+    "scripts/agent-buccet-gravity-e2e.ts",
+    "scripts/agent-buccet-gravity-contract.ts",
+    "scripts/agent-buccet-ledger-contract.ts",
+    "scripts/agent-buccet-ledger-rollup-contract.ts",
+    "scripts/agent-buccet-ledger-writer-contract.ts",
+    "scripts/agent-buccet-ledger-witness-contract.ts",
+    "scripts/agent-buccet-gravity-supervisor-contract.ts",
+    "scripts/agent-buccet-action-classes-contract.ts",
+    "scripts/agent-buccet-intercept-daemon-contract.ts",
+    "scripts/agent-buccet-intercept-server-contract.ts",
+    "scripts/agent-buccet-system-intercept-contract.ts",
+    "scripts/agent-buccet-gravity-bridge-contract.ts",
+    "scripts/agent-buccet-swarm-contract.ts",
+    "scripts/agent-buccet-hook-runtime-contract.ts",
+    "scripts/agent-buccet-wrapper-contract.ts",
+    "scripts/agent-buccet-cli-contract.ts",
+    "scripts/agent-buccet-run.ts",
+    "scripts/buccet.ts",
+    "scripts/agent-buccet-gravity-daemon.ts",
+    "scripts/agent-buccet-intercept-daemon.ts",
+    "scripts/agent-buccet-intercept-server.ts",
+    "scripts/agent-buccet-gravity-bridge.ts",
+    "scripts/agent-buccet-hook-daemon.ts",
+    "scripts/agent-buccet-system-intercept-bridge.ts",
+    "scripts/agent-buccet-ledger-writer.ts",
+    "scripts/agent-buccet-ledger-cli.ts",
+  ];
+
+  const relativePaths = new Set<string>();
+  for (const directoryInput of directoryInputs) {
+    const files = await walkRelativeFiles(directoryInput.rootPath, directoryInput.relativeRoot);
+    for (const file of files) {
+      relativePaths.add(file);
+    }
+  }
+  for (const fileInput of fileInputs) {
+    relativePaths.add(fileInput);
+  }
+
+  for (const relativePath of [...relativePaths].sort((left, right) => left.localeCompare(right))) {
+    const absolutePath = path.join(repoRoot, relativePath);
+    const stats = await fs.stat(absolutePath);
+    hash.update(`${relativePath}:${stats.size}:${stats.mtimeMs.toFixed(3)}\n`);
+  }
+  return hash.digest("hex");
+}
+
+async function computeFileHash(targetPath: string): Promise<string> {
+  const buffer = await fs.readFile(targetPath);
+  return createHash("sha256").update(buffer).digest("hex");
+}
+
+function packagedNativeHookArtifactTarget(): { relativePath: string; absolutePath: string } {
+  const nativeLibraryName = process.platform === "darwin"
+    ? "libbuccet-hook.dylib"
+    : "libbuccet-hook.so";
+  return {
+    relativePath: `native/build/${nativeLibraryName}`,
+    absolutePath: path.join(outDir, "native", "build", nativeLibraryName),
+  };
+}
+
+function requiredPackageFreshnessTargets(version: string): Array<{ relativePath: string; absolutePath: string }> {
+  const archiveBaseName = `agent-buccet-${version}.tar.gz`;
+  return [
+    { relativePath: "install.sh", absolutePath: path.join(outDir, "install.sh") },
+    { relativePath: "INSTALL_SNAP.txt", absolutePath: path.join(outDir, "INSTALL_SNAP.txt") },
+    { relativePath: "SNAP_INSTALL.json", absolutePath: path.join(outDir, "SNAP_INSTALL.json") },
+    { relativePath: "docs/BUCCET_FULL_SYSTEM_BODY.md", absolutePath: path.join(outDir, "docs", "BUCCET_FULL_SYSTEM_BODY.md") },
+    { relativePath: "package.json", absolutePath: path.join(outDir, "package.json") },
+    { relativePath: "releases/install.sh", absolutePath: path.join(releaseDir, "install.sh") },
+    { relativePath: "releases/latest.json", absolutePath: path.join(releaseDir, "latest.json") },
+    { relativePath: `releases/${archiveBaseName}`, absolutePath: path.join(releaseDir, archiveBaseName) },
+    { relativePath: `releases/${archiveBaseName}.sha256`, absolutePath: path.join(releaseDir, `${archiveBaseName}.sha256`) },
+  ];
+}
+
+async function optionalPackageFreshnessTargets(): Promise<Array<{ relativePath: string; absolutePath: string }>> {
+  const nativeHookTarget = packagedNativeHookArtifactTarget();
+  return await fs.access(nativeHookTarget.absolutePath)
+    .then(() => [nativeHookTarget])
+    .catch(() => []);
+}
+
+async function readPackageBuildState(): Promise<PackageBuildState | null> {
+  try {
+    const raw = await fs.readFile(packageBuildStatePath, "utf8");
+    return JSON.parse(raw) as PackageBuildState;
+  } catch {
+    return null;
+  }
+}
+
+async function packageArtifactsAreFresh(inputHash: string, version: string): Promise<boolean> {
+  const state = await readPackageBuildState();
+  if (!state || state.inputHash !== inputHash || state.version !== version) {
+    return false;
+  }
+  const requiredTargets = requiredPackageFreshnessTargets(version);
+  const knownTargets = new Map(requiredTargets.map((target) => [target.relativePath, target]));
+  knownTargets.set(packagedNativeHookArtifactTarget().relativePath, packagedNativeHookArtifactTarget());
+
+  for (const target of requiredTargets) {
+    const expectedHash = state.outputHashes[target.relativePath];
+    if (!expectedHash) {
+      return false;
+    }
+    try {
+      const actualHash = await computeFileHash(target.absolutePath);
+      if (actualHash !== expectedHash) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  for (const [relativePath, expectedHash] of Object.entries(state.outputHashes)) {
+    if (requiredTargets.some((target) => target.relativePath === relativePath)) {
+      continue;
+    }
+    const target = knownTargets.get(relativePath);
+    if (!target) {
+      return false;
+    }
+    try {
+      const actualHash = await computeFileHash(target.absolutePath);
+      if (actualHash !== expectedHash) {
+        return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function writePackageBuildState(inputHash: string, version: string) {
+  const targets = [
+    ...requiredPackageFreshnessTargets(version),
+    ...await optionalPackageFreshnessTargets(),
+  ];
+  const outputHashes = Object.fromEntries(
+    await Promise.all(targets.map(async (target) => {
+      return [target.relativePath, await computeFileHash(target.absolutePath)] as const;
+    })),
+  );
+  const state: PackageBuildState = {
+    version,
+    inputHash,
+    generatedAt: new Date().toISOString(),
+    outputHashes,
+  };
+  await fs.writeFile(packageBuildStatePath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
 async function writeStandalonePackageJson() {
+  const version = await readPackageVersion();
   const pkg = {
     name: "agent-buccet",
-    version: "0.1.0",
-    private: true,
+    version,
+    description: "Persistent law and scope enforcement for AI agents. Agents can propose. They cannot authorize.",
+    keywords: [
+      "ai-agents",
+      "safety",
+      "containment",
+      "boundary",
+      "llm",
+      "policy",
+      "audit",
+      "ledger",
+      "enforcement",
+      "authorization",
+    ],
+    license: "Apache-2.0",
+    repository: {
+      type: "git",
+      url: "https://github.com/lml-layer-system/agent-buccet",
+    },
+    homepage: "https://github.com/lml-layer-system/agent-buccet#readme",
+    bugs: {
+      url: "https://github.com/lml-layer-system/agent-buccet/issues",
+    },
     type: "module",
+    main: "./src/index.ts",
+    exports: {
+      ".": "./src/index.ts",
+    },
+    bin: {
+      buccet: "./bin/buccet.ts",
+    },
     scripts: {
       "demo:agent-buccet": "node examples/agent-buccet-e2e.ts",
       "demo:agent-buccet:gravity": "node examples/agent-buccet-gravity-e2e.ts",
@@ -257,6 +496,8 @@ async function writeExtractionManifest() {
       "bin/buccet.ts",
       "install.sh",
       "README.md",
+      "INSTALL_SNAP.txt",
+      "SNAP_INSTALL.json",
       "package.json",
       "tsconfig.json",
       "native/**/*",
@@ -277,6 +518,38 @@ async function writeExtractionManifest() {
 async function writeStandaloneReadme() {
   const sourceReadme = await fs.readFile(path.join(sourceDocsDir, "README.md"), "utf8");
   await fs.writeFile(path.join(outDir, "README.md"), sourceReadme, "utf8");
+}
+
+async function writePrebuiltNativeHook() {
+  const deepInterceptDir = path.join(outDir, "native", "deep-intercept");
+  const buildScriptPath = path.join(deepInterceptDir, "build.sh");
+  const packagedBuildDir = path.join(outDir, "native", "build");
+  try {
+    await mkdirp(packagedBuildDir);
+    await runCommand("sh", [buildScriptPath, packagedBuildDir], repoRoot);
+  } catch {
+    // Prebuilt native hook is a speed optimization, not a packaging requirement.
+  }
+}
+
+async function writeSnapArtifacts() {
+  const process = runBuccetFullSystemBody();
+  const summary = buildBuccetInstallSnapSummary(process);
+  await fs.writeFile(
+    path.join(outDir, "INSTALL_SNAP.txt"),
+    `${renderBuccetInstallSnapSummaryText(process)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(outDir, "SNAP_INSTALL.json"),
+    `${JSON.stringify(summary, null, 2)}\n`,
+    "utf8",
+  );
+  await fs.writeFile(
+    path.join(outDir, "docs", "BUCCET_FULL_SYSTEM_BODY.md"),
+    `${renderBuccetFullSystemBodyMarkdown(process)}\n`,
+    "utf8",
+  );
 }
 
 async function writeStandaloneExample() {
@@ -458,11 +731,7 @@ async function writeStandaloneWrapper() {
   await fs.writeFile(path.join(binDir, "buccet.ts"), rewrittenCli, "utf8");
 
   const rawInstall = await fs.readFile(sourceInstallScript, "utf8");
-  const rewrittenInstall = rawInstall
-    .replaceAll("node scripts/prepare-agent-buccet-package.ts", "true")
-    .replaceAll("cp -R \"$REPO_ROOT/dist/agent-buccet/.\" \"$BUCCET_HOME/current\"", "cp -R \"$REPO_ROOT/.\" \"$BUCCET_HOME/current\"")
-    .replaceAll("exec node \"$BUCCET_HOME/current/bin/buccet.ts\" \"$@\"", "exec node \"$BUCCET_HOME/current/bin/buccet.ts\" \"$@\"");
-  await fs.writeFile(path.join(outDir, "install.sh"), rewrittenInstall, "utf8");
+  await fs.writeFile(path.join(outDir, "install.sh"), rawInstall, "utf8");
   await fs.chmod(path.join(outDir, "install.sh"), 0o755);
 }
 
@@ -520,12 +789,21 @@ async function writeReleaseArtifacts(version: string, witness: BoundaryReleaseWi
 }
 
 async function main() {
-  await runCommand("npm", ["run", "test:agent-buccet:doc-links"], repoRoot);
-  await runCommand("npm", ["run", "test:agent-buccet:artifact-hygiene"], repoRoot);
-  await runCommand("npm", ["run", "check:agent-buccet:contracts-stable"], repoRoot);
-  await runCommand("npm", ["run", "test:agent-buccet:release-witness"], repoRoot);
-
+  const skipVerification = process.env.AGENT_BUCCET_PACKAGE_SKIP_VERIFY === "1";
   const version = await readPackageVersion();
+  const inputHash = await computePackageInputHash();
+  if (await packageArtifactsAreFresh(inputHash, version)) {
+    console.log(`Agent Buccet package already current at ${outDir}`);
+    console.log(`Agent Buccet release artifacts already current at ${releaseDir}`);
+    return;
+  }
+  if (!skipVerification) {
+    await runCommand("npm", ["run", "test:agent-buccet:doc-links"], repoRoot);
+    await runCommand("npm", ["run", "test:agent-buccet:artifact-hygiene"], repoRoot);
+    await runCommand("npm", ["run", "check:agent-buccet:contracts-stable"], repoRoot);
+    await runCommand("npm", ["run", "test:agent-buccet:release-witness"], repoRoot);
+  }
+
   await rmrf(outDir);
   await rmrf(releaseDir);
   await mkdirp(outDir);
@@ -533,15 +811,21 @@ async function main() {
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
   await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "agent-buccet-law-foundation"));
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
+  await writePrebuiltNativeHook();
   await writeStandaloneExample();
   await writeStandaloneWrapper();
   await writeStandalonePackageJson();
   await writeStandaloneTsconfig();
   await writeStandaloneReadme();
+  await writeSnapArtifacts();
   await writeExtractionManifest();
   await writeHostedInstaller();
   const witness = await publishBoundaryReleaseWitness({ releaseDir, env: process.env });
   await writeReleaseArtifacts(version, witness);
+  await writePackageBuildState(inputHash, version);
+  if (skipVerification) {
+    console.log("Prepared Agent Buccet package in fast install mode (verification skipped).");
+  }
   console.log(`Prepared Agent Buccet standalone package at ${outDir}`);
   console.log(`Prepared Agent Buccet release artifacts at ${releaseDir}`);
 }

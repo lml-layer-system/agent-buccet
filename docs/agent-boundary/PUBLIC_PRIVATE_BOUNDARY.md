@@ -86,6 +86,10 @@ Keep outside the current runtime core:
 - gravity internals that materially increase intelligence rather than containment
 - orchestration beyond defensive runtime control
 
+Optional Buccet-native path memory can sit beside this core as a finite orchestration substrate.
+It is not a second authority system.
+See [Buccet Path Memory](./BUCCET_PATH_MEMORY.md).
+
 ## Rule For Exposure
 
 Inside runtime if it increases containment.

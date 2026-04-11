@@ -14,10 +14,11 @@ Out of the box, Agent Buccet already gives you:
 - thin user-space `buccet` command shell
 - wrapper CLI for process-level attachment
 - integration surfaces for existing agent stacks
-- intercept daemon and intercept server transports
+- intercept server transport and intercept-daemon stdin/stdout proxy over that same path
 - system-intercept seam for future low-level hooks
 - gravity bridge front-layer for socket-fed deep intercept sensors
 - hook daemon and native preload path for freeze-and-forward OS interception
+- shared Gravity funnel normalization for raw gravity, system, and framework feeders
 - gravity on the action path
 - supervisor for restart and daemon health
 - hosted-ready release artifacts under `dist/releases/`
@@ -44,6 +45,7 @@ We can claim:
 - the bodyguard persists across restart until the user ends the session
 - the ledger is part of the trust boundary, not secondary logging
 - developers can use the wrapper and intercept surfaces today without waiting for deep OS integration
+- the public feeder surfaces collapse into one Gravity funnel before Buccet decides anything
 - the native hook waits indefinitely for the Buccet brain unless the hook supervisor explicitly marks the brain dead
 - hosted install can be served as a single `curl ... | sh` entrypoint once release artifacts are published
 

@@ -18,7 +18,7 @@ Main Agent Buccet law sources:
 - [meta.ts](../../lib/agent-buccet/meta.ts)
 - [foundation.ts](../../lib/agent-buccet/foundation.ts)
 - [runtime.ts](../../lib/agent-buccet/runtime.ts)
-- [executor.ts](../../lib/agent-buccet/executor.ts)
+- [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts)
 - [intercept.ts](../../lib/agent-buccet/intercept.ts)
 - [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts)
 
@@ -44,7 +44,7 @@ These are the active root invariants of Agent Buccet.
 | `BUCCET.BASE.03` | Capability is not authorization |
 | `BUCCET.BASE.04` | Opened paths become law |
 | `BUCCET.BASE.05` | Session law persists until explicit end |
-| `BUCCET.BASE.06` | Ledger is law |
+| `BUCCET.BASE.06` | Law must be ledgered |
 
 Source of public statement:
 - [LAW_CATALOG.md](LAW_CATALOG.md)
@@ -62,7 +62,7 @@ These are the active anti-authority-drift and anti-injection laws.
 | `META.SESSION.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot revive ended sessions |
 | `META.LEDGER.01` | [meta.ts](../../lib/agent-buccet/meta.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Prompt content cannot bypass, suppress, or rewrite the ledger |
 | `META.NOVELTY.01` | [meta.ts](../../lib/agent-buccet/meta.ts) | Claims of complete safety or complete coverage are non-authoritative and require review |
-| `META.LEDGER.02` | [executor.ts](../../lib/agent-buccet/executor.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Incomplete ledger traces are non-authoritative at execution time |
+| `META.LEDGER.02` | [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts), [skills.ts](../../lib/agent-buccet/gravity-core/skills.ts) | Incomplete ledger traces are historical-only and non-authoritative for live execution |
 
 ## Action Boundary Laws
 
@@ -73,7 +73,7 @@ These govern Agent Buccet action classes.
 | `BOUNDARY.DEFAULT_SCOPE.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Target outside reachable user-opened scope is denied |
 | `BOUNDARY.APPROVAL.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Some admitted action classes still require explicit approval |
 | `BOUNDARY.COMM.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Recipient sends require approval |
-| `BOUNDARY.DELETE.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Destructive delete requires approval |
+| `BOUNDARY.DELETE.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Destructive delete is denied by default |
 | `BOUNDARY.EXEC.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Tool execution is denied by default |
 | `BOUNDARY.NETWORK.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Network sends require approval |
 | `BOUNDARY.DB.READ.01` | [laws.ts](../../lib/agent-buccet/laws.ts) | Database queries require approval |
@@ -117,8 +117,8 @@ These are Agent Buccet trust-boundary laws for audit state.
 
 | Law ID | Runtime Source | Meaning |
 | --- | --- | --- |
-| `BOUNDARY.LEDGER.REQUEST.01` | [executor.ts](../../lib/agent-buccet/executor.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Request traces must be complete enough to be trusted |
-| `BOUNDARY.LEDGER.SESSION.01` | [executor.ts](../../lib/agent-buccet/executor.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Session traces must be complete enough to preserve lawful continuity |
+| `BOUNDARY.LEDGER.REQUEST.01` | [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Request traces remain auditable and complete enough to reconstruct decisions |
+| `BOUNDARY.LEDGER.SESSION.01` | [bodyguard.ts](../../lib/agent-buccet/bodyguard.ts), [intercept.ts](../../lib/agent-buccet/intercept.ts) | Session traces remain complete enough to preserve lawful continuity and replay integrity |
 
 ## What This Means
 

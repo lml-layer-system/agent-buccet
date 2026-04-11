@@ -1,9 +1,9 @@
 import { createApprovalQueueAdapter } from "../approval.ts";
 import {
   enforceBoundaryProposal,
+  type BoundaryExecutionResult,
   type BoundaryToolProposal,
-} from "../adapters.ts";
-import type { BoundaryExecutionResult } from "../executor.ts";
+} from "../bodyguard.ts";
 import { buildRemoteBoundaryProposal } from "../remote.ts";
 import type {
   BoundaryActionKind,

@@ -1,7 +1,8 @@
+import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
-} from "./adapters.ts";
+} from "./bodyguard.ts";
 import { auditBoundarySessionLedger } from "./ledger-audit.ts";
 import type { BoundaryApprovalHandler } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
@@ -13,7 +14,7 @@ export type BoundaryGravityResult<T = unknown> = {
   executed: boolean;
   requiresApproval: boolean;
   reason: string;
-  nslMoves: Awaited<ReturnType<typeof enforceBoundaryProposal<T>>>["nslMoves"];
+  bodyguardMoves: Awaited<ReturnType<typeof enforceBoundaryProposal<T>>>["bodyguardMoves"];
   value?: T;
 };
 
@@ -180,14 +181,14 @@ export async function runBoundaryGravityLoop(deps: BoundaryGravityDeps): Promise
       }
 
       const result = await enforceBoundaryProposal({
-        config: {
-          ...store.getConfig(),
+        config: enableBodyguardControl(store.getConfig(), {
           approvalHandler: deps.approvalHandler,
-        },
+        }),
         proposal: event.proposal,
       });
 
       const decision: BoundaryGravityDecision = result.allowed ? "allow" : "null";
+      store.replaceConfig(result.config);
       await store.persist();
       await deps.emitHeartbeat?.({
         sessionId: store.getConfig().session.sessionId,
@@ -200,7 +201,7 @@ export async function runBoundaryGravityLoop(deps: BoundaryGravityDeps): Promise
         executed: result.executed,
         requiresApproval: result.requiresApproval,
         reason: result.reason,
-        nslMoves: result.nslMoves,
+        bodyguardMoves: result.bodyguardMoves,
         value: result.value,
       });
     } catch (error) {
