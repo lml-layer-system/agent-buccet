@@ -68,16 +68,6 @@ async function main() {
   await fs.mkdir(railDir, { recursive: true });
   await fs.mkdir(secretsDir, { recursive: true });
 
-  const env = {
-    ...process.env,
-    AGENT_BUCCET_HOME: homePath,
-    AGENT_BUCCET_CALLER_CWD: workspacePath,
-    AGENT_BUCCET_LAUNCHER_PATH: path.join(tempRoot, "bin", "buccet"),
-  };
-  process.env.AGENT_BUCCET_HOME = homePath;
-  process.env.AGENT_BUCCET_CALLER_CWD = workspacePath;
-  process.env.AGENT_BUCCET_LAUNCHER_PATH = path.join(tempRoot, "bin", "buccet");
-
   const configPath = path.join(homePath, "config.json");
   const configNow = new Date().toISOString();
   await fs.mkdir(homePath, { recursive: true });
@@ -91,9 +81,23 @@ async function main() {
     dryRun: false,
   }, null, 2)}\n`);
   const ledgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
+  // Ensure the ledger directory exists and create an empty ledger file if it doesn't.
+  await fs.mkdir(path.dirname(ledgerPath), { recursive: true });
+  await fs.writeFile(ledgerPath, JSON.stringify({ specVersion: 1, userApprovedLawPaths: [], userDeniedLawPaths: [] }, null, 2));
   const readLedger = async (): Promise<BoundaryUserPathLedger> => (
     JSON.parse(await fs.readFile(ledgerPath, "utf8")) as BoundaryUserPathLedger
   );
+
+  const env = {
+    ...process.env,
+    AGENT_BUCCET_HOME: homePath,
+    AGENT_BUCCET_CALLER_CWD: workspacePath,
+    AGENT_BUCCET_LAUNCHER_PATH: path.join(tempRoot, "bin", "buccet"),
+    AGENT_BUCCET_UPL_LEDGER_PATH: ledgerPath, // Added this line
+  };
+  process.env.AGENT_BUCCET_HOME = homePath;
+  process.env.AGENT_BUCCET_CALLER_CWD = workspacePath;
+  process.env.AGENT_BUCCET_LAUNCHER_PATH = path.join(tempRoot, "bin", "buccet");
 
   const sourcesResult = await runCli(["upl", "sources", "--json"], env);
   assert.equal(sourcesResult.code, 0, sourcesResult.stderr);
@@ -173,11 +177,22 @@ async function main() {
     persistence: {
       enabled: false,
     },
-    upl: await readLedger(),
+    upl: { specVersion: 1, userApprovedLawPaths: [], userDeniedLawPaths: [] }, // Initialize with empty, to be updated
     runtimeMuscle,
   });
 
-  const uplOne = await readLedger();
+  const updatedUpl = await readLedger(); // Read the now-populated ledger from disk
+  store.replaceConfig({ // Update the store with the new ledger
+    ...store.getConfig(),
+    upl: updatedUpl,
+    userLawIds: await buildActiveAgentBuccetLawIds({
+      executableLaws: DEFAULT_BOUNDARY_LAWS,
+      existingLawIds: getActiveUserLawIds(updatedUpl, store.getConfig().session),
+      runtimeMuscle,
+    }),
+  });
+
+  const uplOne = updatedUpl; // Now uplOne correctly reflects the synced ledger
   const uplOneEntries = listUserPathEntries(uplOne);
   const activeAcceptance = uplOneEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]"));
   const activeDenials = uplOneEntries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]"));
