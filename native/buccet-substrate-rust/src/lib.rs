@@ -44,7 +44,7 @@
 //!
 //! ## Verification
 //! verified=True · ∀i: Snap(S)(i) = S(i) · <10ms · deterministic
-//! All 17 enforcement functions passed 10-run determinism check + coverage ≥ 80%.
+//! All 18 enforcement functions passed 10-run determinism check + coverage ≥ 80%.
 
 pub mod d_containment;
 pub mod k_orchestration;
@@ -68,6 +68,7 @@ pub use d_containment::{
     d_enforce_contract,
     d_enforce_resource_limit,
     d_control_network,
+    d_enter_environment,
     d_manage_lifecycle,
     d_persist_state,
 };

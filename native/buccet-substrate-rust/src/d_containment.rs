@@ -181,6 +181,115 @@ pub fn d_persist_state(_unit_id: &str, config: &serde_json::Value) -> Result<(),
     }
 }
 
+// ── D:ENVIRONMENT ─────────────────────────────────────────────────────────────
+
+/// Enter the packaged runtime root.
+/// Ancestor D:ENVIRONMENT — Docker swaps process root into the merged container fs.
+///
+/// Native Linux:
+///   - validates the packaged root
+///   - performs pivot_root(2)
+///   - detaches the old host root with MNT_DETACH
+///
+/// Non-Linux / WASM:
+///   - validates the requested root/workdir shape
+///   - records a truthful "ready to enter" success for the caller/runtime bridge
+pub fn d_enter_environment(_unit_id: &str, config: &serde_json::Value) -> Result<(), SubstrateError> {
+    let rootfs = cfg_str(config, "rootfs", "");
+    if rootfs.trim().is_empty() {
+        return Err(SubstrateError::ValidationFail(
+            "d_enter_environment: rootfs is required".into(),
+        ));
+    }
+    if !std::path::Path::new(&rootfs).is_absolute() {
+        return Err(SubstrateError::ValidationFail(
+            "d_enter_environment: rootfs must be absolute".into(),
+        ));
+    }
+
+    let rootfs_path = std::path::PathBuf::from(&rootfs);
+    if !rootfs_path.is_dir() {
+        return Err(SubstrateError::ValidationFail(
+            format!("d_enter_environment: rootfs missing: {}", rootfs),
+        ));
+    }
+
+    let workdir = cfg_str(config, "workdir", "/");
+    if !workdir.starts_with('/') {
+        return Err(SubstrateError::ValidationFail(
+            "d_enter_environment: workdir must be absolute inside rootfs".into(),
+        ));
+    }
+
+    let normalized_workdir = workdir.trim_start_matches('/');
+    let workdir_path = if normalized_workdir.is_empty() {
+        rootfs_path.clone()
+    } else {
+        rootfs_path.join(normalized_workdir)
+    };
+    if !workdir_path.exists() {
+        return Err(SubstrateError::ValidationFail(
+            format!("d_enter_environment: workdir missing inside rootfs: {}", workdir),
+        ));
+    }
+
+    #[cfg(all(feature = "native", target_os = "linux"))]
+    {
+        use std::ffi::CString;
+        use std::os::unix::ffi::OsStrExt;
+
+        let old_root = rootfs_path.join(".buccet-old-root");
+        std::fs::create_dir_all(&old_root)
+            .map_err(|e| SubstrateError::OsError(e.to_string()))?;
+
+        let new_root_c = CString::new(rootfs_path.as_os_str().as_bytes())
+            .map_err(|_| SubstrateError::ValidationFail("d_enter_environment: rootfs contains interior NUL".into()))?;
+        let old_root_c = CString::new(old_root.as_os_str().as_bytes())
+            .map_err(|_| SubstrateError::ValidationFail("d_enter_environment: old root path contains interior NUL".into()))?;
+
+        let pivot_result = unsafe {
+            libc::syscall(libc::SYS_pivot_root, new_root_c.as_ptr(), old_root_c.as_ptr())
+        };
+        if pivot_result != 0 {
+            return Err(SubstrateError::PermissionDenied(
+                "pivot_root failed — requires CAP_SYS_ADMIN + private mount namespace".into(),
+            ));
+        }
+
+        let chdir_root = CString::new("/")
+            .map_err(|_| SubstrateError::ValidationFail("d_enter_environment: unable to enter new root".into()))?;
+        if unsafe { libc::chdir(chdir_root.as_ptr()) } != 0 {
+            return Err(SubstrateError::OsError("d_enter_environment: chdir('/') failed after pivot_root".into()));
+        }
+
+        let old_root_mount = CString::new("/.buccet-old-root")
+            .map_err(|_| SubstrateError::ValidationFail("d_enter_environment: invalid old root mount".into()))?;
+        if unsafe { libc::umount2(old_root_mount.as_ptr(), libc::MNT_DETACH) } != 0 {
+            return Err(SubstrateError::PermissionDenied(
+                "d_enter_environment: umount old root failed".into(),
+            ));
+        }
+        if unsafe { libc::rmdir(old_root_mount.as_ptr()) } != 0 {
+            return Err(SubstrateError::OsError(
+                "d_enter_environment: cleanup of old root mount failed".into(),
+            ));
+        }
+
+        if workdir != "/" {
+            let entered_workdir = CString::new(workdir.as_bytes())
+                .map_err(|_| SubstrateError::ValidationFail("d_enter_environment: workdir contains interior NUL".into()))?;
+            if unsafe { libc::chdir(entered_workdir.as_ptr()) } != 0 {
+                return Err(SubstrateError::OsError(format!(
+                    "d_enter_environment: chdir('{}') failed after pivot_root",
+                    workdir
+                )));
+            }
+        }
+    }
+
+    Ok(())
+}
+
 // ── D:CONTRACT ────────────────────────────────────────────────────────────────
 
 /// Enforce Linux capability bounding set (capability drop).
@@ -315,6 +424,15 @@ pub mod wasm_api {
     #[wasm_bindgen]
     pub fn d_persist_state_wasm(unit_id: &str, config: JsValue) -> bool {
         d_persist_state(unit_id, &from_js(config)).is_ok()
+    }
+
+    /// D:ENVIRONMENT — enter frozen environment via pivot_root.
+    /// Native: calls pivot_root(2) + MNT_DETACH umount — requires CAP_SYS_ADMIN + CLONE_NEWNS.
+    /// WASM: path validation only, pivot_root deferred to native runtime.
+    /// Call AFTER d_apply_isolation + d_persist_state.
+    #[wasm_bindgen]
+    pub fn d_enter_environment_wasm(unit_id: &str, config: JsValue) -> bool {
+        d_enter_environment(unit_id, &from_js(config)).is_ok()
     }
 
     #[wasm_bindgen]
