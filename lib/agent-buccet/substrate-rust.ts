@@ -139,6 +139,10 @@ export class BuccetSubstrate {
     return this.requireRuntime().d_apply_isolation_wasm(unitId, config);
   }
 
+  applyIsolation(unitId: string, config: Record<string, unknown> = {}): IsolationContext {
+    return this.dApplyIsolation(unitId, config);
+  }
+
   dControlNetwork(unitId: string, config: Record<string, unknown>): boolean {
     return this.requireRuntime().d_control_network_wasm(unitId, config);
   }
@@ -155,12 +159,20 @@ export class BuccetSubstrate {
     return this.requireRuntime().d_enter_environment_wasm(unitId, config);
   }
 
+  enterEnvironment(unitId: string, config: Record<string, unknown> = {}): boolean {
+    return this.dEnterEnvironment(unitId, config);
+  }
+
   dManageLifecycle(unitId: string, config: Record<string, unknown>): number | null {
     return this.requireRuntime().d_manage_lifecycle_wasm(unitId, config);
   }
 
   dPersistState(unitId: string, config: Record<string, unknown>): boolean {
     return this.requireRuntime().d_persist_state_wasm(unitId, config);
+  }
+
+  persistState(unitId: string, config: Record<string, unknown> = {}): boolean {
+    return this.dPersistState(unitId, config);
   }
 
   kEnforce(unitId: string, config: Record<string, unknown>): PolicyDecision {

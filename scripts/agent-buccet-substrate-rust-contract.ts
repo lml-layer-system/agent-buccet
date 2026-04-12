@@ -64,6 +64,12 @@ async function main() {
   assert.equal(adapterExists, true, "expected Buccet TypeScript adapter for the Rust substrate");
   const dtsPath = path.join(crateRoot, "pkg", "buccet_substrate.d.ts");
   const dtsSource = await fs.readFile(dtsPath, "utf8");
+  const exportedFunctionCount = [...dtsSource.matchAll(/^export function /gm)].length;
+  assert.equal(
+    exportedFunctionCount,
+    18,
+    `expected vendored wasm pkg to expose 18 functions, got ${exportedFunctionCount}`,
+  );
   assert.equal(
     dtsSource.includes("d_enter_environment_wasm"),
     true,
@@ -78,8 +84,14 @@ async function main() {
     import { createBoundaryGravityService } from ${JSON.stringify(new URL("../lib/agent-buccet/gravity-adapter/gravity-service.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
     import { createBoundaryActionRequest } from ${JSON.stringify(new URL("../lib/agent-buccet/bodyguard.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
     await substrate.init();
-    const isolation = substrate.dApplyIsolation("unit-1", {});
-    const enteredEnvironment = substrate.dEnterEnvironment("unit-1", {
+    const isolation = substrate.applyIsolation("unit-1");
+    const persistedState = substrate.persistState("unit-1", {
+      base_dir: "/tmp/buccet-rootfs",
+      upper_dir: "/tmp/buccet-upper",
+      work_dir: "/tmp/buccet-work",
+      merged_dir: "/tmp/buccet-merged",
+    });
+    const enteredEnvironment = substrate.enterEnvironment("unit-1", {
       rootfs: "/tmp/buccet-rootfs",
       workdir: "/workspace",
     });
@@ -160,6 +172,7 @@ async function main() {
     console.log(JSON.stringify({
       ready: substrate.ready,
       active: isolation.active,
+      persistedState,
       enteredEnvironment,
       decision,
       trust,
@@ -177,6 +190,7 @@ async function main() {
   const loaderPayload = JSON.parse(loaderResult.stdout.trim()) as {
     ready: boolean;
     active: boolean;
+    persistedState: boolean;
     enteredEnvironment: boolean;
     decision: string;
     trust: string;
@@ -185,6 +199,7 @@ async function main() {
     gravityOutcome: string;
   };
   assert.equal(loaderPayload.ready, true);
+  assert.equal(loaderPayload.persistedState, true);
   assert.equal(loaderPayload.enteredEnvironment, true);
   assert.equal(loaderPayload.decision, loaderPayload.deny);
   assert.equal(loaderPayload.trust, "vault");
@@ -194,8 +209,9 @@ async function main() {
   console.log("Agent Buccet substrate rust contract");
   console.log("  vendored crate: present");
   console.log("  native cargo build: ok");
-  console.log("  wasm pkg: present");
+  console.log(`  wasm pkg: present (${exportedFunctionCount} exports)`);
   console.log("  typescript adapter: ok");
+  console.log("  portability chain: applyIsolation -> persistState -> enterEnvironment");
   console.log("  live runtime cutover: active");
 }
 

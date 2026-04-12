@@ -18,6 +18,14 @@ What it is for:
 - Buccet-owned adapter at `lib/agent-buccet/substrate-rust.ts`
 - a portable bounded substrate surface for moving working demos and runtime behavior between machines without dragging Docker-scale runtime bloat into Buccet
 
+Portable runtime chain:
+
+1. `applyIsolation` = bounded namespace shell
+2. `persistState` = overlay and writable layer
+3. `enterEnvironment` = pivot into the merged root so the workload stops seeing the host filesystem as `/`
+
+That third step is what turns "isolated plus mounted" into "actually portable runtime body".
+
 What it is not:
 
 - it is not turning the whole Buccet runtime into pure Rust

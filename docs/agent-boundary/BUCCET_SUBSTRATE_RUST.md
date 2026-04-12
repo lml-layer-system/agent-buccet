@@ -58,7 +58,28 @@ lib/agent-buccet/substrate-rust.ts
 ```
 
 The adapter wraps the generated exports and exposes a `BuccetSubstrate` class plus the shared `substrate` singleton.
-The current vendored package includes the environment-entry primitive `d_enter_environment_wasm`, which is exposed in Buccet as `dEnterEnvironment(...)`.
+The current vendored package exposes 18 functions total.
+The missing portability step is now present too: `d_enter_environment_wasm`, exposed in Buccet as `enterEnvironment(...)`.
+
+## Portable Runtime Chain
+
+Docker-style portability is three steps, not two:
+
+1. `applyIsolation(...)` creates the bounded namespace shell.
+2. `persistState(...)` mounts the portable overlay and writable layer.
+3. `enterEnvironment(...)` pivots the workload into that merged root so host `/usr`, `/bin`, and `/lib` are no longer the live runtime surface.
+
+Without step 3, a process can still see the host body.
+With step 3, Buccet has an actual portable bounded runtime root.
+
+TypeScript shape:
+
+```ts
+await substrate.init();
+substrate.applyIsolation("unit-1");
+substrate.persistState("unit-1", { base_dir: "/images/my-app" });
+substrate.enterEnvironment("unit-1");
+```
 
 Node note:
 
@@ -98,6 +119,7 @@ That contract proves:
 
 - the vendored crate files are present
 - the crate still builds from inside this repo
+- the vendored WASM package exposes 18 functions
 - the vendored WASM package is synchronized into the repo
-- the environment-entry primitive is exposed through Buccet's adapter
+- the portability chain is exposed through Buccet's adapter
 - the substrate is not just copied in name only
