@@ -54,6 +54,8 @@ If you control the action boundary, you control every agent stack above it on th
 In Buccet, that live rulebook becomes the standing skill surface.
 There is no separate recursive skill registry above it.
 
+Agent Buccet provides the *brakes* and runtime enforcement against AI failure modes. These failures are systematically mapped as the "spec" in the [AI Failure Periodic Table](https://github.com/lml-layer-system/ai-failure-periodic-table).
+
 ## What You Get
 
 - one live rulebook built from allowed rules and blocked rules
