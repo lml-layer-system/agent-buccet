@@ -61,6 +61,7 @@ There is no separate recursive skill registry above it.
 - reusable workflows for repeatable safe work
 - attached context for each workflow without widening permission
 - interactive and headless modes on the same control body
+- one repo-owned Rust/WASM substrate that carries portable bounded runtime behavior across machines without Docker-scale bloat
 - durable audit trail from first proposal to final consequence
 
 ## Fast Start

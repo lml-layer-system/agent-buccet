@@ -14,6 +14,7 @@ This is the D/K/Q fused surface:
 
 It contains the native and WASM build targets for the vendored substrate crate.
 It also now carries the built `pkg/` WASM bundle and a Buccet-owned TypeScript adapter.
+That means Buccet can carry a portable bounded runtime surface across machines in the same way teams used Docker for "works here, works there" transport, but without inheriting Docker's full runtime bloat or dropping Buccet's law/ledger/governor stack.
 
 ## What It Means
 
@@ -23,16 +24,17 @@ The crate is part of the Agent Buccet repo now so the system can:
 
 - keep the fused substrate under the same version control as the live runtime
 - build native Rust artifacts from the same repo surface
-- build a WASM target for future TypeScript-side consumption
+- build and vendor a WASM target for Buccet-side consumption
+- carry portable bounded demos, workloads, and runtime behavior between machines through the same Buccet substrate surface
 - keep D/K/Q lineage visible and auditable inside Buccet itself
 
 ## What It Does Not Mean
 
-This pass does **not** swap the current live TypeScript runtime over to the Rust crate.
+This does **not** mean the whole Buccet runtime is pure Rust.
 
-That would be a runtime replacement and needs a separate parity pass.
+TypeScript still carries orchestration, ledger, and higher-layer runtime glue.
 
-What this pass closes is the repo/system split:
+What this closes is the repo/system split and makes the lower substrate a real first-class Buccet transport surface:
 
 - the substrate is now inside the Buccet repo
 - the build surface is repo-owned
@@ -56,6 +58,7 @@ lib/agent-buccet/substrate-rust.ts
 ```
 
 The adapter wraps the generated exports and exposes a `BuccetSubstrate` class plus the shared `substrate` singleton.
+The current vendored package includes the environment-entry primitive `d_enter_environment_wasm`, which is exposed in Buccet as `dEnterEnvironment(...)`.
 
 Node note:
 
@@ -95,4 +98,6 @@ That contract proves:
 
 - the vendored crate files are present
 - the crate still builds from inside this repo
+- the vendored WASM package is synchronized into the repo
+- the environment-entry primitive is exposed through Buccet's adapter
 - the substrate is not just copied in name only

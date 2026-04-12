@@ -17,6 +17,14 @@ export function d_enforce_contract_wasm(unit_id: string, config: any): boolean;
 export function d_enforce_resource_limit_wasm(unit_id: string, config: any, limits: any): boolean;
 
 /**
+ * D:ENVIRONMENT — enter frozen environment via pivot_root.
+ * Native: calls pivot_root(2) + MNT_DETACH umount — requires CAP_SYS_ADMIN + CLONE_NEWNS.
+ * WASM: path validation only, pivot_root deferred to native runtime.
+ * Call AFTER d_apply_isolation + d_persist_state.
+ */
+export function d_enter_environment_wasm(unit_id: string, config: any): boolean;
+
+/**
  * Returns pid (f64) on "start" or alive "status", null otherwise.
  * Store the pid and pass as config._pid for stop/status calls.
  */

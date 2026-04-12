@@ -35,6 +35,7 @@ type RawBuccetSubstrateModule = {
   d_control_network_wasm(unit_id: string, config: unknown): boolean;
   d_enforce_contract_wasm(unit_id: string, config: unknown): boolean;
   d_enforce_resource_limit_wasm(unit_id: string, config: unknown, limits: unknown): boolean;
+  d_enter_environment_wasm(unit_id: string, config: unknown): boolean;
   d_manage_lifecycle_wasm(unit_id: string, config: unknown): number | null;
   d_persist_state_wasm(unit_id: string, config: unknown): boolean;
   k_enforce_wasm(unit_id: string, config: unknown): PolicyDecision | keyof typeof PolicyDecision | string;
@@ -148,6 +149,10 @@ export class BuccetSubstrate {
 
   dEnforceResourceLimit(unitId: string, config: Record<string, unknown>, limits: Record<string, unknown>): boolean {
     return this.requireRuntime().d_enforce_resource_limit_wasm(unitId, config, limits);
+  }
+
+  dEnterEnvironment(unitId: string, config: Record<string, unknown>): boolean {
+    return this.requireRuntime().d_enter_environment_wasm(unitId, config);
   }
 
   dManageLifecycle(unitId: string, config: Record<string, unknown>): number | null {

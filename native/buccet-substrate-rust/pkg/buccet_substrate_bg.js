@@ -51,6 +51,22 @@ export function d_enforce_resource_limit_wasm(unit_id, config, limits) {
 }
 
 /**
+ * D:ENVIRONMENT — enter frozen environment via pivot_root.
+ * Native: calls pivot_root(2) + MNT_DETACH umount — requires CAP_SYS_ADMIN + CLONE_NEWNS.
+ * WASM: path validation only, pivot_root deferred to native runtime.
+ * Call AFTER d_apply_isolation + d_persist_state.
+ * @param {string} unit_id
+ * @param {any} config
+ * @returns {boolean}
+ */
+export function d_enter_environment_wasm(unit_id, config) {
+    const ptr0 = passStringToWasm0(unit_id, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+    const len0 = WASM_VECTOR_LEN;
+    const ret = wasm.d_enter_environment_wasm(ptr0, len0, config);
+    return ret !== 0;
+}
+
+/**
  * Returns pid (f64) on "start" or alive "status", null otherwise.
  * Store the pid and pass as config._pid for stop/status calls.
  * @param {string} unit_id

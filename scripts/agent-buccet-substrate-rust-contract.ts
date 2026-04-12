@@ -62,6 +62,13 @@ async function main() {
   const adapterPath = path.join(repoRoot, "lib", "agent-buccet", "substrate-rust.ts");
   const adapterExists = await fs.access(adapterPath).then(() => true).catch(() => false);
   assert.equal(adapterExists, true, "expected Buccet TypeScript adapter for the Rust substrate");
+  const dtsPath = path.join(crateRoot, "pkg", "buccet_substrate.d.ts");
+  const dtsSource = await fs.readFile(dtsPath, "utf8");
+  assert.equal(
+    dtsSource.includes("d_enter_environment_wasm"),
+    true,
+    "expected vendored wasm pkg to expose d_enter_environment_wasm",
+  );
 
   const loaderScript = `
     import { substrate, PolicyDecision } from ${JSON.stringify(new URL("../lib/agent-buccet/substrate-rust.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
@@ -72,6 +79,10 @@ async function main() {
     import { createBoundaryActionRequest } from ${JSON.stringify(new URL("../lib/agent-buccet/bodyguard.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
     await substrate.init();
     const isolation = substrate.dApplyIsolation("unit-1", {});
+    const enteredEnvironment = substrate.dEnterEnvironment("unit-1", {
+      rootfs: "/tmp/buccet-rootfs",
+      workdir: "/workspace",
+    });
     const decision = substrate.enforce("agent-1", {
       subject: "agent",
       action: "write",
@@ -149,6 +160,7 @@ async function main() {
     console.log(JSON.stringify({
       ready: substrate.ready,
       active: isolation.active,
+      enteredEnvironment,
       decision,
       trust,
       deny: PolicyDecision.Deny,
@@ -165,6 +177,7 @@ async function main() {
   const loaderPayload = JSON.parse(loaderResult.stdout.trim()) as {
     ready: boolean;
     active: boolean;
+    enteredEnvironment: boolean;
     decision: string;
     trust: string;
     deny: string;
@@ -172,6 +185,7 @@ async function main() {
     gravityOutcome: string;
   };
   assert.equal(loaderPayload.ready, true);
+  assert.equal(loaderPayload.enteredEnvironment, true);
   assert.equal(loaderPayload.decision, loaderPayload.deny);
   assert.equal(loaderPayload.trust, "vault");
   assert.equal(loaderPayload.interceptDecision, "deny");
