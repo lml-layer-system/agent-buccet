@@ -88,6 +88,7 @@ function normalizePolicyDecision(raw: PolicyDecision | keyof typeof PolicyDecisi
 
 export class BuccetSubstrate {
   private runtime: RawBuccetSubstrateModule | null = null;
+  private runtimePromise: Promise<this> | null = null;
 
   get ready(): boolean {
     return this.runtime !== null;
@@ -97,21 +98,33 @@ export class BuccetSubstrate {
     if (this.runtime) {
       return this;
     }
-
-    const { bgModuleUrl, wasmUrl } = await resolveSubstrateAssetUrls();
-    const bootstrap = await import(bgModuleUrl.href) as RawBuccetSubstrateBootstrapModule;
-    const wasmBytes = await fs.readFile(wasmUrl);
-    const compiled = await WebAssembly.compile(wasmBytes);
-    const instance = await WebAssembly.instantiate(compiled, {
-      "./buccet_substrate_bg.js": bootstrap as unknown as WebAssembly.ModuleImports,
-    });
-    bootstrap.__wbg_set_wasm(instance.exports);
-    const start = instance.exports.__wbindgen_start;
-    if (typeof start === "function") {
-      start();
+    if (this.runtimePromise) {
+      return this.runtimePromise;
     }
-    this.runtime = bootstrap;
-    return this;
+
+    this.runtimePromise = (async () => {
+      const { bgModuleUrl, wasmUrl } = await resolveSubstrateAssetUrls();
+      const bootstrap = await import(bgModuleUrl.href) as RawBuccetSubstrateBootstrapModule;
+      const wasmBytes = await fs.readFile(wasmUrl);
+      const compiled = await WebAssembly.compile(wasmBytes);
+      const instance = await WebAssembly.instantiate(compiled, {
+        "./buccet_substrate_bg.js": bootstrap as unknown as WebAssembly.ModuleImports,
+      });
+      bootstrap.__wbg_set_wasm(instance.exports);
+      const start = instance.exports.__wbindgen_start;
+      if (typeof start === "function") {
+        start();
+      }
+      this.runtime = bootstrap;
+      return this;
+    })();
+
+    try {
+      return await this.runtimePromise;
+    } catch (error) {
+      this.runtimePromise = null;
+      throw error;
+    }
   }
 
   private requireRuntime(): RawBuccetSubstrateModule {
