@@ -79,6 +79,36 @@ Install the runtime, initialize the machine, then open the Buccet operator cockp
 
 `buccet console` is the point where your terminal becomes Agent Buccet's working control surface.
 
+## Portable Transport
+
+Buccet can now package a bounded workload and move it between machines through its own transport surface.
+
+Pack a portable app tree:
+
+```bash
+buccet transport pack ./demo --output demo.buccet.tgz -- node index.mjs
+```
+
+Import it somewhere else:
+
+```bash
+buccet transport import demo.buccet.tgz --into ./demo-portable
+```
+
+Run it from the packaged root:
+
+```bash
+buccet transport run demo.buccet.tgz
+```
+
+That flow sits on top of the Buccet substrate portability chain:
+
+- `applyIsolation`
+- `persistState`
+- `enterEnvironment`
+
+So the user-facing transport story is now inside Buccet too, not only in the lower Rust/WASM substrate.
+
 ## What Boundaries Buccet Actually Governs
 
 Buccet is not one vague safety layer.

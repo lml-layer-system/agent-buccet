@@ -112,6 +112,7 @@
     "test:agent-buccet:artifact-hygiene": "node scripts/agent-buccet-artifact-hygiene-contract.ts",
     "test:agent-buccet:system-substrate": "node scripts/agent-buccet-system-substrate-contract.ts",
     "test:agent-buccet:substrate-rust": "node scripts/agent-buccet-substrate-rust-contract.ts",
+    "test:agent-buccet:transport": "node scripts/agent-buccet-transport-contract.ts",
     "test:agent-buccet:full-system-body": "node scripts/agent-buccet-full-system-body-contract.ts",
     "test:agent-buccet:path-memory": "node scripts/agent-buccet-path-memory-contract.ts",
     "test:agent-buccet:release-surface": "node scripts/agent-buccet-release-surface-contract.ts",

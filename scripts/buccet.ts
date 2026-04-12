@@ -91,6 +91,43 @@ type SourceIntakeDoc = {
   mode: "template" | "raw_markdown";
 };
 
+type BuccetTransportManifest = {
+  schemaVersion: 1;
+  kind: "buccet_transport";
+  name: string;
+  createdAt: string;
+  rootfsDir: "rootfs";
+  workdir: string;
+  entrypoint: string[];
+  fileCount: number;
+  portabilityChain: ["applyIsolation", "persistState", "enterEnvironment"];
+};
+
+type BuccetTransportPackResult = {
+  artifactPath: string;
+  manifest: BuccetTransportManifest;
+  sourceDir: string;
+};
+
+type BuccetTransportImportResult = {
+  destinationDir: string;
+  manifest: BuccetTransportManifest;
+  rootfsPath: string;
+};
+
+type BuccetTransportRunResult = {
+  artifactInput: string;
+  manifest: BuccetTransportManifest;
+  runtimeDir: string;
+  launchCwd: string;
+  command: string[];
+  isolationActive: boolean;
+  persistedState: boolean;
+  enteredEnvironment: boolean;
+  exitCode: number;
+  cleanedUpRuntime: boolean;
+};
+
 type ParsedUplSelection = {
   ids: string[];
   queryTerms: string[];
@@ -155,6 +192,10 @@ function usage(): never {
     "  buccet path close <path-name|formation-id> [--json]",
     "  buccet path sources add <path-name> <file...> [--domain <domain>] [--json]",
     "  buccet path sources list <path-name> [--json]",
+    "  buccet transport pack <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--json] [-- <entrypoint> ...]",
+    "  buccet transport export <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--json] [-- <entrypoint> ...]",
+    "  buccet transport import <artifact.buccet.tgz> [--into <dir>] [--json]",
+    "  buccet transport run <artifact-or-dir> [--into <runtime-dir>] [--unit-id <id>] [--json] [-- <command> ...]",
     "  buccet hook build",
     "  buccet hook start",
     "  buccet hook status [--json] [--watch]                     — optional split shield / heartbeat view",
@@ -1638,6 +1679,294 @@ async function compilePathSourcesFromFiles(args: {
     });
   }
   return sources;
+}
+
+const BUCCET_TRANSPORT_MANIFEST = "buccet-transport.json";
+
+function normalizeTransportWorkdir(raw: string | undefined): string {
+  const normalized = (raw ?? "/").trim();
+  if (!normalized || normalized === ".") {
+    return "/";
+  }
+  return normalized.startsWith("/") ? normalized : `/${normalized}`;
+}
+
+function defaultTransportArtifactPath(sourceDir: string): string {
+  const base = path.basename(path.resolve(sourceDir)).replace(/[^a-zA-Z0-9._-]+/g, "-") || "artifact";
+  return path.join(resolveCallerCwd(), `${base}.buccet.tgz`);
+}
+
+function defaultTransportImportDir(artifactPath: string): string {
+  const base = path.basename(path.resolve(artifactPath))
+    .replace(/\.buccet\.tgz$/i, "")
+    .replace(/\.tar\.gz$/i, "")
+    .replace(/\.tgz$/i, "")
+    || "artifact";
+  return path.join(resolveCallerCwd(), base);
+}
+
+function transportManifestPath(rootDir: string): string {
+  return path.join(rootDir, BUCCET_TRANSPORT_MANIFEST);
+}
+
+function isTransportArchive(targetPath: string): boolean {
+  return /\.(?:buccet\.tgz|tar\.gz|tgz)$/i.test(targetPath);
+}
+
+async function countFilesRecursively(rootDir: string): Promise<number> {
+  const stats = await fs.stat(rootDir);
+  if (!stats.isDirectory()) {
+    return 1;
+  }
+  let count = 0;
+  const entries = await fs.readdir(rootDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const child = path.join(rootDir, entry.name);
+    if (entry.isDirectory()) {
+      count += await countFilesRecursively(child);
+      continue;
+    }
+    if (entry.isFile() || entry.isSymbolicLink()) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+async function ensureDirectoryMissingOrEmpty(targetDir: string): Promise<void> {
+  const exists = await pathExists(targetDir);
+  if (!exists) {
+    return;
+  }
+  const entries = await fs.readdir(targetDir);
+  if (entries.length > 0) {
+    throw new Error(`destination directory must be empty: ${targetDir}`);
+  }
+}
+
+async function tarCreate(args: {
+  sourceDir: string;
+  outputPath: string;
+}): Promise<void> {
+  await ensureDir(path.dirname(args.outputPath));
+  const result = await runSubprocess({
+    command: "tar",
+    args: ["-czf", args.outputPath, "-C", args.sourceDir, "."],
+  });
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || `tar create failed for ${args.outputPath}`);
+  }
+}
+
+async function tarExtract(args: {
+  artifactPath: string;
+  destinationDir: string;
+}): Promise<void> {
+  await ensureDir(args.destinationDir);
+  const result = await runSubprocess({
+    command: "tar",
+    args: ["-xzf", args.artifactPath, "-C", args.destinationDir],
+  });
+  if (result.code !== 0) {
+    throw new Error(result.stderr.trim() || `tar extract failed for ${args.artifactPath}`);
+  }
+}
+
+async function loadTransportManifest(rootDir: string): Promise<BuccetTransportManifest> {
+  const manifest = await readJsonIfExists<BuccetTransportManifest>(transportManifestPath(rootDir));
+  if (!manifest || manifest.kind !== "buccet_transport" || manifest.schemaVersion !== 1) {
+    throw new Error(`invalid Buccet transport manifest in ${rootDir}`);
+  }
+  if (manifest.rootfsDir !== "rootfs") {
+    throw new Error(`unsupported transport rootfs layout in ${rootDir}`);
+  }
+  return manifest;
+}
+
+function resolveTransportLaunchCwd(rootfsPath: string, workdir: string): string {
+  const relative = workdir === "/" ? "." : workdir.replace(/^\/+/, "");
+  const launchCwd = path.resolve(rootfsPath, relative);
+  const relativeToRoot = path.relative(rootfsPath, launchCwd);
+  if (relativeToRoot.startsWith("..") || path.isAbsolute(relativeToRoot)) {
+    throw new Error(`transport workdir escapes packaged rootfs: ${workdir}`);
+  }
+  return launchCwd;
+}
+
+async function packBuccetTransportArtifact(args: {
+  sourceDir: string;
+  outputPath: string;
+  name?: string;
+  workdir?: string;
+  entrypoint?: string[];
+}): Promise<BuccetTransportPackResult> {
+  const sourceDir = path.resolve(args.sourceDir);
+  const sourceStats = await fs.stat(sourceDir).catch(() => null);
+  if (!sourceStats?.isDirectory()) {
+    throw new Error(`transport source directory not found: ${sourceDir}`);
+  }
+
+  const stagingDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-transport-pack-"));
+  const stagingRootfs = path.join(stagingDir, "rootfs");
+  try {
+    await fs.cp(sourceDir, stagingRootfs, { recursive: true });
+    const manifest: BuccetTransportManifest = {
+      schemaVersion: 1,
+      kind: "buccet_transport",
+      name: (args.name?.trim() || path.basename(sourceDir)).trim(),
+      createdAt: new Date().toISOString(),
+      rootfsDir: "rootfs",
+      workdir: normalizeTransportWorkdir(args.workdir),
+      entrypoint: args.entrypoint ?? [],
+      fileCount: await countFilesRecursively(stagingRootfs),
+      portabilityChain: ["applyIsolation", "persistState", "enterEnvironment"],
+    };
+    await fs.writeFile(transportManifestPath(stagingDir), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    const artifactPath = path.resolve(args.outputPath);
+    await tarCreate({
+      sourceDir: stagingDir,
+      outputPath: artifactPath,
+    });
+    return {
+      artifactPath,
+      manifest,
+      sourceDir,
+    };
+  } finally {
+    await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+async function importBuccetTransportArtifact(args: {
+  artifactPath: string;
+  destinationDir: string;
+}): Promise<BuccetTransportImportResult> {
+  const artifactPath = path.resolve(args.artifactPath);
+  if (!isTransportArchive(artifactPath)) {
+    throw new Error(`transport artifact must be a .buccet.tgz or .tar.gz file: ${artifactPath}`);
+  }
+  const exists = await pathExists(artifactPath);
+  if (!exists) {
+    throw new Error(`transport artifact not found: ${artifactPath}`);
+  }
+
+  const destinationDir = path.resolve(args.destinationDir);
+  await ensureDirectoryMissingOrEmpty(destinationDir);
+  await tarExtract({
+    artifactPath,
+    destinationDir,
+  });
+
+  const manifest = await loadTransportManifest(destinationDir);
+  const rootfsPath = path.join(destinationDir, manifest.rootfsDir);
+  const rootfsExists = await pathExists(rootfsPath);
+  if (!rootfsExists) {
+    throw new Error(`transport artifact missing packaged rootfs: ${rootfsPath}`);
+  }
+  return {
+    destinationDir,
+    manifest,
+    rootfsPath,
+  };
+}
+
+async function runBuccetTransport(args: {
+  artifactOrDir: string;
+  runtimeDir?: string;
+  unitId: string;
+  command?: string[];
+}): Promise<BuccetTransportRunResult> {
+  const artifactInput = path.resolve(args.artifactOrDir);
+  const runtimeProvided = Boolean(args.runtimeDir);
+  const runtimeDir = path.resolve(
+    args.runtimeDir
+      ?? await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-transport-run-")),
+  );
+  const transportRoot = isTransportArchive(artifactInput)
+    ? runtimeDir
+    : artifactInput;
+
+  if (isTransportArchive(artifactInput)) {
+    await ensureDirectoryMissingOrEmpty(runtimeDir);
+    await tarExtract({
+      artifactPath: artifactInput,
+      destinationDir: runtimeDir,
+    });
+  }
+
+  const manifest = await loadTransportManifest(transportRoot);
+  const rootfsPath = path.join(transportRoot, manifest.rootfsDir);
+  const rootfsStats = await fs.stat(rootfsPath).catch(() => null);
+  if (!rootfsStats?.isDirectory()) {
+    throw new Error(`transport rootfs missing: ${rootfsPath}`);
+  }
+
+  const homePath = resolveHome();
+  const boundary = await importBoundary(homePath);
+  await boundary.substrate.init();
+
+  const substrateStateDir = path.join(runtimeDir, ".buccet-substrate");
+  const upperDir = path.join(substrateStateDir, "upper");
+  const workDir = path.join(substrateStateDir, "work");
+  const mergedDir = path.join(substrateStateDir, "merged");
+  await ensureDir(substrateStateDir);
+
+  const isolation = boundary.substrate.applyIsolation(args.unitId, {
+    namespace_flags: 0x64020000,
+  });
+  const persistedState = boundary.substrate.persistState(args.unitId, {
+    lower: rootfsPath,
+    upper: upperDir,
+    work: workDir,
+    merged: mergedDir,
+  });
+  const enteredEnvironment = boundary.substrate.enterEnvironment(args.unitId, {
+    rootfs: rootfsPath,
+    workdir: manifest.workdir,
+    merged_dir: mergedDir,
+  });
+
+  const command = args.command && args.command.length > 0
+    ? args.command
+    : manifest.entrypoint;
+  if (command.length === 0) {
+    throw new Error("transport artifact has no entrypoint. Pass an override command after `--`.");
+  }
+
+  const launchCwd = resolveTransportLaunchCwd(rootfsPath, manifest.workdir);
+  const child = spawn(command[0], command.slice(1), {
+    cwd: launchCwd,
+    env: {
+      ...process.env,
+      BUCCET_TRANSPORT_ROOTFS: rootfsPath,
+      BUCCET_TRANSPORT_RUNTIME: runtimeDir,
+      BUCCET_TRANSPORT_NAME: manifest.name,
+    },
+    stdio: "inherit",
+  });
+
+  const exitCode = await new Promise<number>((resolve, reject) => {
+    child.on("error", reject);
+    child.on("close", (code) => resolve(code ?? 1));
+  });
+
+  const cleanedUpRuntime = !runtimeProvided && isTransportArchive(artifactInput);
+  if (cleanedUpRuntime) {
+    await fs.rm(runtimeDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+
+  return {
+    artifactInput,
+    manifest,
+    runtimeDir,
+    launchCwd,
+    command,
+    isolationActive: isolation.active,
+    persistedState,
+    enteredEnvironment,
+    exitCode,
+    cleanedUpRuntime,
+  };
 }
 
 async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
@@ -4450,6 +4779,164 @@ async function handleRun(rest: string[]) {
   process.exitCode = runResult.exitCode;
 }
 
+async function handleTransport(rest: string[]) {
+  const subcommand = rest[0];
+  const callerCwd = resolveCallerCwd();
+  if (!subcommand) {
+    usage();
+  }
+
+  if (subcommand === "pack" || subcommand === "export") {
+    const sourceDir = rest[1] ? path.resolve(callerCwd, rest[1]) : usage();
+    const separatorIndex = rest.indexOf("--");
+    const optionArgs = separatorIndex === -1 ? rest.slice(2) : rest.slice(2, separatorIndex);
+    const entrypoint = separatorIndex === -1 ? [] : rest.slice(separatorIndex + 1);
+
+    let outputPath = defaultTransportArtifactPath(sourceDir);
+    let name: string | undefined;
+    let workdir = "/";
+    let asJson = false;
+
+    for (let index = 0; index < optionArgs.length; index += 1) {
+      const token = optionArgs[index];
+      if (token === "--output") {
+        outputPath = path.resolve(callerCwd, optionArgs[index + 1] ?? usage());
+        index += 1;
+        continue;
+      }
+      if (token === "--name") {
+        name = optionArgs[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--workdir") {
+        workdir = optionArgs[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        asJson = true;
+        continue;
+      }
+      usage();
+    }
+
+    const result = await packBuccetTransportArtifact({
+      sourceDir,
+      outputPath,
+      name,
+      workdir,
+      entrypoint,
+    });
+
+    if (asJson) {
+      printJson(result);
+      return;
+    }
+
+    console.log(`Buccet transport ${subcommand}`);
+    console.log(`source: ${result.sourceDir}`);
+    console.log(`artifact: ${result.artifactPath}`);
+    console.log(`name: ${result.manifest.name}`);
+    console.log(`workdir: ${result.manifest.workdir}`);
+    console.log(`files: ${result.manifest.fileCount}`);
+    console.log(`entrypoint: ${result.manifest.entrypoint.length > 0 ? result.manifest.entrypoint.join(" ") : "(none)"}`);
+    return;
+  }
+
+  if (subcommand === "import") {
+    const artifactPath = rest[1] ? path.resolve(callerCwd, rest[1]) : usage();
+    let destinationDir = defaultTransportImportDir(artifactPath);
+    let asJson = false;
+
+    for (let index = 2; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--into") {
+        destinationDir = path.resolve(callerCwd, rest[index + 1] ?? usage());
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        asJson = true;
+        continue;
+      }
+      usage();
+    }
+
+    const result = await importBuccetTransportArtifact({
+      artifactPath,
+      destinationDir,
+    });
+
+    if (asJson) {
+      printJson(result);
+      return;
+    }
+
+    console.log(`Buccet transport import`);
+    console.log(`artifact: ${artifactPath}`);
+    console.log(`destination: ${result.destinationDir}`);
+    console.log(`rootfs: ${result.rootfsPath}`);
+    console.log(`name: ${result.manifest.name}`);
+    return;
+  }
+
+  if (subcommand === "run") {
+    const artifactOrDir = rest[1] ? path.resolve(callerCwd, rest[1]) : usage();
+    const separatorIndex = rest.indexOf("--");
+    const optionArgs = separatorIndex === -1 ? rest.slice(2) : rest.slice(2, separatorIndex);
+    const command = separatorIndex === -1 ? [] : rest.slice(separatorIndex + 1);
+    let runtimeDir: string | undefined;
+    let unitId = `transport-${Date.now()}`;
+    let asJson = false;
+
+    for (let index = 0; index < optionArgs.length; index += 1) {
+      const token = optionArgs[index];
+      if (token === "--into") {
+        runtimeDir = path.resolve(callerCwd, optionArgs[index + 1] ?? usage());
+        index += 1;
+        continue;
+      }
+      if (token === "--unit-id") {
+        unitId = optionArgs[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        asJson = true;
+        continue;
+      }
+      usage();
+    }
+
+    const result = await runBuccetTransport({
+      artifactOrDir,
+      runtimeDir,
+      unitId,
+      command,
+    });
+
+    if (asJson) {
+      printJson(result);
+    } else {
+      console.log(`Buccet transport run`);
+      console.log(`name: ${result.manifest.name}`);
+      console.log(`runtime: ${result.runtimeDir}`);
+      console.log(`cwd: ${result.launchCwd}`);
+      console.log(`command: ${result.command.join(" ")}`);
+      console.log(`isolation active: ${result.isolationActive ? "yes" : "deferred"}`);
+      console.log(`persisted state: ${result.persistedState ? "yes" : "no"}`);
+      console.log(`entered environment: ${result.enteredEnvironment ? "yes" : "no"}`);
+      console.log(`exit code: ${result.exitCode}`);
+    }
+
+    process.exitCode = result.exitCode;
+    return;
+  }
+
+  usage();
+}
+
 async function handleUninstall() {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
@@ -6117,6 +6604,10 @@ async function main() {
   }
   if (parsed.command === "run") {
     await handleRun(parsed.rest);
+    return;
+  }
+  if (parsed.command === "transport") {
+    await handleTransport(parsed.rest);
     return;
   }
   if (parsed.command === "hook") {
