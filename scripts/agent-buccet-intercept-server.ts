@@ -5,13 +5,17 @@ import readline from "node:readline";
 import {
   allowIngressAsLaw,
   allowIngressOnce,
+  createBoundaryActionRequest,
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
   createBoundarySwarmCoordinator,
   daemonRequestId,
   denyIngressOnce,
   denyIngressAsLaw,
+  lookupUserPathDecision,
+  mapInterceptToBoundaryAction,
   restoreBoundaryRuntimeStore,
+  type BoundaryRuntimeStore,
   type BoundaryInterceptApprovalMode,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
@@ -136,13 +140,13 @@ function writeGravityDecision(socket: net.Socket, output: BoundaryInterceptDaemo
 
 async function evaluateGravityPayloadWithSwarm(args: {
   payload: BoundaryGravityFunnelPayload;
-  swarm: ReturnType<typeof createBoundarySwarmCoordinator>;
+  evaluateRequest: (request: BoundaryInterceptRequest) => Promise<BoundaryInterceptResult>;
 }): Promise<BoundaryInterceptResult> {
   const requests = mapBoundaryGravityFunnelPayloadToInterceptRequests(args.payload);
   let lastResult: BoundaryInterceptResult | null = null;
 
   for (const request of requests) {
-    lastResult = await args.swarm.evaluateOrWait(request);
+    lastResult = await args.evaluateRequest(request);
     if (lastResult.decision !== "allow") {
       return lastResult;
     }
@@ -153,6 +157,62 @@ async function evaluateGravityPayloadWithSwarm(args: {
   }
 
   return lastResult;
+}
+
+function normalizeStandingLawTarget(request: BoundaryInterceptRequest): string {
+  return request.actionClass === "file" ? request.target : request.target.trim();
+}
+
+function standingLawReason(notes: string | null | undefined, fallback: string): string {
+  const trimmed = notes?.trim();
+  return trimmed ? `standing-law: ${trimmed}` : fallback;
+}
+
+async function evaluateRequestWithMode(args: {
+  approvalMode: BoundaryInterceptApprovalMode;
+  request: BoundaryInterceptRequest;
+  store: BoundaryRuntimeStore;
+  swarm: ReturnType<typeof createBoundarySwarmCoordinator>;
+}): Promise<BoundaryInterceptResult> {
+  if (args.approvalMode !== "standing_law") {
+    return args.swarm.evaluateOrWait(args.request);
+  }
+  if (args.request.admission) {
+    return args.swarm.evaluateOrWait(args.request);
+  }
+
+  const config = await args.store.hydrate();
+  const boundaryRequest = createBoundaryActionRequest({
+    config,
+    actionKind: mapInterceptToBoundaryAction(args.request),
+    target: normalizeStandingLawTarget(args.request),
+    payloadSummary: args.request.payloadSummary,
+    provenance: args.request.provenance,
+    flags: args.request.flags,
+    reviewContext: args.request.reviewContext,
+  });
+  const exactMatch = config.upl ? lookupUserPathDecision({
+    ledger: config.upl,
+    session: config.session,
+    request: boundaryRequest,
+  }) : null;
+
+  if (exactMatch?.decision === "allow") {
+    return args.swarm.evaluateOrWait(args.request);
+  }
+
+  const result: BoundaryInterceptResult = {
+    decision: "deny",
+    reason: exactMatch
+      ? standingLawReason(exactMatch.entry.notes, "standing-law: existing UPL law denied this request")
+      : "standing-law: no standing UPL law matched this request",
+    lawIds: exactMatch ? [exactMatch.entry.id] : [],
+    bodyguardMoves: [],
+    requestId: boundaryRequest.requestId,
+    actionKind: boundaryRequest.actionKind,
+  };
+  args.swarm.rememberResolution(args.request, result);
+  return result;
 }
 
 async function main() {
@@ -516,9 +576,19 @@ async function main() {
           const result = rawGravityClient
             ? await evaluateGravityPayloadWithSwarm({
               payload: gravityPayload ?? parseBoundaryGravityFunnelPayload(trimmed),
-              swarm,
+              evaluateRequest: async (request) => evaluateRequestWithMode({
+                approvalMode,
+                request,
+                store,
+                swarm,
+              }),
             })
-            : await swarm.evaluateOrWait(parsed);
+            : await evaluateRequestWithMode({
+              approvalMode,
+              request: parsed,
+              store,
+              swarm,
+            });
 
           if (result.tarpitActive) {
             // Cheap canyon behavior for hostile ingress: drop the payload and

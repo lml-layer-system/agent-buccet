@@ -44,6 +44,11 @@ function describeTrafficEntry(entry: BoundaryUplEntry): string {
   return entry.id;
 }
 
+function standingLawReason(entry: BoundaryUplEntry, fallback: string): string {
+  const trimmed = entry.notes?.trim();
+  return trimmed ? `standing-law: ${trimmed}` : fallback;
+}
+
 export function evaluateBoundaryUplTraffic(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
@@ -62,27 +67,11 @@ export function evaluateBoundaryUplTraffic(args: {
   });
   if (exactMatch) {
     const triggeredLawIds = trafficLawIds(args.config, exactMatch.entry);
-    if (exactMatch.entry.trackConstraint) {
-      const trackViolation = checkTrackConstraint(exactMatch.entry.trackConstraint, args.request);
-      if (trackViolation && exactMatch.decision === "allow") {
-        return {
-          decision: "drift",
-          entry: exactMatch.entry,
-          reason: `action exits approved execution corridor: ${trackViolation}`,
-          triggeredLawIds,
-          trafficClass: uplTrafficClassForPolarity("allow"),
-          trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "allow" }),
-          uplTrackId: exactMatch.entry.id,
-          uplTrackViolated: true,
-        };
-      }
-    }
-
     if (exactMatch.decision === "allow") {
       return {
         decision: "allow",
         entry: exactMatch.entry,
-        reason: `allowed by standing UPL approval ${describeTrafficEntry(exactMatch.entry)}`,
+        reason: standingLawReason(exactMatch.entry, "standing-law: existing UPL law allowed this request"),
         triggeredLawIds,
         trafficClass: uplTrafficClassForPolarity("allow"),
         trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "allow" }),
@@ -93,7 +82,7 @@ export function evaluateBoundaryUplTraffic(args: {
     return {
       decision: "deny",
       entry: exactMatch.entry,
-      reason: `blocked by standing UPL denial ${describeTrafficEntry(exactMatch.entry)}`,
+      reason: standingLawReason(exactMatch.entry, "standing-law: existing UPL law denied this request"),
       triggeredLawIds,
       trafficClass: uplTrafficClassForPolarity("deny"),
       trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "deny" }),

@@ -616,5 +616,6 @@ export function createBoundarySwarmCoordinator(store: BoundaryRuntimeStore) {
     denyGroup,
     listGroups,
     resolveWaitingGroupsFromUpl,
+    rememberResolution: rememberImmediateResolution,
   };
 }

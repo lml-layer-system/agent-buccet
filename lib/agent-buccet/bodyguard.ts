@@ -16,6 +16,7 @@ import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.
 import { appendBoundaryLedger } from "./ledger.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
+import { assessBoundarySubstrateApprovalRequest } from "./substrate-live.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { inferBoundaryTimeConstraintSignals } from "./time-constraint-flags.ts";
 import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
@@ -298,6 +299,25 @@ async function requestApproval(
   approval: BoundaryApprovalRequest,
   lawIds: string[],
 ): Promise<{ approved: boolean; decision: BoundaryApprovalDecision; witnessRecord: Awaited<ReturnType<typeof appendBoundaryLedger>> }> {
+  const substrateApproval = await assessBoundarySubstrateApprovalRequest({
+    config,
+    request: approval.request,
+  });
+  if (substrateApproval.decision !== "Allow") {
+    const witnessRecord = await appendBoundaryLedger("APPROVAL_DENIED", {
+      sessionId: config.session.sessionId,
+      actorId: config.session.actorId,
+      requestId: approval.request.requestId,
+      actionKind: approval.request.actionKind,
+      target: approval.request.target,
+      decision: "deny",
+      reason: `substrate approval corridor denied request into ${substrateApproval.trustDomain}`,
+      lawIds: [...lawIds, "SUBSTRATE.APPROVAL.REQUEST.01"],
+      createdAt: new Date().toISOString(),
+    });
+    return { approved: false, decision: { choice: "deny_once" }, witnessRecord };
+  }
+
   await appendBoundaryLedger("APPROVAL_REQUESTED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,

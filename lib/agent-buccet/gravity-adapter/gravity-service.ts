@@ -18,6 +18,7 @@ import {
   ledgerBodyguardGrantOffer,
 } from "./bodyguard-open-as-law.ts";
 import { appendBoundaryLedger } from "../ledger.ts";
+import { assessBoundarySubstrateGravity } from "../substrate-live.ts";
 import { compileLiveUplField } from "../user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
@@ -231,6 +232,34 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
       return;
     }
     try {
+      const substrate = await assessBoundarySubstrateGravity({
+        config: job.config,
+        request: job.request,
+      });
+      if (!substrate.validation.passed) {
+        job.resolve({
+          outcome: "deny",
+          result: {
+            decision: "deny",
+            state: mapConfigToGravityState(job.config, {
+              sessionTraceComplete: false,
+              requestTraceComplete: false,
+            }),
+            violations: [{
+              lawId: "SUBSTRATE.K.VALIDATE.01",
+              message: substrate.validation.message || "substrate validation failed",
+              code: "substrate_validation_failed",
+            }],
+          },
+          reason: substrate.validation.message || "substrate validation failed",
+          lawIds: ["SUBSTRATE.K.VALIDATE.01"],
+          bodyguardMoves: [],
+          request: job.request,
+          config: job.config,
+        });
+        continue;
+      }
+
       const proposal = mapBoundaryRequestToGravityProposal(job.request);
       const ledger = await mapBoundaryLedgerToGravityView({
         sessionId: job.config.session.sessionId,

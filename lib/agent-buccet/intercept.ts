@@ -6,6 +6,7 @@ import {
   markCanyonLedgered,
 } from "./admission.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
+import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
 import type {
   BoundaryActionKind,
   BoundaryAdmissionState,
@@ -612,6 +613,21 @@ export async function evaluateBoundaryIntercept(args: {
       provenance: args.request.provenance,
       flags: args.request.flags,
     });
+    const substrateIntercept = await assessBoundarySubstrateIntercept({
+      config: args.config,
+      request: boundaryRequest,
+    });
+    if (substrateIntercept.decision === "Deny" && substrateIntercept.reason) {
+      return {
+        decision: "deny",
+        reason: substrateIntercept.reason,
+        lawIds: substrateIntercept.triggeredLawIds,
+        bodyguardMoves: [],
+        requestId: boundaryRequest.requestId,
+        actionKind: boundaryRequest.actionKind,
+        admissionState: nextAdmState,
+      };
+    }
 
     const adjudication = await adjudicateBoundaryRequest({
       config: args.config,
@@ -640,6 +656,20 @@ export async function evaluateBoundaryIntercept(args: {
     provenance: args.request.provenance,
     flags: args.request.flags,
   });
+  const substrateIntercept = await assessBoundarySubstrateIntercept({
+    config: args.config,
+    request: boundaryRequest,
+  });
+  if (substrateIntercept.decision === "Deny" && substrateIntercept.reason) {
+    return {
+      decision: "deny",
+      reason: substrateIntercept.reason,
+      lawIds: substrateIntercept.triggeredLawIds,
+      bodyguardMoves: [],
+      requestId: boundaryRequest.requestId,
+      actionKind: boundaryRequest.actionKind,
+    };
+  }
 
   const adjudication = await adjudicateBoundaryRequest({
     config: args.config,

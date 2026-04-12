@@ -54,14 +54,24 @@ async function pathExists(target: URL): Promise<boolean> {
   return await fs.access(target).then(() => true).catch(() => false);
 }
 
-async function resolveSubstrateModuleUrl(): Promise<URL> {
+type RawBuccetSubstrateBootstrapModule = RawBuccetSubstrateModule & {
+  __wbg_set_wasm(exports: WebAssembly.Exports): void;
+};
+
+async function resolveSubstrateAssetUrls(): Promise<{ bgModuleUrl: URL; wasmUrl: URL }> {
   const candidates = [
-    new URL("../../native/buccet-substrate-rust/pkg/buccet_substrate.js", import.meta.url),
-    new URL("../native/buccet-substrate-rust/pkg/buccet_substrate.js", import.meta.url),
+    {
+      bgModuleUrl: new URL("../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
+      wasmUrl: new URL("../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
+    },
+    {
+      bgModuleUrl: new URL("../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
+      wasmUrl: new URL("../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
+    },
   ];
 
   for (const candidate of candidates) {
-    if (await pathExists(candidate)) {
+    if (await pathExists(candidate.bgModuleUrl) && await pathExists(candidate.wasmUrl)) {
       return candidate;
     }
   }
@@ -87,8 +97,20 @@ export class BuccetSubstrate {
     if (this.runtime) {
       return this;
     }
-    const moduleUrl = await resolveSubstrateModuleUrl();
-    this.runtime = await import(moduleUrl.href) as RawBuccetSubstrateModule;
+
+    const { bgModuleUrl, wasmUrl } = await resolveSubstrateAssetUrls();
+    const bootstrap = await import(bgModuleUrl.href) as RawBuccetSubstrateBootstrapModule;
+    const wasmBytes = await fs.readFile(wasmUrl);
+    const compiled = await WebAssembly.compile(wasmBytes);
+    const instance = await WebAssembly.instantiate(compiled, {
+      "./buccet_substrate_bg.js": bootstrap as unknown as WebAssembly.ModuleImports,
+    });
+    bootstrap.__wbg_set_wasm(instance.exports);
+    const start = instance.exports.__wbindgen_start;
+    if (typeof start === "function") {
+      start();
+    }
+    this.runtime = bootstrap;
     return this;
   }
 

@@ -12,6 +12,10 @@ import {
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
 } from "./user-path-ledger.ts";
+import {
+  resolveBoundarySubstrateTraffic,
+  validateBoundarySubstrateApprovalMutation,
+} from "./substrate-live.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -294,6 +298,75 @@ export function evaluateBodyguardAction(args: {
   };
 }
 
+async function evaluateBodyguardActionRuntime(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+}): Promise<BodyguardAdjudication> {
+  const priorityLaw = resolveBodyguardPriorityLaw(args);
+  const standingLaw = await resolveBoundarySubstrateTraffic(args);
+  const boundaryResult = expandRuntimeMuscleTriggeredLawIds(args.config, evaluateBoundaryLaws({
+    session: args.config.session,
+    request: args.request,
+    laws: args.config.laws,
+    grants: args.config.grants,
+    approvalRequiredFor: args.config.approvalRequiredFor,
+  }));
+
+  if (priorityLaw?.decision === "deny") {
+    return {
+      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+  if (standingLaw?.decision === "deny") {
+    const result = boundaryResult.decision === "deny"
+      ? mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(standingLaw, priorityLaw))
+      : mergeBodyguardLawResults(standingLaw, priorityLaw);
+    return {
+      result,
+      bodyguardMoves: boundaryResult.decision === "deny"
+        ? buildBoundaryBodyguardMoves(args.request, result)
+        : [],
+    };
+  }
+  if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {
+    const result = mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(priorityLaw ?? boundaryResult, standingLaw));
+    return {
+      result,
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
+    };
+  }
+  if (standingLaw?.decision === "require_approval") {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
+    };
+  }
+  if (standingLaw) {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
+    };
+  }
+  if (priorityLaw?.decision === "require_approval") {
+    return {
+      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+  if (priorityLaw) {
+    return {
+      result: priorityLaw,
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+
+  return {
+    result: boundaryResult,
+    bodyguardMoves: buildBoundaryBodyguardMoves(args.request, boundaryResult),
+  };
+}
+
 export async function adjudicateBodyguardRequest(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryActionRequest;
@@ -329,7 +402,7 @@ export async function adjudicateBodyguardRequest(args: {
     }
 
     if (gravity.outcome === "bodyguard_grant_offer") {
-      const adjudication = evaluateBodyguardAction({
+      const adjudication = await evaluateBodyguardActionRuntime({
         config: gravity.config,
         request: gravity.request,
       });
@@ -356,7 +429,7 @@ export async function adjudicateBodyguardRequest(args: {
 
     const nextConfig = gravity.config ?? args.config;
     const nextRequest = gravity.request ?? args.request;
-    const adjudication = evaluateBodyguardAction({
+    const adjudication = await evaluateBodyguardActionRuntime({
       config: nextConfig,
       request: nextRequest,
     });
@@ -381,6 +454,25 @@ export async function applyBodyguardUserLawDecision(args: {
   let upl = args.config.upl;
 
   const choice = normalizeApprovalChoice(args.decision);
+  const substrateMutation = await validateBoundarySubstrateApprovalMutation({
+    config: args.config,
+    request: args.request,
+    decision: args.decision,
+  });
+  if (!substrateMutation.allowed) {
+    await appendBoundaryLedger("APPROVAL_DENIED", {
+      sessionId: args.config.session.sessionId,
+      actorId: args.config.session.actorId,
+      requestId: args.request.requestId,
+      actionKind: args.request.actionKind,
+      target: args.request.target,
+      decision: "deny",
+      reason: substrateMutation.reason ?? "substrate blocked approval mutation",
+      lawIds: ["SUBSTRATE.APPROVAL.MUTATION.01"],
+      createdAt: new Date().toISOString(),
+    });
+    return args.config;
+  }
 
   if (choice === "allow_as_law") {
     upl = await writeApprovedUserPathLaw({
