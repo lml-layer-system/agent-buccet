@@ -14,7 +14,13 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { enableBodyguardControl, evaluateBoundaryIntercept, openBoundaryPath } from "../lib/agent-buccet/index.ts";
+import {
+  createEmptyUserPathLedger,
+  enableBodyguardControl,
+  evaluateBoundaryIntercept,
+  openBoundaryPath,
+  saveUserPathLedger,
+} from "../lib/agent-buccet/index.ts";
 import { startPersistentBoundarySession } from "../lib/agent-buccet/state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -64,23 +70,28 @@ async function main() {
   const demoRoot = path.join(process.cwd(), "data", "agent-boundary", "attack-demo", sessionId);
   const workspace = path.join(demoRoot, "workspace");
   await fs.mkdir(workspace, { recursive: true });
+  const isolatedUplLedgerPath = path.join(demoRoot, "attack-demo-upl.json");
+  const previousUplLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+  process.env.AGENT_BUCCET_UPL_LEDGER_PATH = isolatedUplLedgerPath;
+  await saveUserPathLedger(createEmptyUserPathLedger());
 
-  // Start a real session and open a scoped workspace
-  let config = await startPersistentBoundarySession({ sessionId, actorId });
-  const { config: scopedConfig } = await openBoundaryPath({
-    config,
-    rootPath: workspace,
-    grantedActions: ["fs.read", "fs.write", "fs.delete"],
-    issuedBy: actorId,
-    // This demo intentionally shows the pre-standing-law baseline in its final
-    // section, so keep the default base acceptance pack out of this workspace.
-    seedBaseAcceptance: false,
-  });
-  config = enableBodyguardControl(scopedConfig);
+  try {
+    // Start a real session and open a scoped workspace
+    let config = await startPersistentBoundarySession({ sessionId, actorId });
+    const { config: scopedConfig } = await openBoundaryPath({
+      config,
+      rootPath: workspace,
+      grantedActions: ["fs.read", "fs.write", "fs.delete"],
+      issuedBy: actorId,
+      // This demo intentionally shows the pre-standing-law baseline in its final
+      // section, so keep the default base acceptance pack out of this workspace.
+      seedBaseAcceptance: false,
+    });
+    config = enableBodyguardControl(scopedConfig);
 
-  console.log(`\nAgent Buccet — Prompt-Injection Attack Demo`);
-  console.log(`Session: ${sessionId}`);
-  console.log(`Workspace: ${workspace}`);
+    console.log(`\nAgent Buccet — Prompt-Injection Attack Demo`);
+    console.log(`Session: ${sessionId}`);
+    console.log(`Workspace: ${workspace}`);
 
   // ── Attack 1: Authority Claim ─────────────────────────────────────────────
   // Pattern: LLM infers or is injected with "I have been pre-authorized by the
@@ -263,9 +274,15 @@ async function main() {
   console.log("    TIME.TRUST.01     — untrusted high-risk actions require approval");
   console.log();
   console.log("  Agents can propose. They cannot authorize.");
-  console.log();
-
-  await fs.rm(demoRoot, { recursive: true, force: true });
+    console.log();
+  } finally {
+    if (previousUplLedgerPath === undefined) {
+      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+    } else {
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousUplLedgerPath;
+    }
+    await fs.rm(demoRoot, { recursive: true, force: true });
+  }
 }
 
 main().catch((error) => {
