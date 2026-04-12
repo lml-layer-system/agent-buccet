@@ -3042,122 +3042,13 @@ async function handleInit(rest: string[]) {
   const shouldArmNow = armNow || nativeReady;
 
   console.log(``);
-  console.log(`  Agent Buccet`);
-  console.log(`  ─────────────────────────────────────`);
-  console.log(`  Platform:         ${platformLabel}`);
-  console.log(`  Backend:          ${backendLabel}`);
-  console.log(`  Protection mode:  ${protectionMode}`);
-
-  let interceptLine = "deferred (run 'buccet hook start' when you want strong-path interception)";
-  if (shouldArmNow) {
-    try {
-      await ensureDir(home.nativeBuildDir);
-      await ensureDir(home.runDir);
-      profileMark("native/run dirs ready");
-      let strongPathReady = nativeReady;
-      if (!strongPathReady) {
-        const nativeSourceDir = await resolveNativeSourceDir(home);
-        const compileArgs = process.platform === "darwin"
-          ? ["-dynamiclib", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"]
-          : ["-shared", "-fPIC", "-o", home.nativeLibraryPath, path.join(nativeSourceDir, "gravity.c"), "-ldl"];
-        const buildResult = await runSubprocess({
-          command: process.env.CC ?? "cc",
-          args: compileArgs,
-          cwd: home.homePath,
-        });
-        if (buildResult.code !== 0) {
-          interceptLine = "compatibility_path (native build failed; run 'buccet hook build' after installing gcc)";
-        } else {
-          strongPathReady = true;
-          profileMark("native hook built");
-        }
-      }
-
-      if (strongPathReady) {
-        const existingPid = await readHookPid(home.hookPidPath);
-        if (existingPid && await pidAlive(existingPid)) {
-          const health = await getHookRuntimeHealth(boundary, home);
-          if (health.healthy) {
-            interceptLine = `strong_path (libc-level, pid ${existingPid})`;
-          } else {
-            interceptLine = "compatibility_path (hook runtime unhealthy; run 'buccet hook start')";
-          }
-        } else {
-          const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
-          const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
-          const hookChild = spawn(daemonExec, [
-            daemonScriptPath,
-            "--session-id", nextConfig.sessionId,
-            "--actor-id", nextConfig.actorId,
-            "--sessions-dir", home.sessionsDir,
-            "--intercept-socket", home.interceptSocketPath,
-            "--gravity-bridge-socket", home.gravityBridgeSocketPath,
-            "--brain-status-file", home.brainStatusPath,
-            "--pid-file", home.hookPidPath,
-          ], {
-            cwd: home.homePath,
-            detached: true,
-            stdio: "ignore",
-            env: { ...process.env, AGENT_BUCCET_HOME: home.homePath },
-          });
-          hookChild.unref();
-          profileMark("hook daemon spawned");
-          try {
-            await waitForHookRuntimeHealthy(boundary, home);
-            profileMark("hook runtime healthy");
-            interceptLine = "strong_path (libc-level)";
-          } catch {
-            profileMark("hook runtime fell back");
-            interceptLine = "compatibility_path (hook runtime failed to become healthy; run 'buccet hook start')";
-          }
-        }
-      }
-    } catch {
-      interceptLine = "compatibility_path (cc not found; run 'buccet hook build' after installing gcc)";
-    }
-  } else {
-    try {
-      const existingPid = await readHookPid(home.hookPidPath);
-      if (existingPid && await pidAlive(existingPid)) {
-        const health = await getHookRuntimeHealth(boundary, home);
-        if (health.healthy) {
-          interceptLine = `strong_path (libc-level, pid ${existingPid})`;
-        } else {
-          interceptLine = "deferred (hook present but not healthy; run 'buccet hook start')";
-        }
-      } else if (nativeReady) {
-        interceptLine = "deferred (native hook ready; run 'buccet hook start' to arm strong-path interception)";
-      }
-    } catch {
-      interceptLine = "deferred (run 'buccet hook start' when you want strong-path interception)";
-    }
-  }
-
-  console.log(`  Intercept:        ${interceptLine}`);
-  console.log(`  Ledger:           active`);
-  console.log(`  Session:          ${nextConfig.sessionId}`);
-  console.log(`  Scopes:           ${nextConfig.defaultScopes.length}`);
+  console.log(`✅ Agent Buccet initialized successfully.`);
   console.log(``);
-  console.log(`  Machine ready.`);
+  console.log(`Your home directory is: ${home.homePath}`);
+  console.log(`Your protection mode is: ${protectionMode}`);
   console.log(``);
-  console.log(`  Default operator cockpit:`);
-  console.log(``);
-  console.log(`    buccet console`);
-  console.log(`    buccet where`);
-  if (!shouldArmNow) {
-    console.log(`    buccet hook start   # optional immediate strong-path arm`);
-  }
-  console.log(``);
-  console.log(`  Optional split views:`);
-  console.log(``);
-  console.log(`    buccet hook status --watch`);
-  console.log(`    buccet ledger --follow`);
-  console.log(`    buccet upl sync`);
-  console.log(``);
-  console.log(`  UPL document sources:`);
-  console.log(``);
-  console.log(`    acceptance: ${home.uplAcceptanceDocsDir}`);
-  console.log(`    denial:     ${home.uplDenialDocsDir}`);
+  console.log(`Next Step:`);
+  console.log(`Run \`buccet console\` to open the operator cockpit and start monitoring.`);
   console.log(``);
 }
 
@@ -5574,42 +5465,25 @@ async function handleConsole() {
   const nativeReady = await pathExists(home.nativeLibraryPath);
   const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
 
-  // Print the header once.
+  // --- New Dashboard Startup ---
   console.log(``);
   console.log(`  Agent Buccet — Unified Operator Console`);
   console.log(`  ─────────────────────────────────────`);
-  console.log(`  Platform:         ${platformLabel}`);
-  console.log(`  Backend:          ${backendLabel}`);
-  console.log(`  Protection mode:  ${protectionMode}`);
-  console.log(`  Session:          ${config.sessionId}`);
+
+  // Fetch initial status for the dashboard
+  const initialHookPayload = await buildHookStatusPayload(boundary, { home, config });
+  const initialSessionState = await boundary.loadBoundarySessionState({
+    sessionId: config.sessionId,
+    sessionsDir: home.sessionsDir,
+  });
+
+  console.log(`  Shield:           ${formatHookOperatorSummary(initialHookPayload)}`);
+  console.log(`  Session:          ${config.sessionId} | status: ${initialSessionState?.session.status ?? "missing"}`);
+  console.log(`  Mode:             interactive`); // Starts in interactive mode
   console.log(``);
-  console.log(`  One physical terminal. Three logical roles: shield, control, witness.`);
+  console.log(`  Type 'help' for a list of commands, or 'quit' to exit.`);
   console.log(``);
-  console.log(`  Commands:`);
-  console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
-  console.log(`    right-arrow        — enter 24/7 no-questions mode`);
-  console.log(`    Esc                — return to interactive mode`);
-  console.log(`    allow <id>         — allow once`);
-  console.log(`    deny <id>          — deny once`);
-  console.log(`    law <id>           — allow as standing law`);
-  console.log(`    deny-law <id>      — deny as standing law`);
-  console.log(`    mode [name]        — show or set interactive / standing-law mode`);
-  console.log(`    no-questions       — turn on 24/7 standing-law mode`);
-  console.log(`    canyon [prov]      — inspect ingress control state or list all`);
-  console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
-  console.log(`    laws               — list active scope laws for this session`);
-  console.log(`    tracks             — list active UPL track corridors`);
-  console.log(`    nsl [n]            — list or select a pending bodyguard move`);
-  console.log(`    shield             — show protected execution lane heartbeat`);
-  console.log(`    status             — session status`);
-  console.log(`    logs [n]           — last n witness ledger entries (default 10)`);
-  console.log(`    feed               — toggle live shield + witness feed on/off`);
-  console.log(`    upl                — active UPL laws`);
-  console.log(`    doctor             — health check`);
-  console.log(`    hook status --watch — optional split shield view`);
-  console.log(`    ledger --follow    — optional split witness view`);
-  console.log(`    quit               — exit`);
-  console.log(``);
+  // --- End New Dashboard Startup ---
 
   // Track which groups have already been reported.
   const reportedGroupIds = new Set<string>();
@@ -6085,6 +5959,37 @@ async function handleConsole() {
           clearInterval(pollHandle);
           rl.close();
           process.exit(0);
+        }
+
+        if (cmd === "help") {
+          console.log(``);
+          console.log(`  Commands:`);
+          console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
+          console.log(`    right-arrow        — enter 24/7 no-questions mode`);
+          console.log(`    Esc                — return to interactive mode`);
+          console.log(`    allow <id>         — allow once`);
+          console.log(`    deny <id>          — deny once`);
+          console.log(`    law <id>           — allow as standing law`);
+          console.log(`    deny-law <id>      — deny as standing law`);
+          console.log(`    mode [name]        — show or set interactive / standing-law mode`);
+          console.log(`    no-questions       — turn on 24/7 standing-law mode`);
+          console.log(`    canyon [prov]      — inspect ingress control state or list all`);
+          console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
+          console.log(`    laws               — list active scope laws for this session`);
+          console.log(`    tracks             — list active UPL track corridors`);
+          console.log(`    nsl [n]            — list or select a pending bodyguard move`);
+          console.log(`    shield             — show protected execution lane heartbeat`);
+          console.log(`    status             — session status`);
+          console.log(`    logs [n]           — last n witness ledger entries (default 10)`);
+          console.log(`    feed               — toggle live shield + witness feed on/off`);
+          console.log(`    upl                — active UPL laws`);
+          console.log(`    doctor             — health check`);
+          console.log(`    hook status --watch — optional split shield view`);
+          console.log(`    ledger --follow    — optional split witness view`);
+          console.log(`    quit               — exit`);
+          console.log(``);
+          rl.prompt();
+          return;
         }
 
         if (cmd === "mode" || cmd === "no-questions" || cmd === "standing-law" || cmd === "interactive" || cmd === "24/7") {
