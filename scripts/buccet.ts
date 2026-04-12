@@ -1793,6 +1793,54 @@ function resolveTransportLaunchCwd(rootfsPath: string, workdir: string): string 
   return launchCwd;
 }
 
+function assertInsideRootfs(rootfsPath: string, candidatePath: string, label: string): void {
+  const relative = path.relative(rootfsPath, candidatePath);
+  if (relative.startsWith("..") || path.isAbsolute(relative)) {
+    throw new Error(`${label} escapes packaged rootfs: ${candidatePath}`);
+  }
+}
+
+function transportSearchRoots(rootfsPath: string, launchCwd: string): string[] {
+  return uniquePaths([
+    launchCwd,
+    path.join(rootfsPath, "bin"),
+    path.join(rootfsPath, "usr", "bin"),
+    path.join(rootfsPath, "usr", "local", "bin"),
+  ]);
+}
+
+async function resolveTransportExecutable(args: {
+  rootfsPath: string;
+  launchCwd: string;
+  command: string;
+}): Promise<string> {
+  const { rootfsPath, launchCwd, command } = args;
+  const hasPathSyntax = command.includes("/") || command.includes(path.sep);
+
+  if (hasPathSyntax) {
+    const resolved = command.startsWith("/")
+      ? path.resolve(rootfsPath, `.${command}`)
+      : path.resolve(launchCwd, command);
+    assertInsideRootfs(rootfsPath, resolved, "transport command");
+    const stats = await fs.stat(resolved).catch(() => null);
+    if (!stats?.isFile()) {
+      throw new Error(`transport command not found inside packaged rootfs: ${command}`);
+    }
+    return resolved;
+  }
+
+  for (const searchRoot of transportSearchRoots(rootfsPath, launchCwd)) {
+    const candidate = path.join(searchRoot, command);
+    assertInsideRootfs(rootfsPath, candidate, "transport command");
+    const stats = await fs.stat(candidate).catch(() => null);
+    if (stats?.isFile()) {
+      return candidate;
+    }
+  }
+
+  throw new Error(`transport command is not packaged inside the artifact: ${command}`);
+}
+
 async function packBuccetTransportArtifact(args: {
   sourceDir: string;
   outputPath: string;
@@ -1934,13 +1982,19 @@ async function runBuccetTransport(args: {
   }
 
   const launchCwd = resolveTransportLaunchCwd(rootfsPath, manifest.workdir);
-  const child = spawn(command[0], command.slice(1), {
+  const resolvedCommand = await resolveTransportExecutable({
+    rootfsPath,
+    launchCwd,
+    command: command[0],
+  });
+  const child = spawn(resolvedCommand, command.slice(1), {
     cwd: launchCwd,
     env: {
       ...process.env,
       BUCCET_TRANSPORT_ROOTFS: rootfsPath,
       BUCCET_TRANSPORT_RUNTIME: runtimeDir,
       BUCCET_TRANSPORT_NAME: manifest.name,
+      PATH: transportSearchRoots(rootfsPath, launchCwd).join(path.delimiter),
     },
     stdio: "inherit",
   });
@@ -1960,7 +2014,7 @@ async function runBuccetTransport(args: {
     manifest,
     runtimeDir,
     launchCwd,
-    command,
+    command: [resolvedCommand, ...command.slice(1)],
     isolationActive: isolation.active,
     persistedState,
     enteredEnvironment,

@@ -37,18 +37,38 @@ async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-transport-contract-"));
   try {
     const appDir = path.join(tempRoot, "portable-app");
-    await fs.mkdir(appDir, { recursive: true });
+    const binDir = path.join(appDir, "bin");
+    await fs.mkdir(binDir, { recursive: true });
     await fs.writeFile(path.join(appDir, "payload.txt"), "portable-hello\n", "utf8");
+    const sourcePath = path.join(tempRoot, "portable-app.c");
     await fs.writeFile(
-      path.join(appDir, "index.mjs"),
+      sourcePath,
       [
-        'import { readFileSync } from "node:fs";',
-        'const payload = readFileSync("payload.txt", "utf8").trim();',
-        'console.log(`TRANSPORT_PAYLOAD=${payload}`);',
-        'console.log(`TRANSPORT_CWD=${process.cwd()}`);',
+        "#include <stdio.h>",
+        "#include <stdlib.h>",
+        "int main(void) {",
+        '  FILE *fp = fopen("payload.txt", "r");',
+        "  if (!fp) {",
+        '    perror("payload");',
+        "    return 1;",
+        "  }",
+        "  char buffer[128] = {0};",
+        "  if (!fgets(buffer, sizeof(buffer), fp)) {",
+        '    perror("read");',
+        "    fclose(fp);",
+        "    return 1;",
+        "  }",
+        "  fclose(fp);",
+        '  printf("TRANSPORT_PAYLOAD=%s", buffer);',
+        '  printf("TRANSPORT_EXEC=packaged-binary\\n");',
+        "  return 0;",
+        "}",
       ].join("\n"),
       "utf8",
     );
+    const binaryPath = path.join(binDir, "portable-app");
+    const compileResult = await run("cc", [sourcePath, "-o", binaryPath], repoRoot);
+    assert.equal(compileResult.code, 0, compileResult.stderr);
 
     const artifactPath = path.join(tempRoot, "portable-app.buccet.tgz");
     const packResult = await run(
@@ -60,10 +80,11 @@ async function main() {
         appDir,
         "--output",
         artifactPath,
+        "--workdir",
+        "/",
         "--json",
         "--",
-        "node",
-        "index.mjs",
+        "/bin/portable-app",
       ],
       repoRoot,
     );
@@ -74,7 +95,7 @@ async function main() {
     };
     assert.equal(packed.artifactPath, artifactPath);
     assert.equal(packed.manifest.fileCount >= 2, true, "expected packaged app files");
-    assert.deepEqual(packed.manifest.entrypoint, ["node", "index.mjs"]);
+    assert.deepEqual(packed.manifest.entrypoint, ["/bin/portable-app"]);
 
     const importedDir = path.join(tempRoot, "imported-app");
     const importResult = await run(
@@ -98,7 +119,7 @@ async function main() {
     };
     assert.equal(imported.destinationDir, importedDir);
     assert.equal(imported.rootfsPath, path.join(importedDir, "rootfs"));
-    assert.deepEqual(imported.manifest.entrypoint, ["node", "index.mjs"]);
+    assert.deepEqual(imported.manifest.entrypoint, ["/bin/portable-app"]);
 
     const runResult = await run(
       "node",
@@ -112,6 +133,7 @@ async function main() {
     );
     assert.equal(runResult.code, 0, runResult.stderr);
     assert.equal(runResult.stdout.includes("TRANSPORT_PAYLOAD=portable-hello"), true, "expected packaged payload to execute");
+    assert.equal(runResult.stdout.includes("TRANSPORT_EXEC=packaged-binary"), true, "expected transport run to use packaged binary");
     assert.equal(runResult.stdout.includes("entered environment: yes"), true, "expected transport run to stage environment");
 
     console.log("Agent Buccet transport contract");

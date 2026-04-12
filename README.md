@@ -86,7 +86,7 @@ Buccet can now package a bounded workload and move it between machines through i
 Pack a portable app tree:
 
 ```bash
-buccet transport pack ./demo --output demo.buccet.tgz -- node index.mjs
+buccet transport pack ./demo --output demo.buccet.tgz -- /bin/demo
 ```
 
 Import it somewhere else:
@@ -108,6 +108,8 @@ That flow sits on top of the Buccet substrate portability chain:
 - `enterEnvironment`
 
 So the user-facing transport story is now inside Buccet too, not only in the lower Rust/WASM substrate.
+
+The entry command is resolved from inside the packaged rootfs, not from host `PATH`.
 
 ## What Boundaries Buccet Actually Governs
 
