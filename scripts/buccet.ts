@@ -286,17 +286,42 @@ function uniquePaths(paths: string[]): string[] {
   return [...new Set(paths.map((entry) => path.resolve(entry)))];
 }
 
+// ─── Terminal display helpers ──────────────────────────────────────────────────
+// Zero-dependency color/format. Disabled automatically when stdout is not a TTY
+// or when NO_COLOR env var is set (https://no-color.org).
+
+const isTTY = process.stdout.isTTY === true && !process.env.NO_COLOR;
+const c = {
+  reset:  isTTY ? "\x1b[0m"  : "",
+  bold:   isTTY ? "\x1b[1m"  : "",
+  dim:    isTTY ? "\x1b[2m"  : "",
+  green:  isTTY ? "\x1b[32m" : "",
+  red:    isTTY ? "\x1b[31m" : "",
+  yellow: isTTY ? "\x1b[33m" : "",
+  cyan:   isTTY ? "\x1b[36m" : "",
+};
+
+function clrOk(text = ""): string   { return `${c.green}✓${c.reset}${text ? ` ${text}` : ""}`; }
+function clrFail(text = ""): string { return `${c.red}✗${c.reset}${text ? ` ${text}` : ""}`; }
+function clrWarn(text = ""): string { return `${c.yellow}⚠${c.reset}${text ? ` ${text}` : ""}`; }
+function clrBold(text: string): string { return `${c.bold}${text}${c.reset}`; }
+function clrDim(text: string): string  { return `${c.dim}${text}${c.reset}`; }
+
 function printCliHeader(title: string, subtitle?: string): void {
-  console.log(title);
+  const bar = "━".repeat(Math.max(46, title.length + 6));
+  console.log(``);
+  console.log(`${c.bold}${c.cyan}  ${bar}${c.reset}`);
+  console.log(`${c.bold}    ${title}${c.reset}`);
+  console.log(`${c.cyan}  ${bar}${c.reset}`);
   if (subtitle) {
-    console.log(subtitle);
+    console.log(`    ${clrDim(subtitle)}`);
   }
 }
 
 function printCliSection(title: string, rows: Array<string | null | undefined>): void {
   console.log(``);
-  console.log(`  ${title}`);
-  console.log(`  ${"─".repeat(Math.max(24, title.length + 2))}`);
+  console.log(`  ${clrBold(title)}`);
+  console.log(`  ${c.dim}${"─".repeat(Math.max(24, title.length + 2))}${c.reset}`);
   for (const row of rows) {
     if (!row) {
       continue;
@@ -306,7 +331,7 @@ function printCliSection(title: string, rows: Array<string | null | undefined>):
 }
 
 function formatCliKeyValue(label: string, value: string | number | boolean | null | undefined): string {
-  return `${label.padEnd(18, " ")} ${String(value ?? "-")}`;
+  return `${clrDim(label.padEnd(18, " "))} ${String(value ?? "-")}`;
 }
 
 function parseCsvActions(raw: string | undefined): BoundaryActionKind[] {
@@ -2842,14 +2867,20 @@ function printLogRecord(record: {
   DECISION: { verdict: string; reason: string };
   INPUT: { action: string; target: string; source: string };
 }) {
-  console.log([
-    record.META.timestamp,
-    record.META.event_type,
-    record.DECISION.verdict,
-    record.INPUT.action,
-    record.INPUT.target || "-",
-    record.DECISION.reason,
-  ].join(" | "));
+  const verdict = record.DECISION.verdict ?? "";
+  const verdictColor =
+    verdict === "allow"            ? c.green  :
+    verdict === "deny"             ? c.red     :
+    verdict === "require_approval" ? c.yellow  :
+    c.dim;
+  const ts      = clrDim(record.META.timestamp.slice(0, 19).replace("T", " "));
+  const vt      = `${verdictColor}${verdict.toUpperCase().padEnd(16)}${c.reset}`;
+  const ev      = `${c.cyan}${record.META.event_type}${c.reset}`;
+  const target  = clrDim(record.INPUT.target || "-");
+  console.log(`  ${ts}  ${vt}  ${ev}  ${record.INPUT.action}  ${target}`);
+  if (record.DECISION.reason) {
+    console.log(`  ${" ".repeat(21)}${clrDim(record.DECISION.reason)}`);
+  }
 }
 
 function summarizeInterceptedAttempts(records: Array<{ META: { event_type: string } }>): number {
@@ -3042,13 +3073,12 @@ async function handleInit(rest: string[]) {
   const shouldArmNow = armNow || nativeReady;
 
   console.log(``);
-  console.log(`✅ Agent Buccet initialized successfully.`);
+  console.log(`  ${clrOk(clrBold("Agent Buccet initialized."))}`);
   console.log(``);
-  console.log(`Your home directory is: ${home.homePath}`);
-  console.log(`Your protection mode is: ${protectionMode}`);
+  console.log(`  ${clrDim("home:            ")} ${home.homePath}`);
+  console.log(`  ${clrDim("protection mode: ")} ${protectionMode}`);
   console.log(``);
-  console.log(`Next Step:`);
-  console.log(`Run \`buccet console\` to open the operator cockpit and start monitoring.`);
+  console.log(`  Run ${clrBold("buccet console")} to open the operator cockpit.`);
   console.log(``);
 }
 
@@ -3208,10 +3238,10 @@ async function handleLedger(rest: string[]) {
     }
     if (!follow) {
       console.log(``);
-      console.log(`  Agent Buccet — Witness Ledger`);
-      console.log(`  ─────────────────────────────────────`);
-      console.log(`  Session: ${config.sessionId}`);
-      console.log(`  Entries: ${records.length}`);
+      console.log(`  ${clrBold("Agent Buccet — Witness Ledger")}`);
+      console.log(`  ${c.dim}─────────────────────────────────────${c.reset}`);
+      console.log(`  ${clrDim("session:")}  ${config.sessionId}`);
+      console.log(`  ${clrDim("entries:")}  ${records.length}`);
       console.log(``);
     }
     for (const record of slice) {
@@ -3227,10 +3257,10 @@ async function handleLedger(rest: string[]) {
 
   let lastSeen = 0;
   console.log(``);
-  console.log(`  Agent Buccet — Witness Ledger`);
-  console.log(`  ─────────────────────────────────────`);
-  console.log(`  Session: ${config.sessionId}`);
-  console.log(`  Following live ledger stream. Ctrl-C to exit.`);
+  console.log(`  ${clrBold("Agent Buccet — Witness Ledger")}`);
+  console.log(`  ${c.dim}─────────────────────────────────────${c.reset}`);
+  console.log(`  ${clrDim("session:")}  ${config.sessionId}`);
+  console.log(`  ${clrDim("Following live ledger stream. Ctrl-C to exit.")}`);
   console.log(``);
   lastSeen = await render(0);
   const interval = setInterval(() => {
@@ -5388,23 +5418,26 @@ async function handleDoctor(rest: string[] = []) {
 
   const sessionStatus = config ? "initialized" : "not initialized";
 
-  const passIcon = "ok";
-  const failIcon = "FAIL";
-  const warnIcon = "warn";
+  const passIcon = clrOk();
+  const failIcon = clrFail();
+  const warnIcon = clrWarn();
+
+  const kv = (label: string, value: string) =>
+    `  ${clrDim(label.padEnd(18))} ${value}`;
 
   const lines: string[] = [
     ``,
-    `  Agent Buccet — Doctor`,
-    `  ─────────────────────────────────────`,
-    `  Platform:         ${platformLabel}`,
-    `  Backend:          ${backendLabel}`,
-    `  Native library:   ${nativeReady ? `${passIcon} (${protectionMode})` : `${warnIcon} (${protectionMode} — run 'buccet hook build')`}`,
-    `  Hook daemon:      ${hookAlive ? `${passIcon} (pid ${hookPid})` : `${failIcon} (not running — run 'buccet hook start')`}`,
-    `  Hook state:       ${hookAlive ? (hookState === "alive" ? passIcon : `${failIcon} (${hookState})`) : `${warnIcon} (not running)`}`,
-    `  Intercept socket: ${interceptReachable ? passIcon : hookAlive ? `${failIcon} (${hookHealth.reason ?? "unreachable"})` : `${warnIcon} (daemon not running)`}`,
-    `  Gravity bridge:   ${bridgeReachable ? passIcon : hookAlive ? `${failIcon} (${hookHealth.reason ?? "unreachable"})` : `${warnIcon} (daemon not running)`}`,
-    `  Ledger chain:     ${ledgerChainOk === null ? `${warnIcon} (not checked)` : ledgerChainOk ? `${passIcon} (${ledgerEntries} entries)` : `${failIcon} (chain broken — run 'buccet ledger repair')`}`,
-    `  Session:          ${sessionStatus}`,
+    `  ${clrBold("Agent Buccet — Doctor")}`,
+    `  ${c.dim}─────────────────────────────────────${c.reset}`,
+    kv("Platform:",        platformLabel),
+    kv("Backend:",         backendLabel),
+    kv("Native library:",  nativeReady ? `${passIcon} ${clrDim(`(${protectionMode})`)}` : `${warnIcon} ${clrDim(`(${protectionMode} — run 'buccet hook build')`)}`),
+    kv("Hook daemon:",     hookAlive ? `${passIcon} ${clrDim(`(pid ${hookPid})`)}` : `${failIcon} ${clrDim("(not running — run 'buccet hook start')")}`),
+    kv("Hook state:",      hookAlive ? (hookState === "alive" ? passIcon : `${failIcon} ${clrDim(`(${hookState})`)}`) : `${warnIcon} ${clrDim("(not running)")}`),
+    kv("Intercept socket:", interceptReachable ? passIcon : hookAlive ? `${failIcon} ${clrDim(`(${hookHealth.reason ?? "unreachable"})`)}` : `${warnIcon} ${clrDim("(daemon not running)")}`),
+    kv("Gravity bridge:",  bridgeReachable ? passIcon : hookAlive ? `${failIcon} ${clrDim(`(${hookHealth.reason ?? "unreachable"})`)}` : `${warnIcon} ${clrDim("(daemon not running)")}`),
+    kv("Ledger chain:",    ledgerChainOk === null ? `${warnIcon} ${clrDim("(not checked)")}` : ledgerChainOk ? `${passIcon} ${clrDim(`(${ledgerEntries} entries)`)}` : `${failIcon} ${clrDim("(chain broken — run 'buccet ledger repair')")}`),
+    kv("Session:",         sessionStatus),
     ``,
   ];
 
@@ -5465,11 +5498,6 @@ async function handleConsole() {
   const nativeReady = await pathExists(home.nativeLibraryPath);
   const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
 
-  // --- New Dashboard Startup ---
-  console.log(``);
-  console.log(`  Agent Buccet — Unified Operator Console`);
-  console.log(`  ─────────────────────────────────────`);
-
   // Fetch initial status for the dashboard
   const initialHookPayload = await buildHookStatusPayload(boundary, { home, config });
   const initialSessionState = await boundary.loadBoundarySessionState({
@@ -5477,13 +5505,18 @@ async function handleConsole() {
     sessionsDir: home.sessionsDir,
   });
 
-  console.log(`  Shield:           ${formatHookOperatorSummary(initialHookPayload)}`);
-  console.log(`  Session:          ${config.sessionId} | status: ${initialSessionState?.session.status ?? "missing"}`);
-  console.log(`  Mode:             interactive`); // Starts in interactive mode
+  const bar = "━".repeat(46);
   console.log(``);
-  console.log(`  Type 'help' for a list of commands, or 'quit' to exit.`);
+  console.log(`${c.bold}${c.cyan}  ${bar}${c.reset}`);
+  console.log(`${c.bold}    Agent Buccet — Operator Console${c.reset}`);
+  console.log(`${c.cyan}  ${bar}${c.reset}`);
+  console.log(`  ${clrDim("platform:")}  ${platformLabel}  ${clrDim("|")}  ${clrDim("backend:")}  ${backendLabel}`);
+  console.log(`  ${clrDim("shield:")}    ${formatHookOperatorSummary(initialHookPayload)}`);
+  console.log(`  ${clrDim("session:")}   ${clrDim(config.sessionId)}  ${clrDim("status:")} ${initialSessionState?.session.status ?? "missing"}`);
+  console.log(`  ${clrDim("mode:")}      ${clrBold("interactive")}`);
+  console.log(`${c.cyan}  ${bar}${c.reset}`);
+  console.log(`  ${clrDim("Type 'help' for commands or 'quit' to exit.")}`);
   console.log(``);
-  // --- End New Dashboard Startup ---
 
   // Track which groups have already been reported.
   const reportedGroupIds = new Set<string>();

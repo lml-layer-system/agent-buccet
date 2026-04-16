@@ -43,8 +43,6 @@ export * from "./process.ts";
 export * from "./wrapper.ts";
 export * from "./integrations/index.ts";
 export * from "./admission.ts";
-export * from "./system-substrate.ts";
-export * from "./full-system-body.ts";
 export * from "./path-memory.ts";
 export {
   BuccetSubstrate as BuccetRustSubstrate,

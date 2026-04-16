@@ -32,11 +32,6 @@ async function main() {
 
   const rootReadme = await fs.readFile(path.join(repoRoot, "README.md"), "utf8");
   assert.doesNotMatch(rootReadme, /npm install agent-buccet/, "root README should not claim an unshipped npm install path");
-  assert.match(rootReadme, /BUCCET_FULL_SYSTEM_BODY/, "root README should expose the renamed full-system-body document");
-  assert.doesNotMatch(rootReadme, /BUCCET_[A-Z]+_SUBSTRATE_PROCESS/, "root README should not expose the old full-system-body filename");
-  const docsIndex = await fs.readFile(path.join(repoRoot, "docs", "agent-boundary", "README.md"), "utf8");
-  assert.match(docsIndex, /BUCCET_FULL_SYSTEM_BODY/, "docs index should expose the renamed full-system-body document");
-  assert.doesNotMatch(docsIndex, /BUCCET_[A-Z]+_SUBSTRATE_PROCESS/, "docs index should not expose the old full-system-body filename");
 
   const packagedRoot = path.join(repoRoot, "dist", "agent-buccet");
   const packagedJson = JSON.parse(await fs.readFile(path.join(packagedRoot, "package.json"), "utf8")) as {
@@ -63,8 +58,6 @@ async function main() {
   assert.equal(installSnap, true, "standalone package should carry install snap summary");
   const installSnapJson = await fs.access(path.join(packagedRoot, "SNAP_INSTALL.json")).then(() => true).catch(() => false);
   assert.equal(installSnapJson, true, "standalone package should carry machine-readable install snap summary");
-  const fullSystemBodyDoc = await fs.access(path.join(packagedRoot, "docs", "BUCCET_FULL_SYSTEM_BODY.md")).then(() => true).catch(() => false);
-  assert.equal(fullSystemBodyDoc, true, "standalone package should carry the renamed full system body document");
   const packagedRustSubstrate = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "Cargo.toml")).then(() => true).catch(() => false);
   assert.equal(packagedRustSubstrate, true, "standalone package should carry the vendored Buccet Rust substrate");
   const packagedRustWasm = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "pkg", "buccet_substrate_bg.wasm")).then(() => true).catch(() => false);
@@ -77,8 +70,8 @@ async function main() {
   const packagedNativeHookPath = path.join(packagedRoot, "native", "build", nativeLibraryName);
   const packagedNativeHook = await fs.access(packagedNativeHookPath).then(() => true).catch(() => false);
   const packagedDocs = await fs.readdir(path.join(packagedRoot, "docs"));
-  assert.equal(packagedDocs.includes("BUCCET_FULL_SYSTEM_BODY.md"), true, "standalone package should surface the renamed full system body document");
-  assert.equal(packagedDocs.some((entry) => /^BUCCET_[A-Z]+_SUBSTRATE_PROCESS\.md$/.test(entry)), false, "standalone package should not carry the old full-system-body filename");
+  assert.equal(packagedDocs.includes("BUCCET_FULL_SYSTEM_BODY.md"), false, "standalone package should not expose the internal full system body document");
+  assert.equal(packagedDocs.includes("BUCCET_SYSTEM_SUBSTRATE.md"), false, "standalone package should not expose the internal system substrate document");
 
   if (packagedNativeHook) {
     await fs.rm(packagedNativeHookPath, { force: true });

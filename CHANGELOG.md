@@ -7,7 +7,7 @@ Versioning: [Semantic Versioning](https://semver.org/).
 
 ---
 
-## [0.1.0] - 2025-01-01
+## [0.1.0] - 2026-04-15
 
 Initial public release.
 
@@ -56,3 +56,4 @@ Initial public release.
 ---
 
 [0.1.0]: https://github.com/lml-layer-system/agent-buccet/releases/tag/v0.1.0
+

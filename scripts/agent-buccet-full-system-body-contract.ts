@@ -4,9 +4,11 @@ import {
   BUCCET_SUBSTRATE_PLANES,
   BUCCET_SYSTEM_NODES,
   BUCCET_TERMINALS,
+} from "../lib/agent-buccet/system-substrate.ts";
+import {
   renderBuccetFullSystemBodyMarkdown,
   runBuccetFullSystemBody,
-} from "../lib/agent-buccet/index.ts";
+} from "../lib/agent-buccet/full-system-body.ts";
 
 async function main() {
   const process = runBuccetFullSystemBody();

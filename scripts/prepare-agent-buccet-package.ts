@@ -3,13 +3,14 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import path from "node:path";
 import {
-  buildBuccetInstallSnapSummary,
   publishBoundaryReleaseWitness,
-  renderBuccetInstallSnapSummaryText,
-  renderBuccetFullSystemBodyMarkdown,
-  runBuccetFullSystemBody,
   type BoundaryReleaseWitnessStatus,
 } from "../lib/agent-buccet/index.ts";
+import {
+  buildBuccetInstallSnapSummary,
+  renderBuccetInstallSnapSummaryText,
+  runBuccetFullSystemBody,
+} from "../lib/agent-buccet/full-system-body.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
@@ -234,7 +235,6 @@ function requiredPackageFreshnessTargets(version: string): Array<{ relativePath:
     { relativePath: "install.sh", absolutePath: path.join(outDir, "install.sh") },
     { relativePath: "INSTALL_SNAP.txt", absolutePath: path.join(outDir, "INSTALL_SNAP.txt") },
     { relativePath: "SNAP_INSTALL.json", absolutePath: path.join(outDir, "SNAP_INSTALL.json") },
-    { relativePath: "docs/BUCCET_FULL_SYSTEM_BODY.md", absolutePath: path.join(outDir, "docs", "BUCCET_FULL_SYSTEM_BODY.md") },
     { relativePath: "package.json", absolutePath: path.join(outDir, "package.json") },
     { relativePath: "releases/install.sh", absolutePath: path.join(releaseDir, "install.sh") },
     { relativePath: "releases/latest.json", absolutePath: path.join(releaseDir, "latest.json") },
@@ -545,11 +545,6 @@ async function writeSnapArtifacts() {
     `${JSON.stringify(summary, null, 2)}\n`,
     "utf8",
   );
-  await fs.writeFile(
-    path.join(outDir, "docs", "BUCCET_FULL_SYSTEM_BODY.md"),
-    `${renderBuccetFullSystemBodyMarkdown(process)}\n`,
-    "utf8",
-  );
 }
 
 async function writeStandaloneExample() {
@@ -808,7 +803,11 @@ async function main() {
   await rmrf(releaseDir);
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
+  await rmrf(path.join(outDir, "src", "full-system-body.ts"));
+  await rmrf(path.join(outDir, "src", "system-substrate.ts"));
   await copyDir(sourceDocsDir, path.join(outDir, "docs"));
+  await rmrf(path.join(outDir, "docs", "BUCCET_FULL_SYSTEM_BODY.md"));
+  await rmrf(path.join(outDir, "docs", "BUCCET_SYSTEM_SUBSTRATE.md"));
   await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "agent-buccet-law-foundation"));
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
   await writePrebuiltNativeHook();
