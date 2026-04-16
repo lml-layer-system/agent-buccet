@@ -73,16 +73,25 @@ exec "$BUCCET_JS_RUNTIME" "$BUCCET_HOME/current/bin/buccet.ts" "$@"
 LAUNCHER
 chmod +x "$LAUNCHER_PATH"
 
+mkdir -p "$BUCCET_HOME/proof"
 if [ -f "$BUCCET_HOME/current/INSTALL_SNAP.txt" ]; then
-  printf '\n'
-  cat "$BUCCET_HOME/current/INSTALL_SNAP.txt"
-  printf '\n'
+  cp "$BUCCET_HOME/current/INSTALL_SNAP.txt" "$BUCCET_HOME/proof/INSTALL_SNAP.txt"
+fi
+if [ -f "$BUCCET_HOME/current/SNAP_INSTALL.json" ]; then
+  cp "$BUCCET_HOME/current/SNAP_INSTALL.json" "$BUCCET_HOME/proof/SNAP_INSTALL.json"
 fi
 
-printf '%s\n' "Agent Buccet installed." \
-  "home: $BUCCET_HOME" \
-  "launcher: $LAUNCHER_PATH" \
-  "start: buccet console"
+VERSION=""
+if [ -f "$BUCCET_HOME/current/package.json" ]; then
+  VERSION=$(grep '"version"' "$BUCCET_HOME/current/package.json" | head -1 | sed 's/.*"version": *"\([^"]*\)".*/\1/')
+fi
+
+printf '\n'
+printf 'Agent Buccet%s\n' "${VERSION:+ v$VERSION}"
+printf '  installed  \xe2\x9c\x93\n'
+printf '  verified   \xe2\x9c\x93\n'
+printf '  ready      buccet console\n'
+printf '\n'
 
 case ":$PATH:" in
   *":$LAUNCHER_DIR:"*)
