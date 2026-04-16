@@ -1607,19 +1607,40 @@ function resolveFormationSelector(args: {
   return null;
 }
 
+const PATH_SOURCE_SUPPORTED_EXTENSIONS = new Set([
+  ".md", ".markdown", ".txt", ".json", ".yaml", ".yml",
+  ".csv", ".html", ".htm", ".ts", ".tsx", ".js", ".jsx", ".py",
+]);
+
+const PATH_SOURCE_SKIP_DIRS = new Set([
+  ".git", ".obsidian", ".trash", "node_modules", ".next",
+  ".cache", "dist", "build", "__pycache__", ".venv", "venv",
+]);
+
 async function collectPathSourceFiles(inputs: string[]): Promise<string[]> {
   const collected = new Set<string>();
   const visit = async (targetPath: string) => {
     const resolved = path.resolve(targetPath);
-    const stat = await fs.stat(resolved);
+    const stat = await fs.stat(resolved).catch(() => null);
+    if (!stat) {
+      return;
+    }
     if (stat.isDirectory()) {
-      const entries = await fs.readdir(resolved, { withFileTypes: true });
+      const dirName = path.basename(resolved);
+      if (dirName.startsWith(".") || PATH_SOURCE_SKIP_DIRS.has(dirName)) {
+        return;
+      }
+      const entries = await fs.readdir(resolved, { withFileTypes: true }).catch(() => []);
       for (const entry of entries) {
         await visit(path.join(resolved, entry.name));
       }
       return;
     }
     if (stat.isFile()) {
+      const ext = path.extname(resolved).toLowerCase();
+      if (!PATH_SOURCE_SUPPORTED_EXTENSIONS.has(ext)) {
+        return;
+      }
       collected.add(resolved);
     }
   };
@@ -1690,8 +1711,16 @@ async function compilePathSourcesFromFiles(args: {
 }): Promise<BuccetPathSource[]> {
   const sources: BuccetPathSource[] = [];
   for (const filePath of args.filePaths) {
-    const content = await fs.readFile(filePath, "utf8");
-    assertPathSourceTextContent(filePath, content);
+    const content = await fs.readFile(filePath, "utf8").catch(() => null);
+    if (content === null) {
+      continue;
+    }
+    if (content.includes("\u0000")) {
+      continue;
+    }
+    if (content.trim().length === 0) {
+      continue;
+    }
     const title = inferPathSourceTitle(filePath, content);
     sources.push({
       id: slugifyPathSourceId(path.basename(filePath, path.extname(filePath))),
@@ -4535,6 +4564,11 @@ async function handlePath(rest: string[]) {
         usage();
       }
       const filePaths = await collectPathSourceFiles(inputs);
+      if (filePaths.length === 0) {
+        console.log(`No supported source files found in: ${inputs.join(", ")}`);
+        console.log(`Supported: ${[...PATH_SOURCE_SUPPORTED_EXTENSIONS].join(", ")}`);
+        return;
+      }
       const newSources = await compilePathSourcesFromFiles({ filePaths });
       const library = await loadPersistedBuccetPathLibrary(boundary, home);
       const template = await ensureConcreteBuccetPathTemplate({
@@ -4585,7 +4619,9 @@ async function handlePath(rest: string[]) {
       console.log(`Added path sources`);
       console.log(`path: ${pathName}`);
       console.log(`domain: ${library[pathName]!.domain}`);
+      console.log(`scanned: ${filePaths.length} file${filePaths.length === 1 ? "" : "s"}`);
       console.log(`added: ${newSources.length}`);
+      console.log(`skipped: ${filePaths.length - newSources.length}`);
       console.log(`total sources: ${library[pathName]!.pathSources.length}`);
       for (const source of newSources) {
         console.log(`- ${source.title} | ${source.sourceUri ?? source.id}`);
