@@ -27,6 +27,51 @@ Cost governance in Buccet is expressed as weighted motion and weighted inbound w
 
 ---
 
+## Run-Surface vs Read-Surface
+
+The full repo is not the hot runtime.
+
+Agent Buccet intentionally keeps a larger readable body:
+
+- docs
+- doctrine
+- proofs
+- rendered pack inventories
+- source and archive material
+
+But the live snapped runtime is narrower and proof-backed.
+
+### Run-surface
+
+The hot runtime executes through:
+
+- `data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json`
+- `data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json`
+- `data/agent-buccet-law-foundation/user-path-ledger.json`
+- the native `physwrap` lane
+- the native `deep-intercept` lane
+- the vendored Rust/WASM substrate package
+
+These are the surfaces the runtime actually consumes for law identity, standing user law, native payload physics, native intercept, and substrate-backed transport.
+
+### Read-surface
+
+The larger readable body stays in the repo for operator visibility, proof, and study, but is not the hot execution path by default.
+
+That includes items like:
+
+- rendered boundary pack inventories
+- generated base/time runtime corpora outside the active law body
+- section maps and archive/provenance material
+- broader reference docs
+
+This is the distinction:
+
+- full repo truth stays available
+- hot runtime consequence stays pinned to the snapped system
+
+---
+
 ## Intercept Level
 
 The INTERCEPT layer is the earliest point at which Buccet can catch action proposals — the action boundary, which every agent must cross to do anything real.
