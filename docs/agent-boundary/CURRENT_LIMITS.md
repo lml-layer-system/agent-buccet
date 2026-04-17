@@ -494,23 +494,28 @@ Every major architectural claim maps to:
 | macOS | `false` | No equivalent syscall surface — graceful degrade | By design |
 | Windows | `false` | Not yet implemented | Pending |
 
-**What "contracted" means here:** The Linux isolation path is implemented in the substrate. The transport contract (`test:agent-buccet:transport`) asserts `isolation active: yes` on Linux and runs on `ubuntu-latest` in CI. When that CI run passes, it constitutes live Linux verification on a real Ubuntu host. The contract also asserts graceful degrade (`isolation active: deferred`) on macOS.
+**What "contracted" means here:** The Linux isolation path is implemented in the substrate. The transport contract (`test:agent-buccet:transport`) runs end-to-end on `ubuntu-latest` in CI and reports the isolation state (`active` or `deferred`). Whether `active` or `deferred`, the transport run must succeed. Full `active` assertion requires a kernel environment where user namespaces are available — the CI job reports the observed state.
 
 **What this means for operators:**
 - On Linux: `buccet transport run` will attempt namespace isolation. If the kernel lacks `unshare` capability (e.g. unprivileged container without `CAP_SYS_ADMIN`), the transport run will fail closed rather than silently drop isolation.
 - On macOS: isolation is not active. The runtime still enforces all other boundaries (UPL, bodyguard, physwrap, ledger). Transport works but does not add namespace containment.
 
-**Unsafe claim (do not make until CI passes on Linux):** "Transport isolation is verified on Linux in production." It is implemented, contracted, and the CI assertion is in place — the claim becomes safe once `contracts-runtime` passes on `ubuntu-latest`.
+**Unsafe claim (do not make):** "Transport isolation is guaranteed active on all Linux hosts." Namespace isolation depends on kernel support (`CAP_SYS_ADMIN` or user namespaces enabled). The transport run succeeds either way — but `isolationActive: true` is not guaranteed across all Linux environments.
 
 ---
 
 ## Known Behavioral Defaults
 
-### Process Policy: empty allowedCommands = allow-all
+### Process Policy: no ambient shell authority
 
-`BoundaryProcessPolicy.allowedCommands` controls which commands the boundary will let `tool.exec` run. If `allowedCommands` is absent or empty, **any command in PATH is allowed** — no allowlist enforcement.
+`BoundaryProcessPolicy.allowedCommands` controls which commands the boundary will let `tool.exec` run. If `allowedCommands` is absent or empty, Buccet does **not** treat that as broad shell authority.
 
-This is intentional: operators who have not configured an allowlist have not expressed a restriction. The `BOUNDARY.EXEC.01` base law still requires approval for any `tool.exec` action. A user who approves `tool.exec` without specifying a command is consciously opening `tool.exec` broadly — that intent is honored.
+Command execution is allowed only if one of these is true:
+
+- the command matches explicit standing process policy in `allowedCommands`
+- the command is the current explicitly granted command target for this one boundary-approved action
+
+An empty allowlist does not silently become "anything in PATH can run."
 
 **If you want an explicit command allowlist:**
 
@@ -521,7 +526,7 @@ processPolicy: {
 }
 ```
 
-**What you cannot claim:** "allowedCommands is empty therefore nothing can run." Empty allowlist = no restriction on command name. The higher-level `BOUNDARY.EXEC.01` gate still fires.
+**What you can claim:** Buccet does not give ambient shell authority by default. `tool.exec` still enters the normal boundary path, and the process layer only permits the explicitly allowed command policy or the current approved command target.
 
 ### Schema Versioning: v1 only, no migration path
 

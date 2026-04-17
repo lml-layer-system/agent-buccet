@@ -67,8 +67,6 @@ jobs:
         run: npm run test:agent-buccet:admission-contract
       - name: Admission hard block ceiling contract
         run: npm run test:agent-buccet:admission-hardcap-contract
-      - name: MCP boundary contract
-        run: npm run test:agent-buccet:mcp
 
   contracts-ledger:
     name: Ledger contracts
@@ -119,6 +117,8 @@ jobs:
         run: npm run demo:agent-buccet:attacks
       - name: Transport isolation contract
         run: npm run test:agent-buccet:transport
+      - name: MCP boundary contract
+        run: npm run test:agent-buccet:mcp
 
   contracts-docs:
     name: Docs and hygiene contracts

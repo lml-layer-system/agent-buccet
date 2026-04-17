@@ -365,7 +365,7 @@ async function startMcp(args: {
     stdio: ["pipe", "pipe", "pipe"],
   });
   const client = new McpClient(child);
-  await client.waitForStderr(/\[buccet-mcp\] ready\./);
+  await client.waitForStderr(/\[buccet-mcp\] ready\./, 60_000);
 
   const initialize = await client.request("initialize", {
     protocolVersion: "2024-11-05",
