@@ -57,23 +57,30 @@ async function main() {
       },
     };
 
-    const prepared = await prepareBoundaryProcess({
-      config,
-      command: "/usr/bin/env",
-      scopePaths: [scopedRoot],
-      requestedCwd: scopedRoot,
-      envOverrides: {
-        SAFE_VISIBLE: "yes",
-        SECRET_TOKEN: "no",
+    const conservativeConfig = {
+      ...config,
+      processPolicy: {
+        ...config.processPolicy,
+        allowedCommands: [],
       },
-    }).catch(() => null);
+    };
 
-    assert(prepared === null, "env should be blocked because env command is not in allowedCommands");
+    await assertRejects(
+      () =>
+        prepareBoundaryProcess({
+          config: conservativeConfig,
+          command: process.execPath,
+          scopePaths: [scopedRoot],
+          requestedCwd: scopedRoot,
+        }),
+      "process command requires explicit standing law, allowlist, or current approval",
+    );
 
     const preparedNode = await prepareBoundaryProcess({
       config,
       command: process.execPath,
       scopePaths: [scopedRoot],
+      allowedCommandTargets: [path.basename(process.execPath)],
       requestedCwd: scopedRoot,
       envOverrides: {
         SAFE_VISIBLE: "yes",
@@ -92,7 +99,7 @@ async function main() {
           scopePaths: [scopedRoot],
           requestedCwd: scopedRoot,
         }),
-      "process command is blocked by wrapper process policy",
+      "process command requires explicit standing law, allowlist, or current approval",
     );
 
     await assertRejects(
@@ -197,6 +204,7 @@ async function main() {
 
     console.log("Agent Buccet wrapper contract");
     console.log(`filtered env vars: ${preparedNode.droppedEnvVars.join(",")}`);
+    console.log("no ambient shell authority: ok");
     console.log("blocked command policy: ok");
     console.log("scoped cwd enforcement: ok");
     console.log("wrapped command freeze gate: ok");
