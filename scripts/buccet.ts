@@ -207,6 +207,7 @@ function usage(): never {
     "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
     "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
     "  buccet mcp [--session-id <id>] [--actor-id <id>] [--dry-run]      — start MCP server (JSON-RPC 2.0 over stdio, full boundary enforcement)",
+    "  buccet mcp status                                                  — show MCP session, hook daemon state, and ledger location",
     "  buccet uninstall",
   "  buccet extract-laws <file.md> [--lane acceptance|denial] [--json]  — extract and inspect law directives from a markdown document",
   ].join("\n"));
@@ -1768,6 +1769,151 @@ function isTransportArchive(targetPath: string): boolean {
   return /\.(?:buccet\.tgz|tar\.gz|tgz)$/i.test(targetPath);
 }
 
+const DEFAULT_TRANSPORT_IGNORED_DIRECTORIES = new Set([
+  ".git",
+  "node_modules",
+  "dist",
+  ".next",
+  ".cache",
+  ".turbo",
+  ".parcel-cache",
+  ".svelte-kit",
+  "coverage",
+  "tmp",
+  "temp",
+  ".vscode",
+  ".idea",
+  ".aws",
+  ".ssh",
+  "secrets",
+  "credentials",
+]);
+
+const DEFAULT_TRANSPORT_IGNORED_FILES = new Set([
+  ".env",
+  ".DS_Store",
+  "Thumbs.db",
+  ".buccetignore",
+]);
+
+const DEFAULT_TRANSPORT_IGNORED_BASENAME_PATTERNS = [
+  /^\.env\..+$/,
+  /^.*\.log$/i,
+  /^.*\.(?:tmp|temp|swp|swo|pid)$/i,
+  /^.*\.(?:pem|key|p12|pfx)$/i,
+];
+
+type TransportIgnoreRule = {
+  raw: string;
+  dirOnly: boolean;
+  matchBasename: boolean;
+  regex: RegExp;
+};
+
+function escapeTransportPattern(pattern: string): string {
+  return pattern.replace(/[|\\{}()[\]^$+?.]/g, "\\$&");
+}
+
+function compileTransportIgnoreRule(rawPattern: string): TransportIgnoreRule | null {
+  const trimmed = rawPattern.trim();
+  if (!trimmed || trimmed.startsWith("#") || trimmed.startsWith("!")) {
+    return null;
+  }
+
+  const dirOnly = trimmed.endsWith("/");
+  let normalized = trimmed.replace(/\/+$/g, "");
+  const anchored = normalized.startsWith("/");
+  if (anchored) {
+    normalized = normalized.replace(/^\/+/, "");
+  }
+  if (!normalized) {
+    return null;
+  }
+
+  const matchBasename = !normalized.includes("/");
+  const source = escapeTransportPattern(normalized)
+    .replace(/\\\*\\\*/g, ".*")
+    .replace(/\\\*/g, "[^/]*")
+    .replace(/\\\?/g, "[^/]");
+  const regex = matchBasename
+    ? new RegExp(`^${source}$`)
+    : anchored
+      ? new RegExp(`^${source}$`)
+      : new RegExp(`(?:^|/)${source}$`);
+
+  return {
+    raw: trimmed,
+    dirOnly,
+    matchBasename,
+    regex,
+  };
+}
+
+async function loadTransportIgnoreRules(sourceDir: string): Promise<TransportIgnoreRule[]> {
+  const ignorePath = path.join(sourceDir, ".buccetignore");
+  const raw = await fs.readFile(ignorePath, "utf8").catch(() => null);
+  if (!raw) {
+    return [];
+  }
+  return raw
+    .split(/\r?\n/)
+    .map((line) => compileTransportIgnoreRule(line))
+    .filter((rule): rule is TransportIgnoreRule => rule !== null);
+}
+
+function shouldIgnoreTransportEntry(args: {
+  relativePath: string;
+  isDirectory: boolean;
+  userRules: TransportIgnoreRule[];
+}): boolean {
+  const relativePath = args.relativePath.split(path.sep).join("/");
+  if (!relativePath || relativePath === ".") {
+    return false;
+  }
+
+  const basename = path.posix.basename(relativePath);
+  if (args.isDirectory && DEFAULT_TRANSPORT_IGNORED_DIRECTORIES.has(basename)) {
+    return true;
+  }
+  if (DEFAULT_TRANSPORT_IGNORED_FILES.has(basename)) {
+    return true;
+  }
+  if (DEFAULT_TRANSPORT_IGNORED_BASENAME_PATTERNS.some((pattern) => pattern.test(basename))) {
+    return true;
+  }
+
+  return args.userRules.some((rule) => {
+    if (rule.dirOnly && !args.isDirectory) {
+      return false;
+    }
+    return rule.matchBasename
+      ? rule.regex.test(basename)
+      : rule.regex.test(relativePath);
+  });
+}
+
+async function copyTransportSourceFiltered(args: {
+  sourceDir: string;
+  destinationDir: string;
+}): Promise<void> {
+  const userRules = await loadTransportIgnoreRules(args.sourceDir);
+  await fs.cp(args.sourceDir, args.destinationDir, {
+    recursive: true,
+    filter: async (sourcePath) => {
+      if (sourcePath === args.sourceDir) {
+        return true;
+      }
+      const relativePath = path.relative(args.sourceDir, sourcePath);
+      const stats = await fs.lstat(sourcePath);
+      return !shouldIgnoreTransportEntry({
+        relativePath,
+        isDirectory: stats.isDirectory(),
+        userRules,
+      });
+    },
+  });
+}
+
 async function countFilesRecursively(rootDir: string): Promise<number> {
   const stats = await fs.stat(rootDir);
   if (!stats.isDirectory()) {
@@ -1912,7 +2058,10 @@ async function packBuccetTransportArtifact(args: {
   const stagingDir = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-transport-pack-"));
   const stagingRootfs = path.join(stagingDir, "rootfs");
   try {
-    await fs.cp(sourceDir, stagingRootfs, { recursive: true });
+    await copyTransportSourceFiltered({
+      sourceDir,
+      destinationDir: stagingRootfs,
+    });
     const manifest: BuccetTransportManifest = {
       schemaVersion: 1,
       kind: "buccet_transport",
@@ -4748,11 +4897,11 @@ async function handleRun(rest: string[]) {
   await store.persist();
 
   if (!(await pathExists(home.nativeLibraryPath))) {
-    await handleHook(["build"]);
+    await handleHook(["build", "--quiet"]);
   }
   const hookHealth = await getHookRuntimeHealth(boundary, home);
   if (!hookHealth.healthy) {
-    await handleHook(["start"]);
+    await handleHook(["start", "--quiet"]);
   }
   await waitForHookRuntimeHealthy(boundary, home);
 
@@ -5162,7 +5311,43 @@ async function handleSwarm(rest: string[]) {
   usage();
 }
 
+async function handleMcpStatus() {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+
+  if (!config) {
+    console.log("Agent Buccet is not initialized. Run `buccet init` first.");
+    return;
+  }
+
+  const boundary = await importBoundary(homePath);
+  const hookHealth = await getHookRuntimeHealth(boundary, home);
+
+  const ledgerPath = path.join(homePath, "data", "ledger", "agent-boundary-ledger.jsonl");
+
+  const lines: string[] = [
+    "MCP status",
+    "",
+    `  session:     ${config.sessionId}`,
+    `  actor:       ${config.actorId}`,
+    `  dry-run:     ${config.dryRun ? "yes" : "no"}`,
+    `  hook daemon: ${hookHealth.healthy ? "running" : "not running"}`,
+    `  ledger:      ${ledgerPath}`,
+    "",
+    "  Use `buccet console` for approvals and law authoring.",
+    "  Use `buccet logs` to inspect recent boundary decisions.",
+  ];
+
+  console.log(lines.join("\n"));
+}
+
 async function handleMcp(rest: string[]) {
+  if (rest[0] === "status") {
+    await handleMcpStatus();
+    return;
+  }
+
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
   const config = await loadConfig(home.configPath);
@@ -5185,6 +5370,7 @@ async function handleMcp(rest: string[]) {
   // Load the boundary and ensure the session + scopes are in place — same as
   // `buccet run`. The hook daemon (gravity bridge + intercept) must be running
   // for the full bodyguard chain to be active.
+  process.stderr.write("[buccet-mcp] restoring session...\n");
   const boundary = await importBoundary(homePath);
   const store = await ensureStore(boundary, {
     config: { ...config, sessionId, actorId, dryRun },
@@ -5197,17 +5383,18 @@ async function handleMcp(rest: string[]) {
   });
   await store.persist();
 
+  process.stderr.write("[buccet-mcp] ensuring hook daemon...\n");
   if (!(await pathExists(home.nativeLibraryPath))) {
-    await handleHook(["build"]);
+    await handleHook(["build", "--quiet"]);
   }
   const hookHealth = await getHookRuntimeHealth(boundary, home);
   if (!hookHealth.healthy) {
-    await handleHook(["start"]);
+    await handleHook(["start", "--quiet"]);
   }
+  process.stderr.write("[buccet-mcp] waiting for boundary runtime...\n");
   await waitForHookRuntimeHealthy(boundary, home);
 
-  const mcpServerScriptPath = path.join(currentScriptDir(), "agent-buccet-mcp-server.ts");
-  const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+  const { runBuccetMcpServer } = await import(path.join(currentScriptDir(), "agent-buccet-mcp-server.ts"));
 
   // Hook socket env so the MCP server can reach the bodyguard/intercept IPC.
   const hookEnv = {
@@ -5220,35 +5407,29 @@ async function handleMcp(rest: string[]) {
       : { LD_PRELOAD: home.nativeLibraryPath }),
   };
 
-  // Spawn the MCP server with inherited stdio so the MCP host (Claude Desktop,
-  // Cursor, etc.) can pipe JSON-RPC directly to it.
-  const child = spawn(
-    daemonExec,
-    [
-      mcpServerScriptPath,
-      "--session-id", sessionId,
-      "--actor-id",   actorId,
-      "--sessions-dir", home.sessionsDir,
-      "--home", homePath,
-      ...(dryRun ? ["--dry-run"] : []),
-    ],
-    {
-      cwd: homePath,
-      stdio: "inherit",
-      env: { ...process.env, ...hookEnv },
-    },
-  );
-
-  await new Promise<void>((resolve, reject) => {
-    child.on("close", (code) => {
-      if (code === 0 || code === null) {
-        resolve();
-      } else {
-        reject(new Error(`MCP server exited with code ${code}`));
-      }
+  const previousEnv = new Map<string, string | undefined>();
+  for (const key of Object.keys(hookEnv)) {
+    previousEnv.set(key, process.env[key]);
+  }
+  Object.assign(process.env, hookEnv);
+  process.stderr.write("[buccet-mcp] ready.\n");
+  try {
+    await runBuccetMcpServer({
+      sessionId,
+      actorId,
+      sessionsDir: home.sessionsDir,
+      home: homePath,
+      dryRun,
     });
-    child.on("error", reject);
-  });
+  } finally {
+    for (const [key, value] of previousEnv) {
+      if (value === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = value;
+      }
+    }
+  }
 }
 
 async function handleHook(rest: string[]) {
@@ -5261,6 +5442,14 @@ async function handleHook(rest: string[]) {
   }
 
   const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+  const quiet = rest.includes("--quiet");
+  const emitHookStatus = (message: string) => {
+    if (quiet) {
+      process.stderr.write(`${message}\n`);
+      return;
+    }
+    console.log(message);
+  };
 
   if (subcommand === "build") {
     await ensureDir(home.nativeBuildDir);
@@ -5291,7 +5480,7 @@ async function handleHook(rest: string[]) {
     if (result.code !== 0) {
       throw new Error(result.stderr || `native hook build failed with code ${result.code}`);
     }
-    console.log(`built native hook: ${home.nativeLibraryPath}`);
+    emitHookStatus(`built native hook: ${home.nativeLibraryPath}`);
     return;
   }
 
@@ -5305,7 +5494,7 @@ async function handleHook(rest: string[]) {
     if (existingPid && await pidAlive(existingPid)) {
       const health = await getHookRuntimeHealth(boundary, home);
       if (health.healthy) {
-        console.log(`hook daemon already running: ${existingPid}`);
+        emitHookStatus(`hook daemon already running: ${existingPid}`);
         return;
       }
       await stopHookDaemonPid(existingPid);
@@ -5338,7 +5527,7 @@ async function handleHook(rest: string[]) {
     });
     child.unref();
     await waitForHookRuntimeHealthy(boundary, home);
-    console.log(`hook daemon started`);
+    emitHookStatus("hook daemon started");
     return;
   }
 
@@ -5468,7 +5657,7 @@ async function handleHook(rest: string[]) {
   if (subcommand === "stop") {
     const pid = await readHookPid(home.hookPidPath);
     if (!pid) {
-      console.log("hook daemon not running");
+      emitHookStatus("hook daemon not running");
       return;
     }
     try {
@@ -5478,7 +5667,7 @@ async function handleHook(rest: string[]) {
       process.exitCode = 1;
       return;
     }
-    console.log(`hook daemon stopped: ${pid}`);
+    emitHookStatus(`hook daemon stopped: ${pid}`);
     return;
   }
 

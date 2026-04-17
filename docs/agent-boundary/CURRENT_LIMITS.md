@@ -503,11 +503,16 @@ Every major architectural claim maps to:
 
 ## Known Behavioral Defaults
 
-### Process Policy: empty allowedCommands = allow-all
+### Process Policy: no ambient shell authority
 
-`BoundaryProcessPolicy.allowedCommands` controls which commands the boundary will let `tool.exec` run. If `allowedCommands` is absent or empty, **any command in PATH is allowed** — no allowlist enforcement.
+`BoundaryProcessPolicy.allowedCommands` controls which commands the boundary will let `tool.exec` run. If `allowedCommands` is absent or empty, Buccet does **not** treat that as broad shell authority.
 
-This is intentional: operators who have not configured an allowlist have not expressed a restriction. The `BOUNDARY.EXEC.01` base law still requires approval for any `tool.exec` action. A user who approves `tool.exec` without specifying a command is consciously opening `tool.exec` broadly — that intent is honored.
+Command execution is allowed only if one of these is true:
+
+- the command matches explicit standing process policy in `allowedCommands`
+- the command is the current explicitly granted command target for this one boundary-approved action
+
+An empty allowlist does not silently become "anything in PATH can run."
 
 **If you want an explicit command allowlist:**
 
@@ -518,7 +523,7 @@ processPolicy: {
 }
 ```
 
-**What you cannot claim:** "allowedCommands is empty therefore nothing can run." Empty allowlist = no restriction on command name. The higher-level `BOUNDARY.EXEC.01` gate still fires.
+**What you can claim:** Buccet does not give ambient shell authority by default. `tool.exec` still enters the normal boundary path, and the process layer only permits the explicitly allowed command policy or the current approved command target.
 
 ### Schema Versioning: v1 only, no migration path
 

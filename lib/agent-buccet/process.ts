@@ -70,14 +70,18 @@ function isCommandBlocked(target: string, policy?: BoundaryProcessPolicy): boole
   return (policy?.blockedCommands ?? []).includes(target);
 }
 
-function isCommandAllowed(target: string, policy?: BoundaryProcessPolicy): boolean {
-  if (isCommandBlocked(target, policy)) {
+function isCommandAllowed(args: {
+  target: string;
+  policy?: BoundaryProcessPolicy;
+  allowedCommandTargets?: string[];
+}): boolean {
+  if (isCommandBlocked(args.target, args.policy)) {
     return false;
   }
-  if (!policy?.allowedCommands || policy.allowedCommands.length === 0) {
-    return true;
-  }
-  return policy.allowedCommands.includes(target);
+
+  const policyAllowed = (args.policy?.allowedCommands ?? []).includes(args.target);
+  const currentApprovalAllowed = (args.allowedCommandTargets ?? []).includes(args.target);
+  return policyAllowed || currentApprovalAllowed;
 }
 
 function selectScopedCwd(args: {
@@ -166,13 +170,18 @@ export async function prepareBoundaryProcess(args: {
   config: BoundaryRuntimeConfig;
   command: string;
   scopePaths: string[];
+  allowedCommandTargets?: string[];
   envOverrides?: Record<string, string>;
   policyPath?: string;
   requestedCwd?: string;
 }): Promise<BoundaryPreparedProcess> {
   const commandTarget = normalizeCommandTarget(args.command);
-  if (!isCommandAllowed(commandTarget, args.config.processPolicy)) {
-    throw new Error("process command is blocked by wrapper process policy");
+  if (!isCommandAllowed({
+    target: commandTarget,
+    policy: args.config.processPolicy,
+    allowedCommandTargets: args.allowedCommandTargets,
+  })) {
+    throw new Error("process command requires explicit standing law, allowlist, or current approval");
   }
 
   const cwd = selectScopedCwd({
@@ -204,10 +213,19 @@ export async function runBoundaryProcess(args: {
   command: string;
   commandArgs: string[];
   scopePaths: string[];
+  allowedCommandTargets?: string[];
   envOverrides?: Record<string, string>;
   policyPath?: string;
   requestedCwd?: string;
-}): Promise<{ exitCode: number; commandTarget: string; cwd: string; droppedEnvVars: string[] }> {
+  ioMode?: "inherit" | "capture";
+}): Promise<{
+  exitCode: number;
+  commandTarget: string;
+  cwd: string;
+  droppedEnvVars: string[];
+  stdout: string;
+  stderr: string;
+}> {
   const prepared = await prepareBoundaryProcess(args);
 
   await appendBoundaryLedger("PROCESS_LAUNCH_REQUESTED", {
@@ -276,11 +294,23 @@ export async function runBoundaryProcess(args: {
     : prepared.env;
 
   return new Promise((resolve, reject) => {
+    const ioMode = args.ioMode ?? "inherit";
+    let stdout = "";
+    let stderr = "";
     const child = spawn(spawnCommand.command, spawnCommand.args, {
-      stdio: "inherit",
+      stdio: ioMode === "capture" ? ["ignore", "pipe", "pipe"] : "inherit",
       env: spawnEnv,
       cwd: prepared.cwd,
     });
+
+    if (ioMode === "capture") {
+      child.stdout?.on("data", (chunk) => {
+        stdout += chunk.toString();
+      });
+      child.stderr?.on("data", (chunk) => {
+        stderr += chunk.toString();
+      });
+    }
 
     // Wall-clock timeout: SIGKILL after configured ms — O(1) Node.js native
     let wallClockHandle: ReturnType<typeof setTimeout> | undefined;
@@ -432,6 +462,8 @@ export async function runBoundaryProcess(args: {
         commandTarget: prepared.commandTarget,
         cwd: prepared.cwd,
         droppedEnvVars: prepared.droppedEnvVars,
+        stdout,
+        stderr,
       });
     });
   });
