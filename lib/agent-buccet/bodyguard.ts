@@ -104,6 +104,8 @@ export type BoundaryChatEmissionProposal<T = string> = {
 
 export function createBoundaryActionRequest(args: {
   config: BoundaryRuntimeConfig;
+  requestId?: string;
+  requestedAt?: string;
   actionKind: BoundaryActionKind;
   target: string;
   payloadSummary?: string;
@@ -120,12 +122,12 @@ export function createBoundaryActionRequest(args: {
   const mergedReviewContext = mergeBoundaryReviewContext(args.reviewContext, inferredTimeConstraints.reviewContext);
 
   return {
-    requestId: randomUUID(),
+    requestId: args.requestId ?? randomUUID(),
     sessionId: args.config.session.sessionId,
     actionKind: args.actionKind,
     target: args.target,
     payloadSummary: args.payloadSummary,
-    requestedAt: new Date().toISOString(),
+    requestedAt: args.requestedAt ?? new Date().toISOString(),
     provenance: args.provenance ?? "agent_inference",
     flags: mergedFlags,
     reviewContext: mergedReviewContext,
@@ -187,7 +189,7 @@ function mergeBoundaryReviewContext(
   };
 }
 
-async function logBlockedAction(
+export async function recordBoundaryBlockedAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
   reason: string,
@@ -202,11 +204,14 @@ async function logBlockedAction(
     decision: "deny",
     reason,
     lawIds,
+    metadata: {
+      provenance: request.provenance,
+    },
     createdAt: new Date().toISOString(),
   });
 }
 
-async function logExecutedAction(
+export async function recordBoundaryExecutedAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
   reason: string,
@@ -220,12 +225,15 @@ async function logExecutedAction(
     target: request.target,
     decision: "allow",
     reason,
-    metadata,
+    metadata: {
+      provenance: request.provenance,
+      ...(metadata ?? {}),
+    },
     createdAt: new Date().toISOString(),
   });
 }
 
-async function logProposedAction(
+export async function recordBoundaryProposedAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
   reason = "action proposed",
@@ -237,11 +245,14 @@ async function logProposedAction(
     actionKind: request.actionKind,
     target: request.target,
     reason,
+    metadata: {
+      provenance: request.provenance,
+    },
     createdAt: request.requestedAt,
   });
 }
 
-async function logDecisionReturned(
+export async function recordBoundaryDecisionReturned(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
   reason: string,
@@ -257,6 +268,31 @@ async function logDecisionReturned(
     decision,
     reason,
     lawIds,
+    metadata: {
+      provenance: request.provenance,
+    },
+    createdAt: new Date().toISOString(),
+  });
+}
+
+export async function recordBoundaryApprovalRequested(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+  reason: string;
+  lawIds: string[];
+}): Promise<void> {
+  await appendBoundaryLedger("APPROVAL_REQUESTED", {
+    sessionId: args.config.session.sessionId,
+    actorId: args.config.session.actorId,
+    requestId: args.request.requestId,
+    actionKind: args.request.actionKind,
+    target: args.request.target,
+    decision: "require_approval",
+    reason: args.reason,
+    lawIds: args.lawIds,
+    metadata: {
+      provenance: args.request.provenance,
+    },
     createdAt: new Date().toISOString(),
   });
 }
@@ -1072,7 +1108,7 @@ export async function runBoundaryControlledAction<T>(args: {
     }
   }
 
-  await logProposedAction(activeConfig, activeRequest);
+  await recordBoundaryProposedAction(activeConfig, activeRequest);
   let adjudication = governorHold
     ? {
       config: activeConfig,
@@ -1106,7 +1142,7 @@ export async function runBoundaryControlledAction<T>(args: {
     activeConfig = { ...activeConfig, governorState: updatedGovState };
   }
 
-  await logDecisionReturned(
+  await recordBoundaryDecisionReturned(
     activeConfig,
     activeRequest,
     adjudication.result.reason,
@@ -1115,7 +1151,7 @@ export async function runBoundaryControlledAction<T>(args: {
   );
 
   if (adjudication.result.decision === "deny") {
-    await logBlockedAction(
+    await recordBoundaryBlockedAction(
       activeConfig,
       activeRequest,
       adjudication.result.reason,
@@ -1195,7 +1231,7 @@ export async function runBoundaryControlledAction<T>(args: {
       if (adjudication.grantOffer) {
         await adjudication.grantOffer.denyGrant();
       }
-      await logBlockedAction(
+      await recordBoundaryBlockedAction(
         activeConfig,
         activeRequest,
         adjudication.result.reason,
@@ -1258,7 +1294,7 @@ export async function runBoundaryControlledAction<T>(args: {
       });
       activeConfig = adjudication.config;
       activeRequest = adjudication.request;
-      await logDecisionReturned(
+      await recordBoundaryDecisionReturned(
         activeConfig,
         activeRequest,
         adjudication.result.reason,
@@ -1266,7 +1302,7 @@ export async function runBoundaryControlledAction<T>(args: {
         adjudication.result.triggeredLawIds,
       );
       if (adjudication.result.decision === "deny") {
-        await logBlockedAction(
+        await recordBoundaryBlockedAction(
           activeConfig,
           activeRequest,
           adjudication.result.reason,
@@ -1290,7 +1326,7 @@ export async function runBoundaryControlledAction<T>(args: {
     });
     activeConfig = adjudication.config;
     activeRequest = adjudication.request;
-    await logDecisionReturned(
+    await recordBoundaryDecisionReturned(
       activeConfig,
       activeRequest,
       adjudication.result.reason,
@@ -1298,7 +1334,7 @@ export async function runBoundaryControlledAction<T>(args: {
       adjudication.result.triggeredLawIds,
     );
     if (adjudication.result.decision === "deny") {
-      await logBlockedAction(
+      await recordBoundaryBlockedAction(
         activeConfig,
         activeRequest,
         adjudication.result.reason,
@@ -1330,7 +1366,7 @@ export async function runBoundaryControlledAction<T>(args: {
   if (activeConfig.session.dryRun && isMutatingAction) {
     const reason =
       args.dryRunPreviewReason ?? "session is in dry-run mode; action previewed but not executed";
-    await logExecutedAction(activeConfig, activeRequest, reason, { dry_run: true });
+    await recordBoundaryExecutedAction(activeConfig, activeRequest, reason, { dry_run: true });
     return {
       config: activeConfig,
       allowed: true,
@@ -1342,7 +1378,7 @@ export async function runBoundaryControlledAction<T>(args: {
   }
 
   const value = await args.execute();
-  await logExecutedAction(activeConfig, activeRequest, args.successReason, args.successMetadata);
+  await recordBoundaryExecutedAction(activeConfig, activeRequest, args.successReason, args.successMetadata);
 
   return {
     config: activeConfig,

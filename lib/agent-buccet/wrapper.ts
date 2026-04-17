@@ -161,6 +161,7 @@ export async function runBoundaryWrappedCommand(args: {
       config,
       command: args.command,
       scopePaths: args.scopePaths ?? [],
+      allowedCommandTargets: [target],
       envOverrides: args.env,
       policyPath: args.policyPath,
       requestedCwd: args.cwd,
@@ -168,7 +169,7 @@ export async function runBoundaryWrappedCommand(args: {
   } catch (error) {
     const message = error instanceof Error ? error.message : "wrapped process blocked by process policy";
     if (
-      message.includes("process command is blocked by wrapper process policy") ||
+      message.includes("process command requires explicit standing law, allowlist, or current approval") ||
       message.includes("requested working directory is outside user-opened scope")
     ) {
       await appendBoundaryLedger("PROCESS_BLOCKED", {
@@ -212,6 +213,7 @@ export async function runBoundaryWrappedCommand(args: {
           command: args.command,
           commandArgs: args.commandArgs,
           scopePaths: args.scopePaths ?? [],
+          allowedCommandTargets: [target],
           envOverrides: args.env,
           policyPath: args.policyPath,
           requestedCwd: args.cwd,
