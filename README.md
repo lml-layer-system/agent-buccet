@@ -500,9 +500,7 @@ Proof and release:
 
 System shape:
 
-- [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
 - [Buccet Rust Substrate](docs/agent-boundary/BUCCET_SUBSTRATE_RUST.md)
-- [Buccet Full System Body](docs/agent-boundary/BUCCET_FULL_SYSTEM_BODY.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
 
 ## Proof Commands
