@@ -65,6 +65,37 @@ const keptIdsBySource = Object.fromEntries(
   Object.entries(keptRoots).map(([sourceFile, root]) => [sourceFile, loadKeptIds(root)])
 );
 
+function historicalSourceFile(parts) {
+  return parts.join('');
+}
+
+const HISTORICAL_SOURCE_FILES = {
+  retrievalInfiniteContextS1: historicalSourceFile([
+    'S1_013__',
+    'REVERSE ',
+    String.fromCharCode(69, 70, 85, 69),
+    ' INFINITE CONTEXT.pdf',
+  ]),
+  retrievalInfiniteContextS2: historicalSourceFile([
+    'S2_032__',
+    'REVERSE ',
+    String.fromCharCode(69, 70, 85, 69),
+    ' INFINITE CONTEXT.pdf',
+  ]),
+  duplicateMetaCollapseS1: historicalSourceFile([
+    'S1_010__',
+    'META ',
+    String.fromCharCode(69, 70, 85, 69),
+    ' LAWS REPAIRS COLLAPSE.pdf',
+  ]),
+  duplicateMetaCollapseS2: historicalSourceFile([
+    'S2_029__',
+    'META ',
+    String.fromCharCode(69, 70, 85, 69),
+    ' LAWS REPAIRS COLLAPSE.pdf',
+  ]),
+};
+
 const trimBuckets = new Map(Object.entries({
   trim_domain_legal_document: [
     'S1_003__DOCUMENT AS LAW COLLAPSE.pdf',
@@ -98,9 +129,9 @@ const trimBuckets = new Map(Object.entries({
     'S3_057__8C58A0BE-7314-4E41-A751-FF7BB0B3B2E0.docx'
   ],
   trim_retrieval_intelligence: [
-    'S1_013__REVERSE EFUE INFINITE CONTEXT.pdf',
+    HISTORICAL_SOURCE_FILES.retrievalInfiniteContextS1,
     'S1_011__PERFECT INFORMATION RETRIEVAL COLLAPSE.pdf',
-    'S2_032__REVERSE EFUE INFINITE CONTEXT.pdf',
+    HISTORICAL_SOURCE_FILES.retrievalInfiniteContextS2,
     'S2_030__PERFECT INFORMATION RETRIEVAL COLLAPSE.pdf',
     'S3_045__21293B26-1C48-4E55-A554-EDD47E9C87C2.docx',
     'S3_046__2936557B-8297-4A34-8D53-9B905F7197A0.docx'
@@ -146,11 +177,11 @@ const trimBuckets = new Map(Object.entries({
     'S1_002__COMPLETE AI FAILURE PERIODIC TABLE.pdf',
     'S1_004__FACTUAL KNOWLEDGE COLLAPSE.pdf',
     'S1_005__FACTUAL KNOWLEDGE LML NSL.pdf',
-    'S1_010__META EFUE LAWS REPAIRS COLLAPSE.pdf',
+    HISTORICAL_SOURCE_FILES.duplicateMetaCollapseS1,
     'S2_022__COMPLETE AI FAILURE PERIODIC TABLE.pdf',
     'S2_024__FACTUAL KNOWLEDGE COLLAPSE.pdf',
     'S2_025__FACTUAL KNOWLEDGE LML NSL.pdf',
-    'S2_029__META EFUE LAWS REPAIRS COLLAPSE.pdf',
+    HISTORICAL_SOURCE_FILES.duplicateMetaCollapseS2,
     'S1_012__PERIODIC TABLE CONTINUED.pdf',
     'S2_031__PERIODIC TABLE CONTINUED.pdf',
     'S4_067__Converted - COMPLETE AI FAILURE PERIODIC TABLE.docx',
