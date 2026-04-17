@@ -547,8 +547,8 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
             runCommand: async (command, commandArgs, cwd) => {
               const activeConfig = store.getConfig();
               const scopePaths = activeConfig.pathLaws
-                .filter((law) => !law.revokedAt)
-                .map((law) => law.rootPath);
+                .filter((law: { revokedAt?: unknown; rootPath: string }) => !law.revokedAt)
+                .map((law: { revokedAt?: unknown; rootPath: string }) => law.rootPath);
               const launched = await boundary.runBoundaryProcess({
                 config: activeConfig,
                 command,
