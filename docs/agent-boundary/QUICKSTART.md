@@ -14,18 +14,13 @@ Goal:
 
 ## 1. Install
 
-Hosted install:
-
 ```bash
-curl -fsSL https://buccet.lml.dev/install | sh
-```
-
-Repo install:
-
-```bash
-npm install
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
 sh scripts/install-agent-buccet.sh
 ```
+
+Hosted install coming soon.
 
 After install:
 
@@ -199,6 +194,7 @@ The short version:
 
 ## 8. Next Docs
 
+- [MCP Server](MCP_SERVER.md)
 - [Where To Add What](WHERE_TO_ADD_WHAT.md)
 - [Buccet Path Memory](BUCCET_PATH_MEMORY.md)
 - [UPL Base Packs](UPL_BASE_PACKS.md)

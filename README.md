@@ -71,7 +71,9 @@ Agent Buccet provides the *brakes* and runtime enforcement against AI failure mo
 The short path is:
 
 ```bash
-curl -fsSL https://buccet.lml.dev/install | sh
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
+sh scripts/install-agent-buccet.sh
 buccet init
 buccet console
 ```
@@ -79,7 +81,30 @@ buccet console
 That is the normal operator bring-up.
 Install the runtime, initialize the machine, then open the Buccet operator cockpit.
 
+Hosted install coming soon.
+
 `buccet console` is the point where your terminal becomes Agent Buccet's working control surface.
+
+## MCP Server
+
+`buccet mcp` starts an MCP (Model Context Protocol) server over stdio.
+
+Wire it into any MCP host — Claude Desktop, Cursor, or any compatible client:
+
+```json
+{
+  "mcpServers": {
+    "buccet": {
+      "command": "buccet",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Every tool call from the host enters the same enforcement chain — same UPL, same bodyguard, same ledger. MCP is transport only. Adding a new host does not change what Buccet allows.
+
+See [MCP Server](docs/agent-boundary/MCP_SERVER.md) for setup, available tools, and how to authorize actions via UPL.
 
 ## Portable Transport
 
@@ -157,18 +182,13 @@ stored human judgment the system follows at runtime.
 
 ## Install
 
-Hosted install:
-
 ```bash
-curl -fsSL https://buccet.lml.dev/install | sh
-```
-
-Repo install:
-
-```bash
-npm install
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
 sh scripts/install-agent-buccet.sh
 ```
+
+Hosted install coming soon.
 
 Then:
 
