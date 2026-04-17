@@ -48,6 +48,7 @@ const sourceHookDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-hook
 const sourceSystemInterceptBridgeScript = path.join(repoRoot, "scripts", "agent-buccet-system-intercept-bridge.ts");
 const sourceLedgerWriterScript = path.join(repoRoot, "scripts", "agent-buccet-ledger-writer.ts");
 const sourceLedgerCliScript = path.join(repoRoot, "scripts", "agent-buccet-ledger-cli.ts");
+const sourceMcpServerScript = path.join(repoRoot, "scripts", "agent-buccet-mcp-server.ts");
 const sourceInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet.sh");
 const sourceHostedInstallScript = path.join(repoRoot, "scripts", "install-agent-buccet-hosted.sh");
 const sourceNativeDir = path.join(repoRoot, "native");
@@ -185,6 +186,7 @@ async function computePackageInputHash(): Promise<string> {
     "scripts/agent-buccet-cli-contract.ts",
     "scripts/agent-buccet-run.ts",
     "scripts/buccet.ts",
+    "scripts/agent-buccet-mcp-server.ts",
     "scripts/agent-buccet-gravity-daemon.ts",
     "scripts/agent-buccet-intercept-daemon.ts",
     "scripts/agent-buccet-intercept-server.ts",
@@ -484,6 +486,7 @@ async function writeExtractionManifest() {
       "examples/agent-buccet-install-contract.ts",
       "examples/agent-buccet-hosted-install-contract.ts",
       "examples/agent-buccet-release-witness-contract.ts",
+      "bin/agent-buccet-mcp-server.ts",
       "bin/agent-buccet-gravity-daemon.ts",
       "bin/agent-buccet-intercept-daemon.ts",
       "bin/agent-buccet-intercept-server.ts",
@@ -724,6 +727,13 @@ async function writeStandaloneWrapper() {
     "../src/",
   );
   await fs.writeFile(path.join(binDir, "buccet.ts"), rewrittenCli, "utf8");
+
+  const rawMcpServer = await fs.readFile(sourceMcpServerScript, "utf8");
+  const rewrittenMcpServer = rawMcpServer.replaceAll(
+    "../lib/agent-buccet/",
+    "../src/",
+  );
+  await fs.writeFile(path.join(binDir, "agent-buccet-mcp-server.ts"), rewrittenMcpServer, "utf8");
 
   const rawInstall = await fs.readFile(sourceInstallScript, "utf8");
   await fs.writeFile(path.join(outDir, "install.sh"), rawInstall, "utf8");
