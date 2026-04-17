@@ -117,6 +117,8 @@ jobs:
         run: npm run test:agent-buccet:physwrap-contract
       - name: Attack demo
         run: npm run demo:agent-buccet:attacks
+      - name: Transport isolation contract
+        run: npm run test:agent-buccet:transport
 
   contracts-docs:
     name: Docs and hygiene contracts

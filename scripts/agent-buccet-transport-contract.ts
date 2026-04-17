@@ -38,8 +38,36 @@ async function main() {
   try {
     const appDir = path.join(tempRoot, "portable-app");
     const binDir = path.join(appDir, "bin");
+    const gitDir = path.join(appDir, ".git");
+    const nodeModulesDir = path.join(appDir, "node_modules", "leftpad");
+    const distDir = path.join(appDir, "dist");
+    const vscodeDir = path.join(appDir, ".vscode");
+    const ignoredDir = path.join(appDir, "ignored-dir");
     await fs.mkdir(binDir, { recursive: true });
+    await fs.mkdir(gitDir, { recursive: true });
+    await fs.mkdir(nodeModulesDir, { recursive: true });
+    await fs.mkdir(distDir, { recursive: true });
+    await fs.mkdir(vscodeDir, { recursive: true });
+    await fs.mkdir(ignoredDir, { recursive: true });
     await fs.writeFile(path.join(appDir, "payload.txt"), "portable-hello\n", "utf8");
+    await fs.writeFile(path.join(appDir, ".env"), "API_KEY=super-secret\n", "utf8");
+    await fs.writeFile(path.join(appDir, "runtime.log"), "should not ship\n", "utf8");
+    await fs.writeFile(path.join(appDir, "ignored.txt"), "ignored by buccetignore\n", "utf8");
+    await fs.writeFile(path.join(ignoredDir, "nested.txt"), "ignored directory\n", "utf8");
+    await fs.writeFile(path.join(gitDir, "config"), "[core]\nrepositoryformatversion = 0\n", "utf8");
+    await fs.writeFile(path.join(nodeModulesDir, "index.js"), "module.exports = 1;\n", "utf8");
+    await fs.writeFile(path.join(distDir, "bundle.js"), "console.log('dist');\n", "utf8");
+    await fs.writeFile(path.join(vscodeDir, "settings.json"), "{\n  \"editor.tabSize\": 2\n}\n", "utf8");
+    await fs.writeFile(
+      path.join(appDir, ".buccetignore"),
+      [
+        "# user-defined transport exclusions",
+        "ignored.txt",
+        "ignored-dir/",
+        "",
+      ].join("\n"),
+      "utf8",
+    );
     const sourcePath = path.join(tempRoot, "portable-app.c");
     await fs.writeFile(
       sourcePath,
@@ -120,6 +148,16 @@ async function main() {
     assert.equal(imported.destinationDir, importedDir);
     assert.equal(imported.rootfsPath, path.join(importedDir, "rootfs"));
     assert.deepEqual(imported.manifest.entrypoint, ["/bin/portable-app"]);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "payload.txt")).then(() => true, () => false), true);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "bin", "portable-app")).then(() => true, () => false), true);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, ".env")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, ".git")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "node_modules")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "dist")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, ".vscode")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "runtime.log")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "ignored.txt")).then(() => true, () => false), false);
+    assert.equal(await fs.stat(path.join(imported.rootfsPath, "ignored-dir")).then(() => true, () => false), false);
 
     const runResult = await run(
       "node",
@@ -136,10 +174,28 @@ async function main() {
     assert.equal(runResult.stdout.includes("TRANSPORT_EXEC=packaged-binary"), true, "expected transport run to use packaged binary");
     assert.equal(runResult.stdout.includes("entered environment: yes"), true, "expected transport run to stage environment");
 
+    // Isolation is platform-specific: Linux uses namespace isolation (active),
+    // macOS gracefully degrades (deferred). Both are correct outcomes.
+    if (process.platform === "linux") {
+      assert.equal(
+        runResult.stdout.includes("isolation active: yes"),
+        true,
+        `expected Linux namespace isolation to be active. got:\n${runResult.stdout}`,
+      );
+    } else {
+      assert.equal(
+        runResult.stdout.includes("isolation active: deferred"),
+        true,
+        `expected non-Linux isolation to be deferred. got:\n${runResult.stdout}`,
+      );
+    }
+
     console.log("Agent Buccet transport contract");
     console.log(`artifact: ${artifactPath}`);
     console.log(`imported dir: ${importedDir}`);
+    console.log("artifact hygiene: ok");
     console.log("portable run: ok");
+    console.log(`isolation: ${process.platform === "linux" ? "active (linux namespaces)" : "deferred (non-linux)"}`);
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true }).catch(() => undefined);
   }

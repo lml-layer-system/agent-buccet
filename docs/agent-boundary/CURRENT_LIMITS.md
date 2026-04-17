@@ -494,13 +494,13 @@ Every major architectural claim maps to:
 | macOS | `false` | No equivalent syscall surface — graceful degrade | By design |
 | Windows | `false` | Not yet implemented | Pending |
 
-**What "contracted" means here:** The Linux isolation path is implemented in the substrate and covered by contract tests. Live end-to-end verification on a Linux host is pending — not yet run in a production CI environment with full kernel namespace support.
+**What "contracted" means here:** The Linux isolation path is implemented in the substrate. The transport contract (`test:agent-buccet:transport`) asserts `isolation active: yes` on Linux and runs on `ubuntu-latest` in CI. When that CI run passes, it constitutes live Linux verification on a real Ubuntu host. The contract also asserts graceful degrade (`isolation active: deferred`) on macOS.
 
 **What this means for operators:**
 - On Linux: `buccet transport run` will attempt namespace isolation. If the kernel lacks `unshare` capability (e.g. unprivileged container without `CAP_SYS_ADMIN`), the transport run will fail closed rather than silently drop isolation.
 - On macOS: isolation is not active. The runtime still enforces all other boundaries (UPL, bodyguard, physwrap, ledger). Transport works but does not add namespace containment.
 
-**Unsafe claim (do not make):** "Transport isolation is verified on Linux in production." It is implemented and contracted, not yet live-verified on a production Linux host.
+**Unsafe claim (do not make until CI passes on Linux):** "Transport isolation is verified on Linux in production." It is implemented, contracted, and the CI assertion is in place — the claim becomes safe once `contracts-runtime` passes on `ubuntu-latest`.
 
 ---
 
