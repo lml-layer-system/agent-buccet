@@ -85,6 +85,27 @@ Hosted install coming soon.
 
 `buccet console` is the point where your terminal becomes Agent Buccet's working control surface.
 
+## MCP Server
+
+`buccet mcp` starts an MCP (Model Context Protocol) server over stdio.
+
+Wire it into any MCP host — Claude Desktop, Cursor, or any compatible client:
+
+```json
+{
+  "mcpServers": {
+    "buccet": {
+      "command": "buccet",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Every tool call from the host enters the same enforcement chain — same UPL, same bodyguard, same ledger. MCP is transport only. Adding a new host does not change what Buccet allows.
+
+See [MCP Server](docs/agent-boundary/MCP_SERVER.md) for setup, available tools, and how to authorize actions via UPL.
+
 ## Portable Transport
 
 Buccet can now package a bounded workload and move it between machines through its own transport surface.
@@ -499,9 +520,7 @@ Proof and release:
 
 System shape:
 
-- [Buccet System Substrate](docs/agent-boundary/BUCCET_SYSTEM_SUBSTRATE.md)
 - [Buccet Rust Substrate](docs/agent-boundary/BUCCET_SUBSTRATE_RUST.md)
-- [Buccet Full System Body](docs/agent-boundary/BUCCET_FULL_SYSTEM_BODY.md)
 - [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
 
 ## Proof Commands

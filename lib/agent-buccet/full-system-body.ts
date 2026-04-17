@@ -493,7 +493,6 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
         { label: "path runtime and path sources", path: "lib/agent-buccet/path-memory.ts" },
         { label: "system substrate", path: "lib/agent-buccet/system-substrate.ts" },
         { label: "operator/runtime surface", path: "scripts/buccet.ts" },
-        { label: "rendered snap result", path: "docs/agent-boundary/BUCCET_FULL_SYSTEM_BODY.md" },
       ],
     },
     step6: {

@@ -401,6 +401,25 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 
 ---
 
+## Transport Isolation
+
+`buccet transport run` executes packaged workloads through the Buccet substrate portability chain (`applyIsolation` → `persistState` → `enterEnvironment`).
+
+### Platform state
+
+| Platform | `isolationActive` | What it means |
+|----------|------------------|---------------|
+| Linux | **true** | Full rootfs confinement — the workload runs inside the packaged rootfs, PATH is locked to the package, no host filesystem access outside the root |
+| macOS | **false** (graceful degrade) | Rootfs escape prevention degrades silently; the workload runs but confinement is not enforced at the OS level |
+
+macOS degradation is by design: `chroot`-style confinement requires elevated privileges on macOS that are not available in a standard install. The substrate reports `isolationActive: false` and continues. All other guarantees (`persistedState`, `enteredEnvironment`, boundary law enforcement) remain active.
+
+**Linux is the full-isolation platform.** The macOS degrade is documented, not hidden. If your deployment depends on rootfs confinement, run transport workloads on Linux.
+
+**Status:** Linux full-isolation path has not yet been independently verified on a live Linux machine in this release. The code path exists and is tested in the substrate contract. An operator-level Linux proof run is pending.
+
+---
+
 ## Hook Failure Semantics
 
 | Condition | Hook behavior |

@@ -27,7 +27,7 @@ All 8,209 laws are meant to be run together as a unified active surface.
 Notes:
 - procedural offensive enablement is excluded; adversarial attack recognition is active defensive law
 - the imported ancestor continuity payload has now been remodeled into Agent Buccet time laws
-- `MT-00401` through `MT-00420` are authored Agent Buccet time laws added after reverse-EFUE stress and hostile review exposed missing user-path memory and continuity enforcement surfaces
+- `MT-00401` through `MT-00420` are authored Agent Buccet time laws added to close missing user-path memory and continuity enforcement surfaces
 - the base corpus is family-compressed: active enforcement text at the family-law level, source law IDs retained as coverage trace
 - time laws are the dynamic defense family and are actively layered across `BASE`, `STATE`, `OUTPUT`, and `TEMPORAL`
 - the runtime repo now derives muscle directly from `data/working/active-law-body/projected-laws.json`; this vendored copy no longer carries a separate snapped substrate artifact
