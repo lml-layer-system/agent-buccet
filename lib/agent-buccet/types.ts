@@ -222,7 +222,8 @@ export type BoundaryRequestProvenance =
   | "remote_user"
   | "agent_inference"
   | "tool_output"
-  | "external_content";
+  | "external_content"
+  | "mcp_host";
 
 export type BoundarySession = {
   sessionId: string;

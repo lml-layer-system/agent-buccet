@@ -206,6 +206,7 @@ function usage(): never {
     "  buccet swarm mode [interactive|standing-law] [--json]",
     "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
     "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
+    "  buccet mcp [--session-id <id>] [--actor-id <id>] [--dry-run]      — start MCP server (JSON-RPC 2.0 over stdio, full boundary enforcement)",
     "  buccet uninstall",
   "  buccet extract-laws <file.md> [--lane acceptance|denial] [--json]  — extract and inspect law directives from a markdown document",
   ].join("\n"));
@@ -5161,6 +5162,95 @@ async function handleSwarm(rest: string[]) {
   usage();
 }
 
+async function handleMcp(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  // Allow overriding session/actor via CLI flags (for multi-session MCP use).
+  let sessionId = config.sessionId;
+  let actorId = config.actorId;
+  let dryRun = config.dryRun;
+  for (let i = 0; i < rest.length; i++) {
+    const t = rest[i];
+    if (t === "--session-id") { sessionId = rest[++i] ?? sessionId; continue; }
+    if (t === "--actor-id")   { actorId   = rest[++i] ?? actorId;   continue; }
+    if (t === "--dry-run")    { dryRun = true; continue; }
+  }
+
+  // Load the boundary and ensure the session + scopes are in place — same as
+  // `buccet run`. The hook daemon (gravity bridge + intercept) must be running
+  // for the full bodyguard chain to be active.
+  const boundary = await importBoundary(homePath);
+  const store = await ensureStore(boundary, {
+    config: { ...config, sessionId, actorId, dryRun },
+    sessionsDir: home.sessionsDir,
+  });
+  await ensureScopes(boundary, {
+    store,
+    scopePaths: config.defaultScopes,
+    actorId,
+  });
+  await store.persist();
+
+  if (!(await pathExists(home.nativeLibraryPath))) {
+    await handleHook(["build"]);
+  }
+  const hookHealth = await getHookRuntimeHealth(boundary, home);
+  if (!hookHealth.healthy) {
+    await handleHook(["start"]);
+  }
+  await waitForHookRuntimeHealthy(boundary, home);
+
+  const mcpServerScriptPath = path.join(currentScriptDir(), "agent-buccet-mcp-server.ts");
+  const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
+
+  // Hook socket env so the MCP server can reach the bodyguard/intercept IPC.
+  const hookEnv = {
+    AGENT_BUCCET_HOME: homePath,
+    AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+    BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+    BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
+    ...(process.platform === "darwin"
+      ? { DYLD_INSERT_LIBRARIES: home.nativeLibraryPath, DYLD_FORCE_FLAT_NAMESPACE: "1" }
+      : { LD_PRELOAD: home.nativeLibraryPath }),
+  };
+
+  // Spawn the MCP server with inherited stdio so the MCP host (Claude Desktop,
+  // Cursor, etc.) can pipe JSON-RPC directly to it.
+  const child = spawn(
+    daemonExec,
+    [
+      mcpServerScriptPath,
+      "--session-id", sessionId,
+      "--actor-id",   actorId,
+      "--sessions-dir", home.sessionsDir,
+      "--home", homePath,
+      ...(dryRun ? ["--dry-run"] : []),
+    ],
+    {
+      cwd: homePath,
+      stdio: "inherit",
+      env: { ...process.env, ...hookEnv },
+    },
+  );
+
+  await new Promise<void>((resolve, reject) => {
+    child.on("close", (code) => {
+      if (code === 0 || code === null) {
+        resolve();
+      } else {
+        reject(new Error(`MCP server exited with code ${code}`));
+      }
+    });
+    child.on("error", reject);
+  });
+}
+
 async function handleHook(rest: string[]) {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
@@ -6640,6 +6730,10 @@ async function main() {
   }
   if (parsed.command === "hook") {
     await handleHook(parsed.rest);
+    return;
+  }
+  if (parsed.command === "mcp") {
+    await handleMcp(parsed.rest);
     return;
   }
   if (parsed.command === "swarm") {
