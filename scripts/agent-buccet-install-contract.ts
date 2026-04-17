@@ -71,10 +71,10 @@ async function main() {
   const installResult = await run("sh", [installScript], installEnv, repoRoot);
   const installMs = performance.now() - installStartedAt;
   assert.equal(installResult.code, 0, installResult.stderr);
-  assert.match(installResult.stdout, /Agent Buccet installed\./);
-  assert.match(installResult.stdout, /Agent Buccet full system install:/);
-  assert.match(installResult.stdout, /repo body: \d+ artifacts -> \d+ snap bodies/);
-  assert.match(installResult.stdout, /start: buccet console/);
+  assert.match(installResult.stdout, /Agent Buccet v[0-9]+\.[0-9]+\.[0-9]+/);
+  assert.match(installResult.stdout, /installed\s+✓/);
+  assert.match(installResult.stdout, /verified\s+✓/);
+  assert.match(installResult.stdout, /ready\s+buccet console/);
 
   const launcherPath = path.join(launcherDir, "buccet");
   const launcherExists = await fs.access(launcherPath).then(() => true).catch(() => false);
