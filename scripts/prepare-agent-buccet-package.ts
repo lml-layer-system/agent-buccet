@@ -208,8 +208,10 @@ async function computePackageInputHash(): Promise<string> {
 
   for (const relativePath of [...relativePaths].sort((left, right) => left.localeCompare(right))) {
     const absolutePath = path.join(repoRoot, relativePath);
-    const stats = await fs.stat(absolutePath);
-    hash.update(`${relativePath}:${stats.size}:${stats.mtimeMs.toFixed(3)}\n`);
+    const buffer = await fs.readFile(absolutePath);
+    hash.update(`${relativePath}\n`);
+    hash.update(buffer);
+    hash.update("\n");
   }
   return hash.digest("hex");
 }

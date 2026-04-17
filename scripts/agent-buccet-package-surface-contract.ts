@@ -5,11 +5,19 @@ import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
 
-function run(command: string, args: string[], cwd: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+  extraEnv: Record<string, string> = {},
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
-      env: process.env,
+      env: {
+        ...process.env,
+        ...extraEnv,
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -27,7 +35,12 @@ function run(command: string, args: string[], cwd: string): Promise<{ code: numb
 }
 
 async function main() {
-  const buildResult = await run("node", ["scripts/prepare-agent-buccet-package.ts"], repoRoot);
+  const buildResult = await run(
+    "node",
+    ["scripts/prepare-agent-buccet-package.ts"],
+    repoRoot,
+    { AGENT_BUCCET_PACKAGE_SKIP_VERIFY: "1" },
+  );
   assert.equal(buildResult.code, 0, buildResult.stderr);
 
   const rootReadme = await fs.readFile(path.join(repoRoot, "README.md"), "utf8");
@@ -75,7 +88,12 @@ async function main() {
 
   if (packagedNativeHook) {
     await fs.rm(packagedNativeHookPath, { force: true });
-    const rebuildResult = await run("node", ["scripts/prepare-agent-buccet-package.ts"], repoRoot);
+    const rebuildResult = await run(
+      "node",
+      ["scripts/prepare-agent-buccet-package.ts"],
+      repoRoot,
+      { AGENT_BUCCET_PACKAGE_SKIP_VERIFY: "1" },
+    );
     assert.equal(rebuildResult.code, 0, rebuildResult.stderr);
     const rebuiltNativeHook = await fs.access(packagedNativeHookPath).then(() => true).catch(() => false);
     assert.equal(rebuiltNativeHook, true, "package freshness check should rebuild the prebuilt native hook when it is missing");
