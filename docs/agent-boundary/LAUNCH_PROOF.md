@@ -16,17 +16,13 @@ Show, in one flow:
 
 ### 1. Install
 
-Hosted-ready:
-
 ```bash
-sh dist/releases/install.sh
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
+sh scripts/install-agent-buccet.sh
 ```
 
-Or, once hosted:
-
-```bash
-curl -fsSL https://buccet.lml.dev/install | sh
-```
+Hosted install coming soon.
 
 ### 2. Initialize
 

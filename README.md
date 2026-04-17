@@ -71,13 +71,17 @@ Agent Buccet provides the *brakes* and runtime enforcement against AI failure mo
 The short path is:
 
 ```bash
-curl -fsSL https://buccet.lml.dev/install | sh
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
+sh scripts/install-agent-buccet.sh
 buccet init
 buccet console
 ```
 
 That is the normal operator bring-up.
 Install the runtime, initialize the machine, then open the Buccet operator cockpit.
+
+Hosted install coming soon.
 
 `buccet console` is the point where your terminal becomes Agent Buccet's working control surface.
 
@@ -157,18 +161,13 @@ stored human judgment the system follows at runtime.
 
 ## Install
 
-Hosted install:
-
 ```bash
-curl -fsSL https://buccet.lml.dev/install | sh
-```
-
-Repo install:
-
-```bash
-npm install
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
 sh scripts/install-agent-buccet.sh
 ```
+
+Hosted install coming soon.
 
 Then:
 

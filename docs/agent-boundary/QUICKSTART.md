@@ -14,18 +14,13 @@ Goal:
 
 ## 1. Install
 
-Hosted install:
-
 ```bash
-curl -fsSL https://buccet.lml.dev/install | sh
-```
-
-Repo install:
-
-```bash
-npm install
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
 sh scripts/install-agent-buccet.sh
 ```
+
+Hosted install coming soon.
 
 After install:
 

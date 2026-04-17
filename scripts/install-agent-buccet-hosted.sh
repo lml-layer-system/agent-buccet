@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-BASE_URL=${AGENT_BUCCET_INSTALL_BASE_URL:-"https://buccet.lml.dev/releases"}
+BASE_URL=${AGENT_BUCCET_INSTALL_BASE_URL:-"https://releases.lmlsystemlayer.com/agent-buccet"}
 BUCCET_HOME=${AGENT_BUCCET_HOME:-"$HOME/.buccet"}
 LAUNCHER_DIR=${AGENT_BUCCET_LAUNCHER_DIR:-"$HOME/.local/bin"}
 AUTO_INIT=${AGENT_BUCCET_AUTO_INIT:-"0"}
