@@ -16,7 +16,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import readline from "node:readline";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { pathToFileURL } from "node:url";
 
 // ─── arg parsing ────────────────────────────────────────────────────────────
 
@@ -363,11 +363,11 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
     await fs.mkdir(args.home, { recursive: true });
     process.chdir(args.home);
 
-    const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-
     // Load the boundary library and intercept module at startup.
-    const boundary = await import(path.join(scriptDir, "../lib/agent-buccet/index.ts"));
-    const intercept = await import(path.join(scriptDir, "../lib/agent-buccet/intercept.ts"));
+    // Use static-looking relative specifiers so the module resolver works
+    // identically on all platforms (absolute paths break on Linux).
+    const boundary = await import("../lib/agent-buccet/index.ts");
+    const intercept = await import("../lib/agent-buccet/intercept.ts");
     const {
       createBoundaryFunnelInterceptRequest,
       evaluateBoundaryIntercept,
@@ -461,8 +461,6 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         const target = mapping.describeTarget(inputRecord);
         const payloadSummary = mapping.describePayload?.(inputRecord);
         const actionKind = mapInterceptToBoundaryAction({
-          requestId,
-          requestedAt,
           actionClass: mapping.actionClass,
           operation: mapping.operation,
           target,
@@ -482,8 +480,6 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         await recordBoundaryProposedAction(config, boundaryRequest, "mcp tool call proposed");
 
         const request = createBoundaryFunnelInterceptRequest({
-          requestId,
-          requestedAt,
           source: "framework",
           rawAction: toolName,
           actionClass: mapping.actionClass,
