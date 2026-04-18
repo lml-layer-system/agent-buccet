@@ -7,8 +7,8 @@ import { spawn } from "node:child_process";
 import {
   appendBoundaryLedger,
   armBoundaryQuarantineReboot,
+  createEmptyUserPathLedger,
   enableBodyguardControl,
-  loadUserPathLedger,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
 } from "../lib/agent-buccet/index.ts";
@@ -79,7 +79,7 @@ async function main() {
     });
     assert.ok(restored, "restored store must exist after init");
     let runtimeConfig = enableBodyguardControl(restored.getConfig());
-    let upl = await loadUserPathLedger();
+    let upl = createEmptyUserPathLedger();
 
     const approvedRequest = {
       requestId: "quarantine-cli-approved",
@@ -110,13 +110,13 @@ async function main() {
       reason: "seed approved upl item for quarantine cli contract",
       createdAt: new Date().toISOString(),
     });
-    upl = await writeApprovedUserPathLaw({
-      ledger: upl,
-      request: approvedRequest,
-      witness: approvedWitness,
-      session: runtimeConfig.session,
-      decision: { choice: "allow_as_law" },
-    });
+      upl = await writeApprovedUserPathLaw({
+        ledger: upl,
+        request: approvedRequest,
+        witness: approvedWitness,
+        session: runtimeConfig.session,
+        decision: { choice: "allow_as_law", scope: "SESSION" },
+      });
 
     const deniedWitness = await appendBoundaryLedger("APPROVAL_DENIED", {
       sessionId: runtimeConfig.session.sessionId,
@@ -128,13 +128,13 @@ async function main() {
       reason: "seed denied upl item for quarantine cli contract",
       createdAt: new Date().toISOString(),
     });
-    upl = await writeDeniedUserPathLaw({
-      ledger: upl,
-      request: deniedRequest,
-      witness: deniedWitness,
-      session: runtimeConfig.session,
-      decision: { choice: "deny_as_law" },
-    });
+      upl = await writeDeniedUserPathLaw({
+        ledger: upl,
+        request: deniedRequest,
+        witness: deniedWitness,
+        session: runtimeConfig.session,
+        decision: { choice: "deny_as_law", scope: "SESSION" },
+      });
 
     runtimeConfig = {
       ...runtimeConfig,
@@ -149,22 +149,47 @@ async function main() {
     assert.equal(statusResult.code, 0, statusResult.stderr);
     const status = JSON.parse(statusResult.stdout) as {
       required: boolean;
+      complete: boolean;
       pitCount: number;
+      processedItems: number;
+      totalShards: number;
+      completedShards: number;
       entries: Array<{ verdict: string }>;
     };
     assert.equal(status.required, true);
+    assert.equal(status.complete, true);
     assert.equal(status.pitCount >= 1, true);
+    assert.equal(status.processedItems >= status.pitCount, true);
+    assert.equal(status.totalShards >= 1, true);
+    assert.equal(status.completedShards >= 1, true);
     assert.equal(status.entries.every((entry) => entry.verdict === "pit"), true);
 
     const consoleResult = await runCli(["console"], env, "quit\n");
     assert.equal(consoleResult.code, 0, consoleResult.stderr);
     assert.match(consoleResult.stdout, /Shed Reboot/i);
     assert.match(consoleResult.stdout, /Boundary on Self/i);
-    assert.match(consoleResult.stdout, /buccet quarantine deny-all/);
+    assert.match(consoleResult.stdout, /deny all as law/i);
+
+    const reviewInput = `2\n${Array.from({ length: status.pitCount }, () => "1").join("\n")}\n`;
+    const reviewResult = await runCli(["quarantine", "review"], env, reviewInput);
+    assert.equal(reviewResult.code, 0, reviewResult.stderr);
+    assert.match(reviewResult.stdout, /Quarantine Item Review/i);
+    assert.match(reviewResult.stdout, /Quarantine Cleared/i);
+
+    const finalStatusResult = await runCli(["quarantine", "status", "--json"], env);
+    assert.equal(finalStatusResult.code, 0, finalStatusResult.stderr);
+    const finalStatus = JSON.parse(finalStatusResult.stdout) as {
+      required: boolean;
+      pitCount: number;
+      pendingCount: number;
+    };
+    assert.equal(finalStatus.required, false);
+    assert.equal(finalStatus.pendingCount, 0);
 
     console.log("Agent Buccet quarantine CLI contract");
     console.log(`pit count: ${status.pitCount}`);
     console.log("console gate: ok");
+    console.log("interactive review: ok");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

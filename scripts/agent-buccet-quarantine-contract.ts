@@ -7,12 +7,12 @@ import {
   appendBoundaryLedger,
   armBoundaryQuarantineReboot,
   applyBoundaryQuarantinePitDenials,
+  createEmptyUserPathLedger,
   createPersistentBoundaryRuntimeStore,
   enableBodyguardControl,
   ensureBoundaryQuarantineReport,
   loadBoundarySessionState,
   restorePersistentBoundarySession,
-  loadUserPathLedger,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
 } from "../lib/agent-buccet/index.ts";
@@ -32,7 +32,7 @@ async function main() {
     });
 
     let config = enableBodyguardControl(store.getConfig());
-    let upl = await loadUserPathLedger();
+    let upl = createEmptyUserPathLedger();
 
     for (let index = 0; index < 6; index += 1) {
       const approvedRequest = {

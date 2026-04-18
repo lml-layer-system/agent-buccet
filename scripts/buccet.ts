@@ -191,8 +191,15 @@ type BuccetQuarantineStatusPayload = {
   triggeredAt?: string;
   reason?: string;
   total: number;
+  processedItems: number;
+  complete: boolean;
   survivors: number;
   pitCount: number;
+  pendingCount: number;
+  totalShards: number;
+  completedShards: number;
+  shardSize: number;
+  workerCount: number;
   entries: BuccetQuarantineEntry[];
 };
 
@@ -267,6 +274,7 @@ function usage(): never {
     "  buccet shed [--reason <text>] [--json]                  — deny-side shed and clean disposable respawn",
     "  buccet shed status [--limit <n>] [--json]               — recent shed / respawn witness history",
     "  buccet quarantine [status] [--limit <n>] [--json]       — shed reboot boundary-on-self status and caught set",
+    "  buccet quarantine review [--json]                       — interactive first-screen deny flow for shed reboot quarantine",
     "  buccet quarantine deny-all [--json]                     — write all caught quarantine items into denial law",
     "  buccet quarantine deny <item-id...> [--json]            — write selected caught quarantine items into denial law",
     "  buccet hook build",
@@ -5690,10 +5698,221 @@ async function buildQuarantineStatusPayload(args: {
     triggeredAt: status.quarantineState?.triggeredAt,
     reason: status.quarantineState?.reason,
     total: report?.total ?? 0,
+    processedItems: report?.processedItems ?? 0,
+    complete: report?.complete ?? false,
     survivors: report?.survivorCount ?? 0,
     pitCount: report?.pitCount ?? 0,
+    pendingCount: report?.items.filter((item) => item.verdict === "pit" && item.resolution === "pending").length ?? 0,
+    totalShards: report?.totalShards ?? 0,
+    completedShards: report?.completedShards ?? 0,
+    shardSize: report?.shardSize ?? 0,
+    workerCount: report?.workerCount ?? 0,
     entries: tail,
   };
+}
+
+function formatQuarantineEntry(entry: BuccetQuarantineEntry, index?: number): string {
+  const prefix = index === undefined ? entry.itemId : `[${index + 1}] ${entry.itemId}`;
+  return `${prefix} | ${entry.side} | ${entry.actionKind ?? "-"} | ${entry.target ?? entry.path} | ${entry.reason}`;
+}
+
+async function streamToBuffer(stream: NodeJS.ReadStream): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
+  }
+  return Buffer.concat(chunks);
+}
+
+async function runInteractiveQuarantineReview(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  sessionId: string;
+  sessionsDir: string;
+  input: NodeJS.ReadStream;
+  output: NodeJS.WriteStream;
+}): Promise<{
+  cleared: boolean;
+  required: boolean;
+  remaining: number;
+}> {
+  const interactive = Boolean(args.input.isTTY && args.output.isTTY);
+  const rl = interactive
+    ? readline.createInterface({
+        input: args.input,
+        output: args.output,
+        terminal: true,
+      })
+    : null;
+  const scriptedAnswers = interactive
+    ? []
+    : String(await streamToBuffer(args.input))
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
+
+  const ask = async (prompt: string) => {
+    if (rl) {
+      return new Promise<string>((resolve) => rl.question(prompt, resolve));
+    }
+    args.output.write(prompt);
+    return scriptedAnswers.shift() ?? "q";
+  };
+
+  const loadPayload = async () =>
+    buildQuarantineStatusPayload({
+      boundary: args.boundary,
+      sessionId: args.sessionId,
+      sessionsDir: args.sessionsDir,
+      limit: Number.MAX_SAFE_INTEGER,
+    });
+
+  try {
+    let payload = await loadPayload();
+    if (!payload.required) {
+      return {
+        cleared: true,
+        required: false,
+        remaining: 0,
+      };
+    }
+
+    let pendingEntries = payload.entries.filter((entry) => entry.verdict === "pit" && entry.resolution === "pending");
+    let reviewIndex = 0;
+
+    while (true) {
+      if (!payload.required || pendingEntries.length === 0) {
+        console.log("");
+        printCliHeader("  Quarantine Cleared");
+        printCliSection("Result", [
+          formatCliKeyValue("session", payload.sessionId),
+          formatCliKeyValue("remaining", 0),
+          formatCliKeyValue("clean boot", "ready"),
+        ]);
+        console.log("");
+        return {
+          cleared: true,
+          required: false,
+          remaining: 0,
+        };
+      }
+
+      console.log("");
+      printCliHeader("  Shed Reboot — Boundary on Self");
+      printCliSection("Quarantine", [
+        formatCliKeyValue("session", payload.sessionId),
+        formatCliKeyValue("status", payload.status),
+        formatCliKeyValue("processed", `${payload.processedItems}/${payload.total}`),
+        formatCliKeyValue("survivors", payload.survivors),
+        formatCliKeyValue("pit", payload.pitCount),
+        formatCliKeyValue("pending", payload.pendingCount),
+        formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
+      ]);
+
+      console.log("  Resolve:");
+      console.log("  1. deny all as law");
+      console.log("  2. review one by one");
+      console.log("  q. quit");
+      const choice = (await ask("quarantine> ")).trim().toLowerCase();
+
+      if (choice === "q" || choice === "quit" || choice === "exit") {
+        return {
+          cleared: false,
+          required: true,
+          remaining: pendingEntries.length,
+        };
+      }
+
+      if (choice === "1" || choice === "deny-all") {
+        const report = await args.boundary.applyBoundaryQuarantinePitDenials({
+          sessionId: args.sessionId,
+          sessionsDir: args.sessionsDir,
+        });
+        payload = await loadPayload();
+        pendingEntries = payload.entries.filter((entry) => entry.verdict === "pit" && entry.resolution === "pending");
+        console.log("");
+        printCliHeader("  Quarantine Denials Recorded");
+        printCliSection("Result", [
+          formatCliKeyValue("session", payload.sessionId),
+          formatCliKeyValue(
+            "denied as law",
+            report?.items.filter((item) => item.resolution === "denied_as_law").length ?? 0,
+          ),
+          formatCliKeyValue("remaining", pendingEntries.length),
+        ]);
+        continue;
+      }
+
+      if (choice !== "2" && choice !== "review") {
+        console.log("  Unknown choice. Use 1, 2, or q.");
+        continue;
+      }
+
+      while (pendingEntries.length > 0) {
+        const entry = pendingEntries[Math.min(reviewIndex, pendingEntries.length - 1)];
+        reviewIndex = Math.min(reviewIndex, pendingEntries.length - 1);
+
+        console.log("");
+        printCliHeader("  Quarantine Item Review");
+        printCliSection("Entry", [
+          formatCliKeyValue("index", `${reviewIndex + 1}/${pendingEntries.length}`),
+          formatCliKeyValue("item", entry.itemId),
+          formatCliKeyValue("side", entry.side),
+          formatCliKeyValue("action", entry.actionKind ?? "-"),
+          formatCliKeyValue("target", entry.target ?? entry.path),
+          formatCliKeyValue("reason", entry.reason),
+          formatCliKeyValue("laws", entry.lawIds.join(", ") || "-"),
+        ]);
+        console.log("  Review:");
+        console.log("  1. deny this as law");
+        console.log("  2. skip / next");
+        console.log("  l. list caught set");
+        console.log("  b. back");
+        console.log("  q. quit");
+        const reviewChoice = (await ask("review> ")).trim().toLowerCase();
+
+        if (reviewChoice === "q" || reviewChoice === "quit" || reviewChoice === "exit") {
+          return {
+            cleared: false,
+            required: true,
+            remaining: pendingEntries.length,
+          };
+        }
+
+        if (reviewChoice === "b" || reviewChoice === "back") {
+          break;
+        }
+
+        if (reviewChoice === "l" || reviewChoice === "list") {
+          console.log("");
+          printCliSection(
+            "Caught Set",
+            pendingEntries.map((item, index) => formatQuarantineEntry(item, index)),
+          );
+          continue;
+        }
+
+        if (reviewChoice === "1" || reviewChoice === "deny") {
+          await args.boundary.applyBoundaryQuarantinePitDenials({
+            sessionId: args.sessionId,
+            sessionsDir: args.sessionsDir,
+            itemIds: [entry.itemId],
+          });
+          payload = await loadPayload();
+          pendingEntries = payload.entries.filter((item) => item.verdict === "pit" && item.resolution === "pending");
+          continue;
+        }
+
+        if (reviewChoice === "2" || reviewChoice === "skip" || reviewChoice === "next") {
+          reviewIndex = (reviewIndex + 1) % pendingEntries.length;
+          continue;
+        }
+
+        console.log("  Unknown choice. Use 1, 2, l, b, or q.");
+      }
+    }
+  } finally {
+    rl?.close();
+  }
 }
 
 async function handleQuarantine(rest: string[]) {
@@ -5741,15 +5960,32 @@ async function handleQuarantine(rest: string[]) {
       formatCliKeyValue("status", payload.status),
       formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
       formatCliKeyValue("reason", payload.reason ?? "-"),
+      formatCliKeyValue("processed", `${payload.processedItems}/${payload.total}`),
       formatCliKeyValue("survivors", payload.survivors),
       formatCliKeyValue("pit", payload.pitCount),
+      formatCliKeyValue("pending", payload.pendingCount),
+      formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
+      formatCliKeyValue("shard size", payload.shardSize || "-"),
+      formatCliKeyValue("workers", payload.workerCount || "-"),
     ]);
     printCliSection("Caught Set", payload.entries.length > 0
-      ? payload.entries.map((entry) => (
-        `${entry.itemId} | ${entry.side} | ${entry.actionKind ?? "-"} | ${entry.target ?? entry.path} | ${entry.reason}`
-      ))
+      ? payload.entries.map((entry, index) => formatQuarantineEntry(entry, index))
       : ["No quarantine items recorded for this session."]);
     console.log("");
+    return;
+  }
+
+  if (subcommand === "review") {
+    const result = await runInteractiveQuarantineReview({
+      boundary,
+      sessionId: config.sessionId,
+      sessionsDir: home.sessionsDir,
+      input: process.stdin,
+      output: process.stdout,
+    });
+    if (asJson) {
+      printJson(result);
+    }
     return;
   }
 
@@ -6554,34 +6790,28 @@ async function handleConsole() {
   });
 
   if (initialSessionState?.quarantineState?.required) {
-    const payload = await buildQuarantineStatusPayload({
+    const review = await runInteractiveQuarantineReview({
       boundary,
       sessionId: config.sessionId,
       sessionsDir: home.sessionsDir,
-      limit: 25,
+      input: process.stdin,
+      output: process.stdout,
     });
-    printCliHeader("  Shed Reboot — Boundary on Self");
-    printCliSection("Quarantine", [
-      formatCliKeyValue("session", payload.sessionId),
-      formatCliKeyValue("status", payload.status),
-      formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
-      formatCliKeyValue("survivors", payload.survivors),
-      formatCliKeyValue("pit", payload.pitCount),
-    ]);
-    printCliSection(
-      "Caught Set",
-      payload.entries.length > 0
-        ? payload.entries.map((entry) => (
-            `${entry.itemId} | ${entry.side} | ${entry.actionKind ?? "-"} | ${entry.target ?? entry.path} | ${entry.reason}`
-          ))
-        : ["No quarantine items recorded for this session."],
-    );
-    console.log("  Resolve with:");
-    console.log("  buccet quarantine deny-all");
-    console.log("  buccet quarantine deny <item-id...>");
-    console.log("");
-    return;
+    if (!review.cleared) {
+      console.log("");
+      printCliSection("Quarantine", [
+        formatCliKeyValue("status", "runtime remains asleep"),
+        formatCliKeyValue("remaining", review.remaining),
+      ]);
+      console.log("");
+      return;
+    }
   }
+
+  const sessionStateAfterQuarantine = await boundary.loadBoundarySessionState({
+    sessionId: config.sessionId,
+    sessionsDir: home.sessionsDir,
+  });
 
   const hintsMuted = await pathExists(home.consoleHintsMutedPath);
 
@@ -6595,7 +6825,7 @@ async function handleConsole() {
   console.log(kv("mode", `${c.bold}interactive${c.reset}`));
   console.log(kv("shield", formatHookOperatorSummary(initialHookPayload)));
   console.log(kv("session", `${clrDim(config.sessionId)}`));
-  console.log(kv("status", initialSessionState?.session.status ?? "missing"));
+  console.log(kv("status", sessionStateAfterQuarantine?.session.status ?? "missing"));
   console.log(`  ${c.blue}${bar}${c.reset}`);
   if (!hintsMuted) {
     console.log(``);
@@ -7133,6 +7363,7 @@ async function handleConsole() {
             formatCliKeyValue("shed", "force denial-side shed and clean disposable respawn"),
             formatCliKeyValue("shed status [n]", "recent shed / respawn witness history"),
             formatCliKeyValue("quarantine status [n]", "caught set from shed reboot boundary-on-self"),
+            formatCliKeyValue("quarantine review", "interactive one-by-one quarantine denial flow"),
             formatCliKeyValue("quarantine deny-all", "write all caught items into deny law"),
             formatCliKeyValue("quarantine deny <item-id...>", "write selected caught items into deny law"),
           ]);
