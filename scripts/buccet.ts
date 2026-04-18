@@ -322,6 +322,8 @@ const c = {
   red:    isTTY ? "\x1b[31m" : "",
   yellow: isTTY ? "\x1b[33m" : "",
   cyan:   isTTY ? "\x1b[36m" : "",
+  blue:   isTTY ? "\x1b[34m" : "",
+  blueBright: isTTY ? "\x1b[94m" : "",
 };
 
 function clrOk(text = ""): string   { return `${c.green}✓${c.reset}${text ? ` ${text}` : ""}`; }
@@ -355,6 +357,23 @@ function printCliSection(title: string, rows: Array<string | null | undefined>):
 
 function formatCliKeyValue(label: string, value: string | number | boolean | null | undefined): string {
   return `${clrDim(label.padEnd(18, " "))} ${String(value ?? "-")}`;
+}
+
+function printBuccetWordmark(): void {
+  // Only render the wordmark when stdout is a real terminal.
+  if (!isTTY) return;
+  const B = c.blueBright + c.bold;
+  const D = c.dim;
+  const R = c.reset;
+  console.log(``);
+  console.log(`${B}  ██████╗ ██╗   ██╗ ██████╗ ██████╗███████╗████████╗${R}`);
+  console.log(`${B}  ██╔══██╗██║   ██║██╔════╝██╔════╝██╔════╝╚══██╔══╝${R}`);
+  console.log(`${B}  ██████╔╝██║   ██║██║     ██║     █████╗     ██║   ${R}`);
+  console.log(`${B}  ██╔══██╗██║   ██║██║     ██║     ██╔══╝     ██║   ${R}`);
+  console.log(`${B}  ██████╔╝╚██████╔╝╚██████╗╚██████╗███████╗   ██║   ${R}`);
+  console.log(`${B}  ╚═════╝  ╚═════╝  ╚═════╝ ╚═════╝╚══════╝   ╚═╝   ${R}`);
+  console.log(`  ${D}Boundary enforcement · Operator console${R}`);
+  console.log(``);
 }
 
 function parseCsvActions(raw: string | undefined): BoundaryActionKind[] {
@@ -3516,13 +3535,16 @@ async function handleInit(rest: string[]) {
   const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
   const shouldArmNow = armNow || nativeReady;
 
+  printBuccetWordmark();
+  printCliSection("Initialized", [
+    formatCliKeyValue("home", home.homePath),
+    formatCliKeyValue("protection", protectionMode),
+    formatCliKeyValue("platform", platformLabel),
+    formatCliKeyValue("backend", backendLabel),
+  ]);
   console.log(``);
-  console.log(`  ${clrOk(clrBold("Agent Buccet initialized."))}`);
-  console.log(``);
-  console.log(`  ${clrDim("home:            ")} ${home.homePath}`);
-  console.log(`  ${clrDim("protection mode: ")} ${protectionMode}`);
-  console.log(``);
-  console.log(`  Run ${clrBold("buccet console")} to open the operator cockpit.`);
+  console.log(`  ${clrOk()}  ${clrBold("Agent Buccet is ready.")}`);
+  console.log(`  Run ${c.bold}${c.blue}buccet console${c.reset} to open the operator cockpit.`);
   console.log(``);
 }
 
@@ -3542,8 +3564,11 @@ async function handleStatus(rest: string[]) {
       printJson(payload);
       return;
     }
-    console.log(`Agent Buccet is not initialized.`);
-    console.log(`home: ${home.homePath}`);
+    console.log(``);
+    console.log(`  ${clrWarn()}  ${clrBold("Agent Buccet is not initialized.")}`);
+    console.log(`  ${clrDim("home:")}  ${home.homePath}`);
+    console.log(`  Run ${clrBold("buccet init")} to get started.`);
+    console.log(``);
     return;
   }
 
@@ -3748,9 +3773,17 @@ async function handleScope(rest: string[]) {
       printJson(scopes);
       return;
     }
-    for (const scope of scopes) {
-      console.log(`${scope.status} | ${scope.rootPath} | ${scope.grantedActions.join(",")}`);
+    console.log(``);
+    printCliHeader("  Active Scopes");
+    if (scopes.length === 0) {
+      console.log(`  ${clrDim("No scopes configured.")}`);
+    } else {
+      for (const scope of scopes) {
+        const statusColor = scope.status === "active" ? c.green : c.dim;
+        console.log(`  ${statusColor}${scope.status}${c.reset}  ${scope.rootPath}  ${clrDim(scope.grantedActions.join(", "))}`);
+      }
     }
+    console.log(``);
     return;
   }
 
@@ -3787,7 +3820,7 @@ async function handleScope(rest: string[]) {
     updatedAt: new Date().toISOString(),
   };
   await saveConfig(home.configPath, nextConfig);
-  console.log(`opened scope: ${scopePath}`);
+  console.log(`  ${clrOk(clrBold("scope opened:"))}  ${scopePath}`);
 }
 
 async function importCompiledDocumentLaws(args: {
@@ -4089,43 +4122,46 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(`UPL document sources`);
-    console.log(`root: ${home.uplDocsDir}`);
+    console.log(``);
+    printCliHeader("  UPL Document Sources");
+    printCliSection("Lanes", [
+      formatCliKeyValue("root", home.uplDocsDir),
+      ...snapshot.map((lane) => {
+        const laneColor = lane.lane === "acceptance" ? c.green : c.red;
+        return formatCliKeyValue(`${laneColor}${lane.lane}${c.reset}`, `${lane.files.length} file${lane.files.length === 1 ? "" : "s"}  ${clrDim(lane.dir)}`);
+      }),
+    ]);
     for (const lane of snapshot) {
-      console.log(`${lane.lane}: ${lane.dir} (${lane.files.length} file${lane.files.length === 1 ? "" : "s"})`);
-      for (const filePath of lane.files) {
-        console.log(`  - ${filePath}`);
+      if (lane.files.length > 0) {
+        console.log(``);
+        const laneColor = lane.lane === "acceptance" ? c.green : c.red;
+        console.log(`  ${laneColor}${c.bold}${lane.lane}${c.reset}  ${clrDim(`(${lane.files.length} file${lane.files.length === 1 ? "" : "s"})`)}`);
+        for (const filePath of lane.files) {
+          console.log(`    ${clrDim("·")} ${filePath}`);
+        }
       }
     }
-    console.log(``);
-    console.log(`UPL intake catalogs`);
-    for (const catalog of catalogs) {
-      console.log(`- ${catalog.name}: ${catalog.url} (${catalog.description}) | open: buccet upl sources --open ${catalog.id}`);
-    }
-    console.log(``);
     if (opened.length > 0) {
-      for (const catalog of opened) {
-        console.log(`opened: ${catalog.name} -> ${catalog.url}`);
-      }
       console.log(``);
+      for (const catalog of opened) {
+        console.log(`  ${clrOk()}  ${c.bold}${catalog.name}${c.reset}  ${clrDim(catalog.url)}`);
+      }
     }
-    console.log(`Acceptance pipeline`);
-    console.log(`guide: ${home.uplAcceptancePipelinePath}`);
-    console.log(`template: ${home.uplAcceptanceSkillTemplatePath}`);
-    console.log(`1. choose a skill/workflow from a catalog above`);
-    console.log(`2. copy the source text you want`);
-    console.log(`3. paste it into acceptance for approved UPL or denial for denied UPL`);
-    console.log(`4. create a new acceptance doc from the template if you want the scaffold`);
-    console.log(`   ${commands.copyTemplate}`);
-    console.log(`5. compile it into live UPL`);
-    console.log(`   ${commands.sync}`);
-    console.log(`   denial: buccet upl sync --lane denial`);
-    console.log(`6. inspect what landed`);
-    console.log(`   ${commands.inspectSearch}`);
-    console.log(`   ${commands.inspectDiff}`);
-    console.log(`   ${commands.inspectShow}`);
-    console.log(`open: buccet upl sources --open <catalog|all>`);
-    console.log(`sync: buccet upl sync`);
+    printCliSection("Intake Catalogs", catalogs.map((catalog) =>
+      `${c.bold}${catalog.name}${c.reset}  ${clrDim(catalog.description)}\n    ${clrDim(catalog.url)}  ${clrDim(`· open: buccet upl sources --open ${catalog.id}`)}`,
+    ));
+    printCliSection("Acceptance Pipeline", [
+      formatCliKeyValue("guide", home.uplAcceptancePipelinePath),
+      formatCliKeyValue("template", home.uplAcceptanceSkillTemplatePath),
+    ]);
+    console.log(``);
+    console.log(`  ${clrDim("1.")} choose a skill/workflow from a catalog above`);
+    console.log(`  ${clrDim("2.")} copy the source text you want`);
+    console.log(`  ${clrDim("3.")} paste into ${c.green}acceptance${c.reset} (allow) or ${c.red}denial${c.reset} (deny)`);
+    console.log(`  ${clrDim("4.")} scaffold a new doc:   ${clrBold(commands.copyTemplate)}`);
+    console.log(`  ${clrDim("5.")} compile to live UPL:  ${clrBold(commands.sync)}`);
+    console.log(`  ${clrDim("6.")} inspect what landed:  ${clrBold(commands.inspectDiff)}`);
+    console.log(``);
     return;
   }
 
@@ -6083,7 +6119,10 @@ async function handleDoctor(rest: string[] = []) {
     console.log(``);
   }
   if (strict) {
-    console.log(`  Strict posture: ${strictFailure ? "FAIL" : "PASS"}`);
+    const strictLabel = strictFailure
+      ? `${clrFail(clrBold("FAIL"))}  ${clrDim("one or more checks not passing")}`
+      : `${clrOk(clrBold("PASS"))}  ${clrDim("all strict checks clear")}`;
+    console.log(`  ${clrDim("strict posture:")}  ${strictLabel}`);
     console.log(``);
     if (strictFailure) {
       process.exitCode = 1;
@@ -6128,17 +6167,14 @@ async function handleConsole() {
     sessionsDir: home.sessionsDir,
   });
 
-  const bar = "━".repeat(46);
-  console.log(``);
-  console.log(`${c.bold}${c.cyan}  ${bar}${c.reset}`);
-  console.log(`${c.bold}    Agent Buccet — Operator Console${c.reset}`);
-  console.log(`${c.cyan}  ${bar}${c.reset}`);
-  console.log(`  ${clrDim("platform:")}  ${platformLabel}  ${clrDim("|")}  ${clrDim("backend:")}  ${backendLabel}`);
-  console.log(`  ${clrDim("shield:")}    ${formatHookOperatorSummary(initialHookPayload)}`);
-  console.log(`  ${clrDim("session:")}   ${clrDim(config.sessionId)}  ${clrDim("status:")} ${initialSessionState?.session.status ?? "missing"}`);
-  console.log(`  ${clrDim("mode:")}      ${clrBold("interactive")}`);
-  console.log(`${c.cyan}  ${bar}${c.reset}`);
-  console.log(`  ${clrDim("Type 'help' for commands or 'quit' to exit.")}`);
+  printBuccetWordmark();
+  const bar = "─".repeat(52);
+  console.log(`  ${c.blue}${bar}${c.reset}`);
+  console.log(`  ${clrDim("platform")}   ${platformLabel}   ${clrDim("|")}   ${clrDim("backend")}   ${backendLabel}   ${clrDim("|")}   ${clrDim("mode")}   ${c.bold}interactive${c.reset}`);
+  console.log(`  ${clrDim("shield")}     ${formatHookOperatorSummary(initialHookPayload)}`);
+  console.log(`  ${clrDim("session")}    ${clrDim(config.sessionId)}   ${clrDim("status")}   ${initialSessionState?.session.status ?? "missing"}`);
+  console.log(`  ${c.blue}${bar}${c.reset}`);
+  console.log(`  ${clrDim("type")} ${c.bold}help${c.reset} ${clrDim("for commands  ·  type")} ${c.bold}quit${c.reset} ${clrDim("to exit")}`);
   console.log(``);
 
   // Track which groups have already been reported.
