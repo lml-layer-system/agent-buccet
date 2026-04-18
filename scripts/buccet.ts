@@ -6172,11 +6172,16 @@ async function handleConsole() {
   const hintsMuted = await pathExists(home.consoleHintsMutedPath);
 
   printBuccetWordmark();
-  const bar = "─".repeat(52);
+  const bar = "─".repeat(46);
+  const kv = (label: string, value: string) =>
+    `  ${clrDim(label.padEnd(12))} ${value}`;
   console.log(`  ${c.blue}${bar}${c.reset}`);
-  console.log(`  ${clrDim("platform")}   ${platformLabel}   ${clrDim("|")}   ${clrDim("backend")}   ${backendLabel}   ${clrDim("|")}   ${clrDim("mode")}   ${c.bold}interactive${c.reset}`);
-  console.log(`  ${clrDim("shield")}     ${formatHookOperatorSummary(initialHookPayload)}`);
-  console.log(`  ${clrDim("session")}    ${clrDim(config.sessionId)}   ${clrDim("status")}   ${initialSessionState?.session.status ?? "missing"}`);
+  console.log(kv("platform", platformLabel));
+  console.log(kv("backend", backendLabel));
+  console.log(kv("mode", `${c.bold}interactive${c.reset}`));
+  console.log(kv("shield", formatHookOperatorSummary(initialHookPayload)));
+  console.log(kv("session", `${clrDim(config.sessionId)}`));
+  console.log(kv("status", initialSessionState?.session.status ?? "missing"));
   console.log(`  ${c.blue}${bar}${c.reset}`);
   if (!hintsMuted) {
     console.log(``);
