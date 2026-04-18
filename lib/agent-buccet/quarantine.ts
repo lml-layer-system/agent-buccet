@@ -1,6 +1,8 @@
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
+import { availableParallelism } from "node:os";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 import { enableBodyguardControl, adjudicateBoundaryRequest } from "./bodyguard.ts";
 import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
@@ -23,9 +25,21 @@ import type {
   BoundaryPersistedSessionState,
   BoundaryQuarantineState,
   BoundaryRuntimeConfig,
+  BoundarySession,
   BoundaryUplEntry,
   BoundaryUplScope,
 } from "./types.ts";
+
+type BoundaryQuarantinePreparedItem = {
+  itemId: string;
+  entryId: string;
+  side: "approved" | "denied";
+  hash: string;
+  path: string;
+  pathHash: string;
+  request?: BoundaryActionRequest;
+  preparationPit?: BoundaryQuarantineReportItem;
+};
 
 export type BoundaryQuarantineSnapshotItem = {
   itemId: string;
@@ -59,6 +73,36 @@ export type BoundaryQuarantineReportItem = {
   resolution: "pending" | "denied_as_law" | "survivor";
 };
 
+export type BoundaryQuarantineSummaryCount = {
+  value: string;
+  count: number;
+};
+
+export type BoundaryQuarantinePitSummary = {
+  pendingCount: number;
+  deniedAsLawCount: number;
+  approvedPitCount: number;
+  deniedPitCount: number;
+  topLawIds: BoundaryQuarantineSummaryCount[];
+  topReasons: BoundaryQuarantineSummaryCount[];
+  topActionKinds: BoundaryQuarantineSummaryCount[];
+};
+
+export type BoundaryQuarantinePitGroup = {
+  groupId: string;
+  depth: number;
+  startIndex: number;
+  endIndexExclusive: number;
+  size: number;
+  pitCount: number;
+  approvedPitCount: number;
+  deniedPitCount: number;
+  itemIds: string[];
+  primaryReason: string;
+  topLawIds: BoundaryQuarantineSummaryCount[];
+  topActionKinds: BoundaryQuarantineSummaryCount[];
+};
+
 export type BoundaryQuarantineReport = {
   schemaVersion: 1;
   kind: "buccet_quarantine_report";
@@ -73,6 +117,8 @@ export type BoundaryQuarantineReport = {
   completedShards: number;
   shardSize: number;
   workerCount: number;
+  pitSummary: BoundaryQuarantinePitSummary;
+  pitGroups: BoundaryQuarantinePitGroup[];
   items: BoundaryQuarantineReportItem[];
 };
 
@@ -113,11 +159,17 @@ type BoundaryQuarantineShardResult = {
   pitCount: number;
 };
 
+type BoundaryQuarantinePreparedShard = {
+  shardId: string;
+  items: BoundaryQuarantinePreparedItem[];
+};
+
 const BASE_HEADLESS_DENIAL_WITNESS_ID = "BUCCET.HEADLESS.BASE.DENIALS.V1";
 const QUARANTINE_MIN_SHARD_SIZE = 8;
 const QUARANTINE_MEDIUM_SHARD_SIZE = 16;
 const QUARANTINE_LARGE_SHARD_SIZE = 32;
 const QUARANTINE_XL_SHARD_SIZE = 64;
+const QUARANTINE_MAX_WORKERS = 4;
 function resolveSessionsDir(configOrDir?: BoundaryRuntimeConfig | string): string {
   if (typeof configOrDir === "string" && configOrDir.trim()) {
     return path.resolve(configOrDir);
@@ -179,6 +231,20 @@ function computeQuarantineShardSize(totalItems: number): number {
     return QUARANTINE_LARGE_SHARD_SIZE;
   }
   return QUARANTINE_XL_SHARD_SIZE;
+}
+
+function computeQuarantineWorkerCount(totalShards: number): number {
+  if (totalShards <= 1) {
+    return 1;
+  }
+  return Math.max(
+    1,
+    Math.min(
+      totalShards,
+      QUARANTINE_MAX_WORKERS,
+      Math.max(2, availableParallelism()),
+    ),
+  );
 }
 
 async function writeJsonFile(targetPath: string, payload: unknown): Promise<void> {
@@ -262,7 +328,7 @@ function buildInitialQuarantineProgress(snapshot: BoundaryQuarantineSnapshot): B
     totalItems: snapshot.items.length,
     processedItems: 0,
     shardSize,
-    workerCount: 1,
+    workerCount: computeQuarantineWorkerCount(shards.length),
     totalShards: shards.length,
     completedShards: 0,
     shards,
@@ -279,6 +345,11 @@ function synthesizeQuarantineReport(args: {
   const items = Object.values(args.progress.itemsById).sort((left, right) =>
     (indexByItemId.get(left.itemId) ?? 0) - (indexByItemId.get(right.itemId) ?? 0)
   );
+  const pitSummary = buildPitSummary(items);
+  const pitGroups = buildPitGroups({
+    progress: args.progress,
+    items,
+  });
 
   return {
     schemaVersion: 1,
@@ -294,6 +365,8 @@ function synthesizeQuarantineReport(args: {
     completedShards: args.progress.completedShards,
     shardSize: args.progress.shardSize,
     workerCount: args.progress.workerCount,
+    pitSummary,
+    pitGroups,
     items,
   };
 }
@@ -313,6 +386,115 @@ function buildMissingBasisPitItem(item: BoundaryQuarantineSnapshotItem): Boundar
   };
 }
 
+function summarizeCounts(values: string[]): BoundaryQuarantineSummaryCount[] {
+  const counts = new Map<string, number>();
+  for (const value of values) {
+    const key = value.trim();
+    if (!key) {
+      continue;
+    }
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([value, count]) => ({ value, count }));
+}
+
+function buildPitSummary(items: BoundaryQuarantineReportItem[]): BoundaryQuarantinePitSummary {
+  const pitItems = items.filter((item) => item.verdict === "pit");
+  return {
+    pendingCount: pitItems.filter((item) => item.resolution === "pending").length,
+    deniedAsLawCount: pitItems.filter((item) => item.resolution === "denied_as_law").length,
+    approvedPitCount: pitItems.filter((item) => item.side === "approved").length,
+    deniedPitCount: pitItems.filter((item) => item.side === "denied").length,
+    topLawIds: summarizeCounts(pitItems.flatMap((item) => item.lawIds)).slice(0, 5),
+    topReasons: summarizeCounts(pitItems.map((item) => item.reason)).slice(0, 5),
+    topActionKinds: summarizeCounts(pitItems.map((item) => item.actionKind ?? "-")).slice(0, 5),
+  };
+}
+
+function buildPitGroup(args: {
+  groupId: string;
+  depth: number;
+  startIndex: number;
+  endIndexExclusive: number;
+  items: BoundaryQuarantineReportItem[];
+}): BoundaryQuarantinePitGroup {
+  const pitItems = args.items.filter((item) => item.verdict === "pit");
+  return {
+    groupId: args.groupId,
+    depth: args.depth,
+    startIndex: args.startIndex,
+    endIndexExclusive: args.endIndexExclusive,
+    size: args.items.length,
+    pitCount: pitItems.length,
+    approvedPitCount: pitItems.filter((item) => item.side === "approved").length,
+    deniedPitCount: pitItems.filter((item) => item.side === "denied").length,
+    itemIds: pitItems.map((item) => item.itemId),
+    primaryReason: summarizeCounts(pitItems.map((item) => item.reason))[0]?.value ?? "pit group",
+    topLawIds: summarizeCounts(pitItems.flatMap((item) => item.lawIds)).slice(0, 3),
+    topActionKinds: summarizeCounts(pitItems.map((item) => item.actionKind ?? "-")).slice(0, 3),
+  };
+}
+
+function buildPitGroupsForRange(args: {
+  items: BoundaryQuarantineReportItem[];
+  startIndex: number;
+  endIndexExclusive: number;
+  depth: number;
+  groupPrefix: string;
+}): BoundaryQuarantinePitGroup[] {
+  const slice = args.items.slice(args.startIndex, args.endIndexExclusive);
+  const pitItems = slice.filter((item) => item.verdict === "pit");
+  if (pitItems.length === 0) {
+    return [];
+  }
+  if (pitItems.length === slice.length || slice.length <= 1) {
+    return [
+      buildPitGroup({
+        groupId: args.groupPrefix,
+        depth: args.depth,
+        startIndex: args.startIndex,
+        endIndexExclusive: args.endIndexExclusive,
+        items: slice,
+      }),
+    ];
+  }
+  const midpoint = args.startIndex + Math.floor(slice.length / 2);
+  return [
+    ...buildPitGroupsForRange({
+      items: args.items,
+      startIndex: args.startIndex,
+      endIndexExclusive: midpoint,
+      depth: args.depth + 1,
+      groupPrefix: `${args.groupPrefix}.L`,
+    }),
+    ...buildPitGroupsForRange({
+      items: args.items,
+      startIndex: midpoint,
+      endIndexExclusive: args.endIndexExclusive,
+      depth: args.depth + 1,
+      groupPrefix: `${args.groupPrefix}.R`,
+    }),
+  ];
+}
+
+function buildPitGroups(args: {
+  progress: BoundaryQuarantineProgress;
+  items: BoundaryQuarantineReportItem[];
+}): BoundaryQuarantinePitGroup[] {
+  const shards = [...args.progress.shards].sort((left, right) => left.startIndex - right.startIndex);
+  return shards.flatMap((shard) =>
+    buildPitGroupsForRange({
+      items: args.items,
+      startIndex: shard.startIndex,
+      endIndexExclusive: shard.endIndexExclusive,
+      depth: shard.depth,
+      groupPrefix: shard.shardId,
+    })
+  );
+}
+
 async function loadQuarantineState(args: {
   sessionId: string;
   sessionsDir?: string;
@@ -329,6 +511,108 @@ async function readQuarantineSnapshot(quarantineState: BoundaryQuarantineState):
 
 async function readQuarantineReport(quarantineState: BoundaryQuarantineState): Promise<BoundaryQuarantineReport | null> {
   return readJsonFile<BoundaryQuarantineReport>(quarantineState.reportPath);
+}
+
+async function prepareQuarantineShardLocally(args: {
+  session: BoundarySession;
+  items: BoundaryQuarantineSnapshotItem[];
+  shardId: string;
+}): Promise<BoundaryQuarantinePreparedShard> {
+  return {
+    shardId: args.shardId,
+    items: args.items.map((item) => {
+      const request = materializeBoundaryActionRequestFromUplEntry({
+        entry: item.entry,
+        session: args.session,
+        provenance: "external_content",
+        requestId: `quarantine-${item.entry.id}`,
+      });
+      return {
+        itemId: item.itemId,
+        entryId: item.entryId,
+        side: item.side,
+        hash: item.hash,
+        path: item.entry.path,
+        pathHash: item.entry.pathHash,
+        ...(request
+          ? { request }
+          : { preparationPit: buildMissingBasisPitItem(item) }),
+      };
+    }),
+  };
+}
+
+async function prepareQuarantineShardWithWorker(args: {
+  session: BoundarySession;
+  items: BoundaryQuarantineSnapshotItem[];
+  shardId: string;
+}): Promise<BoundaryQuarantinePreparedShard> {
+  return new Promise<BoundaryQuarantinePreparedShard>((resolve, reject) => {
+    const worker = new Worker(new URL("./quarantine-worker.ts", import.meta.url), {
+      workerData: args,
+    });
+    worker.once("message", (message) => {
+      resolve(message as BoundaryQuarantinePreparedShard);
+    });
+    worker.once("error", reject);
+    worker.once("exit", (code) => {
+      if (code !== 0) {
+        reject(new Error(`quarantine worker exited with code ${code}`));
+      }
+    });
+  });
+}
+
+async function prepareQuarantineShards(args: {
+  session: BoundarySession;
+  snapshot: BoundaryQuarantineSnapshot;
+  shards: BoundaryQuarantineProgressShard[];
+  workerCount: number;
+}): Promise<BoundaryQuarantinePreparedShard[]> {
+  const orderedShards = [...args.shards].sort((left, right) => left.startIndex - right.startIndex);
+  if (orderedShards.length === 0) {
+    return [];
+  }
+  const shardItems = orderedShards.map((shard) => ({
+    shard,
+    items: args.snapshot.items.slice(shard.startIndex, shard.endIndexExclusive),
+  }));
+  if (args.workerCount <= 1 || shardItems.length <= 1) {
+    return Promise.all(shardItems.map(({ shard, items }) =>
+      prepareQuarantineShardLocally({
+        session: args.session,
+        items,
+        shardId: shard.shardId,
+      })
+    ));
+  }
+
+  const results = new Map<string, BoundaryQuarantinePreparedShard>();
+  const queue = [...shardItems];
+  const workers = Array.from({ length: Math.min(args.workerCount, queue.length) }, async () => {
+    while (queue.length > 0) {
+      const next = queue.shift();
+      if (!next) {
+        return;
+      }
+      try {
+        const prepared = await prepareQuarantineShardWithWorker({
+          session: args.session,
+          items: next.items,
+          shardId: next.shard.shardId,
+        });
+        results.set(next.shard.shardId, prepared);
+      } catch {
+        results.set(next.shard.shardId, await prepareQuarantineShardLocally({
+          session: args.session,
+          items: next.items,
+          shardId: next.shard.shardId,
+        }));
+      }
+    }
+  });
+  await Promise.all(workers);
+  return orderedShards.map((shard) => results.get(shard.shardId)!).filter(Boolean);
 }
 
 async function evaluateReplayRequest(args: {
@@ -446,22 +730,26 @@ async function evaluateReplayRequest(args: {
 
 async function processQuarantineShard(args: {
   config: BoundaryRuntimeConfig;
-  snapshot: BoundaryQuarantineSnapshot;
   shard: BoundaryQuarantineProgressShard;
+  prepared: BoundaryQuarantinePreparedShard;
 }): Promise<BoundaryQuarantineShardResult> {
   let config = args.config;
 
   const reportItems: BoundaryQuarantineReportItem[] = [];
-  for (const item of args.snapshot.items.slice(args.shard.startIndex, args.shard.endIndexExclusive)) {
-    const request = materializeBoundaryActionRequestFromUplEntry({
-      entry: item.entry,
-      session: config.session,
-      provenance: "external_content",
-      requestId: `quarantine-${item.entry.id}`,
-    });
-
-    if (!request) {
-      const reportItem = buildMissingBasisPitItem(item);
+  for (const item of args.prepared.items) {
+    if (!item.request) {
+      const reportItem = item.preparationPit ?? {
+        itemId: item.itemId,
+        entryId: item.entryId,
+        side: item.side,
+        hash: item.hash,
+        path: item.path,
+        pathHash: item.pathHash,
+        verdict: "pit",
+        reason: "entry has no request basis and cannot survive quarantine replay",
+        lawIds: ["BOUNDARY.QUARANTINE.REQUEST_BASIS.01"],
+        resolution: "pending",
+      };
       reportItems.push(reportItem);
       await appendBoundaryLedger("QUARANTINE_ITEM_PITTED", {
         sessionId: config.session.sessionId,
@@ -483,7 +771,7 @@ async function processQuarantineShard(args: {
 
     const replay = await evaluateReplayRequest({
       config,
-      request,
+      request: item.request,
       entryId: item.entryId,
     });
     config = replay.config;
@@ -493,10 +781,10 @@ async function processQuarantineShard(args: {
       entryId: item.entryId,
       side: item.side,
       hash: item.hash,
-      path: item.entry.path,
-      pathHash: item.entry.pathHash,
-      actionKind: request.actionKind,
-      target: request.target,
+      path: item.path,
+      pathHash: item.pathHash,
+      actionKind: item.request.actionKind,
+      target: item.request.target,
       verdict: replay.verdict,
       reason: replay.reason,
       lawIds: replay.lawIds,
@@ -508,9 +796,9 @@ async function processQuarantineShard(args: {
       await appendBoundaryLedger("QUARANTINE_ITEM_PITTED", {
         sessionId: config.session.sessionId,
         actorId: config.session.actorId,
-        requestId: request.requestId,
-        actionKind: request.actionKind,
-        target: request.target,
+        requestId: item.request.requestId,
+        actionKind: item.request.actionKind,
+        target: item.request.target,
         decision: "deny",
         reason: reportItem.reason,
         lawIds: reportItem.lawIds,
@@ -737,11 +1025,22 @@ async function ensureBoundaryQuarantineReportUnlocked(args: {
   const shardLimit = typeof args.maxShards === "number"
     ? Math.max(1, args.maxShards)
     : pendingShards.length;
-  for (const shard of pendingShards.slice(0, shardLimit)) {
+  const activeShards = pendingShards.slice(0, shardLimit);
+  const preparedShards = await prepareQuarantineShards({
+    session: config.session,
+    snapshot,
+    shards: activeShards,
+    workerCount: Math.min(progress.workerCount, activeShards.length || 1),
+  });
+  for (const prepared of preparedShards) {
+    const shard = activeShards.find((candidate) => candidate.shardId === prepared.shardId);
+    if (!shard) {
+      continue;
+    }
     const result = await processQuarantineShard({
       config,
-      snapshot,
       shard,
+      prepared,
     });
     config = result.config;
     progress = applyShardResultToProgress({
@@ -893,6 +1192,7 @@ export async function applyBoundaryQuarantinePitDenials(args: {
 
       const nextReport: BoundaryQuarantineReport = {
         ...report,
+        pitSummary: buildPitSummary(nextItems),
         items: nextItems,
       };
       await writeJsonFile(quarantineState.reportPath, nextReport);

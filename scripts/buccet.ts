@@ -184,6 +184,24 @@ type BuccetQuarantineEntry = {
   resolution: "pending" | "denied_as_law" | "survivor";
 };
 
+type BuccetQuarantineSummaryCount = {
+  value: string;
+  count: number;
+};
+
+type BuccetQuarantinePitGroup = {
+  groupId: string;
+  depth: number;
+  size: number;
+  pitCount: number;
+  approvedPitCount: number;
+  deniedPitCount: number;
+  itemIds: string[];
+  primaryReason: string;
+  topLawIds: BuccetQuarantineSummaryCount[];
+  topActionKinds: BuccetQuarantineSummaryCount[];
+};
+
 type BuccetQuarantineStatusPayload = {
   sessionId: string;
   required: boolean;
@@ -200,6 +218,13 @@ type BuccetQuarantineStatusPayload = {
   completedShards: number;
   shardSize: number;
   workerCount: number;
+  resolvedCount: number;
+  approvedPitCount: number;
+  deniedPitCount: number;
+  topLawIds: BuccetQuarantineSummaryCount[];
+  topReasons: BuccetQuarantineSummaryCount[];
+  topActionKinds: BuccetQuarantineSummaryCount[];
+  groups: BuccetQuarantinePitGroup[];
   entries: BuccetQuarantineEntry[];
 };
 
@@ -5691,6 +5716,20 @@ async function buildQuarantineStatusPayload(args: {
       .filter((item) => item.verdict === "pit")
       .slice(0, Math.max(1, args.limit))
     : [];
+  const groups = report
+    ? report.pitGroups.slice(0, Math.max(1, args.limit)).map((group) => ({
+        groupId: group.groupId,
+        depth: group.depth,
+        size: group.size,
+        pitCount: group.pitCount,
+        approvedPitCount: group.approvedPitCount,
+        deniedPitCount: group.deniedPitCount,
+        itemIds: group.itemIds,
+        primaryReason: group.primaryReason,
+        topLawIds: group.topLawIds,
+        topActionKinds: group.topActionKinds,
+      }))
+    : [];
   return {
     sessionId: args.sessionId,
     required: Boolean(status.quarantineState?.required),
@@ -5707,6 +5746,13 @@ async function buildQuarantineStatusPayload(args: {
     completedShards: report?.completedShards ?? 0,
     shardSize: report?.shardSize ?? 0,
     workerCount: report?.workerCount ?? 0,
+    resolvedCount: report?.pitSummary.deniedAsLawCount ?? 0,
+    approvedPitCount: report?.pitSummary.approvedPitCount ?? 0,
+    deniedPitCount: report?.pitSummary.deniedPitCount ?? 0,
+    topLawIds: report?.pitSummary.topLawIds ?? [],
+    topReasons: report?.pitSummary.topReasons ?? [],
+    topActionKinds: report?.pitSummary.topActionKinds ?? [],
+    groups,
     entries: tail,
   };
 }
@@ -5714,6 +5760,18 @@ async function buildQuarantineStatusPayload(args: {
 function formatQuarantineEntry(entry: BuccetQuarantineEntry, index?: number): string {
   const prefix = index === undefined ? entry.itemId : `[${index + 1}] ${entry.itemId}`;
   return `${prefix} | ${entry.side} | ${entry.actionKind ?? "-"} | ${entry.target ?? entry.path} | ${entry.reason}`;
+}
+
+function formatSummaryCounts(items: BuccetQuarantineSummaryCount[]): string {
+  if (items.length === 0) {
+    return "-";
+  }
+  return items.map((item) => `${item.value} (${item.count})`).join(", ");
+}
+
+function formatQuarantineGroup(group: BuccetQuarantinePitGroup, index?: number): string {
+  const prefix = index === undefined ? group.groupId : `[${index + 1}] ${group.groupId}`;
+  return `${prefix} | depth=${group.depth} | size=${group.size} | pit=${group.pitCount} | approved=${group.approvedPitCount} | denied=${group.deniedPitCount} | ${group.primaryReason}`;
 }
 
 async function streamToBuffer(stream: NodeJS.ReadStream): Promise<Buffer> {
@@ -5805,8 +5863,19 @@ async function runInteractiveQuarantineReview(args: {
         formatCliKeyValue("survivors", payload.survivors),
         formatCliKeyValue("pit", payload.pitCount),
         formatCliKeyValue("pending", payload.pendingCount),
+        formatCliKeyValue("resolved", payload.resolvedCount),
+        formatCliKeyValue("approved pit", payload.approvedPitCount),
+        formatCliKeyValue("denied pit", payload.deniedPitCount),
         formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
+        formatCliKeyValue("workers", payload.workerCount || "-"),
       ]);
+      printCliSection("Pit Summary", [
+        formatCliKeyValue("top laws", formatSummaryCounts(payload.topLawIds)),
+        formatCliKeyValue("top reasons", formatSummaryCounts(payload.topReasons)),
+      ]);
+      printCliSection("Isolation Groups", payload.groups.length > 0
+        ? payload.groups.map((group, index) => formatQuarantineGroup(group, index))
+        : ["No reduced pit groups recorded for this session."]);
 
       console.log("  Resolve:");
       console.log("  1. deny all as law");
@@ -5857,6 +5926,7 @@ async function runInteractiveQuarantineReview(args: {
           formatCliKeyValue("index", `${reviewIndex + 1}/${pendingEntries.length}`),
           formatCliKeyValue("item", entry.itemId),
           formatCliKeyValue("side", entry.side),
+          formatCliKeyValue("hash", entry.pathHash),
           formatCliKeyValue("action", entry.actionKind ?? "-"),
           formatCliKeyValue("target", entry.target ?? entry.path),
           formatCliKeyValue("reason", entry.reason),
@@ -5954,20 +6024,31 @@ async function handleQuarantine(rest: string[]) {
     }
 
     printCliHeader("  Shed Reboot — Boundary on Self");
-    printCliSection("Quarantine", [
-      formatCliKeyValue("session", payload.sessionId),
-      formatCliKeyValue("required", payload.required ? "yes" : "no"),
-      formatCliKeyValue("status", payload.status),
-      formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
+      printCliSection("Quarantine", [
+        formatCliKeyValue("session", payload.sessionId),
+        formatCliKeyValue("required", payload.required ? "yes" : "no"),
+        formatCliKeyValue("status", payload.status),
+        formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
       formatCliKeyValue("reason", payload.reason ?? "-"),
       formatCliKeyValue("processed", `${payload.processedItems}/${payload.total}`),
       formatCliKeyValue("survivors", payload.survivors),
       formatCliKeyValue("pit", payload.pitCount),
-      formatCliKeyValue("pending", payload.pendingCount),
-      formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
-      formatCliKeyValue("shard size", payload.shardSize || "-"),
-      formatCliKeyValue("workers", payload.workerCount || "-"),
+        formatCliKeyValue("pending", payload.pendingCount),
+        formatCliKeyValue("resolved", payload.resolvedCount),
+        formatCliKeyValue("approved pit", payload.approvedPitCount),
+        formatCliKeyValue("denied pit", payload.deniedPitCount),
+        formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
+        formatCliKeyValue("shard size", payload.shardSize || "-"),
+        formatCliKeyValue("workers", payload.workerCount || "-"),
+      ]);
+    printCliSection("Pit Summary", [
+      formatCliKeyValue("top laws", formatSummaryCounts(payload.topLawIds)),
+      formatCliKeyValue("top reasons", formatSummaryCounts(payload.topReasons)),
+      formatCliKeyValue("top actions", formatSummaryCounts(payload.topActionKinds)),
     ]);
+    printCliSection("Isolation Groups", payload.groups.length > 0
+      ? payload.groups.map((group, index) => formatQuarantineGroup(group, index))
+      : ["No reduced pit groups recorded for this session."]);
     printCliSection("Caught Set", payload.entries.length > 0
       ? payload.entries.map((entry, index) => formatQuarantineEntry(entry, index))
       : ["No quarantine items recorded for this session."]);

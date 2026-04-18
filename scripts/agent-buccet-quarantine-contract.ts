@@ -127,9 +127,14 @@ async function main() {
     assert.ok(report, "quarantine replay must produce a report");
     assert.equal(report.complete, true, "second pass must finish replay from persisted progress");
     assert.equal(report.totalShards > 1, true, "quarantine replay must snap into multiple shards");
+    assert.equal(report.workerCount > 1, true, "quarantine replay must use multiple snap workers when shards allow it");
     assert.equal(report.pitCount >= 1, true, "suspect upl items must be caught");
     assert.equal(report.items.some((item) => item.side === "approved"), true, "approved side must be replayed");
     assert.equal(report.items.some((item) => item.side === "denied"), true, "denied side must be replayed");
+    assert.equal(report.pitSummary.approvedPitCount > 0, true, "pit summary must split approved-side pit items");
+    assert.equal(report.pitSummary.deniedPitCount > 0, true, "pit summary must split denied-side pit items");
+    assert.equal(report.pitSummary.topLawIds.length > 0, true, "pit summary must surface top triggering laws");
+    assert.equal(report.pitGroups.length > 0, true, "pit reduction groups must be recorded");
 
     const resolved = await applyBoundaryQuarantinePitDenials({
       sessionId: config.session.sessionId,
