@@ -495,6 +495,7 @@ The open-source runtime gives you the constitutional core:
 - swarm grouping and governed multi-agent resolution under the same law body
 - governed control over tool use, files, network, database, system access, and output consequence
 - Buccet vault-style runtime isolation and disposable contained workspaces, allowing compromised environments to shed their Buccet and be discarded without threatening the host system
+- portable bounded transport — pack a fully governed workload, ship it to any machine, and run it with the same enforcement, isolation, and law intact on arrival
 
 The enterprise layer is being shaped for organizations that need Buccet at operational scale, including:
 
