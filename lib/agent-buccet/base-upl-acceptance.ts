@@ -53,21 +53,22 @@ const SAFE_LOCAL_EXEC_SEEDS = [
     id: "ACCEPT.SAFE.LOCAL.EXEC.005A",
     targetPatterns: ["git", "rg"],
     requestTextPatterns: [
-      "/\\b(?:git\\s+(?:status|diff|grep|log|show|rev-parse|branch|ls-files)|rg\\b)\\b/i",
+      "/\\b(?:git\\s+(?:status|diff|grep|log|show|rev-parse|branch|ls-files|add|commit|push|pull|fetch|clone|checkout|switch|merge|stash|tag|init)|rg\\b)\\b/i",
     ],
     requestBasisTarget: "git",
     requestBasisSummary: "git status",
-    reason: "Bounded local repository inspection commands are lawful.",
+    reason: "Bounded local repository and full GitHub workflow commands are lawful.",
   },
   {
     id: "ACCEPT.SAFE.LOCAL.EXEC.005B",
-    targetPatterns: ["npm", "pnpm", "yarn"],
+    targetPatterns: ["npm", "pnpm", "yarn", "npx"],
     requestTextPatterns: [
-      "/\\b(?:npm|pnpm|yarn)\\s+(?:test|lint|run\\s+(?:test|lint|typecheck|build)|typecheck|build)\\b/i",
+      "/\\b(?:npm|pnpm|yarn)\\s+(?:test|lint|run\\s+(?:test|lint|typecheck|build)|typecheck|build|install|ci)\\b/i",
+      "/\\bnpx\\s+(?:[a-z0-9@/-]+)\\b/i",
     ],
     requestBasisTarget: "npm",
     requestBasisSummary: "npm test",
-    reason: "Bounded package-runner quality commands are lawful.",
+    reason: "Bounded package-runner quality and install commands are lawful.",
   },
   {
     id: "ACCEPT.SAFE.LOCAL.EXEC.005C",
@@ -91,6 +92,26 @@ const SAFE_LOCAL_EXEC_SEEDS = [
     requestBasisTarget: "cargo",
     requestBasisSummary: "cargo test",
     reason: "Bounded native-toolchain quality commands are lawful.",
+  },
+  {
+    id: "ACCEPT.SAFE.LOCAL.EXEC.005E",
+    targetPatterns: ["gh"],
+    requestTextPatterns: [
+      "/\\bgh\\s+(?:pr\\s+(?:create|view|list|merge|checkout|review)|issue\\s+(?:create|view|list|close)|repo\\s+(?:clone|view|list)|auth\\s+(?:status|login)|release\\s+(?:create|view|list)|workflow\\s+(?:run|view|list)|run\\s+(?:view|list))\\b/i",
+    ],
+    requestBasisTarget: "gh",
+    requestBasisSummary: "gh pr create",
+    reason: "Bounded GitHub CLI workflow commands are lawful.",
+  },
+  {
+    id: "ACCEPT.SAFE.LOCAL.EXEC.005F",
+    targetPatterns: ["bun"],
+    requestTextPatterns: [
+      "/\\bbun\\s+(?:test|run|build|install|add|x|pm)\\b/i",
+    ],
+    requestBasisTarget: "bun",
+    requestBasisSummary: "bun test",
+    reason: "Bounded Bun runtime quality and install commands are lawful.",
   },
 ] as const;
 const BOUNDED_WEB_RESEARCH_SEEDS = [
@@ -141,6 +162,23 @@ const BOUNDED_WEB_RESEARCH_SEEDS = [
     requestBasisTarget: "duckduckgo.com",
     requestBasisSummary: "search docs",
     reason: "Bounded search and retrieval provider use is lawful.",
+  },
+  {
+    id: "ACCEPT.BOUNDED.WEB.RESEARCH.006D",
+    targetPatterns: [
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?stackoverflow\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?stackexchange\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?docs\\.anthropic\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?platform\\.openai\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?learn\\.microsoft\\.com(?:\\/|$)/i",
+      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?cloud\\.google\\.com(?:\\/|$)/i",
+    ],
+    requestTextPatterns: [
+      "/\\b(?:fetch|read|browse|lookup|docs?|documentation|reference|answer|question|stackoverflow|so|anthropic|openai|azure|gcp)\\b/i",
+    ],
+    requestBasisTarget: "stackoverflow.com",
+    requestBasisSummary: "fetch docs",
+    reason: "Bounded developer Q&A and cloud-provider documentation retrieval is lawful.",
   },
 ] as const;
 const BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES = [

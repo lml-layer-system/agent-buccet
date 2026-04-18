@@ -125,6 +125,70 @@ async function main() {
   const autoConsoleUninstallResult = await runCli(["uninstall"], autoConsoleEnv);
   assert.equal(autoConsoleUninstallResult.code, 0, autoConsoleUninstallResult.stderr);
 
+  // MCP auto-init: `buccet mcp` on a fresh home must initialize without prior `buccet init`.
+  // This is the "add buccet mcp to your MCP host config and it's live" guarantee.
+  const mcpAutoInitRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-mcp-autoinit-"));
+  const mcpAutoInitHome = path.join(mcpAutoInitRoot, "home");
+  const mcpAutoInitEnv = {
+    ...process.env,
+    AGENT_BUCCET_HOME: mcpAutoInitHome,
+    AGENT_BUCCET_CALLER_CWD: mcpAutoInitRoot,
+    AGENT_BUCCET_LAUNCHER_PATH: path.join(mcpAutoInitRoot, "bin", "buccet"),
+    AGENT_BUCCET_UPL_LEDGER_PATH: path.join(mcpAutoInitRoot, "upl-ledger.json"),
+  };
+
+  // Before: mcp status reports not initialized (no config yet).
+  const mcpStatusBeforeResult = await runCli(["mcp", "status"], mcpAutoInitEnv);
+  assert.equal(mcpStatusBeforeResult.code, 0, mcpStatusBeforeResult.stderr);
+  assert.match(mcpStatusBeforeResult.stdout, /not initialized/i);
+
+  // Run `buccet mcp` and kill it as soon as scopes are persisted (right before
+  // the hook daemon step) — that's the point we know auto-init AND scope seeding
+  // are complete without waiting for a full native library build.
+  const mcpAutoInitResult = await new Promise<{ stderr: string; code: number | null }>((resolve, reject) => {
+    const child = spawn("node", [scriptPath, "mcp"], {
+      cwd: repoRoot,
+      env: mcpAutoInitEnv,
+      stdio: ["pipe", "ignore", "pipe"],
+    });
+    let stderr = "";
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+      // "ensuring hook daemon" fires immediately after store.persist(), meaning
+      // auto-init config + scopes are written. Kill here to skip native lib build.
+      if (stderr.includes("[buccet-mcp] ensuring hook daemon")) {
+        child.kill("SIGTERM");
+      }
+    });
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ stderr, code }));
+    // Safety: kill after 30s regardless.
+    setTimeout(() => child.kill("SIGTERM"), 30_000).unref();
+  });
+
+  assert.match(mcpAutoInitResult.stderr, /auto-initializing Agent Buccet/, "MCP must auto-init on fresh home");
+  assert.match(mcpAutoInitResult.stderr, /auto-initialization complete/, "MCP auto-init must complete successfully");
+  assert.match(mcpAutoInitResult.stderr, /restoring session/, "MCP must restore/seed the session after auto-init");
+
+  // After: config is persisted — status now shows properly.
+  const mcpStatusAfterResult = await runCli(["mcp", "status"], mcpAutoInitEnv);
+  assert.equal(mcpStatusAfterResult.code, 0, mcpStatusAfterResult.stderr);
+  assert.match(mcpStatusAfterResult.stdout, /MCP status/);
+  assert.doesNotMatch(mcpStatusAfterResult.stdout, /not initialized/i);
+
+  // Overall status reflects initialized state and at least the fallback homedir scope.
+  const mcpOverallStatusResult = await runCli(["status", "--json"], mcpAutoInitEnv);
+  assert.equal(mcpOverallStatusResult.code, 0, mcpOverallStatusResult.stderr);
+  const mcpOverallStatus = JSON.parse(mcpOverallStatusResult.stdout) as { initialized: boolean; scopes: string[] };
+  assert.equal(mcpOverallStatus.initialized, true, "buccet mcp auto-init must leave status initialized");
+  assert.ok(
+    mcpOverallStatus.scopes.includes(os.homedir()),
+    "buccet mcp with no defaultScopes must fall back to os.homedir() as the seeded scope",
+  );
+
+  await fs.rm(mcpAutoInitRoot, { recursive: true, force: true });
+  console.log("cli mcp auto-init: ok");
+
   const initResult = await runCli(["init"], env);
   assert.equal(initResult.code, 0, initResult.stderr);
   assert.match(initResult.stdout, /Agent Buccet/);

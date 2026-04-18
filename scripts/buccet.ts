@@ -23,6 +23,7 @@ import type {
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
 } from "../lib/agent-buccet/index.ts";
+import { createBaseAcceptanceLaws } from "../lib/agent-buccet/base-upl-acceptance.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -6392,10 +6393,18 @@ async function handleMcp(rest: string[]) {
 
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
-  const config = await loadConfig(home.configPath);
+  let config = await loadConfig(home.configPath);
 
   if (!config) {
-    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+    // Auto-initialize silently so that adding `buccet mcp` to an MCP host
+    // config is enough to get protected — no manual `buccet init` required.
+    process.stderr.write("[buccet-mcp] no config found — auto-initializing Agent Buccet...\n");
+    await handleInit(["--arm-now", "--no-default-scope"]);
+    config = await loadConfig(home.configPath);
+    if (!config) {
+      throw new Error("[buccet-mcp] auto-initialization failed — check permissions on ~/.buccet");
+    }
+    process.stderr.write("[buccet-mcp] auto-initialization complete.\n");
   }
 
   // Allow overriding session/actor via CLI flags (for multi-session MCP use).
@@ -6423,9 +6432,16 @@ async function handleMcp(rest: string[]) {
     config: { ...config, sessionId, actorId, dryRun },
     sessionsDir: home.sessionsDir,
   });
+
+  // If no default scopes are configured, fall back to the user's home directory
+  // so the base acceptance pack is always seeded and protection is live from
+  // the first MCP connection — no console interaction required.
+  const mcpScopePaths = config.defaultScopes.length > 0
+    ? config.defaultScopes
+    : [os.homedir()];
   await ensureScopes(boundary, {
     store,
-    scopePaths: config.defaultScopes,
+    scopePaths: mcpScopePaths,
     actorId,
   });
   await store.persist();
@@ -7742,6 +7758,45 @@ async function handleConsole() {
               console.log(`    ${clrDim("issued:")}  ${l.issuedBy}`);
             }
           }
+          console.log(``);
+
+          // Base acceptance pack summary
+          const rootPath = pathLaws.length > 0
+            ? (pathLaws[0] as { rootPath: string }).rootPath
+            : os.homedir();
+          const baseLaws = createBaseAcceptanceLaws({
+            rootPath,
+            grantedActions: ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"],
+          });
+          const classCounts: Record<string, number> = {};
+          for (const law of baseLaws) {
+            const match = law.notes?.match(/\[([^\]]+)\]/);
+            const cls = match?.[1] ?? "other";
+            classCounts[cls] = (classCounts[cls] ?? 0) + 1;
+          }
+          printCliHeader("  Base Acceptance Pack");
+          console.log(`  ${clrDim("Seeded automatically when you open a workspace. Deny still wins on overlap.")}`);
+          console.log(``);
+          console.log(formatCliKeyValue("  total", `${c.green}${baseLaws.length} pre-seeded corridors${c.reset}`));
+          console.log(formatCliKeyValue("  workspace", `${classCounts["workspace_read"] ?? 0} read  ${classCounts["workspace_mutation"] ?? 0} write  ${classCounts["local_organization"] ?? 0} org  ${classCounts["internal_artifacts"] ?? 0} artifacts  ${classCounts["notes_and_tasks"] ?? 0} notes`));
+          console.log(formatCliKeyValue("  exec", `${classCounts["safe_local_exec"] ?? 0} bounded commands  ${clrDim("(git full cycle · gh CLI · npm/bun/npx · cargo/go/make · pytest/eslint/tsc)")}`));
+          console.log(formatCliKeyValue("  web", `${classCounts["bounded_web_research"] ?? 0} research corridors  ${clrDim("(MDN · GitHub · Stack Overflow · Anthropic/OpenAI docs · search providers)")}`));
+          console.log(formatCliKeyValue("  skills", `${(classCounts["openclaw_skill"] ?? 0) + (classCounts["curated_capability"] ?? 0) + (classCounts["marketplace_skill"] ?? 0)} lanes  ${clrDim("(OpenClaw · curated capabilities · marketplace)")}`));
+          console.log(``);
+          printCliSection("Customizing the Yes Side", [
+            `${clrDim("The base pack is the floor. You build on top of it.")}`
+          ]);
+          console.log(`  ${clrDim("Import a law directly from any markdown file:")}`);
+          console.log(`    ${c.bold}buccet upl import <file.md>${c.reset}`);
+          console.log(``);
+          console.log(`  ${clrDim("Drop files into your acceptance docs dir, then sync all at once:")}`);
+          console.log(`    ${c.bold}buccet upl sync --lane acceptance${c.reset}`);
+          console.log(``);
+          console.log(`  ${clrDim("Preview what a file compiles into before importing:")}`);
+          console.log(`    ${c.bold}buccet extract-laws <file.md> --lane acceptance${c.reset}`);
+          console.log(``);
+          console.log(`  ${clrDim("See the full operator map:")}`);
+          console.log(`    ${c.bold}where${c.reset}  ${clrDim("·  inspect every live corridor:")}  ${c.bold}tracks${c.reset}`);
           console.log(``);
           rl.prompt();
           return;

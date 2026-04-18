@@ -8,10 +8,10 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 279
+- Total acceptance-side UPL entries seeded per opened workspace session: 282
 - Workspace entries: 5
-- Safe local exec entries: 4
-- Bounded web research entries: 3
+- Safe local exec entries: 6
+- Bounded web research entries: 4
 - OpenClaw skill entries: 110
   Bundled OpenClaw entries: 53
   Awesome OpenClaw entries: 57
@@ -76,17 +76,17 @@ Connects to: prefix corridor `<workspace-root>/.buccet`; prefix corridor `<works
 Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.mkdir`, `fs.move`.
 Bounds: listed prefix corridor only; deny still wins on overlap.
 
-## Safe Local Exec Entries (4)
+## Safe Local Exec Entries (6)
 
 ### ACCEPT.SAFE.LOCAL.EXEC.005A
-What it is: Bounded local repository inspection commands are lawful.
+What it is: Bounded local repository and full GitHub workflow commands are lawful.
 Connects to: exact Buccet target `git`; exact Buccet target `rg`.
 Action kinds: `tool.exec`.
 Bounds: exact named target only; deny still wins on overlap.
 
 ### ACCEPT.SAFE.LOCAL.EXEC.005B
-What it is: Bounded package-runner quality commands are lawful.
-Connects to: exact Buccet target `npm`; exact Buccet target `pnpm`; exact Buccet target `yarn`.
+What it is: Bounded package-runner quality and install commands are lawful.
+Connects to: exact Buccet target `npm`; exact Buccet target `pnpm`; exact Buccet target `yarn`; exact Buccet target `npx`.
 Action kinds: `tool.exec`.
 Bounds: exact named target only; deny still wins on overlap.
 
@@ -102,7 +102,19 @@ Connects to: exact Buccet target `cargo`; exact Buccet target `go`; exact Buccet
 Action kinds: `tool.exec`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## Bounded Web Research Entries (3)
+### ACCEPT.SAFE.LOCAL.EXEC.005E
+What it is: Bounded GitHub CLI workflow commands are lawful.
+Connects to: exact Buccet target `gh`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.SAFE.LOCAL.EXEC.005F
+What it is: Bounded Bun runtime quality and install commands are lawful.
+Connects to: exact Buccet target `bun`.
+Action kinds: `tool.exec`.
+Bounds: exact named target only; deny still wins on overlap.
+
+## Bounded Web Research Entries (4)
 
 ### ACCEPT.BOUNDED.WEB.RESEARCH.006A
 What it is: Bounded documentation and reference retrieval is lawful.
@@ -119,6 +131,12 @@ Bounds: listed bounded corridors only; deny still wins on overlap.
 ### ACCEPT.BOUNDED.WEB.RESEARCH.006C
 What it is: Bounded search and retrieval provider use is lawful.
 Connects to: bounded host corridors `duckduckgo.com`; bounded host corridors `search.brave.com`; bounded host corridors `exa.ai`; bounded host corridors `firecrawl.dev`.
+Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.BOUNDED.WEB.RESEARCH.006D
+What it is: Bounded developer Q&A and cloud-provider documentation retrieval is lawful.
+Connects to: bounded host corridors `stackoverflow.com`; bounded host corridors `stackexchange.com`; bounded host corridors `docs.anthropic.com`; bounded host corridors `platform.openai.com`; bounded host corridors `learn.microsoft.com`; bounded host corridors `cloud.google.com`.
 Action kinds: `network.send`.
 Bounds: listed bounded corridors only; deny still wins on overlap.
 
