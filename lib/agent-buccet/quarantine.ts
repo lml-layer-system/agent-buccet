@@ -122,7 +122,7 @@ function resolveSessionsDir(configOrDir?: BoundaryRuntimeConfig | string): strin
   if (typeof configOrDir === "string" && configOrDir.trim()) {
     return path.resolve(configOrDir);
   }
-  const sessionsDir = configOrDir?.persistence?.sessionsDir?.trim();
+  const sessionsDir = typeof configOrDir === "object" ? configOrDir?.persistence?.sessionsDir?.trim() : undefined;
   if (sessionsDir) {
     return path.resolve(sessionsDir);
   }
@@ -608,7 +608,7 @@ export async function armBoundaryQuarantineReboot(args: {
     .map((entry) => ({
       itemId: `pit-${entry.id}`,
       entryId: entry.id,
-      side: entry.type === "APPROVED" ? "approved" : "denied",
+      side: entry.type === "APPROVED" ? ("approved" as const) : ("denied" as const),
       hash: hashQuarantineEntry(entry),
       entry,
     }));

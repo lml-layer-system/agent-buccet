@@ -166,8 +166,6 @@ async function main() {
     console.log(`pit count: ${status.pitCount}`);
     console.log("console gate: ok");
   } finally {
-    delete env.AGENT_BUCCET_HOME;
-    delete env.AGENT_BUCCET_UPL_LEDGER_PATH;
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 }

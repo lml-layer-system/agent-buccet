@@ -27,7 +27,7 @@ const AUTO_SHED_ACTIONS = new Set<BoundaryActionKind>([
   "network.send",
   "comm.send",
   "db.query",
-  "system.access",
+  "sys.config.write",
 ]);
 
 type BoundaryShedTrigger = "deny" | "manual";
@@ -319,7 +319,7 @@ export async function shedBoundarySessionSkin(args: {
   const request: BoundaryActionRequest = {
     requestId: randomUUID(),
     sessionId: args.config.session.sessionId,
-    actionKind: "system.access",
+    actionKind: "sys.config.write",
     target: args.config.session.sessionId,
     requestedAt: new Date().toISOString(),
     provenance: "trusted_user",
