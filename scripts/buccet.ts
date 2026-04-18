@@ -107,6 +107,27 @@ type BuccetTransportPackResult = {
   artifactPath: string;
   manifest: BuccetTransportManifest;
   sourceDir: string;
+  lawEntryCount?: number;
+};
+
+const TRANSPORT_LAW_FILE = "transport-law.json";
+
+type TransportLawEntry = {
+  uplEntry: BoundaryUplEntry;
+  witnessHashes: string[];
+  actionKinds: string[];
+  targets: string[];
+  witnessCount: number;
+};
+
+type TransportLawManifest = {
+  schemaVersion: 1;
+  kind: "buccet_transport_law";
+  packedAt: string;
+  entryCount: number;
+  entries: TransportLawEntry[];
+  allWitnessHashes: string[];
+  integrityHash: string;
 };
 
 type BuccetTransportImportResult = {
@@ -192,8 +213,8 @@ function usage(): never {
     "  buccet path close <path-name|formation-id> [--json]",
     "  buccet path sources add <path-name> <file...> [--domain <domain>] [--json]",
     "  buccet path sources list <path-name> [--json]",
-    "  buccet transport pack <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--json] [-- <entrypoint> ...]",
-    "  buccet transport export <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--json] [-- <entrypoint> ...]",
+    "  buccet transport pack <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--with-law] [--json] [-- <entrypoint> ...]",
+    "  buccet transport export <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--with-law] [--json] [-- <entrypoint> ...]",
     "  buccet transport import <artifact.buccet.tgz> [--into <dir>] [--json]",
     "  buccet transport run <artifact-or-dir> [--into <runtime-dir>] [--unit-id <id>] [--json] [-- <command> ...]",
     "  buccet hook build",
@@ -2042,12 +2063,209 @@ async function resolveTransportExecutable(args: {
   throw new Error(`transport command is not packaged inside the artifact: ${command}`);
 }
 
+function computeTransportLawIntegrityHash(entries: TransportLawEntry[]): string {
+  const canonical = JSON.stringify(
+    [...entries]
+      .sort((a, b) => a.uplEntry.pathHash.localeCompare(b.uplEntry.pathHash))
+      .map((e) => ({
+        pathHash: e.uplEntry.pathHash,
+        type: e.uplEntry.type,
+        path: e.uplEntry.path,
+        witnessHashes: [...e.witnessHashes].sort(),
+      })),
+  );
+  return createHash("sha256").update(canonical).digest("hex");
+}
+
+async function buildTransportLawManifest(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+): Promise<TransportLawManifest> {
+  const [records, upl] = await Promise.all([
+    boundary.readAllBoundaryLedgerRecords(),
+    boundary.loadUserPathLedger(),
+  ]);
+
+  const witnessedByLaw = new Map<string, {
+    hashes: string[];
+    actionKinds: Set<string>;
+    targets: Set<string>;
+  }>();
+
+  for (const record of records) {
+    if (
+      record.META.event_type !== "ACTION_EXECUTED"
+      || record.DECISION.verdict !== "ALLOW"
+      || !record.DECISION.law_triggered
+    ) {
+      continue;
+    }
+    const lawId = record.DECISION.law_triggered;
+    if (!witnessedByLaw.has(lawId)) {
+      witnessedByLaw.set(lawId, { hashes: [], actionKinds: new Set(), targets: new Set() });
+    }
+    const w = witnessedByLaw.get(lawId)!;
+    w.hashes.push(record.META.hash);
+    if (record.INPUT.action) w.actionKinds.add(record.INPUT.action);
+    if (record.INPUT.target) w.targets.add(record.INPUT.target);
+  }
+
+  const allUplEntries = boundary.listUserPathEntries(upl);
+  const entries: TransportLawEntry[] = [];
+
+  for (const [lawId, witnesses] of witnessedByLaw) {
+    const uplEntry = allUplEntries.find((e) => e.id === lawId && e.status === "ACTIVE");
+    if (!uplEntry) continue;
+    entries.push({
+      uplEntry,
+      witnessHashes: witnesses.hashes,
+      actionKinds: [...witnesses.actionKinds],
+      targets: [...witnesses.targets],
+      witnessCount: witnesses.hashes.length,
+    });
+  }
+
+  const allWitnessHashes = [...new Set(entries.flatMap((e) => e.witnessHashes))];
+  const integrityHash = computeTransportLawIntegrityHash(entries);
+
+  return {
+    schemaVersion: 1,
+    kind: "buccet_transport_law",
+    packedAt: new Date().toISOString(),
+    entryCount: entries.length,
+    entries,
+    allWitnessHashes,
+    integrityHash,
+  };
+}
+
+function verifyTransportLawManifest(manifest: TransportLawManifest): { ok: boolean; reason?: string } {
+  if (manifest.kind !== "buccet_transport_law" || manifest.schemaVersion !== 1) {
+    return { ok: false, reason: "invalid transport law manifest schema" };
+  }
+  if (manifest.entries.length !== manifest.entryCount) {
+    return { ok: false, reason: "transport law entry count mismatch" };
+  }
+  const expectedHash = computeTransportLawIntegrityHash(manifest.entries);
+  if (expectedHash !== manifest.integrityHash) {
+    return { ok: false, reason: "transport law integrity check failed — manifest may have been tampered" };
+  }
+  return { ok: true };
+}
+
+type TransportLawSecurityWarning = {
+  entryIndex: number;
+  level: "warn" | "critical";
+  message: string;
+};
+
+function scanTransportLawSecurity(manifest: TransportLawManifest): TransportLawSecurityWarning[] {
+  const warnings: TransportLawSecurityWarning[] = [];
+  for (let i = 0; i < manifest.entries.length; i += 1) {
+    const { uplEntry, witnessCount } = manifest.entries[i];
+    const p = uplEntry.path;
+    if (p === "/**" || p === "**" || p === "*") {
+      warnings.push({ entryIndex: i, level: "critical", message: "global wildcard — covers entire filesystem" });
+    } else if (p.includes("**")) {
+      warnings.push({ entryIndex: i, level: "warn", message: "broad wildcard (**) covers all descendants" });
+    }
+    if (witnessCount === 0) {
+      warnings.push({ entryIndex: i, level: "critical", message: "no ledger witnesses — entry was never actually exercised on sender machine" });
+    }
+  }
+  return warnings;
+}
+
+async function promptTransportLawApproval(
+  manifest: TransportLawManifest,
+  artifactName: string,
+): Promise<boolean> {
+  const warnings = scanTransportLawSecurity(manifest);
+  const criticals = warnings.filter((w) => w.level === "critical");
+
+  process.stdout.write(`\nBuccet transport law — artifact: ${artifactName}\n`);
+  process.stdout.write(`${manifest.entryCount} law ${manifest.entryCount === 1 ? "entry" : "entries"} bundled by sender\n\n`);
+
+  for (let i = 0; i < manifest.entries.length; i += 1) {
+    const { uplEntry, actionKinds, witnessCount } = manifest.entries[i];
+    const typeLabel = uplEntry.type === "APPROVED" ? "ALLOW" : "DENY ";
+    const entryWarnings = warnings.filter((w) => w.entryIndex === i);
+    process.stdout.write(`  [${i + 1}] ${typeLabel}  ${uplEntry.path}\n`);
+    process.stdout.write(`       witnessed: ${witnessCount}x | actions: ${actionKinds.join(", ") || "unknown"} | scope: ${uplEntry.scope}\n`);
+    if (uplEntry.notes) {
+      process.stdout.write(`       notes: ${uplEntry.notes}\n`);
+    }
+    for (const w of entryWarnings) {
+      const icon = w.level === "critical" ? "✖" : "⚠";
+      process.stdout.write(`       ${icon}  ${w.message}\n`);
+    }
+    process.stdout.write("\n");
+  }
+
+  if (criticals.length > 0) {
+    process.stdout.write(`  ${criticals.length} critical security issue${criticals.length === 1 ? "" : "s"} detected above.\n\n`);
+  } else if (warnings.length > 0) {
+    process.stdout.write(`  ${warnings.length} security warning${warnings.length === 1 ? "" : "s"} flagged above.\n\n`);
+  }
+
+  process.stdout.write("These entries will be written to your GLOBAL UPL before the agent runs.\n");
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await new Promise<string>((resolve) => {
+    rl.question("Approve all and run? [y/N] ", (ans) => {
+      rl.close();
+      resolve(ans.trim());
+    });
+  });
+
+  return answer.toLowerCase() === "y";
+}
+
+async function importTransportLawEntries(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  manifest: TransportLawManifest,
+): Promise<number> {
+  const currentUpl = await boundary.loadUserPathLedger();
+  const existing = boundary.listUserPathEntries(currentUpl);
+  let nextUpl = currentUpl;
+  let importedCount = 0;
+
+  for (const { uplEntry, witnessHashes } of manifest.entries) {
+    const alreadyExists = existing.some(
+      (e) => e.pathHash === uplEntry.pathHash && e.type === uplEntry.type && e.status === "ACTIVE",
+    );
+    if (alreadyExists) continue;
+
+    const importedEntry: BoundaryUplEntry = {
+      ...uplEntry,
+      id: `transport-import-${Date.now()}-${importedCount}`,
+      scope: "GLOBAL",
+      notes: uplEntry.notes ? `[transport-import] ${uplEntry.notes}` : "[transport-import]",
+      witness: witnessHashes[0] ?? uplEntry.witness,
+      modifiedAt: new Date().toISOString(),
+    };
+
+    if (uplEntry.type === "APPROVED") {
+      nextUpl = { ...nextUpl, userApprovedLawPaths: [...nextUpl.userApprovedLawPaths, importedEntry] };
+    } else {
+      nextUpl = { ...nextUpl, userDeniedLawPaths: [...nextUpl.userDeniedLawPaths, importedEntry] };
+    }
+    importedCount += 1;
+  }
+
+  if (importedCount > 0) {
+    await boundary.saveUserPathLedger(nextUpl);
+  }
+  return importedCount;
+}
+
 async function packBuccetTransportArtifact(args: {
   sourceDir: string;
   outputPath: string;
   name?: string;
   workdir?: string;
   entrypoint?: string[];
+  withLaw?: boolean;
+  boundary?: Awaited<ReturnType<typeof importBoundary>>;
 }): Promise<BuccetTransportPackResult> {
   const sourceDir = path.resolve(args.sourceDir);
   const sourceStats = await fs.stat(sourceDir).catch(() => null);
@@ -2074,6 +2292,18 @@ async function packBuccetTransportArtifact(args: {
       portabilityChain: ["applyIsolation", "persistState", "enterEnvironment"],
     };
     await fs.writeFile(transportManifestPath(stagingDir), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+
+    let lawEntryCount: number | undefined;
+    if (args.withLaw && args.boundary) {
+      const lawManifest = await buildTransportLawManifest(args.boundary);
+      await fs.writeFile(
+        path.join(stagingDir, TRANSPORT_LAW_FILE),
+        `${JSON.stringify(lawManifest, null, 2)}\n`,
+        "utf8",
+      );
+      lawEntryCount = lawManifest.entryCount;
+    }
+
     const artifactPath = path.resolve(args.outputPath);
     await tarCreate({
       sourceDir: stagingDir,
@@ -2083,6 +2313,7 @@ async function packBuccetTransportArtifact(args: {
       artifactPath,
       manifest,
       sourceDir,
+      lawEntryCount,
     };
   } finally {
     await fs.rm(stagingDir, { recursive: true, force: true }).catch(() => undefined);
@@ -2155,6 +2386,40 @@ async function runBuccetTransport(args: {
 
   const homePath = resolveHome();
   const boundary = await importBoundary(homePath);
+
+  // Law approval — must happen before substrate init so recipient controls what runs
+  const lawFilePath = path.join(transportRoot, TRANSPORT_LAW_FILE);
+  const lawFileExists = await pathExists(lawFilePath);
+  if (lawFileExists) {
+    const rawLaw = await fs.readFile(lawFilePath, "utf8");
+    const lawManifest = JSON.parse(rawLaw) as TransportLawManifest;
+    const verification = verifyTransportLawManifest(lawManifest);
+    if (!verification.ok) {
+      throw new Error(`transport law rejected: ${verification.reason}`);
+    }
+    if (lawManifest.entryCount > 0) {
+      const approved = await promptTransportLawApproval(lawManifest, manifest.name);
+      if (!approved) {
+        process.stdout.write("transport run cancelled — law not approved.\n");
+        process.exitCode = 1;
+        return {
+          artifactInput,
+          manifest,
+          runtimeDir,
+          launchCwd: resolveTransportLaunchCwd(path.join(transportRoot, manifest.rootfsDir), manifest.workdir),
+          command: [],
+          isolationActive: false,
+          persistedState: false,
+          enteredEnvironment: false,
+          exitCode: 1,
+          cleanedUpRuntime: false,
+        };
+      }
+      const importedCount = await importTransportLawEntries(boundary, lawManifest);
+      process.stdout.write(`transport law: imported ${importedCount} new ${importedCount === 1 ? "entry" : "entries"} into your GLOBAL UPL.\n`);
+    }
+  }
+
   await boundary.substrate.init();
 
   const substrateStateDir = path.join(runtimeDir, ".buccet-substrate");
@@ -4957,6 +5222,7 @@ async function handleTransport(rest: string[]) {
     let name: string | undefined;
     let workdir = "/";
     let asJson = false;
+    let withLaw = false;
 
     for (let index = 0; index < optionArgs.length; index += 1) {
       const token = optionArgs[index];
@@ -4975,6 +5241,10 @@ async function handleTransport(rest: string[]) {
         index += 1;
         continue;
       }
+      if (token === "--with-law") {
+        withLaw = true;
+        continue;
+      }
       if (token === "--json") {
         asJson = true;
         continue;
@@ -4982,12 +5252,15 @@ async function handleTransport(rest: string[]) {
       usage();
     }
 
+    const packBoundary = withLaw ? await importBoundary(resolveHome()) : undefined;
     const result = await packBuccetTransportArtifact({
       sourceDir,
       outputPath,
       name,
       workdir,
       entrypoint,
+      withLaw,
+      boundary: packBoundary,
     });
 
     if (asJson) {
@@ -5002,6 +5275,9 @@ async function handleTransport(rest: string[]) {
     console.log(`workdir: ${result.manifest.workdir}`);
     console.log(`files: ${result.manifest.fileCount}`);
     console.log(`entrypoint: ${result.manifest.entrypoint.length > 0 ? result.manifest.entrypoint.join(" ") : "(none)"}`);
+    if (result.lawEntryCount !== undefined) {
+      console.log(`law entries: ${result.lawEntryCount} (ledger-witnessed)`);
+    }
     return;
   }
 
