@@ -366,13 +366,14 @@ function printBuccetWordmark(): void {
   const D = c.dim;
   const R = c.reset;
   console.log(``);
+  console.log(`${B}  AGENT${R}`);
   console.log(`${B}  ██████╗ ██╗   ██╗ ██████╗ ██████╗███████╗████████╗${R}`);
   console.log(`${B}  ██╔══██╗██║   ██║██╔════╝██╔════╝██╔════╝╚══██╔══╝${R}`);
   console.log(`${B}  ██████╔╝██║   ██║██║     ██║     █████╗     ██║   ${R}`);
   console.log(`${B}  ██╔══██╗██║   ██║██║     ██║     ██╔══╝     ██║   ${R}`);
   console.log(`${B}  ██████╔╝╚██████╔╝╚██████╗╚██████╗███████╗   ██║   ${R}`);
   console.log(`${B}  ╚═════╝  ╚═════╝  ╚═════╝ ╚═════╝╚══════╝   ╚═╝   ${R}`);
-  console.log(`  ${D}Boundary enforcement · Operator console${R}`);
+  console.log(`  ${D}Building Ultimate Containment Constraints Every Time${R}`);
   console.log(``);
 }
 
