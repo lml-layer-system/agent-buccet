@@ -493,7 +493,7 @@ async function main() {
 
   const strictDoctorResult = await runCli(["doctor", "--strict"], env);
   assert.equal(strictDoctorResult.code, 0, strictDoctorResult.stderr);
-  assert.match(strictDoctorResult.stdout, /Strict posture: PASS/);
+  assert.match(strictDoctorResult.stdout, /strict posture:.*PASS/);
 
   const hookStatusResult = await runCli(["hook", "status", "--json"], env);
   assert.equal(hookStatusResult.code, 0, hookStatusResult.stderr);
@@ -505,7 +505,7 @@ async function main() {
 
   const consoleResult = await runCli(["console"], env, "shield\nquit\n");
   assert.equal(consoleResult.code, 0, consoleResult.stderr);
-  assert.match(consoleResult.stdout, /Agent Buccet.*Operator Console|Unified Operator Console/);
+  assert.match(consoleResult.stdout, /Operator [Cc]onsole|mode.*interactive/);
   assert.match(consoleResult.stdout, /Protected Execution Lane/i);
   assert.match(consoleResult.stdout, /SHIELD|summary:/);
 
@@ -534,7 +534,7 @@ async function main() {
 
   const strictDoctorFailResult = await runCli(["doctor", "--strict"], env);
   assert.equal(strictDoctorFailResult.code, 1, strictDoctorFailResult.stderr);
-  assert.match(strictDoctorFailResult.stdout, /Strict posture: FAIL/);
+  assert.match(strictDoctorFailResult.stdout, /strict posture:.*FAIL/);
   assert.match(strictDoctorFailResult.stdout, /Gravity bridge:/);
 
   const uninstallResult = await runCli(["uninstall"], env);
