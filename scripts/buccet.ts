@@ -4164,22 +4164,30 @@ async function handleUpl(rest: string[]) {
         });
         return;
       }
-      console.log(`UPL laws`);
-      console.log(`active approved: ${approved.length}`);
-      console.log(`active denied: ${denied.length}`);
-      console.log(`muted: ${muted.length}`);
-      console.log(`deleted: ${deleted.length}`);
-      console.log(`runtime track field: ${runtimeTrackField.length} compiled segments`);
+      console.log(``);
+      printCliHeader("  User Path Ledger");
+      printCliSection("Summary", [
+        formatCliKeyValue(`${c.green}approved${c.reset}`, approved.length),
+        formatCliKeyValue(`${c.red}denied${c.reset}`, denied.length),
+        formatCliKeyValue("muted", muted.length),
+        formatCliKeyValue("deleted", deleted.length),
+        formatCliKeyValue("runtime segments", runtimeTrackField.length),
+      ]);
       if (!selection.includeAll && selection.statusFilter === null) {
-        console.log(`showing active laws only | use --all to include muted and deleted`);
+        console.log(`  ${clrDim("showing active laws only — use --all to include muted and deleted")}`);
+        console.log(``);
       }
       if (selection.typeFilter || selection.statusFilter || selection.queryTerms.length > 0) {
-        console.log(`filtered matches: ${filteredEntries.length}`);
+        console.log(`  ${clrDim(`filtered matches: ${filteredEntries.length}`)}`);
+        console.log(``);
       }
       for (const entry of filteredEntries) {
         const view = buildUplEntryView(entry);
-        console.log(`${entry.status} | ${entry.type} | ${entry.id} | ${view.source} | ${view.whatItIs} | ${entry.path}`);
+        const typeColor = entry.type === "APPROVED" ? c.green : c.red;
+        const statusDim = entry.status !== "ACTIVE" ? clrDim : (s: string) => s;
+        console.log(`  ${typeColor}${entry.type === "APPROVED" ? "allow" : "deny "}${c.reset}  ${statusDim(entry.status.toLowerCase())}  ${clrDim(entry.id)}  ${clrDim(view.source)}  ${entry.path}`);
       }
+      console.log(``);
       return;
     }
 
@@ -4223,21 +4231,29 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(`UPL diff`);
-    console.log(`matches: ${rows.length}`);
-    console.log(`live allow: ${stateSummary.allow}`);
-    console.log(`live deny: ${stateSummary.deny}`);
-    console.log(`inactive: ${stateSummary.inactive}`);
+    console.log(``);
+    printCliHeader("  UPL Diff");
+    printCliSection("Summary", [
+      formatCliKeyValue("matches", rows.length),
+      formatCliKeyValue(`${c.green}live allow${c.reset}`, stateSummary.allow),
+      formatCliKeyValue(`${c.red}live deny${c.reset}`, stateSummary.deny),
+      formatCliKeyValue("inactive", stateSummary.inactive),
+    ]);
     for (const row of rows) {
-      console.log(`${row.entry.id} | authored=${row.entry.type}/${row.entry.status} -> live=${row.liveState}`);
-      console.log(`  what it is: ${row.view.whatItIs}`);
-      console.log(`  connects to: ${row.view.connectsTo}`);
-      console.log(`  action kinds: ${row.view.actionKinds.join(", ") || "none recorded"}`);
-      console.log(`  bounds: ${row.view.bounds.join(" | ") || "none recorded"}`);
+      const typeColor = row.entry.type === "APPROVED" ? c.green : c.red;
+      const liveColor = row.liveState === "allow_rail" ? c.green : row.liveState === "deny_wall" ? c.red : "";
+      console.log(`  ${typeColor}${row.entry.type === "APPROVED" ? "allow" : "deny "}${c.reset}  ${clrBold(row.entry.id)}  ${clrDim(`authored=${row.entry.type}/${row.entry.status}`)}  ${liveColor}live=${row.liveState}${c.reset}`);
+      console.log(`    ${clrDim("what:")}    ${row.view.whatItIs}`);
+      console.log(`    ${clrDim("connects:")} ${row.view.connectsTo}`);
+      console.log(`    ${clrDim("actions:")} ${row.view.actionKinds.join(", ") || clrDim("none recorded")}`);
+      if (row.view.bounds.length > 0) {
+        console.log(`    ${clrDim("bounds:")}  ${row.view.bounds.join(" | ")}`);
+      }
       if (row.liveTag) {
-        console.log(`  live tag: ${row.liveTag}`);
+        console.log(`    ${clrDim("tag:")}     ${row.liveTag}`);
       }
     }
+    console.log(``);
     return;
   }
 
@@ -4264,34 +4280,40 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(`UPL entry ${entry.id}`);
-    console.log(`status: ${entry.status}`);
-    console.log(`type: ${entry.type}`);
-    console.log(`scope: ${entry.scope}`);
-    console.log(`source: ${summarizeUplEntrySource(entry)}`);
-    console.log(`created: ${entry.createdAt}`);
-    console.log(`modified: ${entry.modifiedAt ?? "never"}`);
-    console.log(`path: ${entry.path}`);
-    console.log(`witness: ${entry.witness}`);
-    if (entry.notes) {
-      console.log(`notes: ${entry.notes}`);
-    }
-    console.log(`what it is: ${view.whatItIs}`);
-    console.log(`connects to: ${view.connectsTo}`);
-    console.log(`action kinds: ${view.actionKinds.join(", ") || "none recorded"}`);
-    console.log(`bounds: ${view.bounds.join(" | ") || "none recorded"}`);
+    const typeColor = entry.type === "APPROVED" ? c.green : c.red;
+    const liveColor = liveSegment ? (liveSegment.trafficClass === "allow_rail" ? c.green : c.red) : "";
+    console.log(``);
+    printCliHeader(`  UPL Entry  ${clrDim(entry.id)}`);
+    printCliSection("Identity", [
+      formatCliKeyValue("id", entry.id),
+      formatCliKeyValue("type", `${typeColor}${entry.type}${c.reset}`),
+      formatCliKeyValue("status", entry.status),
+      formatCliKeyValue("scope", entry.scope),
+      formatCliKeyValue("source", summarizeUplEntrySource(entry)),
+      formatCliKeyValue("created", entry.createdAt),
+      formatCliKeyValue("modified", entry.modifiedAt ?? "never"),
+      entry.notes ? formatCliKeyValue("notes", entry.notes) : null,
+    ]);
+    printCliSection("Path", [
+      formatCliKeyValue("path", entry.path),
+      formatCliKeyValue("witness", entry.witness),
+      formatCliKeyValue("what it is", view.whatItIs),
+      formatCliKeyValue("connects to", view.connectsTo),
+      formatCliKeyValue("action kinds", view.actionKinds.join(", ") || clrDim("none recorded")),
+      view.bounds.length > 0 ? formatCliKeyValue("bounds", view.bounds.join(" | ")) : null,
+    ]);
     if (entry.trackConstraint) {
-      console.log(`track: yes`);
-      console.log(`track kinds: ${entry.trackConstraint.allowedActionKinds.join(", ")}`);
-      console.log(`track corridor: ${boundary.formatTrackConstraint(entry.trackConstraint)}`);
-    } else {
-      console.log(`track: no`);
+      printCliSection("Track Constraint", [
+        formatCliKeyValue("kinds", entry.trackConstraint.allowedActionKinds.join(", ")),
+        formatCliKeyValue("corridor", boundary.formatTrackConstraint(entry.trackConstraint)),
+      ]);
     }
-    if (liveSegment) {
-      console.log(`live field: ${liveSegment.trafficClass} | ${liveSegment.trafficTag}`);
-    } else {
-      console.log(`live field: inactive`);
-    }
+    printCliSection("Live Field", [
+      liveSegment
+        ? formatCliKeyValue("state", `${liveColor}${liveSegment.trafficClass}${c.reset}  ${clrDim(liveSegment.trafficTag ?? "")}`)
+        : formatCliKeyValue("state", clrDim("inactive")),
+    ]);
+    console.log(``);
     return;
   }
 
@@ -4474,18 +4496,28 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(`Synced UPL document sources into authored law`);
-    console.log(`scope: ${result.scope}`);
-    for (const lane of result.laneFiles) {
-      console.log(`${lane.spec.lane}: ${lane.files.length} file${lane.files.length === 1 ? "" : "s"} from ${lane.spec.dir}`);
-    }
+    console.log(``);
+    printCliHeader("  UPL Sync");
+    const laneRows = result.laneFiles.map((lane) =>
+      formatCliKeyValue(lane.spec.lane, `${lane.files.length} file${lane.files.length === 1 ? "" : "s"}  ${clrDim(lane.spec.dir)}`),
+    );
+    printCliSection("Lanes", [
+      formatCliKeyValue("scope", result.scope),
+      ...laneRows,
+    ]);
     if (result.imported.length === 0) {
-      console.log(`No authored UPL markdown documents found. Add .md files under acceptance or denial, then run \`buccet upl sync\` again.`);
+      console.log(`  ${clrWarn("⚠")}  No authored UPL markdown documents found.`);
+      console.log(`  ${clrDim("Add .md files under acceptance or denial, then run")} buccet upl sync ${clrDim("again.")}`);
+      console.log(``);
       return;
     }
+    console.log(`  ${clrOk("✓")}  ${clrBold(`${result.imported.reduce((s, e) => s + e.imported, 0)} laws`)} imported across ${result.imported.length} file${result.imported.length === 1 ? "" : "s"}`);
+    console.log(``);
     for (const entry of result.imported) {
-      console.log(`${entry.lane} | ${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
+      const typeColor = entry.lane === "acceptance" ? c.green : c.red;
+      console.log(`  ${typeColor}${entry.lane}${c.reset}  ${entry.imported} laws  ${clrDim(entry.file)}${entry.entries.length ? `  ${clrDim(entry.entries.join(", "))}` : ""}`);
     }
+    console.log(``);
     return;
   }
 
@@ -6383,21 +6415,22 @@ async function handleConsole() {
         }
         reportedCanyonProvenances.add(entry.provenance);
         console.log(``);
-        console.log(`  ╔═ INGRESS CANYON HOLD ═════════════════════════════════════════════════╗`);
-        console.log(`  ║  Provenance: ${entry.provenance}`);
-        console.log(`  ║  State:      canyon-held  [${entry.promotionKind}]`);
-        console.log(`  ║  Pressure:   ${entry.deniedCount} tarpit decision(s) recorded`);
-        console.log(`  ║`);
-        console.log(`  ║  Reason:     ${entry.reason}`);
-        console.log(`  ║`);
-        console.log(`  ║  1. Allow once     — release this provenance once`);
-        console.log(`  ║  2. Allow as law   — standing ingress allow`);
-        console.log(`  ║  3. Deny once      — keep this provenance in the canyon`);
-        console.log(`  ║  4. Deny as law    — standing canyon hold`);
-        console.log(`  ║`);
-        console.log(`  ║  > canyon 1 ${entry.provenance}   /   canyon 2 ${entry.provenance}`);
-        console.log(`  ║  > canyon 3 ${entry.provenance}   /   canyon 4 ${entry.provenance}`);
-        console.log(`  ╚═══════════════════════════════════════════════════════════════════════╝`);
+        const _W = 72;
+        console.log(`  ${c.cyan}╔═ INGRESS CANYON HOLD ${"═".repeat(_W - 19)}╗${c.reset}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("provenance:")} ${c.bold}${entry.provenance}${c.reset}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("state:")}      canyon-held  ${clrDim(`[${entry.promotionKind}]`)}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("pressure:")}   ${entry.deniedCount} tarpit decision(s) recorded`);
+        console.log(`  ${c.cyan}║${c.reset}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("reason:")}     ${entry.reason}`);
+        console.log(`  ${c.cyan}║${c.reset}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — release this provenance once`);
+        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}allow as law${c.reset}  — standing ingress allow`);
+        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — keep this provenance in the canyon`);
+        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — standing canyon hold`);
+        console.log(`  ${c.cyan}║${c.reset}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim(`> canyon 1 ${entry.provenance}   /   canyon 2 ${entry.provenance}`)}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim(`> canyon 3 ${entry.provenance}   /   canyon 4 ${entry.provenance}`)}`);
+        console.log(`  ${c.cyan}╚${"═".repeat(_W)}╝${c.reset}`);
         console.log(``);
       }
 
@@ -6446,48 +6479,50 @@ async function handleConsole() {
         const openAsLawMove = bodyguardMoves.find((m) => m.kind === "open_as_law");
 
         if (isBodyguardGrantOffer && openAsLawMove) {
-          // bodyguard grant offer — show the full negotiation surface
-          console.log(`  ╔═ BODYGUARD GRANT OFFER ═════════════════════════════════════════════════╗`);
-          console.log(`  ║  ${openAsLawMove.title}`);
-          console.log(`  ║  ${openAsLawMove.description}`);
-          console.log(`  ║`);
-          console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
+          const W = 72;
+          const bar = "═".repeat(W);
+          console.log(`  ${c.cyan}╔═ BODYGUARD GRANT OFFER ${bar.slice(0, W - 21)}╗${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.bold}${openAsLawMove.title}${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${clrDim(openAsLawMove.description)}`);
+          console.log(`  ${c.cyan}║${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("action:")}   ${c.bold}${group.actionClass}.${group.operation}${c.reset}`);
           if (openAsLawMove.target ?? group.target) {
-            console.log(`  ║  Scope:     ${openAsLawMove.target ?? group.target}`);
+            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("scope:")}    ${c.bold}${openAsLawMove.target ?? group.target}${c.reset}`);
           }
-          console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("waiting:")}  ${group.waitingCount} request(s)`);
           if (group.lawIds?.length > 0) {
-            console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("laws:")}     ${clrDim((group.lawIds as string[]).join(", "))}`);
           }
           renderBoundaryEventDetails(group);
-          console.log(`  ║`);
-          console.log(`  ║  1. Allow once     — proceed this time; no law written`);
-          console.log(`  ║  2. Open as law    — open scope as standing law; always allowed`);
-          console.log(`  ║  3. Deny once      — block this request; no law written`);
-          console.log(`  ║  4. Deny as law    — deny as standing law; always blocked`);
+          console.log(`  ${c.cyan}║${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — proceed this time; no law written`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}open as law${c.reset}   — open scope as ${c.bold}standing law${c.reset}; always allowed`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — block this request; no law written`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — ${c.bold}standing deny law${c.reset}; always blocked`);
         } else {
-          // Standard boundary interception
-          console.log(`  ╔═ BOUNDARY INTERCEPTION ══════════════════════════════════════════╗`);
-          console.log(`  ║  Action:    ${group.actionClass}.${group.operation}`);
-          console.log(`  ║  Target:    ${group.target}`);
-          console.log(`  ║  Waiting:   ${group.waitingCount} request(s)`);
+          const W = 62;
+          const bar = "═".repeat(W);
+          console.log(`  ${c.cyan}╔═ BOUNDARY INTERCEPTION ${bar.slice(0, W - 21)}╗${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("action:")}   ${c.bold}${group.actionClass}.${group.operation}${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("target:")}   ${c.bold}${group.target}${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("waiting:")}  ${group.waitingCount} request(s)`);
           if (group.reason) {
-            console.log(`  ║`);
-            console.log(`  ║  Reason:    ${group.reason}`);
+            console.log(`  ${c.cyan}║${c.reset}`);
+            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("reason:")}   ${group.reason}`);
           }
           renderBoundaryEventDetails(group);
           if (group.lawIds?.length > 0) {
-            console.log(`  ║  Laws:      ${(group.lawIds as string[]).join(", ")}`);
+            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("laws:")}     ${clrDim((group.lawIds as string[]).join(", "))}`);
           }
-          console.log(`  ║`);
-          console.log(`  ║  1. Allow once     — proceeds; no law written`);
-          console.log(`  ║  2. Allow as law   — proceeds; standing allow law written`);
-          console.log(`  ║  3. Deny once      — blocked; no law written`);
-          console.log(`  ║  4. Deny as law    — blocked; standing deny law written`);
+          console.log(`  ${c.cyan}║${c.reset}`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — proceeds; no law written`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}allow as law${c.reset}  — proceeds; ${c.bold}standing allow law${c.reset} written`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — blocked; no law written`);
+          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — blocked; ${c.bold}standing deny law${c.reset} written`);
         }
-        console.log(`  ║`);
-        console.log(`  ║  > 1 / 2 / 3 / 4   or   allow/deny/law/deny-law ${group.groupId}`);
-        console.log(`  ╚══════════════════════════════════════════════════════════════════╝`);
+        console.log(`  ${c.cyan}║${c.reset}`);
+        console.log(`  ${c.cyan}║${c.reset}  ${clrDim(`> 1 / 2 / 3 / 4   or   allow / deny / law / deny-law`)}`);
+        console.log(`  ${c.cyan}╚${"═".repeat(62)}╝${c.reset}`);
         console.log(``);
       }
 
@@ -6587,30 +6622,43 @@ async function handleConsole() {
 
         if (cmd === "help") {
           console.log(``);
-          console.log(`  Commands:`);
-          console.log(`    1 / 2 / 3 / 4      — decide pending approval (when one group is waiting)`);
-          console.log(`    right-arrow        — enter 24/7 no-questions mode`);
-          console.log(`    Esc                — return to interactive mode`);
-          console.log(`    allow <id>         — allow once`);
-          console.log(`    deny <id>          — deny once`);
-          console.log(`    law <id>           — allow as standing law`);
-          console.log(`    deny-law <id>      — deny as standing law`);
-          console.log(`    mode [name]        — show or set interactive / standing-law mode`);
-          console.log(`    no-questions       — turn on 24/7 standing-law mode`);
-          console.log(`    canyon [prov]      — inspect ingress control state or list all`);
-          console.log(`    canyon <1-4> <prov> — decide an ingress-controlled provenance`);
-          console.log(`    laws               — list active scope laws for this session`);
-          console.log(`    tracks             — list active UPL track corridors`);
-          console.log(`    nsl [n]            — list or select a pending bodyguard move`);
-          console.log(`    shield             — show protected execution lane heartbeat`);
-          console.log(`    status             — session status`);
-          console.log(`    logs [n]           — last n witness ledger entries (default 10)`);
-          console.log(`    feed               — toggle live shield + witness feed on/off`);
-          console.log(`    upl                — active UPL laws`);
-          console.log(`    doctor             — health check`);
-          console.log(`    hook status --watch — optional split shield view`);
-          console.log(`    ledger --follow    — optional split witness view`);
-          console.log(`    quit               — exit`);
+          printCliHeader("  Buccet Console  —  command reference");
+          printCliSection("Approvals", [
+            formatCliKeyValue("1 / 2 / 3 / 4", "decide pending approval (single group)"),
+            formatCliKeyValue(`${c.green}allow${c.reset} <id>`, "allow once"),
+            formatCliKeyValue(`${c.bold}${c.green}law${c.reset} <id>`, "allow as standing law"),
+            formatCliKeyValue(`${c.red}deny${c.reset} <id>`, "deny once"),
+            formatCliKeyValue(`${c.bold}${c.red}deny-law${c.reset} <id>`, "deny as standing law"),
+          ]);
+          printCliSection("Ingress", [
+            formatCliKeyValue("canyon [prov]", "inspect ingress control state or list all"),
+            formatCliKeyValue("canyon <1-4> <prov>", "decide an ingress-controlled provenance"),
+            formatCliKeyValue("unblock <prov>", "release provenance from canyon once"),
+          ]);
+          printCliSection("Mode", [
+            formatCliKeyValue("mode [name]", "show or set interactive / standing-law mode"),
+            formatCliKeyValue("no-questions", "enter 24/7 standing-law mode"),
+            formatCliKeyValue("right-arrow", "enter 24/7 no-questions mode (keyboard)"),
+            formatCliKeyValue("Esc", "return to interactive mode"),
+          ]);
+          printCliSection("Laws & UPL", [
+            formatCliKeyValue("laws", "active scope laws for this session"),
+            formatCliKeyValue("tracks", "active UPL track corridors"),
+            formatCliKeyValue("upl", "active UPL laws"),
+            formatCliKeyValue("nsl [n]", "list or select a pending bodyguard move"),
+          ]);
+          printCliSection("Observability", [
+            formatCliKeyValue("status", "unified operator snapshot"),
+            formatCliKeyValue("shield", "protected execution lane heartbeat"),
+            formatCliKeyValue("logs [n]", "last n witness ledger entries (default 10)"),
+            formatCliKeyValue("feed", "toggle live shield + witness feed"),
+            formatCliKeyValue("doctor", "health check"),
+          ]);
+          printCliSection("Other", [
+            formatCliKeyValue("hook status --watch", "optional split shield view"),
+            formatCliKeyValue("ledger --follow", "optional split witness view"),
+            formatCliKeyValue("quit / q / exit", "exit"),
+          ]);
           console.log(``);
           rl.prompt();
           return;
@@ -6671,9 +6719,13 @@ async function handleConsole() {
             input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
           });
           if (out.type === "error") {
-            console.log(`  Error: ${out.error}`);
+            console.log(`  ${clrFail("✗")}  ${out.error}`);
           } else {
-            console.log(`  ${choiceCmd}: ${groupId} — done`);
+            const label = choiceCmd === "allow" ? `${clrOk("✓")}  ${c.green}allowed once${c.reset}` :
+                          choiceCmd === "law"   ? `${clrOk("✓")}  ${c.bold}${c.green}allowed as law${c.reset}` :
+                          choiceCmd === "deny"  ? `${clrFail("✗")}  ${c.red}denied once${c.reset}` :
+                                                  `${clrFail("✗")}  ${c.bold}${c.red}denied as law${c.reset}`;
+            console.log(`  ${label}  ${clrDim(groupId)}`);
             reportedGroupIds.delete(groupId);
           }
           rl.prompt();
@@ -6768,15 +6820,30 @@ async function handleConsole() {
           const denied = (upl.userDeniedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
           const runtimeTrackField = boundary.compileLiveUplTrackField({ ledger: upl, session });
           console.log(``);
-          console.log(`  UPL: ${approved.length} approved laws / ${denied.length} denied laws`);
-          console.log(`  Runtime field: ${runtimeTrackField.length} compiled track segments`);
-          for (const law of approved.slice(-8)) {
-            console.log(`  allow | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
+          printCliHeader("  User Path Ledger");
+          printCliSection("Summary", [
+            formatCliKeyValue("approved laws", approved.length),
+            formatCliKeyValue("denied laws", denied.length),
+            formatCliKeyValue("runtime segments", runtimeTrackField.length),
+          ]);
+          if (approved.length > 0) {
+            console.log(`  ${clrOk("●")} ${clrBold("Allow laws")}  ${clrDim(`(showing last ${Math.min(8, approved.length)})`)}`)
+            for (const law of approved.slice(-8)) {
+              console.log(`    ${c.green}allow${c.reset}  ${clrDim(law.id)}  ${law.domain ? clrDim(law.domain) + "  " : ""}${law.path}`);
+            }
+            console.log(``);
           }
-          for (const law of denied.slice(-5)) {
-            console.log(`  deny  | ${law.id} | ${law.domain ?? "-"} | ${law.path}`);
+          if (denied.length > 0) {
+            console.log(`  ${clrFail("●")} ${clrBold("Deny laws")}  ${clrDim(`(showing last ${Math.min(5, denied.length)})`)}`)
+            for (const law of denied.slice(-5)) {
+              console.log(`    ${c.red}deny${c.reset}   ${clrDim(law.id)}  ${law.domain ? clrDim(law.domain) + "  " : ""}${law.path}`);
+            }
+            console.log(``);
           }
-          console.log(``);
+          if (approved.length === 0 && denied.length === 0) {
+            console.log(`  ${clrDim("No active UPL laws.")}`);
+            console.log(``);
+          }
           rl.prompt();
           return;
         }
@@ -6796,17 +6863,18 @@ async function handleConsole() {
             (l: { revokedAt?: string }) => !l.revokedAt,
           );
           console.log(``);
-          console.log(`  Active scope laws — ${config.sessionId}`);
-          console.log(`  ─────────────────────────────────────`);
+          printCliHeader("  Active Scope Laws");
           if (pathLaws.length === 0) {
-            console.log(`  No active path laws.`);
+            console.log(`  ${clrDim("No active path laws.")}`);
           } else {
+            console.log(`  ${clrDim(`session  ${config.sessionId}`)}`);
+            console.log(``);
             for (const law of pathLaws) {
               const l = law as { lawId: string; rootPath: string; grantedActions: string[]; issuedBy: string };
-              console.log(`  ${l.lawId}`);
-              console.log(`    path:    ${l.rootPath}`);
-              console.log(`    actions: ${l.grantedActions.join(", ")}`);
-              console.log(`    issued:  ${l.issuedBy}`);
+              console.log(`  ${clrOk("●")} ${c.bold}${l.lawId}${c.reset}`);
+              console.log(`    ${clrDim("path:")}    ${l.rootPath}`);
+              console.log(`    ${clrDim("actions:")} ${c.green}${l.grantedActions.join(", ")}${c.reset}`);
+              console.log(`    ${clrDim("issued:")}  ${l.issuedBy}`);
             }
           }
           console.log(``);
@@ -6821,28 +6889,30 @@ async function handleConsole() {
           const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
           const tracked = boundary.compileLiveUplTrackField({ ledger: upl, session });
           console.log(``);
-          console.log(`  Active UPL runtime track field`);
-          console.log(`  ─────────────────────────────────────`);
-          console.log(`  authored: ${approved.length} approved / ${denied.length} denied`);
-          console.log(`  runtime:  ${tracked.length} compiled segments`);
+          printCliHeader("  UPL Runtime Track Field");
+          printCliSection("Summary", [
+            formatCliKeyValue("authored", `${approved.length} approved / ${denied.length} denied`),
+            formatCliKeyValue("compiled", `${tracked.length} segments`),
+          ]);
           if (tracked.length === 0) {
-            console.log(`  No active track corridors.`);
+            console.log(`  ${clrDim("No active track corridors.")}`);
           } else {
             for (const segment of tracked) {
               const entry = segment.entry;
               const tc = entry.trackConstraint!;
-              console.log(`  ${segment.polarity === "allow" ? "open " : "wall "} | ${entry.id} | ${tc.description}`);
-              console.log(`    kinds:   ${tc.allowedActionKinds.join(", ")}`);
+              const polarityColor = segment.polarity === "allow" ? c.green : c.red;
+              console.log(`  ${polarityColor}${segment.polarity === "allow" ? "open " : "wall "}${c.reset} ${clrBold(entry.id)}  ${clrDim(tc.description)}`);
+              console.log(`    ${clrDim("kinds:")}   ${polarityColor}${tc.allowedActionKinds.join(", ")}${c.reset}`);
               if (tc.targetPattern) {
-                console.log(`    target:  ${tc.targetPattern}`);
+                console.log(`    ${clrDim("target:")}  ${tc.targetPattern}`);
               }
               if (tc.targetPatterns?.length) {
-                console.log(`    targets: ${tc.targetPatterns.join(" | ")}`);
+                console.log(`    ${clrDim("targets:")} ${tc.targetPatterns.join(" | ")}`);
               }
               if (tc.reviewInvariantLawId) {
-                console.log(`    track:   invariant ${tc.reviewInvariantLawId}`);
+                console.log(`    ${clrDim("track:")}   invariant ${tc.reviewInvariantLawId}`);
               }
-              console.log(`    scope:   ${entry.scope}`);
+              console.log(`    ${clrDim("scope:")}   ${entry.scope}`);
             }
           }
           console.log(``);
@@ -6917,7 +6987,11 @@ async function handleConsole() {
               reportedCanyonProvenances.delete(provenanceArg);
             }
             await pollIngress();
-            console.log(`  canyon ${canyonChoice}: ${provenanceArg} — done`);
+            const canyonLabel = canyonChoice === "1" ? `${clrOk("✓")}  ${c.green}released once${c.reset}` :
+                                canyonChoice === "2" ? `${clrOk("✓")}  ${c.bold}${c.green}standing ingress allow${c.reset}` :
+                                canyonChoice === "3" ? `${clrFail("✗")}  ${c.red}kept in canyon${c.reset}` :
+                                                      `${clrFail("✗")}  ${c.bold}${c.red}standing canyon hold${c.reset}`;
+            console.log(`  ${canyonLabel}  ${clrDim(provenanceArg)}`);
           }
           rl.prompt();
           return;
@@ -7000,9 +7074,13 @@ async function handleConsole() {
             input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
           });
           if (out.type === "error") {
-            console.log(`  Error: ${out.error}`);
+            console.log(`  ${clrFail("✗")}  ${out.error}`);
           } else {
-            console.log(`  ${cmd}: ${groupId} — done`);
+            const label = cmd === "allow"    ? `${clrOk("✓")}  ${c.green}allowed once${c.reset}` :
+                          cmd === "law"      ? `${clrOk("✓")}  ${c.bold}${c.green}allowed as law${c.reset}` :
+                          cmd === "deny"     ? `${clrFail("✗")}  ${c.red}denied once${c.reset}` :
+                                              `${clrFail("✗")}  ${c.bold}${c.red}denied as law${c.reset}`;
+            console.log(`  ${label}  ${clrDim(groupId)}`);
             reportedGroupIds.delete(groupId);
           }
           rl.prompt();
