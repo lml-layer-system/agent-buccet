@@ -8,6 +8,7 @@ import type {
   BoundaryApprovalDecision,
   CompiledDocumentLaw,
   BoundaryLedgerRecord,
+  BoundaryRequestProvenance,
   BoundarySession,
   BoundaryUplEntry,
   BoundaryUplRequestBasis,
@@ -78,6 +79,25 @@ function requestFromBasis(
     provenance: basis.provenance ?? "agent_inference",
     flags: basis.flags,
     reviewContext: basis.reviewContext,
+  };
+}
+
+export function materializeBoundaryActionRequestFromUplEntry(args: {
+  entry: BoundaryUplEntry;
+  session: BoundarySession;
+  provenance?: BoundaryRequestProvenance;
+  requestId?: string;
+  requestedAt?: string;
+}): BoundaryActionRequest | null {
+  if (!args.entry.requestBasis) {
+    return null;
+  }
+  const materialized = requestFromBasis(args.entry.requestBasis, args.session.sessionId);
+  return {
+    ...materialized,
+    requestId: args.requestId ?? materialized.requestId,
+    requestedAt: args.requestedAt ?? new Date().toISOString(),
+    provenance: args.provenance ?? args.entry.requestBasis.provenance ?? materialized.provenance,
   };
 }
 

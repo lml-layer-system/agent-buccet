@@ -28,6 +28,7 @@ import type {
   BoundaryActionKind,
   BoundaryGrant,
   BoundaryLaw,
+  BoundaryQuarantineState,
   BoundaryPersistedSessionState,
   BoundaryProcessPolicy,
   BoundaryRuntimeConfig,
@@ -70,6 +71,7 @@ function toPersistedState(config: BoundaryRuntimeConfig): BoundaryPersistedSessi
     governorState: config.governorState,
     admissionConfig: config.admissionConfig,
     admissionState: config.admissionState,
+    quarantineState: config.quarantineState,
     savedAt: new Date().toISOString(),
   };
 }
@@ -257,6 +259,35 @@ export async function loadBoundarySessionState(args: {
   }
 
   return rebuildBoundarySessionStateFromLedger({ sessionId: args.sessionId });
+}
+
+export async function writeBoundarySessionQuarantineState(args: {
+  sessionId: string;
+  sessionsDir?: string;
+  quarantineState?: BoundaryQuarantineState;
+}): Promise<BoundaryPersistedSessionState | null> {
+  const current = await loadBoundarySessionState({
+    sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
+  });
+  if (!current) {
+    return null;
+  }
+
+  const sessionsDir = resolveSessionsDir(undefined, args.sessionsDir);
+  const statePath = sessionStatePath(args.sessionId, sessionsDir);
+  const backupStatePath = sessionBackupStatePath(args.sessionId, sessionsDir);
+  const nextState: BoundaryPersistedSessionState = {
+    ...current,
+    ...(args.quarantineState ? { quarantineState: args.quarantineState } : {}),
+    ...(!args.quarantineState ? { quarantineState: undefined } : {}),
+    savedAt: new Date().toISOString(),
+  };
+
+  await fs.mkdir(sessionsDir, { recursive: true });
+  await atomicWriteSessionState(statePath, nextState);
+  await atomicWriteSessionState(backupStatePath, nextState);
+  return nextState;
 }
 
 function ensureDefaultChatGrant(
@@ -468,6 +499,7 @@ export async function restorePersistentBoundarySession(args: {
     governorState: state.governorState ?? initialGovernorState(),
     admissionConfig: state.admissionConfig ?? DEFAULT_ADMISSION_CONFIG,
     admissionState: state.admissionState ?? initialAdmissionState(),
+    quarantineState: state.quarantineState,
     persistence: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),

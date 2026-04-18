@@ -128,6 +128,53 @@ type BuccetTransportRunResult = {
   cleanedUpRuntime: boolean;
 };
 
+type BuccetShedHistoryEntry = {
+  eventType: "DISPOSABLE_SHED_TRIGGERED" | "DISPOSABLE_RESPAWNED";
+  sessionId: string;
+  actorId: string;
+  requestId?: string;
+  actionKind?: string;
+  target?: string;
+  reason?: string;
+  createdAt: string;
+  lawIds: string[];
+  metadata: Record<string, unknown>;
+};
+
+type BuccetShedStatusPayload = {
+  sessionId: string;
+  shedCount: number;
+  respawnCount: number;
+  latest?: BuccetShedHistoryEntry;
+  entries: BuccetShedHistoryEntry[];
+};
+
+type BuccetQuarantineEntry = {
+  itemId: string;
+  entryId: string;
+  side: "approved" | "denied";
+  path: string;
+  pathHash: string;
+  actionKind?: string;
+  target?: string;
+  verdict: "survivor" | "pit";
+  reason: string;
+  lawIds: string[];
+  resolution: "pending" | "denied_as_law" | "survivor";
+};
+
+type BuccetQuarantineStatusPayload = {
+  sessionId: string;
+  required: boolean;
+  status: string;
+  triggeredAt?: string;
+  reason?: string;
+  total: number;
+  survivors: number;
+  pitCount: number;
+  entries: BuccetQuarantineEntry[];
+};
+
 type ParsedUplSelection = {
   ids: string[];
   queryTerms: string[];
@@ -196,6 +243,11 @@ function usage(): never {
     "  buccet transport export <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--json] [-- <entrypoint> ...]",
     "  buccet transport import <artifact.buccet.tgz> [--into <dir>] [--json]",
     "  buccet transport run <artifact-or-dir> [--into <runtime-dir>] [--unit-id <id>] [--json] [-- <command> ...]",
+    "  buccet shed [--reason <text>] [--json]                  — deny-side shed and clean disposable respawn",
+    "  buccet shed status [--limit <n>] [--json]               — recent shed / respawn witness history",
+    "  buccet quarantine [status] [--limit <n>] [--json]       — shed reboot boundary-on-self status and caught set",
+    "  buccet quarantine deny-all [--json]                     — write all caught quarantine items into denial law",
+    "  buccet quarantine deny <item-id...> [--json]            — write selected caught quarantine items into denial law",
     "  buccet hook build",
     "  buccet hook start",
     "  buccet hook status [--json] [--watch]                     — optional split shield / heartbeat view",
@@ -391,6 +443,7 @@ async function loadActiveBoundarySession(
     loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{
       session: BoundarySession;
       sessionUpl?: BoundaryUserPathLedger;
+      quarantineState?: { required: boolean; status: string };
     } | null>;
   },
   home: ReturnType<typeof resolveHomePaths>,
@@ -405,6 +458,7 @@ async function loadActiveBoundarySessionState(
     loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{
       session: BoundarySession;
       sessionUpl?: BoundaryUserPathLedger;
+      quarantineState?: { required: boolean; status: string; triggeredAt?: string; reason?: string };
     } | null>;
   },
   home: ReturnType<typeof resolveHomePaths>,
@@ -412,6 +466,7 @@ async function loadActiveBoundarySessionState(
 ): Promise<{
   session: BoundarySession;
   sessionUpl?: BoundaryUserPathLedger;
+  quarantineState?: { required: boolean; status: string; triggeredAt?: string; reason?: string };
 } | null> {
   const sessionState = await boundary.loadBoundarySessionState({
     sessionId: config.sessionId,
@@ -3302,6 +3357,9 @@ async function handleStatus(rest: string[]) {
     sessionId: config.sessionId,
     actorId: config.actorId,
     sessionStatus: sessionState?.session.status ?? "missing",
+    quarantineStatus: sessionState?.quarantineState?.required
+      ? sessionState.quarantineState.status
+      : null,
     scopes: (sessionState?.pathLaws ?? []).filter((law) => !law.revokedAt).map((law) => law.rootPath),
     grants: (sessionState?.grants ?? []).filter((grant) => !grant.revokedAt).length,
     ledger: {
@@ -3331,6 +3389,7 @@ async function handleStatus(rest: string[]) {
     formatCliKeyValue("session", payload.sessionId),
     formatCliKeyValue("actor", payload.actorId),
     formatCliKeyValue("session status", payload.sessionStatus),
+    ...(payload.quarantineStatus ? [formatCliKeyValue("quarantine", payload.quarantineStatus)] : []),
   ]);
   printCliSection("Authority", [
     formatCliKeyValue("scopes", payload.scopes.length),
@@ -4462,6 +4521,11 @@ async function handlePath(rest: string[]) {
       usage();
     }
     const boundary = await importBoundary(homePath);
+    await assertNoActiveQuarantine({
+      boundary,
+      sessionId: config.sessionId,
+      sessionsDir: home.sessionsDir,
+    });
     const library = await loadPersistedBuccetPathLibrary(boundary, home);
     const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
     await ensureConcreteBuccetPathTemplate({
@@ -4879,6 +4943,12 @@ async function handleRun(rest: string[]) {
     updatedAt: new Date().toISOString(),
   };
 
+  await assertNoActiveQuarantine({
+    boundary,
+    sessionId: nextConfig.sessionId,
+    sessionsDir: home.sessionsDir,
+  });
+
   await saveConfig(home.configPath, nextConfig);
   await ensureRuntimeUplAutoSync({
     boundary,
@@ -5096,6 +5166,311 @@ async function handleTransport(rest: string[]) {
   }
 
   usage();
+}
+
+function toShedHistoryEntry(record: {
+  META: { event_type: string };
+  payload: {
+    sessionId: string;
+    actorId: string;
+    requestId?: string;
+    actionKind?: string;
+    target?: string;
+    reason?: string;
+    createdAt?: string;
+    lawIds?: string[];
+    metadata?: Record<string, unknown>;
+  };
+}): BuccetShedHistoryEntry | null {
+  if (record.META.event_type !== "DISPOSABLE_SHED_TRIGGERED" && record.META.event_type !== "DISPOSABLE_RESPAWNED") {
+    return null;
+  }
+  return {
+    eventType: record.META.event_type,
+    sessionId: record.payload.sessionId,
+    actorId: record.payload.actorId,
+    requestId: record.payload.requestId,
+    actionKind: record.payload.actionKind,
+    target: record.payload.target,
+    reason: record.payload.reason,
+    createdAt: record.payload.createdAt ?? "",
+    lawIds: record.payload.lawIds ?? [],
+    metadata: record.payload.metadata ?? {},
+  };
+}
+
+async function buildShedStatusPayload(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  sessionId: string;
+  limit: number;
+}): Promise<BuccetShedStatusPayload> {
+  const records = await args.boundary.readAllBoundaryLedgerRecords();
+  const entries = records
+    .map((record) => toShedHistoryEntry(record))
+    .filter((entry): entry is BuccetShedHistoryEntry => Boolean(entry))
+    .filter((entry) => entry.sessionId === args.sessionId);
+  const tail = entries.slice(-Math.max(1, args.limit));
+  return {
+    sessionId: args.sessionId,
+    shedCount: entries.filter((entry) => entry.eventType === "DISPOSABLE_SHED_TRIGGERED").length,
+    respawnCount: entries.filter((entry) => entry.eventType === "DISPOSABLE_RESPAWNED").length,
+    latest: entries.at(-1),
+    entries: tail,
+  };
+}
+
+async function handleShed(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  const boundary = await importBoundary(homePath);
+  const subcommand = rest[0];
+
+  if (subcommand === "status") {
+    let limit = 10;
+    const asJson = rest.includes("--json");
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--limit") {
+        limit = Number(rest[index + 1] ?? usage());
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      usage();
+    }
+
+    const payload = await buildShedStatusPayload({
+      boundary,
+      sessionId: config.sessionId,
+      limit,
+    });
+
+    if (asJson) {
+      printJson(payload);
+      return;
+    }
+
+    printCliHeader("  Disposable Shed History");
+    printCliSection("Summary", [
+      formatCliKeyValue("session", payload.sessionId),
+      formatCliKeyValue("shed count", payload.shedCount),
+      formatCliKeyValue("respawns", payload.respawnCount),
+      formatCliKeyValue("latest", payload.latest?.createdAt ?? "none"),
+    ]);
+    printCliSection("Entries", payload.entries.length > 0
+      ? payload.entries.map((entry) => (
+        `${entry.createdAt} | ${entry.eventType} | ${entry.actionKind ?? "-"} | ${entry.reason ?? "-"}`
+      ))
+      : ["No shed events recorded for this session."]);
+    console.log("");
+    return;
+  }
+
+  let reason = "operator forced denial-side shed and clean disposable respawn";
+  const asJson = rest.includes("--json");
+  for (let index = 0; index < rest.length; index += 1) {
+    const token = rest[index];
+    if (token === "--reason") {
+      reason = rest[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--json") {
+      continue;
+    }
+    if (index === 0 && !token.startsWith("--")) {
+      usage();
+    }
+  }
+
+  const store = await ensureStore(boundary, {
+    config,
+    sessionsDir: home.sessionsDir,
+  });
+  const result = await boundary.shedBoundarySessionSkin({
+    config: store.getConfig(),
+    reason,
+    issuedBy: config.actorId,
+  });
+
+  if (asJson) {
+    printJson(result);
+    return;
+  }
+
+  printCliHeader("  Shed Complete");
+  printCliSection("Respawn", [
+    formatCliKeyValue("unit", result.unitId),
+    formatCliKeyValue("source", result.sourceDomain),
+    formatCliKeyValue("trust", result.trustDomain),
+    formatCliKeyValue("runtime", result.runtimeDir),
+    formatCliKeyValue("rootfs", result.rootfsDir),
+    formatCliKeyValue("isolation", result.isolationActive ? "active" : "deferred"),
+    formatCliKeyValue("persisted", result.persistedState ? "yes" : "no"),
+    formatCliKeyValue("entered", result.enteredEnvironment ? "yes" : "no"),
+    formatCliKeyValue("started", result.lifecycleStarted ? "yes" : "no"),
+    formatCliKeyValue("snapshot", result.snapshotPath),
+  ]);
+  console.log("");
+}
+
+async function buildQuarantineStatusPayload(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  sessionId: string;
+  sessionsDir: string;
+  limit: number;
+}): Promise<BuccetQuarantineStatusPayload> {
+  const status = await args.boundary.getBoundaryQuarantineStatus({
+    sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
+  });
+  const report = status.report;
+  const tail = report ? report.items.slice(0, Math.max(1, args.limit)) : [];
+  return {
+    sessionId: args.sessionId,
+    required: Boolean(status.quarantineState?.required),
+    status: status.quarantineState?.status ?? "inactive",
+    triggeredAt: status.quarantineState?.triggeredAt,
+    reason: status.quarantineState?.reason,
+    total: report?.total ?? 0,
+    survivors: report?.survivorCount ?? 0,
+    pitCount: report?.pitCount ?? 0,
+    entries: tail,
+  };
+}
+
+async function handleQuarantine(rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const config = await loadConfig(home.configPath);
+  if (!config) {
+    throw new Error("Agent Buccet is not initialized. Run `buccet init` first.");
+  }
+
+  const boundary = await importBoundary(homePath);
+  const subcommand = rest[0] ?? "status";
+  const asJson = rest.includes("--json");
+
+  if (subcommand === "status") {
+    let limit = 25;
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--limit") {
+        limit = Number(rest[index + 1] ?? usage());
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      usage();
+    }
+
+    const payload = await buildQuarantineStatusPayload({
+      boundary,
+      sessionId: config.sessionId,
+      sessionsDir: home.sessionsDir,
+      limit,
+    });
+    if (asJson) {
+      printJson(payload);
+      return;
+    }
+
+    printCliHeader("  Shed Reboot — Boundary on Self");
+    printCliSection("Quarantine", [
+      formatCliKeyValue("session", payload.sessionId),
+      formatCliKeyValue("required", payload.required ? "yes" : "no"),
+      formatCliKeyValue("status", payload.status),
+      formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
+      formatCliKeyValue("reason", payload.reason ?? "-"),
+      formatCliKeyValue("survivors", payload.survivors),
+      formatCliKeyValue("pit", payload.pitCount),
+    ]);
+    printCliSection("Caught Set", payload.entries.length > 0
+      ? payload.entries.map((entry) => (
+        `${entry.itemId} | ${entry.side} | ${entry.actionKind ?? "-"} | ${entry.target ?? entry.path} | ${entry.reason}`
+      ))
+      : ["No quarantine items recorded for this session."]);
+    console.log("");
+    return;
+  }
+
+  if (subcommand === "deny-all" || subcommand === "deny") {
+    const itemIds = subcommand === "deny"
+      ? rest.slice(1).filter((token) => token !== "--json")
+      : [];
+    if (subcommand === "deny" && itemIds.length === 0) {
+      usage();
+    }
+
+    const report = await boundary.applyBoundaryQuarantinePitDenials({
+      sessionId: config.sessionId,
+      sessionsDir: home.sessionsDir,
+      ...(itemIds.length > 0 ? { itemIds } : {}),
+    });
+    if (!report) {
+      const payload = {
+        sessionId: config.sessionId,
+        applied: 0,
+        remaining: 0,
+      };
+      if (asJson) {
+        printJson(payload);
+        return;
+      }
+      console.log("No active quarantine state for this session.");
+      return;
+    }
+
+    const applied = report.items.filter((item) => item.resolution === "denied_as_law").length;
+    const remaining = report.items.filter((item) => item.verdict === "pit" && item.resolution === "pending").length;
+    const payload = {
+      sessionId: config.sessionId,
+      applied,
+      remaining,
+      items: report.items,
+    };
+    if (asJson) {
+      printJson(payload);
+      return;
+    }
+
+    printCliHeader("  Quarantine Denials Recorded");
+    printCliSection("Result", [
+      formatCliKeyValue("session", payload.sessionId),
+      formatCliKeyValue("denied as law", payload.applied),
+      formatCliKeyValue("remaining", payload.remaining),
+    ]);
+    console.log("");
+    return;
+  }
+
+  usage();
+}
+
+async function assertNoActiveQuarantine(args: {
+  boundary: Awaited<ReturnType<typeof importBoundary>>;
+  sessionId: string;
+  sessionsDir: string;
+}) {
+  const sessionState = await args.boundary.loadBoundarySessionState({
+    sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
+  });
+  if (sessionState?.quarantineState?.required) {
+    throw new Error(
+      "quarantine is active; normal runtime remains asleep until caught items are resolved. " +
+      "Run `buccet quarantine status` first.",
+    );
+  }
 }
 
 async function handleUninstall() {
@@ -5372,6 +5747,11 @@ async function handleMcp(rest: string[]) {
   // for the full bodyguard chain to be active.
   process.stderr.write("[buccet-mcp] restoring session...\n");
   const boundary = await importBoundary(homePath);
+  await assertNoActiveQuarantine({
+    boundary,
+    sessionId,
+    sessionsDir: home.sessionsDir,
+  });
   const store = await ensureStore(boundary, {
     config: { ...config, sessionId, actorId, dryRun },
     sessionsDir: home.sessionsDir,
@@ -5820,6 +6200,33 @@ async function handleConsole() {
     sessionsDir: home.sessionsDir,
   });
 
+  if (initialSessionState?.quarantineState?.required) {
+    const payload = await buildQuarantineStatusPayload({
+      boundary,
+      sessionId: config.sessionId,
+      sessionsDir: home.sessionsDir,
+      limit: 25,
+    });
+    printCliHeader("  Shed Reboot — Boundary on Self");
+    printCliSection("Quarantine", [
+      formatCliKeyValue("session", payload.sessionId),
+      formatCliKeyValue("status", payload.status),
+      formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
+      formatCliKeyValue("survivors", payload.survivors),
+      formatCliKeyValue("pit", payload.pitCount),
+    ]);
+    printCliSection("Caught Set", payload.entries.length > 0
+      ? payload.entries.map((entry) => (
+        `${entry.itemId} | ${entry.side} | ${entry.actionKind ?? "-"} | ${entry.target ?? entry.path} | ${entry.reason}`
+      ))
+      : ["No quarantine items recorded for this session."]);
+    console.log("  Resolve with:");
+    console.log("  buccet quarantine deny-all");
+    console.log("  buccet quarantine deny <item-id...>");
+    console.log("");
+    return;
+  }
+
   const bar = "━".repeat(46);
   console.log(``);
   console.log(`${c.bold}${c.cyan}  ${bar}${c.reset}`);
@@ -6051,6 +6458,8 @@ async function handleConsole() {
     if (et === "BODYGUARD_GRANT_OFFERED")        return `  → BODYGUARD OFFER        ${action} → ${target}`;
     if (et === "BODYGUARD_MOVE_SUGGESTED")       return `  → BODYGUARD MOVE         ${reason}`;
     if (et === "BODYGUARD_MOVE_CHOSEN")          return `  ✓ BODYGUARD CHOSEN       ${reason}`;
+    if (et === "DISPOSABLE_SHED_TRIGGERED")      return `  ✗ SHED TRIGGERED        ${reason}`;
+    if (et === "DISPOSABLE_RESPAWNED")           return `  ✓ SHED RESPAWNED        ${String(meta["unit_id"] ?? target)}`;
     if (et === "UPL_ALLOW_RECORDED")       return `  ⚑ UPL ALLOW LAW    ${target}`;
     if (et === "UPL_DENY_RECORDED")        return `  ⚑ UPL DENY LAW     ${target}`;
     if (et === "USER_CONFIRMED_DENY")      return `  ✗ USER DENY        ${target}`;
@@ -6332,6 +6741,8 @@ async function handleConsole() {
           console.log(`    feed               — toggle live shield + witness feed on/off`);
           console.log(`    upl                — active UPL laws`);
           console.log(`    doctor             — health check`);
+          console.log(`    shed               — force denial-side shed and clean disposable respawn`);
+          console.log(`    shed status [n]    — recent shed / respawn witness history`);
           console.log(`    hook status --watch — optional split shield view`);
           console.log(`    ledger --follow    — optional split witness view`);
           console.log(`    quit               — exit`);
@@ -6466,6 +6877,55 @@ async function handleConsole() {
               "canyon held",
               currentIngressEntries.filter((entry) => entry.state === "canyon").length,
             ),
+          ]);
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "shed") {
+          if (arg1 === "status") {
+            const limit = parts[2] ? Number(parts[2]) : 10;
+            const payload = await buildShedStatusPayload({
+              boundary,
+              sessionId: config.sessionId,
+              limit: Number.isFinite(limit) && limit > 0 ? limit : 10,
+            });
+            console.log(``);
+            printCliHeader("  Disposable Shed History");
+            printCliSection("Summary", [
+              formatCliKeyValue("session", payload.sessionId),
+              formatCliKeyValue("shed count", payload.shedCount),
+              formatCliKeyValue("respawns", payload.respawnCount),
+              formatCliKeyValue("latest", payload.latest?.createdAt ?? "none"),
+            ]);
+            printCliSection("Entries", payload.entries.length > 0
+              ? payload.entries.map((entry) => (
+                `${entry.createdAt} | ${entry.eventType} | ${entry.actionKind ?? "-"} | ${entry.reason ?? "-"}`
+              ))
+              : ["No shed events recorded for this session."]);
+            console.log(``);
+            rl.prompt();
+            return;
+          }
+
+          const store = await ensureStore(boundary, {
+            config,
+            sessionsDir: home.sessionsDir,
+          });
+          const result = await boundary.shedBoundarySessionSkin({
+            config: store.getConfig(),
+            reason: "console: operator forced denial-side shed and clean disposable respawn",
+            issuedBy: config.actorId,
+          });
+          console.log(``);
+          printCliHeader("  Shed Complete");
+          printCliSection("Respawn", [
+            formatCliKeyValue("unit", result.unitId),
+            formatCliKeyValue("source", result.sourceDomain),
+            formatCliKeyValue("trust", result.trustDomain),
+            formatCliKeyValue("runtime", result.runtimeDir),
+            formatCliKeyValue("snapshot", result.snapshotPath),
           ]);
           console.log(``);
           rl.prompt();
@@ -6915,6 +7375,14 @@ async function main() {
   }
   if (parsed.command === "transport") {
     await handleTransport(parsed.rest);
+    return;
+  }
+  if (parsed.command === "shed") {
+    await handleShed(parsed.rest);
+    return;
+  }
+  if (parsed.command === "quarantine") {
+    await handleQuarantine(parsed.rest);
     return;
   }
   if (parsed.command === "hook") {

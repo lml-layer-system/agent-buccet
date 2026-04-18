@@ -40,6 +40,8 @@ export * from "./intercept.ts";
 export * from "./system-intercept.ts";
 export * from "./swarm.ts";
 export * from "./process.ts";
+export * from "./shed.ts";
+export * from "./quarantine.ts";
 export * from "./wrapper.ts";
 export * from "./integrations/index.ts";
 export * from "./admission.ts";

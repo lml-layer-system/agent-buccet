@@ -236,6 +236,20 @@ export type BoundarySession = {
   endedAt?: string;
 };
 
+export type BoundaryQuarantineStatus =
+  | "pending_replay"
+  | "pending_resolution"
+  | "cleared";
+
+export type BoundaryQuarantineState = {
+  required: boolean;
+  status: BoundaryQuarantineStatus;
+  triggeredAt: string;
+  reason: string;
+  snapshotPath: string;
+  reportPath: string;
+};
+
 export type BoundaryGrant = {
   grantId: string;
   sessionId: string;
@@ -490,6 +504,14 @@ export type BoundaryLedgerEventType =
   | "PROCESS_ENV_FILTERED"
   | "BODYGUARD_MOVE_SUGGESTED"
   | "BODYGUARD_MOVE_CHOSEN"
+  | "DISPOSABLE_SHED_TRIGGERED"
+  | "DISPOSABLE_RESPAWNED"
+  | "QUARANTINE_REQUIRED"
+  | "QUARANTINE_REPLAY_STARTED"
+  | "QUARANTINE_ITEM_PITTED"
+  | "QUARANTINE_REPLAY_COMPLETED"
+  | "QUARANTINE_DENY_RECORDED"
+  | "QUARANTINE_CLEARED"
   | "GOVERNOR_TRIP"
   | "PROCESS_WALL_CLOCK_KILL"
   | "INGRESS_DENIED"
@@ -721,6 +743,7 @@ export type BoundaryRuntimeConfig = {
   governorState?: BoundaryGovernorState;
   admissionConfig?: BoundaryAdmissionConfig;
   admissionState?: BoundaryAdmissionState;
+  quarantineState?: BoundaryQuarantineState;
   drainPendingApprovals?: (reason?: string) => number | Promise<number>;
 };
 
@@ -742,6 +765,7 @@ export type BoundaryPersistedSessionState = {
   governorState?: BoundaryGovernorState;
   admissionConfig?: BoundaryAdmissionConfig;
   admissionState?: BoundaryAdmissionState;
+  quarantineState?: BoundaryQuarantineState;
   savedAt: string;
 };
 
