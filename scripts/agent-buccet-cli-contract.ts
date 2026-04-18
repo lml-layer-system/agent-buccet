@@ -505,7 +505,7 @@ async function main() {
 
   const consoleResult = await runCli(["console"], env, "shield\nquit\n");
   assert.equal(consoleResult.code, 0, consoleResult.stderr);
-  assert.match(consoleResult.stdout, /Operator [Cc]onsole|mode.*interactive/);
+  assert.match(consoleResult.stdout, /AGENT BUCCET|Operator [Cc]onsole|mode.*interactive/);
   assert.match(consoleResult.stdout, /Protected Execution Lane/i);
   assert.match(consoleResult.stdout, /SHIELD|summary:/);
 

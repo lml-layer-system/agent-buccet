@@ -382,7 +382,6 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
       recordBoundaryExecutedAction,
       recordBoundaryProposedAction,
     } = boundary;
-
     // Restore or start the boundary session.
     const restored = await boundary.restoreBoundaryRuntimeStore({
       sessionId: args.sessionId,

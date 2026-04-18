@@ -66,6 +66,35 @@ Agent Buccet provides the *brakes* and runtime enforcement against AI failure mo
 - one repo-owned Rust/WASM substrate that carries portable bounded runtime behavior across machines without Docker-scale bloat
 - durable audit trail from first proposal to final consequence
 
+## What Actually Runs
+
+The repo is larger than the hot runtime on purpose.
+
+Agent Buccet keeps the full readable body in-repo:
+
+- docs
+- proofs
+- doctrine
+- rendered packs
+- source and archive material
+
+But the live snapped runtime executes through a smaller surface:
+
+- the active law-body manifest
+- the active law-body `projected-laws.json`
+- the live `user-path-ledger.json`
+- the native `physwrap` lane
+- the native `deep-intercept` lane
+- the vendored Rust/WASM substrate
+
+That is the operational distinction:
+
+- `run-surface` = the snapped body the machine actually executes
+- `read-surface` = the larger repo body people can inspect, study, and verify
+
+Buccet does not require the whole readable body to be the hot execution path.
+It keeps the whole body available while pinning runtime consequence to the snapped system.
+
 ## Fast Start
 
 The short path is:

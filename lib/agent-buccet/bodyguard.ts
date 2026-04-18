@@ -16,6 +16,7 @@ import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.
 import { appendBoundaryLedger } from "./ledger.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
+import { maybeShedCompromisedBoundaryUnit } from "./shed.ts";
 import { assessBoundarySubstrateApprovalRequest } from "./substrate-live.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { inferBoundaryTimeConstraintSignals } from "./time-constraint-flags.ts";
@@ -233,6 +234,43 @@ export async function recordBoundaryExecutedAction(
   });
 }
 
+async function applyDeniedBoundaryConsequences(args: {
+  config: BoundaryRuntimeConfig;
+  request: BoundaryActionRequest;
+  reason: string;
+  lawIds: string[];
+  bodyguardMoves: BodyguardMove[];
+}): Promise<void> {
+  await recordBoundaryBlockedAction(
+    args.config,
+    args.request,
+    args.reason,
+    args.lawIds,
+  );
+
+  for (const move of args.bodyguardMoves) {
+    await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
+      sessionId: args.config.session.sessionId,
+      actorId: args.config.session.actorId,
+      requestId: args.request.requestId,
+      actionKind: args.request.actionKind,
+      target: args.request.target,
+      moveId: move.moveId,
+      decision: "deny",
+      reason: move.description,
+      lawIds: args.lawIds,
+      createdAt: new Date().toISOString(),
+    });
+  }
+
+  await maybeShedCompromisedBoundaryUnit({
+    config: args.config,
+    request: args.request,
+    reason: args.reason,
+    lawIds: args.lawIds,
+    trigger: "deny",
+}).catch(() => null);
+}
 export async function recordBoundaryProposedAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
@@ -1151,27 +1189,13 @@ export async function runBoundaryControlledAction<T>(args: {
   );
 
   if (adjudication.result.decision === "deny") {
-    await recordBoundaryBlockedAction(
-      activeConfig,
-      activeRequest,
-      adjudication.result.reason,
-      adjudication.result.triggeredLawIds,
-    );
-
-    for (const move of adjudication.bodyguardMoves) {
-      await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
-        sessionId: activeConfig.session.sessionId,
-        actorId: activeConfig.session.actorId,
-        requestId: activeRequest.requestId,
-        actionKind: activeRequest.actionKind,
-        target: activeRequest.target,
-        moveId: move.moveId,
-        decision: adjudication.result.decision,
-        reason: move.description,
-        lawIds: adjudication.result.triggeredLawIds,
-        createdAt: new Date().toISOString(),
-      });
-    }
+    await applyDeniedBoundaryConsequences({
+      config: activeConfig,
+      request: activeRequest,
+      reason: adjudication.result.reason,
+      lawIds: adjudication.result.triggeredLawIds,
+      bodyguardMoves: adjudication.bodyguardMoves,
+    });
 
     return {
       config: activeConfig,
@@ -1231,12 +1255,13 @@ export async function runBoundaryControlledAction<T>(args: {
       if (adjudication.grantOffer) {
         await adjudication.grantOffer.denyGrant();
       }
-      await recordBoundaryBlockedAction(
-        activeConfig,
-        activeRequest,
-        adjudication.result.reason,
-        adjudication.result.triggeredLawIds,
-      );
+      await applyDeniedBoundaryConsequences({
+        config: activeConfig,
+        request: activeRequest,
+        reason: adjudication.result.reason,
+        lawIds: adjudication.result.triggeredLawIds,
+        bodyguardMoves: adjudication.bodyguardMoves,
+      });
       return {
         config: activeConfig,
         allowed: false,
@@ -1302,12 +1327,13 @@ export async function runBoundaryControlledAction<T>(args: {
         adjudication.result.triggeredLawIds,
       );
       if (adjudication.result.decision === "deny") {
-        await recordBoundaryBlockedAction(
-          activeConfig,
-          activeRequest,
-          adjudication.result.reason,
-          adjudication.result.triggeredLawIds,
-        );
+        await applyDeniedBoundaryConsequences({
+          config: activeConfig,
+          request: activeRequest,
+          reason: adjudication.result.reason,
+          lawIds: adjudication.result.triggeredLawIds,
+          bodyguardMoves: adjudication.bodyguardMoves,
+        });
         return {
           config: activeConfig,
           allowed: false,
@@ -1334,12 +1360,13 @@ export async function runBoundaryControlledAction<T>(args: {
       adjudication.result.triggeredLawIds,
     );
     if (adjudication.result.decision === "deny") {
-      await recordBoundaryBlockedAction(
-        activeConfig,
-        activeRequest,
-        adjudication.result.reason,
-        adjudication.result.triggeredLawIds,
-      );
+      await applyDeniedBoundaryConsequences({
+        config: activeConfig,
+        request: activeRequest,
+        reason: adjudication.result.reason,
+        lawIds: adjudication.result.triggeredLawIds,
+        bodyguardMoves: adjudication.bodyguardMoves,
+      });
       return {
         config: activeConfig,
         allowed: false,
