@@ -482,13 +482,34 @@ It gives them a way to bind their own safety intent at consequence time, inside 
 
 ## For Teams And Organizations
 
-Agent Buccet Enterprise is the paid organizational operating layer built above the open-source core. It provides features for organizations that need Buccet at operational scale, including:
+Agent Buccet Enterprise is the paid organizational operating layer being built above the open-source core.
 
-- Dashboards and multi-agent governance
-- Deeper oversight, evidence, and reporting surfaces, including our Intelligence Alarm System (IAS) for compliance workflows (EU AI Act, NIST, SOC 2)
-- Organization-wide policy and deployment controls
-- Enterprise integrations and dedicated support
+The open-source runtime gives you the constitutional core:
 
+- live User Path Law (UPL), where prior human judgment becomes standing runtime law
+- denial-over-acceptance enforcement, with allow rails, deny walls, and UPL Traffic keeping yes on yes and no on no
+- governed boundaries across action, chat, input admission, payload physics, approval, and ledger surfaces
+- paths, path sources, and path memory for repeatable bounded workflows, with skill intake, custom skill intake, and path-source enrichment that let users create specialized agents without widening permission
+- witness, ledger, and release-proof surfaces for evidence, audit, replay, and accountability
+- interactive mode, standing-law mode, and 24/7 headless operation on the same control body
+- swarm grouping and governed multi-agent resolution under the same law body
+- governed control over tool use, files, network, database, system access, and output consequence
+
+The enterprise layer is being shaped for organizations that need Buccet at operational scale, including:
+
+- dashboards and operator visibility
+- multi-agent and multi-swarm governance
+- organization-wide policy, default pack, and deployment controls
+- deeper oversight, evidence, and reporting surfaces
+- integrations with internal systems and enterprise workflows
+- environment-specific customization and rollout support
+- disposable contained workspaces and vault-style runtime isolation, so compromised working environments can be discarded without compromising the wider system
+- organizational resource governance for spend, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
+- reduced compute bloat through tighter bounded runtime surfaces instead of oversized always-open agent stacks
+- IAS (Intelligence Alarm System): read-only drift detection, alerting, evidence capture, audit trails, and organizational control surfaces designed to support EU AI Act, NIST, ISO, SOC 2, GDPR accountability, and internal compliance workflows
+
+The open-source core is live now.
+Agent Buccet Enterprise is the paid tier for teams that need Buccet at production and organizational scale.
 We're open to speaking with early teams, commercial partners, and design partners who want to help shape that layer.
 
 Reach out directly to initiate the conversation: [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com)
