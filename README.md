@@ -494,22 +494,18 @@ The open-source runtime gives you the constitutional core:
 - interactive mode, standing-law mode, and 24/7 headless operation on the same control body
 - swarm grouping and governed multi-agent resolution under the same law body
 - governed control over tool use, files, network, database, system access, and output consequence
+- Buccet vault-style runtime isolation and disposable contained workspaces, allowing compromised environments to shed their Buccet and be discarded without threatening the host system
 
 The enterprise layer is being shaped for organizations that need Buccet at operational scale, including:
 
-- dashboards and operator visibility
-- multi-agent and multi-swarm governance
+- dashboards and operator visibility across every Buccet running in an organization
+- organization-wide multi-agent and multi-swarm governance — managing thousands of Buccets under one policy surface
 - organization-wide policy, default pack, and deployment controls
-- deeper oversight, evidence, and reporting surfaces
-- integrations with internal systems and enterprise workflows
-- environment-specific customization and rollout support
-- disposable contained workspaces and vault-style runtime isolation, so compromised working environments can be discarded without compromising the wider system
-- organizational resource governance for spend, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
-- reduced compute bloat through tighter bounded runtime surfaces instead of oversized always-open agent stacks
 - IAS (Intelligence Alarm System): read-only drift detection, alerting, evidence capture, audit trails, and organizational control surfaces designed to support EU AI Act, NIST, ISO, SOC 2, GDPR accountability, and internal compliance workflows
+- organizational resource governance for spend, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
+- integrations with internal systems, enterprise workflows, and environment-specific rollout support
 
-The open-source core is live now.
-Agent Buccet Enterprise is the paid tier for teams that need Buccet at production and organizational scale.
+The open-source core is live now. The security is free. What you pay for is the organizational scale layer — the dashboards, the compliance reports, and the governance controls for teams running Buccet at production depth across thousands of agents.
 We're open to speaking with early teams, commercial partners, and design partners who want to help shape that layer.
 
 Reach out directly to initiate the conversation: [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com)
