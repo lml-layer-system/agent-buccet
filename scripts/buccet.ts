@@ -323,7 +323,7 @@ const c = {
   yellow: isTTY ? "\x1b[33m" : "",
   cyan:   isTTY ? "\x1b[36m" : "",
   blue:   isTTY ? "\x1b[34m" : "",
-  blueBright: isTTY ? "\x1b[94m" : "",
+  blueBright: isTTY ? "\x1b[38;5;27m" : "",
 };
 
 function clrOk(text = ""): string   { return `${c.green}✓${c.reset}${text ? ` ${text}` : ""}`; }
@@ -522,6 +522,7 @@ function resolveHomePaths(homePath: string) {
     repoNativeSourceDir,
     nativeBuildDir,
     nativeLibraryPath: path.join(nativeBuildDir, nativeLibraryName),
+    consoleHintsMutedPath: path.join(homePath, ".console-hints-muted"),
   };
 }
 
@@ -6167,6 +6168,8 @@ async function handleConsole() {
     sessionsDir: home.sessionsDir,
   });
 
+  const hintsMuted = await pathExists(home.consoleHintsMutedPath);
+
   printBuccetWordmark();
   const bar = "─".repeat(52);
   console.log(`  ${c.blue}${bar}${c.reset}`);
@@ -6174,8 +6177,24 @@ async function handleConsole() {
   console.log(`  ${clrDim("shield")}     ${formatHookOperatorSummary(initialHookPayload)}`);
   console.log(`  ${clrDim("session")}    ${clrDim(config.sessionId)}   ${clrDim("status")}   ${initialSessionState?.session.status ?? "missing"}`);
   console.log(`  ${c.blue}${bar}${c.reset}`);
-  console.log(`  ${clrDim("type")} ${c.bold}help${c.reset} ${clrDim("for commands  ·  type")} ${c.bold}quit${c.reset} ${clrDim("to exit")}`);
-  console.log(``);
+  if (!hintsMuted) {
+    console.log(``);
+    console.log(`  ${c.bold}What is this?${c.reset}`);
+    console.log(`  ${clrDim("Buccet sits at the boundary between your AI agent and the real world.")}`);
+    console.log(`  ${clrDim("Every file write, network call, and system action the agent tries to make")}`);
+    console.log(`  ${clrDim("is intercepted here before it lands. You decide: allow it, deny it, or")}`);
+    console.log(`  ${clrDim("turn your decision into a standing law so you never have to decide again.")}`);
+    console.log(``);
+    console.log(`  ${c.bold}What to do right now:${c.reset}`);
+    console.log(`  ${clrDim("1.")} Point your AI agent at a task and watch this screen.`);
+    console.log(`  ${clrDim("2.")} When an action is intercepted, a box appears here asking ${c.green}allow${c.reset} or ${c.red}deny${c.reset}.`);
+    console.log(`  ${clrDim("3.")} Type ${c.bold}1${c.reset} to allow once, ${c.bold}2${c.reset} to allow as a standing law, ${c.bold}3${c.reset} to deny once, ${c.bold}4${c.reset} to deny as law.`);
+    console.log(`  ${clrDim("4.")} Type ${c.bold}help${c.reset} ${clrDim("to see all commands, or")} ${c.bold}mute hints${c.reset} ${clrDim("to hide this message.")}`);
+    console.log(``);
+  } else {
+    console.log(`  ${clrDim("type")} ${c.bold}help${c.reset} ${clrDim("for commands  ·  type")} ${c.bold}quit${c.reset} ${clrDim("to exit")}`);
+    console.log(``);
+  }
 
   // Track which groups have already been reported.
   const reportedGroupIds = new Set<string>();
@@ -6691,6 +6710,8 @@ async function handleConsole() {
             formatCliKeyValue("doctor", "health check"),
           ]);
           printCliSection("Other", [
+            formatCliKeyValue("mute hints", "hide the onboarding message on open"),
+            formatCliKeyValue("unmute hints", "bring the onboarding message back"),
             formatCliKeyValue("hook status --watch", "optional split shield view"),
             formatCliKeyValue("ledger --follow", "optional split witness view"),
             formatCliKeyValue("quit / q / exit", "exit"),
@@ -6771,6 +6792,20 @@ async function handleConsole() {
         if (cmd === "feed") {
           feedEnabled = !feedEnabled;
           console.log(`  Live feed: ${feedEnabled ? "on" : "off"}`);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "mute" && arg1 === "hints") {
+          await fs.writeFile(home.consoleHintsMutedPath, new Date().toISOString(), "utf8");
+          console.log(`  ${clrOk()}  ${clrBold("Hints muted.")}  ${clrDim("They won't show on next open. Type 'unmute hints' to bring them back.")}`);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "unmute" && arg1 === "hints") {
+          await fs.unlink(home.consoleHintsMutedPath).catch(() => undefined);
+          console.log(`  ${clrOk()}  ${clrBold("Hints restored.")}  ${clrDim("They'll show again on next open.")}`);
           rl.prompt();
           return;
         }
