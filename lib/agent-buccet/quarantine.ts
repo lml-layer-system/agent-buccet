@@ -1,6 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
-import os from "node:os";
 import path from "node:path";
 import { enableBodyguardControl, adjudicateBoundaryRequest } from "./bodyguard.ts";
 import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
@@ -8,6 +7,7 @@ import { appendBoundaryLedger } from "./ledger.ts";
 import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
 import {
   loadBoundarySessionState,
+  persistBoundarySessionState,
   restorePersistentBoundarySession,
   writeBoundarySessionQuarantineState,
 } from "./state.ts";
@@ -19,6 +19,7 @@ import {
 } from "./user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
+  BoundaryAdmissionState,
   BoundaryPersistedSessionState,
   BoundaryQuarantineState,
   BoundaryRuntimeConfig,
@@ -99,12 +100,14 @@ type BoundaryQuarantineProgress = {
   workerCount: number;
   totalShards: number;
   completedShards: number;
+  admissionState?: BoundaryAdmissionState;
   shards: BoundaryQuarantineProgressShard[];
   itemsById: Record<string, BoundaryQuarantineReportItem>;
 };
 
 type BoundaryQuarantineShardResult = {
   shardId: string;
+  config: BoundaryRuntimeConfig;
   items: BoundaryQuarantineReportItem[];
   survivorCount: number;
   pitCount: number;
@@ -115,8 +118,6 @@ const QUARANTINE_MIN_SHARD_SIZE = 8;
 const QUARANTINE_MEDIUM_SHARD_SIZE = 16;
 const QUARANTINE_LARGE_SHARD_SIZE = 32;
 const QUARANTINE_XL_SHARD_SIZE = 64;
-const QUARANTINE_MAX_WORKERS = 4;
-
 function resolveSessionsDir(configOrDir?: BoundaryRuntimeConfig | string): string {
   if (typeof configOrDir === "string" && configOrDir.trim()) {
     return path.resolve(configOrDir);
@@ -137,6 +138,7 @@ function resolveBoundaryQuarantinePaths(args: {
     snapshotPath: path.join(sessionsDir, `${args.sessionId}.quarantine.snapshot.json`),
     reportPath: path.join(sessionsDir, `${args.sessionId}.quarantine.report.json`),
     progressPath: path.join(sessionsDir, `${args.sessionId}.quarantine.progress.json`),
+    lockPath: path.join(sessionsDir, `${args.sessionId}.quarantine.lock`),
   };
 }
 
@@ -179,13 +181,6 @@ function computeQuarantineShardSize(totalItems: number): number {
   return QUARANTINE_XL_SHARD_SIZE;
 }
 
-function computeQuarantineWorkerCount(totalShards: number): number {
-  const parallelism = typeof os.availableParallelism === "function"
-    ? os.availableParallelism()
-    : os.cpus().length;
-  return Math.max(1, Math.min(QUARANTINE_MAX_WORKERS, parallelism || 1, totalShards || 1));
-}
-
 async function writeJsonFile(targetPath: string, payload: unknown): Promise<void> {
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
@@ -202,6 +197,42 @@ async function readJsonFile<T>(targetPath: string): Promise<T | null> {
 
 function normalizeQuarantineScope(entry: BoundaryUplEntry): BoundaryUplScope {
   return entry.scope;
+}
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function withQuarantineLock<T>(args: {
+  sessionId: string;
+  sessionsDir?: string;
+  fn: () => Promise<T>;
+}): Promise<T> {
+  const { lockPath } = resolveBoundaryQuarantinePaths({
+    sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
+  });
+
+  for (let attempt = 0; attempt < 200; attempt += 1) {
+    let handle: fs.FileHandle | null = null;
+    try {
+      handle = await fs.open(lockPath, "wx");
+      try {
+        return await args.fn();
+      } finally {
+        await handle.close().catch(() => undefined);
+        await fs.rm(lockPath, { force: true }).catch(() => undefined);
+      }
+    } catch (error) {
+      await handle?.close().catch(() => undefined);
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
+        throw error;
+      }
+      await delay(50);
+    }
+  }
+
+  throw new Error("quarantine replay lock timed out");
 }
 
 function buildInitialQuarantineProgress(snapshot: BoundaryQuarantineSnapshot): BoundaryQuarantineProgress {
@@ -231,7 +262,7 @@ function buildInitialQuarantineProgress(snapshot: BoundaryQuarantineSnapshot): B
     totalItems: snapshot.items.length,
     processedItems: 0,
     shardSize,
-    workerCount: computeQuarantineWorkerCount(shards.length),
+    workerCount: 1,
     totalShards: shards.length,
     completedShards: 0,
     shards,
@@ -414,25 +445,11 @@ async function evaluateReplayRequest(args: {
 }
 
 async function processQuarantineShard(args: {
-  sessionId: string;
-  sessionsDir?: string;
+  config: BoundaryRuntimeConfig;
   snapshot: BoundaryQuarantineSnapshot;
   shard: BoundaryQuarantineProgressShard;
 }): Promise<BoundaryQuarantineShardResult> {
-  let config = await restorePersistentBoundarySession({
-    sessionId: args.sessionId,
-    sessionsDir: args.sessionsDir,
-    hydrationMode: "full",
-  });
-  if (!config) {
-    return {
-      shardId: args.shard.shardId,
-      items: [],
-      survivorCount: 0,
-      pitCount: 0,
-    };
-  }
-  config = enableBodyguardControl(config);
+  let config = args.config;
 
   const reportItems: BoundaryQuarantineReportItem[] = [];
   for (const item of args.snapshot.items.slice(args.shard.startIndex, args.shard.endIndexExclusive)) {
@@ -511,6 +528,7 @@ async function processQuarantineShard(args: {
 
   return {
     shardId: args.shard.shardId,
+    config,
     items: reportItems,
     survivorCount: reportItems.filter((item) => item.verdict === "survivor").length,
     pitCount: reportItems.filter((item) => item.verdict === "pit").length,
@@ -543,6 +561,7 @@ function applyShardResultToProgress(args: {
 
   nextProgress.processedItems = Object.keys(nextProgress.itemsById).length;
   nextProgress.completedShards = nextProgress.shards.filter((candidate) => candidate.status === "complete").length;
+  nextProgress.admissionState = args.result.config.admissionState;
   return nextProgress;
 }
 
@@ -643,6 +662,18 @@ export async function ensureBoundaryQuarantineReport(args: {
   sessionsDir?: string;
   maxShards?: number;
 }): Promise<BoundaryQuarantineReport | null> {
+  return withQuarantineLock({
+    sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
+    fn: async () => ensureBoundaryQuarantineReportUnlocked(args),
+  });
+}
+
+async function ensureBoundaryQuarantineReportUnlocked(args: {
+  sessionId: string;
+  sessionsDir?: string;
+  maxShards?: number;
+}): Promise<BoundaryQuarantineReport | null> {
   const sessionState = await loadQuarantineState(args);
   const quarantineState = sessionState?.quarantineState;
   if (!quarantineState?.required) {
@@ -669,80 +700,55 @@ export async function ensureBoundaryQuarantineReport(args: {
   });
   let progress = initialProgress;
 
+  let config = await restorePersistentBoundarySession({
+    sessionId: args.sessionId,
+    sessionsDir: args.sessionsDir,
+    hydrationMode: "full",
+  });
+  if (!config) {
+    return null;
+  }
+  config = enableBodyguardControl(config);
+  if (progress.admissionState) {
+    config = {
+      ...config,
+      admissionState: progress.admissionState,
+    };
+  }
+
   if (created) {
-    const restored = await restorePersistentBoundarySession({
-      sessionId: args.sessionId,
-      sessionsDir: args.sessionsDir,
-      hydrationMode: "full",
+    await appendBoundaryLedger("QUARANTINE_REPLAY_STARTED", {
+      sessionId: config.session.sessionId,
+      actorId: config.session.actorId,
+      decision: "deny",
+      reason: "shed reboot activated boundary-on-self replay against snapped UPL corpus",
+      metadata: {
+        items: snapshot.items.length,
+        snapshot_path: quarantineState.snapshotPath,
+        progress_path: progressPath,
+        shard_size: progress.shardSize,
+        worker_count: progress.workerCount,
+      },
+      createdAt: new Date().toISOString(),
     });
-    if (restored) {
-      const config = enableBodyguardControl(restored);
-      await appendBoundaryLedger("QUARANTINE_REPLAY_STARTED", {
-        sessionId: config.session.sessionId,
-        actorId: config.session.actorId,
-        decision: "deny",
-        reason: "shed reboot activated boundary-on-self replay against snapped UPL corpus",
-        metadata: {
-          items: snapshot.items.length,
-          snapshot_path: quarantineState.snapshotPath,
-          progress_path: progressPath,
-          shard_size: progress.shardSize,
-          worker_count: progress.workerCount,
-        },
-        createdAt: new Date().toISOString(),
-      });
-    }
   }
 
   const pendingShards = progress.shards.filter((shard) => shard.status !== "complete");
-  if (pendingShards.length > 0) {
-    let nextPendingIndex = 0;
-    let assignedShards = 0;
-    let writeChain = Promise.resolve();
-
-    const takeNextShard = (): BoundaryQuarantineProgressShard | null => {
-      if (typeof args.maxShards === "number" && assignedShards >= args.maxShards) {
-        return null;
-      }
-      const shard = pendingShards[nextPendingIndex] ?? null;
-      if (!shard) {
-        return null;
-      }
-      nextPendingIndex += 1;
-      assignedShards += 1;
-      return shard;
-    };
-
-    const commitShardResult = async (result: BoundaryQuarantineShardResult) => {
-      progress = applyShardResultToProgress({
-        progress,
-        result,
-      });
-      await writeJsonFile(progressPath, progress);
-    };
-
-    const workerCount = Math.min(
-      progress.workerCount,
-      pendingShards.length,
-      typeof args.maxShards === "number" ? Math.max(1, args.maxShards) : pendingShards.length,
-    );
-
-    await Promise.all(Array.from({ length: workerCount }, async () => {
-      while (true) {
-        const shard = takeNextShard();
-        if (!shard) {
-          return;
-        }
-        const result = await processQuarantineShard({
-          sessionId: args.sessionId,
-          sessionsDir: args.sessionsDir,
-          snapshot,
-          shard,
-        });
-        writeChain = writeChain.then(() => commitShardResult(result));
-        await writeChain;
-      }
-    }));
+  const shardLimit = typeof args.maxShards === "number"
+    ? Math.max(1, args.maxShards)
+    : pendingShards.length;
+  for (const shard of pendingShards.slice(0, shardLimit)) {
+    const result = await processQuarantineShard({
+      config,
+      snapshot,
+      shard,
+    });
+    config = result.config;
+    progress = applyShardResultToProgress({
+      progress,
+      result,
+    });
+    await writeJsonFile(progressPath, progress);
   }
 
   const complete = progress.completedShards === progress.totalShards;
@@ -766,31 +772,23 @@ export async function ensureBoundaryQuarantineReport(args: {
     },
   });
 
-  const restored = await restorePersistentBoundarySession({
-    sessionId: args.sessionId,
-    sessionsDir: args.sessionsDir,
-    hydrationMode: "full",
+  await appendBoundaryLedger("QUARANTINE_REPLAY_COMPLETED", {
+    sessionId: config.session.sessionId,
+    actorId: config.session.actorId,
+    decision: "deny",
+    reason: "quarantine replay finished; runtime remains asleep until pit resolution",
+    metadata: {
+      total: report.total,
+      processed_items: report.processedItems,
+      survivors: report.survivorCount,
+      pit: report.pitCount,
+      total_shards: report.totalShards,
+      completed_shards: report.completedShards,
+      report_path: quarantineState.reportPath,
+      progress_path: progressPath,
+    },
+    createdAt: report.createdAt,
   });
-  if (restored) {
-    const config = enableBodyguardControl(restored);
-    await appendBoundaryLedger("QUARANTINE_REPLAY_COMPLETED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
-      decision: "deny",
-      reason: "quarantine replay finished; runtime remains asleep until pit resolution",
-      metadata: {
-        total: report.total,
-        processed_items: report.processedItems,
-        survivors: report.survivorCount,
-        pit: report.pitCount,
-        total_shards: report.totalShards,
-        completed_shards: report.completedShards,
-        report_path: quarantineState.reportPath,
-        progress_path: progressPath,
-      },
-      createdAt: report.createdAt,
-    });
-  }
 
   return report;
 }
@@ -809,116 +807,133 @@ export async function applyBoundaryQuarantinePitDenials(args: {
   sessionsDir?: string;
   itemIds?: string[];
 }): Promise<BoundaryQuarantineReport | null> {
-  const sessionState = await loadQuarantineState(args);
-  const quarantineState = sessionState?.quarantineState;
-  if (!quarantineState?.required) {
-    return null;
-  }
-
-  const snapshot = await readQuarantineSnapshot(quarantineState);
-  const report = await ensureBoundaryQuarantineReport(args);
-  if (!snapshot || !report) {
-    return null;
-  }
-  if (!report.complete) {
-    return report;
-  }
-
-  let config = await restorePersistentBoundarySession({
+  return withQuarantineLock({
     sessionId: args.sessionId,
     sessionsDir: args.sessionsDir,
-    hydrationMode: "full",
+    fn: async () => {
+      const sessionState = await loadQuarantineState(args);
+      const quarantineState = sessionState?.quarantineState;
+      if (!quarantineState?.required) {
+        return null;
+      }
+
+      const snapshot = await readQuarantineSnapshot(quarantineState);
+      const report = await ensureBoundaryQuarantineReportUnlocked(args);
+      if (!snapshot || !report) {
+        return null;
+      }
+      if (!report.complete) {
+        return report;
+      }
+
+      let config = await restorePersistentBoundarySession({
+        sessionId: args.sessionId,
+        sessionsDir: args.sessionsDir,
+        hydrationMode: "full",
+      });
+      if (!config) {
+        return null;
+      }
+      config = enableBodyguardControl(config);
+
+      const selectedIds = new Set(
+        args.itemIds && args.itemIds.length > 0
+          ? args.itemIds
+          : report.items.filter((item) => item.verdict === "pit" && item.resolution === "pending").map((item) => item.itemId),
+      );
+      const snapshotByItemId = new Map(snapshot.items.map((item) => [item.itemId, item]));
+
+      let upl = config.upl ?? await loadUserPathLedger();
+      const nextItems = report.items.map((item) => ({ ...item }));
+      for (const item of nextItems) {
+        if (item.verdict !== "pit" || item.resolution !== "pending" || !selectedIds.has(item.itemId)) {
+          continue;
+        }
+        const snapshotItem = snapshotByItemId.get(item.itemId);
+        if (!snapshotItem) {
+          continue;
+        }
+        const request = materializeBoundaryActionRequestFromUplEntry({
+          entry: snapshotItem.entry,
+          session: config.session,
+          provenance: "external_content",
+          requestId: `pit-deny-${snapshotItem.entry.id}`,
+        });
+        if (!request) {
+          continue;
+        }
+
+        const witness = await appendBoundaryLedger("QUARANTINE_DENY_RECORDED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          requestId: request.requestId,
+          actionKind: request.actionKind,
+          target: request.target,
+          decision: "deny",
+          reason: "user denied quarantined replay item as law",
+          lawIds: item.lawIds,
+          metadata: {
+            item_id: item.itemId,
+            entry_id: item.entryId,
+            side: item.side,
+            entry_hash: item.hash,
+          },
+          createdAt: new Date().toISOString(),
+        });
+
+        upl = await writeDeniedUserPathLaw({
+          ledger: upl,
+          request,
+          witness,
+          session: config.session,
+          decision: decisionForEntry(snapshotItem.entry),
+        });
+        item.resolution = "denied_as_law";
+      }
+
+      const nextReport: BoundaryQuarantineReport = {
+        ...report,
+        items: nextItems,
+      };
+      await writeJsonFile(quarantineState.reportPath, nextReport);
+
+      const unresolvedPitCount = nextItems.filter((item) => item.verdict === "pit" && item.resolution === "pending").length;
+      const nextConfig: BoundaryRuntimeConfig = {
+        ...config,
+        upl,
+        quarantineState: unresolvedPitCount === 0
+          ? {
+            ...quarantineState,
+            required: false,
+            status: "cleared",
+          }
+          : quarantineState,
+      };
+      await writeJsonFile(
+        resolveBoundaryQuarantinePaths({
+          sessionId: args.sessionId,
+          sessionsDir: args.sessionsDir,
+        }).reportPath,
+        nextReport,
+      );
+      await persistBoundarySessionState(nextConfig);
+
+      if (unresolvedPitCount === 0) {
+        await appendBoundaryLedger("QUARANTINE_CLEARED", {
+          sessionId: config.session.sessionId,
+          actorId: config.session.actorId,
+          decision: "allow",
+          reason: "all quarantined replay items were resolved into law; clean boot may continue",
+          metadata: {
+            report_path: quarantineState.reportPath,
+          },
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      return nextReport;
+    },
   });
-  if (!config) {
-    return null;
-  }
-  config = enableBodyguardControl(config);
-
-  const selectedIds = new Set(
-    args.itemIds && args.itemIds.length > 0
-      ? args.itemIds
-      : report.items.filter((item) => item.verdict === "pit" && item.resolution === "pending").map((item) => item.itemId),
-  );
-  const snapshotByItemId = new Map(snapshot.items.map((item) => [item.itemId, item]));
-
-  let upl = config.upl ?? await loadUserPathLedger();
-  const nextItems = report.items.map((item) => ({ ...item }));
-  for (const item of nextItems) {
-    if (item.verdict !== "pit" || item.resolution !== "pending" || !selectedIds.has(item.itemId)) {
-      continue;
-    }
-    const snapshotItem = snapshotByItemId.get(item.itemId);
-    if (!snapshotItem) {
-      continue;
-    }
-    const request = materializeBoundaryActionRequestFromUplEntry({
-      entry: snapshotItem.entry,
-      session: config.session,
-      provenance: "external_content",
-      requestId: `pit-deny-${snapshotItem.entry.id}`,
-    });
-    if (!request) {
-      continue;
-    }
-
-    const witness = await appendBoundaryLedger("QUARANTINE_DENY_RECORDED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
-      requestId: request.requestId,
-      actionKind: request.actionKind,
-      target: request.target,
-      decision: "deny",
-      reason: "user denied quarantined replay item as law",
-      lawIds: item.lawIds,
-      metadata: {
-        item_id: item.itemId,
-        entry_id: item.entryId,
-        side: item.side,
-        entry_hash: item.hash,
-      },
-      createdAt: new Date().toISOString(),
-    });
-
-    upl = await writeDeniedUserPathLaw({
-      ledger: upl,
-      request,
-      witness,
-      session: config.session,
-      decision: decisionForEntry(snapshotItem.entry),
-    });
-    item.resolution = "denied_as_law";
-  }
-
-  const nextReport: BoundaryQuarantineReport = {
-    ...report,
-    items: nextItems,
-  };
-  await writeJsonFile(quarantineState.reportPath, nextReport);
-
-  const unresolvedPitCount = nextItems.filter((item) => item.verdict === "pit" && item.resolution === "pending").length;
-  if (unresolvedPitCount === 0) {
-    await writeBoundarySessionQuarantineState({
-      sessionId: config.session.sessionId,
-      sessionsDir: args.sessionsDir,
-      quarantineState: {
-        ...quarantineState,
-        required: false,
-        status: "cleared",
-      },
-    });
-    await appendBoundaryLedger("QUARANTINE_CLEARED", {
-      sessionId: config.session.sessionId,
-      actorId: config.session.actorId,
-      decision: "allow",
-      reason: "all quarantined replay items were resolved into law; clean boot may continue",
-      metadata: {
-        report_path: quarantineState.reportPath,
-      },
-      createdAt: new Date().toISOString(),
-    });
-  }
-
-  return nextReport;
 }
 
 export async function getBoundaryQuarantineStatus(args: {

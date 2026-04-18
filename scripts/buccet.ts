@@ -5332,7 +5332,11 @@ async function buildQuarantineStatusPayload(args: {
     sessionsDir: args.sessionsDir,
   });
   const report = status.report;
-  const tail = report ? report.items.slice(0, Math.max(1, args.limit)) : [];
+  const tail = report
+    ? report.items
+      .filter((item) => item.verdict === "pit")
+      .slice(0, Math.max(1, args.limit))
+    : [];
   return {
     sessionId: args.sessionId,
     required: Boolean(status.quarantineState?.required),

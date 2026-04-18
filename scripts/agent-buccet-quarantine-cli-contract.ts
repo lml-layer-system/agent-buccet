@@ -154,7 +154,7 @@ async function main() {
     };
     assert.equal(status.required, true);
     assert.equal(status.pitCount >= 1, true);
-    assert.equal(status.entries.every((entry) => entry.verdict === "pit" || entry.verdict === "survivor"), true);
+    assert.equal(status.entries.every((entry) => entry.verdict === "pit"), true);
 
     const consoleResult = await runCli(["console"], env, "quit\n");
     assert.equal(consoleResult.code, 0, consoleResult.stderr);

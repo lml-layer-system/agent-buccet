@@ -11,6 +11,7 @@ import {
   enableBodyguardControl,
   ensureBoundaryQuarantineReport,
   loadBoundarySessionState,
+  restorePersistentBoundarySession,
   loadUserPathLedger,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
@@ -62,7 +63,7 @@ async function main() {
         request: approvedRequest,
         witness: approvedWitness,
         session: config.session,
-        decision: { choice: "allow_as_law" },
+        decision: { choice: "allow_as_law", scope: "SESSION" },
       });
 
       const deniedRequest = {
@@ -86,7 +87,7 @@ async function main() {
         request: deniedRequest,
         witness: deniedWitness,
         session: config.session,
-        decision: { choice: "deny_as_law" },
+        decision: { choice: "deny_as_law", scope: "SESSION" },
       });
     }
 
@@ -146,6 +147,19 @@ async function main() {
       sessionsDir,
     });
     assert.equal(sessionState?.quarantineState?.required ?? false, false, "quarantine must clear after deny-all");
+    assert.equal(
+      (sessionState?.sessionUpl?.userDeniedLawPaths.length ?? 0) >= report.pitCount,
+      true,
+      "resolved quarantine denials must persist back into session-scoped UPL state",
+    );
+
+    const restored = await restorePersistentBoundarySession({
+      sessionId: config.session.sessionId,
+      sessionsDir,
+      hydrationMode: "full",
+    });
+    assert.ok(restored, "restored session must exist after quarantine resolution");
+    assert.equal(restored.upl?.userDeniedLawPaths.some((entry) => entry.scope === "SESSION"), true);
 
     console.log("Agent Buccet quarantine contract");
     console.log(`report pit count: ${report.pitCount}`);
