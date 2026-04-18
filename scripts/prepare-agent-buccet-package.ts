@@ -832,9 +832,6 @@ async function main() {
   const witness = await publishBoundaryReleaseWitness({ releaseDir, env: process.env });
   await writeReleaseArtifacts(version, witness);
   await writePackageBuildState(inputHash, version);
-  if (skipVerification) {
-    console.log("Prepared Agent Buccet package in fast install mode (verification skipped).");
-  }
   console.log(`Prepared Agent Buccet standalone package at ${outDir}`);
   console.log(`Prepared Agent Buccet release artifacts at ${releaseDir}`);
 }
