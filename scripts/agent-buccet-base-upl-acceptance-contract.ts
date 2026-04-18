@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 279, "expected base acceptance pack to seed two hundred seventy-nine session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 283, "expected base acceptance pack to seed two hundred eighty-three session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -101,6 +101,18 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[bounded_web_research]")),
       "expected bounded web research rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005E")),
+      "expected gh CLI exec rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005F")),
+      "expected bun exec rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.BOUNDED.WEB.RESEARCH.006D")),
+      "expected developer Q&A and cloud docs web research rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "tmux"),
@@ -193,6 +205,10 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "simonw-llm"),
       "expected simonw-llm curated capability entry",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "ai-failure-periodic-table"),
+      "expected ai-failure-periodic-table curated capability entry",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "openclaw-pr-maintainer"),
@@ -593,13 +609,53 @@ async function main() {
       "expected secret access denial to come from the base denial pack",
     );
 
-    const unsafeExecDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+    const failureClassifierDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "ai-failure-periodic-table",
+      payloadSummary: "classify failure mode periodic table failure dimension analysis",
+    }));
+    assert.equal(failureClassifierDecision.result.decision, "allow", "expected failure classifier rail to allow failure-mode analysis motion without headless denial");
+
+    const gitPushDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "tool.exec",
       target: "git",
       payloadSummary: "git push origin main",
     }));
-    assert.notEqual(unsafeExecDecision.result.decision, "allow", "expected unsafe exec drift to stay outside automatic allowance");
+    assert.equal(gitPushDecision.result.decision, "allow", "expected git push to allow on base acceptance pack");
+
+    const ghPrDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "gh",
+      payloadSummary: "gh pr create --title fix --body fix",
+    }));
+    assert.equal(ghPrDecision.result.decision, "allow", "expected gh CLI rail to allow bounded pr creation motion");
+
+    const bunTestDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "bun",
+      payloadSummary: "bun test",
+    }));
+    assert.equal(bunTestDecision.result.decision, "allow", "expected bun exec rail to allow bounded bun test motion");
+
+    const stackoverflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "network.send",
+      target: "https://stackoverflow.com/questions/12345/how-to-git",
+      payloadSummary: "fetch stackoverflow answer",
+    }));
+    assert.equal(stackoverflowDecision.result.decision, "allow", "expected developer Q&A rail to allow stackoverflow fetch");
+
+    const unsafeExecDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+      sessionId,
+      actionKind: "tool.exec",
+      target: "git",
+      payloadSummary: "git clean -fdx",
+    }));
+    assert.notEqual(unsafeExecDecision.result.decision, "allow", "expected destructive git clean to stay outside automatic allowance");
 
   } finally {
     process.chdir(previousCwd);

@@ -367,6 +367,18 @@ export const LIST_V_ACCEPTANCE_LANES: readonly ListVAcceptanceLane[] = [
     actionKinds: ["tool.exec", "fs.read", "fs.write", "chat.emit"],
     requestTextPatterns: ["simonw-llm", "llm cli", "local llm", "remote llm", "llm command"],
   }),
+  namedLane({
+    id: "ACCEPT.CURATED.CAPABILITY.2044",
+    capability: "ai-failure-periodic-table",
+    summary: "named rail for AI failure periodic table classification, failure-mode analysis, and diagnostic report workflow motion",
+    actionKinds: ["tool.exec", "fs.read", "fs.write", "chat.emit"],
+    requestTextPatterns: [
+      // Matches classifier invocation operations — not the failure terms themselves.
+      // The failure terms (PROMPT INJECTION, CREDENTIAL EXFILTRATION, etc.) remain under
+      // headless denial patterns. Deny still wins on overlap.
+      "/\\b(?:classify|classifying|classification|diagnose|diagnosing|diagnostic|analyze failure|analysing failure|report failure|failure report|taxonomy lookup|catalog lookup|dimension lookup|run classifier|invoke classifier|ai-failure-periodic-table)\\b/i",
+    ],
+  }),
 ] as const;
 
 export const BASE_LIST_V_ACCEPTANCE_LANES =
