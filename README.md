@@ -1,6 +1,7 @@
 # Agent Buccet
 
 Action-boundary law for AI agents.
+Persistent, CPU-friendly enforcement at the action boundary.
 
 Building Ultimate Containment Constraints Every Time.
 
@@ -59,7 +60,7 @@ Agent Buccet provides the *brakes* and runtime enforcement against AI failure mo
 ## What You Get
 
 - one live rulebook built from allowed rules and blocked rules
-- one terminal where you can run, approve, deny, inspect, and audit
+- one-terminal operator cockpit with shield, approval/control, witness feed, and audit together
 - reusable workflows for repeatable safe work
 - attached context for each workflow without widening permission
 - interactive and headless modes on the same control body
@@ -95,7 +96,7 @@ That is the operational distinction:
 Buccet does not require the whole readable body to be the hot execution path.
 It keeps the whole body available while pinning runtime consequence to the snapped system.
 
-## Fast Start
+## Install
 
 The short path is:
 
@@ -209,32 +210,6 @@ It means the human already authored or approved the law, and that standing UPL b
 In that sense, the UPL becomes the operational form of the human in the loop:
 stored human judgment the system follows at runtime.
 
-## Install
-
-```bash
-git clone https://github.com/lml-layer-system/agent-buccet
-cd agent-buccet
-sh scripts/install-agent-buccet.sh
-```
-
-Hosted install coming soon.
-
-Then:
-
-```bash
-buccet init
-buccet console
-```
-
-`buccet init` now does the fast machine bring-up and will arm the deepest packaged enforcement path immediately when the native layer is already present.
-`buccet console` opens the unified operator cockpit where approval, denial, tracks, swarm state, and audit all live together.
-
-If you need to re-arm or recover the native enforcement path manually:
-
-```bash
-buccet hook start
-```
-
 ## First Run
 
 Open scope and run one guarded command:
@@ -256,6 +231,15 @@ If you want the full machine posture check:
 
 ```bash
 buccet doctor --strict
+```
+
+`buccet init` now does the fast machine bring-up and will arm the deepest packaged enforcement path immediately when the native layer is already present.
+`buccet console` opens the unified operator cockpit where approval, denial, tracks, swarm state, and audit all live together.
+
+If you need to re-arm or recover the native enforcement path manually:
+
+```bash
+buccet hook start
 ```
 
 ## Where Things Go
