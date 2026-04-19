@@ -23,7 +23,6 @@ import type {
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
 } from "../lib/agent-buccet/index.ts";
-import { createBaseAcceptanceLaws } from "../lib/agent-buccet/base-upl-acceptance.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -318,7 +317,6 @@ function usage(): never {
     "  buccet mcp status                                                  — show MCP session, hook daemon state, and ledger location",
     "  buccet uninstall",
   "  buccet extract-laws <file.md> [--lane acceptance|denial] [--json]  — extract and inspect law directives from a markdown document",
-  "  buccet draft-rule --from-classifier <result.json> [--type denied|approved] [--output <file.md>] [--json]  — draft a UPL import template from a classify_text result",
   ].join("\n"));
   process.exit(1);
 }
@@ -3286,6 +3284,12 @@ async function importBoundary(homePath: string) {
   await ensureDir(homePath);
   process.chdir(homePath);
   return import("../lib/agent-buccet/index.ts");
+}
+
+async function importBaseAcceptance(homePath: string) {
+  await ensureDir(homePath);
+  process.chdir(homePath);
+  return import("../lib/agent-buccet/base-upl-acceptance.ts");
 }
 
 async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
@@ -7766,6 +7770,7 @@ async function handleConsole() {
           const rootPath = pathLaws.length > 0
             ? (pathLaws[0] as { rootPath: string }).rootPath
             : os.homedir();
+          const { createBaseAcceptanceLaws } = await importBaseAcceptance(homePath);
           const baseLaws = createBaseAcceptanceLaws({
             rootPath,
             grantedActions: ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"],
@@ -8140,147 +8145,6 @@ async function handleExtractLaws(rest: string[]) {
   }
 }
 
-// ─── draft-rule ────────────────────────────────────────────────────────────
-//
-// Inverse of extract-laws: given a classify_text JSON result, emit a
-// UPL markdown template the human can review, fill in, and then import.
-// No law evaluation, no store writes — pure template generation.
-//
-// Action is inferred from taxonomy mechanism/detection/forbidden text.
-// Target is set to DRAFT_RULE_TARGET_SENTINEL so the law compiles and is
-// visible via extract-laws, but upl import refuses it until the operator
-// replaces the sentinel with a real path, tool name, or domain.
-
-// Infer the most likely BoundaryActionKind from taxonomy text (mechanism,
-// detection, forbidden). Mirrors the vocabulary of ACTION_KIND_ALIASES in
-// track-extractor-action.ts without importing it.
-function inferDraftRuleActionKind(text: string): string {
-  const t = text.toLowerCase();
-  if (/\bnetwork\b|\bexfiltrat|\btransmit\b|\bhttp\b|\bpost\b.*\bto\b/.test(t)) return "network.send";
-  if (/\bcredential\b|\bapi.?key\b|\bsecret\b|\btoken\b|\bpassword\b/.test(t)) return "sys.credential.read";
-  if (/\benv(?:ironment)?\b.*\bwrite\b|\bwrite\b.*\benv(?:ironment)?\b/.test(t)) return "sys.env.write";
-  if (/\bconfig\b.*\bwrite\b|\bwrite\b.*\bconfig\b/.test(t)) return "sys.config.write";
-  if (/\bdelete\b|\bremove\b|\bdestroy\b|\bdrop\b/.test(t) && /\bfile\b/.test(t)) return "fs.delete";
-  if (/\bwrite\b|\bmodif|\boverwrite\b|\binject\b.*\bfile\b|\bfile\b.*\bwrite\b/.test(t)) return "fs.write";
-  if (/\bread\b.*\bfile\b|\bfile\b.*\bread\b|\baccess\b.*\bfile\b/.test(t)) return "fs.read";
-  if (/\bquery\b|\bsql\b|\bdatabase\b|\bdb\b/.test(t)) return "db.query";
-  if (/\bemail\b|\brecipient\b|\bsend\b.*\bto\b/.test(t)) return "comm.send";
-  if (/\bchat\b|\boutput\b|\brespond\b|\bgenerat\b.*\btext\b/.test(t)) return "chat.emit";
-  return "tool.exec"; // most common failure-mode surface
-}
-
-async function handleDraftRule(rest: string[]) {
-  const { promises: fsp } = await import("node:fs");
-
-  const jsonFlag = rest.includes("--json");
-  let classifierFile: string | null = null;
-  let outputFile: string | null = null;
-  let forceType: "denied" | "approved" | null = null;
-
-  for (let i = 0; i < rest.length; i++) {
-    const token = rest[i];
-    if (token === "--from-classifier") {
-      classifierFile = rest[i + 1] ?? null;
-      i += 1;
-    } else if (token === "--output") {
-      outputFile = rest[i + 1] ?? null;
-      i += 1;
-    } else if (token === "--type") {
-      const t = rest[i + 1] ?? "";
-      forceType = t === "approved" ? "approved" : "denied";
-      i += 1;
-    }
-  }
-
-  if (!classifierFile) {
-    console.error(
-      "Usage: buccet draft-rule --from-classifier <result.json> [--type denied|approved] [--output <file.md>] [--json]",
-    );
-    process.exit(1);
-  }
-
-  const resolvedPath = path.resolve(classifierFile);
-  let raw: string;
-  try {
-    raw = await fsp.readFile(resolvedPath, "utf8");
-  } catch {
-    console.error(`Cannot read file: ${resolvedPath}`);
-    process.exit(1);
-  }
-
-  let classifier: Record<string, unknown>;
-  try {
-    classifier = JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    console.error(`Not valid JSON: ${resolvedPath}`);
-    process.exit(1);
-  }
-
-  // Pull taxonomy fields from classify_text / classify_url / classify_document output.
-  const primaryClasses =
-    (classifier["primary_classes_keyword"] as Array<Record<string, unknown>> | undefined) ?? [];
-  const topClass = primaryClasses[0] ?? null;
-  const classId = ((topClass?.["id"] ?? "") as string).trim();
-  const className = (((topClass?.["name"] ?? classId) || "Draft rule") as string).trim();
-  const ssr = (topClass?.["suggested_structural_response"] ?? {}) as Record<string, string>;
-  const inTable = Boolean(classifier["in_table"]);
-
-  const mechanism = (ssr["mechanism"] ?? ssr["what"] ?? "").trim();
-  const forbidden = (ssr["forbidden"] ?? "").trim();
-  const detection = (ssr["detection"] ?? "").trim();
-  const mitigation = (ssr["mitigation"] ?? "").trim();
-
-  // Infer action kind from taxonomy text so the field is real and parseable.
-  const inferredActionKind = inferDraftRuleActionKind(`${mechanism} ${detection} ${forbidden}`);
-
-  const decidedType = forceType ?? "denied";
-  const decisionLine = decidedType === "denied" ? "deny" : "approved";
-
-  const lines: string[] = [];
-  lines.push(`# ${className}`);
-  lines.push("");
-  lines.push(`<!-- Generated by: buccet draft-rule --from-classifier ${path.basename(resolvedPath)} -->`);
-  lines.push(`<!-- Source class: ${classId || "unknown"} | in_table: ${inTable} -->`);
-  lines.push(`<!-- Add your Target before importing. Examples: /sensitive/path  bash  curl  api.example.com -->`);
-  lines.push("");
-  lines.push(`Decision: ${decisionLine}`);
-  lines.push("");
-  lines.push(`Invariant: ${mechanism || "State what specific behavior this rule governs"}`);
-  lines.push("");
-  // Action is inferred from taxonomy text — real and parseable, operator can adjust.
-  // Target must be supplied by the operator before importing.
-  lines.push(`Action: ${inferredActionKind}`);
-  if (forbidden) {
-    lines.push("");
-    lines.push(`Must not include: ${forbidden}`);
-  }
-  if (detection) {
-    lines.push("");
-    lines.push(`Enforcement: ${detection}`);
-  }
-  if (mitigation) {
-    lines.push("");
-    lines.push(`<!-- mitigation from taxonomy: ${mitigation} -->`);
-  }
-
-  const markdown = lines.join("\n") + "\n";
-
-  if (jsonFlag) {
-    console.log(JSON.stringify({ classId, className, inTable, decidedType, inferredActionKind, markdown }, null, 2));
-    return;
-  }
-
-  if (outputFile) {
-    const outPath = path.resolve(outputFile);
-    await fsp.writeFile(outPath, markdown, "utf8");
-    console.log(`Draft written to: ${outPath}`);
-    console.log(`Action inferred as '${inferredActionKind}' — adjust if needed.`);
-    console.log(`Add Target: then: buccet extract-laws ${outputFile} && buccet upl import ${outputFile}`);
-  } else {
-    process.stdout.write(markdown);
-  }
-}
-
 // ─── main ──────────────────────────────────────────────────────────────────
 
 async function main() {
@@ -8360,10 +8224,6 @@ async function main() {
   }
   if (parsed.command === "extract-laws") {
     await handleExtractLaws(parsed.rest);
-    return;
-  }
-  if (parsed.command === "draft-rule") {
-    await handleDraftRule(parsed.rest);
     return;
   }
   usage();
