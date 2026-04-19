@@ -113,6 +113,11 @@ type BuccetTransportPackResult = {
 
 const TRANSPORT_LAW_FILE = "transport-law.json";
 
+// Sentinel target written by `buccet draft-rule`. Recognized by extract-laws
+// (warning) and upl import (hard refusal). Prevents a template with a
+// placeholder target from silently importing as a law that never fires.
+const DRAFT_RULE_TARGET_SENTINEL = "buccet:draft-sentinel";
+
 type TransportLawEntry = {
   uplEntry: BoundaryUplEntry;
   witnessHashes: string[];
@@ -1345,6 +1350,20 @@ function validateExtractedDocumentLane(args: {
   compiled: CompiledDocumentLaw[];
   diagnostics: DocumentLawDiagnosticEntry[];
 }): void {
+  // Refuse import if any compiled law still carries the draft sentinel target.
+  // A sentinel law compiles syntactically but would never fire — import must be
+  // blocked until the operator replaces the target with a real value.
+  const sentinelLaws = args.compiled.filter(
+    (law) => law.requestBasis.target === DRAFT_RULE_TARGET_SENTINEL,
+  );
+  if (sentinelLaws.length > 0) {
+    throw new Error(
+      `${args.filePath} contains ${sentinelLaws.length} law(s) with an unresolved draft sentinel target ('${DRAFT_RULE_TARGET_SENTINEL}'). ` +
+      `Replace 'Target: ${DRAFT_RULE_TARGET_SENTINEL}' with a real path, tool name, or domain — ` +
+      `e.g. /sensitive/path  bash  curl  api.example.com. Then re-import.`,
+    );
+  }
+
   const fatalDiagnostics = args.diagnostics.filter((diagnostic) => (
     !diagnostic.compiled && !isIgnorableDocumentDiagnostic(diagnostic)
   ));
@@ -8137,6 +8156,22 @@ async function handleExtractLaws(rest: string[]) {
   if (compiled.length === 0 && skipped.length === 0) {
     console.log("  No law blocks found in this document.\n");
   }
+
+  // Warn when any compiled law still carries the draft sentinel target.
+  // The law structure is shown above so the operator can see what they have,
+  // but a follow-up import will be refused until the target is replaced.
+  const sentinelLaws = laws.filter(
+    (law) => law.requestBasis.target === DRAFT_RULE_TARGET_SENTINEL,
+  );
+  if (sentinelLaws.length > 0) {
+    console.log(
+      `  [!] ${sentinelLaws.length} law(s) contain draft sentinel target '${DRAFT_RULE_TARGET_SENTINEL}'.`,
+    );
+    console.log(
+      `      Replace 'Target: ${DRAFT_RULE_TARGET_SENTINEL}' with a real path, tool name, or domain`,
+    );
+    console.log(`      before running buccet upl import.\n`);
+  }
 }
 
 // ─── draft-rule ────────────────────────────────────────────────────────────
@@ -8144,6 +8179,29 @@ async function handleExtractLaws(rest: string[]) {
 // Inverse of extract-laws: given a classify_text JSON result, emit a
 // UPL markdown template the human can review, fill in, and then import.
 // No law evaluation, no store writes — pure template generation.
+//
+// Action is inferred from taxonomy mechanism/detection/forbidden text.
+// Target is set to DRAFT_RULE_TARGET_SENTINEL so the law compiles and is
+// visible via extract-laws, but upl import refuses it until the operator
+// replaces the sentinel with a real path, tool name, or domain.
+
+// Infer the most likely BoundaryActionKind from taxonomy text (mechanism,
+// detection, forbidden). Mirrors the vocabulary of ACTION_KIND_ALIASES in
+// track-extractor-action.ts without importing it.
+function inferDraftRuleActionKind(text: string): string {
+  const t = text.toLowerCase();
+  if (/\bnetwork\b|\bexfiltrat|\btransmit\b|\bhttp\b|\bpost\b.*\bto\b/.test(t)) return "network.send";
+  if (/\bcredential\b|\bapi.?key\b|\bsecret\b|\btoken\b|\bpassword\b/.test(t)) return "sys.credential.read";
+  if (/\benv(?:ironment)?\b.*\bwrite\b|\bwrite\b.*\benv(?:ironment)?\b/.test(t)) return "sys.env.write";
+  if (/\bconfig\b.*\bwrite\b|\bwrite\b.*\bconfig\b/.test(t)) return "sys.config.write";
+  if (/\bdelete\b|\bremove\b|\bdestroy\b|\bdrop\b/.test(t) && /\bfile\b/.test(t)) return "fs.delete";
+  if (/\bwrite\b|\bmodif|\boverwrite\b|\binject\b.*\bfile\b|\bfile\b.*\bwrite\b/.test(t)) return "fs.write";
+  if (/\bread\b.*\bfile\b|\bfile\b.*\bread\b|\baccess\b.*\bfile\b/.test(t)) return "fs.read";
+  if (/\bquery\b|\bsql\b|\bdatabase\b|\bdb\b/.test(t)) return "db.query";
+  if (/\bemail\b|\brecipient\b|\bsend\b.*\bto\b/.test(t)) return "comm.send";
+  if (/\bchat\b|\boutput\b|\brespond\b|\bgenerat\b.*\btext\b/.test(t)) return "chat.emit";
+  return "tool.exec"; // most common failure-mode surface
+}
 
 async function handleDraftRule(rest: string[]) {
   const { promises: fsp } = await import("node:fs");
@@ -8206,6 +8264,9 @@ async function handleDraftRule(rest: string[]) {
   const detection = (ssr["detection"] ?? "").trim();
   const mitigation = (ssr["mitigation"] ?? "").trim();
 
+  // Infer action kind from taxonomy text so the field is real and parseable.
+  const inferredActionKind = inferDraftRuleActionKind(`${mechanism} ${detection} ${forbidden}`);
+
   const decidedType = forceType ?? "denied";
   const decisionLine = decidedType === "denied" ? "deny" : "approved";
 
@@ -8214,16 +8275,18 @@ async function handleDraftRule(rest: string[]) {
   lines.push("");
   lines.push(`<!-- Generated by: buccet draft-rule --from-classifier ${path.basename(resolvedPath)} -->`);
   lines.push(`<!-- Source class: ${classId || "unknown"} | in_table: ${inTable} -->`);
-  lines.push(`<!-- Edit Action and Target, then: buccet upl import <this-file.md> -->`);
+  lines.push(`<!-- Replace Target: ${DRAFT_RULE_TARGET_SENTINEL} with your actual target. -->`);
+  lines.push(`<!-- Examples: /sensitive/path  bash  curl  api.example.com -->`);
   lines.push("");
   lines.push(`Decision: ${decisionLine}`);
   lines.push("");
-  lines.push(`Invariant: ${mechanism || "FILL IN — state what specific behavior this rule governs"}`);
+  lines.push(`Invariant: ${mechanism || "State what specific behavior this rule governs"}`);
   lines.push("");
-  // Action and Target are human-supplied; leave as commented starters so the
-  // file is valid draft syntax and the user knows exactly what to uncomment/edit.
-  lines.push(`<!-- Action: fill in one of: tool.exec  fs.write  fs.read  network.send  chat.emit  db.query  db.insert  db.update  db.delete -->`);
-  lines.push(`<!-- Target: fill in path, tool name, domain, or * for any -->`);
+  // Action is inferred from taxonomy — a real parseable value, operator can adjust.
+  // Target is the sentinel — compiles and shows in extract-laws, but upl import
+  // refuses until the operator replaces it with a real path, tool name, or domain.
+  lines.push(`Action: ${inferredActionKind}`);
+  lines.push(`Target: ${DRAFT_RULE_TARGET_SENTINEL}`);
   if (forbidden) {
     lines.push("");
     lines.push(`Must not include: ${forbidden}`);
@@ -8240,7 +8303,10 @@ async function handleDraftRule(rest: string[]) {
   const markdown = lines.join("\n") + "\n";
 
   if (jsonFlag) {
-    console.log(JSON.stringify({ classId, className, inTable, decidedType, markdown }, null, 2));
+    console.log(JSON.stringify({
+      classId, className, inTable, decidedType, inferredActionKind,
+      sentinel: DRAFT_RULE_TARGET_SENTINEL, markdown,
+    }, null, 2));
     return;
   }
 
@@ -8248,7 +8314,8 @@ async function handleDraftRule(rest: string[]) {
     const outPath = path.resolve(outputFile);
     await fsp.writeFile(outPath, markdown, "utf8");
     console.log(`Draft written to: ${outPath}`);
-    console.log(`Review and edit Action + Target, then:`);
+    console.log(`Action inferred as '${inferredActionKind}' — adjust if needed.`);
+    console.log(`Replace 'Target: ${DRAFT_RULE_TARGET_SENTINEL}' with your actual target, then:`);
     console.log(`  buccet extract-laws ${outputFile}   # validate`);
     console.log(`  buccet upl import ${outputFile}     # import`);
   } else {
