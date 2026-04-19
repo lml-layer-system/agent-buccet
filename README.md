@@ -4,7 +4,7 @@ Full-boundary enforcement for AI agents.
 Action, chat, spend, network, data egress, inbound input 
 every boundary enforced at runtime against your standing laws.
 
-Any agent. Any framework. No exceptions.
+Any MCP host can connect to Agent Buccet. None can bypass it.
 
 Persistent, CPU-friendly.
 
