@@ -2,7 +2,25 @@
 
 Full-boundary enforcement for AI agents.
 Action, chat, spend, network, data egress, inbound input 
-every boundary enforced at runtime against your standing laws.
+-every boundary enforced at runtime against your custom user path laws.
+
+Stop prompt injections and DDOS attacks structurally. 
+
+If Buccet is compromised, shed that instance and spin a fresh one  
+-host machine never touched.
+
+Stop over helpful AI mistakes at the boundary it crosses before creating real world liabilites.
+
+User path laws are what you allow and do not allow your agent to do at all times.
+
+UPL tracks or User path law tracks is the only path the agent can take, any drift from this path activates Agent Buccet.
+
+Path Sources create hyper specialised agents with custom skills and custom source knowledge.
+
+Buccet Transport packs any bounded workload and ships it to any machine   
+with the same enforcement intact on arrival.
+
+Automation as pre approved User path laws, not open-ended agency.
 
 Any MCP host can connect to Agent Buccet. None can bypass it.
 
