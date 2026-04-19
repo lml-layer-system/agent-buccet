@@ -484,7 +484,7 @@ macOS degradation is by design: `chroot`-style confinement requires elevated pri
 
 **Linux is the full-isolation platform.** The macOS degrade is documented, not hidden. If your deployment depends on rootfs confinement, run transport workloads on Linux.
 
-**Status:** Linux full-isolation path has not yet been independently verified on a live Linux machine in this release. The code path exists and is tested in the substrate contract. An operator-level Linux proof run is pending.
+**Status:** Linux full-isolation path is verified in CI — the transport contract (`test:agent-buccet:transport`) runs end-to-end on `ubuntu-latest` on every push and reports the observed isolation state. Namespace availability is kernel-dependent; the run fails closed if `unshare` capability is unavailable rather than silently dropping isolation.
 
 ---
 

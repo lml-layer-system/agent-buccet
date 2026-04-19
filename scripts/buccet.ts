@@ -5079,6 +5079,7 @@ async function handlePath(rest: string[]) {
           status: formation.status,
           currentStageId: formation.stages[formation.currentStageIndex]?.id ?? null,
           updatedAt: formation.updatedAt,
+          agentCount: formation.agentRoster.length,
           sourceCount: formation.pathSources.length,
         })),
       });
@@ -5091,7 +5092,7 @@ async function handlePath(rest: string[]) {
     ]);
     printCliSection("Formations", formations.length > 0
       ? formations.map((formation) => (
-        `${formation.formationId}  |  path=${formation.pathName}  |  domain=${formation.domain}  |  status=${formation.status}  |  stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"}  |  sources=${formation.pathSources.length}`
+        `${formation.formationId}  |  path=${formation.pathName}  |  domain=${formation.domain}  |  status=${formation.status}  |  stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"}  |  agents=${formation.agentRoster.length}  |  sources=${formation.pathSources.length}`
       ))
       : ["none"]);
     return;
