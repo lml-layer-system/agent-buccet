@@ -199,6 +199,40 @@ When many protected processes hit the same unresolved target:
 That means swarm support does not introduce a second control system.
 It is still one brain, one law body, one ledger, and one scope truth.
 
+## Shed Reboot — Boundary On Self
+
+When denial-side shed fires, Agent Buccet does not perform a normal reboot.
+
+Instead:
+
+1. the normal runtime remains asleep
+2. the same Buccet boundary activates against the mutable UPL corpus
+3. both sides of mutable UPL are replayed through that boundary:
+   - approved (`yes`)
+   - denied (`no`)
+4. caught items are surfaced first
+5. the user denies all or one by one directly into UPL law
+6. clean boot continues only from what survives
+
+This is not a second security engine.
+
+It reuses the same Buccet body:
+- same canyon and admission path
+- same bodyguard
+- same gravity
+- same ledger and witness path
+- same substrate-backed runtime
+
+The stable shipped base packs remain the judge layer. The mutable UPL body is what goes on trial.
+
+To keep replay finite for large UPL corpora, Buccet snaps the computation:
+- one snapshot of the mutable UPL corpus
+- bounded shards
+- bounded worker budget
+- checkpoint and resume
+
+That changes the compute envelope, not the law body or the boundary semantics.
+
 ## Intercept Level
 
 The INTERCEPT layer catches at the universally lowest computational level: the action boundary.

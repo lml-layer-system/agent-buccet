@@ -170,6 +170,7 @@ class McpClient {
     reject: (error: unknown) => void;
     timeout: ReturnType<typeof setTimeout>;
   }> = [];
+  private exitCode: number | null | undefined;
   stderr = "";
   readonly child: ReturnType<typeof spawn>;
 
@@ -185,10 +186,16 @@ class McpClient {
     });
     this.exitPromise = new Promise((resolve) => {
       this.child.on("close", (code) => {
+        this.exitCode = code;
         for (const { reject } of this.pending.values()) {
           reject(new Error(`MCP process exited before response\n${this.stderr}`));
         }
         this.pending.clear();
+        for (const waiter of this.stderrWaiters) {
+          clearTimeout(waiter.timeout);
+          waiter.reject(new Error(`MCP process exited before stderr matched pattern\n${this.stderr}`));
+        }
+        this.stderrWaiters = [];
         resolve(code);
       });
     });
@@ -258,6 +265,11 @@ class McpClient {
   waitForStderr(pattern: RegExp, timeoutMs = 15_000) {
     if (pattern.test(this.stderr)) {
       return Promise.resolve();
+    }
+    if (this.exitCode !== undefined) {
+      return Promise.reject(new Error(
+        `MCP process already exited before stderr matched pattern ${pattern}\n${JSON.stringify(this.debugState(), null, 2)}`,
+      ));
     }
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
@@ -493,7 +505,10 @@ async function main() {
   const sessionRecords = records.filter((record) => record.META.session_id === sessionId);
   assert.ok(sessionRecords.length > 0, "expected MCP session ledger records");
   assert.ok(
-    sessionRecords.some((record) => record.INPUT.params.provenance === "mcp_host"),
+    sessionRecords.some((record) => {
+      const metadata = record.payload.metadata as Record<string, unknown> | undefined;
+      return metadata?.provenance === "mcp_host";
+    }),
     "expected ledger provenance mcp_host",
   );
 

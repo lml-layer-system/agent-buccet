@@ -59,6 +59,25 @@ buccet mcp --session-id <id> --actor-id <id> --dry-run
 
 Any MCP-compatible host that spawns a stdio server works the same way.
 
+## AI Failure Periodic Table Coexistence
+
+`buccet mcp` still starts the full Agent Buccet runtime. It does not start a lighter MCP-only boundary, and it does not bypass the denial side.
+
+This matters when Buccet is used alongside the AI Failure Periodic Table:
+
+- on a fresh machine, `buccet mcp` auto-initializes Agent Buccet if needed
+- if no default scopes exist yet, it seeds a usable fallback scope from the operator home directory
+- the curated base acceptance pack includes the exact `ai-failure-periodic-table` capability lane
+- the same Buccet denial path still wins on overlap or out-of-scope motion
+
+So the coexistence rule is simple:
+
+- `ai-failure-periodic-table` can be present as a named capability lane
+- MCP can bootstrap cleanly on first start
+- the same Buccet body remains in charge the whole time
+
+No second Buccet is created for MCP hosts.
+
 ## Available Tools
 
 | Tool | Boundary class | What it does |

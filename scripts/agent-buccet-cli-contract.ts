@@ -515,12 +515,12 @@ async function main() {
     "UPL controls must preserve base law IDs in persisted session state",
   );
 
-  const listAllAfterMute = await runCli(["upl", "list", "--all", "--json"], env);
-  assert.equal(listAllAfterMute.code, 0, listAllAfterMute.stderr);
-  const listedAfterMute = JSON.parse(listAllAfterMute.stdout) as {
-    entries: BoundaryUplEntry[];
+  const showAfterMute = await runCli(["upl", "show", mutableEntry.id, "--json"], env);
+  assert.equal(showAfterMute.code, 0, showAfterMute.stderr);
+  const shownAfterMute = JSON.parse(showAfterMute.stdout) as {
+    entry: BoundaryUplEntry;
   };
-  assert.equal(listedAfterMute.entries.find((entry) => entry.id === mutableEntry.id)?.status, "MUTED");
+  assert.equal(shownAfterMute.entry.status, "MUTED");
 
   const unmuteResult = await runCli(["upl", "unmute", "--search", mutableEntry.id, "--status", "muted", "--json"], env);
   assert.equal(unmuteResult.code, 0, unmuteResult.stderr);
@@ -538,12 +538,12 @@ async function main() {
   assert.equal(removed.changed.length, 1);
   assert.equal(removed.changed[0]?.status, "DELETED");
 
-  const listAllAfterRemove = await runCli(["upl", "list", "--all", "--json"], env);
-  assert.equal(listAllAfterRemove.code, 0, listAllAfterRemove.stderr);
-  const listedAfterRemove = JSON.parse(listAllAfterRemove.stdout) as {
-    entries: BoundaryUplEntry[];
+  const showAfterRemove = await runCli(["upl", "show", mutableEntry.id, "--json"], env);
+  assert.equal(showAfterRemove.code, 0, showAfterRemove.stderr);
+  const shownAfterRemove = JSON.parse(showAfterRemove.stdout) as {
+    entry: BoundaryUplEntry;
   };
-  assert.equal(listedAfterRemove.entries.find((entry) => entry.id === mutableEntry.id)?.status, "DELETED");
+  assert.equal(shownAfterRemove.entry.status, "DELETED");
 
   const doctorResult = await runCli(["doctor"], env);
   assert.equal(doctorResult.code, 0, doctorResult.stderr);
