@@ -260,6 +260,12 @@ export function evaluateBodyguardAction(args: {
         : [],
     };
   }
+  if (standingLaw?.decision === "require_approval" && args.request.actionKind === "agent.spend") {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
+    };
+  }
   if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {
     const result = mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(priorityLaw ?? boundaryResult, standingLaw));
     return {
@@ -327,6 +333,12 @@ async function evaluateBodyguardActionRuntime(args: {
       bodyguardMoves: boundaryResult.decision === "deny"
         ? buildBoundaryBodyguardMoves(args.request, result)
         : [],
+    };
+  }
+  if (standingLaw?.decision === "require_approval" && args.request.actionKind === "agent.spend") {
+    return {
+      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      bodyguardMoves: [],
     };
   }
   if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {

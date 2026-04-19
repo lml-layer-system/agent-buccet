@@ -16,6 +16,9 @@ import {
 import type {
   BoundaryActionKind,
   BoundaryRuntimeConfig,
+  BoundarySpendCommitIntent,
+  BoundarySpendDestinationKind,
+  BoundarySpendSourceAuthorityKind,
   BoundaryUplScope,
   CompiledDocumentLaw,
 } from "./types.ts";
@@ -27,6 +30,7 @@ export type BaseAcceptanceClass =
   | "internal_artifacts"
   | "safe_local_exec"
   | "bounded_web_research"
+  | "agent_spend"
   | "notes_and_tasks"
   | "openclaw_skill"
   | "curated_capability"
@@ -43,6 +47,10 @@ type BaseAcceptanceSeed = {
   requestTextPatterns?: string[];
   requestBasisTarget: string;
   requestBasisSummary: string;
+  spendMaxAmountNormalized?: number;
+  spendAllowedDestinationKinds?: BoundarySpendDestinationKind[];
+  spendAllowedSourceAuthorityKinds?: BoundarySpendSourceAuthorityKind[];
+  spendAllowedCommitIntents?: BoundarySpendCommitIntent[];
 };
 
 const BASE_ACCEPTANCE_PROFILE_ID = "BUCCET.BASE.UPL.ACCEPTANCE.V1";
@@ -181,6 +189,34 @@ const BOUNDED_WEB_RESEARCH_SEEDS = [
     reason: "Bounded developer Q&A and cloud-provider documentation retrieval is lawful.",
   },
 ] as const;
+const AGENT_SPEND_SEEDS = [
+  {
+    id: "ACCEPT.AGENT.SPEND.013A",
+    targetPatterns: [
+      "/^merchant:approved:[a-z0-9._-]+$/i",
+    ],
+    requestBasisTarget: "merchant:approved:example-vendor",
+    requestBasisSummary: "base-acceptance:agent-spend-approved-merchant",
+    reason: "Approved merchant micro-purchases through canonical approved merchant handles are lawful under the micro limit.",
+    spendMaxAmountNormalized: 25,
+    spendAllowedDestinationKinds: ["merchant"],
+    spendAllowedSourceAuthorityKinds: ["linked_account", "merchant_balance", "treasury"],
+    spendAllowedCommitIntents: ["purchase", "authorize"],
+  },
+  {
+    id: "ACCEPT.AGENT.SPEND.013B",
+    targetPatterns: [
+      "/^(?:wallet|account):approved:[a-z0-9._:-]+$/i",
+    ],
+    requestBasisTarget: "wallet:approved:operations",
+    requestBasisSummary: "base-acceptance:agent-spend-approved-wallet",
+    reason: "Approved wallet and account micro-transfers through canonical approved handles are lawful under the micro limit.",
+    spendMaxAmountNormalized: 10,
+    spendAllowedDestinationKinds: ["wallet", "account"],
+    spendAllowedSourceAuthorityKinds: ["wallet", "treasury"],
+    spendAllowedCommitIntents: ["transfer", "withdraw"],
+  },
+] as const;
 const BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES = [
   ...BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES,
   ...BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES,
@@ -315,6 +351,23 @@ function buildBaseAcceptanceSeeds(args: {
     });
   }
 
+  for (const spendSeed of AGENT_SPEND_SEEDS) {
+    seeds.push({
+      id: spendSeed.id,
+      acceptanceClass: "agent_spend",
+      reason: spendSeed.reason,
+      actionKinds: ["agent.spend"],
+      targetPatterns: [...spendSeed.targetPatterns],
+      targetMatchMode: "regex",
+      requestBasisTarget: spendSeed.requestBasisTarget,
+      requestBasisSummary: spendSeed.requestBasisSummary,
+      spendMaxAmountNormalized: spendSeed.spendMaxAmountNormalized,
+      spendAllowedDestinationKinds: [...spendSeed.spendAllowedDestinationKinds],
+      spendAllowedSourceAuthorityKinds: [...spendSeed.spendAllowedSourceAuthorityKinds],
+      spendAllowedCommitIntents: [...spendSeed.spendAllowedCommitIntents],
+    });
+  }
+
   for (const lane of BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES) {
     seeds.push({
       id: lane.id,
@@ -393,6 +446,24 @@ export function createBaseAcceptanceLaws(args: {
       target: seed.requestBasisTarget,
       payloadSummary: seed.requestBasisSummary,
       provenance: "trusted_system",
+      ...(
+        seed.actionKinds.includes("agent.spend") &&
+        seed.spendMaxAmountNormalized !== undefined &&
+        seed.spendAllowedDestinationKinds?.[0] &&
+        seed.spendAllowedSourceAuthorityKinds?.[0] &&
+        seed.spendAllowedCommitIntents?.[0]
+          ? {
+              spendIntent: {
+                amountRaw: String(seed.spendMaxAmountNormalized),
+                amountNormalized: seed.spendMaxAmountNormalized,
+                destination: seed.requestBasisTarget,
+                destinationKind: seed.spendAllowedDestinationKinds[0],
+                sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds[0],
+                commitIntent: seed.spendAllowedCommitIntents[0],
+              },
+            }
+          : {}
+      ),
     },
     trackConstraint: {
       allowedActionKinds: [...seed.actionKinds],
@@ -400,6 +471,18 @@ export function createBaseAcceptanceLaws(args: {
       ...(seed.targetPatterns ? { targetPatterns: [...seed.targetPatterns] } : {}),
       ...(seed.targetMatchMode ? { targetMatchMode: seed.targetMatchMode } : {}),
       ...(seed.requestTextPatterns ? { requestTextPatterns: [...seed.requestTextPatterns] } : {}),
+      ...(seed.spendMaxAmountNormalized !== undefined
+        ? { spendMaxAmountNormalized: seed.spendMaxAmountNormalized }
+        : {}),
+      ...(seed.spendAllowedDestinationKinds?.length
+        ? { spendAllowedDestinationKinds: [...seed.spendAllowedDestinationKinds] }
+        : {}),
+      ...(seed.spendAllowedSourceAuthorityKinds?.length
+        ? { spendAllowedSourceAuthorityKinds: [...seed.spendAllowedSourceAuthorityKinds] }
+        : {}),
+      ...(seed.spendAllowedCommitIntents?.length
+        ? { spendAllowedCommitIntents: [...seed.spendAllowedCommitIntents] }
+        : {}),
       description: `${seed.id} — ${seed.reason}`,
     },
   }));

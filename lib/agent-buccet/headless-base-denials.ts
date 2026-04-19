@@ -21,6 +21,10 @@ import {
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
+  BoundarySpendCommitIntent,
+  BoundarySpendDestinationKind,
+  BoundarySpendIntent,
+  BoundarySpendSourceAuthorityKind,
   BoundaryUplEntry,
   BoundaryUserPathLedger,
 } from "./types.ts";
@@ -50,7 +54,8 @@ export type DenialClass =
   | "sensitive_capture"
   | "system_mutation"
   | "external_communication"
-  | "unsafe_external_communication";
+  | "unsafe_external_communication"
+  | "agent_spend";
 
 export interface HeadlessActionRequest {
   actionKind: string;
@@ -59,6 +64,7 @@ export interface HeadlessActionRequest {
   command?: string;
   destination?: string;
   recipient?: string;
+  spendIntent?: BoundarySpendIntent;
   flags?: Partial<Record<BoundaryActionFlagName, boolean | undefined>>;
   metadata?: Record<string, unknown>;
 }
@@ -79,6 +85,9 @@ type BaseHeadlessDenialSeed = {
   requestTextPatterns?: string[];
   requiredFlags?: BoundaryActionFlagName[];
   requestBasisTarget: string;
+  spendAllowedDestinationKinds?: BoundarySpendDestinationKind[];
+  spendAllowedSourceAuthorityKinds?: BoundarySpendSourceAuthorityKind[];
+  spendAllowedCommitIntents?: BoundarySpendCommitIntent[];
 };
 
 const BASE_WITNESS_ID = "BUCCET.HEADLESS.BASE.DENIALS.V1";
@@ -104,6 +113,7 @@ const allTrackSurfaceKinds: BoundaryActionKind[] = [
   "fs.delete",
   "fs.mkdir",
   "fs.move",
+  "agent.spend",
   "tool.exec",
   "network.send",
   "comm.send",
@@ -871,6 +881,47 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     ]),
     requestBasisTarget: "base-headless-denials:unsafe-external-communication",
   },
+  {
+    id: "DENY.AGENT.SPEND.013A",
+    denialClass: "agent_spend",
+    reason: "Agent spend must use canonical approved destination handles, not raw payment-provider or direct transport targets.",
+    actionKinds: ["agent.spend"],
+    targetPatterns: toRegexList([
+      "http://*",
+      "https://*",
+      "api.*",
+      "www.*",
+      "0x*",
+      "wc:*",
+      "upi:*",
+      "iban:*",
+    ]),
+    requestBasisTarget: "base-headless-denials:agent-spend-raw-target",
+  },
+  {
+    id: "DENY.AGENT.SPEND.013B",
+    denialClass: "agent_spend",
+    reason: "Card, API-credential, and unknown spend authority classes are denied without explicit law.",
+    actionKinds: ["agent.spend"],
+    spendAllowedSourceAuthorityKinds: ["card", "api_credential", "other"],
+    requestBasisTarget: "base-headless-denials:agent-spend-risky-authority",
+  },
+  {
+    id: "DENY.AGENT.SPEND.013C",
+    denialClass: "agent_spend",
+    reason: "Payment-link and untyped spend destinations are denied without explicit law.",
+    actionKinds: ["agent.spend"],
+    spendAllowedDestinationKinds: ["payment_link", "other"],
+    requestBasisTarget: "base-headless-denials:agent-spend-untyped-destination",
+  },
+  {
+    id: "DENY.AGENT.SPEND.013D",
+    denialClass: "agent_spend",
+    reason: "Cryptographic signing and swap-style spend commit intents are denied without explicit law.",
+    actionKinds: ["agent.spend"],
+    spendAllowedCommitIntents: ["swap", "sign"],
+    requestBasisTarget: "base-headless-denials:agent-spend-irreversible-commit",
+  },
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),
   ...createBuccetFailureDimensionSeeds(),
@@ -900,6 +951,11 @@ function requestText(req: HeadlessActionRequest): string {
     req.command,
     req.destination,
     req.recipient,
+    req.spendIntent?.amountRaw ?? "",
+    req.spendIntent?.destination ?? "",
+    req.spendIntent?.destinationKind ?? "",
+    req.spendIntent?.sourceAuthorityKind ?? "",
+    req.spendIntent?.commitIntent ?? "",
     JSON.stringify(req.metadata ?? {}),
   ]
     .filter(Boolean)
@@ -941,6 +997,35 @@ function seedMatchesRequest(seed: BaseHeadlessDenialSeed, req: HeadlessActionReq
     }
   }
 
+  const spendIntent = req.spendIntent;
+  if (
+    seed.spendAllowedDestinationKinds?.length ||
+    seed.spendAllowedSourceAuthorityKinds?.length ||
+    seed.spendAllowedCommitIntents?.length
+  ) {
+    if (!spendIntent) {
+      return false;
+    }
+    if (
+      seed.spendAllowedDestinationKinds?.length &&
+      !seed.spendAllowedDestinationKinds.includes(spendIntent.destinationKind)
+    ) {
+      return false;
+    }
+    if (
+      seed.spendAllowedSourceAuthorityKinds?.length &&
+      !seed.spendAllowedSourceAuthorityKinds.includes(spendIntent.sourceAuthorityKind)
+    ) {
+      return false;
+    }
+    if (
+      seed.spendAllowedCommitIntents?.length &&
+      !seed.spendAllowedCommitIntents.includes(spendIntent.commitIntent)
+    ) {
+      return false;
+    }
+  }
+
   return true;
 }
 
@@ -978,12 +1063,40 @@ export function createBaseHeadlessDenialEntries(): BoundaryUplEntry[] {
       target: seed.requestBasisTarget,
       payloadSummary: seed.reason,
       provenance: "trusted_system",
+      ...(
+        seed.actionKinds.includes("agent.spend") &&
+        (
+          seed.spendAllowedDestinationKinds?.[0] ||
+          seed.spendAllowedSourceAuthorityKinds?.[0] ||
+          seed.spendAllowedCommitIntents?.[0]
+        )
+          ? {
+              spendIntent: {
+                amountRaw: "0",
+                amountNormalized: 0,
+                destination: seed.requestBasisTarget,
+                destinationKind: seed.spendAllowedDestinationKinds?.[0] ?? "other",
+                sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds?.[0] ?? "other",
+                commitIntent: seed.spendAllowedCommitIntents?.[0] ?? "purchase",
+              },
+            }
+          : {}
+      ),
     },
     trackConstraint: {
       allowedActionKinds: [...seed.actionKinds],
       ...(seed.targetPatterns ? { targetPatterns: [...seed.targetPatterns], targetMatchMode: "regex" as const } : {}),
       ...(seed.requestTextPatterns ? { requestTextPatterns: [...seed.requestTextPatterns] } : {}),
       ...(seed.requiredFlags ? { requiredFlags: [...seed.requiredFlags] } : {}),
+      ...(seed.spendAllowedDestinationKinds?.length
+        ? { spendAllowedDestinationKinds: [...seed.spendAllowedDestinationKinds] }
+        : {}),
+      ...(seed.spendAllowedSourceAuthorityKinds?.length
+        ? { spendAllowedSourceAuthorityKinds: [...seed.spendAllowedSourceAuthorityKinds] }
+        : {}),
+      ...(seed.spendAllowedCommitIntents?.length
+        ? { spendAllowedCommitIntents: [...seed.spendAllowedCommitIntents] }
+        : {}),
       description: `${seed.id} — ${seed.reason}`,
     },
   }));

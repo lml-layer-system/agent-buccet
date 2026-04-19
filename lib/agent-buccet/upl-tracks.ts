@@ -67,6 +67,7 @@ const SYS_ACTION_KINDS: BoundaryActionKind[] = [
  */
 export const TRACK_SURFACE_ACTION_KINDS = new Set<BoundaryActionKind>([
   ...FS_ACTION_KINDS,
+  "agent.spend",
   "tool.exec",
   "network.send",
   "comm.send",
@@ -155,6 +156,22 @@ export function buildAutoTrackConstraint(
         targetPattern: commandName || undefined,
         targetMatchMode: "exact",
         description: `tool.exec: ${commandName || request.target}`,
+      };
+    }
+
+    case "agent": {
+      if (request.actionKind !== "agent.spend" || !request.spendIntent) {
+        return undefined;
+      }
+      return {
+        allowedActionKinds: ["agent.spend"],
+        targetPattern: request.spendIntent.destination,
+        targetMatchMode: "exact",
+        spendMaxAmountNormalized: request.spendIntent.amountNormalized,
+        spendAllowedDestinationKinds: [request.spendIntent.destinationKind],
+        spendAllowedSourceAuthorityKinds: [request.spendIntent.sourceAuthorityKind],
+        spendAllowedCommitIntents: [request.spendIntent.commitIntent],
+        description: `agent spend to ${request.spendIntent.destination} under ${request.spendIntent.amountNormalized}`,
       };
     }
 
@@ -271,6 +288,12 @@ function buildRequestTrackText(request: BoundaryActionRequest): string {
     request.actionKind,
     request.target,
     request.payloadSummary ?? "",
+    request.spendIntent?.amountRaw ?? "",
+    request.spendIntent?.currencyHint ?? "",
+    request.spendIntent?.destination ?? "",
+    request.spendIntent?.destinationKind ?? "",
+    request.spendIntent?.sourceAuthorityKind ?? "",
+    request.spendIntent?.commitIntent ?? "",
     request.reviewContext?.question ?? "",
     request.reviewContext?.attemptedOutput ?? "",
     request.reviewContext?.userInput ?? "",
@@ -361,6 +384,54 @@ export function checkTrackConstraint(
     }
   }
 
+  const spendIntent = request.spendIntent;
+  if (
+    constraint.spendMaxAmountNormalized !== undefined ||
+    constraint.spendAllowedDestinationKinds?.length ||
+    constraint.spendAllowedSourceAuthorityKinds?.length ||
+    constraint.spendAllowedCommitIntents?.length
+  ) {
+    if (!spendIntent) {
+      return `request exits the approved spend corridor (missing normalized spend intent | track: ${constraint.description})`;
+    }
+    if (
+      constraint.spendMaxAmountNormalized !== undefined &&
+      spendIntent.amountNormalized > constraint.spendMaxAmountNormalized
+    ) {
+      return (
+        `spend amount '${spendIntent.amountNormalized}' exits the approved execution corridor ` +
+        `(max: ${constraint.spendMaxAmountNormalized} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedDestinationKinds?.length &&
+      !constraint.spendAllowedDestinationKinds.includes(spendIntent.destinationKind)
+    ) {
+      return (
+        `spend destination kind '${spendIntent.destinationKind}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedDestinationKinds.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedSourceAuthorityKinds?.length &&
+      !constraint.spendAllowedSourceAuthorityKinds.includes(spendIntent.sourceAuthorityKind)
+    ) {
+      return (
+        `spend source authority '${spendIntent.sourceAuthorityKind}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedSourceAuthorityKinds.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedCommitIntents?.length &&
+      !constraint.spendAllowedCommitIntents.includes(spendIntent.commitIntent)
+    ) {
+      return (
+        `spend commit intent '${spendIntent.commitIntent}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedCommitIntents.join(", ")} | track: ${constraint.description})`
+      );
+    }
+  }
+
   const reviewSurface = constraint.actionCorridor?.reviewSurface ?? constraint.reviewSurface;
   const inboundSurface = request.reviewContext?.surface ?? (request.actionKind === "chat.emit" ? "chat" : "action");
   if (reviewSurface && inboundSurface !== reviewSurface) {
@@ -424,6 +495,20 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const flagPart = constraint.requiredFlags?.length
     ? ` | flags: ${constraint.requiredFlags.join(", ")}`
     : "";
+  const spendPart = [
+    constraint.spendMaxAmountNormalized !== undefined
+      ? `max=${constraint.spendMaxAmountNormalized}`
+      : null,
+    constraint.spendAllowedDestinationKinds?.length
+      ? `destination_kinds=${constraint.spendAllowedDestinationKinds.join(",")}`
+      : null,
+    constraint.spendAllowedSourceAuthorityKinds?.length
+      ? `source_authority=${constraint.spendAllowedSourceAuthorityKinds.join(",")}`
+      : null,
+    constraint.spendAllowedCommitIntents?.length
+      ? `commit_intents=${constraint.spendAllowedCommitIntents.join(",")}`
+      : null,
+  ].filter(Boolean).join(" | ");
   const invariantPart = constraint.reviewInvariantLawId
     ? ` | invariant: ${constraint.reviewInvariantLawId}`
     : "";
@@ -447,5 +532,5 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
   const actionCorridorPart = constraint.actionCorridor
     ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
     : "";
-  return `${constraint.description} — kinds: ${kinds}${patternPart}${requestPart}${flagPart}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
+  return `${constraint.description} — kinds: ${kinds}${patternPart}${requestPart}${flagPart}${spendPart ? ` | spend: ${spendPart}` : ""}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

@@ -10,6 +10,7 @@ function mapKind(actionKind: BoundaryActionRequest["actionKind"]): GravityPropos
     case "fs.mkdir":
     case "fs.move":
       return "filesystem";
+    case "agent.spend": return "recipient_send";
     case "comm.send": return "recipient_send";
     case "network.send": return "network_send";
     case "tool.exec": return "tool_exec";
@@ -40,6 +41,7 @@ function mapScopeKind(actionKind: BoundaryActionRequest["actionKind"]): ScopePay
     case "fs.mkdir":
     case "fs.move":
       return "path";
+    case "agent.spend": return "recipient";
     case "comm.send": return "recipient";
     case "network.send": return "domain";
     case "tool.exec": return "tool";
@@ -67,6 +69,7 @@ function actionLabel(actionKind: BoundaryActionRequest["actionKind"]): string {
     case "fs.delete": return "delete";
     case "fs.mkdir": return "create";
     case "fs.move": return "move";
+    case "agent.spend": return "pay";
     case "chat.emit": return "emit";
     case "comm.send": return "send to";
     case "network.send": return "call";

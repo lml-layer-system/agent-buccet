@@ -26,6 +26,7 @@ function makeRequest(
   target: string,
   payloadSummary?: string,
   flags?: BoundaryActionRequest["flags"],
+  spendIntent?: BoundaryActionRequest["spendIntent"],
 ): BoundaryActionRequest {
   return {
     requestId: `${actionKind}-${target}`,
@@ -36,6 +37,7 @@ function makeRequest(
     requestedAt: new Date().toISOString(),
     provenance: "agent_inference",
     ...(flags ? { flags } : {}),
+    ...(spendIntent ? { spendIntent } : {}),
   };
 }
 
@@ -83,6 +85,20 @@ async function main() {
     assert.ok(
       ledger.userDeniedLawPaths.some((entry) => entry.id === "DENY.BUCCET.BASE.BUCCET.BASE.LAW-0049196"),
       "default base denial ledger should include carried Buccet laws",
+    );
+    const spendRawTargetEntry = ledger.userDeniedLawPaths.find((entry) => entry.id === "DENY.AGENT.SPEND.013A");
+    assert.ok(spendRawTargetEntry, "expected raw-target spend deny to be seeded");
+    assert.equal(
+      spendRawTargetEntry?.trackConstraint?.targetMatchMode,
+      "regex",
+      "expected raw-target spend deny to bind raw transport targets by regex",
+    );
+    const spendAuthorityEntry = ledger.userDeniedLawPaths.find((entry) => entry.id === "DENY.AGENT.SPEND.013B");
+    assert.ok(spendAuthorityEntry, "expected risky-authority spend deny to be seeded");
+    assert.deepEqual(
+      spendAuthorityEntry?.trackConstraint?.spendAllowedSourceAuthorityKinds,
+      ["card", "api_credential", "other"],
+      "expected risky-authority spend deny to bind the denied authority classes",
     );
 
     const session = makeSession();
@@ -295,6 +311,54 @@ async function main() {
     assert.equal(unsafeExternalComm?.decision, "deny");
     assert.equal(unsafeExternalComm?.entry.id, "DENY.UNSAFE.EXTERNAL.COMMUNICATION.012C");
 
+    const rawSpendTarget = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "agent.spend",
+        "https://api.stripe.com/v1/payment_intents",
+        "POST payment intent",
+        undefined,
+        {
+          amountRaw: "12.00",
+          amountNormalized: 12,
+          destination: "https://api.stripe.com/v1/payment_intents",
+          destinationKind: "merchant",
+          sourceAuthorityKind: "linked_account",
+          commitIntent: "purchase",
+          currencyHint: "USD",
+          merchantHint: "Stripe",
+        },
+      ),
+    });
+    assert.ok(rawSpendTarget, "expected raw spend target to match the base denial pack");
+    assert.equal(rawSpendTarget?.decision, "deny");
+    assert.equal(rawSpendTarget?.entry.id, "DENY.AGENT.SPEND.013A");
+
+    const riskySpendAuthority = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "agent.spend",
+        "merchant:approved:vendor",
+        "approved destination but card authority",
+        undefined,
+        {
+          amountRaw: "8.00",
+          amountNormalized: 8,
+          destination: "merchant:approved:vendor",
+          destinationKind: "merchant",
+          sourceAuthorityKind: "card",
+          commitIntent: "purchase",
+          currencyHint: "USD",
+          merchantHint: "Vendor",
+        },
+      ),
+    });
+    assert.ok(riskySpendAuthority, "expected risky spend authority to match the base denial pack");
+    assert.equal(riskySpendAuthority?.decision, "deny");
+    assert.equal(riskySpendAuthority?.entry.id, "DENY.AGENT.SPEND.013B");
+
     const buccetFailure = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -343,6 +407,22 @@ async function main() {
     });
     assert.equal(evaluated.decision, "deny");
     assert.equal(evaluated.ruleId, "DENY.AUTHORITY.SPOOFING.004F");
+    const evaluatedSpend = evaluateBaseHeadlessDenials({
+      actionKind: "agent.spend",
+      target: "merchant:approved:vendor",
+      spendIntent: {
+        amountRaw: "8.00",
+        amountNormalized: 8,
+        destination: "merchant:approved:vendor",
+        destinationKind: "merchant",
+        sourceAuthorityKind: "card",
+        commitIntent: "purchase",
+        currencyHint: "USD",
+        merchantHint: "Vendor",
+      },
+    });
+    assert.equal(evaluatedSpend.decision, "deny");
+    assert.equal(evaluatedSpend.ruleId, "DENY.AGENT.SPEND.013B");
 
     console.log("Agent Buccet headless base denials contract");
     console.log(`seeded entries: ${ledger.userDeniedLawPaths.length}`);
@@ -366,6 +446,8 @@ async function main() {
     console.log(`base catalog deny: ${baseCatalog?.entry.id}`);
     console.log(`stealth browser deny: ${stealthBrowser?.entry.id}`);
     console.log(`unsafe external comm deny: ${unsafeExternalComm?.entry.id}`);
+    console.log(`raw spend target deny: ${rawSpendTarget?.entry.id}`);
+    console.log(`risky spend authority deny: ${riskySpendAuthority?.entry.id}`);
     console.log(`buccet failure deny: ${buccetFailure?.entry.id}`);
     console.log(`buccet base denial-side law: ${baseLaw?.entry.id}`);
     console.log(`buccet base denial-side time law: ${timeLaw?.entry.id}`);

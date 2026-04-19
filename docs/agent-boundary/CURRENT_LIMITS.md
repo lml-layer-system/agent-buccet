@@ -23,6 +23,29 @@ Every primitive listed here maps to: a code surface, a ledger event, and a contr
 - A fail-open wrapper
 - A promise of 100% OS-kernel mediation on every syscall path
 
+## Enterprise Status
+
+The enterprise layer described in the README is not the same thing as the open-source runtime.
+
+Today, the open-source runtime provides the live consequence boundary:
+
+- UPL and standing law
+- denial-over-acceptance enforcement
+- ledger, witness, replay, and release-proof surfaces
+- shed reboot and boundary-on-self
+- local-first runtime with optional remote witness anchoring
+
+The following organizational-scale surfaces are being built above that runtime and should be read as roadmap / design-partner layer, not shipped open-source fact:
+
+- organization dashboards and fleet visibility
+- organization-wide default pack and deployment controls
+- fleet governance across many Buccets
+- enterprise spend governance and allocation controls
+- IAS (Intelligence Alarm System) organizational alerting and drift surfaces
+- compliance-oriented reporting and workflow integrations
+
+When this document says "current limits," those enterprise surfaces are outside the set of claims the open-source runtime makes today unless explicitly called out as live and proof-backed.
+
 Cost governance in Buccet is expressed as weighted motion and weighted inbound work, not provider billing tokens. Ingress cost is governed by admission weight classes and admission mass; egress cost is governed by action-class weight and governor mass.
 
 ---

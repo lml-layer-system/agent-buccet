@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 283, "expected base acceptance pack to seed two hundred eighty-three session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 285, "expected base acceptance pack to seed two hundred eighty-five session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -103,6 +103,10 @@ async function main() {
       "expected bounded web research rail",
     );
     assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.notes?.includes("[agent_spend]")),
+      "expected agent spend rail",
+    );
+    assert.ok(
       baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005E")),
       "expected gh CLI exec rail",
     );
@@ -113,6 +117,39 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.BOUNDED.WEB.RESEARCH.006D")),
       "expected developer Q&A and cloud docs web research rail",
+    );
+    const approvedMerchantSpend = baseAcceptanceEntries.find((entry) =>
+      entry.trackConstraint?.description?.includes("ACCEPT.AGENT.SPEND.013A")
+    );
+    assert.ok(approvedMerchantSpend, "expected approved merchant spend rail");
+    assert.equal(
+      approvedMerchantSpend?.trackConstraint?.spendMaxAmountNormalized,
+      25,
+      "expected approved merchant spend rail to bind the micro limit",
+    );
+    assert.deepEqual(
+      approvedMerchantSpend?.trackConstraint?.spendAllowedDestinationKinds,
+      ["merchant"],
+      "expected approved merchant spend rail to bind merchant destinations",
+    );
+    assert.deepEqual(
+      approvedMerchantSpend?.trackConstraint?.spendAllowedCommitIntents,
+      ["purchase", "authorize"],
+      "expected approved merchant spend rail to bind purchase-style commit intents",
+    );
+    const approvedWalletSpend = baseAcceptanceEntries.find((entry) =>
+      entry.trackConstraint?.description?.includes("ACCEPT.AGENT.SPEND.013B")
+    );
+    assert.ok(approvedWalletSpend, "expected approved wallet spend rail");
+    assert.equal(
+      approvedWalletSpend?.trackConstraint?.spendMaxAmountNormalized,
+      10,
+      "expected approved wallet spend rail to bind the wallet micro limit",
+    );
+    assert.deepEqual(
+      approvedWalletSpend?.trackConstraint?.spendAllowedDestinationKinds,
+      ["wallet", "account"],
+      "expected approved wallet spend rail to bind wallet and account destinations",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "tmux"),

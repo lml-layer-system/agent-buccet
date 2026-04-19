@@ -1,6 +1,7 @@
 import { enableBodyguardControl } from "./bodyguard.ts";
 import {
   createBoundaryActionRequest,
+  createBoundarySpendRequest,
   runBoundaryControlledAction,
   type BoundaryExecutionResult,
 } from "./bodyguard.ts";
@@ -8,6 +9,7 @@ import type {
   BoundaryReviewContext,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
+  BoundarySpendIntent,
 } from "./types.ts";
 
 export type BoundaryActionResult<T = void> = BoundaryExecutionResult<T>;
@@ -75,6 +77,41 @@ export async function boundaryRecipientSend<T>(args: {
     execute: args.execute,
     successReason: "recipient send executed inside boundary runtime",
     dryRunPreviewReason: "session is in dry-run mode; recipient send previewed but not executed",
+  });
+}
+
+export async function boundaryAgentSpendAction<T>(args: {
+  config: BoundaryRuntimeConfig;
+  spendIntent: BoundarySpendIntent;
+  target?: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: {
+    authorityClaimed?: boolean;
+    claimsCompleteCoverage?: boolean;
+    requestsScopeExpansion?: boolean;
+    requestsLawMutation?: boolean;
+    requestsSessionRevival?: boolean;
+    requestsLedgerBypass?: boolean;
+    payloadContainsFinancialData?: boolean;
+  };
+  reviewContext?: BoundaryReviewContext;
+  execute?: () => Promise<T>;
+}): Promise<BoundaryActionResult<T>> {
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
+    request: createBoundarySpendRequest({
+      config: args.config,
+      target: args.target,
+      spendIntent: args.spendIntent,
+      payloadSummary: args.payloadSummary,
+      provenance: args.provenance,
+      flags: args.flags,
+      reviewContext: args.reviewContext,
+    }),
+    execute: args.execute,
+    successReason: "agent spend executed inside boundary runtime",
+    dryRunPreviewReason: "session is in dry-run mode; agent spend previewed but not executed",
   });
 }
 

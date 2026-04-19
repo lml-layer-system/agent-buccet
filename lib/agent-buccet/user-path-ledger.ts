@@ -39,6 +39,7 @@ function stablePathDescriptor(request: BoundaryActionRequest) {
     actionKind: request.actionKind,
     target: request.target,
     payloadSummary: request.payloadSummary ?? null,
+    spendIntent: request.spendIntent ?? null,
     authorityClaimed: request.flags?.authorityClaimed ?? false,
     claimsCompleteCoverage: request.flags?.claimsCompleteCoverage ?? false,
     requestsScopeExpansion: request.flags?.requestsScopeExpansion ?? false,
@@ -59,6 +60,7 @@ function toRequestBasis(request: BoundaryActionRequest): BoundaryUplRequestBasis
     actionKind: request.actionKind,
     target: request.target,
     payloadSummary: request.payloadSummary,
+    spendIntent: request.spendIntent,
     provenance: request.provenance,
     flags: request.flags,
     reviewContext: request.reviewContext,
@@ -75,6 +77,7 @@ function requestFromBasis(
     actionKind: basis.actionKind,
     target: basis.target,
     payloadSummary: basis.payloadSummary,
+    spendIntent: basis.spendIntent,
     requestedAt: new Date(0).toISOString(),
     provenance: basis.provenance ?? "agent_inference",
     flags: basis.flags,
@@ -110,6 +113,9 @@ export function hashUserPath(request: BoundaryActionRequest): string {
 }
 
 export function classifyUserPathDomain(request: BoundaryActionRequest): string {
+  if (request.actionKind === "agent.spend") {
+    return "SPEND";
+  }
   const [domain] = request.actionKind.split(".");
   return domain.toUpperCase();
 }

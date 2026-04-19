@@ -497,6 +497,8 @@ It gives them a way to bind their own safety intent at consequence time, inside 
 
 Agent Buccet Enterprise is the paid organizational operating layer being built above the open-source core.
 
+The open-source core is the live consequence boundary. The enterprise layer is the organizational control plane being built above it.
+
 The open-source runtime gives you the constitutional core:
 
 - live User Path Law (UPL), where prior human judgment becomes standing runtime law
@@ -510,16 +512,16 @@ The open-source runtime gives you the constitutional core:
 - Buccet vault-style runtime isolation and disposable contained workspaces, allowing compromised environments to shed their Buccet and be discarded without threatening the host system
 - portable bounded transport — pack a fully governed workload, ship it to any machine, and run it with the same enforcement, isolation, and law intact on arrival
 
-The enterprise layer is being shaped for organizations that need Buccet at operational scale, including:
+These enterprise-scale surfaces are being built for organizations that need Buccet at operational scale:
 
 - dashboards and operator visibility across every Buccet running in an organization
 - organization-wide multi-agent and multi-swarm governance — managing thousands of Buccets under one policy surface
 - organization-wide policy, default pack, and deployment controls
-- IAS (Intelligence Alarm System): read-only drift detection, alerting, evidence capture, audit trails, and organizational control surfaces designed to support EU AI Act, NIST, ISO, SOC 2, GDPR accountability, and internal compliance workflows
-- organizational resource governance for spend, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
+- IAS (Intelligence Alarm System): specified and being built, not part of the open-source runtime today; read-only drift detection, alerting, evidence capture, audit trails, and organizational control surfaces designed to support EU AI Act, NIST, ISO, SOC 2, GDPR accountability, and internal compliance workflows
+- organizational resource governance for spend, token burn, reasoning depth, path-source scale, and job-specific swarm allocation, including enterprise spend governance for payment-capable agents
 - integrations with internal systems, enterprise workflows, and environment-specific rollout support
 
-The open-source core is live now. The security is free. What you pay for is the organizational scale layer — the dashboards, the compliance reports, and the governance controls for teams running Buccet at production depth across thousands of agents.
+The open-source core is live now. The security is free. What you pay for is the organizational scale layer — the dashboards, organizational policy control, compliance-oriented evidence handling, and governance controls for teams running Buccet at production depth across thousands of agents.
 We're open to speaking with early teams, commercial partners, and design partners who want to help shape that layer.
 
 Reach out directly to initiate the conversation: [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com)

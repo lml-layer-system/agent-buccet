@@ -144,7 +144,11 @@ function buildRouteBackends(request: BoundaryActionRequest): Array<{ endpoint: s
       { endpoint: "approval-gate", weight: 1 },
     ];
   }
-  if (request.actionKind === "network.send" || request.actionKind === "comm.send") {
+  if (
+    request.actionKind === "network.send" ||
+    request.actionKind === "comm.send" ||
+    request.actionKind === "agent.spend"
+  ) {
     return [
       { endpoint: "egress-boundary", weight: 2 },
       { endpoint: "approval-gate", weight: 2 },

@@ -35,6 +35,7 @@ import type {
   BoundaryRequestProvenance,
   BoundaryReviewContext,
   BoundaryRuntimeConfig,
+  BoundarySpendIntent,
   BodyguardMove,
 } from "./types.ts";
 
@@ -65,6 +66,7 @@ export type BoundaryToolProposal<T = unknown> = {
   actionKind: BoundaryActionKind;
   target: string;
   payloadSummary?: string;
+  spendIntent?: BoundarySpendIntent;
   provenance?: BoundaryRequestProvenance;
   flags?: BoundaryActionRequest["flags"];
   reviewContext?: BoundaryReviewContext;
@@ -79,6 +81,7 @@ export type BoundaryToolEnvelope<TInput, TOutput> = {
   describeTarget: (input: TInput) => string;
   actionKind: BoundaryActionKind;
   payloadSummary?: (input: TInput) => string | undefined;
+  spendIntent?: (input: TInput) => BoundarySpendIntent | undefined;
   provenance?: BoundaryRequestProvenance | ((input: TInput) => BoundaryRequestProvenance);
   flags?: (input: TInput) => BoundaryActionRequest["flags"];
   reviewContext?: (input: TInput) => BoundaryReviewContext | undefined;
@@ -103,6 +106,19 @@ export type BoundaryChatEmissionProposal<T = string> = {
   successMetadata?: Record<string, string | number | boolean>;
 };
 
+export type BoundarySpendProposal<T = unknown> = {
+  spendIntent: BoundarySpendIntent;
+  target?: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
+  successReason: string;
+  dryRunPreviewReason?: string;
+  execute?: () => Promise<T>;
+  successMetadata?: Record<string, string | number | boolean>;
+};
+
 export function createBoundaryActionRequest(args: {
   config: BoundaryRuntimeConfig;
   requestId?: string;
@@ -110,6 +126,7 @@ export function createBoundaryActionRequest(args: {
   actionKind: BoundaryActionKind;
   target: string;
   payloadSummary?: string;
+  spendIntent?: BoundarySpendIntent;
   provenance?: BoundaryRequestProvenance;
   flags?: BoundaryActionRequest["flags"];
   reviewContext?: BoundaryReviewContext;
@@ -128,6 +145,7 @@ export function createBoundaryActionRequest(args: {
     actionKind: args.actionKind,
     target: args.target,
     payloadSummary: args.payloadSummary,
+    spendIntent: args.spendIntent,
     requestedAt: args.requestedAt ?? new Date().toISOString(),
     provenance: args.provenance ?? "agent_inference",
     flags: mergedFlags,
@@ -529,6 +547,21 @@ function buildDefaultActionAttemptLines(request: BoundaryActionRequest): string[
   }
 
   switch (request.actionKind) {
+    case "agent.spend": {
+      const spendIntent = request.spendIntent;
+      return [
+        `$ agent.spend ${request.target}`,
+        ...(spendIntent
+          ? [
+            `  amount: ${spendIntent.amountRaw}${spendIntent.currencyHint ? ` ${spendIntent.currencyHint}` : ""}`,
+            `  destination_kind: ${spendIntent.destinationKind}`,
+            `  source_authority: ${spendIntent.sourceAuthorityKind}`,
+            `  commit_intent: ${spendIntent.commitIntent}`,
+          ]
+          : []),
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
+    }
     case "fs.delete":
       return [`$ delete ${request.target}`];
     case "fs.write":
@@ -653,6 +686,7 @@ export async function enforceBoundaryProposal<T>(args: {
       actionKind: args.proposal.actionKind,
       target: args.proposal.target,
       payloadSummary: args.proposal.payloadSummary,
+      spendIntent: args.proposal.spendIntent,
       provenance: args.proposal.provenance,
       flags: args.proposal.flags,
       reviewContext: args.proposal.reviewContext,
@@ -675,6 +709,7 @@ export function wrapBoundaryTool<TInput, TOutput>(
         actionKind: envelope.actionKind,
         target: envelope.describeTarget(input),
         payloadSummary: envelope.payloadSummary?.(input),
+        spendIntent: envelope.spendIntent?.(input),
         provenance:
           typeof envelope.provenance === "function"
             ? envelope.provenance(input)
@@ -1051,6 +1086,64 @@ export function createBoundaryChatEmissionRequest(args: {
       attemptedOutput: args.attemptedOutput,
       evidence: mergedEvidence,
     },
+  });
+}
+
+function summarizeBoundarySpendIntent(spendIntent: BoundarySpendIntent): string {
+  const currency = spendIntent.currencyHint ? ` ${spendIntent.currencyHint}` : "";
+  const merchant = spendIntent.merchantHint ? ` (${spendIntent.merchantHint})` : "";
+  return `${spendIntent.commitIntent} ${spendIntent.amountRaw}${currency} -> ${spendIntent.destinationKind}:${spendIntent.destination} via ${spendIntent.sourceAuthorityKind}${merchant}`;
+}
+
+export function createBoundarySpendRequest(args: {
+  config: BoundaryRuntimeConfig;
+  spendIntent: BoundarySpendIntent;
+  target?: string;
+  requestId?: string;
+  requestedAt?: string;
+  payloadSummary?: string;
+  provenance?: BoundaryRequestProvenance;
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
+}): BoundaryActionRequest {
+  return createBoundaryActionRequest({
+    config: args.config,
+    requestId: args.requestId,
+    requestedAt: args.requestedAt,
+    actionKind: "agent.spend",
+    target: args.target ?? args.spendIntent.destination,
+    payloadSummary: args.payloadSummary ?? summarizeBoundarySpendIntent(args.spendIntent),
+    spendIntent: args.spendIntent,
+    provenance: args.provenance ?? "agent_inference",
+    flags: mergeBoundaryFlags(
+      {
+        payloadContainsFinancialData: true,
+      },
+      args.flags,
+    ),
+    reviewContext: args.reviewContext,
+  });
+}
+
+export async function guardBoundarySpendIntent<T = unknown>(args: {
+  config: BoundaryRuntimeConfig;
+  proposal: BoundarySpendProposal<T>;
+}): Promise<BoundaryExecutionResult<T>> {
+  return runBoundaryControlledAction({
+    config: enableBodyguardControl(args.config),
+    request: createBoundarySpendRequest({
+      config: args.config,
+      target: args.proposal.target,
+      spendIntent: args.proposal.spendIntent,
+      payloadSummary: args.proposal.payloadSummary,
+      provenance: args.proposal.provenance,
+      flags: args.proposal.flags,
+      reviewContext: args.proposal.reviewContext,
+    }),
+    execute: args.proposal.execute,
+    successReason: args.proposal.successReason,
+    dryRunPreviewReason: args.proposal.dryRunPreviewReason,
+    successMetadata: args.proposal.successMetadata,
   });
 }
 
@@ -1494,6 +1587,15 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     return result;
   }
 
+  async function spendIntent<T = unknown>(proposal: BoundarySpendProposal<T>): Promise<BoundaryExecutionResult<T>> {
+    const result = await guardBoundarySpendIntent({
+      config: await getHydratedGuardedConfig(),
+      proposal,
+    });
+    store.replaceConfig(result.config);
+    return result;
+  }
+
   function wrapTool<TInput, TOutput>(envelope: BoundaryToolEnvelope<TInput, TOutput>) {
     return async (input: TInput) => {
       const result = await wrapBoundaryTool(await getHydratedGuardedConfig(), envelope)(input);
@@ -1538,6 +1640,9 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     },
     chat: {
       emit: emitChat,
+    },
+    spend: {
+      intent: spendIntent,
     },
     telegram: {
       buildProposal: buildTelegramBoundaryProposal,

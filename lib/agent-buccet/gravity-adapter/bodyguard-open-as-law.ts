@@ -174,6 +174,8 @@ export function buildOpenAsLawBodyguardStep(args: {
   return buildOpenAsLawStep(args.offer, {
     kind: args.request.actionKind.startsWith("fs.")
       ? "filesystem"
+      : args.request.actionKind === "agent.spend"
+        ? "recipient_send"
       : args.request.actionKind === "comm.send"
         ? "recipient_send"
         : args.request.actionKind === "network.send"

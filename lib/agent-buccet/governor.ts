@@ -12,6 +12,7 @@ export const DEFAULT_GOVERNOR_WEIGHT: Record<BoundaryActionKind, number> = {
   "fs.delete": 8,
   "fs.mkdir": 3,
   "fs.move": 4,
+  "agent.spend": 12,
   "chat.emit": 1,
   "comm.send": 5,
   "tool.exec": 10,

@@ -7,6 +7,7 @@ export type BoundaryActionKind =
   | "fs.delete"
   | "fs.mkdir"
   | "fs.move"
+  | "agent.spend"
   | "chat.emit"
   | "comm.send"
   | "tool.exec"
@@ -280,6 +281,7 @@ export type BoundaryActionRequest = {
   actionKind: BoundaryActionKind;
   target: string;
   payloadSummary?: string;
+  spendIntent?: BoundarySpendIntent;
   requestedAt: string;
   provenance: BoundaryRequestProvenance;
   flags?: {
@@ -301,6 +303,43 @@ export type BoundaryActionRequest = {
 };
 
 export type BoundaryActionFlagName = keyof NonNullable<BoundaryActionRequest["flags"]>;
+
+export type BoundarySpendDestinationKind =
+  | "merchant"
+  | "wallet"
+  | "contract"
+  | "account"
+  | "payment_link"
+  | "other";
+
+export type BoundarySpendSourceAuthorityKind =
+  | "wallet"
+  | "linked_account"
+  | "card"
+  | "treasury"
+  | "merchant_balance"
+  | "api_credential"
+  | "other";
+
+export type BoundarySpendCommitIntent =
+  | "authorize"
+  | "capture"
+  | "purchase"
+  | "transfer"
+  | "withdraw"
+  | "swap"
+  | "sign";
+
+export type BoundarySpendIntent = {
+  amountRaw: string;
+  amountNormalized: number;
+  destination: string;
+  destinationKind: BoundarySpendDestinationKind;
+  sourceAuthorityKind: BoundarySpendSourceAuthorityKind;
+  commitIntent: BoundarySpendCommitIntent;
+  currencyHint?: string;
+  merchantHint?: string;
+};
 
 export type BoundaryLawResult = {
   decision: BoundaryDecision;
@@ -395,6 +434,14 @@ export type BoundaryUplTrackConstraint = {
   expressionCorridor?: BoundaryExpressionCorridor;
   /** Structured action corridor for task-independent action enforcement. */
   actionCorridor?: BoundaryActionCorridor;
+  /** Spend tracks bound the maximum normalized spend value inside the rail. */
+  spendMaxAmountNormalized?: number;
+  /** Spend tracks may require the same destination class. */
+  spendAllowedDestinationKinds?: BoundarySpendDestinationKind[];
+  /** Spend tracks may require the same source authority class. */
+  spendAllowedSourceAuthorityKinds?: BoundarySpendSourceAuthorityKind[];
+  /** Spend tracks may require the same commit intent. */
+  spendAllowedCommitIntents?: BoundarySpendCommitIntent[];
   /** Human-readable description of the corridor. */
   description: string;
 };
@@ -403,6 +450,7 @@ export type BoundaryUplRequestBasis = {
   actionKind: BoundaryActionKind;
   target: string;
   payloadSummary?: string;
+  spendIntent?: BoundarySpendIntent;
   provenance?: BoundaryRequestProvenance;
   flags?: BoundaryActionRequest["flags"];
   reviewContext?: BoundaryReviewContext;

@@ -19,6 +19,7 @@ const AUTO_SHED_PROVENANCES = new Set<BoundaryRequestProvenance>([
 
 const AUTO_SHED_ACTIONS = new Set<BoundaryActionKind>([
   "tool.exec",
+  "agent.spend",
   "fs.write",
   "fs.append",
   "fs.delete",

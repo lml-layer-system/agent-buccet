@@ -137,6 +137,33 @@ export const DEFAULT_BOUNDARY_LAWS: BoundaryLaw[] = [
     }),
   },
   {
+    lawId: "BOUNDARY.SPEND.SHAPE.01",
+    description: "Agent spend requests must carry normalized spend intent.",
+    appliesTo: ["agent.spend"],
+    evaluate: ({ request }) => {
+      if (request.spendIntent) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "agent spend requires normalized spend intent",
+        triggeredLawIds: ["BOUNDARY.SPEND.SHAPE.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "BOUNDARY.SPEND.UNMAPPED.01",
+    description: "Agent spend is denied by default until standing agent spend law authorizes it.",
+    appliesTo: ["agent.spend"],
+    evaluate: () => ({
+      decision: "deny",
+      reason: "agent spend is denied by default until agent spend law authorizes it",
+      triggeredLawIds: ["BOUNDARY.SPEND.UNMAPPED.01"],
+      requiresApproval: false,
+    }),
+  },
+  {
     lawId: "BOUNDARY.NETWORK.01",
     description: "Network sends require explicit approval.",
     appliesTo: ["network.send"],

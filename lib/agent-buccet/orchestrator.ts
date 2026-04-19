@@ -35,6 +35,9 @@ export function resourceKindForAction(actionKind: BoundaryActionKind): BoundaryR
   if (actionKind === "chat.emit") {
     return "chat";
   }
+  if (actionKind === "agent.spend") {
+    return "recipient";
+  }
   if (actionKind === "comm.send") {
     return "recipient";
   }
