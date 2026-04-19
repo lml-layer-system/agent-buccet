@@ -5,6 +5,7 @@ Action, chat, spend, network, data egress, inbound input —
 every boundary enforced at runtime against your standing laws.
 
 Any agent. Any framework. No exceptions.
+
 Persistent, CPU-friendly.
 
 Building Ultimate Containment Constraints Every Time.
