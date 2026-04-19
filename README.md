@@ -9,7 +9,8 @@ Stop prompt injections and DDOS attacks structurally.
 If Buccet is compromised, shed that instance and spin a fresh one  
 -host machine never touched.
 
-Stop over helpful AI mistakes at the boundary it crosses before creating real world liabilites.
+Stop over-helpful AI mistakes at whatever boundary they cross, before they
+become real world liabilities.
 
 User path laws are what you allow and do not allow your agent to do at all times.
 
