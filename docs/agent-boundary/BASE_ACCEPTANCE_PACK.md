@@ -8,14 +8,14 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 282
+- Total acceptance-side UPL entries seeded per opened workspace session: 283
 - Workspace entries: 5
 - Safe local exec entries: 6
 - Bounded web research entries: 4
 - OpenClaw skill entries: 110
   Bundled OpenClaw entries: 53
   Awesome OpenClaw entries: 57
-- Curated capability entries: 43
+- Curated capability entries: 44
 - Curated workflow entries: 23
 - Marketplace-derived entries: 91
   SkillsMP entries: 47
@@ -804,7 +804,7 @@ Connects to: exact Buccet target `read-optimizer`.
 Action kinds: `tool.exec`, `fs.read`.
 Bounds: exact named target only; deny still wins on overlap.
 
-## Curated Capability Entries (43)
+## Curated Capability Entries (44)
 
 ### ACCEPT.CURATED.CAPABILITY.2001 — docx
 What it is: Word document creation, editing, and tracked-change workflow motion.
@@ -1061,6 +1061,12 @@ Bounds: exact named target only; deny still wins on overlap.
 ### ACCEPT.CURATED.CAPABILITY.2043 — simonw-llm
 What it is: lightweight local and remote LLM CLI workflow motion.
 Connects to: exact Buccet target `simonw-llm`.
+Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
+Bounds: exact named target only; deny still wins on overlap.
+
+### ACCEPT.CURATED.CAPABILITY.2044 — ai-failure-periodic-table
+What it is: AI failure periodic table classification, failure-mode analysis, and diagnostic report workflow motion.
+Connects to: exact Buccet target `ai-failure-periodic-table`.
 Action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`.
 Bounds: exact named target only; deny still wins on overlap.
 
