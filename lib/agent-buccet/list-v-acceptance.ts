@@ -367,6 +367,8 @@ export const LIST_V_ACCEPTANCE_LANES: readonly ListVAcceptanceLane[] = [
     actionKinds: ["tool.exec", "fs.read", "fs.write", "chat.emit"],
     requestTextPatterns: ["simonw-llm", "llm cli", "local llm", "remote llm", "llm command"],
   }),
+  // NOTE: capability and targetPattern string must match FastMCP("ai-failure-periodic-table")
+  // in ai-failure-periodic-table/src/ai_failure_mcp/server.py. Update both together on any rename.
   namedLane({
     id: "ACCEPT.CURATED.CAPABILITY.2044",
     capability: "ai-failure-periodic-table",
