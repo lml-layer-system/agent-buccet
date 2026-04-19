@@ -8,10 +8,11 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 
 ## Summary
 
-- Total acceptance-side UPL entries seeded per opened workspace session: 283
+- Total acceptance-side UPL entries seeded per opened workspace session: 285
 - Workspace entries: 5
 - Safe local exec entries: 6
 - Bounded web research entries: 4
+- Agent spend entries: 2
 - OpenClaw skill entries: 110
   Bundled OpenClaw entries: 53
   Awesome OpenClaw entries: 57
@@ -28,6 +29,7 @@ It is one acceptance-side UPL system. Runtime still compiles it into the same li
 - `ACCEPT.WORKSPACE.*`: built-in Buccet workspace yes-side entries.
 - `ACCEPT.SAFE.LOCAL.EXEC.*`: built-in Buccet bounded local command entries.
 - `ACCEPT.BOUNDED.WEB.RESEARCH.*`: built-in Buccet bounded retrieval and research entries.
+- `ACCEPT.AGENT.SPEND.*`: built-in Buccet protocol-agnostic spend rails inside the same acceptance pack.
 - `ACCEPT.OPENCLAW.SKILL.*`: OpenClaw-derived yes-side entries carried inside the same Buccet acceptance pack.
 - `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.
 - `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.
@@ -138,6 +140,20 @@ Bounds: listed bounded corridors only; deny still wins on overlap.
 What it is: Bounded developer Q&A and cloud-provider documentation retrieval is lawful.
 Connects to: bounded host corridors `stackoverflow.com`; bounded host corridors `stackexchange.com`; bounded host corridors `docs.anthropic.com`; bounded host corridors `platform.openai.com`; bounded host corridors `learn.microsoft.com`; bounded host corridors `cloud.google.com`.
 Action kinds: `network.send`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+## Agent Spend Entries (2)
+
+### ACCEPT.AGENT.SPEND.013A
+What it is: Approved merchant micro-purchases through canonical approved merchant handles are lawful under the micro limit.
+Connects to: bounded regex corridor `/^merchant:approved:[a-z0-9._-]+$/i`.
+Action kinds: `agent.spend`.
+Bounds: listed bounded corridors only; deny still wins on overlap.
+
+### ACCEPT.AGENT.SPEND.013B
+What it is: Approved wallet and account micro-transfers through canonical approved handles are lawful under the micro limit.
+Connects to: bounded regex corridor `/^(?:wallet|account):approved:[a-z0-9._:-]+$/i`.
+Action kinds: `agent.spend`.
 Bounds: listed bounded corridors only; deny still wins on overlap.
 
 ## Bundled OpenClaw Skill Entries (53)

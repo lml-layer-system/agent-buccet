@@ -47,6 +47,7 @@ const ALL_WORKSPACE_ACTIONS: readonly BoundaryActionKind[] = [
   "fs.append",
   "fs.mkdir",
   "fs.move",
+  "agent.spend",
 ];
 
 const WORKSPACE_ENTRY_IDS = [
@@ -71,6 +72,11 @@ const WEB_RESEARCH_ENTRY_IDS = [
   "ACCEPT.BOUNDED.WEB.RESEARCH.006B",
   "ACCEPT.BOUNDED.WEB.RESEARCH.006C",
   "ACCEPT.BOUNDED.WEB.RESEARCH.006D",
+] as const;
+
+const AGENT_SPEND_ENTRY_IDS = [
+  "ACCEPT.AGENT.SPEND.013A",
+  "ACCEPT.AGENT.SPEND.013B",
 ] as const;
 
 function repoRootFromHere() {
@@ -224,6 +230,7 @@ async function main() {
   const workspaceEntries = WORKSPACE_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const safeExecEntries = SAFE_EXEC_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const webResearchEntries = WEB_RESEARCH_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
+  const agentSpendEntries = AGENT_SPEND_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const bundledOpenClawEntries = BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES.map((lane) =>
     laneToEntry((lane as OpenClawSkillAcceptanceLane).skill, lane),
   );
@@ -253,6 +260,7 @@ async function main() {
     workspaceEntries.length +
     safeExecEntries.length +
     webResearchEntries.length +
+    agentSpendEntries.length +
     bundledOpenClawEntries.length +
     awesomeOpenClawEntries.length +
     curatedCapabilityEntries.length +
@@ -277,6 +285,7 @@ async function main() {
     `- Workspace entries: ${workspaceEntries.length}`,
     `- Safe local exec entries: ${safeExecEntries.length}`,
     `- Bounded web research entries: ${webResearchEntries.length}`,
+    `- Agent spend entries: ${agentSpendEntries.length}`,
     `- OpenClaw skill entries: ${bundledOpenClawEntries.length + awesomeOpenClawEntries.length}`,
     `  Bundled OpenClaw entries: ${bundledOpenClawEntries.length}`,
     `  Awesome OpenClaw entries: ${awesomeOpenClawEntries.length}`,
@@ -293,6 +302,7 @@ async function main() {
     "- `ACCEPT.WORKSPACE.*`: built-in Buccet workspace yes-side entries.",
     "- `ACCEPT.SAFE.LOCAL.EXEC.*`: built-in Buccet bounded local command entries.",
     "- `ACCEPT.BOUNDED.WEB.RESEARCH.*`: built-in Buccet bounded retrieval and research entries.",
+    "- `ACCEPT.AGENT.SPEND.*`: built-in Buccet protocol-agnostic spend rails inside the same acceptance pack.",
     "- `ACCEPT.OPENCLAW.SKILL.*`: OpenClaw-derived yes-side entries carried inside the same Buccet acceptance pack.",
     "- `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.",
     "- `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.",
@@ -318,6 +328,9 @@ async function main() {
     `## Bounded Web Research Entries (${webResearchEntries.length})`,
     "",
     ...webResearchEntries.map((entry) => renderEntry(entry)),
+    `## Agent Spend Entries (${agentSpendEntries.length})`,
+    "",
+    ...agentSpendEntries.map((entry) => renderEntry(entry)),
     `## Bundled OpenClaw Skill Entries (${bundledOpenClawEntries.length})`,
     "",
     ...bundledOpenClawEntries.map((entry, index) =>
