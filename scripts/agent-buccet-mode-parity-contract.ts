@@ -317,20 +317,30 @@ async function main() {
     assert.equal(headlessDeny.result.requiresApproval, true);
     assert.equal(interactiveDeny.audit.status, "complete");
     assert.equal(headlessDeny.audit.status, "complete");
+    const approvalDenyTraceShape = [
+      "ACTION_PROPOSED",
+      "DECISION_RETURNED",
+      "APPROVAL_REQUESTED",
+      "APPROVAL_DENIED",
+      "ACTION_BLOCKED",
+      "BODYGUARD_MOVE_SUGGESTED",
+    ];
     assert.deepEqual(
       interactiveDeny.eventTypes,
-      ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED", "APPROVAL_DENIED", "ACTION_BLOCKED"],
+      approvalDenyTraceShape,
       "expected interactive deny trace shape",
     );
     assert.deepEqual(
       headlessDeny.eventTypes,
-      ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED", "APPROVAL_DENIED", "ACTION_BLOCKED"],
+      approvalDenyTraceShape,
       "expected headless deny trace shape",
     );
     assert.ok(interactiveDeny.formatted.some((line) => line.includes("APPROVAL_DENIED")), "expected interactive deny ledger line");
     assert.ok(headlessDeny.formatted.some((line) => line.includes("APPROVAL_DENIED")), "expected headless deny ledger line");
     assert.ok(interactiveDeny.formatted.some((line) => line.includes("ACTION_BLOCKED")), "expected interactive block line");
     assert.ok(headlessDeny.formatted.some((line) => line.includes("ACTION_BLOCKED")), "expected headless block line");
+    assert.ok(interactiveDeny.formatted.some((line) => line.includes("BODYGUARD_MOVE_SUGGESTED")), "expected interactive deny bodyguard move line");
+    assert.ok(headlessDeny.formatted.some((line) => line.includes("BODYGUARD_MOVE_SUGGESTED")), "expected headless deny bodyguard move line");
 
     console.log("  start interactive hard deny");
     const interactiveHardDeny = await runWithTimeout(
