@@ -2501,7 +2501,22 @@ async function runBuccetTransport(args: {
   const lawFilePath = path.join(transportRoot, TRANSPORT_LAW_FILE);
   const lawFileExists = await pathExists(lawFilePath);
   if (lawFileExists) {
-    const rawLaw = await fs.readFile(lawFilePath, "utf8");
+    // Gate the transport law file read through the boundary so UPL cannot be spoofed
+    // via a tampered transport artifact. Build a minimal store to get a runtime config.
+    const transportHome = resolveHomePaths(homePath);
+    const transportConfig = await loadConfig(transportHome.configPath);
+    if (!transportConfig) {
+      throw new Error("buccet config not found — run `buccet init` first");
+    }
+    const transportStore = await ensureStore(boundary, {
+      config: transportConfig,
+      sessionsDir: transportHome.sessionsDir,
+    });
+    const lawReadResult = await boundary.boundaryReadFile(transportStore.getConfig(), lawFilePath, "utf8");
+    if (!lawReadResult.allowed) {
+      throw new Error(`transport law file blocked by boundary: ${lawReadResult.reason}`);
+    }
+    const rawLaw = lawReadResult.value!;
     const lawManifest = JSON.parse(rawLaw) as TransportLawManifest;
     const verification = verifyTransportLawManifest(lawManifest);
     if (!verification.ok) {
@@ -4021,7 +4036,11 @@ async function syncUplDocumentSources(args: {
   const staged: Array<{ lane: UplSourceLane; filePath: string; compiled: CompiledDocumentLaw[] }> = [];
   for (const lane of laneFiles) {
     for (const filePath of lane.files) {
-      const markdown = await fs.readFile(filePath, "utf8");
+      const markdownResult = await args.boundary.boundaryReadFile(store.getConfig(), filePath, "utf8");
+      if (!markdownResult.allowed) {
+        throw new Error(`UPL source file blocked: ${markdownResult.reason}`);
+      }
+      const markdown = markdownResult.value!;
       const extracted = args.boundary.extractDocumentLawsWithDiagnostics({
         sourcePath: filePath,
         markdown,
@@ -4690,7 +4709,11 @@ async function handleUpl(rest: string[]) {
     const imported: Array<{ file: string; imported: number; entries: string[] }> = [];
 
     for (const filePath of files) {
-      const markdown = await fs.readFile(filePath, "utf8");
+      const markdownResult = await boundary.boundaryReadFile(store.getConfig(), filePath, "utf8");
+      if (!markdownResult.allowed) {
+        throw new Error(`UPL source file blocked: ${markdownResult.reason}`);
+      }
+      const markdown = markdownResult.value!;
       const extracted = boundary.extractDocumentLawsWithDiagnostics({
         sourcePath: filePath,
         markdown,
