@@ -17,7 +17,7 @@ import {
   listUserPathEntries,
   loadAgentBuccetRuntimeMuscle,
 } from "../lib/agent-buccet/index.ts";
-import type { BoundaryUserPathLedger } from "../lib/agent-buccet/index.ts";
+import type { BoundaryLedgerRecord, BoundaryUserPathLedger } from "../lib/agent-buccet/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {
@@ -59,8 +59,20 @@ function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: strin
   });
 }
 
+async function readLedgerBySessionFromHome(homePath: string, sessionId: string): Promise<BoundaryLedgerRecord[]> {
+  const ledgerFile = path.join(homePath, "data", "ledger", "agent-boundary-ledger.jsonl");
+  const raw = await fs.readFile(ledgerFile, "utf8");
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) => JSON.parse(line) as BoundaryLedgerRecord)
+    .filter((record) => record.META.session_id === sessionId);
+}
+
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-upl-source-sync-"));
+  const cliSessionId = `agent-buccet-upl-source-sync-${Date.now()}`;
   const homePath = path.join(tempRoot, "home");
   const workspacePath = path.join(tempRoot, "workspace");
   const railDir = path.join(workspacePath, "rail");
@@ -73,7 +85,7 @@ async function main() {
   await fs.mkdir(homePath, { recursive: true });
   await fs.writeFile(configPath, `${JSON.stringify({
     schemaVersion: 1,
-    sessionId: "agent-buccet-default",
+    sessionId: cliSessionId,
     actorId: "user:upl-source-sync-contract",
     createdAt: configNow,
     updatedAt: configNow,
@@ -201,11 +213,45 @@ async function main() {
   assert.equal(activeDenials.length, 1, "expected one active denial doc law");
   assert.ok(runtimeTrackFieldOne.some((segment) => segment.polarity === "allow" && segment.entry.notes?.includes("[upl-doc-lane:acceptance]")));
   assert.ok(runtimeTrackFieldOne.some((segment) => segment.polarity === "deny" && segment.entry.notes?.includes("[upl-doc-lane:denial]")));
+  assert.ok(activeAcceptance[0]?.lineage, "expected acceptance doc law to carry source lineage");
+  assert.ok(activeDenials[0]?.lineage, "expected denial doc law to carry source lineage");
+  assert.equal(activeAcceptance[0]?.lineage?.sourceDocumentPath, acceptanceDocPath);
+  assert.equal(activeDenials[0]?.lineage?.sourceDocumentPath, denialDocPath);
+  assert.equal(activeAcceptance[0]?.lineage?.syncMode, "upl_sync");
+  assert.equal(activeDenials[0]?.lineage?.syncMode, "upl_sync");
+  assert.equal(activeAcceptance[0]?.lineage?.lane, "acceptance");
+  assert.equal(activeDenials[0]?.lineage?.lane, "denial");
+  assert.match(activeAcceptance[0]?.lineage?.sourceDocumentHash ?? "", /^[a-f0-9]{64}$/);
+  assert.match(activeDenials[0]?.lineage?.sourceDocumentHash ?? "", /^[a-f0-9]{64}$/);
+  assert.match(activeAcceptance[0]?.lineage?.compiledBatchHash ?? "", /^[a-f0-9]{64}$/);
+  assert.match(activeDenials[0]?.lineage?.compiledBatchHash ?? "", /^[a-f0-9]{64}$/);
+
+  const initialLedgerRecords = await readLedgerBySessionFromHome(homePath, cliSessionId);
+  const sourceReadRecords = initialLedgerRecords.filter((record) => record.META.event_type === "UPL_SOURCE_READ");
+  const sourceHashRecords = initialLedgerRecords.filter((record) => record.META.event_type === "UPL_SOURCE_HASHED");
+  const batchCompiledRecords = initialLedgerRecords.filter((record) => record.META.event_type === "UPL_BATCH_COMPILED");
+  const batchActivatedRecords = initialLedgerRecords.filter((record) => record.META.event_type === "UPL_BATCH_ACTIVATED");
+  assert.ok(sourceReadRecords.length >= 2, "expected witnessed reads for UPL source docs");
+  assert.ok(sourceHashRecords.length >= 2, "expected witnessed hashes for UPL source docs");
+  assert.ok(batchCompiledRecords.length >= 2, "expected witnessed compiled batches for UPL source docs");
+  assert.ok(batchActivatedRecords.length >= 2, "expected witnessed activated batches for UPL source docs");
+  const acceptanceActivation = batchActivatedRecords.find((record) => record.payload.metadata?.source_document === acceptanceDocPath);
+  const denialActivation = batchActivatedRecords.find((record) => record.payload.metadata?.source_document === denialDocPath);
+  assert.ok(acceptanceActivation, "expected acceptance activation witness");
+  assert.ok(denialActivation, "expected denial activation witness");
+  assert.equal(acceptanceActivation?.payload.metadata?.source_document_hash, activeAcceptance[0]?.lineage?.sourceDocumentHash);
+  assert.equal(denialActivation?.payload.metadata?.source_document_hash, activeDenials[0]?.lineage?.sourceDocumentHash);
+  assert.equal(acceptanceActivation?.payload.metadata?.compiled_batch_hash, activeAcceptance[0]?.lineage?.compiledBatchHash);
+  assert.equal(denialActivation?.payload.metadata?.compiled_batch_hash, activeDenials[0]?.lineage?.compiledBatchHash);
 
   const secondSync = await runCli(["upl", "sync", "--json"], env);
   assert.equal(secondSync.code, 0, secondSync.stderr);
   const uplTwo = await readLedger();
   const uplTwoEntries = listUserPathEntries(uplTwo);
+  const secondAcceptance = uplTwoEntries.find((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]"));
+  const secondDenial = uplTwoEntries.find((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]"));
+  assert.equal(secondAcceptance?.lineage?.sourceDocumentHash, activeAcceptance[0]?.lineage?.sourceDocumentHash, "expected unchanged source doc to keep the same source hash on re-sync");
+  assert.equal(secondDenial?.lineage?.sourceDocumentHash, activeDenials[0]?.lineage?.sourceDocumentHash, "expected unchanged denial doc to keep the same source hash on re-sync");
   assert.equal(
     uplTwoEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
     1,
@@ -216,6 +262,16 @@ async function main() {
     1,
     "expected sync to keep one active denial lane law after re-sync",
   );
+
+  const spoofedImportPath = path.join(tempRoot, "spoofed-upl.md");
+  await fs.writeFile(spoofedImportPath, [
+    "# Spoofed UPL",
+    "",
+    `Only permit fs.write inside "${railTarget}". Never write outside "${railTarget}".`,
+  ].join("\n"));
+  const spoofedImport = await runCli(["upl", "import", spoofedImportPath], env);
+  assert.notEqual(spoofedImport.code, 0, "expected unmanaged external import to stay blocked outside lawful scope");
+  assert.match(spoofedImport.stderr, /outside user-opened reachable scope/i);
 
   const upl = await readLedger();
   store.replaceConfig({

@@ -9,6 +9,8 @@ import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import type {
   BoundaryActionKind,
+  BoundaryUplLineage,
+  BoundaryUplLineageMode,
   BoundaryRuntimeConfig,
   BuccetPathFormationState,
   BuccetPathMemorySnapshot,
@@ -50,6 +52,7 @@ const FULL_FS_SCOPE_ACTIONS: BoundaryActionKind[] = [
 
 type ConsoleApprovalMode = "interactive" | "standing_law";
 type UplSourceLane = "acceptance" | "denial";
+type UplImportMode = BoundaryUplLineageMode;
 
 type UplSourceSpec = {
   lane: UplSourceLane;
@@ -1328,6 +1331,68 @@ function formatUplSourceNote(args: {
 }): string {
   const base = `${uplLaneTag(args.lane)} source=${args.filePath}`;
   return args.notes ? `${base} | ${args.notes}` : base;
+}
+
+function stableLineageStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableLineageStringify(item)).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableLineageStringify(nested)}`);
+    return `{${entries.join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function computeUplSourceDocumentHash(markdown: string): string {
+  return createHash("sha256").update(markdown).digest("hex");
+}
+
+function compiledLawLineageShape(law: CompiledDocumentLaw) {
+  return {
+    type: law.type,
+    scope: law.scope ?? null,
+    notes: law.notes ?? null,
+    requestBasis: law.requestBasis,
+    trackConstraint: law.trackConstraint ?? null,
+  };
+}
+
+function attachUplDocumentLineage(args: {
+  filePath: string;
+  sourceDocumentHash: string;
+  compiledLaws: CompiledDocumentLaw[];
+  syncMode: UplImportMode;
+  lane?: UplSourceLane;
+}): {
+  compiledBatchHash: string;
+  compiledLaws: CompiledDocumentLaw[];
+} {
+  const compiledBatchHash = createHash("sha256")
+    .update(stableLineageStringify({
+      filePath: args.filePath,
+      sourceDocumentHash: args.sourceDocumentHash,
+      syncMode: args.syncMode,
+      lane: args.lane ?? null,
+      compiled: args.compiledLaws.map(compiledLawLineageShape),
+    }))
+    .digest("hex");
+  const lineage: BoundaryUplLineage = {
+    sourceDocumentPath: args.filePath,
+    sourceDocumentHash: args.sourceDocumentHash,
+    compiledBatchHash,
+    syncMode: args.syncMode,
+    ...(args.lane ? { lane: args.lane } : {}),
+  };
+  return {
+    compiledBatchHash,
+    compiledLaws: args.compiledLaws.map((compiledLaw) => ({
+      ...compiledLaw,
+      lineage,
+    })),
+  };
 }
 
 function laneMatchesType(lane: UplSourceLane, type: BoundaryUplEntryType): boolean {
@@ -2846,6 +2911,7 @@ function normalizeUplSearchText(entry: BoundaryUplEntry): string {
     summarizeUplEntrySource(entry),
     JSON.stringify(entry.requestBasis ?? {}),
     JSON.stringify(entry.trackConstraint ?? {}),
+    JSON.stringify(entry.lineage ?? {}),
   ].join("\n").toLowerCase();
 }
 
@@ -2957,6 +3023,9 @@ function buildUplEntryView(entry: BoundaryUplEntry): {
       : null,
     constraint?.completionGrammar ? `completion = ${constraint.completionGrammar}` : null,
     constraint?.expressionProfile ? `expression = ${constraint.expressionProfile}` : null,
+    entry.lineage
+      ? `lineage = ${entry.lineage.syncMode}:${entry.lineage.sourceDocumentHash.slice(0, 12)}`
+      : null,
   ]);
 
   return {
@@ -3947,15 +4016,87 @@ async function importCompiledDocumentLaws(args: {
   store: Awaited<ReturnType<typeof ensureStore>>;
   upl: BoundaryUserPathLedger;
   filePath: string;
+  sourceDocumentHash: string;
+  sourceDocumentBytes: number;
   compiled: CompiledDocumentLaw[];
   scope: BoundaryUplScope;
+  syncMode: UplImportMode;
+  lane?: UplSourceLane;
   importReason: string;
   metadata?: Record<string, string | number | boolean>;
 }): Promise<{ upl: BoundaryUserPathLedger; entryIds: string[]; imported: number }> {
-  const scoped = args.compiled.map((entry) => ({
-    ...entry,
-    scope: args.scope,
-  }));
+  const { compiledBatchHash, compiledLaws } = attachUplDocumentLineage({
+    filePath: args.filePath,
+    sourceDocumentHash: args.sourceDocumentHash,
+    compiledLaws: args.compiled.map((entry) => ({
+      ...entry,
+      scope: args.scope,
+    })),
+    syncMode: args.syncMode,
+    lane: args.lane,
+  });
+  const scoped = compiledLaws;
+  const sharedMetadata = {
+    source_document: args.filePath,
+    source_document_hash: args.sourceDocumentHash,
+    compiled_batch_hash: compiledBatchHash,
+    upl_scope: args.scope,
+    sync_mode: args.syncMode,
+    ...(args.lane ? { document_lane: args.lane } : {}),
+    ...(args.metadata ?? {}),
+  };
+  const witnessRequestId = `upl-lineage-${createHash("sha256")
+    .update(`${args.filePath}:${args.sourceDocumentHash}:${compiledBatchHash}:${args.syncMode}`)
+    .digest("hex")
+    .slice(0, 16)}`;
+  await args.boundary.appendBoundaryLedger("UPL_SOURCE_READ", {
+    sessionId: args.config.sessionId,
+    actorId: args.config.actorId,
+    requestId: `${witnessRequestId}:read`,
+    actionKind: "fs.read",
+    target: args.filePath,
+    decision: "allow",
+    reason: "UPL source document read through Buccet boundary",
+    lawIds: [],
+    metadata: {
+      ...sharedMetadata,
+      bytes: args.sourceDocumentBytes,
+      outcome: "QUEUED",
+      next_state: "source_read",
+    },
+    createdAt: new Date().toISOString(),
+  });
+  await args.boundary.appendBoundaryLedger("UPL_SOURCE_HASHED", {
+    sessionId: args.config.sessionId,
+    actorId: args.config.actorId,
+    requestId: `${witnessRequestId}:hash`,
+    actionKind: "fs.read",
+    target: args.filePath,
+    reason: "UPL source document hashed for lineage",
+    lawIds: [],
+    metadata: {
+      ...sharedMetadata,
+      outcome: "QUEUED",
+      next_state: "source_hashed",
+    },
+    createdAt: new Date().toISOString(),
+  });
+  await args.boundary.appendBoundaryLedger("UPL_BATCH_COMPILED", {
+    sessionId: args.config.sessionId,
+    actorId: args.config.actorId,
+    requestId: `${witnessRequestId}:compiled`,
+    actionKind: scoped[0]?.requestBasis.actionKind ?? "fs.read",
+    target: args.filePath,
+    reason: `UPL compiled law batch created (${scoped.length} compiled laws)`,
+    lawIds: [],
+    metadata: {
+      ...sharedMetadata,
+      compiled_law_count: scoped.length,
+      outcome: "QUEUED",
+      next_state: "batch_compiled",
+    },
+    createdAt: new Date().toISOString(),
+  });
   const entryIds: string[] = [];
   const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof args.boundary.appendBoundaryLedger>>>();
   for (const lawType of ["APPROVED", "DENIED"] as const) {
@@ -3977,8 +4118,7 @@ async function importCompiledDocumentLaws(args: {
         reason: `${args.importReason} (${matching.length} compiled laws)`,
         lawIds: [],
         metadata: {
-          source_document: args.filePath,
-          upl_scope: args.scope,
+          ...sharedMetadata,
           compiled_law_count: matching.length,
           imported_invariant_batch: createHash("sha256")
             .update(matching
@@ -4011,6 +4151,25 @@ async function importCompiledDocumentLaws(args: {
   for (const entry of upl.userDeniedLawPaths.slice(deniedCountBefore)) {
     entryIds.push(entry.id);
   }
+  await args.boundary.appendBoundaryLedger("UPL_BATCH_ACTIVATED", {
+    sessionId: args.config.sessionId,
+    actorId: args.config.actorId,
+    requestId: `${witnessRequestId}:activated`,
+    actionKind: scoped[0]?.requestBasis.actionKind ?? "fs.read",
+    target: args.filePath,
+    decision: "allow",
+    reason: `UPL compiled law batch activated (${entryIds.length} live entries)`,
+    lawIds: entryIds,
+    metadata: {
+      ...sharedMetadata,
+      compiled_law_count: scoped.length,
+      activated_entry_count: entryIds.length,
+      activated_entry_ids: entryIds.join(","),
+      outcome: "QUEUED",
+      next_state: "batch_activated",
+    },
+    createdAt: new Date().toISOString(),
+  });
 
   return {
     upl,
@@ -4041,7 +4200,13 @@ async function syncUplDocumentSources(args: {
     actorId: args.config.actorId,
     grantedActions: ["fs.read"],
   });
-  const staged: Array<{ lane: UplSourceLane; filePath: string; compiled: CompiledDocumentLaw[] }> = [];
+  const staged: Array<{
+    lane: UplSourceLane;
+    filePath: string;
+    sourceDocumentHash: string;
+    sourceDocumentBytes: number;
+    compiled: CompiledDocumentLaw[];
+  }> = [];
   for (const lane of laneFiles) {
     for (const filePath of lane.files) {
       const markdownResult = await args.boundary.boundaryReadFile(store.getConfig(), filePath, "utf8");
@@ -4049,6 +4214,7 @@ async function syncUplDocumentSources(args: {
         throw new Error(`UPL source file blocked: ${markdownResult.reason}`);
       }
       const markdown = markdownResult.value!;
+      const sourceDocumentHash = computeUplSourceDocumentHash(markdown);
       const extracted = args.boundary.extractDocumentLawsWithDiagnostics({
         sourcePath: filePath,
         markdown,
@@ -4100,6 +4266,8 @@ async function syncUplDocumentSources(args: {
       staged.push({
         lane: lane.spec.lane,
         filePath,
+        sourceDocumentHash,
+        sourceDocumentBytes: Buffer.byteLength(markdown, "utf8"),
         compiled: tagged,
       });
     }
@@ -4125,15 +4293,19 @@ async function syncUplDocumentSources(args: {
     const result = await importCompiledDocumentLaws({
       boundary: args.boundary,
       config: args.config,
-      store,
-      upl,
-      filePath: item.filePath,
-      compiled: item.compiled,
-      scope: args.scope,
-      importReason: `document law synced from ${item.lane} source`,
-      metadata: {
-        import_mode: "upl_sync",
-        document_lane: item.lane,
+        store,
+        upl,
+        filePath: item.filePath,
+        sourceDocumentHash: item.sourceDocumentHash,
+        sourceDocumentBytes: item.sourceDocumentBytes,
+        compiled: item.compiled,
+        scope: args.scope,
+        syncMode: "upl_sync",
+        lane: item.lane,
+        importReason: `document law synced from ${item.lane} source`,
+        metadata: {
+          import_mode: "upl_sync",
+          document_lane: item.lane,
       },
     });
     upl = result.upl;
@@ -4486,6 +4658,15 @@ async function handleUpl(rest: string[]) {
         formatCliKeyValue("corridor", boundary.formatTrackConstraint(entry.trackConstraint)),
       ]);
     }
+    if (entry.lineage) {
+      printCliSection("Lineage", [
+        formatCliKeyValue("mode", entry.lineage.syncMode),
+        entry.lineage.lane ? formatCliKeyValue("lane", entry.lineage.lane) : null,
+        formatCliKeyValue("source", entry.lineage.sourceDocumentPath),
+        formatCliKeyValue("source hash", entry.lineage.sourceDocumentHash),
+        formatCliKeyValue("batch hash", entry.lineage.compiledBatchHash),
+      ]);
+    }
     printCliSection("Live Field", [
       liveSegment
         ? formatCliKeyValue("state", `${liveColor}${liveSegment.trafficClass}${c.reset}  ${clrDim(liveSegment.trafficTag ?? "")}`)
@@ -4736,6 +4917,7 @@ async function handleUpl(rest: string[]) {
         throw new Error(`UPL source file blocked: ${markdownResult.reason}`);
       }
       const markdown = markdownResult.value!;
+      const sourceDocumentHash = computeUplSourceDocumentHash(markdown);
       const extracted = boundary.extractDocumentLawsWithDiagnostics({
         sourcePath: filePath,
         markdown,
@@ -4751,8 +4933,11 @@ async function handleUpl(rest: string[]) {
         store,
         upl,
         filePath,
+        sourceDocumentHash,
+        sourceDocumentBytes: Buffer.byteLength(markdown, "utf8"),
         compiled: extracted.laws,
         scope,
+        syncMode: "upl_import",
         importReason: `document law imported from ${path.basename(filePath)}`,
         metadata: {
           import_mode: "upl_import",

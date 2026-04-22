@@ -677,6 +677,7 @@ function createEntry(args: {
   session: BoundarySession;
   decision?: BoundaryApprovalDecision;
   trackConstraintOverride?: BoundaryUplEntry["trackConstraint"];
+  lineage?: BoundaryUplEntry["lineage"];
   entryId?: string;
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
@@ -704,6 +705,7 @@ function createEntry(args: {
     ...(scope === "DOMAIN" ? { domain: args.decision?.domain ?? classifyUserPathDomain(args.request) } : {}),
     requestBasis: toRequestBasis(args.request),
     ...(trackConstraint ? { trackConstraint } : {}),
+    ...(args.lineage ? { lineage: args.lineage } : {}),
   };
 }
 
@@ -820,6 +822,7 @@ export async function writeCompiledUserPathLaws(args: {
         session: args.session,
         decision: withNormalizedScope(decision, scope),
         trackConstraintOverride: item.compiledLaw.trackConstraint,
+        lineage: item.compiledLaw.lineage,
         entryId: args.entryIdFactory?.({
           itemIndex,
           compiledLaw: item.compiledLaw,
@@ -870,6 +873,7 @@ export async function writeCompiledUserPathLaws(args: {
       session: args.session,
       decision: withNormalizedScope(decision, scope),
       trackConstraintOverride: item.compiledLaw.trackConstraint,
+      lineage: item.compiledLaw.lineage,
       entryId: args.entryIdFactory?.({
         itemIndex,
         compiledLaw: item.compiledLaw,

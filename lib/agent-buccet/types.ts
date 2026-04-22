@@ -526,6 +526,10 @@ export type BoundaryLedgerEventType =
   | "APPROVAL_REQUESTED"
   | "APPROVAL_GRANTED"
   | "APPROVAL_DENIED"
+  | "UPL_SOURCE_READ"
+  | "UPL_SOURCE_HASHED"
+  | "UPL_BATCH_COMPILED"
+  | "UPL_BATCH_ACTIVATED"
   | "UPL_ALLOW_RECORDED"
   | "UPL_DENY_RECORDED"
   | "UPL_TRACK_ACTIVATED"
@@ -696,6 +700,16 @@ export type BoundaryLedgerCheckpoint = {
 export type BoundaryUplEntryType = "APPROVED" | "DENIED";
 export type BoundaryUplScope = "SESSION" | "GLOBAL" | "DOMAIN";
 export type BoundaryUplStatus = "ACTIVE" | "MUTED" | "DELETED";
+export type BoundaryUplLineageMode = "upl_sync" | "upl_import";
+export type BoundaryUplSourceLane = "acceptance" | "denial";
+
+export type BoundaryUplLineage = {
+  sourceDocumentPath: string;
+  sourceDocumentHash: string;
+  compiledBatchHash: string;
+  syncMode: BoundaryUplLineageMode;
+  lane?: BoundaryUplSourceLane;
+};
 
 export type BoundaryUplEntry = {
   id: string;
@@ -721,6 +735,12 @@ export type BoundaryUplEntry = {
    * Constrains execution to the law-bound corridor that the user set in motion.
    */
   trackConstraint?: BoundaryUplTrackConstraint;
+  /**
+   * Source-to-live-law lineage for document-sourced law. This remains inside
+   * the same UPL body so live law can always be traced back to the witnessed
+   * source document and compiled batch that activated it.
+   */
+  lineage?: BoundaryUplLineage;
 };
 
 export type BoundaryUserPathLedger = {
@@ -735,6 +755,7 @@ export type CompiledDocumentLaw = {
   notes?: string | null;
   requestBasis: BoundaryUplRequestBasis;
   trackConstraint?: BoundaryUplTrackConstraint;
+  lineage?: BoundaryUplLineage;
 };
 
 export type BoundaryPolicySourceKind =
