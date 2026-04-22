@@ -3334,6 +3334,7 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
   scopePaths: string[];
   actorId: string;
   grantedActions?: BoundaryActionKind[];
+  seedBaseAcceptance?: boolean;
 }) {
   const profileInit = process.env.BUCCET_PROFILE_INIT === "1";
   const profileStartedAt = Date.now();
@@ -3359,6 +3360,7 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
       rootPath: scopePath,
       grantedActions,
       issuedBy: args.actorId,
+      seedBaseAcceptance: args.seedBaseAcceptance,
     });
     if (profileInit) {
       console.error(`[buccet-init-profile] ensureScopes openPath ${scopePath}: ${Date.now() - scopeStartedAt}ms`);
@@ -4033,6 +4035,12 @@ async function syncUplDocumentSources(args: {
     config: args.config,
     sessionsDir: args.home.sessionsDir,
   });
+  await ensureScopes(args.boundary, {
+    store,
+    scopePaths: [args.home.uplDocsDir],
+    actorId: args.config.actorId,
+    grantedActions: ["fs.read"],
+  });
   const staged: Array<{ lane: UplSourceLane; filePath: string; compiled: CompiledDocumentLaw[] }> = [];
   for (const lane of laneFiles) {
     for (const filePath of lane.files) {
@@ -4137,10 +4145,24 @@ async function syncUplDocumentSources(args: {
     });
   }
 
+  const sessionOverlayUpl: BoundaryUserPathLedger = {
+    specVersion: 1,
+    userApprovedLawPaths: (store.getConfig().upl?.userApprovedLawPaths ?? [])
+      .filter((entry) => args.boundary.isSessionOverlayEntryId(entry.id)),
+    userDeniedLawPaths: (store.getConfig().upl?.userDeniedLawPaths ?? [])
+      .filter((entry) => args.boundary.isSessionOverlayEntryId(entry.id)),
+  };
+  const effectiveUpl = args.boundary.hasUserPathEntries(sessionOverlayUpl)
+    ? args.boundary.mergeUserPathLedgers({
+        baseLedger: upl,
+        overlayLedger: sessionOverlayUpl,
+      })
+    : upl;
+
   store.replaceConfig({
     ...store.getConfig(),
-    upl,
-    userLawIds: await buildEffectiveUserLawIds(args.boundary, store.getConfig(), upl),
+    upl: effectiveUpl,
+    userLawIds: await buildEffectiveUserLawIds(args.boundary, store.getConfig(), effectiveUpl),
   });
   await store.persist();
 
