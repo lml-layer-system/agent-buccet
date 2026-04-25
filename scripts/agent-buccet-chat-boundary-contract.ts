@@ -1,6 +1,8 @@
 import {
+  createEmptyUserPathLedger,
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
+  hashUserPath,
   loadUserPathLedger,
   renderBoundaryApprovalPrompt,
   saveUserPathLedger,
@@ -49,6 +51,11 @@ async function main() {
       sessionId,
       actorId,
     });
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl: createEmptyUserPathLedger(),
+      userLawIds: [],
+    });
     const bodyguard = createBoundaryBodyguard(store);
 
     const flaggedAttempt = bodyguard.chat.emit({
@@ -62,6 +69,7 @@ async function main() {
     assert(pending.length === 1, "expected one pending chat-boundary approval");
 
     const approval = pending[0].request;
+    const approvalPathHash = hashUserPath(approval.request);
     assert(approval.request.actionKind === "chat.emit", "expected pending approval for chat.emit");
     assert(approval.prompt.surface === "chat", "expected chat approval surface");
     assert(approval.prompt.options.length === 4, "expected four-way approval choices");
@@ -182,7 +190,10 @@ async function main() {
     );
 
     const updatedLedger = await loadUserPathLedger();
-    assert(updatedLedger.userDeniedLawPaths.length === 1, "expected one denied UPL law after deny_as_law");
+    assert(
+      updatedLedger.userDeniedLawPaths.some((entry) => entry.pathHash === approvalPathHash && entry.status === "ACTIVE"),
+      "expected deny_as_law to materialize a denied UPL entry for the reviewed chat path",
+    );
 
   } finally {
     await saveUserPathLedger(originalLedger);

@@ -5,6 +5,7 @@ import {
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
   getActiveUserLawIds,
+  hashUserPath,
   loadUserPathLedger,
   saveUserPathLedger,
   writeDeniedUserPathLaw,
@@ -114,9 +115,16 @@ async function main() {
       ],
     });
 
-    const activeDenied = updatedLedger.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE");
-    const replacedDenied = updatedLedger.userDeniedLawPaths.filter((entry) => entry.status === "MUTED");
-    const activeApproved = updatedLedger.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE");
+    const requestPathHash = hashUserPath(request);
+    const activeDenied = updatedLedger.userDeniedLawPaths.filter((entry) =>
+      entry.pathHash === requestPathHash && entry.status === "ACTIVE"
+    );
+    const replacedDenied = updatedLedger.userDeniedLawPaths.filter((entry) =>
+      entry.pathHash === requestPathHash && entry.status === "MUTED"
+    );
+    const activeApproved = updatedLedger.userApprovedLawPaths.filter((entry) =>
+      entry.pathHash === requestPathHash && entry.status === "ACTIVE"
+    );
 
     assert.equal(activeDenied.length, 0, "expected conflicting deny law to be replaced by the user's newer law");
     assert.equal(replacedDenied.length, 1, "expected previous deny law to remain as replaced history");
@@ -168,9 +176,11 @@ async function main() {
       ],
     });
     const reloadedManualLedger = await loadUserPathLedger();
-    assert.equal(manualLedger.userDeniedLawPaths.length, 1, "expected one manual denied law");
+    const manualEntry = manualLedger.userDeniedLawPaths.find((entry) => entry.id === "UPL-MANUAL-TRACK-001");
+    const reloadedManualEntry = reloadedManualLedger.userDeniedLawPaths.find((entry) => entry.id === "UPL-MANUAL-TRACK-001");
+    assert.ok(manualEntry, "expected manual denied law to be present in runtime ledger");
     assert.ok(
-      reloadedManualLedger.userDeniedLawPaths[0].trackConstraint,
+      reloadedManualEntry?.trackConstraint,
       "expected manual UPL entry to materialize a track from requestBasis",
     );
 
@@ -199,7 +209,7 @@ async function main() {
     console.log(`replaced denied laws: ${replacedDenied.length}`);
     console.log(`active approved laws: ${activeApproved.length}`);
     console.log(`later standing allow admitted: ${allowed.allowed}`);
-    console.log(`manual UPL track materialized: ${!!reloadedManualLedger.userDeniedLawPaths[0].trackConstraint}`);
+    console.log(`manual UPL track materialized: ${!!reloadedManualEntry?.trackConstraint}`);
     console.log(`manual UPL corridor blocked: ${!manualBlocked.allowed}`);
   } finally {
     await saveUserPathLedger(originalLedger);

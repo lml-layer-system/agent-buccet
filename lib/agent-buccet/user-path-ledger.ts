@@ -204,6 +204,36 @@ function normalizeLedger(ledger: BoundaryUserPathLedger): BoundaryUserPathLedger
   };
 }
 
+function entryFingerprint(entry: BoundaryUplEntry): string {
+  return JSON.stringify(normalizeEntry(entry));
+}
+
+function stripBuiltInHeadlessDenialSeed(ledger: BoundaryUserPathLedger): BoundaryUserPathLedger {
+  const normalized = normalizeLedger(ledger);
+  const baseDeniedEntries = getDefaultLedger().userDeniedLawPaths;
+  const baseDeniedFingerprints = new Map(
+    baseDeniedEntries.map((entry) => [entry.id, entryFingerprint(entry)]),
+  );
+
+  return {
+    ...normalized,
+    userDeniedLawPaths: normalized.userDeniedLawPaths.filter((entry) => {
+      const baseFingerprint = baseDeniedFingerprints.get(entry.id);
+      if (!baseFingerprint) {
+        return true;
+      }
+      return entryFingerprint(entry) !== baseFingerprint;
+    }),
+  };
+}
+
+function composeRuntimeLedger(overlayLedger: BoundaryUserPathLedger): BoundaryUserPathLedger {
+  return mergeUserPathLedgers({
+    baseLedger: getDefaultLedger(),
+    overlayLedger,
+  });
+}
+
 export function mergeUserPathLedgers(args: {
   baseLedger: BoundaryUserPathLedger;
   overlayLedger?: BoundaryUserPathLedger | null;
@@ -266,22 +296,22 @@ export async function loadUserPathLedger(): Promise<BoundaryUserPathLedger> {
   try {
     const raw = await fs.readFile(ledgerPath, "utf8");
     const parsed = JSON.parse(raw) as BoundaryUserPathLedger;
-    const normalized = normalizeLedger(parsed);
-    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
-      await writeLedger(normalized);
+    const overlay = stripBuiltInHeadlessDenialSeed(parsed);
+    if (JSON.stringify(parsed) !== JSON.stringify(overlay)) {
+      await writeLedger(overlay);
     }
-    return normalized;
+    return composeRuntimeLedger(overlay);
   } catch {
-    const ledger = getDefaultLedger();
-    await writeLedger(ledger);
-    return ledger;
+    const overlay = createEmptyUserPathLedger();
+    await writeLedger(overlay);
+    return composeRuntimeLedger(overlay);
   }
 }
 
 export async function saveUserPathLedger(ledger: BoundaryUserPathLedger): Promise<BoundaryUserPathLedger> {
-  const normalized = normalizeLedger(ledger);
-  await writeLedger(normalized);
-  return normalized;
+  const overlay = stripBuiltInHeadlessDenialSeed(ledger);
+  await writeLedger(overlay);
+  return composeRuntimeLedger(overlay);
 }
 
 export function listUserPathEntries(ledger: BoundaryUserPathLedger): BoundaryUplEntry[] {

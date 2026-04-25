@@ -4,6 +4,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
 import {
+  createEmptyUserPathLedger,
   DEFAULT_BOUNDARY_LAWS,
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
@@ -139,6 +140,11 @@ async function main() {
     const sessionId = `agent-buccet-release-surface-${Date.now()}`;
     const actorId = "user:release-surface-contract";
     const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl: createEmptyUserPathLedger(),
+      userLawIds: [],
+    });
 
     const { config: scopedConfig } = await openBoundaryPath({
       config: store.getConfig(),
