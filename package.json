@@ -30,8 +30,17 @@
   },
   "files": [
     "lib/",
-    "data/agent-buccet-law-foundation/",
-    "docs/agent-boundary/",
+    "data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json",
+    "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
+    "data/agent-buccet-law-foundation/user-path-ledger.json",
+    "data/agent-buccet-law-foundation/user-path-ledger-spec.json",
+    "data/agent-buccet-law-foundation/data/working/user-path-ledger-spec.json",
+    "docs/agent-boundary/README.md",
+    "docs/agent-boundary/QUICKSTART.md",
+    "docs/agent-boundary/CURRENT_LIMITS.md",
+    "docs/agent-boundary/SECURITY_MODEL.md",
+    "docs/agent-boundary/PUBLIC_PRIVATE_BOUNDARY.md",
+    "docs/agent-boundary/MCP_SERVER.md",
     "LICENSE"
   ],
   "scripts": {

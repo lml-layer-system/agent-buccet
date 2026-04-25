@@ -18,6 +18,21 @@ const releaseDir = path.join(repoRoot, "dist", "releases");
 const sourceRuntimeDir = path.join(repoRoot, "lib", "agent-buccet");
 const sourceDocsDir = path.join(repoRoot, "docs", "agent-boundary");
 const sourceLawFoundationDir = path.join(repoRoot, "data", "agent-buccet-law-foundation");
+const packagedDocs = [
+  "README.md",
+  "QUICKSTART.md",
+  "CURRENT_LIMITS.md",
+  "SECURITY_MODEL.md",
+  "PUBLIC_PRIVATE_BOUNDARY.md",
+  "MCP_SERVER.md",
+] as const;
+const packagedLawFoundationFiles = [
+  "data/working/active-law-body/manifest.json",
+  "data/working/active-law-body/projected-laws.json",
+  "user-path-ledger.json",
+  "user-path-ledger-spec.json",
+  "data/working/user-path-ledger-spec.json",
+] as const;
 const sourceExample = path.join(repoRoot, "scripts", "agent-buccet-e2e.ts");
 const sourceGravityExample = path.join(repoRoot, "scripts", "agent-buccet-gravity-e2e.ts");
 const sourceGravityContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-contract.ts");
@@ -124,6 +139,18 @@ async function copyDir(src: string, dest: string): Promise<void> {
   }
 }
 
+async function copyRelativePath(sourceBaseDir: string, relativePath: string, destBaseDir: string): Promise<void> {
+  const sourcePath = path.join(sourceBaseDir, relativePath);
+  const destPath = path.join(destBaseDir, relativePath);
+  const stats = await fs.stat(sourcePath);
+  if (stats.isDirectory()) {
+    await copyDir(sourcePath, destPath);
+    return;
+  }
+  await mkdirp(path.dirname(destPath));
+  await fs.copyFile(sourcePath, destPath);
+}
+
 async function readPackageVersion(): Promise<string> {
   const raw = await fs.readFile(path.join(repoRoot, "package.json"), "utf8");
   const pkg = JSON.parse(raw) as { version?: string };
@@ -154,12 +181,14 @@ async function computePackageInputHash(): Promise<string> {
   const hash = createHash("sha256");
   const directoryInputs = [
     { rootPath: sourceRuntimeDir, relativeRoot: "lib/agent-buccet" },
-    { rootPath: sourceDocsDir, relativeRoot: "docs/agent-boundary" },
-    { rootPath: sourceLawFoundationDir, relativeRoot: "data/agent-buccet-law-foundation" },
     { rootPath: sourceNativeDir, relativeRoot: "native" },
   ];
   const fileInputs = [
     "package.json",
+    ...packagedDocs.map((relativePath) => path.join("docs/agent-boundary", relativePath).split(path.sep).join("/")),
+    ...packagedLawFoundationFiles.map((relativePath) =>
+      path.join("data/agent-buccet-law-foundation", relativePath).split(path.sep).join("/")
+    ),
     "scripts/prepare-agent-buccet-package.ts",
     "scripts/agent-buccet-package-surface-contract.ts",
     "scripts/install-agent-buccet.sh",
@@ -466,8 +495,10 @@ async function writeExtractionManifest() {
     releaseDir: "dist/releases",
     includes: [
       "src/**/*",
-      "docs/**/*",
-      "data/agent-buccet-law-foundation/**/*",
+      ...packagedDocs.map((relativePath) => path.join("docs", relativePath).split(path.sep).join("/")),
+      ...packagedLawFoundationFiles.map((relativePath) =>
+        path.join("data", "agent-buccet-law-foundation", relativePath).split(path.sep).join("/")
+      ),
       "examples/agent-buccet-e2e.ts",
       "examples/agent-buccet-gravity-e2e.ts",
       "examples/agent-buccet-gravity-contract.ts",
@@ -817,10 +848,16 @@ async function main() {
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
   await rmrf(path.join(outDir, "src", "full-system-body.ts"));
   await rmrf(path.join(outDir, "src", "system-substrate.ts"));
-  await copyDir(sourceDocsDir, path.join(outDir, "docs"));
-  await rmrf(path.join(outDir, "docs", "BUCCET_FULL_SYSTEM_BODY.md"));
-  await rmrf(path.join(outDir, "docs", "BUCCET_SYSTEM_SUBSTRATE.md"));
-  await copyDir(sourceLawFoundationDir, path.join(outDir, "data", "agent-buccet-law-foundation"));
+  for (const relativeDocPath of packagedDocs) {
+    await copyRelativePath(sourceDocsDir, relativeDocPath, path.join(outDir, "docs"));
+  }
+  for (const relativePath of packagedLawFoundationFiles) {
+    await copyRelativePath(
+      sourceLawFoundationDir,
+      relativePath,
+      path.join(outDir, "data", "agent-buccet-law-foundation"),
+    );
+  }
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
   await writePrebuiltNativeHook();
   await writeStandaloneExample();
