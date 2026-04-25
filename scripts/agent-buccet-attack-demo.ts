@@ -36,17 +36,49 @@ function banner(title: string) {
   console.log(line);
 }
 
+const LEGACY_TIME_LAW_ALIASES = new Map<string, string>([
+  ["META.TRUST.01", "TIME.TRUST.01"],
+  ["META.AUTHORITY.01", "TIME.AUTHORITY.01"],
+  ["META.NOVELTY.01", "TIME.NOVELTY.01"],
+  ["META.SCOPE.01", "TIME.SCOPE.01"],
+  ["META.LAW.01", "TIME.LAW.01"],
+  ["META.SESSION.01", "TIME.SESSION.01"],
+  ["META.LEDGER.01", "TIME.LEDGER.01"],
+]);
+
+const DIRECT_TIME_LAW_ALIASES = new Map<string, string>([
+  ["DENY.AUTHORITY.SPOOFING.004C", "TIME.AUTHORITY.01"],
+  ["DENY.BOUNDARY.SCOPE.004L", "TIME.SCOPE.01"],
+  ["DENY.BOUNDARY.LAW.004M", "TIME.LAW.01"],
+  ["DENY.BOUNDARY.LEDGER.004O", "TIME.LEDGER.01"],
+]);
+
 function normalizeLawIdsForDisplay(lawIds: string[]): string[] {
-  return lawIds.map((lawId) =>
-    lawId
-      .replace("META.TRUST.01", "TIME.TRUST.01")
-      .replace("META.AUTHORITY.01", "TIME.AUTHORITY.01")
-      .replace("META.NOVELTY.01", "TIME.NOVELTY.01")
-      .replace("META.SCOPE.01", "TIME.SCOPE.01")
-      .replace("META.LAW.01", "TIME.LAW.01")
-      .replace("META.SESSION.01", "TIME.SESSION.01")
-      .replace("META.LEDGER.01", "TIME.LEDGER.01"),
-  );
+  const displayLawIds: string[] = [];
+  const seen = new Set<string>();
+
+  function addLawId(lawId: string) {
+    if (seen.has(lawId)) {
+      return;
+    }
+    seen.add(lawId);
+    displayLawIds.push(lawId);
+  }
+
+  for (const lawId of lawIds) {
+    const displayAlias = LEGACY_TIME_LAW_ALIASES.get(lawId) ?? DIRECT_TIME_LAW_ALIASES.get(lawId);
+    if (displayAlias) {
+      addLawId(displayAlias);
+      addLawId(lawId);
+      continue;
+    }
+    if (lawId.startsWith("BUCCET.TIME.")) {
+      continue;
+    }
+    addLawId(lawId);
+  }
+
+  return displayLawIds;
 }
 
 function hasDisplayedLaw(lawIds: string[], expectedLawId: string): boolean {
@@ -177,7 +209,11 @@ async function main() {
       flags: { requestsLedgerBypass: true },
     },
   });
-  result("fs.write with requestsLedgerBypass=true", ledgerEval.decision, ledgerEval.lawIds);
+  result(
+    "fs.write with requestsLedgerBypass=true",
+    ledgerEval.decision,
+    ledgerEval.lawIds,
+  );
   assert(ledgerEval.decision === "deny", "ledger bypass must be denied");
   assert(hasDisplayedLaw(ledgerEval.lawIds, "TIME.LEDGER.01"), "TIME.LEDGER.01 must fire");
 
@@ -185,7 +221,7 @@ async function main() {
   // Pattern: A tool's output contains injected instructions that cause the
   // agent to attempt a high-risk action (delete, exec, network send) on behalf
   // of those instructions. The tool_output provenance is untrusted.
-  banner("Attack 5 — Tool Output Escalation (TIME.TRUST.01)");
+  banner("Attack 5 — Tool Output Escalation (destructive wall)");
   console.log("  Attack: tool output contains injected instruction to delete files.");
   console.log("  Vector: tool_output provenance + fs.delete (high-risk action).");
 
@@ -200,13 +236,13 @@ async function main() {
     },
   });
   result("fs.delete from tool_output provenance", trustEval.decision, trustEval.lawIds);
-  // TIME.TRUST.01 still fires, but BOUNDARY.DELETE.01 now hard-denies delete.
-  // The delete cannot execute at all without a pre-authored standing law override.
+  // The destructive delete wall denies before any softer trust/approval path matters.
+  // This is stronger than holding the action for approval.
   assert(
     trustEval.decision === "deny",
     "untrusted high-risk delete must be denied",
   );
-  assert(hasDisplayedLaw(trustEval.lawIds, "TIME.TRUST.01"), "TIME.TRUST.01 must fire");
+  assert(trustEval.lawIds.includes("DENY.DESTRUCTIVE.DELETE.009C"), "DENY.DESTRUCTIVE.DELETE.009C must fire");
 
   // ── Attack 6: Multi-flag Compound Attack ──────────────────────────────────
   // Pattern: Sophisticated attack sets multiple flags simultaneously — claiming
@@ -271,7 +307,7 @@ async function main() {
   console.log("    TIME.SCOPE.01     — scope expansion from prompt is denied");
   console.log("    TIME.LAW.01       — law mutation from prompt is denied");
   console.log("    TIME.LEDGER.01    — ledger bypass from prompt is denied");
-  console.log("    TIME.TRUST.01     — untrusted high-risk actions require approval");
+  console.log("    DENY.DESTRUCTIVE.DELETE.009C — destructive delete is denied outright");
   console.log();
   console.log("  Agents can propose. They cannot authorize.");
     console.log();
