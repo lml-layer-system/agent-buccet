@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import { BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS } from "../lib/agent-buccet/buccet-law-body-denial-catalog.ts";
 import { loadAgentBuccetRuntimeMuscle } from "../lib/agent-buccet/foundation.ts";
 import { loadUserPathLedger } from "../lib/agent-buccet/user-path-ledger.ts";
 import { substrate } from "../lib/agent-buccet/substrate-rust.ts";
@@ -8,7 +9,9 @@ import { substrate } from "../lib/agent-buccet/substrate-rust.ts";
 const repoRoot = process.cwd();
 
 const ACTIVE_LAW_BODY_MANIFEST = "data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json";
-const ACTIVE_LAW_BODY = "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json";
+const ACTIVE_LAW_BODY_SOURCE = "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json";
+const ACTIVE_RUNTIME_MUSCLE = "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json";
+const ACTIVE_DENIAL_CATALOG_SNAP = "data/agent-buccet-law-foundation/data/working/active-law-body/denial-catalog-snap.json";
 const USER_PATH_LEDGER = "data/agent-buccet-law-foundation/user-path-ledger.json";
 const RUST_SUBSTRATE_BG = "native/buccet-substrate-rust/pkg/buccet_substrate_bg.js";
 const RUST_SUBSTRATE_WASM = "native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm";
@@ -19,6 +22,8 @@ const NATIVE_DEEP_INTERCEPT_BUILD = "native/deep-intercept/build.sh";
 
 const HOT_MODULES = [
   "lib/agent-buccet/foundation.ts",
+  "lib/agent-buccet/buccet-law-body-denial-catalog.ts",
+  "lib/agent-buccet/headless-base-denials.ts",
   "lib/agent-buccet/user-path-ledger.ts",
   "lib/agent-buccet/substrate-rust.ts",
   "lib/agent-buccet/process.ts",
@@ -45,7 +50,9 @@ async function read(relativePath: string): Promise<string> {
 async function main() {
   const snappedInputs = [
     ACTIVE_LAW_BODY_MANIFEST,
-    ACTIVE_LAW_BODY,
+    ACTIVE_LAW_BODY_SOURCE,
+    ACTIVE_RUNTIME_MUSCLE,
+    ACTIVE_DENIAL_CATALOG_SNAP,
     USER_PATH_LEDGER,
     RUST_SUBSTRATE_BG,
     RUST_SUBSTRATE_WASM,
@@ -76,8 +83,20 @@ async function main() {
 
   const foundationSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/foundation.ts")?.source ?? "";
   assert.match(foundationSource, /active-law-body/, "foundation should load runtime from active law body");
-  assert.match(foundationSource, /manifest\.json/, "foundation should load the active law body manifest");
-  assert.match(foundationSource, /projected-laws\.json/, "foundation should load the active law body rows");
+  assert.doesNotMatch(foundationSource, /projected-laws\.json/, "foundation should not hot-load the rich active law rows");
+  assert.match(foundationSource, /runtime-muscle\.json/, "foundation should load the snapped runtime muscle artifact");
+
+  const denialCatalogSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/buccet-law-body-denial-catalog.ts")?.source ?? "";
+  assert.doesNotMatch(
+    denialCatalogSource,
+    /projected-laws\.json/,
+    "law-body denial catalog should not hot-load the rich active law rows",
+  );
+  assert.match(
+    denialCatalogSource,
+    /denial-catalog-snap\.json/,
+    "law-body denial catalog should load the snapped denial catalog artifact",
+  );
 
   const ledgerSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/user-path-ledger.ts")?.source ?? "";
   assert.match(ledgerSource, /user-path-ledger\.json/, "UPL runtime should anchor to the live user-path ledger");
@@ -104,10 +123,19 @@ async function main() {
   const runtimeMuscle = await loadAgentBuccetRuntimeMuscle();
   assert.equal(
     runtimeMuscle.manifest.artifactPaths.substrate,
-    ACTIVE_LAW_BODY,
-    "runtime muscle should derive from the snapped active law body artifact",
+    ACTIVE_RUNTIME_MUSCLE,
+    "runtime muscle should anchor to the snapped runtime-muscle artifact",
+  );
+  assert.equal(
+    runtimeMuscle.manifest.artifactPaths.activeLawBodySource,
+    ACTIVE_LAW_BODY_SOURCE,
+    "runtime muscle should retain lineage back to the rich active law source",
   );
   assert.ok(runtimeMuscle.activeLawIds.length > 0, "runtime muscle should load active law ids from the snapped law body");
+  assert.ok(
+    BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS.length > 8000,
+    "runtime should load the snapped law-body denial catalog",
+  );
 
   const ledger = await loadUserPathLedger();
   assert.ok(
@@ -120,8 +148,10 @@ async function main() {
 
   console.log("Agent Buccet runtime surface contract");
   console.log(`  run-surface law manifest:     ${ACTIVE_LAW_BODY_MANIFEST}`);
-  console.log(`  run-surface law body:         ${ACTIVE_LAW_BODY}`);
+  console.log(`  run-surface law muscle:       ${ACTIVE_RUNTIME_MUSCLE}`);
+  console.log(`  run-surface denial catalog:   ${ACTIVE_DENIAL_CATALOG_SNAP}`);
   console.log(`  run-surface UPL ledger:       ${USER_PATH_LEDGER}`);
+  console.log(`  read-surface law source:      ${ACTIVE_LAW_BODY_SOURCE}`);
   console.log(`  run-surface physwrap lane:    ${PHYSWRAP_BUILD_SCRIPT}`);
   console.log(`  run-surface physwrap source:  ${PHYSWRAP_SOURCE}`);
   console.log(`  run-surface hook source:      ${NATIVE_DEEP_INTERCEPT_DIR}`);

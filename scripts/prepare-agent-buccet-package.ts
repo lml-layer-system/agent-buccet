@@ -28,7 +28,8 @@ const packagedDocs = [
 ] as const;
 const packagedLawFoundationFiles = [
   "data/working/active-law-body/manifest.json",
-  "data/working/active-law-body/projected-laws.json",
+  "data/working/active-law-body/runtime-muscle.json",
+  "data/working/active-law-body/denial-catalog-snap.json",
   "user-path-ledger.json",
   "user-path-ledger-spec.json",
   "data/working/user-path-ledger-spec.json",
@@ -189,7 +190,11 @@ async function computePackageInputHash(): Promise<string> {
     ...packagedLawFoundationFiles.map((relativePath) =>
       path.join("data/agent-buccet-law-foundation", relativePath).split(path.sep).join("/")
     ),
+    "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
     "scripts/prepare-agent-buccet-package.ts",
+    "scripts/agent-buccet-runtime-snap-shared.ts",
+    "scripts/render-agent-buccet-runtime-snaps.ts",
+    "scripts/agent-buccet-runtime-snap-contract.ts",
     "scripts/agent-buccet-package-surface-contract.ts",
     "scripts/install-agent-buccet.sh",
     "scripts/install-agent-buccet-hosted.sh",
@@ -829,6 +834,7 @@ async function writeReleaseArtifacts(version: string, witness: BoundaryReleaseWi
 async function main() {
   const skipVerification = process.env.AGENT_BUCCET_PACKAGE_SKIP_VERIFY === "1";
   const version = await readPackageVersion();
+  await runCommand("node", ["scripts/render-agent-buccet-runtime-snaps.ts"], repoRoot);
   const inputHash = await computePackageInputHash();
   if (await packageArtifactsAreFresh(inputHash, version)) {
     console.log(`Agent Buccet package already current at ${outDir}`);

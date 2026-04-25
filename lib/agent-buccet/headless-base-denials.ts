@@ -309,7 +309,7 @@ function createBuccetLawBodySeeds(): BaseHeadlessDenialSeed[] {
   return BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS.map((row) => ({
     id: `DENY.BUCCET.BASE.${row.projectedLawId}`,
     denialClass: "buccet_law_body",
-    reason: `${row.projectedLawId} — ${row.projectedText}`,
+    reason: `${row.projectedLawId} — active law-body denial`,
     actionKinds: allTrackSurfaceKinds,
     requestTextPatterns: toCatalogRequestTextPatterns([row.projectedLawId]),
     requestBasisTarget: `base-headless-denials:buccet-base:${row.projectedLawId.toLowerCase()}`,

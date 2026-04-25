@@ -4,28 +4,13 @@ import { fileURLToPath } from "node:url";
 
 export type BuccetLawBodyDenialCatalogRow = {
   projectedLawId: string;
-  sourceLawId: string;
-  familyId: string;
-  familyTitle: string;
-  kind: string;
-  layer: string;
-  layerTitle: string;
-  runtimeSection: string;
-  corpusPartition: "base" | "time";
-  projectedText: string;
 };
 
-type RawProjectedLawRow = {
-  projectedLawId?: string;
-  sourceLawId?: string;
-  familyId?: string;
-  familyTitle?: string;
-  kind?: string;
-  layer?: string;
-  layerTitle?: string;
-  runtimeSection?: string;
-  corpusPartition?: string;
-  projectedText?: string;
+type DenialCatalogSnap = {
+  generatedAt?: string;
+  sourceSha256?: string;
+  sourceArtifactPath?: string;
+  lawIds?: string[];
 };
 
 function loadProjectedLawRows(): BuccetLawBodyDenialCatalogRow[] {
@@ -33,31 +18,22 @@ function loadProjectedLawRows(): BuccetLawBodyDenialCatalogRow[] {
   const candidates = [
     path.resolve(
       moduleDir,
-      "../data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
+      "../data/agent-buccet-law-foundation/data/working/active-law-body/denial-catalog-snap.json",
     ),
     path.resolve(
       moduleDir,
-      "../../data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
+      "../../data/agent-buccet-law-foundation/data/working/active-law-body/denial-catalog-snap.json",
     ),
   ];
   const sourcePath = candidates.find((candidate) => fs.existsSync(candidate));
   if (!sourcePath) {
-    throw new Error("unable to locate projected-laws.json for Buccet law-body denial catalog");
+    throw new Error("unable to locate denial-catalog-snap.json for Buccet law-body denial catalog");
   }
   const raw = fs.readFileSync(sourcePath, "utf8");
-  const parsed = JSON.parse(raw) as RawProjectedLawRow[];
+  const parsed = JSON.parse(raw) as DenialCatalogSnap;
 
-  return parsed.map((row, index) => ({
-    projectedLawId: row.projectedLawId ?? `BUCCET.UNKNOWN.LAW.${index + 1}`,
-    sourceLawId: row.sourceLawId ?? `SOURCE-UNKNOWN-${index + 1}`,
-    familyId: row.familyId ?? "BUCCET.UNKNOWN.FAMILY",
-    familyTitle: row.familyTitle ?? "Unknown Buccet Family",
-    kind: row.kind ?? "unknown",
-    layer: row.layer ?? "UNKNOWN",
-    layerTitle: row.layerTitle ?? "Unknown",
-    runtimeSection: row.runtimeSection ?? "Unknown Runtime Section",
-    corpusPartition: row.corpusPartition === "time" ? "time" : "base",
-    projectedText: row.projectedText ?? row.familyTitle ?? `Buccet law ${index + 1}`,
+  return (parsed.lawIds ?? []).map((lawId, index) => ({
+    projectedLawId: lawId || `BUCCET.UNKNOWN.LAW.${index + 1}`,
   }));
 }
 

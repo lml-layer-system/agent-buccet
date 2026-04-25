@@ -71,6 +71,18 @@ async function main() {
   assert.equal(installSnap, true, "standalone package should carry install snap summary");
   const installSnapJson = await fs.access(path.join(packagedRoot, "SNAP_INSTALL.json")).then(() => true).catch(() => false);
   assert.equal(installSnapJson, true, "standalone package should carry machine-readable install snap summary");
+  const packagedRuntimeMuscle = await fs.access(
+    path.join(packagedRoot, "data", "agent-buccet-law-foundation", "data", "working", "active-law-body", "runtime-muscle.json"),
+  ).then(() => true).catch(() => false);
+  assert.equal(packagedRuntimeMuscle, true, "standalone package should carry the snapped runtime-muscle artifact");
+  const packagedDenialCatalogSnap = await fs.access(
+    path.join(packagedRoot, "data", "agent-buccet-law-foundation", "data", "working", "active-law-body", "denial-catalog-snap.json"),
+  ).then(() => true).catch(() => false);
+  assert.equal(packagedDenialCatalogSnap, true, "standalone package should carry the snapped denial catalog artifact");
+  const packagedProjectedLawSource = await fs.access(
+    path.join(packagedRoot, "data", "agent-buccet-law-foundation", "data", "working", "active-law-body", "projected-laws.json"),
+  ).then(() => true).catch(() => false);
+  assert.equal(packagedProjectedLawSource, false, "standalone package should not ship the rich active law source body");
   const packagedRustSubstrate = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "Cargo.toml")).then(() => true).catch(() => false);
   assert.equal(packagedRustSubstrate, true, "standalone package should carry the vendored Buccet Rust substrate");
   const packagedRustWasm = await fs.access(path.join(packagedRoot, "native", "buccet-substrate-rust", "pkg", "buccet_substrate_bg.wasm")).then(() => true).catch(() => false);
@@ -105,6 +117,7 @@ async function main() {
   console.log("  buccet bin: wired");
   console.log("  release shell: present");
   console.log("  install snap summary: present");
+  console.log(`  snapped runtime artifacts: ${packagedRuntimeMuscle && packagedDenialCatalogSnap ? "present" : "missing"}`);
   console.log(`  packaged rust substrate: ${packagedRustSubstrate ? "present" : "missing"}`);
   console.log(`  packaged rust wasm bridge: ${packagedRustWasm && packagedRustAdapter && packagedRustLiveBridge ? "present" : "missing"}`);
   console.log(`  packaged native hook freshness: ${packagedNativeHook ? "enforced" : "skipped (no prebuilt hook on this machine)"}`);
