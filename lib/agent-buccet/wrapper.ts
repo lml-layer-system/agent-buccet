@@ -8,8 +8,10 @@ import { sendBoundaryInterceptServerInput } from "./system-intercept.ts";
 import { createPersistentBoundaryRuntimeStore, restoreBoundaryRuntimeStore } from "./store.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import type {
+  BoundaryActionRequest,
   BoundaryLaw,
   BoundaryRequestProvenance,
+  BoundaryReviewContext,
 } from "./types.ts";
 
 function commandTarget(command: string): string {
@@ -109,6 +111,12 @@ export async function runBoundaryWrappedCommand(args: {
   dryRun?: boolean;
   keepSession?: boolean;
   provenance?: BoundaryRequestProvenance;
+  payloadSummary?: string;
+  flags?: BoundaryActionRequest["flags"];
+  reviewContext?: BoundaryReviewContext;
+  successReason?: string;
+  dryRunPreviewReason?: string;
+  successMetadata?: Record<string, string | number | boolean>;
 }): Promise<{ exitCode: number; sessionId: string }> {
   const target = commandTarget(args.command);
   const wrapperLaws = createWrapperExecLaws(target);
@@ -195,16 +203,18 @@ export async function runBoundaryWrappedCommand(args: {
     proposal: {
       actionKind: "tool.exec",
       target,
-      payloadSummary: `spawn:${[args.command, ...args.commandArgs].join(" ")}`,
+      payloadSummary: args.payloadSummary ?? `spawn:${[args.command, ...args.commandArgs].join(" ")}`,
       provenance: args.provenance ?? "trusted_user",
-      reviewContext: {
+      flags: args.flags,
+      reviewContext: args.reviewContext ?? {
         surface: "action",
         title: "Would you like to run the following command?",
         question: "Does this command match your intent?",
         attemptLines: buildCommandAttemptLines(args.command, args.commandArgs),
       },
-      successReason: "wrapper launched explicitly granted command",
-      successMetadata: {
+      successReason: args.successReason ?? "wrapper launched explicitly granted command",
+      dryRunPreviewReason: args.dryRunPreviewReason,
+      successMetadata: args.successMetadata ?? {
         wrapper: true,
       },
       execute: async () => {

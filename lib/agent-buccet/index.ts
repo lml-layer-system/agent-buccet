@@ -41,6 +41,7 @@ export * from "./system-intercept.ts";
 export * from "./swarm.ts";
 export * from "./process.ts";
 export * from "./secrets-boundary.ts";
+export * from "./entry-doors.ts";
 export * from "./shed.ts";
 export * from "./quarantine.ts";
 export * from "./wrapper.ts";

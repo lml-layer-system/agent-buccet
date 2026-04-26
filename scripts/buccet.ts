@@ -7,6 +7,12 @@ import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import {
+  createBoundaryHostAttachPlan,
+  inferBoundaryToolDoorSignals,
+  mergeBoundaryHostConfig,
+  type BoundaryHostKind,
+} from "../lib/agent-buccet/entry-doors.ts";
 import type {
   BoundaryActionKind,
   BoundaryUplLineage,
@@ -312,6 +318,9 @@ function usage(): never {
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
+    "  buccet host attach <claude-desktop|cursor|vscode> [--project <path>] [--name <server-name>] [--command <path>] [--write] [--json]",
+    "  buccet git [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] [-- <git args...>]",
+    "  buccet gh [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] [-- <gh args...>]",
     "  buccet swarm list [--json]",
     "  buccet swarm mode [interactive|standing-law] [--json]",
     "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
@@ -6732,6 +6741,253 @@ async function handleMcp(rest: string[]) {
   }
 }
 
+function isBoundaryHostKind(value: string | undefined): value is BoundaryHostKind {
+  return value === "claude-desktop" || value === "cursor" || value === "vscode";
+}
+
+async function handleHost(rest: string[]) {
+  const subcommand = rest[0];
+  if (subcommand !== "attach") {
+    usage();
+  }
+
+  const host = rest[1];
+  if (!isBoundaryHostKind(host)) {
+    usage();
+  }
+
+  let projectPath: string | undefined;
+  let serverName: string | undefined;
+  let commandPath: string | undefined;
+  let write = false;
+  let json = false;
+
+  for (let index = 2; index < rest.length; index += 1) {
+    const token = rest[index];
+    if (token === "--project") {
+      projectPath = path.resolve(resolveCallerCwd(), rest[index + 1] ?? usage());
+      index += 1;
+      continue;
+    }
+    if (token === "--name") {
+      serverName = rest[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--command") {
+      commandPath = rest[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--write") {
+      write = true;
+      continue;
+    }
+    if (token === "--json") {
+      json = true;
+      continue;
+    }
+    usage();
+  }
+
+  const plan = createBoundaryHostAttachPlan({
+    host,
+    projectPath,
+    serverName,
+    commandPath,
+    env: process.env,
+  });
+
+  const nextConfig = write
+    ? await mergeBoundaryHostConfig({
+        configPath: plan.configPath,
+        fragment: plan.config,
+      })
+    : plan.config;
+
+  if (write) {
+    await ensureDir(path.dirname(plan.configPath));
+    await fs.writeFile(plan.configPath, `${JSON.stringify(nextConfig, null, 2)}\n`, "utf8");
+  }
+
+  const result = {
+    host: plan.host,
+    configPath: plan.configPath,
+    serverName: plan.serverName,
+    command: plan.command,
+    args: plan.args,
+    wrote: write,
+    config: nextConfig,
+  };
+
+  if (json) {
+    printJson(result);
+    return;
+  }
+
+  console.log(`Buccet host attach`);
+  console.log(`host: ${plan.host}`);
+  console.log(`config: ${plan.configPath}`);
+  console.log(`command: ${plan.command} ${plan.args.join(" ")}`);
+  console.log(write ? `status: wrote config` : `status: preview only (use --write to install)`);
+}
+
+async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  const callerCwd = resolveCallerCwd();
+  const boundary = await importBoundary(homePath);
+
+  let dryRun = false;
+  let sessionId: string | undefined;
+  let actorId: string | undefined;
+  let requestedCwd: string | undefined;
+  const extraScopes: string[] = [];
+
+  const separatorIndex = rest.indexOf("--");
+  const optionArgs = separatorIndex === -1 ? [] : rest.slice(0, separatorIndex);
+  const commandArgs = separatorIndex === -1 ? rest : rest.slice(separatorIndex + 1);
+  if (commandArgs.length === 0) {
+    usage();
+  }
+
+  for (let index = 0; index < optionArgs.length; index += 1) {
+    const token = optionArgs[index];
+    if (token === "--scope") {
+      extraScopes.push(path.resolve(callerCwd, optionArgs[index + 1] ?? usage()));
+      index += 1;
+      continue;
+    }
+    if (token === "--cwd") {
+      requestedCwd = path.resolve(callerCwd, optionArgs[index + 1] ?? usage());
+      index += 1;
+      continue;
+    }
+    if (token === "--session-id") {
+      sessionId = optionArgs[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--actor-id") {
+      actorId = optionArgs[index + 1] ?? usage();
+      index += 1;
+      continue;
+    }
+    if (token === "--dry-run") {
+      dryRun = true;
+      continue;
+    }
+    usage();
+  }
+
+  const existingConfig = await loadConfig(home.configPath);
+  const config = existingConfig ?? baseConfig({
+    sessionId: sessionId ?? "agent-buccet-default",
+    actorId: actorId ?? defaultActorId(),
+    defaultScopes: [callerCwd],
+    dryRun,
+  });
+  const nextConfig: BuccetConfig = {
+    ...config,
+    sessionId: sessionId ?? config.sessionId,
+    actorId: actorId ?? config.actorId,
+    dryRun: dryRun || config.dryRun,
+    defaultScopes: uniquePaths([...config.defaultScopes, ...extraScopes, callerCwd]),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await assertNoActiveQuarantine({
+    boundary,
+    sessionId: nextConfig.sessionId,
+    sessionsDir: home.sessionsDir,
+  });
+
+  await saveConfig(home.configPath, nextConfig);
+  await ensureRuntimeUplAutoSync({
+    boundary,
+    home,
+    config: nextConfig,
+  });
+  const store = await ensureStore(boundary, {
+    config: nextConfig,
+    sessionsDir: home.sessionsDir,
+  });
+  await ensureScopes(boundary, {
+    store,
+    scopePaths: nextConfig.defaultScopes,
+    actorId: nextConfig.actorId,
+  });
+  await store.persist();
+
+  if (!(await pathExists(home.nativeLibraryPath))) {
+    await handleHook(["build", "--quiet"]);
+  }
+  const hookHealth = await getHookRuntimeHealth(boundary, home);
+  if (!hookHealth.healthy) {
+    await handleHook(["start", "--quiet"]);
+  }
+  await waitForHookRuntimeHealthy(boundary, home);
+
+  const hookEnv = {
+    AGENT_BUCCET_HOME: home.homePath,
+    AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+    BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+    BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
+    ...(process.platform === "darwin"
+      ? {
+          DYLD_INSERT_LIBRARIES: home.nativeLibraryPath,
+          DYLD_FORCE_FLAT_NAMESPACE: "1",
+        }
+      : {
+          LD_PRELOAD: home.nativeLibraryPath,
+        }),
+  };
+
+  const doorSignals = await inferBoundaryToolDoorSignals({
+    config: store.getConfig(),
+    toolName,
+    commandArgs,
+    cwd: requestedCwd ?? callerCwd,
+  });
+
+  const runResult = await boundary.runBoundaryWrappedCommand({
+    sessionId: nextConfig.sessionId,
+    actorId: nextConfig.actorId,
+    command: toolName,
+    commandArgs,
+    scopePaths: uniquePaths(
+      store.getConfig().pathLaws.filter((law) => !law.revokedAt).map((law) => law.rootPath),
+    ),
+    sessionsDir: home.sessionsDir,
+    keepSession: true,
+    dryRun: nextConfig.dryRun,
+    cwd: requestedCwd ?? callerCwd,
+    provenance: "trusted_user",
+    env: hookEnv,
+    payloadSummary: doorSignals.payloadSummary,
+    flags: doorSignals.flags,
+    reviewContext: {
+      surface: "action",
+      title: toolName === "git"
+        ? "Would you like to run the following git command?"
+        : "Would you like to run the following GitHub command?",
+      question: "Does this command match your intent?",
+      attemptLines: [
+        `$ ${toolName}${commandArgs.length > 0 ? ` ${commandArgs[0]}` : ""}`,
+        ...commandArgs.slice(1).map((arg) => `  ${arg}`),
+      ],
+      ...(doorSignals.reviewContext ?? {}),
+    },
+    successReason: `${toolName} command executed inside boundary runtime`,
+    successMetadata: {
+      entry_surface: toolName === "git" ? "git_door" : "github_door",
+    },
+  });
+
+  console.log(`exit code: ${runResult.exitCode}`);
+  process.exitCode = runResult.exitCode;
+}
+
 async function handleHook(rest: string[]) {
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
@@ -8443,6 +8699,18 @@ async function main() {
   }
   if (parsed.command === "mcp") {
     await handleMcp(parsed.rest);
+    return;
+  }
+  if (parsed.command === "host") {
+    await handleHost(parsed.rest);
+    return;
+  }
+  if (parsed.command === "git") {
+    await handleToolDoor("git", parsed.rest);
+    return;
+  }
+  if (parsed.command === "gh") {
+    await handleToolDoor("gh", parsed.rest);
     return;
   }
   if (parsed.command === "swarm") {
