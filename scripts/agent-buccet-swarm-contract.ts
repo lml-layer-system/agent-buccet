@@ -10,7 +10,10 @@ import {
   readBoundaryLedgerBySession,
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
+  type BoundaryInterceptSwarmGroup,
 } from "../lib/agent-buccet/index.ts";
+
+type SwarmStatusOutput = Extract<BoundaryInterceptDaemonOutput, { type: "swarm_status" }>;
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
@@ -18,30 +21,10 @@ async function wait(ms: number) {
 
 async function waitForSwarmStatus(args: {
   target: { socketPath: string };
-  predicate: (status: {
-    type: string;
-    totals: { pending: number; waitingMembers: number };
-    groups: Array<{
-      groupId: string;
-      target: string;
-      waitingCount: number;
-      memberCount: number;
-    }>;
-  }) => boolean;
+  predicate: (status: SwarmStatusOutput) => boolean;
   label: string;
 }) {
-  let lastStatus:
-    | {
-        type: string;
-        totals: { pending: number; waitingMembers: number };
-        groups: Array<{
-          groupId: string;
-          target: string;
-          waitingCount: number;
-          memberCount: number;
-        }>;
-      }
-    | undefined;
+  let lastStatus: SwarmStatusOutput | undefined;
 
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const status = await sendBoundaryInterceptServerInput({
@@ -59,6 +42,12 @@ async function waitForSwarmStatus(args: {
   }
 
   throw new Error(`timed out waiting for ${args.label}: ${JSON.stringify(lastStatus)}`);
+}
+
+function requireSwarmGroup(status: SwarmStatusOutput, target: string): BoundaryInterceptSwarmGroup {
+  const group = status.groups.find((entry) => entry.target === target);
+  assert.ok(group, `expected swarm group for ${target}`);
+  return group;
 }
 
 async function main() {
@@ -110,6 +99,34 @@ async function main() {
   assert.equal(ready, true, `intercept server should be ready\n${stderr}`);
 
   const sharedTarget = path.join(tempRoot, "shared.txt");
+  const sharedSwarm = {
+    action: "integrate",
+    actorRole: "coding",
+    readiness: "dependency_ready" as const,
+    intent: {
+      goal: "ship shared file change",
+    },
+    ownership: {
+      primaryOwner: "coding",
+      reviewer: "review",
+    },
+    handoff: {
+      sender: "planner",
+      receiver: "coding",
+      artifactId: "artifact-shared",
+      readiness: "dependency_ready" as const,
+      version: "v1",
+      allowedUse: ["integrate"],
+      requiredValidation: ["tests"],
+      nextAction: "integrate",
+    },
+    completedValidation: ["tests"],
+    cost: {
+      unitsConsumed: 2,
+      unitCap: 10,
+      unit: "tokens",
+    },
+  };
   const firstRequest = sendBoundaryInterceptServerInput({
     target,
     input: {
@@ -117,6 +134,7 @@ async function main() {
       operation: "write",
       target: sharedTarget,
       payloadSummary: "pid=1001 agent=one",
+      swarm: sharedSwarm,
     },
   });
   const secondRequest = sendBoundaryInterceptServerInput({
@@ -126,6 +144,7 @@ async function main() {
       operation: "write",
       target: sharedTarget,
       payloadSummary: "pid=1002 agent=two",
+      swarm: sharedSwarm,
     },
   });
 
@@ -135,17 +154,29 @@ async function main() {
     predicate: (status) =>
       status.totals.pending === 1
       && status.totals.waitingMembers === 2
-      && status.groups.some((group) => group.target === sharedTarget && group.waitingCount >= 2),
+      && status.groups.some((group) =>
+        group.target === sharedTarget
+        && group.waitingCount >= 2
+        && group.path === "green"
+        && group.swarmAction === "integrate"
+        && group.readiness === "dependency_ready"),
   });
   assert.equal(swarmStatus.totals.pending, 1, "expected one pending swarm group");
   assert.equal(swarmStatus.totals.waitingMembers, 2, "expected two waiting swarm members");
   assert.equal(swarmStatus.groups.length >= 1, true, "expected at least one tracked group");
 
-  const pendingGroup = swarmStatus.groups.find((group) => group.target === sharedTarget);
-  assert.ok(pendingGroup, "expected shared swarm target group");
+  const pendingGroup = requireSwarmGroup(swarmStatus, sharedTarget);
   assert.equal(pendingGroup.target, sharedTarget);
   assert.equal(pendingGroup.waitingCount >= 2, true);
   assert.equal(pendingGroup.memberCount >= 2, true);
+  assert.equal(pendingGroup.path, "green");
+  assert.equal(pendingGroup.swarmAction, "integrate");
+  assert.equal(pendingGroup.actorRole, "coding");
+  assert.equal(pendingGroup.readiness, "dependency_ready");
+  assert.equal(pendingGroup.intent?.goal, "ship shared file change");
+  assert.equal(pendingGroup.ownership?.primaryOwner, "coding");
+  assert.equal(pendingGroup.handoff?.artifactId, "artifact-shared");
+  assert.equal(pendingGroup.cost?.unit, "tokens");
 
   const approve = await sendBoundaryInterceptServerInput({
     target,
@@ -179,6 +210,126 @@ async function main() {
   );
   assert.ok(swarmApproval, "expected swarm approval entry in ledger");
 
+  const readinessDenied = await sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      actionClass: "file",
+      operation: "write",
+      target: path.join(tempRoot, "readiness-denied.txt"),
+      payloadSummary: "pid=1003 agent=deploy",
+      swarm: {
+        action: "deploy",
+        actorRole: "deployment",
+        readiness: "draft",
+        intent: { goal: "ship the release" },
+      },
+    },
+  });
+  assert.equal(readinessDenied.type, "decision");
+  assert.equal(readinessDenied.decision, "deny");
+  assert.equal(readinessDenied.lawIds.includes("SWARM.READINESS.DENIED"), true);
+
+  const handoffDenied = await sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      actionClass: "file",
+      operation: "write",
+      target: path.join(tempRoot, "handoff-denied.txt"),
+      payloadSummary: "pid=1004 agent=security",
+      swarm: {
+        action: "deploy",
+        actorRole: "security",
+        readiness: "globally_ready",
+        intent: { goal: "ship the release" },
+        handoff: {
+          sender: "coding",
+          receiver: "deployment",
+          artifactId: "artifact-release",
+          readiness: "globally_ready",
+          version: "v3",
+          allowedUse: ["deploy"],
+          nextAction: "deploy",
+        },
+      },
+    },
+  });
+  assert.equal(handoffDenied.type, "decision");
+  assert.equal(handoffDenied.decision, "deny");
+  assert.equal(handoffDenied.lawIds.includes("SWARM.HANDOFF.RECEIVER_MISMATCH"), true);
+
+  const costDenied = await sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      actionClass: "file",
+      operation: "write",
+      target: path.join(tempRoot, "cost-denied.txt"),
+      payloadSummary: "pid=1005 agent=budget",
+      swarm: {
+        action: "integrate",
+        actorRole: "coding",
+        readiness: "dependency_ready",
+        intent: { goal: "ship the patch" },
+        cost: {
+          unitsConsumed: 5,
+          unitCap: 5,
+          unit: "tokens",
+        },
+      },
+    },
+  });
+  assert.equal(costDenied.type, "decision");
+  assert.equal(costDenied.decision, "deny");
+  assert.equal(costDenied.lawIds.includes("SWARM.COST.CAP_EXCEEDED"), true);
+
+  const purpleTarget = path.join(tempRoot, "intent-purple.txt");
+  const purpleRequest = sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      actionClass: "file",
+      operation: "write",
+      target: purpleTarget,
+      payloadSummary: "pid=1006 agent=purple",
+      swarm: {
+        action: "integrate",
+        actorRole: "coding",
+        readiness: "dependency_ready",
+        intent: { goal: "   " },
+      },
+    },
+  });
+
+  const purpleStatus = await waitForSwarmStatus({
+    target,
+    label: "purple intent clarification queue",
+    predicate: (status) =>
+      status.totals.pending === 1
+      && status.groups.some((group) =>
+        group.target === purpleTarget
+        && group.state === "waiting"
+        && group.path === "purple"),
+  });
+  const purpleGroup = requireSwarmGroup(purpleStatus, purpleTarget);
+  assert.equal(purpleGroup.path, "purple");
+  assert.equal(purpleGroup.lawIds.includes("SWARM.INTENT.UNDERSPECIFIED"), true);
+
+  const purpleDeny = await sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      command: "swarm_deny",
+      groupId: purpleGroup.groupId,
+      deniedBy: "user:swarm-contract",
+      reason: "intent stayed underspecified",
+      asLaw: false,
+    },
+  });
+  assert.equal(purpleDeny.type, "ack");
+  assert.equal(purpleDeny.command, "swarm_deny");
+
+  const purpleDecision = await purpleRequest;
+  assert.equal(purpleDecision.type, "decision");
+  assert.equal(purpleDecision.decision, "deny");
+  assert.equal(purpleDecision.reason, "intent stayed underspecified");
+
   interceptServer.kill("SIGTERM");
   await once(interceptServer, "exit");
 
@@ -187,6 +338,10 @@ async function main() {
   console.log(`waiting members: ${pendingGroup.waitingCount}`);
   console.log(`first decision: ${firstDecision.type === "decision" ? firstDecision.decision : "error"}`);
   console.log(`second decision: ${secondDecision.type === "decision" ? secondDecision.decision : "error"}`);
+  console.log(`readiness denial: ${readinessDenied.type === "decision" ? readinessDenied.decision : "error"}`);
+  console.log(`handoff denial: ${handoffDenied.type === "decision" ? handoffDenied.decision : "error"}`);
+  console.log(`cost denial: ${costDenied.type === "decision" ? costDenied.decision : "error"}`);
+  console.log(`purple decision: ${purpleDecision.type === "decision" ? purpleDecision.decision : "error"}`);
 }
 
 main().catch((error) => {

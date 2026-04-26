@@ -2,7 +2,13 @@ import { createHash, randomUUID } from "node:crypto";
 import { enableBodyguardControl, recordBodyguardUserLawDecision } from "./bodyguard.ts";
 import { createBoundaryHeadlessApprovalHandler } from "./headless.ts";
 import path from "node:path";
-import { evaluateBoundaryIntercept, mapInterceptToBoundaryAction, type BoundaryInterceptRequest, type BoundaryInterceptResult } from "./intercept.ts";
+import {
+  evaluateBoundaryIntercept,
+  mapInterceptToBoundaryAction,
+  type BoundaryInterceptDecision,
+  type BoundaryInterceptRequest,
+  type BoundaryInterceptResult,
+} from "./intercept.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import type {
   BoundaryActionKind,
@@ -51,6 +57,187 @@ export type BoundarySwarmReadiness =
   | "released"
   | "rolled_back";
 
+/** Actions permitted at each readiness tier.
+ *  Agents read this — they do not negotiate it. */
+export const READINESS_PERMITTED_ACTIONS: Record<BoundarySwarmReadiness, readonly string[]> = {
+  raw:                  ["inspect"],
+  draft:                ["inspect", "review", "comment"],
+  locally_complete:     ["inspect", "review", "comment", "test"],
+  dependency_ready:     ["inspect", "review", "comment", "test", "integrate"],
+  domain_verified:      ["inspect", "review", "comment", "test", "integrate", "stage"],
+  cross_domain_verified:["inspect", "review", "comment", "test", "integrate", "stage", "release_candidate"],
+  globally_ready:       ["inspect", "review", "comment", "test", "integrate", "stage", "release_candidate", "deploy"],
+  released:             ["inspect", "rollback"],
+  rolled_back:          ["inspect", "review", "comment"],
+};
+
+/** Returns true if the given action is permitted at the given readiness tier. */
+export function isActionPermittedAtReadiness(action: string, readiness: BoundarySwarmReadiness): boolean {
+  return (READINESS_PERMITTED_ACTIONS[readiness] as readonly string[]).includes(action);
+}
+
+// ─── Path classification ──────────────────────────────────────────────────────
+
+/** Instant routing decision for every contact.
+ *  Green = act now. Yellow = speculative/review. Red = reject. Purple = intent underspecified. */
+export type BoundarySwarmPath = "green" | "yellow" | "red" | "purple";
+
+export type BoundarySwarmPathClassification = {
+  path: BoundarySwarmPath;
+  disposition: "continue" | "queue" | "deny";
+  reason: string;
+  lawIds: string[];
+};
+
+/** Classify a contact against readiness and intent.
+ *  This is the instant routing layer — no waiting, no negotiation. */
+export function classifySwarmPath(args: {
+  action?: string;
+  readiness: BoundarySwarmReadiness;
+  intent?: BoundarySwarmIntent;
+  ownership?: BoundarySwarmOwnership;
+  actorRole?: string;
+  handoff?: BoundarySwarmHandoff;
+  completedValidation?: string[];
+}): BoundarySwarmPathClassification {
+  const action = args.action?.trim();
+
+  if (!action) {
+    return {
+      path: "purple",
+      disposition: "queue",
+      reason: "swarm action is underspecified — receiver cannot determine the next lawful continuation",
+      lawIds: ["SWARM.ACTION.UNSPECIFIED"],
+    };
+  }
+
+  // Purple — intent is present but goal is empty or underspecified.
+  if (args.intent !== undefined && !args.intent.goal.trim()) {
+    return {
+      path: "purple",
+      disposition: "queue",
+      reason: "intent is present but goal is underspecified — human clarification required",
+      lawIds: ["SWARM.INTENT.UNDERSPECIFIED"],
+    };
+  }
+
+  // Purple — ownership exists but the current agent role is missing.
+  if (args.ownership !== undefined && !(args.actorRole?.trim())) {
+    return {
+      path: "purple",
+      disposition: "queue",
+      reason: "ownership is defined but the acting agent role is missing — the next lawful owner cannot be proven",
+      lawIds: ["SWARM.OWNERSHIP.UNDECLARED"],
+    };
+  }
+
+  if (args.handoff?.expiresAt) {
+    const expiresAt = Date.parse(args.handoff.expiresAt);
+    if (!Number.isNaN(expiresAt) && expiresAt <= Date.now()) {
+      return {
+        path: "red",
+        disposition: "deny",
+        reason: `handoff '${args.handoff.artifactId}' is stale — expiration ${args.handoff.expiresAt} has passed`,
+        lawIds: ["SWARM.HANDOFF.STALE"],
+      };
+    }
+  }
+
+  if (args.handoff?.forbiddenUse?.some((forbidden) => forbidden === action)) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `handoff '${args.handoff.artifactId}' forbids action '${action}'`,
+      lawIds: ["SWARM.HANDOFF.FORBIDDEN_USE"],
+    };
+  }
+
+  if (args.handoff?.allowedUse?.length && !args.handoff.allowedUse.includes(action)) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `handoff '${args.handoff.artifactId}' does not allow action '${action}'`,
+      lawIds: ["SWARM.HANDOFF.ALLOWED_USE_MISMATCH"],
+    };
+  }
+
+  if (args.handoff?.receiver && args.actorRole?.trim() && args.handoff.receiver !== args.actorRole.trim()) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `handoff receiver '${args.handoff.receiver}' does not match acting role '${args.actorRole.trim()}'`,
+      lawIds: ["SWARM.HANDOFF.RECEIVER_MISMATCH"],
+    };
+  }
+
+  if (args.ownership && args.actorRole?.trim()) {
+    const actorRole = args.actorRole.trim();
+    const allowedRoles = [
+      args.ownership.primaryOwner,
+      args.ownership.backupOwner,
+      args.ownership.reviewer,
+    ].filter((value): value is string => Boolean(value?.trim()));
+    if (allowedRoles.length > 0 && !allowedRoles.includes(actorRole)) {
+      return {
+        path: "red",
+        disposition: "deny",
+        reason: `acting role '${actorRole}' is outside the declared ownership path (${allowedRoles.join(", ")})`,
+        lawIds: ["SWARM.OWNERSHIP.DENIED"],
+      };
+    }
+  }
+
+  // Red — action forbidden by intent mustNotHave.
+  if (args.intent?.mustNotHave?.some((forbidden) => action.toLowerCase().includes(forbidden.toLowerCase()))) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `action '${action}' matches a forbidden intent constraint`,
+      lawIds: ["SWARM.INTENT.FORBIDDEN"],
+    };
+  }
+
+  // Red — action not permitted at this readiness tier.
+  if (!isActionPermittedAtReadiness(action, args.readiness)) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `action '${action}' is not permitted at readiness tier '${args.readiness}' — allowed: ${READINESS_PERMITTED_ACTIONS[args.readiness].join(", ")}`,
+      lawIds: ["SWARM.READINESS.DENIED"],
+    };
+  }
+
+  const missingValidation = (args.handoff?.requiredValidation ?? []).filter(
+    (requirement) => !(args.completedValidation ?? []).includes(requirement),
+  );
+  if (missingValidation.length > 0) {
+    return {
+      path: "yellow",
+      disposition: "queue",
+      reason: `handoff '${args.handoff?.artifactId}' is missing required validation: ${missingValidation.join(", ")}`,
+      lawIds: ["SWARM.HANDOFF.VALIDATION_PENDING"],
+    };
+  }
+
+  // Yellow — permitted but intent is absent (unknown goal alignment).
+  if (!args.intent) {
+    return {
+      path: "yellow",
+      disposition: "continue",
+      reason: "action is locally permitted but no intent is set — proceed speculatively",
+      lawIds: ["SWARM.INTENT.MISSING"],
+    };
+  }
+
+  // Green — permitted and intent is defined.
+  return {
+    path: "green",
+    disposition: "continue",
+    reason: `action '${action}' is permitted at readiness '${args.readiness}' and aligns with intent: ${args.intent.goal}`,
+    lawIds: ["SWARM.PATH.GREEN"],
+  };
+}
+
 // ─── Intent ───────────────────────────────────────────────────────────────────
 
 /** The human-desired result that governs this swarm group.
@@ -58,14 +245,112 @@ export type BoundarySwarmReadiness =
 export type BoundarySwarmIntent = {
   /** One-sentence goal — what must be true at the end. */
   goal: string;
+  /** What human value this serves. */
+  why?: string;
   /** Required conditions that cannot be traded away. */
   mustHave?: string[];
   /** Outcomes that are forbidden regardless of local validity. */
   mustNotHave?: string[];
+  /** What matters most when tradeoffs appear. */
+  preferenceOrder?: string[];
   /** How we know it worked. */
   successCondition?: string;
+  /** When enough is enough — stop condition. */
+  stopCondition?: string;
   /** When the human must be consulted rather than the swarm deciding. */
   escalationCondition?: string;
+  /** When the intent itself needs human clarification. */
+  revisionCondition?: string;
+};
+
+// ─── Intent Ledger ────────────────────────────────────────────────────────────
+
+/** Shared ledger all swarms read and write against.
+ *  Prevents drift — every group's actions are checked against this. */
+export type BoundarySwarmIntentLedger = {
+  /** The governing human goal. */
+  goal: string;
+  /** Constraints that cannot be traded. */
+  mustHave: string[];
+  /** Forbidden outcomes. */
+  mustNotHave: string[];
+  /** How we know it worked. */
+  successCriteria: string[];
+  /** Ambiguities not yet resolved by the human. */
+  openAmbiguities: string[];
+  /** Tradeoffs the human has explicitly accepted. */
+  acceptedTradeoffs: string[];
+  /** Paths the human has explicitly rejected. */
+  rejectedPaths: string[];
+  /** Decisions already made — no need to re-ask. */
+  humanDecisions: string[];
+  /** Things still requiring human decision. */
+  pendingHumanDecisions: string[];
+  /** Evidence that current work supports the goal. */
+  progressEvidence: string[];
+  /** When this ledger was last updated. */
+  updatedAt: string;
+};
+
+/** Create a minimal intent ledger from a goal string. */
+export function createIntentLedger(goal: string): BoundarySwarmIntentLedger {
+  return {
+    goal,
+    mustHave: [],
+    mustNotHave: [],
+    successCriteria: [],
+    openAmbiguities: [],
+    acceptedTradeoffs: [],
+    rejectedPaths: [],
+    humanDecisions: [],
+    pendingHumanDecisions: [],
+    progressEvidence: [],
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// ─── Ownership ────────────────────────────────────────────────────────────────
+
+/** Who owns the next move — every task has a defined owner so there is
+ *  never a "who's got this?" pause. */
+export type BoundarySwarmOwnership = {
+  /** Primary agent role responsible for this group. */
+  primaryOwner: string;
+  /** Fallback if primary is unavailable or times out. */
+  backupOwner?: string;
+  /** Role responsible for reviewing the output. */
+  reviewer?: string;
+  /** Where this goes if reviewer is blocked or disagreement cannot resolve. */
+  escalationPath?: string;
+  /** After this duration (ms) with no progress, route to backupOwner or escalationPath. */
+  timeoutMs?: number;
+};
+
+// ─── Handoff Law ──────────────────────────────────────────────────────────────
+
+/** Full handoff contract — every output carries enough state for the next
+ *  agent to know exactly what can happen next. No asking. */
+export type BoundarySwarmHandoff = {
+  /** Who produced this artifact. */
+  sender: string;
+  /** Who should receive it. */
+  receiver: string;
+  /** Identifier of the artifact being handed off. */
+  artifactId: string;
+  /** Readiness at time of handoff. */
+  readiness: BoundarySwarmReadiness;
+  /** Version or sequence number. */
+  version: string;
+  /** What this artifact may be used for at this readiness. */
+  allowedUse: string[];
+  /** What this artifact must NOT be used for yet. */
+  forbiddenUse?: string[];
+  /** ISO timestamp after which this handoff is considered stale. */
+  expiresAt?: string;
+  /** Validation required before the receiver acts. */
+  requiredValidation?: string[];
+  /** What the receiver should do next. */
+  nextAction: string;
 };
 
 // ─── Cost ─────────────────────────────────────────────────────────────────────
@@ -78,6 +363,27 @@ export type BoundarySwarmCost = {
   unitCap?: number;
   /** Arbitrary cost label (e.g. "tokens", "usd-cents", "api-calls"). */
   unit: string;
+};
+
+export type BoundarySwarmRequestMeta = {
+  /** The coordination action being requested at this boundary. */
+  action?: string;
+  /** The acting specialized agent role. */
+  actorRole?: string;
+  /** Readiness of the artifact or state being acted on. */
+  readiness?: BoundarySwarmReadiness;
+  /** Human-desired result for this continuation. */
+  intent?: BoundarySwarmIntent;
+  /** Shared intent ledger for drift control across agents. */
+  intentLedger?: BoundarySwarmIntentLedger;
+  /** Ownership path for this action. */
+  ownership?: BoundarySwarmOwnership;
+  /** Full handoff contract for this action. */
+  handoff?: BoundarySwarmHandoff;
+  /** Validations already completed on the handed-off artifact. */
+  completedValidation?: string[];
+  /** Cost tracking for the acting agent or group. */
+  cost?: BoundarySwarmCost;
 };
 
 // ─── Group state ──────────────────────────────────────────────────────────────
@@ -103,10 +409,26 @@ export type BoundarySwarmGroup = {
   requestIds: string[];
   /** Session that owns this group — no cross-session waiter joins. */
   sessionId: string;
+  /** Live swarm path classification for this group. */
+  path?: BoundarySwarmPath;
+  /** Reason explaining the active swarm path. */
+  pathReason?: string;
+  /** Explicit coordination action being attempted. */
+  swarmAction?: string;
+  /** Acting role for the representative request. */
+  actorRole?: string;
   /** Readiness of the artifact this group is acting on or producing. */
   readiness: BoundarySwarmReadiness;
   /** Human-desired result this group is serving. */
   intent?: BoundarySwarmIntent;
+  /** Shared drift-control ledger for this group. */
+  intentLedger?: BoundarySwarmIntentLedger;
+  /** Ownership path for this group. */
+  ownership?: BoundarySwarmOwnership;
+  /** Handoff contract governing this group. */
+  handoff?: BoundarySwarmHandoff;
+  /** Completed validations attached to this group. */
+  completedValidation?: string[];
   /** Cost tracking for the agent(s) in this group. */
   cost?: BoundarySwarmCost;
 };
@@ -135,6 +457,43 @@ function normalizeTarget(request: BoundaryInterceptRequest): string {
   return request.target.trim();
 }
 
+function withSwarmMeta(
+  request: BoundaryInterceptRequest,
+  swarm?: BoundarySwarmRequestMeta,
+): BoundaryInterceptRequest {
+  if (!swarm) {
+    return request;
+  }
+  return request.swarm === swarm
+    ? request
+    : {
+        ...request,
+        swarm,
+      };
+}
+
+function resolveSwarmAction(swarm: BoundarySwarmRequestMeta | undefined): string | undefined {
+  return swarm?.action?.trim() || swarm?.handoff?.nextAction?.trim();
+}
+
+function classifyRequestSwarmPath(
+  request: BoundaryInterceptRequest,
+): BoundarySwarmPathClassification | null {
+  const swarm = request.swarm;
+  if (!swarm) {
+    return null;
+  }
+  return classifySwarmPath({
+    action: resolveSwarmAction(swarm),
+    readiness: swarm.readiness ?? "draft",
+    intent: swarm.intent,
+    ownership: swarm.ownership,
+    actorRole: swarm.actorRole,
+    handoff: swarm.handoff,
+    completedValidation: swarm.completedValidation,
+  });
+}
+
 /** Swarm key is scoped to sessionId so groups never bleed across sessions. */
 function buildSwarmKey(sessionId: string, request: BoundaryInterceptRequest): string {
   const normalized = {
@@ -144,6 +503,23 @@ function buildSwarmKey(sessionId: string, request: BoundaryInterceptRequest): st
     target: normalizeTarget(request),
     provenance: request.provenance ?? "agent_inference",
     flags: request.flags ?? {},
+    swarm: request.swarm ? {
+      action: resolveSwarmAction(request.swarm),
+      actorRole: request.swarm.actorRole,
+      readiness: request.swarm.readiness ?? "draft",
+      intentGoal: request.swarm.intent?.goal ?? null,
+      ownership: request.swarm.ownership ? {
+        primaryOwner: request.swarm.ownership.primaryOwner,
+        backupOwner: request.swarm.ownership.backupOwner ?? null,
+        reviewer: request.swarm.ownership.reviewer ?? null,
+      } : null,
+      handoff: request.swarm.handoff ? {
+        sender: request.swarm.handoff.sender,
+        receiver: request.swarm.handoff.receiver,
+        artifactId: request.swarm.handoff.artifactId,
+        version: request.swarm.handoff.version,
+      } : null,
+    } : null,
   };
   const encoded = JSON.stringify(normalized);
   const digest = createHash("sha256").update(encoded).digest("hex").slice(0, 16);
@@ -324,8 +700,13 @@ async function appendSwarmLedger(args: {
       swarm_member_count: args.memberCount,
       swarm_waiting_count: args.waitingCount,
       ...(args.joined ? { swarm_joined_existing_group: true } : {}),
+      ...(args.request.swarm?.action ? { swarm_action: args.request.swarm.action } : {}),
+      ...(args.request.swarm?.actorRole ? { swarm_actor_role: args.request.swarm.actorRole } : {}),
       ...(args.readiness ? { swarm_readiness: args.readiness } : {}),
       ...(args.intent ? { swarm_intent_goal: args.intent.goal } : {}),
+      ...(args.request.swarm?.ownership?.primaryOwner ? { swarm_primary_owner: args.request.swarm.ownership.primaryOwner } : {}),
+      ...(args.request.swarm?.handoff?.artifactId ? { swarm_handoff_artifact_id: args.request.swarm.handoff.artifactId } : {}),
+      ...(args.request.swarm?.handoff?.version ? { swarm_handoff_version: args.request.swarm.handoff.version } : {}),
       ...(args.cost ? { swarm_cost_units_consumed: args.cost.unitsConsumed, swarm_cost_unit: args.cost.unit } : {}),
     },
     createdAt: new Date().toISOString(),
@@ -338,6 +719,22 @@ async function appendSwarmLedger(args: {
 function isOverBudget(cost: BoundarySwarmCost | undefined): boolean {
   if (!cost || cost.unitCap === undefined) return false;
   return cost.unitsConsumed >= cost.unitCap;
+}
+
+function createSyntheticSwarmResult(args: {
+  request: BoundaryInterceptRequest;
+  decision: BoundaryInterceptDecision;
+  reason: string;
+  lawIds: string[];
+}): BoundaryInterceptResult {
+  return {
+    requestId: randomUUID(),
+    actionKind: mapInterceptToBoundaryAction(args.request),
+    decision: args.decision,
+    reason: args.reason,
+    lawIds: args.lawIds,
+    bodyguardMoves: [],
+  };
 }
 
 // ─── Coordinator ─────────────────────────────────────────────────────────────
@@ -390,8 +787,16 @@ export function createBoundarySwarmCoordinator(
       waitingCount: group.waitingCount,
       requestIds: [...group.requestIds],
       sessionId: group.sessionId,
+      path: group.path,
+      pathReason: group.pathReason,
+      swarmAction: group.swarmAction,
+      actorRole: group.actorRole,
       readiness: group.readiness,
       intent: group.intent,
+      intentLedger: group.intentLedger,
+      ownership: group.ownership,
+      handoff: group.handoff,
+      completedValidation: group.completedValidation ? [...group.completedValidation] : undefined,
       cost: group.cost,
     };
   }
@@ -412,6 +817,7 @@ export function createBoundarySwarmCoordinator(
   ) {
     const config = store.getConfig();
     const now = new Date().toISOString();
+    const pathClassification = classifyRequestSwarmPath(request);
     const resolvedGroup: BoundarySwarmGroup = {
       groupId: `swarm-${randomUUID()}`,
       key: buildSwarmKey(config.session.sessionId, request),
@@ -430,7 +836,17 @@ export function createBoundarySwarmCoordinator(
       waitingCount: 0,
       requestIds: [result.requestId],
       sessionId: config.session.sessionId,
-      readiness: "locally_complete",
+      path: pathClassification?.path,
+      pathReason: pathClassification?.reason,
+      swarmAction: resolveSwarmAction(request.swarm),
+      actorRole: request.swarm?.actorRole,
+      readiness: request.swarm?.readiness ?? "locally_complete",
+      intent: request.swarm?.intent,
+      intentLedger: request.swarm?.intentLedger,
+      ownership: request.swarm?.ownership,
+      handoff: request.swarm?.handoff,
+      completedValidation: request.swarm?.completedValidation ? [...request.swarm.completedValidation] : undefined,
+      cost: request.swarm?.cost,
     };
     recentGroups.set(resolvedGroup.groupId, resolvedGroup);
     const resolved = [...recentGroups.values()]
@@ -444,13 +860,15 @@ export function createBoundarySwarmCoordinator(
   function ensurePendingGroup(
     request: BoundaryInterceptRequest,
     result: BoundaryInterceptResult,
-    groupOpts?: { readiness?: BoundarySwarmReadiness; intent?: BoundarySwarmIntent; cost?: BoundarySwarmCost },
+    groupOpts?: BoundarySwarmRequestMeta,
   ): { group: BoundarySwarmPendingGroup; joined: boolean } | { denied: true; reason: string } {
     const config = store.getConfig();
     const sessionId = config.session.sessionId;
     const key = buildSwarmKey(sessionId, request);
     const now = new Date().toISOString();
     const existing = pendingGroups.get(key);
+    const swarm = groupOpts ?? request.swarm;
+    const pathClassification = classifyRequestSwarmPath(request);
 
     if (existing) {
       // Cross-session join guard — key already includes sessionId so this
@@ -497,9 +915,17 @@ export function createBoundarySwarmCoordinator(
       },
       waiters: new Set(),
       sessionId,
-      readiness: groupOpts?.readiness ?? "draft",
-      intent: groupOpts?.intent,
-      cost: groupOpts?.cost,
+      path: pathClassification?.path,
+      pathReason: pathClassification?.reason,
+      swarmAction: resolveSwarmAction(swarm),
+      actorRole: swarm?.actorRole,
+      readiness: swarm?.readiness ?? "draft",
+      intent: swarm?.intent,
+      intentLedger: swarm?.intentLedger,
+      ownership: swarm?.ownership,
+      handoff: swarm?.handoff,
+      completedValidation: swarm?.completedValidation ? [...swarm.completedValidation] : undefined,
+      cost: swarm?.cost,
     };
     pendingGroups.set(key, group);
     return { group, joined: false };
@@ -508,7 +934,7 @@ export function createBoundarySwarmCoordinator(
   async function waitForResolution(
     request: BoundaryInterceptRequest,
     result: BoundaryInterceptResult,
-    groupOpts?: { readiness?: BoundarySwarmReadiness; intent?: BoundarySwarmIntent; cost?: BoundarySwarmCost },
+    groupOpts?: BoundarySwarmRequestMeta,
   ): Promise<BoundaryInterceptResult> {
     const ensureResult = ensurePendingGroup(request, result, groupOpts);
 
@@ -571,37 +997,61 @@ export function createBoundarySwarmCoordinator(
 
   async function evaluateOrWait(
     request: BoundaryInterceptRequest,
-    groupOpts?: { readiness?: BoundarySwarmReadiness; intent?: BoundarySwarmIntent; cost?: BoundarySwarmCost },
+    groupOpts?: BoundarySwarmRequestMeta,
   ): Promise<BoundaryInterceptResult> {
+    const normalizedRequest = withSwarmMeta(request, groupOpts);
+    const swarm = normalizedRequest.swarm;
+
     // Cost guard — if caller tracks cost and cap is exceeded, deny before evaluation.
-    if (groupOpts?.cost && isOverBudget(groupOpts.cost)) {
-      const config = store.getConfig();
-      const denyResult: BoundaryInterceptResult = {
-        requestId: randomUUID(),
-        actionKind: mapInterceptToBoundaryAction(request),
+    if (swarm?.cost && isOverBudget(swarm.cost)) {
+      const denyResult = createSyntheticSwarmResult({
+        request: normalizedRequest,
         decision: "deny",
-        reason: `agent cost cap exceeded (${groupOpts.cost.unitsConsumed} ${groupOpts.cost.unit})`,
-        lawIds: [],
-        bodyguardMoves: [],
-      };
-      rememberImmediateResolution(request, denyResult);
+        reason: `agent cost cap exceeded (${swarm.cost.unitsConsumed} ${swarm.cost.unit})`,
+        lawIds: ["SWARM.COST.CAP_EXCEEDED"],
+      });
+      rememberImmediateResolution(normalizedRequest, denyResult);
       return denyResult;
+    }
+
+    const pathClassification = classifyRequestSwarmPath(normalizedRequest);
+    if (pathClassification?.disposition === "deny") {
+      const denyResult = createSyntheticSwarmResult({
+        request: normalizedRequest,
+        decision: "deny",
+        reason: pathClassification.reason,
+        lawIds: pathClassification.lawIds,
+      });
+      rememberImmediateResolution(normalizedRequest, denyResult);
+      return denyResult;
+    }
+    if (pathClassification?.disposition === "queue") {
+      return waitForResolution(
+        normalizedRequest,
+        createSyntheticSwarmResult({
+          request: normalizedRequest,
+          decision: "require_approval",
+          reason: pathClassification.reason,
+          lawIds: pathClassification.lawIds,
+        }),
+        swarm,
+      );
     }
 
     await store.hydrate();
     const result = await evaluateBoundaryIntercept({
       config: enableBodyguardControl(store.getConfig()),
-      request,
+      request: normalizedRequest,
     });
     applyInterceptState(result);
 
     // Fast continuation — already lawful, no queue needed.
     if (result.decision !== "require_approval") {
-      rememberImmediateResolution(request, result);
+      rememberImmediateResolution(normalizedRequest, result);
       return result;
     }
 
-    return waitForResolution(request, result, groupOpts);
+    return waitForResolution(normalizedRequest, result, swarm);
   }
 
   async function approveGroup(args: {

@@ -175,10 +175,10 @@ async function evaluateRequestWithMode(args: {
   swarm: ReturnType<typeof createBoundarySwarmCoordinator>;
 }): Promise<BoundaryInterceptResult> {
   if (args.approvalMode !== "standing_law") {
-    return args.swarm.evaluateOrWait(args.request);
+    return args.swarm.evaluateOrWait(args.request, args.request.swarm);
   }
   if (args.request.admission) {
-    return args.swarm.evaluateOrWait(args.request);
+    return args.swarm.evaluateOrWait(args.request, args.request.swarm);
   }
 
   const config = await args.store.hydrate();
@@ -198,7 +198,7 @@ async function evaluateRequestWithMode(args: {
   }) : null;
 
   if (exactMatch?.decision === "allow") {
-    return args.swarm.evaluateOrWait(args.request);
+    return args.swarm.evaluateOrWait(args.request, args.request.swarm);
   }
 
   const result: BoundaryInterceptResult = {

@@ -18,6 +18,16 @@ import type {
   BoundaryRuntimeConfig,
   BodyguardMove,
 } from "./types.ts";
+import type {
+  BoundarySwarmCost,
+  BoundarySwarmHandoff,
+  BoundarySwarmIntent,
+  BoundarySwarmIntentLedger,
+  BoundarySwarmOwnership,
+  BoundarySwarmPath,
+  BoundarySwarmReadiness,
+  BoundarySwarmRequestMeta,
+} from "./swarm.ts";
 
 export type BoundaryInterceptActionClass =
   | "file"
@@ -67,6 +77,7 @@ export type BoundaryInterceptRequest = {
     pid?: string;
     extra?: string;
   };
+  swarm?: BoundarySwarmRequestMeta;
 };
 
 export type BoundaryInterceptDecision = "allow" | "deny" | "require_approval";
@@ -91,6 +102,18 @@ export type BoundaryInterceptSwarmGroup = {
   memberCount: number;
   waitingCount: number;
   requestIds: string[];
+  sessionId: string;
+  readiness: BoundarySwarmReadiness;
+  path?: BoundarySwarmPath;
+  pathReason?: string;
+  swarmAction?: string;
+  actorRole?: string;
+  intent?: BoundarySwarmIntent;
+  intentLedger?: BoundarySwarmIntentLedger;
+  ownership?: BoundarySwarmOwnership;
+  handoff?: BoundarySwarmHandoff;
+  completedValidation?: string[];
+  cost?: BoundarySwarmCost;
 };
 
 export type BoundaryInterceptResult = {
