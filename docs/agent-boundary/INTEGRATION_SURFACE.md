@@ -31,6 +31,19 @@ If the path was not issued, the action cannot happen.
 
 All public feeders should collapse proposal shape into the same Gravity funnel request before Buccet decides anything.
 
+## Entry Surface Priorities
+
+MCP is already the clearest proof that a new host can enter the same Buccet body without creating a second policy engine.
+
+The remaining friction-reduction work is now concentrated in four public doors:
+
+1. hosted install
+2. SDK middleware wrapper
+3. host-native editor and agent adapters
+4. git and GitHub egress gate
+
+See [Entry Surface](ENTRY_SURFACE.md) for the full spec.
+
 ## Integration Point
 
 The integration point is the proposed real-world action:

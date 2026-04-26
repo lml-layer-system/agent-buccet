@@ -137,6 +137,13 @@ Install the runtime, initialize the machine, then open the Buccet operator cockp
 
 Hosted install coming soon.
 
+The next frictionless entry surfaces are tracked in [Entry Surface](docs/agent-boundary/ENTRY_SURFACE.md):
+
+- hosted install
+- SDK middleware wrapper
+- host-native editor and agent adapters
+- git and GitHub egress gate
+
 `buccet console` is the point where your terminal becomes Agent Buccet's working control surface.
 
 ## MCP Server
