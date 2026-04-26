@@ -2,6 +2,10 @@ import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger
 import { adjudicateBoundaryRequest, enableBodyguardControl } from "./bodyguard.ts";
 import { seedBaseAcceptanceIntoConfig } from "./base-upl-acceptance.ts";
 import {
+  assertBoundaryGravityEventAllowed,
+  mapBoundaryGrantToGravityGrant,
+} from "./gravity-adapter/gravity-service.ts";
+import {
   instantiateBoundaryGrant,
   instantiatePathLaw,
 } from "./orchestrator.ts";
@@ -65,6 +69,15 @@ export async function issueBoundaryGrant(args: {
     metadata: args.metadata,
   });
 
+  await assertBoundaryGravityEventAllowed({
+    config: args.config,
+    event: {
+      kind: "GrantIssued",
+      ts: Date.now(),
+      grant: mapBoundaryGrantToGravityGrant(grant),
+    },
+  });
+
   await appendBoundaryLedger("GRANT_ISSUED", {
     sessionId: args.config.session.sessionId,
     actorId: args.issuedBy,
@@ -113,6 +126,17 @@ export async function issueBoundaryGrantBatch(args: {
     metadata: entry.metadata,
   }));
 
+  for (const grant of grants) {
+    await assertBoundaryGravityEventAllowed({
+      config: args.config,
+      event: {
+        kind: "GrantIssued",
+        ts: Date.now(),
+        grant: mapBoundaryGrantToGravityGrant(grant),
+      },
+    });
+  }
+
   await appendBoundaryLedgerDurableBatch(grants.map((grant, index) => ({
     eventType: "GRANT_ISSUED" as const,
     payload: {
@@ -153,6 +177,16 @@ export async function revokeBoundaryGrant(args: {
     ...targetGrant,
     revokedAt,
   };
+
+  await assertBoundaryGravityEventAllowed({
+    config: args.config,
+    event: {
+      kind: "GrantRevoked",
+      ts: Date.now(),
+      grant: mapBoundaryGrantToGravityGrant(revokedGrant),
+    },
+  });
+
   const nextGrants = args.config.grants.map((grant) =>
     grant.grantId === args.grantId ? revokedGrant : grant,
   );
@@ -192,6 +226,19 @@ export async function expireBoundaryGrants(args: {
   }
 
   const expiredGrantIds = new Set(expiredGrants.map((grant) => grant.grantId));
+  for (const grant of expiredGrants) {
+    await assertBoundaryGravityEventAllowed({
+      config: args.config,
+      event: {
+        kind: "GrantExpired",
+        ts: Date.now(),
+        grant: mapBoundaryGrantToGravityGrant({
+          ...grant,
+          revokedAt: nowIso,
+        }),
+      },
+    });
+  }
   const nextGrants = args.config.grants.map((grant) =>
     expiredGrantIds.has(grant.grantId) ? { ...grant, revokedAt: nowIso } : grant,
   );
@@ -236,6 +283,15 @@ export async function openBoundaryPath(args: {
     issuedBy: args.issuedBy,
     instantiatedAt: openedAt,
     expiresAt: args.expiresAt,
+  });
+
+  await assertBoundaryGravityEventAllowed({
+    config: args.config,
+    event: {
+      kind: "GrantIssued",
+      ts: Date.now(),
+      grant: mapBoundaryGrantToGravityGrant(grant),
+    },
   });
 
   await appendBoundaryLedger("PATH_OPENED", {

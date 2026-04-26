@@ -19,7 +19,9 @@ export {
 } from "./bodyguard-grant.ts";
 export { startGravityKernel, type GravityClient } from "./integration.ts";
 export {
+  createMetaContactSkill,
   createMetaAuthoritySkill,
+  createMetaContinuationSkill,
   createMetaLawSkill,
   createMetaLedgerSkill,
   createMetaScopeSkill,
@@ -27,6 +29,8 @@ export {
   createMetaTrustSkill,
   createScopeGrantSkill,
   META_AUTHORITY_01,
+  META_CONTACT_01,
+  META_CONTINUATION_01,
   META_LEDGER_01,
   META_LAW_01,
   META_SCOPE_01,

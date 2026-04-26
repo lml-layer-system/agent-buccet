@@ -5,6 +5,7 @@ import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { enableBodyguardControl, adjudicateBoundaryRequest } from "./bodyguard.ts";
 import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
+import { assertBoundaryGravityLawUpdateAllowed } from "./gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
 import {
@@ -1178,6 +1179,14 @@ export async function applyBoundaryQuarantinePitDenials(args: {
             entry_hash: item.hash,
           },
           createdAt: new Date().toISOString(),
+        });
+
+        await assertBoundaryGravityLawUpdateAllowed({
+          config,
+          requestId: `upl-quarantine-deny:${snapshotItem.entry.id}`,
+          target: `${snapshotItem.entry.scope.toLowerCase()}:upl-quarantine-deny:${snapshotItem.entry.id}`,
+          reason: "Quarantine replay recorded standing UPL denial",
+          provenance: "trusted_user",
         });
 
         upl = await writeDeniedUserPathLaw({

@@ -1,5 +1,6 @@
 import { buildBoundaryBodyguardMoves } from "./bodyguard-moves.ts";
 import {
+  assertBoundaryGravityLawUpdateAllowed,
   createBoundaryGravityService,
   type BoundaryGravityEnforcement,
 } from "./gravity-adapter/gravity-service.ts";
@@ -487,6 +488,13 @@ export async function applyBodyguardUserLawDecision(args: {
   }
 
   if (choice === "allow_as_law") {
+    await assertBoundaryGravityLawUpdateAllowed({
+      config: args.config,
+      requestId: `upl-allow:${args.request.requestId}`,
+      target: `${(args.decision.scope ?? "GLOBAL").toLowerCase()}:upl-allow:${args.request.actionKind}:${args.request.target}`,
+      reason: "Bodyguard recorded standing UPL approval",
+      provenance: "trusted_user",
+    });
     upl = await writeApprovedUserPathLaw({
       ledger: upl,
       request: args.request,
@@ -533,6 +541,13 @@ export async function applyBodyguardUserLawDecision(args: {
       });
     }
   } else if (choice === "deny_as_law") {
+    await assertBoundaryGravityLawUpdateAllowed({
+      config: args.config,
+      requestId: `upl-deny:${args.request.requestId}`,
+      target: `${(args.decision.scope ?? "GLOBAL").toLowerCase()}:upl-deny:${args.request.actionKind}:${args.request.target}`,
+      reason: "Bodyguard recorded standing UPL denial",
+      provenance: "trusted_user",
+    });
     upl = await writeDeniedUserPathLaw({
       ledger: upl,
       request: args.request,

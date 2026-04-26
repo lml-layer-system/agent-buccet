@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { assertBoundaryGravityProposalAllowed } from "./gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
 import { armBoundaryQuarantineReboot } from "./quarantine.ts";
 import { persistBoundarySessionState } from "./state.ts";
@@ -163,6 +164,25 @@ async function executeDisposableShed(args: {
   trigger: BoundaryShedTrigger;
   issuedBy: string;
 }): Promise<BoundaryDisposableShedResult> {
+  const continuationRequestId = `shed:${args.request.requestId}`;
+  await assertBoundaryGravityProposalAllowed({
+    config: args.config,
+    proposal: {
+      kind: "session_lifecycle",
+      payload: {
+        scopeIdentifier: `session:${args.config.session.sessionId}:shed:${args.trigger}`,
+        actionLabel: "shed",
+        requestId: continuationRequestId,
+        payloadSummary: args.reason,
+      },
+      provenance: {
+        source: args.trigger === "manual" ? "trusted_user" : "trusted_system",
+        sessionId: args.config.session.sessionId,
+        originId: continuationRequestId,
+      },
+    },
+  });
+
   await persistBoundarySessionState(args.config).catch(() => undefined);
   await substrate.init();
 

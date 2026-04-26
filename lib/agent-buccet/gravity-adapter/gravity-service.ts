@@ -5,6 +5,7 @@ import {
   type EnforcementResult,
   type BodyguardOutcome,
   type GravityEvent,
+  type GravityProposal,
   type GravityState,
   type LawSkill,
 } from "../gravity-core/index.ts";
@@ -23,6 +24,7 @@ import { compileLiveUplField } from "../user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
+  BoundaryGrant,
   BoundaryRuntimeConfig,
   BoundaryUplEntry,
   BodyguardMove,
@@ -131,6 +133,116 @@ function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessio
       ledger,
     },
   };
+}
+
+export function mapBoundaryGrantToGravityGrant(grant: BoundaryGrant) {
+  return {
+    id: grant.grantId,
+    kind: grant.resourceKind === "chat" ? "other" : grant.resourceKind,
+    scope: grant.resourceValue,
+    exactOnly: grant.metadata?.exact_only === true,
+    issuedAt: Date.parse(grant.issuedAt),
+    expiresAt: grant.expiresAt ? Date.parse(grant.expiresAt) : undefined,
+    revokedAt: grant.revokedAt ? Date.parse(grant.revokedAt) : undefined,
+  } as const;
+}
+
+export async function evaluateBoundaryGravityEvent(args: {
+  config: BoundaryRuntimeConfig;
+  event: GravityEvent;
+  request?: BoundaryActionRequest;
+  skills?: readonly LawSkill[];
+  ledgerOverride?: { sessionTraceComplete: boolean; requestTraceComplete: boolean };
+}): Promise<{
+  result: EnforcementResult;
+  state: GravityState;
+  lawIds: string[];
+  reason: string;
+}> {
+  const ledger = args.ledgerOverride ?? await mapBoundaryLedgerToGravityView({
+    sessionId: args.config.session.sessionId,
+    requestId: args.request?.requestId,
+  });
+  const baseState = mapConfigToGravityState(args.config, ledger);
+  const evaluated = evaluateGravityEvent({
+    state: baseState,
+    event: args.event,
+    skills: [...(args.skills ?? getDefaultLawSkills())],
+  });
+  const result = evaluated.result;
+  const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
+  const reason = result.violations[0]?.message
+    ?? (result.decision === "allow" ? "gravity admitted event" : "gravity denied event");
+  return {
+    result,
+    state: evaluated.state,
+    lawIds,
+    reason,
+  };
+}
+
+export async function assertBoundaryGravityEventAllowed(args: {
+  config: BoundaryRuntimeConfig;
+  event: GravityEvent;
+  request?: BoundaryActionRequest;
+  skills?: readonly LawSkill[];
+  ledgerOverride?: { sessionTraceComplete: boolean; requestTraceComplete: boolean };
+}): Promise<void> {
+  const evaluated = await evaluateBoundaryGravityEvent(args);
+  if (evaluated.result.decision === "allow" || evaluated.result.decision === "transform") {
+    return;
+  }
+  throw new Error(
+    `gravity blocked event ${args.event.kind}: ${evaluated.reason}${evaluated.lawIds.length ? ` [${evaluated.lawIds.join(", ")}]` : ""}`,
+  );
+}
+
+export async function assertBoundaryGravityProposalAllowed(args: {
+  config: BoundaryRuntimeConfig;
+  proposal: GravityProposal;
+  skills?: readonly LawSkill[];
+  ledgerOverride?: { sessionTraceComplete: boolean; requestTraceComplete: boolean };
+}): Promise<void> {
+  await assertBoundaryGravityEventAllowed({
+    config: args.config,
+    event: {
+      kind: "ProposalReceived",
+      ts: Date.now(),
+      proposal: args.proposal,
+    },
+    skills: args.skills,
+    ledgerOverride: args.ledgerOverride,
+  });
+}
+
+export async function assertBoundaryGravityLawUpdateAllowed(args: {
+  config: BoundaryRuntimeConfig;
+  requestId: string;
+  target: string;
+  reason: string;
+  provenance: "trusted_system" | "trusted_user";
+  skills?: readonly LawSkill[];
+  ledgerOverride?: { sessionTraceComplete: boolean; requestTraceComplete: boolean };
+}): Promise<void> {
+  await assertBoundaryGravityProposalAllowed({
+    config: args.config,
+    proposal: {
+      kind: "law_update",
+      payload: {
+        scopeIdentifier: args.target,
+        actionLabel: "update law",
+        requestId: args.requestId,
+        payloadSummary: args.reason,
+      },
+      provenance: {
+        source: args.provenance,
+        sessionId: args.config.session.sessionId,
+        originId: args.requestId,
+      },
+    },
+    skills: args.skills,
+    ledgerOverride: args.ledgerOverride,
+  });
 }
 
 type GravityKernelJob = {

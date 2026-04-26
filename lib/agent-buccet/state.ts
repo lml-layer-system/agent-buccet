@@ -10,6 +10,7 @@ import {
   loadAgentBuccetRuntimeMuscle,
   normalizeTimeReferenceLawId,
 } from "./foundation.ts";
+import { assertBoundaryGravityEventAllowed } from "./gravity-adapter/gravity-service.ts";
 import { AGENT_BUCCET_TIME_LAW_REFERENCES } from "./time.ts";
 import { DEFAULT_ADMISSION_CONFIG } from "./admission.ts";
 import { initialAdmissionState } from "./admission.ts";
@@ -217,6 +218,18 @@ export async function persistBoundarySessionState(config: BoundaryRuntimeConfig)
   if (!config.session.persistent || config.persistence?.enabled === false) {
     return toPersistedState(config);
   }
+
+  await assertBoundaryGravityEventAllowed({
+    config,
+    event: {
+      kind: "LedgerIntegrityUpdated",
+      ts: Date.now(),
+      ledger: {
+        sessionTraceComplete: true,
+        requestTraceComplete: true,
+      },
+    },
+  });
 
   const sessionsDir = resolveSessionsDir(config);
   const statePath = sessionStatePath(config.session.sessionId, sessionsDir);
@@ -437,6 +450,23 @@ export async function startPersistentBoundarySession(args: {
     });
   }
 
+  await assertBoundaryGravityEventAllowed({
+    config,
+    event: {
+      kind: "SnapshotRestored",
+      ts: Date.now(),
+    },
+  });
+
+  await assertBoundaryGravityEventAllowed({
+    config,
+    event: {
+      kind: "SessionStarted",
+      ts: Date.now(),
+      sessionId: session.sessionId,
+    },
+  });
+
   await appendBoundaryLedger("SESSION_STARTED", {
     sessionId: session.sessionId,
     actorId: session.actorId,
@@ -517,6 +547,15 @@ export async function restorePersistentBoundarySession(args: {
     });
   }
 
+  await assertBoundaryGravityEventAllowed({
+    config,
+    event: {
+      kind: "SessionRestored",
+      ts: Date.now(),
+      sessionId: config.session.sessionId,
+    },
+  });
+
   await appendBoundaryLedger("SESSION_RESTORED", {
     sessionId: config.session.sessionId,
     actorId: config.session.actorId,
@@ -547,6 +586,15 @@ export async function endPersistentBoundarySession(args: {
       endedAt,
     },
   };
+
+  await assertBoundaryGravityEventAllowed({
+    config: nextConfig,
+    event: {
+      kind: "SessionEnded",
+      ts: Date.now(),
+      sessionId: nextConfig.session.sessionId,
+    },
+  });
 
   await appendBoundaryLedger("SESSION_ENDED", {
     sessionId: nextConfig.session.sessionId,

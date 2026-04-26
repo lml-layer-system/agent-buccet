@@ -4407,6 +4407,14 @@ async function syncUplDocumentSources(args: {
       })
     : upl;
 
+  await args.boundary.assertBoundaryGravityLawUpdateAllowed({
+    config: store.getConfig(),
+    requestId: `upl-sync-activate:${fingerprint.slice(0, 16)}`,
+    target: `${args.scope.toLowerCase()}:upl-sync`,
+    reason: "UPL sync activated compiled law batch into live field",
+    provenance: "trusted_system",
+  });
+
   store.replaceConfig({
     ...store.getConfig(),
     upl: effectiveUpl,
@@ -4827,6 +4835,14 @@ async function handleUpl(rest: string[]) {
       config,
       sessionsDir: home.sessionsDir,
     });
+    const mutationScopes = [...new Set(update.changed.map((entry) => entry.scope.toLowerCase()))].sort();
+    await boundary.assertBoundaryGravityLawUpdateAllowed({
+      config: store.getConfig(),
+      requestId: `upl-${subcommand}:${targetIds.join(",")}`,
+      target: `${mutationScopes.join("+")}:upl-${subcommand}`,
+      reason: `UPL ${subcommand} mutated live law status`,
+      provenance: "trusted_user",
+    });
     store.replaceConfig({
       ...store.getConfig(),
       upl: saved,
@@ -5027,6 +5043,14 @@ async function handleUpl(rest: string[]) {
         entries: result.entryIds,
       });
     }
+
+    await boundary.assertBoundaryGravityLawUpdateAllowed({
+      config: store.getConfig(),
+      requestId: `upl-import:${createHash("sha256").update(files.join("|")).digest("hex").slice(0, 16)}`,
+      target: `${scope.toLowerCase()}:upl-import`,
+      reason: "UPL import activated compiled law batch into live field",
+      provenance: "trusted_user",
+    });
 
     store.replaceConfig({
       ...store.getConfig(),

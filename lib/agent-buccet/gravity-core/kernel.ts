@@ -4,8 +4,22 @@ import type {
   GravityKernelDeps,
   GravityState,
   LawSkill,
+  LawViolation,
 } from "./types.ts";
 import { allViolationsGrantable } from "./types.ts";
+
+function buildSkillErrorViolation(args: {
+  lawId: string;
+  phase: "validate" | "normalize";
+  error: unknown;
+}): LawViolation {
+  const message = args.error instanceof Error ? args.error.message : String(args.error);
+  return {
+    lawId: args.lawId,
+    code: args.phase === "validate" ? "LAW_SKILL_VALIDATE_ERROR" : "LAW_SKILL_NORMALIZE_ERROR",
+    message: `${args.phase} failed inside gravity law-skill ${args.lawId}: ${message}`,
+  };
+}
 
 export function evaluateGravityEvent(args: {
   state: GravityState;
@@ -28,6 +42,11 @@ export function evaluateGravityEvent(args: {
         lawId: skill.id,
         error,
       });
+      violations = violations.concat(buildSkillErrorViolation({
+        lawId: skill.id,
+        phase: "validate",
+        error,
+      }));
       continue;
     }
     if (next.length > 0) {
@@ -60,6 +79,11 @@ export function evaluateGravityEvent(args: {
         lawId: skill.id,
         error,
       });
+      violations = violations.concat(buildSkillErrorViolation({
+        lawId: skill.id,
+        phase: "normalize",
+        error,
+      }));
     }
   }
 

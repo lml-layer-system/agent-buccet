@@ -20,6 +20,8 @@ export const META_SCOPE_01: LawId = "META.SCOPE.01";
 export const META_LAW_01: LawId = "META.LAW.01";
 export const META_SESSION_01: LawId = "META.SESSION.01";
 export const META_LEDGER_01: LawId = "META.LEDGER.01";
+export const META_CONTACT_01: LawId = "META.CONTACT.01";
+export const META_CONTINUATION_01: LawId = "META.CONTINUATION.01";
 
 /**
  * Scope law: path/recipient/domain/tool must be in dynamic laws (opened as law).
@@ -48,6 +50,15 @@ function asProposal(event: GravityEvent): GravityProposal | null {
 
 function violation(lawId: LawId, code: string, message?: string): LawViolation {
   return { lawId, code, message };
+}
+
+function hasNonEmptyScopeIdentifier(proposal: GravityProposal): boolean {
+  const payload = proposal.payload as Partial<ScopePayload & { requestId?: string }> | undefined;
+  return typeof payload?.scopeIdentifier === "string" && payload.scopeIdentifier.trim().length > 0;
+}
+
+function hasTrackedOrigin(proposal: GravityProposal): boolean {
+  return typeof proposal.provenance.originId === "string" && proposal.provenance.originId.trim().length > 0;
 }
 
 function pathGrantMatches(scope: string, target: string, exactOnly?: boolean): boolean {
@@ -242,6 +253,215 @@ export function createMetaLedgerSkill(): LawSkill {
       // In the private runtime, this normalization would downgrade any affected proposals to null
       // and potentially trigger audit routines. Here we keep state unchanged; behavior is defined
       // by outer runtime + concrete integrations.
+      return state;
+    },
+  };
+}
+
+/**
+ * META.CONTACT.01
+ * A distinguishable difference is not computation until it is registered with
+ * provenance, identity, and a non-empty contact surface.
+ */
+export function createMetaContactSkill(): LawSkill {
+  return {
+    id: META_CONTACT_01,
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
+      const proposal = asProposal(event);
+      if (!proposal) return [];
+
+      const violations: LawViolation[] = [];
+      if (!proposal.provenance?.source) {
+        violations.push(
+          violation(
+            META_CONTACT_01,
+            "UNREGISTERED_DIFFERENCE_SOURCE",
+            "Difference reached gravity without a registered provenance source.",
+          ),
+        );
+      }
+      if (!hasTrackedOrigin(proposal)) {
+        violations.push(
+          violation(
+            META_CONTACT_01,
+            "UNTRACKED_DIFFERENCE_ORIGIN",
+            "Difference reached gravity without a tracked origin identifier.",
+          ),
+        );
+      }
+      if (!hasNonEmptyScopeIdentifier(proposal)) {
+        violations.push(
+          violation(
+            META_CONTACT_01,
+            "EMPTY_CONTACT_SURFACE",
+            "Difference reached gravity without a non-empty contact surface.",
+          ),
+        );
+      }
+      return violations;
+    },
+    normalize(state: GravityState, violations: LawViolation[]): GravityState {
+      if (violations.length === 0) return state;
+      return state;
+    },
+  };
+}
+
+function isTrustedContinuationSource(source: GravityProposal["provenance"]["source"]): boolean {
+  return source === "trusted_user" || source === "trusted_system";
+}
+
+function validateContinuationProposal(state: GravityState, proposal: GravityProposal): LawViolation[] {
+  if (
+    proposal.kind !== "grant_update" &&
+    proposal.kind !== "law_update" &&
+    proposal.kind !== "session_lifecycle"
+  ) {
+    return [];
+  }
+
+  const violations: LawViolation[] = [];
+  if (!isTrustedContinuationSource(proposal.provenance.source)) {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "UNTRUSTED_CONTINUATION_SOURCE",
+        "Self-originated continuation must come from trusted user or trusted system provenance.",
+      ),
+    );
+  }
+  if (!state.context.ledger.sessionTraceComplete) {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "CONTINUATION_TRACE_INCOMPLETE",
+        "Continuation cannot advance while session trace completeness is broken.",
+      ),
+    );
+  }
+  return violations;
+}
+
+function validateGrantEvent(event: Extract<GravityEvent, { kind: "GrantIssued" | "GrantRevoked" | "GrantExpired" }>): LawViolation[] {
+  const violations: LawViolation[] = [];
+  if (event.grant.scope.trim().length === 0) {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "EMPTY_GRANT_SCOPE",
+        "Grant continuation reached gravity with an empty scope.",
+      ),
+    );
+  }
+  if (event.grant.kind === "other") {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "UNSCOPED_GRANT_KIND",
+        "Grant continuation must not use the unscoped 'other' kind.",
+      ),
+    );
+  }
+  if (event.grant.expiresAt != null && event.grant.expiresAt < event.grant.issuedAt) {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "GRANT_TIME_INVERSION",
+        "Grant continuation reached gravity with expiresAt before issuedAt.",
+      ),
+    );
+  }
+  if (event.kind === "GrantIssued" && event.grant.revokedAt != null) {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "ISSUED_GRANT_ALREADY_REVOKED",
+        "Grant issuance reached gravity already carrying a revokedAt marker.",
+      ),
+    );
+  }
+  if ((event.kind === "GrantRevoked" || event.kind === "GrantExpired") && event.grant.revokedAt == null) {
+    violations.push(
+      violation(
+        META_CONTINUATION_01,
+        "UNMARKED_GRANT_CONTINUATION",
+        "Grant revocation/expiry reached gravity without a revokedAt marker.",
+      ),
+    );
+  }
+  return violations;
+}
+
+/**
+ * META.CONTINUATION.01
+ * Re-entry and self-originated Buccet state transitions must re-hit gravity as
+ * trusted, trace-complete continuations before they become live state.
+ */
+export function createMetaContinuationSkill(): LawSkill {
+  return {
+    id: META_CONTINUATION_01,
+    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+      const proposal = asProposal(event);
+      if (proposal) {
+        return validateContinuationProposal(state, proposal);
+      }
+
+      switch (event.kind) {
+        case "SessionStarted":
+        case "SessionRestored":
+        case "SessionEnded": {
+          const violations: LawViolation[] = [];
+          if (event.sessionId !== state.identity.id) {
+            violations.push(
+              violation(
+                META_CONTINUATION_01,
+                "SESSION_IDENTITY_DRIFT",
+                "Session lifecycle event reached gravity with a mismatched identity.",
+              ),
+            );
+          }
+          if (event.kind === "SessionRestored" && !state.context.ledger.sessionTraceComplete) {
+            violations.push(
+              violation(
+                META_CONTINUATION_01,
+                "RESTORE_TRACE_INCOMPLETE",
+                "Session restore reached gravity without a complete session trace.",
+              ),
+            );
+          }
+          return violations;
+        }
+        case "GrantIssued":
+        case "GrantRevoked":
+        case "GrantExpired":
+          return validateGrantEvent(event);
+        case "CrashRecovered":
+        case "SnapshotRestored":
+          return state.context.ledger.sessionTraceComplete
+            ? []
+            : [
+                violation(
+                  META_CONTINUATION_01,
+                  "RECOVERY_TRACE_INCOMPLETE",
+                  "Crash/snapshot recovery reached gravity without a complete session trace.",
+                ),
+              ];
+        case "LedgerIntegrityUpdated":
+          return event.ledger.sessionTraceComplete && event.ledger.requestTraceComplete
+            ? []
+            : [
+                violation(
+                  META_CONTINUATION_01,
+                  "LEDGER_INTEGRITY_INCOMPLETE",
+                  "Ledger integrity update reached gravity in an incomplete state.",
+                ),
+              ];
+        default:
+          return [];
+      }
+    },
+    normalize(state: GravityState, violations: LawViolation[]): GravityState {
+      if (violations.length === 0) return state;
       return state;
     },
   };

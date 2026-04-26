@@ -1,5 +1,7 @@
 import {
+  createMetaContactSkill,
   createMetaAuthoritySkill,
+  createMetaContinuationSkill,
   createMetaLawSkill,
   createMetaLedgerSkill,
   createMetaScopeSkill,
@@ -15,12 +17,14 @@ import type { LawSkill } from "./types.ts";
  */
 export function getDefaultLawSkills(): LawSkill[] {
   return [
+    createMetaContactSkill(),
     createMetaTrustSkill(),
     createMetaAuthoritySkill(),
     createMetaScopeSkill(),
     createMetaLawSkill(),
     createMetaSessionSkill(),
     createMetaLedgerSkill(),
+    createMetaContinuationSkill(),
     createScopeGrantSkill(),
   ];
 }
