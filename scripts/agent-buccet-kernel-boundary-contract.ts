@@ -83,6 +83,59 @@ async function main() {
     assert.equal(rawNetwork?.decision, "deny");
     assert.equal(rawNetwork?.entry.id, "DENY.KERNEL.NETWORK.014K");
 
+    const hypervisorControl = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "tool.exec",
+        "virsh",
+        "virsh qemu-monitor-command guest0 --hmp 'info registers'",
+      ),
+    });
+    assert.ok(hypervisorControl, "expected hypervisor control to match the kernel wall");
+    assert.equal(hypervisorControl?.decision, "deny");
+    assert.equal(hypervisorControl?.entry.id, "DENY.KERNEL.HYPERVISOR.014R");
+
+    const firmwarePath = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("fs.write", "/sys/firmware/efi/efivars/Boot0001-deadbeef"),
+    });
+    assert.ok(firmwarePath, "expected EFI path mutation to match the kernel wall");
+    assert.equal(firmwarePath?.decision, "deny");
+    assert.equal(firmwarePath?.entry.id, "DENY.KERNEL.FIRMWARE.014S2");
+
+    const controlCoreRead = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("fs.read", "/proc/kcore"),
+    });
+    assert.ok(controlCoreRead, "expected control-core path read to match the kernel wall");
+    assert.equal(controlCoreRead?.decision, "deny");
+    assert.equal(controlCoreRead?.entry.id, "DENY.KERNEL.CONTROL_CORE.014T");
+
+    const capabilityEndpoint = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "tool.exec",
+        "sel4-test",
+        "seL4_Call endpoint cap followed by zx_channel_call and mach_msg",
+      ),
+    });
+    assert.ok(capabilityEndpoint, "expected capability-endpoint contact to match the kernel wall");
+    assert.equal(capabilityEndpoint?.decision, "deny");
+    assert.equal(capabilityEndpoint?.entry.id, "DENY.KERNEL.CAPABILITY.014Q");
+
+    const interruptControl = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "wrmsr", "wrmsr 0x1a0 0x4000850089"),
+    });
+    assert.ok(interruptControl, "expected low-level interrupt/MSR control to match the kernel wall");
+    assert.equal(interruptControl?.decision, "deny");
+    assert.equal(interruptControl?.entry.id, "DENY.KERNEL.INTERRUPT.014U");
+
     const store = await createPersistentBoundaryRuntimeStore({
       sessionId: `kernel-boundary-${Date.now()}`,
       actorId: "user:kernel-boundary-runtime",
@@ -107,12 +160,35 @@ async function main() {
       "expected kernel-boundary intercept to surface the namespace-crossing wall",
     );
 
+    const dispatchIntercept = await evaluateBoundaryIntercept({
+      config: bodyguard.store.getConfig(),
+      request: {
+        actionClass: "shell",
+        operation: "exec",
+        target: "bpftrace",
+        payloadSummary: "bpftrace -e 'kprobe:sys_execve { @[comm] = count(); }' && patch syscall table",
+        provenance: "external_content",
+      },
+    });
+
+    assert.equal(dispatchIntercept.decision, "deny", "expected dispatch-hook intercept to deny");
+    assert.ok(
+      dispatchIntercept.lawIds.includes("DENY.KERNEL.DISPATCH.014P"),
+      "expected dispatch-hook intercept to surface the kernel dispatch wall",
+    );
+
     console.log("Agent Buccet kernel boundary contract");
     console.log(`driver wall: ${driverLoad?.entry.id}`);
     console.log(`injection wall: ${processInjection?.entry.id}`);
     console.log(`docker socket wall: ${dockerSock?.entry.id}`);
     console.log(`raw network wall: ${rawNetwork?.entry.id}`);
+    console.log(`hypervisor wall: ${hypervisorControl?.entry.id}`);
+    console.log(`firmware path wall: ${firmwarePath?.entry.id}`);
+    console.log(`control-core wall: ${controlCoreRead?.entry.id}`);
+    console.log(`capability wall: ${capabilityEndpoint?.entry.id}`);
+    console.log(`interrupt wall: ${interruptControl?.entry.id}`);
     console.log(`intercept wall: ${intercepted.lawIds.join(", ")}`);
+    console.log(`dispatch intercept wall: ${dispatchIntercept.lawIds.join(", ")}`);
   } finally {
     if (previousLedgerPath === undefined) {
       delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
