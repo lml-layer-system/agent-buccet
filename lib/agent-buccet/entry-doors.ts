@@ -12,7 +12,7 @@ import type {
   BoundaryReviewContext,
 } from "./types.ts";
 
-export type BoundaryHostKind = "claude-desktop" | "cursor" | "vscode";
+export type BoundaryHostKind = "claude-code" | "claude-desktop" | "cursor" | "vscode";
 
 export type BoundaryHostAttachPlan = {
   host: BoundaryHostKind;
@@ -42,6 +42,11 @@ function truncateDoorPayload(value: string): string {
 }
 
 function defaultHostConfigPath(host: BoundaryHostKind, projectPath: string | undefined, homeDir: string): string {
+  if (host === "claude-code") {
+    return projectPath
+      ? path.join(projectPath, ".claude", "settings.json")
+      : path.join(homeDir, ".claude", "settings.json");
+  }
   if (host === "cursor") {
     return projectPath
       ? path.join(projectPath, ".cursor", "mcp.json")
@@ -72,11 +77,13 @@ export function resolveBoundaryHostConfigPath(args: {
   const homeDir = args.homeDir ?? os.homedir();
   const projectPath = args.projectPath ? path.resolve(args.projectPath) : undefined;
   const env = args.env ?? process.env;
-  if (projectPath && (args.host === "cursor" || args.host === "vscode")) {
+  if (projectPath && (args.host === "claude-code" || args.host === "cursor" || args.host === "vscode")) {
     return defaultHostConfigPath(args.host, projectPath, homeDir);
   }
   const override =
-    args.host === "claude-desktop"
+    args.host === "claude-code"
+      ? env.BUCCET_HOST_CLAUDE_CODE_CONFIG_PATH
+      : args.host === "claude-desktop"
       ? env.BUCCET_HOST_CLAUDE_CONFIG_PATH
       : args.host === "cursor"
         ? env.BUCCET_HOST_CURSOR_CONFIG_PATH
@@ -185,14 +192,56 @@ function readOptionValue(commandArgs: string[], names: string[]): string[] {
 async function collectGhPayloadText(commandArgs: string[], cwd: string): Promise<string[]> {
   const payloads = [
     ...readOptionValue(commandArgs, ["--body", "-b"]),
+    ...readOptionValue(commandArgs, ["--title", "-t"]),
+    ...readOptionValue(commandArgs, ["--message", "-m"]),
+    ...readOptionValue(commandArgs, ["--notes"]),
+    ...readOptionValue(commandArgs, ["--subject"]),
   ];
-  for (const filePath of readOptionValue(commandArgs, ["--body-file", "-F"])) {
+  for (const filePath of readOptionValue(commandArgs, ["--body-file", "-F", "--notes-file", "--template", "--input"])) {
     try {
       payloads.push(await fs.readFile(path.resolve(cwd, filePath), "utf8"));
     } catch {
       continue;
     }
   }
+  return payloads;
+}
+
+async function collectProtectedPathPayload(args: {
+  config: BoundaryRuntimeConfig;
+  cwd: string;
+  tokens: string[];
+}): Promise<string[]> {
+  const subjects = args.config.protectedSubjects ?? [];
+  const sourcePathSubjects = subjects.filter((subject) => subject.sourcePath);
+  const payloads: string[] = [];
+  const seen = new Set<string>();
+
+  for (const token of args.tokens) {
+    if (!token || token.startsWith("-")) {
+      continue;
+    }
+    const filePath = path.resolve(args.cwd, token);
+    if (seen.has(filePath)) {
+      continue;
+    }
+    seen.add(filePath);
+    const matchedSubject = sourcePathSubjects.find((subject) => subject.sourcePath === filePath);
+    if (!matchedSubject) {
+      continue;
+    }
+    try {
+      const stat = await fs.stat(filePath);
+      if (!stat.isFile()) {
+        continue;
+      }
+      const content = await fs.readFile(filePath, "utf8");
+      payloads.push(`file:${filePath}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+    } catch {
+      continue;
+    }
+  }
+
   return payloads;
 }
 
@@ -224,18 +273,40 @@ async function collectProtectedGitPayload(args: {
   const subjects = args.config.protectedSubjects ?? [];
   const sourcePathSubjects = subjects.filter((subject) => subject.sourcePath);
   const payloads: string[] = [];
+  const emitted = new Set<string>();
+  const cwdPath = path.resolve(args.cwd);
+
+  const appendSubjectPayload = async (filePath: string) => {
+    if (emitted.has(filePath)) {
+      return;
+    }
+    emitted.add(filePath);
+    try {
+      const content = await fs.readFile(filePath, "utf8");
+      payloads.push(`file:${filePath}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+    } catch {
+      return;
+    }
+  };
 
   for (const filePath of candidateFiles) {
     const matchedSubject = sourcePathSubjects.find((subject) => subject.sourcePath === filePath);
     if (!matchedSubject) {
       continue;
     }
-    try {
-      const content = await fs.readFile(filePath, "utf8");
-      payloads.push(`file:${filePath}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
-    } catch {
+    await appendSubjectPayload(filePath);
+  }
+
+  for (const subject of sourcePathSubjects) {
+    const filePath = subject.sourcePath;
+    if (!filePath) {
       continue;
     }
+    const resolvedPath = path.resolve(filePath);
+    if (!(resolvedPath === cwdPath || resolvedPath.startsWith(`${cwdPath}${path.sep}`))) {
+      continue;
+    }
+    await appendSubjectPayload(resolvedPath);
   }
 
   return payloads;
@@ -279,14 +350,21 @@ export async function inferBoundaryToolDoorSignals(args: {
   if (args.toolName === "gh") {
     return mergeDoorSignals({
       basePayload,
-      extraPayloads: await collectGhPayloadText(args.commandArgs, args.cwd),
+      extraPayloads: [
+        ...await collectGhPayloadText(args.commandArgs, args.cwd),
+        ...await collectProtectedPathPayload({
+          config: args.config,
+          cwd: args.cwd,
+          tokens: args.commandArgs,
+        }),
+      ],
       config: args.config,
     });
   }
 
   const primary = args.commandArgs[0] ?? "";
   const extraPayloads: string[] = [];
-  if (["push", "send-email", "format-patch", "request-pull", "archive"].includes(primary)) {
+  if (["archive", "bundle", "format-patch", "push", "request-pull", "send-email"].includes(primary)) {
     extraPayloads.push(...await collectProtectedGitPayload({
       config: args.config,
       cwd: args.cwd,
@@ -294,6 +372,13 @@ export async function inferBoundaryToolDoorSignals(args: {
   }
   if (primary === "commit") {
     extraPayloads.push(...readOptionValue(args.commandArgs, ["-m", "--message"]));
+    for (const filePath of readOptionValue(args.commandArgs, ["-F", "--file"])) {
+      try {
+        extraPayloads.push(await fs.readFile(path.resolve(args.cwd, filePath), "utf8"));
+      } catch {
+        continue;
+      }
+    }
   }
 
   return mergeDoorSignals({

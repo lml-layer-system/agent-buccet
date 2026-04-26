@@ -318,7 +318,7 @@ function usage(): never {
     "  buccet hook env [--json]",
     "  buccet hook run -- <command> [args...]",
     "  buccet hook stop",
-    "  buccet host attach <claude-desktop|cursor|vscode> [--project <path>] [--name <server-name>] [--command <path>] [--write] [--json]",
+    "  buccet host attach <claude-code|claude-desktop|cursor|vscode> [--project <path>] [--name <server-name>] [--command <path>] [--write] [--json]",
     "  buccet git [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] [-- <git args...>]",
     "  buccet gh [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] [-- <gh args...>]",
     "  buccet swarm list [--json]",
@@ -339,7 +339,8 @@ function currentScriptDir(): string {
 
 function shortSocketPath(homePath: string, label: string): string {
   const digest = createHash("sha256").update(`${homePath}:${label}`).digest("hex").slice(0, 12);
-  const socketRoot = os.tmpdir();
+  const socketRoot = process.env.BUCCET_SOCKET_ROOT
+    ?? (process.platform === "win32" ? os.tmpdir() : "/tmp");
   return path.join(socketRoot, `buccet-${label}-${digest}.sock`);
 }
 
@@ -3174,11 +3175,21 @@ type HookRuntimeHealth = {
   interceptReady: boolean;
   bridgeReady: boolean;
   reason?: string;
+  interceptHost?: string;
+  interceptPort?: number;
+  gravityBridgeHost?: string;
+  gravityBridgePort?: number;
 };
 
-async function probeGravityBridge(socketPath: string, timeoutMs = 1_500): Promise<void> {
+type HookBridgeTarget =
+  | { socketPath: string }
+  | { host: string; port: number };
+
+async function probeGravityBridge(target: HookBridgeTarget, timeoutMs = 1_500): Promise<void> {
   await withTimeout(new Promise<void>((resolve, reject) => {
-    const socket = net.createConnection(socketPath);
+    const socket = "socketPath" in target
+      ? net.createConnection(target.socketPath)
+      : net.createConnection({ host: target.host, port: target.port });
     let settled = false;
 
     const finish = (error?: Error) => {
@@ -3220,8 +3231,20 @@ async function getHookRuntimeHealth(
 ): Promise<HookRuntimeHealth> {
   const pid = await readHookPid(home.hookPidPath);
   const running = pid ? await pidAlive(pid) : false;
-  const hookState = await readJsonIfExists<{ state?: string }>(home.brainStatusPath);
+  const hookState = await readJsonIfExists<{
+    state?: string;
+    interceptHost?: string;
+    interceptPort?: number;
+    gravityBridgeHost?: string;
+    gravityBridgePort?: number;
+  }>(home.brainStatusPath);
   const state = hookState?.state;
+  const interceptTarget = hookState?.interceptHost && hookState?.interceptPort
+    ? { host: hookState.interceptHost, port: hookState.interceptPort }
+    : { socketPath: home.interceptSocketPath };
+  const gravityTarget = hookState?.gravityBridgeHost && hookState?.gravityBridgePort
+    ? { host: hookState.gravityBridgeHost, port: hookState.gravityBridgePort }
+    : { socketPath: home.gravityBridgeSocketPath };
 
   if (!running) {
     return {
@@ -3232,6 +3255,10 @@ async function getHookRuntimeHealth(
       interceptReady: false,
       bridgeReady: false,
       reason: "hook daemon is not running",
+      interceptHost: hookState?.interceptHost,
+      interceptPort: hookState?.interceptPort,
+      gravityBridgeHost: hookState?.gravityBridgeHost,
+      gravityBridgePort: hookState?.gravityBridgePort,
     };
   }
 
@@ -3244,10 +3271,14 @@ async function getHookRuntimeHealth(
       interceptReady: false,
       bridgeReady: false,
       reason: `hook daemon state is ${state ?? "missing"}`,
+      interceptHost: hookState?.interceptHost,
+      interceptPort: hookState?.interceptPort,
+      gravityBridgeHost: hookState?.gravityBridgeHost,
+      gravityBridgePort: hookState?.gravityBridgePort,
     };
   }
 
-  if (!(await pathExists(home.interceptSocketPath))) {
+  if ("socketPath" in interceptTarget && !(await pathExists(home.interceptSocketPath))) {
     return {
       running,
       healthy: false,
@@ -3256,10 +3287,14 @@ async function getHookRuntimeHealth(
       interceptReady: false,
       bridgeReady: false,
       reason: "intercept socket is missing",
+      interceptHost: hookState?.interceptHost,
+      interceptPort: hookState?.interceptPort,
+      gravityBridgeHost: hookState?.gravityBridgeHost,
+      gravityBridgePort: hookState?.gravityBridgePort,
     };
   }
 
-  if (!(await pathExists(home.gravityBridgeSocketPath))) {
+  if ("socketPath" in gravityTarget && !(await pathExists(home.gravityBridgeSocketPath))) {
     return {
       running,
       healthy: false,
@@ -3268,12 +3303,16 @@ async function getHookRuntimeHealth(
       interceptReady: true,
       bridgeReady: false,
       reason: "gravity bridge socket is missing",
+      interceptHost: hookState?.interceptHost,
+      interceptPort: hookState?.interceptPort,
+      gravityBridgeHost: hookState?.gravityBridgeHost,
+      gravityBridgePort: hookState?.gravityBridgePort,
     };
   }
 
   try {
     const interceptStatus = await withTimeout(boundary.sendBoundaryInterceptServerInput({
-      target: { socketPath: home.interceptSocketPath },
+      target: interceptTarget,
       input: {
         command: "status",
       },
@@ -3287,6 +3326,10 @@ async function getHookRuntimeHealth(
         interceptReady: false,
         bridgeReady: false,
         reason: `unexpected intercept server health response: ${interceptStatus.type}`,
+        interceptHost: hookState?.interceptHost,
+        interceptPort: hookState?.interceptPort,
+        gravityBridgeHost: hookState?.gravityBridgeHost,
+        gravityBridgePort: hookState?.gravityBridgePort,
       };
     }
   } catch (error) {
@@ -3298,11 +3341,15 @@ async function getHookRuntimeHealth(
       interceptReady: false,
       bridgeReady: false,
       reason: error instanceof Error ? error.message : "intercept server health check failed",
+      interceptHost: hookState?.interceptHost,
+      interceptPort: hookState?.interceptPort,
+      gravityBridgeHost: hookState?.gravityBridgeHost,
+      gravityBridgePort: hookState?.gravityBridgePort,
     };
   }
 
   try {
-    await probeGravityBridge(home.gravityBridgeSocketPath);
+    await probeGravityBridge(gravityTarget);
   } catch (error) {
     return {
       running,
@@ -3312,6 +3359,10 @@ async function getHookRuntimeHealth(
       interceptReady: true,
       bridgeReady: false,
       reason: error instanceof Error ? error.message : "gravity bridge health check failed",
+      interceptHost: hookState?.interceptHost,
+      interceptPort: hookState?.interceptPort,
+      gravityBridgeHost: hookState?.gravityBridgeHost,
+      gravityBridgePort: hookState?.gravityBridgePort,
     };
   }
 
@@ -3322,6 +3373,10 @@ async function getHookRuntimeHealth(
     state,
     interceptReady: true,
     bridgeReady: true,
+    interceptHost: hookState?.interceptHost,
+    interceptPort: hookState?.interceptPort,
+    gravityBridgeHost: hookState?.gravityBridgeHost,
+    gravityBridgePort: hookState?.gravityBridgePort,
   };
 }
 
@@ -3559,6 +3614,10 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
     actorId?: string;
     interceptSocketPath?: string;
     gravityBridgeSocketPath?: string;
+    interceptHost?: string;
+    interceptPort?: number;
+    gravityBridgeHost?: string;
+    gravityBridgePort?: number;
     brainStatusPath?: string;
     restartCount?: number;
     lastError?: string;
@@ -3576,7 +3635,9 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
   if (args.config && running) {
     try {
       const status = await boundary.sendBoundaryInterceptServerInput({
-        target: { socketPath: args.home.interceptSocketPath },
+        target: hookState?.interceptHost && hookState?.interceptPort
+          ? { host: hookState.interceptHost, port: hookState.interceptPort }
+          : { socketPath: args.home.interceptSocketPath },
         input: { command: "status" },
       });
       interceptReachable = status.type === "status";
@@ -3584,7 +3645,9 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
         pendingApprovals = status.swarm?.pending ?? 0;
       }
       const ingress = await boundary.sendBoundaryInterceptServerInput({
-        target: { socketPath: args.home.interceptSocketPath },
+        target: hookState?.interceptHost && hookState?.interceptPort
+          ? { host: hookState.interceptHost, port: hookState.interceptPort }
+          : { socketPath: args.home.interceptSocketPath },
         input: { command: "ingress_status" },
       });
       if (ingress.type === "ingress_status") {
@@ -3614,6 +3677,10 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
     actorId: hookState?.actorId ?? args.config?.actorId,
     interceptSocketPath: hookState?.interceptSocketPath ?? args.home.interceptSocketPath,
     gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
+    interceptHost: health.interceptHost ?? hookState?.interceptHost,
+    interceptPort: health.interceptPort ?? hookState?.interceptPort,
+    gravityBridgeHost: health.gravityBridgeHost ?? hookState?.gravityBridgeHost,
+    gravityBridgePort: health.gravityBridgePort ?? hookState?.gravityBridgePort,
     brainStatusPath: hookState?.brainStatusPath ?? args.home.brainStatusPath,
     nativeLibraryPath: args.home.nativeLibraryPath,
     restarts: hookState?.restartCount,
@@ -6422,6 +6489,10 @@ type HookStatusPayload = {
   actorId?: string;
   interceptSocketPath?: string;
   gravityBridgeSocketPath?: string;
+  interceptHost?: string;
+  interceptPort?: number;
+  gravityBridgeHost?: string;
+  gravityBridgePort?: number;
   brainStatusPath?: string;
   nativeLibraryPath?: string;
   interceptReady?: boolean;
@@ -6450,7 +6521,13 @@ function printHookStatusDetails(payload: HookStatusPayload): void {
   console.log(`intercept ready: ${payload.interceptReady ? "yes" : "no"}`);
   console.log(`bridge ready: ${payload.bridgeReady ? "yes" : "no"}`);
   console.log(`intercept socket: ${payload.interceptReachable ? "reachable" : "unreachable"}`);
-  console.log(`bridge socket: ${payload.gravityBridgeSocketPath ?? "-"}`);
+  console.log(
+    `bridge target: ${
+      payload.gravityBridgeHost && payload.gravityBridgePort
+        ? `${payload.gravityBridgeHost}:${payload.gravityBridgePort}`
+        : (payload.gravityBridgeSocketPath ?? "-")
+    }`,
+  );
   console.log(`intercepted attempts: ${payload.interceptedAttempts ?? 0}`);
   console.log(`canyon held: ${payload.canyonHeld ?? 0}`);
   console.log(`pending approvals: ${payload.pendingApprovals ?? 0}`);
@@ -6742,7 +6819,7 @@ async function handleMcp(rest: string[]) {
 }
 
 function isBoundaryHostKind(value: string | undefined): value is BoundaryHostKind {
-  return value === "claude-desktop" || value === "cursor" || value === "vscode";
+  return value === "claude-code" || value === "claude-desktop" || value === "cursor" || value === "vscode";
 }
 
 async function handleHost(rest: string[]) {
@@ -6919,30 +6996,6 @@ async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
   });
   await store.persist();
 
-  if (!(await pathExists(home.nativeLibraryPath))) {
-    await handleHook(["build", "--quiet"]);
-  }
-  const hookHealth = await getHookRuntimeHealth(boundary, home);
-  if (!hookHealth.healthy) {
-    await handleHook(["start", "--quiet"]);
-  }
-  await waitForHookRuntimeHealthy(boundary, home);
-
-  const hookEnv = {
-    AGENT_BUCCET_HOME: home.homePath,
-    AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
-    BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
-    BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
-    ...(process.platform === "darwin"
-      ? {
-          DYLD_INSERT_LIBRARIES: home.nativeLibraryPath,
-          DYLD_FORCE_FLAT_NAMESPACE: "1",
-        }
-      : {
-          LD_PRELOAD: home.nativeLibraryPath,
-        }),
-  };
-
   const doorSignals = await inferBoundaryToolDoorSignals({
     config: store.getConfig(),
     toolName,
@@ -6963,7 +7016,30 @@ async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
     dryRun: nextConfig.dryRun,
     cwd: requestedCwd ?? callerCwd,
     provenance: "trusted_user",
-    env: hookEnv,
+    prepareExecutionEnv: async () => {
+      if (!(await pathExists(home.nativeLibraryPath))) {
+        await handleHook(["build", "--quiet"]);
+      }
+      const hookHealth = await getHookRuntimeHealth(boundary, home);
+      if (!hookHealth.healthy) {
+        await handleHook(["start", "--quiet"]);
+      }
+      await waitForHookRuntimeHealthy(boundary, home);
+      return {
+        AGENT_BUCCET_HOME: home.homePath,
+        AGENT_BUCCET_INTERCEPT_SOCKET: home.interceptSocketPath,
+        BUCCET_SOCKET_PATH: home.gravityBridgeSocketPath,
+        BUCCET_BRAIN_STATUS_PATH: home.brainStatusPath,
+        ...(process.platform === "darwin"
+          ? {
+              DYLD_INSERT_LIBRARIES: home.nativeLibraryPath,
+              DYLD_FORCE_FLAT_NAMESPACE: "1",
+            }
+          : {
+              LD_PRELOAD: home.nativeLibraryPath,
+            }),
+      };
+    },
     payloadSummary: doorSignals.payloadSummary,
     flags: doorSignals.flags,
     reviewContext: {

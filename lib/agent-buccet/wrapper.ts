@@ -107,6 +107,7 @@ export async function runBoundaryWrappedCommand(args: {
   policyPath?: string;
   sessionsDir?: string;
   env?: Record<string, string>;
+  prepareExecutionEnv?: () => Promise<Record<string, string> | undefined> | Record<string, string> | undefined;
   cwd?: string;
   dryRun?: boolean;
   keepSession?: boolean;
@@ -160,43 +161,6 @@ export async function runBoundaryWrappedCommand(args: {
   });
 
   const config = enableBodyguardControl(store.getConfig());
-  await assertDirectInterceptPathActive(
-    args.env?.AGENT_BUCCET_INTERCEPT_SOCKET ?? args.env?.BUCCET_SOCKET_PATH,
-  );
-
-  try {
-    await prepareBoundaryProcess({
-      config,
-      command: args.command,
-      scopePaths: args.scopePaths ?? [],
-      allowedCommandTargets: [target],
-      envOverrides: args.env,
-      policyPath: args.policyPath,
-      requestedCwd: args.cwd,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "wrapped process blocked by process policy";
-    if (
-      message.includes("process command requires explicit standing law, allowlist, or current approval") ||
-      message.includes("requested working directory is outside user-opened scope")
-    ) {
-      await appendBoundaryLedger("PROCESS_BLOCKED", {
-        sessionId: config.session.sessionId,
-        actorId: config.session.actorId,
-        actionKind: "tool.exec",
-        target: target,
-        decision: "deny",
-        reason: message,
-        metadata: {
-          command: args.command,
-          argv: JSON.stringify(args.commandArgs),
-          cwd: args.cwd ?? (args.scopePaths?.[0] ?? process.cwd()),
-        },
-        createdAt: new Date().toISOString(),
-      });
-      throw error;
-    }
-  }
 
   const result = await enforceBoundaryProposal({
     config,
@@ -218,13 +182,58 @@ export async function runBoundaryWrappedCommand(args: {
         wrapper: true,
       },
       execute: async () => {
+        const preparedEnv = await args.prepareExecutionEnv?.();
+        const executionEnv = {
+          ...(args.env ?? {}),
+          ...(preparedEnv ?? {}),
+        };
+
+        await assertDirectInterceptPathActive(
+          executionEnv.AGENT_BUCCET_INTERCEPT_SOCKET ?? executionEnv.BUCCET_SOCKET_PATH,
+        );
+
+        try {
+          await prepareBoundaryProcess({
+            config,
+            command: args.command,
+            scopePaths: args.scopePaths ?? [],
+            allowedCommandTargets: [target],
+            envOverrides: executionEnv,
+            policyPath: args.policyPath,
+            requestedCwd: args.cwd,
+          });
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "wrapped process blocked by process policy";
+          if (
+            message.includes("process command requires explicit standing law, allowlist, or current approval") ||
+            message.includes("requested working directory is outside user-opened scope")
+          ) {
+            await appendBoundaryLedger("PROCESS_BLOCKED", {
+              sessionId: config.session.sessionId,
+              actorId: config.session.actorId,
+              actionKind: "tool.exec",
+              target: target,
+              decision: "deny",
+              reason: message,
+              metadata: {
+                command: args.command,
+                argv: JSON.stringify(args.commandArgs),
+                cwd: args.cwd ?? (args.scopePaths?.[0] ?? process.cwd()),
+              },
+              createdAt: new Date().toISOString(),
+            });
+            throw error;
+          }
+          throw error;
+        }
+
         const launched = await runBoundaryProcess({
           config,
           command: args.command,
           commandArgs: args.commandArgs,
           scopePaths: args.scopePaths ?? [],
           allowedCommandTargets: [target],
-          envOverrides: args.env,
+          envOverrides: executionEnv,
           policyPath: args.policyPath,
           requestedCwd: args.cwd,
         });

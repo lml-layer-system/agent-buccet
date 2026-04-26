@@ -71,6 +71,7 @@ async function main() {
   const workspacePath = path.join(tempRoot, "workspace");
   const homePath = path.join(tempRoot, "home");
   const launcherPath = path.join(tempRoot, "bin", "buccet");
+  const claudeCodeConfigPath = path.join(tempRoot, "claude-code", "settings.json");
   const claudeConfigPath = path.join(tempRoot, "claude", "claude_desktop_config.json");
   const cursorConfigPath = path.join(tempRoot, "cursor-global", "mcp.json");
   const vscodeConfigPath = path.join(tempRoot, "vscode-global", "mcp.json");
@@ -82,10 +83,25 @@ async function main() {
     AGENT_BUCCET_CALLER_CWD: workspacePath,
     AGENT_BUCCET_LAUNCHER_PATH: launcherPath,
     AGENT_BUCCET_UPL_LEDGER_PATH: path.join(tempRoot, "upl-ledger.json"),
+    BUCCET_HOST_CLAUDE_CODE_CONFIG_PATH: claudeCodeConfigPath,
     BUCCET_HOST_CLAUDE_CONFIG_PATH: claudeConfigPath,
     BUCCET_HOST_CURSOR_CONFIG_PATH: cursorConfigPath,
     BUCCET_HOST_VSCODE_CONFIG_PATH: vscodeConfigPath,
   };
+
+  const claudeCodeProject = path.join(workspacePath, "claude-code-project");
+  await fs.mkdir(claudeCodeProject, { recursive: true });
+  const claudeCodeAttach = await runCli(
+    ["host", "attach", "claude-code", "--project", claudeCodeProject, "--write", "--json"],
+    env,
+  );
+  assert.equal(claudeCodeAttach.code, 0, claudeCodeAttach.stderr);
+  const claudeCodePlan = JSON.parse(claudeCodeAttach.stdout) as {
+    configPath: string;
+    config: { mcpServers: Record<string, { command: string; args: string[] }> };
+  };
+  assert.equal(claudeCodePlan.configPath, path.join(claudeCodeProject, ".claude", "settings.json"));
+  assert.equal(claudeCodePlan.config.mcpServers.buccet.command, launcherPath);
 
   const claudeAttach = await runCli(["host", "attach", "claude-desktop", "--write", "--json"], env);
   assert.equal(claudeAttach.code, 0, claudeAttach.stderr);
@@ -133,6 +149,11 @@ async function main() {
     exports?: Record<string, string>;
   };
   assert.equal(packageJson.exports?.["./integrations"], "./lib/agent-buccet/integrations/index.ts");
+  const integrationsIndex = await fs.readFile(
+    path.join(repoRoot, "lib", "agent-buccet", "integrations", "index.ts"),
+    "utf8",
+  );
+  assert.match(integrationsIndex, /vercel-ai-sdk/, "expected vercel ai sdk integration export");
 
   const initResult = await runCli(["init", "--scope", "."], env, workspacePath);
   assert.equal(initResult.code, 0, initResult.stderr);
@@ -177,13 +198,44 @@ async function main() {
   assert.equal(ghLeak.code, 1, "expected protected GitHub post to hard deny");
   assert.match(ghLeak.stderr, /Secrets Boundary/i);
 
+  const leakBodyFile = path.join(workspacePath, "leak-body.txt");
+  await fs.writeFile(leakBodyFile, protectedSource, "utf8");
+
+  const ghPrLeak = await runCli(
+    ["gh", "pr", "create", "--title", "leak", "--body-file", leakBodyFile],
+    env,
+    workspacePath,
+  );
+  assert.equal(ghPrLeak.code, 1, "expected protected GitHub PR body to hard deny");
+  assert.match(ghPrLeak.stderr, /Secrets Boundary/i);
+
+  const ghCommentLeak = await runCli(
+    ["gh", "issue", "comment", "123", "--body-file", leakBodyFile],
+    env,
+    workspacePath,
+  );
+  assert.equal(ghCommentLeak.code, 1, "expected protected GitHub comment to hard deny");
+  assert.match(ghCommentLeak.stderr, /Secrets Boundary/i);
+
+  const gitPatchLeak = await runCli(
+    ["git", "format-patch", "-1", "HEAD"],
+    env,
+    workspacePath,
+  );
+  assert.equal(gitPatchLeak.code, 1, "expected protected patch export to hard deny");
+  assert.match(gitPatchLeak.stderr, /Secrets Boundary/i);
+
   console.log("Agent Buccet entry surface contract");
+  console.log(`claude-code attach: ${claudeCodePlan.configPath}`);
   console.log(`claude attach: ${claudePlan.configPath}`);
   console.log(`cursor attach: ${cursorPlan.configPath}`);
   console.log(`vscode attach: ${vscodePlan.configPath}`);
   console.log("integrations export: ok");
   console.log("git push protected source: denied");
   console.log("gh issue protected source: denied");
+  console.log("gh pr body protected source: denied");
+  console.log("gh comment protected source: denied");
+  console.log("git patch export protected source: denied");
 }
 
 main().catch((error) => {
