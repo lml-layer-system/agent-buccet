@@ -16,6 +16,7 @@ import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.
 import { appendBoundaryLedger } from "./ledger.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
+import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 import { maybeShedCompromisedBoundaryUnit } from "./shed.ts";
 import { assessBoundarySubstrateApprovalRequest } from "./substrate-live.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
@@ -186,6 +187,8 @@ function mergeBoundaryReviewContext(
 
   const mergedEvidence = [...new Set([...(base?.evidence ?? []), ...(patch?.evidence ?? [])])];
   const mergedViolations = [...new Set([...(base?.violations ?? []), ...(patch?.violations ?? [])])];
+  const mergedProtectedSubjectIds = [...new Set([...(base?.protectedSubjectIds ?? []), ...(patch?.protectedSubjectIds ?? [])])];
+  const mergedProtectedSubjectKinds = [...new Set([...(base?.protectedSubjectKinds ?? []), ...(patch?.protectedSubjectKinds ?? [])])];
 
   return {
     surface: base?.surface ?? patch?.surface ?? "action",
@@ -205,6 +208,8 @@ function mergeBoundaryReviewContext(
     ...(base?.attemptLines ?? patch?.attemptLines ? { attemptLines: base?.attemptLines ?? patch?.attemptLines } : {}),
     ...(mergedEvidence.length > 0 ? { evidence: mergedEvidence } : {}),
     ...(mergedViolations.length > 0 ? { violations: mergedViolations } : {}),
+    ...(mergedProtectedSubjectIds.length > 0 ? { protectedSubjectIds: mergedProtectedSubjectIds } : {}),
+    ...(mergedProtectedSubjectKinds.length > 0 ? { protectedSubjectKinds: mergedProtectedSubjectKinds } : {}),
   };
 }
 
@@ -535,6 +540,27 @@ function describeFlagViolations(request: BoundaryActionRequest): string[] {
   if (flags.payloadContainsFinancialData) {
     violations.push("payload contains financial data (card number or similar)");
   }
+  if (flags.payloadContainsProtectedMaterial) {
+    violations.push("payload contains sealed protected material");
+  }
+  if (flags.payloadContainsProtectedSourceCode) {
+    violations.push("payload contains sealed source code");
+  }
+  if (flags.payloadContainsProtectedPrompt) {
+    violations.push("payload contains sealed prompt material");
+  }
+  if (flags.payloadContainsProtectedContract) {
+    violations.push("payload contains sealed contract material");
+  }
+  if (flags.payloadContainsProtectedInternalDoc) {
+    violations.push("payload contains sealed internal documentation");
+  }
+  if (flags.payloadContainsProtectedCustomerData) {
+    violations.push("payload contains sealed customer data");
+  }
+  if (flags.payloadContainsProtectedModelWeight) {
+    violations.push("payload contains sealed model-weight material");
+  }
   return violations;
 }
 
@@ -679,6 +705,12 @@ export async function enforceBoundaryProposal<T>(args: {
   config: BoundaryRuntimeConfig;
   proposal: BoundaryToolProposal<T>;
 }): Promise<BoundaryExecutionResult<T>> {
+  const inferredProtectedSignals = inferBoundaryProtectedMaterialSignals({
+    config: args.config,
+    actionKind: args.proposal.actionKind,
+    payload: args.proposal.payloadSummary,
+  });
+
   return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
     request: createBoundaryActionRequest({
@@ -688,8 +720,16 @@ export async function enforceBoundaryProposal<T>(args: {
       payloadSummary: args.proposal.payloadSummary,
       spendIntent: args.proposal.spendIntent,
       provenance: args.proposal.provenance,
-      flags: args.proposal.flags,
-      reviewContext: args.proposal.reviewContext,
+      flags: mergeBoundaryFlags(args.proposal.flags, inferredProtectedSignals.flags),
+      reviewContext: mergeBoundaryReviewContext(args.proposal.reviewContext, {
+        ...(inferredProtectedSignals.evidence.length > 0 ? { evidence: inferredProtectedSignals.evidence } : {}),
+        ...(inferredProtectedSignals.protectedSubjectIds.length > 0
+          ? { protectedSubjectIds: inferredProtectedSignals.protectedSubjectIds }
+          : {}),
+        ...(inferredProtectedSignals.protectedSubjectKinds.length > 0
+          ? { protectedSubjectKinds: inferredProtectedSignals.protectedSubjectKinds }
+          : {}),
+      }),
     }),
     execute: args.proposal.execute,
     successReason: args.proposal.successReason,
@@ -1059,7 +1099,16 @@ export function createBoundaryChatEmissionRequest(args: {
   });
   const inferredOutputFlags = inferBoundaryChatFlagsFromOutput(args.attemptedOutput);
   const inferredEgressFlags = inferBoundaryEgressFlagsFromPayload(args.attemptedOutput);
-  const mergedEvidence = mergeEvidenceLines(inferredConstraintSignals.evidence, args.evidence);
+  const inferredProtectedSignals = inferBoundaryProtectedMaterialSignals({
+    config: args.config,
+    actionKind: "chat.emit",
+    payload: args.attemptedOutput,
+  });
+  const mergedEvidence = mergeEvidenceLines(
+    inferredConstraintSignals.evidence,
+    inferredProtectedSignals.evidence,
+    args.evidence,
+  );
 
   return createBoundaryActionRequest({
     config: args.config,
@@ -1075,6 +1124,7 @@ export function createBoundaryChatEmissionRequest(args: {
       inferredOutputFlags,
       inferredConstraintSignals.flags,
       inferredEgressFlags,
+      inferredProtectedSignals.flags,
       args.flags,
     ),
     reviewContext: {
@@ -1085,6 +1135,12 @@ export function createBoundaryChatEmissionRequest(args: {
       userInput: args.userInput,
       attemptedOutput: args.attemptedOutput,
       evidence: mergedEvidence,
+      ...(inferredProtectedSignals.protectedSubjectIds.length > 0
+        ? { protectedSubjectIds: inferredProtectedSignals.protectedSubjectIds }
+        : {}),
+      ...(inferredProtectedSignals.protectedSubjectKinds.length > 0
+        ? { protectedSubjectKinds: inferredProtectedSignals.protectedSubjectKinds }
+        : {}),
     },
   });
 }

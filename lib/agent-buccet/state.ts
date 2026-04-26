@@ -72,6 +72,7 @@ function toPersistedState(config: BoundaryRuntimeConfig): BoundaryPersistedSessi
     admissionConfig: config.admissionConfig,
     admissionState: config.admissionState,
     quarantineState: config.quarantineState,
+    protectedSubjects: config.protectedSubjects,
     savedAt: new Date().toISOString(),
   };
 }
@@ -421,6 +422,7 @@ export async function startPersistentBoundarySession(args: {
     governorState: initialGovernorState(),
     admissionConfig: DEFAULT_ADMISSION_CONFIG,
     admissionState: initialAdmissionState(),
+    protectedSubjects: [],
     persistence: {
       enabled: true,
       sessionsDir: args.sessionsDir,
@@ -500,6 +502,7 @@ export async function restorePersistentBoundarySession(args: {
     admissionConfig: state.admissionConfig ?? DEFAULT_ADMISSION_CONFIG,
     admissionState: state.admissionState ?? initialAdmissionState(),
     quarantineState: state.quarantineState,
+    protectedSubjects: state.protectedSubjects ?? [],
     persistence: {
       enabled: true,
       sessionsDir: resolveSessionsDir(undefined, args.sessionsDir),

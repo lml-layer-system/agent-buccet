@@ -298,6 +298,13 @@ export type BoundaryActionRequest = {
     payloadContainsPii?: boolean;
     payloadContainsCredential?: boolean;
     payloadContainsFinancialData?: boolean;
+    payloadContainsProtectedMaterial?: boolean;
+    payloadContainsProtectedSourceCode?: boolean;
+    payloadContainsProtectedPrompt?: boolean;
+    payloadContainsProtectedContract?: boolean;
+    payloadContainsProtectedInternalDoc?: boolean;
+    payloadContainsProtectedCustomerData?: boolean;
+    payloadContainsProtectedModelWeight?: boolean;
   };
   reviewContext?: BoundaryReviewContext;
 };
@@ -508,6 +515,31 @@ export type BoundaryReviewContext = {
   attemptLines?: string[];
   evidence?: string[];
   violations?: string[];
+  protectedSubjectIds?: string[];
+  protectedSubjectKinds?: BoundaryProtectedSubjectKind[];
+};
+
+export type BoundaryProtectedSubjectKind =
+  | "source_code"
+  | "prompt"
+  | "contract"
+  | "internal_doc"
+  | "customer_data"
+  | "credential"
+  | "model_weight"
+  | "other";
+
+export type BoundaryProtectedSubject = {
+  subjectId: string;
+  label: string;
+  kind: BoundaryProtectedSubjectKind;
+  sourcePath?: string;
+  contentSha256: string;
+  contentLength: number;
+  normalizedContent: string;
+  snippetFingerprints: string[];
+  createdAt: string;
+  sealedBy: string;
 };
 
 export type BoundaryLedgerEventType =
@@ -813,6 +845,7 @@ export type BoundaryRuntimeConfig = {
   admissionConfig?: BoundaryAdmissionConfig;
   admissionState?: BoundaryAdmissionState;
   quarantineState?: BoundaryQuarantineState;
+  protectedSubjects?: BoundaryProtectedSubject[];
   drainPendingApprovals?: (reason?: string) => number | Promise<number>;
 };
 
@@ -835,6 +868,7 @@ export type BoundaryPersistedSessionState = {
   admissionConfig?: BoundaryAdmissionConfig;
   admissionState?: BoundaryAdmissionState;
   quarantineState?: BoundaryQuarantineState;
+  protectedSubjects?: BoundaryProtectedSubject[];
   savedAt: string;
 };
 

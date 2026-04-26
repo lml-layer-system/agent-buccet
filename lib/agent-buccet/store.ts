@@ -12,9 +12,14 @@ import {
   openBoundaryPath,
   revokeBoundaryGrant,
 } from "./runtime.ts";
+import {
+  sealBoundaryProtectedFile,
+  sealBoundaryProtectedSubject,
+} from "./secrets-boundary.ts";
 import type {
   BoundaryActionKind,
   BoundaryLaw,
+  BoundaryProtectedSubjectKind,
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
 } from "./types.ts";
@@ -45,6 +50,23 @@ export type BoundaryRuntimeStore = {
     reason?: string;
   }): Promise<BoundaryRuntimeConfig>;
   expireGrants(nowIso?: string): Promise<BoundaryRuntimeConfig>;
+  sealProtectedSubject(args: {
+    subjectId?: string;
+    label: string;
+    kind: BoundaryProtectedSubjectKind;
+    content: string;
+    sourcePath?: string;
+    sealedBy: string;
+    createdAt?: string;
+  }): Promise<BoundaryRuntimeConfig>;
+  sealProtectedFile(args: {
+    filePath: string;
+    label?: string;
+    kind: BoundaryProtectedSubjectKind;
+    subjectId?: string;
+    sealedBy: string;
+    createdAt?: string;
+  }): Promise<BoundaryRuntimeConfig>;
   endSession(args: { endedBy: string; reason?: string }): Promise<BoundaryRuntimeConfig>;
 };
 
@@ -104,6 +126,31 @@ export function createBoundaryRuntimeStore(initialConfig: BoundaryRuntimeConfig)
         nowIso,
       });
       current = result.config;
+      return current;
+    },
+    sealProtectedSubject: async ({ subjectId, label, kind, content, sourcePath, sealedBy, createdAt }) => {
+      current = sealBoundaryProtectedSubject({
+        config: current,
+        subjectId,
+        label,
+        kind,
+        content,
+        sourcePath,
+        sealedBy,
+        createdAt,
+      });
+      return current;
+    },
+    sealProtectedFile: async ({ filePath, label, kind, subjectId, sealedBy, createdAt }) => {
+      current = await sealBoundaryProtectedFile({
+        config: current,
+        filePath,
+        label,
+        kind,
+        subjectId,
+        sealedBy,
+        createdAt,
+      });
       return current;
     },
     endSession: async ({ endedBy, reason }) => {

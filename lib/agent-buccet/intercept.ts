@@ -6,6 +6,7 @@ import {
   markCanyonLedgered,
 } from "./admission.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
+import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
 import type {
   BoundaryActionKind,
@@ -45,6 +46,13 @@ export type BoundaryInterceptRequest = {
     requestsLawMutation?: boolean;
     requestsSessionRevival?: boolean;
     requestsLedgerBypass?: boolean;
+    payloadContainsProtectedMaterial?: boolean;
+    payloadContainsProtectedSourceCode?: boolean;
+    payloadContainsProtectedPrompt?: boolean;
+    payloadContainsProtectedContract?: boolean;
+    payloadContainsProtectedInternalDoc?: boolean;
+    payloadContainsProtectedCustomerData?: boolean;
+    payloadContainsProtectedModelWeight?: boolean;
   };
   /** Admission boundary metadata — used for inbound DDoS / prompt-spam defense. */
   admission?: {
@@ -604,14 +612,31 @@ export async function evaluateBoundaryIntercept(args: {
     // Admitted by admission boundary — continue to law/gravity adjudication
     // Pass updated admission state back to caller via result
     const actionKind = mapInterceptToBoundaryAction(args.request);
+    const protectedSignals = inferBoundaryProtectedMaterialSignals({
+      config: args.config,
+      actionKind,
+      payload: args.request.payloadSummary,
+    });
     const boundaryRequest = createBoundaryActionRequest({
       config: args.config,
       actionKind,
       target: args.request.target,
       payloadSummary: args.request.payloadSummary,
-      reviewContext: args.request.reviewContext,
+      reviewContext: {
+        ...(args.request.reviewContext ?? { surface: "action" as const }),
+        ...(protectedSignals.evidence.length > 0 ? { evidence: protectedSignals.evidence } : {}),
+        ...(protectedSignals.protectedSubjectIds.length > 0
+          ? { protectedSubjectIds: protectedSignals.protectedSubjectIds }
+          : {}),
+        ...(protectedSignals.protectedSubjectKinds.length > 0
+          ? { protectedSubjectKinds: protectedSignals.protectedSubjectKinds }
+          : {}),
+      },
       provenance: args.request.provenance,
-      flags: args.request.flags,
+      flags: {
+        ...(args.request.flags ?? {}),
+        ...(protectedSignals.flags ?? {}),
+      },
     });
     const substrateIntercept = await assessBoundarySubstrateIntercept({
       config: args.config,
@@ -647,14 +672,31 @@ export async function evaluateBoundaryIntercept(args: {
 
   // No admission config — standard intercept path (no change to existing behavior)
   const actionKind = mapInterceptToBoundaryAction(args.request);
+  const protectedSignals = inferBoundaryProtectedMaterialSignals({
+    config: args.config,
+    actionKind,
+    payload: args.request.payloadSummary,
+  });
   const boundaryRequest = createBoundaryActionRequest({
     config: args.config,
     actionKind,
     target: args.request.target,
     payloadSummary: args.request.payloadSummary,
-    reviewContext: args.request.reviewContext,
+    reviewContext: {
+      ...(args.request.reviewContext ?? { surface: "action" as const }),
+      ...(protectedSignals.evidence.length > 0 ? { evidence: protectedSignals.evidence } : {}),
+      ...(protectedSignals.protectedSubjectIds.length > 0
+        ? { protectedSubjectIds: protectedSignals.protectedSubjectIds }
+        : {}),
+      ...(protectedSignals.protectedSubjectKinds.length > 0
+        ? { protectedSubjectKinds: protectedSignals.protectedSubjectKinds }
+        : {}),
+    },
     provenance: args.request.provenance,
-    flags: args.request.flags,
+    flags: {
+      ...(args.request.flags ?? {}),
+      ...(protectedSignals.flags ?? {}),
+    },
   });
   const substrateIntercept = await assessBoundarySubstrateIntercept({
     config: args.config,
