@@ -263,6 +263,13 @@ function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConst
   return "paragraph";
 }
 
+// Maximum regex body length and allowed flags — guards against ReDoS and flag injection
+// from user-supplied UPL patterns. Patterns exceeding the limit fall back to substring match.
+const _REGEX_BODY_MAX_LENGTH = 200;
+const _REGEX_ALLOWED_FLAGS = /^[gimu]*$/;
+// Nested-quantifier heuristic: closing group followed by a quantifier is the canonical ReDoS shape.
+const _REGEX_NESTED_QUANTIFIER = /[)]\s*[+*{]/;
+
 function matchesTrackPattern(text: string, pattern: string): boolean {
   const trimmedPattern = pattern.trim();
   if (!trimmedPattern) {
@@ -270,8 +277,18 @@ function matchesTrackPattern(text: string, pattern: string): boolean {
   }
   const regexLiteral = trimmedPattern.match(/^\/(.+)\/([a-z]*)$/i);
   if (regexLiteral) {
+    const body = regexLiteral[1];
+    const flags = regexLiteral[2];
+    // Reject: oversized body, disallowed flags, or nested-quantifier ReDoS shape.
+    if (
+      body.length > _REGEX_BODY_MAX_LENGTH ||
+      !_REGEX_ALLOWED_FLAGS.test(flags) ||
+      _REGEX_NESTED_QUANTIFIER.test(body)
+    ) {
+      return text.toLowerCase().includes(trimmedPattern.toLowerCase());
+    }
     try {
-      return new RegExp(regexLiteral[1], regexLiteral[2]).test(text);
+      return new RegExp(body, flags).test(text);
     } catch {
       return text.toLowerCase().includes(trimmedPattern.toLowerCase());
     }
