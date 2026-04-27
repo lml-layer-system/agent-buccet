@@ -387,3 +387,313 @@ export async function inferBoundaryToolDoorSignals(args: {
     config: args.config,
   });
 }
+
+// ─── Entry-Door Attachment Boundary ────────────────────────────────────────
+
+export type BoundaryEntryDoorKind = "host" | "tool" | "hook_transport";
+export type BoundaryEntryDoorAttachState = "attached" | "unattached" | "degraded";
+
+export type BoundaryEntryDoorAttachment = {
+  doorKind: BoundaryEntryDoorKind;
+  host?: BoundaryHostKind;
+  toolName?: string;
+  attachState: BoundaryEntryDoorAttachState;
+  hookAvailable: boolean;
+  attachedAt?: string;
+};
+
+export type BoundaryControlledEntrySurface = {
+  decision: "governed" | "blocked";
+  doorAttachment: BoundaryEntryDoorAttachment;
+  doorSignals?: BoundaryToolDoorSignals;
+  reason: string;
+};
+
+export function evaluateControlledEntrySurface(args: {
+  doorAttachment: BoundaryEntryDoorAttachment;
+  doorSignals?: BoundaryToolDoorSignals;
+}): BoundaryControlledEntrySurface {
+  const { doorAttachment, doorSignals } = args;
+  if (doorAttachment.attachState === "unattached") {
+    return {
+      decision: "blocked",
+      doorAttachment,
+      doorSignals,
+      reason: "door is not attached to enforcement body — no unattached door may carry consequence",
+    };
+  }
+  if (doorAttachment.attachState === "degraded") {
+    return {
+      decision: "blocked",
+      doorAttachment,
+      doorSignals,
+      reason: "door is in degraded state — enforcement body contact is uncertain",
+    };
+  }
+  // Host doors (MCP attach) are allowed without hook — the MCP channel is itself the enforcement path.
+  // Tool doors (git, gh, curl, etc.) require hook transport to be live, because they operate
+  // outside the MCP channel and bypass the intercept layer if the hook is down.
+  if (doorAttachment.doorKind === "tool" && !doorAttachment.hookAvailable) {
+    return {
+      decision: "blocked",
+      doorAttachment,
+      doorSignals,
+      reason: "tool door cannot carry consequence — hook transport is unavailable and this door bypasses MCP intercept",
+    };
+  }
+  return {
+    decision: "governed",
+    doorAttachment,
+    doorSignals,
+    reason: "door is attached and enforcement path is confirmed",
+  };
+}
+
+// ─── Hook Availability Boundary ────────────────────────────────────────────
+
+export type BoundaryHookAvailabilityState = {
+  available: boolean;
+  socketPath?: string;
+  gravitySocketPath?: string;
+  pid?: number;
+  sessionId?: string;
+  checkedAt: string;
+  reason?: string;
+};
+
+export async function evaluateHookAvailability(args: {
+  brainStatusPath: string;
+}): Promise<BoundaryHookAvailabilityState> {
+  const checkedAt = new Date().toISOString();
+  let raw: string;
+  try {
+    raw = await fs.readFile(args.brainStatusPath, "utf8");
+  } catch {
+    return { available: false, checkedAt, reason: "brain status file not readable — hook daemon may not be running" };
+  }
+  let status: {
+    state?: string;
+    interceptSocketPath?: string;
+    gravityBridgeSocketPath?: string;
+    pid?: number;
+    sessionId?: string;
+  };
+  try {
+    status = JSON.parse(raw) as typeof status;
+  } catch {
+    return { available: false, checkedAt, reason: "brain status file is not valid JSON" };
+  }
+  if (status.state !== "alive") {
+    return { available: false, checkedAt, reason: `hook daemon state is '${status.state ?? "unknown"}' — expected 'alive'` };
+  }
+  if (status.interceptSocketPath) {
+    try {
+      await fs.access(status.interceptSocketPath);
+    } catch {
+      return { available: false, checkedAt, reason: "hook intercept socket path not accessible — daemon may have exited" };
+    }
+  }
+  return {
+    available: true,
+    socketPath: status.interceptSocketPath,
+    gravitySocketPath: status.gravityBridgeSocketPath,
+    pid: status.pid,
+    sessionId: status.sessionId,
+    checkedAt,
+  };
+}
+
+// ─── General Command Payload Extraction ────────────────────────────────────
+// Invariant: CommandMayCarryPayload → ExtractOrConstrainPayload
+// Any command that can export, upload, package, publish, post, send, or execute
+// using file-backed input must have its payload extracted and surfaced as a
+// boundary signal before it can carry consequence.
+
+export type BoundaryCommandPayloadClass =
+  | "file_upload"     // curl, wget, scp, rsync, sftp
+  | "package_publish" // npm, pnpm, yarn, pip, docker, podman
+  | "archive"         // tar, zip, gzip, 7z
+  | "script_exec"     // python, node, bash — may execute file-backed code
+  | "git_export"      // git push/archive/bundle/format-patch
+  | "github_post";    // gh issue/pr/comment
+
+const _COMMAND_PAYLOAD_CLASSES: Record<string, BoundaryCommandPayloadClass> = {
+  curl:    "file_upload",
+  wget:    "file_upload",
+  scp:     "file_upload",
+  rsync:   "file_upload",
+  sftp:    "file_upload",
+  npm:     "package_publish",
+  pnpm:    "package_publish",
+  yarn:    "package_publish",
+  pip:     "package_publish",
+  docker:  "package_publish",
+  podman:  "package_publish",
+  tar:     "archive",
+  zip:     "archive",
+  gzip:    "archive",
+  "7z":    "archive",
+  python:  "script_exec",
+  python3: "script_exec",
+  node:    "script_exec",
+  bash:    "script_exec",
+  sh:      "script_exec",
+  zsh:     "script_exec",
+  git:     "git_export",
+  gh:      "github_post",
+};
+
+const _NPM_CONSEQUENCE_SUBCOMMANDS = new Set(["publish", "deploy", "pack"]);
+const _DOCKER_CONSEQUENCE_SUBCOMMANDS = new Set(["push", "build", "save", "export"]);
+const _PIP_CONSEQUENCE_SUBCOMMANDS = new Set(["upload"]);
+const _GIT_EXPORT_SUBCOMMANDS = new Set(["push", "archive", "bundle", "format-patch", "request-pull", "send-email"]);
+
+export function classifyCommandPayloadClass(
+  toolName: string,
+  commandArgs: string[],
+): BoundaryCommandPayloadClass | null {
+  const cls = _COMMAND_PAYLOAD_CLASSES[toolName] ?? null;
+  if (!cls) return null;
+  const sub = commandArgs[0] ?? "";
+  if ((toolName === "npm" || toolName === "pnpm" || toolName === "yarn") && !_NPM_CONSEQUENCE_SUBCOMMANDS.has(sub)) {
+    return null;
+  }
+  if ((toolName === "docker" || toolName === "podman") && !_DOCKER_CONSEQUENCE_SUBCOMMANDS.has(sub)) {
+    return null;
+  }
+  if (toolName === "pip" && !_PIP_CONSEQUENCE_SUBCOMMANDS.has(sub)) {
+    return null;
+  }
+  if (toolName === "git" && !_GIT_EXPORT_SUBCOMMANDS.has(sub)) {
+    return null;
+  }
+  return cls;
+}
+
+function extractFlagValues(commandArgs: string[], flags: string[]): string[] {
+  const results: string[] = [];
+  for (let i = 0; i < commandArgs.length; i++) {
+    const token = commandArgs[i];
+    if (flags.includes(token)) {
+      const next = commandArgs[i + 1];
+      if (next !== undefined && !next.startsWith("-")) {
+        results.push(next);
+        i += 1;
+      }
+    } else {
+      for (const flag of flags) {
+        if (flag.length > 1 && token.startsWith(`${flag}=`)) {
+          results.push(token.slice(flag.length + 1));
+        }
+      }
+    }
+  }
+  return results;
+}
+
+async function extractCommandFilePayloads(args: {
+  toolName: string;
+  commandArgs: string[];
+  cwd: string;
+}): Promise<string[]> {
+  const payloads: string[] = [];
+  const { toolName, commandArgs, cwd } = args;
+
+  if (toolName === "curl" || toolName === "wget") {
+    for (const value of extractFlagValues(commandArgs, ["-d", "--data", "--data-binary", "--data-raw", "-T", "--upload-file"])) {
+      if (value.startsWith("@")) {
+        try {
+          const content = await fs.readFile(path.resolve(cwd, value.slice(1)), "utf8");
+          payloads.push(`file:${value.slice(1)}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+        } catch { continue; }
+      } else {
+        payloads.push(value.slice(0, MAX_TOOL_DOOR_FILE_BYTES));
+      }
+    }
+  }
+
+  if (toolName === "tar" || toolName === "zip" || toolName === "gzip" || toolName === "7z") {
+    for (const token of commandArgs.filter((t) => !t.startsWith("-"))) {
+      try {
+        const filePath = path.resolve(cwd, token);
+        const stat = await fs.stat(filePath);
+        if (stat.isFile()) {
+          const content = await fs.readFile(filePath, "utf8");
+          payloads.push(`file:${token}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+        }
+      } catch { continue; }
+    }
+  }
+
+  if (["python", "python3", "node", "bash", "sh", "zsh"].includes(toolName)) {
+    for (const value of extractFlagValues(commandArgs, ["-c"])) {
+      payloads.push(value.slice(0, MAX_TOOL_DOOR_FILE_BYTES));
+    }
+    const scriptArg = commandArgs.find((t) => !t.startsWith("-"));
+    if (scriptArg) {
+      try {
+        const content = await fs.readFile(path.resolve(cwd, scriptArg), "utf8");
+        payloads.push(`file:${scriptArg}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+      } catch { /* not a readable script file */ }
+    }
+  }
+
+  if (toolName === "scp" || toolName === "rsync" || toolName === "sftp") {
+    for (const token of commandArgs.filter((t) => !t.startsWith("-") && !t.includes(":"))) {
+      try {
+        const filePath = path.resolve(cwd, token);
+        const stat = await fs.stat(filePath);
+        if (stat.isFile()) {
+          const content = await fs.readFile(filePath, "utf8");
+          payloads.push(`file:${token}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+        }
+      } catch { continue; }
+    }
+  }
+
+  if (toolName === "docker" || toolName === "podman") {
+    for (const value of extractFlagValues(commandArgs, ["--secret"])) {
+      const srcMatch = /src=([^,]+)/.exec(value);
+      if (srcMatch) {
+        try {
+          const content = await fs.readFile(path.resolve(cwd, srcMatch[1]), "utf8");
+          payloads.push(`file:${srcMatch[1]}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
+        } catch { continue; }
+      }
+    }
+  }
+
+  return payloads;
+}
+
+export async function inferBoundaryCommandDoorSignals(args: {
+  config: BoundaryRuntimeConfig;
+  toolName: string;
+  commandArgs: string[];
+  cwd: string;
+}): Promise<BoundaryToolDoorSignals | null> {
+  const payloadClass = classifyCommandPayloadClass(args.toolName, args.commandArgs);
+  if (!payloadClass) return null;
+
+  if (args.toolName === "git" || args.toolName === "gh") {
+    return inferBoundaryToolDoorSignals({
+      config: args.config,
+      toolName: args.toolName as "git" | "gh",
+      commandArgs: args.commandArgs,
+      cwd: args.cwd,
+    });
+  }
+
+  const basePayload = `${args.toolName} ${args.commandArgs.join(" ")}`.trim();
+  const filePayloads = await extractCommandFilePayloads({
+    toolName: args.toolName,
+    commandArgs: args.commandArgs,
+    cwd: args.cwd,
+  });
+
+  return mergeDoorSignals({
+    basePayload,
+    extraPayloads: filePayloads,
+    config: args.config,
+  });
+}
