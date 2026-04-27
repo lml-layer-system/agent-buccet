@@ -16,6 +16,10 @@ import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.
 import { appendBoundaryLedger } from "./ledger.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
+import {
+  normalizeBoundaryNoveltyState,
+  noveltyFlagsForBoundaryRequest,
+} from "./novelty.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 import { maybeShedCompromisedBoundaryUnit } from "./shed.ts";
 import { assessBoundarySubstrateApprovalRequest } from "./substrate-live.ts";
@@ -129,6 +133,7 @@ export function createBoundaryActionRequest(args: {
   payloadSummary?: string;
   spendIntent?: BoundarySpendIntent;
   provenance?: BoundaryRequestProvenance;
+  novelty?: BoundaryActionRequest["novelty"];
   flags?: BoundaryActionRequest["flags"];
   reviewContext?: BoundaryReviewContext;
 }): BoundaryActionRequest {
@@ -137,7 +142,9 @@ export function createBoundaryActionRequest(args: {
     target: args.target,
     reviewContext: args.reviewContext,
   });
-  const mergedFlags = mergeRequestFlags(args.flags, inferredTimeConstraints.flags);
+  const novelty = normalizeBoundaryNoveltyState(args.novelty);
+  let mergedFlags = mergeRequestFlags(args.flags, inferredTimeConstraints.flags);
+  mergedFlags = mergeRequestFlags(mergedFlags, noveltyFlagsForBoundaryRequest(novelty));
   const mergedReviewContext = mergeBoundaryReviewContext(args.reviewContext, inferredTimeConstraints.reviewContext);
 
   return {
@@ -149,6 +156,7 @@ export function createBoundaryActionRequest(args: {
     spendIntent: args.spendIntent,
     requestedAt: args.requestedAt ?? new Date().toISOString(),
     provenance: args.provenance ?? "agent_inference",
+    ...(novelty ? { novelty } : {}),
     flags: mergedFlags,
     reviewContext: mergedReviewContext,
   };
@@ -213,6 +221,20 @@ function mergeBoundaryReviewContext(
   };
 }
 
+function noveltyLedgerMetadata(request: BoundaryActionRequest): Record<string, string | number | boolean> {
+  const novelty = normalizeBoundaryNoveltyState(request.novelty);
+  if (!novelty?.detected) {
+    return {};
+  }
+
+  return {
+    novelty_detected: true,
+    ...(novelty.selfOriginated ? { novelty_self_originated: true } : {}),
+    ...(novelty.classes?.length ? { novelty_classes: novelty.classes.join(",") } : {}),
+    ...(novelty.boundaryHits?.length ? { novelty_boundary_hits: novelty.boundaryHits.join(",") } : {}),
+  };
+}
+
 export async function recordBoundaryBlockedAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
@@ -230,6 +252,7 @@ export async function recordBoundaryBlockedAction(
     lawIds,
     metadata: {
       provenance: request.provenance,
+      ...noveltyLedgerMetadata(request),
     },
     createdAt: new Date().toISOString(),
   });
@@ -251,6 +274,7 @@ export async function recordBoundaryExecutedAction(
     reason,
     metadata: {
       provenance: request.provenance,
+      ...noveltyLedgerMetadata(request),
       ...(metadata ?? {}),
     },
     createdAt: new Date().toISOString(),
@@ -308,6 +332,7 @@ export async function recordBoundaryProposedAction(
     reason,
     metadata: {
       provenance: request.provenance,
+      ...noveltyLedgerMetadata(request),
     },
     createdAt: request.requestedAt,
   });
@@ -331,6 +356,7 @@ export async function recordBoundaryDecisionReturned(
     lawIds,
     metadata: {
       provenance: request.provenance,
+      ...noveltyLedgerMetadata(request),
     },
     createdAt: new Date().toISOString(),
   });
@@ -353,6 +379,7 @@ export async function recordBoundaryApprovalRequested(args: {
     lawIds: args.lawIds,
     metadata: {
       provenance: args.request.provenance,
+      ...noveltyLedgerMetadata(args.request),
     },
     createdAt: new Date().toISOString(),
   });

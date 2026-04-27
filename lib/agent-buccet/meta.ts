@@ -1,3 +1,4 @@
+import { describeBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
 import type {
   BoundaryActionKind,
   BoundaryLaw,
@@ -1903,7 +1904,10 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
     description: "Claims of complete safety or complete coverage are non-authoritative and require review.",
     appliesTo: ["*"],
     evaluate: ({ request }) => {
+      const novelty = normalizeBoundaryNoveltyState(request.novelty);
       if (
+        !(novelty?.detected && !novelty.admitted) &&
+        !(request.flags?.noveltyDetected && !request.novelty?.admitted) &&
         !request.flags?.claimsCompleteCoverage &&
         !request.flags?.violatesUserConstraint &&
         !request.flags?.groundingMismatch
@@ -1914,6 +1918,9 @@ export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
         decision: "require_approval",
         reason: request.flags?.violatesUserConstraint || request.flags?.groundingMismatch
           ? "output conflicts with user constraint or grounding evidence and requires user review"
+          : novelty?.detected && !novelty.admitted
+            ? describeBoundaryNoveltyState(novelty)
+              ?? "novel contact must be classified before it can produce consequence"
           : "complete coverage or guaranteed safety claims are non-authoritative and require user review",
         triggeredLawIds: ["META.NOVELTY.01"],
         requiresApproval: true,

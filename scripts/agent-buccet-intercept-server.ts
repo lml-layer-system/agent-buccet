@@ -15,6 +15,8 @@ import {
   lookupUserPathDecision,
   mapInterceptToBoundaryAction,
   restoreBoundaryRuntimeStore,
+  withAdmittedBoundaryNovelty,
+  withBoundaryNovelty,
   type BoundaryRuntimeStore,
   type BoundaryInterceptApprovalMode,
   type BoundaryInterceptDaemonInput,
@@ -174,22 +176,24 @@ async function evaluateRequestWithMode(args: {
   store: BoundaryRuntimeStore;
   swarm: ReturnType<typeof createBoundarySwarmCoordinator>;
 }): Promise<BoundaryInterceptResult> {
+  const preparedRequest = withBoundaryNovelty(args.request);
   if (args.approvalMode !== "standing_law") {
-    return args.swarm.evaluateOrWait(args.request, args.request.swarm);
+    return args.swarm.evaluateOrWait(preparedRequest, preparedRequest.swarm);
   }
-  if (args.request.admission) {
-    return args.swarm.evaluateOrWait(args.request, args.request.swarm);
+  if (preparedRequest.admission) {
+    return args.swarm.evaluateOrWait(preparedRequest, preparedRequest.swarm);
   }
 
   const config = await args.store.hydrate();
   const boundaryRequest = createBoundaryActionRequest({
     config,
-    actionKind: mapInterceptToBoundaryAction(args.request),
-    target: normalizeStandingLawTarget(args.request),
-    payloadSummary: args.request.payloadSummary,
-    provenance: args.request.provenance,
-    flags: args.request.flags,
-    reviewContext: args.request.reviewContext,
+    actionKind: mapInterceptToBoundaryAction(preparedRequest),
+    target: normalizeStandingLawTarget(preparedRequest),
+    payloadSummary: preparedRequest.payloadSummary,
+    provenance: preparedRequest.provenance,
+    novelty: preparedRequest.novelty,
+    flags: preparedRequest.flags,
+    reviewContext: preparedRequest.reviewContext,
   });
   const exactMatch = config.upl ? lookupUserPathDecision({
     ledger: config.upl,
@@ -198,7 +202,10 @@ async function evaluateRequestWithMode(args: {
   }) : null;
 
   if (exactMatch?.decision === "allow") {
-    return args.swarm.evaluateOrWait(args.request, args.request.swarm);
+    const admittedNoveltyRequest = preparedRequest.novelty?.detected && !preparedRequest.novelty.admitted
+      ? withAdmittedBoundaryNovelty(preparedRequest)
+      : preparedRequest;
+    return args.swarm.evaluateOrWait(admittedNoveltyRequest, admittedNoveltyRequest.swarm);
   }
 
   const result: BoundaryInterceptResult = {
@@ -211,7 +218,7 @@ async function evaluateRequestWithMode(args: {
     requestId: boundaryRequest.requestId,
     actionKind: boundaryRequest.actionKind,
   };
-  args.swarm.rememberResolution(args.request, result);
+  args.swarm.rememberResolution(preparedRequest, result);
   return result;
 }
 

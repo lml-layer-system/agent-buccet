@@ -226,6 +226,50 @@ export type BoundaryRequestProvenance =
   | "external_content"
   | "mcp_host";
 
+export type BoundaryNoveltyClass =
+  | "unclassified_contact"
+  | "unknown_input"
+  | "unknown_request"
+  | "unknown_path_source"
+  | "unknown_tool_request"
+  | "unknown_policy_case"
+  | "unknown_runtime"
+  | "unknown_composition"
+  | "unknown_dependency"
+  | "self_originated_motion";
+
+export type BoundaryNoveltyBoundaryHit =
+  | "front"
+  | "side"
+  | "back"
+  | "gravity"
+  | "swarm"
+  | "kernel"
+  | "secrets"
+  | "spend"
+  | "upl"
+  | "runtime"
+  | "reentry";
+
+export type BoundaryNoveltyDisposition =
+  | "queue"
+  | "deny"
+  | "quarantine"
+  | "defer"
+  | "safe_error"
+  | "no_op";
+
+export type BoundaryNoveltyState = {
+  detected: boolean;
+  classes?: BoundaryNoveltyClass[];
+  boundaryHits?: BoundaryNoveltyBoundaryHit[];
+  reason?: string;
+  disposition?: BoundaryNoveltyDisposition;
+  selfOriginated?: boolean;
+  /** Standing law or an explicit operator choice has admitted this novelty gate. */
+  admitted?: boolean;
+};
+
 export type BoundarySession = {
   sessionId: string;
   actorId: string;
@@ -284,6 +328,7 @@ export type BoundaryActionRequest = {
   spendIntent?: BoundarySpendIntent;
   requestedAt: string;
   provenance: BoundaryRequestProvenance;
+  novelty?: BoundaryNoveltyState;
   flags?: {
     authorityClaimed?: boolean;
     claimsCompleteCoverage?: boolean;
@@ -305,6 +350,8 @@ export type BoundaryActionRequest = {
     payloadContainsProtectedInternalDoc?: boolean;
     payloadContainsProtectedCustomerData?: boolean;
     payloadContainsProtectedModelWeight?: boolean;
+    noveltyDetected?: boolean;
+    noveltySelfOriginated?: boolean;
   };
   reviewContext?: BoundaryReviewContext;
 };
@@ -459,6 +506,7 @@ export type BoundaryUplRequestBasis = {
   payloadSummary?: string;
   spendIntent?: BoundarySpendIntent;
   provenance?: BoundaryRequestProvenance;
+  novelty?: BoundaryNoveltyState;
   flags?: BoundaryActionRequest["flags"];
   reviewContext?: BoundaryReviewContext;
 };

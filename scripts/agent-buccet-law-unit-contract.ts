@@ -248,6 +248,33 @@ test("claimsCompleteCoverage on any action kind → require_approval", () => {
   }
 });
 
+test("explicit novelty boundary contact → require_approval", () => {
+  const result = evalLaw("TIME.NOVELTY.01", makeRequest({
+    novelty: {
+      detected: true,
+      classes: ["unknown_tool_request"],
+      boundaryHits: ["front", "kernel"],
+    },
+    flags: { noveltyDetected: true },
+  }));
+  assert.ok(result !== null);
+  assert.equal(result!.decision, "require_approval");
+  assert.ok(hasTriggeredLaw(result!, "TIME.NOVELTY.01"));
+});
+
+test("admitted novelty does not re-trigger novelty law", () => {
+  const result = evalLaw("TIME.NOVELTY.01", makeRequest({
+    novelty: {
+      detected: true,
+      classes: ["unknown_tool_request"],
+      boundaryHits: ["front", "kernel"],
+      admitted: true,
+    },
+    flags: { noveltyDetected: true },
+  }));
+  assert.equal(result, null);
+});
+
 // ─── TIME.SCOPE.01 ────────────────────────────────────────────────────────────
 console.log("\nTIME.SCOPE.01 — scope expansion from prompt is denied");
 

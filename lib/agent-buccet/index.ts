@@ -23,6 +23,7 @@ export * from "./filesystem.ts";
 export * from "./actions.ts";
 export * from "./remote.ts";
 export * from "./bodyguard.ts";
+export * from "./novelty.ts";
 export * from "./governor.ts";
 export * from "./user-path-ledger.ts";
 export * from "./upl-tracks.ts";

@@ -81,7 +81,7 @@ async function main() {
   child.stderr!.setEncoding("utf8");
   child.stderr!.on("data", (chunk) => {
     stderr += chunk;
-    if (chunk.includes("intercept daemon running")) {
+    if (chunk.includes("intercept daemon running") || chunk.includes("intercept server running")) {
       ready = true;
     }
   });

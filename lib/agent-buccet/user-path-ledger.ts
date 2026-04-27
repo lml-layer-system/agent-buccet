@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBaseHeadlessDenialLedger } from "./headless-base-denials.ts";
+import { stableBoundaryNoveltyDescriptor } from "./novelty.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -50,6 +51,9 @@ function stablePathDescriptor(request: BoundaryActionRequest) {
     groundingMismatch: request.flags?.groundingMismatch ?? false,
     claimsActionCompletionWithoutWitness: request.flags?.claimsActionCompletionWithoutWitness ?? false,
     claimsUserApproval: request.flags?.claimsUserApproval ?? false,
+    noveltyDetected: request.flags?.noveltyDetected ?? false,
+    noveltySelfOriginated: request.flags?.noveltySelfOriginated ?? false,
+    novelty: stableBoundaryNoveltyDescriptor(request.novelty),
     reviewSurface: request.reviewContext?.surface ?? null,
     reviewInvariantLawId: request.reviewContext?.invariantLawId ?? null,
   };
@@ -62,6 +66,7 @@ function toRequestBasis(request: BoundaryActionRequest): BoundaryUplRequestBasis
     payloadSummary: request.payloadSummary,
     spendIntent: request.spendIntent,
     provenance: request.provenance,
+    novelty: request.novelty,
     flags: request.flags,
     reviewContext: request.reviewContext,
   };
@@ -80,6 +85,7 @@ function requestFromBasis(
     spendIntent: basis.spendIntent,
     requestedAt: new Date(0).toISOString(),
     provenance: basis.provenance ?? "agent_inference",
+    novelty: basis.novelty,
     flags: basis.flags,
     reviewContext: basis.reviewContext,
   };

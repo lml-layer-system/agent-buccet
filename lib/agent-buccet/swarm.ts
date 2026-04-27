@@ -1,10 +1,20 @@
 import { createHash, randomUUID } from "node:crypto";
-import { enableBodyguardControl, recordBodyguardUserLawDecision } from "./bodyguard.ts";
+import {
+  createBoundaryActionRequest,
+  enableBodyguardControl,
+  recordBodyguardUserLawDecision,
+} from "./bodyguard.ts";
 import { createBoundaryHeadlessApprovalHandler } from "./headless.ts";
+import {
+  describeBoundaryNoveltyState,
+  normalizeBoundaryNoveltyState,
+} from "./novelty.ts";
 import path from "node:path";
 import {
   evaluateBoundaryIntercept,
   mapInterceptToBoundaryAction,
+  withAdmittedBoundaryNovelty,
+  withBoundaryNovelty,
   type BoundaryInterceptDecision,
   type BoundaryInterceptRequest,
   type BoundaryInterceptResult,
@@ -16,6 +26,7 @@ import type {
   BoundaryApprovalPrompt,
   BoundaryActionRequest,
   BoundaryResourceKind,
+  BoundaryNoveltyState,
   BoundaryReviewContext,
   BoundaryUserPathLedger,
   BodyguardMove,
@@ -431,10 +442,12 @@ export type BoundarySwarmGroup = {
   completedValidation?: string[];
   /** Cost tracking for the agent(s) in this group. */
   cost?: BoundarySwarmCost;
+  /** Novelty classification attached to this group. */
+  novelty?: BoundaryNoveltyState;
 };
 
 type BoundarySwarmResolution =
-  | { kind: "retry" }
+  | { kind: "retry"; request?: BoundaryInterceptRequest }
   | { kind: "allow_once"; reason: string }
   | { kind: "deny"; reason: string };
 
@@ -446,6 +459,7 @@ type BoundarySwarmWaiter = {
 type BoundarySwarmPendingGroup = BoundarySwarmGroup & {
   representative: BoundaryInterceptRequest;
   waiters: Set<BoundarySwarmWaiter>;
+  retryOnApproval?: boolean;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -476,9 +490,56 @@ function resolveSwarmAction(swarm: BoundarySwarmRequestMeta | undefined): string
   return swarm?.action?.trim() || swarm?.handoff?.nextAction?.trim();
 }
 
+function noveltyLawIds(novelty: BoundaryNoveltyState): string[] {
+  const ids = ["TIME.NOVELTY.01"];
+  for (const noveltyClass of novelty.classes ?? []) {
+    ids.push(`BOUNDARY.NOVELTY.CLASS.${noveltyClass.replaceAll(/[^a-z0-9]+/gi, "_").toUpperCase()}.01`);
+  }
+  for (const boundaryHit of novelty.boundaryHits ?? []) {
+    ids.push(`BOUNDARY.NOVELTY.HIT.${boundaryHit.replaceAll(/[^a-z0-9]+/gi, "_").toUpperCase()}.01`);
+  }
+  return [...new Set(ids)];
+}
+
+function classifyNoveltyPath(
+  request: BoundaryInterceptRequest,
+): BoundarySwarmPathClassification | null {
+  const novelty = normalizeBoundaryNoveltyState(request.novelty);
+  if (!novelty?.detected || novelty.admitted) {
+    return null;
+  }
+
+  const reason = describeBoundaryNoveltyState(novelty)
+    ?? "novel contact requires classification before it can produce consequence";
+  if (
+    novelty.disposition === "deny"
+    || novelty.disposition === "quarantine"
+    || novelty.disposition === "safe_error"
+    || novelty.disposition === "no_op"
+  ) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason,
+      lawIds: noveltyLawIds(novelty),
+    };
+  }
+
+  return {
+    path: "purple",
+    disposition: "queue",
+    reason,
+    lawIds: noveltyLawIds(novelty),
+  };
+}
+
 function classifyRequestSwarmPath(
   request: BoundaryInterceptRequest,
 ): BoundarySwarmPathClassification | null {
+  const noveltyClassification = classifyNoveltyPath(request);
+  if (noveltyClassification) {
+    return noveltyClassification;
+  }
   const swarm = request.swarm;
   if (!swarm) {
     return null;
@@ -496,6 +557,7 @@ function classifyRequestSwarmPath(
 
 /** Swarm key is scoped to sessionId so groups never bleed across sessions. */
 function buildSwarmKey(sessionId: string, request: BoundaryInterceptRequest): string {
+  const novelty = normalizeBoundaryNoveltyState(request.novelty);
   const normalized = {
     sessionId,
     actionClass: request.actionClass,
@@ -503,6 +565,11 @@ function buildSwarmKey(sessionId: string, request: BoundaryInterceptRequest): st
     target: normalizeTarget(request),
     provenance: request.provenance ?? "agent_inference",
     flags: request.flags ?? {},
+    novelty: novelty?.detected ? {
+      classes: novelty.classes ?? [],
+      boundaryHits: novelty.boundaryHits ?? [],
+      selfOriginated: novelty.selfOriginated === true,
+    } : null,
     swarm: request.swarm ? {
       action: resolveSwarmAction(request.swarm),
       actorRole: request.swarm.actorRole,
@@ -608,18 +675,17 @@ function approvalGrantShape(request: BoundaryInterceptRequest): {
 }
 
 function toBoundaryActionRequest(store: BoundaryRuntimeStore, request: BoundaryInterceptRequest, requestId: string): BoundaryActionRequest {
-  const config = store.getConfig();
-  return {
+  return createBoundaryActionRequest({
+    config: store.getConfig(),
     requestId,
-    sessionId: config.session.sessionId,
     actionKind: mapInterceptToBoundaryAction(request),
     target: normalizeTarget(request),
     payloadSummary: request.payloadSummary,
     reviewContext: request.reviewContext,
-    requestedAt: new Date().toISOString(),
-    provenance: request.provenance ?? "agent_inference",
+    provenance: request.provenance,
+    novelty: request.novelty,
     flags: request.flags,
-  };
+  });
 }
 
 function buildDefaultAttemptLines(request: BoundaryActionRequest): string[] {
@@ -680,6 +746,7 @@ async function appendSwarmLedger(args: {
   readiness?: BoundarySwarmReadiness;
   intent?: BoundarySwarmIntent;
   cost?: BoundarySwarmCost;
+  novelty?: BoundaryNoveltyState;
 }): Promise<Awaited<ReturnType<typeof appendBoundaryLedger>>> {
   const config = args.store.getConfig();
   return appendBoundaryLedger(args.eventType, {
@@ -708,6 +775,10 @@ async function appendSwarmLedger(args: {
       ...(args.request.swarm?.handoff?.artifactId ? { swarm_handoff_artifact_id: args.request.swarm.handoff.artifactId } : {}),
       ...(args.request.swarm?.handoff?.version ? { swarm_handoff_version: args.request.swarm.handoff.version } : {}),
       ...(args.cost ? { swarm_cost_units_consumed: args.cost.unitsConsumed, swarm_cost_unit: args.cost.unit } : {}),
+      ...(args.novelty?.detected ? { novelty_detected: true } : {}),
+      ...(args.novelty?.selfOriginated ? { novelty_self_originated: true } : {}),
+      ...(args.novelty?.classes?.length ? { novelty_classes: args.novelty.classes.join(",") } : {}),
+      ...(args.novelty?.boundaryHits?.length ? { novelty_boundary_hits: args.novelty.boundaryHits.join(",") } : {}),
     },
     createdAt: new Date().toISOString(),
   });
@@ -798,6 +869,7 @@ export function createBoundarySwarmCoordinator(
       handoff: group.handoff,
       completedValidation: group.completedValidation ? [...group.completedValidation] : undefined,
       cost: group.cost,
+      novelty: group.novelty,
     };
   }
 
@@ -847,6 +919,7 @@ export function createBoundarySwarmCoordinator(
       handoff: request.swarm?.handoff,
       completedValidation: request.swarm?.completedValidation ? [...request.swarm.completedValidation] : undefined,
       cost: request.swarm?.cost,
+      novelty: request.novelty,
     };
     recentGroups.set(resolvedGroup.groupId, resolvedGroup);
     const resolved = [...recentGroups.values()]
@@ -926,6 +999,8 @@ export function createBoundarySwarmCoordinator(
       handoff: swarm?.handoff,
       completedValidation: swarm?.completedValidation ? [...swarm.completedValidation] : undefined,
       cost: swarm?.cost,
+      novelty: request.novelty,
+      retryOnApproval: Boolean(request.novelty?.detected && !request.novelty.admitted),
     };
     pendingGroups.set(key, group);
     return { group, joined: false };
@@ -968,6 +1043,7 @@ export function createBoundarySwarmCoordinator(
       readiness: group.readiness,
       intent: group.intent,
       cost: group.cost,
+      novelty: group.novelty,
     });
 
     const resolution = await waiter.wait();
@@ -992,14 +1068,14 @@ export function createBoundarySwarmCoordinator(
       };
     }
 
-    return evaluateOrWait(request, groupOpts);
+    return evaluateOrWait(resolution.request ?? request, groupOpts);
   }
 
   async function evaluateOrWait(
     request: BoundaryInterceptRequest,
     groupOpts?: BoundarySwarmRequestMeta,
   ): Promise<BoundaryInterceptResult> {
-    const normalizedRequest = withSwarmMeta(request, groupOpts);
+    const normalizedRequest = withBoundaryNovelty(withSwarmMeta(request, groupOpts));
     const swarm = normalizedRequest.swarm;
 
     // Cost guard — if caller tracks cost and cap is exceeded, deny before evaluation.
@@ -1104,6 +1180,7 @@ export function createBoundarySwarmCoordinator(
       readiness: group.readiness,
       intent: group.intent,
       cost: group.cost,
+      novelty: group.novelty,
     });
     const config = args.asLaw ? await store.hydrate() : store.getConfig();
     if (args.asLaw && config.upl) {
@@ -1117,10 +1194,15 @@ export function createBoundarySwarmCoordinator(
       store.replaceConfig(nextConfig);
     }
 
+    const retryRequest = group.retryOnApproval
+      ? withAdmittedBoundaryNovelty(group.representative)
+      : group.representative;
     for (const waiter of group.waiters) {
-      waiter.settle(args.asLaw
-        ? { kind: "retry" }
-        : { kind: "allow_once", reason: approveReason });
+      waiter.settle(
+        args.asLaw || group.retryOnApproval
+          ? { kind: "retry", request: retryRequest }
+          : { kind: "allow_once", reason: approveReason },
+      );
     }
     rememberRecent(group);
     return snapshotGroup(group);
@@ -1156,6 +1238,7 @@ export function createBoundarySwarmCoordinator(
       readiness: group.readiness,
       intent: group.intent,
       cost: group.cost,
+      novelty: group.novelty,
     });
     const config = args.asLaw ? await store.hydrate() : store.getConfig();
     if (args.asLaw && config.upl) {

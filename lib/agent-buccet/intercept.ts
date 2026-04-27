@@ -6,12 +6,15 @@ import {
   markCanyonLedgered,
 } from "./admission.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
+import { admitBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
 import type {
+  BoundaryActionRequest,
   BoundaryActionKind,
   BoundaryAdmissionState,
   BoundaryInputWeightClass,
+  BoundaryNoveltyState,
   BoundaryProvenanceStrength,
   BoundaryRequestProvenance,
   BoundaryReviewContext,
@@ -49,21 +52,8 @@ export type BoundaryInterceptRequest = {
   payloadSummary?: string;
   reviewContext?: BoundaryReviewContext;
   provenance?: BoundaryRequestProvenance;
-  flags?: {
-    authorityClaimed?: boolean;
-    claimsCompleteCoverage?: boolean;
-    requestsScopeExpansion?: boolean;
-    requestsLawMutation?: boolean;
-    requestsSessionRevival?: boolean;
-    requestsLedgerBypass?: boolean;
-    payloadContainsProtectedMaterial?: boolean;
-    payloadContainsProtectedSourceCode?: boolean;
-    payloadContainsProtectedPrompt?: boolean;
-    payloadContainsProtectedContract?: boolean;
-    payloadContainsProtectedInternalDoc?: boolean;
-    payloadContainsProtectedCustomerData?: boolean;
-    payloadContainsProtectedModelWeight?: boolean;
-  };
+  novelty?: BoundaryNoveltyState;
+  flags?: BoundaryActionRequest["flags"];
   /** Admission boundary metadata — used for inbound DDoS / prompt-spam defense. */
   admission?: {
     /** Provenance key: strongest available (pubkey > session > IP). */
@@ -114,6 +104,7 @@ export type BoundaryInterceptSwarmGroup = {
   handoff?: BoundarySwarmHandoff;
   completedValidation?: string[];
   cost?: BoundarySwarmCost;
+  novelty?: BoundaryNoveltyState;
 };
 
 export type BoundaryInterceptResult = {
@@ -138,6 +129,76 @@ type BoundaryGravityPayloadHints = {
   provenance?: BoundaryRequestProvenance;
   flags?: BoundaryInterceptRequest["flags"];
 };
+
+function inferInterceptNoveltyBoundary(request: BoundaryInterceptRequest): BoundaryNoveltyState | undefined {
+  const base = normalizeBoundaryNoveltyState(request.novelty);
+  const classes = [...(base?.classes ?? [])];
+  const boundaryHits = [...(base?.boundaryHits ?? [])];
+  const reasonParts = new Set<string>();
+
+  if (base?.reason) {
+    reasonParts.add(base.reason);
+  }
+
+  let detected = base?.detected === true;
+  let selfOriginated = base?.selfOriginated === true;
+  const disposition = base?.disposition ?? "queue";
+
+  if (request.provenance === "trusted_system" || request.funnel) {
+    detected = true;
+    selfOriginated = true;
+    classes.push("self_originated_motion");
+    boundaryHits.push("front", "side", "back", "runtime", "reentry");
+    if (request.funnel?.source === "gravity") {
+      boundaryHits.push("gravity");
+    }
+    reasonParts.add("self-originated Buccet motion re-enters through novelty before consequence");
+  }
+
+  if (request.swarm && detected) {
+    boundaryHits.push("swarm");
+  }
+
+  if ((request.flags?.requestsLawMutation || request.flags?.requestsLedgerBypass) && detected) {
+    boundaryHits.push("upl");
+  }
+
+  if (!detected) {
+    return base;
+  }
+
+  return normalizeBoundaryNoveltyState({
+    detected: true,
+    classes,
+    boundaryHits,
+    selfOriginated,
+    disposition,
+    reason: [...reasonParts].join("; "),
+    admitted: base?.admitted,
+  });
+}
+
+export function withBoundaryNovelty(request: BoundaryInterceptRequest): BoundaryInterceptRequest {
+  const novelty = inferInterceptNoveltyBoundary(request);
+  if (!novelty) {
+    return request;
+  }
+  return {
+    ...request,
+    novelty,
+  };
+}
+
+export function withAdmittedBoundaryNovelty(request: BoundaryInterceptRequest): BoundaryInterceptRequest {
+  const novelty = admitBoundaryNoveltyState(inferInterceptNoveltyBoundary(request));
+  if (!novelty) {
+    return request;
+  }
+  return {
+    ...request,
+    novelty,
+  };
+}
 
 type CreateBoundaryFunnelInterceptRequestArgs = {
   source: BoundaryInterceptFunnelSource;
@@ -199,6 +260,8 @@ function parseBoundaryGravityPayloadHints(payload: BoundaryGravityFunnelPayload)
         if (flagName === "requestsLawMutation") flags.requestsLawMutation = true;
         if (flagName === "requestsSessionRevival") flags.requestsSessionRevival = true;
         if (flagName === "requestsLedgerBypass") flags.requestsLedgerBypass = true;
+        if (flagName === "noveltyDetected") flags.noveltyDetected = true;
+        if (flagName === "noveltySelfOriginated") flags.noveltySelfOriginated = true;
       }
       continue;
     }
@@ -562,10 +625,11 @@ export async function evaluateBoundaryIntercept(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryInterceptRequest;
 }): Promise<BoundaryInterceptResult & { admissionState?: BoundaryAdmissionState }> {
+  const request = withBoundaryNovelty(args.request);
   // ── Admission Boundary: fires BEFORE adjudication, tokenization, or any
   //    application-layer processing. Hostile inbound traffic is tarpitted here.
-  if (args.config.admissionConfig && args.request.admission) {
-    const { admission } = args.request;
+  if (args.config.admissionConfig && request.admission) {
+    const { admission } = request;
     const admState = args.config.admissionState ?? initialAdmissionState();
 
     const { result: admResult, state: nextAdmState } = evaluateAdmission({
@@ -626,7 +690,7 @@ export async function evaluateBoundaryIntercept(args: {
         lawIds: admResult.lawId ? [admResult.lawId] : ["BOUNDARY.ADMISSION.CANYON.01"],
         bodyguardMoves: [],
         requestId: randomUUID(),
-        actionKind: mapInterceptToBoundaryAction(args.request),
+        actionKind: mapInterceptToBoundaryAction(request),
         tarpitActive: true,
         admissionState: finalAdmState,
       };
@@ -634,19 +698,19 @@ export async function evaluateBoundaryIntercept(args: {
 
     // Admitted by admission boundary — continue to law/gravity adjudication
     // Pass updated admission state back to caller via result
-    const actionKind = mapInterceptToBoundaryAction(args.request);
+    const actionKind = mapInterceptToBoundaryAction(request);
     const protectedSignals = inferBoundaryProtectedMaterialSignals({
       config: args.config,
       actionKind,
-      payload: args.request.payloadSummary,
+      payload: request.payloadSummary,
     });
     const boundaryRequest = createBoundaryActionRequest({
       config: args.config,
       actionKind,
-      target: args.request.target,
-      payloadSummary: args.request.payloadSummary,
+      target: request.target,
+      payloadSummary: request.payloadSummary,
       reviewContext: {
-        ...(args.request.reviewContext ?? { surface: "action" as const }),
+        ...(request.reviewContext ?? { surface: "action" as const }),
         ...(protectedSignals.evidence.length > 0 ? { evidence: protectedSignals.evidence } : {}),
         ...(protectedSignals.protectedSubjectIds.length > 0
           ? { protectedSubjectIds: protectedSignals.protectedSubjectIds }
@@ -655,9 +719,10 @@ export async function evaluateBoundaryIntercept(args: {
           ? { protectedSubjectKinds: protectedSignals.protectedSubjectKinds }
           : {}),
       },
-      provenance: args.request.provenance,
+      provenance: request.provenance,
+      novelty: request.novelty,
       flags: {
-        ...(args.request.flags ?? {}),
+        ...(request.flags ?? {}),
         ...(protectedSignals.flags ?? {}),
       },
     });
@@ -694,19 +759,19 @@ export async function evaluateBoundaryIntercept(args: {
   }
 
   // No admission config — standard intercept path (no change to existing behavior)
-  const actionKind = mapInterceptToBoundaryAction(args.request);
+  const nonAdmissionActionKind = mapInterceptToBoundaryAction(request);
   const protectedSignals = inferBoundaryProtectedMaterialSignals({
     config: args.config,
-    actionKind,
-    payload: args.request.payloadSummary,
+    actionKind: nonAdmissionActionKind,
+    payload: request.payloadSummary,
   });
   const boundaryRequest = createBoundaryActionRequest({
     config: args.config,
-    actionKind,
-    target: args.request.target,
-    payloadSummary: args.request.payloadSummary,
+    actionKind: nonAdmissionActionKind,
+    target: request.target,
+    payloadSummary: request.payloadSummary,
     reviewContext: {
-      ...(args.request.reviewContext ?? { surface: "action" as const }),
+      ...(request.reviewContext ?? { surface: "action" as const }),
       ...(protectedSignals.evidence.length > 0 ? { evidence: protectedSignals.evidence } : {}),
       ...(protectedSignals.protectedSubjectIds.length > 0
         ? { protectedSubjectIds: protectedSignals.protectedSubjectIds }
@@ -715,9 +780,10 @@ export async function evaluateBoundaryIntercept(args: {
         ? { protectedSubjectKinds: protectedSignals.protectedSubjectKinds }
         : {}),
     },
-    provenance: args.request.provenance,
+    provenance: request.provenance,
+    novelty: request.novelty,
     flags: {
-      ...(args.request.flags ?? {}),
+      ...(request.flags ?? {}),
       ...(protectedSignals.flags ?? {}),
     },
   });

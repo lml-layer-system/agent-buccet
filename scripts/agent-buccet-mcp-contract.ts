@@ -493,7 +493,8 @@ async function main() {
   }));
   assert.equal(approvalRequired.isError, true, JSON.stringify(approvalRequired, null, 2));
   assert.match(extractText(approvalRequired), /Boundary requires approval:/);
-  assert.match(extractText(approvalRequired), /BOUNDARY\.FS\.WRITE\.01/);
+  assert.match(extractText(approvalRequired), /self-originated Buccet motion re-enters through novelty before consequence/);
+  assert.match(extractText(approvalRequired), /META\.NOVELTY\.01/);
   assert.match(extractText(approvalRequired), /Approve via: buccet console/);
 
   client.endInput();
