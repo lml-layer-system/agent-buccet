@@ -87,59 +87,449 @@ export function isActionPermittedAtReadiness(action: string, readiness: Boundary
   return (READINESS_PERMITTED_ACTIONS[readiness] as readonly string[]).includes(action);
 }
 
+const LOW_RISK_SWARM_ACTIONS = new Set([
+  "inspect",
+  "review",
+  "comment",
+  "summarize",
+  "draft",
+  "test",
+]);
+
+const HIGH_RISK_SWARM_ACTIONS = new Set([
+  "deploy",
+  "release",
+  "release_candidate",
+  "stage",
+  "merge",
+  "publish",
+  "write",
+  "append",
+  "delete",
+  "move",
+  "network.send",
+  "comm.send",
+  "agent.spend",
+  "sys.credential.read",
+  "sys.credential.use",
+  "tool.exec",
+  "db.insert",
+  "db.update",
+  "db.delete",
+  "exec",
+]);
+
+const HIGH_RISK_BOUNDARY_ACTION_KINDS = new Set<BoundaryActionKind>([
+  "fs.write",
+  "fs.append",
+  "fs.delete",
+  "fs.move",
+  "fs.mkdir",
+  "network.send",
+  "comm.send",
+  "agent.spend",
+  "sys.credential.read",
+  "sys.credential.use",
+  "sys.config.write",
+  "sys.env.write",
+  "tool.exec",
+  "db.insert",
+  "db.update",
+  "db.delete",
+]);
+
+const DEFAULT_HISTORY_BY_ACTION: Partial<Record<string, string[]>> = {
+  deploy: ["build_pass", "security_review", "rollback_plan", "owner_approval"],
+  release: ["tests_passed", "versioned_artifact", "changelog_ready", "release_witness"],
+  release_candidate: ["tests_passed", "versioned_artifact"],
+  stage: ["tests_passed", "owner_approval"],
+  merge: ["tests_passed", "review_approved"],
+  publish: ["content_review", "legal_review"],
+};
+
+const DEFAULT_HISTORY_BY_ACTION_KIND: Partial<Record<BoundaryActionKind, string[]>> = {
+  "tool.exec": ["owner_approval"],
+  "network.send": ["destination_verified", "owner_approval"],
+  "comm.send": ["recipient_verified", "owner_approval"],
+  "agent.spend": ["intent_declared", "destination_declared", "cap_declared", "source_authority"],
+  "sys.credential.read": ["owner_approval", "security_review"],
+  "sys.credential.use": ["owner_approval", "security_review"],
+  "db.insert": ["owner_approval"],
+  "db.update": ["owner_approval", "change_review"],
+  "db.delete": ["owner_approval", "change_review"],
+  "fs.write": ["owner_approval"],
+  "fs.append": ["owner_approval"],
+  "fs.move": ["owner_approval"],
+  "fs.delete": ["owner_approval", "rollback_plan"],
+};
+
+function isHighConsequenceSwarmAction(action: string | undefined, actionKind: BoundaryActionKind | undefined): boolean {
+  if (action && HIGH_RISK_SWARM_ACTIONS.has(action)) {
+    return true;
+  }
+  return actionKind ? HIGH_RISK_BOUNDARY_ACTION_KINDS.has(actionKind) : false;
+}
+
+function isLowRiskSwarmAction(action: string | undefined, actionKind: BoundaryActionKind | undefined): boolean {
+  if (action && LOW_RISK_SWARM_ACTIONS.has(action)) {
+    return true;
+  }
+  return actionKind === "fs.read" || actionKind === "db.query" || actionKind === "sys.config.read" || actionKind === "sys.env.read";
+}
+
+function defaultRequiredHistoryForSwarmAction(
+  action: string | undefined,
+  actionKind: BoundaryActionKind | undefined,
+): string[] {
+  const byAction = action ? DEFAULT_HISTORY_BY_ACTION[action] ?? [] : [];
+  const byKind = actionKind ? DEFAULT_HISTORY_BY_ACTION_KIND[actionKind] ?? [] : [];
+  return [...new Set([...byAction, ...byKind])];
+}
+
+function findBudgetOverflow(cost: BoundarySwarmCost | undefined):
+  | { scope: string; consumed: number; cap: number; unit: string }
+  | null {
+  if (!cost) {
+    return null;
+  }
+
+  const budgets: Array<{ scope: string; consumed: number; cap: number; unit: string }> = [];
+  if (cost.unitCap !== undefined) {
+    budgets.push({ scope: "agent", consumed: cost.unitsConsumed, cap: cost.unitCap, unit: cost.unit });
+  }
+  for (const [scope, entry] of [
+    ["task", cost.taskBudget],
+    ["intent", cost.intentBudget],
+    ["artifact", cost.artifactBudget],
+    ["swarm", cost.swarmBudget],
+    ["window", cost.windowBudget],
+    ["global", cost.globalBudget],
+  ] as const) {
+    if (!entry) {
+      continue;
+    }
+    budgets.push({ scope, consumed: entry.consumed, cap: entry.cap, unit: entry.unit ?? cost.unit });
+  }
+
+  return budgets.find((budget) => budget.consumed >= budget.cap) ?? null;
+}
+
+function findNearBudget(cost: BoundarySwarmCost | undefined):
+  | { scope: string; consumed: number; cap: number; unit: string }
+  | null {
+  if (!cost) {
+    return null;
+  }
+
+  const budgets: Array<{ scope: string; consumed: number; cap: number; unit: string }> = [];
+  if (cost.unitCap !== undefined) {
+    budgets.push({ scope: "agent", consumed: cost.unitsConsumed, cap: cost.unitCap, unit: cost.unit });
+  }
+  for (const [scope, entry] of [
+    ["task", cost.taskBudget],
+    ["intent", cost.intentBudget],
+    ["artifact", cost.artifactBudget],
+    ["swarm", cost.swarmBudget],
+    ["window", cost.windowBudget],
+    ["global", cost.globalBudget],
+  ] as const) {
+    if (!entry) {
+      continue;
+    }
+    budgets.push({ scope, consumed: entry.consumed, cap: entry.cap, unit: entry.unit ?? cost.unit });
+  }
+
+  return budgets.find((budget) => budget.cap > 0 && (budget.consumed / budget.cap) >= 0.8) ?? null;
+}
+
 // ─── Path classification ──────────────────────────────────────────────────────
 
 /** Instant routing decision for every contact.
  *  Green = act now. Yellow = speculative/review. Red = reject. Purple = intent underspecified. */
 export type BoundarySwarmPath = "green" | "yellow" | "red" | "purple";
 
+export type BoundarySwarmYellowReason =
+  | "missing_intent"
+  | "missing_validation"
+  | "stale_version"
+  | "dependency_pending"
+  | "ownership_uncertain"
+  | "provenance_uncertain"
+  | "cost_near_cap"
+  | "speculative_allowed";
+
+export type BoundarySwarmPurpleAction =
+  | "ask"
+  | "define"
+  | "route_to_owner"
+  | "expire"
+  | "deny";
+
+export type BoundarySwarmDefinitionRequest = {
+  action: BoundarySwarmPurpleAction;
+  reason: string;
+  owner?: string;
+  evidenceNeeded?: string[];
+  expiresAt?: string;
+};
+
 export type BoundarySwarmPathClassification = {
   path: BoundarySwarmPath;
   disposition: "continue" | "queue" | "deny";
   reason: string;
   lawIds: string[];
+  code: string;
+  yellowReason?: BoundarySwarmYellowReason;
+  purpleAction?: BoundarySwarmPurpleAction;
+  definitionRequest?: BoundarySwarmDefinitionRequest;
 };
 
 /** Classify a contact against readiness and intent.
  *  This is the instant routing layer — no waiting, no negotiation. */
 export function classifySwarmPath(args: {
   action?: string;
+  actionKind?: BoundaryActionKind;
   readiness: BoundarySwarmReadiness;
   intent?: BoundarySwarmIntent;
+  intentLedger?: BoundarySwarmIntentLedger;
   ownership?: BoundarySwarmOwnership;
   actorRole?: string;
   handoff?: BoundarySwarmHandoff;
   completedValidation?: string[];
+  provenance?: BoundarySwarmProvenance;
+  freshness?: BoundarySwarmFreshness;
+  composition?: BoundarySwarmComposition;
+  coordination?: BoundarySwarmCoordinationState;
+  domainStatus?: BoundarySwarmDomainStatus;
+  cost?: BoundarySwarmCost;
 }): BoundarySwarmPathClassification {
   const action = args.action?.trim();
+  const actionKind = args.actionKind;
+  const actorRole = args.actorRole?.trim();
+  const highRisk = isHighConsequenceSwarmAction(action, actionKind);
+  const lowRisk = isLowRiskSwarmAction(action, actionKind);
 
   if (!action) {
+    const reason = "swarm action is underspecified — receiver cannot determine the next lawful continuation";
     return {
       path: "purple",
       disposition: "queue",
-      reason: "swarm action is underspecified — receiver cannot determine the next lawful continuation",
+      reason,
       lawIds: ["SWARM.ACTION.UNSPECIFIED"],
+      code: "SWARM.ACTION.UNSPECIFIED",
+      purpleAction: "define",
+      definitionRequest: {
+        action: "define",
+        reason,
+        owner: args.ownership?.primaryOwner,
+        evidenceNeeded: ["swarm action"],
+      },
     };
   }
 
   // Purple — intent is present but goal is empty or underspecified.
   if (args.intent !== undefined && !args.intent.goal.trim()) {
+    const reason = "intent is present but goal is underspecified — human clarification required";
     return {
       path: "purple",
       disposition: "queue",
-      reason: "intent is present but goal is underspecified — human clarification required",
+      reason,
       lawIds: ["SWARM.INTENT.UNDERSPECIFIED"],
+      code: "SWARM.INTENT.UNDERSPECIFIED",
+      purpleAction: "ask",
+      definitionRequest: {
+        action: "ask",
+        reason,
+        owner: args.ownership?.primaryOwner,
+        evidenceNeeded: ["intent goal", "success condition"],
+      },
     };
   }
 
   // Purple — ownership exists but the current agent role is missing.
-  if (args.ownership !== undefined && !(args.actorRole?.trim())) {
+  if (args.ownership !== undefined && !actorRole) {
+    const reason = "ownership is defined but the acting agent role is missing — the next lawful owner cannot be proven";
     return {
       path: "purple",
       disposition: "queue",
-      reason: "ownership is defined but the acting agent role is missing — the next lawful owner cannot be proven",
+      reason,
       lawIds: ["SWARM.OWNERSHIP.UNDECLARED"],
+      code: "SWARM.OWNERSHIP.UNDECLARED",
+      purpleAction: "route_to_owner",
+      definitionRequest: {
+        action: "route_to_owner",
+        reason,
+        owner: args.ownership.primaryOwner,
+        evidenceNeeded: ["acting agent role"],
+      },
     };
+  }
+
+  if (
+    highRisk
+    && !args.intent
+  ) {
+    const reason = "high-consequence swarm motion cannot continue without declared intent";
+    return {
+      path: "purple",
+      disposition: "queue",
+      reason,
+      lawIds: ["SWARM.INTENT.MISSING.HIGH_RISK"],
+      code: "SWARM.INTENT.MISSING.HIGH_RISK",
+      purpleAction: "ask",
+      definitionRequest: {
+        action: "ask",
+        reason,
+        owner: args.ownership?.primaryOwner,
+        evidenceNeeded: ["intent goal", "must-have constraints", "success condition"],
+      },
+    };
+  }
+
+  if (
+    highRisk
+    && args.intentLedger
+    && (
+      args.intentLedger.openAmbiguities.length > 0
+      || args.intentLedger.pendingHumanDecisions.length > 0
+    )
+  ) {
+    const reason = "high-consequence swarm motion is blocked until intent ambiguities and pending human decisions are resolved";
+    return {
+      path: "purple",
+      disposition: "queue",
+      reason,
+      lawIds: ["SWARM.INTENT.PENDING_DECISION"],
+      code: "SWARM.INTENT.PENDING_DECISION",
+      purpleAction: "ask",
+      definitionRequest: {
+        action: "ask",
+        reason,
+        owner: args.ownership?.primaryOwner,
+        evidenceNeeded: [
+          ...args.intentLedger.openAmbiguities.map((item) => `ambiguity:${item}`),
+          ...args.intentLedger.pendingHumanDecisions.map((item) => `decision:${item}`),
+        ],
+      },
+    };
+  }
+
+  const ownershipRoles = args.ownership
+    ? [
+        args.ownership.primaryOwner,
+        args.ownership.backupOwner,
+        args.ownership.reviewer,
+      ].filter((value): value is string => Boolean(value?.trim()))
+    : [];
+
+  if (
+    args.handoff?.receiver
+    && ownershipRoles.length > 0
+    && !ownershipRoles.includes(args.handoff.receiver)
+  ) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `handoff receiver '${args.handoff.receiver}' is outside the declared ownership path`,
+      lawIds: ["SWARM.OWNERSHIP.TRANSFER_UNDECLARED"],
+      code: "SWARM.OWNERSHIP.TRANSFER_UNDECLARED",
+    };
+  }
+
+  if (
+    actorRole
+    && highRisk
+    && args.ownership?.reviewer === actorRole
+    && actorRole !== args.ownership.primaryOwner
+    && actorRole !== args.ownership.backupOwner
+  ) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `reviewer role '${actorRole}' cannot execute high-consequence swarm action '${action}'`,
+      lawIds: ["SWARM.OWNERSHIP.REVIEWER_EXECUTION_DENIED"],
+      code: "SWARM.OWNERSHIP.REVIEWER_EXECUTION_DENIED",
+    };
+  }
+
+  if (
+    actorRole
+    && highRisk
+    && args.ownership?.backupOwner === actorRole
+    && !args.coordination?.primaryOwnerTimedOut
+    && !args.coordination?.primaryOwnerFailed
+  ) {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: `backup owner '${actorRole}' cannot take over high-consequence swarm action before timeout or failure is declared`,
+      lawIds: ["SWARM.OWNERSHIP.BACKUP_NOT_ACTIVATED"],
+      code: "SWARM.OWNERSHIP.BACKUP_NOT_ACTIVATED",
+    };
+  }
+
+  if (args.ownership?.timeoutMs && args.coordination?.lastHeartbeatAt) {
+    const lastHeartbeatAt = Date.parse(args.coordination.lastHeartbeatAt);
+    if (!Number.isNaN(lastHeartbeatAt) && (Date.now() - lastHeartbeatAt) >= args.ownership.timeoutMs) {
+      const timeoutAction = args.coordination.timeoutAction ?? "reroute";
+      if (timeoutAction === "abort") {
+        return {
+          path: "red",
+          disposition: "deny",
+          reason: `primary owner heartbeat exceeded timeout (${args.ownership.timeoutMs}ms) and the swarm timeout law is abort`,
+          lawIds: ["SWARM.SILENCE.ABORT"],
+          code: "SWARM.SILENCE.ABORT",
+        };
+      }
+      return {
+        path: "yellow",
+        disposition: "queue",
+        reason: `primary owner heartbeat exceeded timeout (${args.ownership.timeoutMs}ms) — swarm must ${timeoutAction} before continuing`,
+        lawIds: ["SWARM.SILENCE.TIMEOUT"],
+        code: "SWARM.SILENCE.TIMEOUT",
+        yellowReason: "ownership_uncertain",
+      };
+    }
+  }
+
+  if (args.freshness?.invalidated) {
+    return {
+      path: highRisk ? "red" : "yellow",
+      disposition: highRisk ? "deny" : "queue",
+      reason: "artifact freshness has been invalidated — revalidation is required before continuation",
+      lawIds: ["SWARM.FRESHNESS.INVALIDATED"],
+      code: "SWARM.FRESHNESS.INVALIDATED",
+      ...(highRisk ? {} : { yellowReason: "stale_version" as const }),
+    };
+  }
+
+  const staleAtIso = args.freshness?.staleAt;
+  if (staleAtIso) {
+    const staleAt = Date.parse(staleAtIso);
+    if (!Number.isNaN(staleAt) && staleAt <= Date.now()) {
+      return {
+        path: "yellow",
+        disposition: "queue",
+        reason: `artifact freshness window has expired at ${staleAtIso} — revalidation is required before continuation`,
+        lawIds: ["SWARM.FRESHNESS.STALE"],
+        code: "SWARM.FRESHNESS.STALE",
+        yellowReason: "stale_version",
+      };
+    }
+  }
+
+  if (args.freshness?.observedAt && args.freshness.maxAgeMs !== undefined) {
+    const observedAt = Date.parse(args.freshness.observedAt);
+    if (!Number.isNaN(observedAt) && (Date.now() - observedAt) >= args.freshness.maxAgeMs) {
+      return {
+        path: "yellow",
+        disposition: "queue",
+        reason: `artifact observation is older than allowed freshness window (${args.freshness.maxAgeMs}ms)`,
+        lawIds: ["SWARM.FRESHNESS.REVALIDATE"],
+        code: "SWARM.FRESHNESS.REVALIDATE",
+        yellowReason: "stale_version",
+      };
+    }
   }
 
   if (args.handoff?.expiresAt) {
@@ -150,6 +540,7 @@ export function classifySwarmPath(args: {
         disposition: "deny",
         reason: `handoff '${args.handoff.artifactId}' is stale — expiration ${args.handoff.expiresAt} has passed`,
         lawIds: ["SWARM.HANDOFF.STALE"],
+        code: "SWARM.HANDOFF.STALE",
       };
     }
   }
@@ -160,6 +551,7 @@ export function classifySwarmPath(args: {
       disposition: "deny",
       reason: `handoff '${args.handoff.artifactId}' forbids action '${action}'`,
       lawIds: ["SWARM.HANDOFF.FORBIDDEN_USE"],
+      code: "SWARM.HANDOFF.FORBIDDEN_USE",
     };
   }
 
@@ -169,31 +561,28 @@ export function classifySwarmPath(args: {
       disposition: "deny",
       reason: `handoff '${args.handoff.artifactId}' does not allow action '${action}'`,
       lawIds: ["SWARM.HANDOFF.ALLOWED_USE_MISMATCH"],
+      code: "SWARM.HANDOFF.ALLOWED_USE_MISMATCH",
     };
   }
 
-  if (args.handoff?.receiver && args.actorRole?.trim() && args.handoff.receiver !== args.actorRole.trim()) {
+  if (args.handoff?.receiver && actorRole && args.handoff.receiver !== actorRole) {
     return {
       path: "red",
       disposition: "deny",
-      reason: `handoff receiver '${args.handoff.receiver}' does not match acting role '${args.actorRole.trim()}'`,
+      reason: `handoff receiver '${args.handoff.receiver}' does not match acting role '${actorRole}'`,
       lawIds: ["SWARM.HANDOFF.RECEIVER_MISMATCH"],
+      code: "SWARM.HANDOFF.RECEIVER_MISMATCH",
     };
   }
 
-  if (args.ownership && args.actorRole?.trim()) {
-    const actorRole = args.actorRole.trim();
-    const allowedRoles = [
-      args.ownership.primaryOwner,
-      args.ownership.backupOwner,
-      args.ownership.reviewer,
-    ].filter((value): value is string => Boolean(value?.trim()));
-    if (allowedRoles.length > 0 && !allowedRoles.includes(actorRole)) {
+  if (args.ownership && actorRole) {
+    if (ownershipRoles.length > 0 && !ownershipRoles.includes(actorRole)) {
       return {
         path: "red",
         disposition: "deny",
-        reason: `acting role '${actorRole}' is outside the declared ownership path (${allowedRoles.join(", ")})`,
+        reason: `acting role '${actorRole}' is outside the declared ownership path (${ownershipRoles.join(", ")})`,
         lawIds: ["SWARM.OWNERSHIP.DENIED"],
+        code: "SWARM.OWNERSHIP.DENIED",
       };
     }
   }
@@ -205,7 +594,82 @@ export function classifySwarmPath(args: {
       disposition: "deny",
       reason: `action '${action}' matches a forbidden intent constraint`,
       lawIds: ["SWARM.INTENT.FORBIDDEN"],
+      code: "SWARM.INTENT.FORBIDDEN",
     };
+  }
+
+  if (args.domainStatus?.user === "red") {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: "user-intent precedence blocks continuation",
+      lawIds: ["SWARM.DOMAIN.USER_BLOCK"],
+      code: "SWARM.DOMAIN.USER_BLOCK",
+    };
+  }
+
+  if (highRisk && args.domainStatus?.security === "red") {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: "security precedence blocks high-consequence continuation",
+      lawIds: ["SWARM.DOMAIN.SECURITY_BLOCK"],
+      code: "SWARM.DOMAIN.SECURITY_BLOCK",
+    };
+  }
+
+  if (highRisk && args.domainStatus?.legal === "red") {
+    return {
+      path: "red",
+      disposition: "deny",
+      reason: "legal precedence blocks high-consequence continuation",
+      lawIds: ["SWARM.DOMAIN.LEGAL_BLOCK"],
+      code: "SWARM.DOMAIN.LEGAL_BLOCK",
+    };
+  }
+
+  if (highRisk && (args.domainStatus?.product === "red" || args.domainStatus?.engineering === "red")) {
+    return {
+      path: "yellow",
+      disposition: "queue",
+      reason: "cross-domain conflict requires arbitration before high-consequence continuation",
+      lawIds: ["SWARM.DOMAIN.ARBITRATION_REQUIRED"],
+      code: "SWARM.DOMAIN.ARBITRATION_REQUIRED",
+      yellowReason: "dependency_pending",
+    };
+  }
+
+  if (args.provenance) {
+    const isEvidenceOnly = args.provenance.safeToActOn === false
+      || (actionKind === "tool.exec" && args.provenance.safeToExecute === false)
+      || (actionKind?.startsWith("fs.") && args.provenance.safeToImport === false);
+    if (isEvidenceOnly) {
+      return {
+        path: highRisk ? "red" : "yellow",
+        disposition: highRisk ? "deny" : "queue",
+        reason: "unverified agent output is evidence-only and cannot directly become authority",
+        lawIds: ["SWARM.PROVENANCE.EVIDENCE_ONLY"],
+        code: "SWARM.PROVENANCE.EVIDENCE_ONLY",
+        ...(highRisk ? {} : { yellowReason: "provenance_uncertain" as const }),
+      };
+    }
+
+    if (
+      args.provenance.trust !== "trusted"
+      || args.provenance.containsUnverifiedClaims
+      || args.provenance.source === "unknown"
+    ) {
+      return {
+        path: "yellow",
+        disposition: highRisk ? "queue" : "continue",
+        reason: highRisk
+          ? "provenance is not trusted enough for high-consequence continuation without review"
+          : "provenance is uncertain — continuation remains evidence-oriented",
+        lawIds: ["SWARM.PROVENANCE.UNVERIFIED"],
+        code: "SWARM.PROVENANCE.UNVERIFIED",
+        yellowReason: "provenance_uncertain",
+      };
+    }
   }
 
   // Red — action not permitted at this readiness tier.
@@ -215,6 +679,7 @@ export function classifySwarmPath(args: {
       disposition: "deny",
       reason: `action '${action}' is not permitted at readiness tier '${args.readiness}' — allowed: ${READINESS_PERMITTED_ACTIONS[args.readiness].join(", ")}`,
       lawIds: ["SWARM.READINESS.DENIED"],
+      code: "SWARM.READINESS.DENIED",
     };
   }
 
@@ -227,6 +692,47 @@ export function classifySwarmPath(args: {
       disposition: "queue",
       reason: `handoff '${args.handoff?.artifactId}' is missing required validation: ${missingValidation.join(", ")}`,
       lawIds: ["SWARM.HANDOFF.VALIDATION_PENDING"],
+      code: "SWARM.HANDOFF.VALIDATION_PENDING",
+      yellowReason: "missing_validation",
+    };
+  }
+
+  if (args.composition?.expectedVersion && args.composition.artifactVersion && args.composition.expectedVersion !== args.composition.artifactVersion) {
+    return {
+      path: "yellow",
+      disposition: "queue",
+      reason: `artifact version '${args.composition.artifactVersion}' does not match expected version '${args.composition.expectedVersion}'`,
+      lawIds: ["SWARM.COMPOSITION.VERSION_MISMATCH"],
+      code: "SWARM.COMPOSITION.VERSION_MISMATCH",
+      yellowReason: "stale_version",
+    };
+  }
+
+  if (args.composition?.dependenciesPending?.length) {
+    return {
+      path: "yellow",
+      disposition: "queue",
+      reason: `composition dependencies are still pending: ${args.composition.dependenciesPending.join(", ")}`,
+      lawIds: ["SWARM.COMPOSITION.DEPENDENCY_PENDING"],
+      code: "SWARM.COMPOSITION.DEPENDENCY_PENDING",
+      yellowReason: "dependency_pending",
+    };
+  }
+
+  const requiredHistory = [
+    ...defaultRequiredHistoryForSwarmAction(action, actionKind),
+    ...(args.composition?.requiredHistory ?? []),
+  ];
+  const completedHistory = new Set(args.composition?.completedHistory ?? []);
+  const missingHistory = [...new Set(requiredHistory)].filter((item) => !completedHistory.has(item));
+  if (missingHistory.length > 0) {
+    return {
+      path: "yellow",
+      disposition: "queue",
+      reason: `high-consequence continuation is missing required history: ${missingHistory.join(", ")}`,
+      lawIds: ["SWARM.COMPOSITION.HISTORY_PENDING"],
+      code: "SWARM.COMPOSITION.HISTORY_PENDING",
+      yellowReason: "missing_validation",
     };
   }
 
@@ -234,9 +740,25 @@ export function classifySwarmPath(args: {
   if (!args.intent) {
     return {
       path: "yellow",
-      disposition: "continue",
-      reason: "action is locally permitted but no intent is set — proceed speculatively",
+      disposition: lowRisk ? "continue" : "queue",
+      reason: lowRisk
+        ? "action is locally permitted but no intent is set — low-risk speculative continuation only"
+        : "action is locally permitted but intent is missing — continuation must wait for declared purpose",
       lawIds: ["SWARM.INTENT.MISSING"],
+      code: "SWARM.INTENT.MISSING",
+      yellowReason: lowRisk ? "speculative_allowed" : "missing_intent",
+    };
+  }
+
+  const nearBudget = findNearBudget(args.cost);
+  if (nearBudget) {
+    return {
+      path: "yellow",
+      disposition: highRisk ? "queue" : "continue",
+      reason: `${nearBudget.scope} cost is near cap (${nearBudget.consumed}/${nearBudget.cap} ${nearBudget.unit})`,
+      lawIds: ["SWARM.COST.NEAR_CAP"],
+      code: "SWARM.COST.NEAR_CAP",
+      yellowReason: "cost_near_cap",
     };
   }
 
@@ -246,6 +768,7 @@ export function classifySwarmPath(args: {
     disposition: "continue",
     reason: `action '${action}' is permitted at readiness '${args.readiness}' and aligns with intent: ${args.intent.goal}`,
     lawIds: ["SWARM.PATH.GREEN"],
+    code: "SWARM.PATH.GREEN",
   };
 }
 
@@ -364,7 +887,54 @@ export type BoundarySwarmHandoff = {
   nextAction: string;
 };
 
+export type BoundarySwarmProvenance = {
+  source: "user" | "model" | "tool" | "repo" | "web" | "unknown";
+  trust: "trusted" | "unverified" | "unknown";
+  containsUnverifiedClaims?: boolean;
+  safeToQuote?: boolean;
+  safeToExecute?: boolean;
+  safeToImport?: boolean;
+  safeToActOn?: boolean;
+};
+
+export type BoundarySwarmFreshness = {
+  observedAt?: string;
+  maxAgeMs?: number;
+  staleAt?: string;
+  invalidated?: boolean;
+};
+
+export type BoundarySwarmComposition = {
+  pathId?: string;
+  requiredHistory?: string[];
+  completedHistory?: string[];
+  dependenciesPending?: string[];
+  artifactVersion?: string;
+  expectedVersion?: string;
+};
+
+export type BoundarySwarmCoordinationState = {
+  lastHeartbeatAt?: string;
+  timeoutAction?: "reroute" | "replace" | "escalate" | "abort";
+  primaryOwnerTimedOut?: boolean;
+  primaryOwnerFailed?: boolean;
+};
+
+export type BoundarySwarmDomainStatus = {
+  user?: "green" | "yellow" | "red";
+  security?: "green" | "yellow" | "red";
+  legal?: "green" | "yellow" | "red";
+  product?: "green" | "yellow" | "red";
+  engineering?: "green" | "yellow" | "red";
+};
+
 // ─── Cost ─────────────────────────────────────────────────────────────────────
+
+export type BoundarySwarmBudgetWindow = {
+  consumed: number;
+  cap: number;
+  unit?: string;
+};
 
 /** Per-agent cost tracking. Keeps the swarm accountable to a budget. */
 export type BoundarySwarmCost = {
@@ -374,6 +944,13 @@ export type BoundarySwarmCost = {
   unitCap?: number;
   /** Arbitrary cost label (e.g. "tokens", "usd-cents", "api-calls"). */
   unit: string;
+  /** Aggregate budgets that prevent distributed tiny actions from bypassing a real cap. */
+  taskBudget?: BoundarySwarmBudgetWindow;
+  intentBudget?: BoundarySwarmBudgetWindow;
+  artifactBudget?: BoundarySwarmBudgetWindow;
+  swarmBudget?: BoundarySwarmBudgetWindow;
+  windowBudget?: BoundarySwarmBudgetWindow;
+  globalBudget?: BoundarySwarmBudgetWindow;
 };
 
 export type BoundarySwarmRequestMeta = {
@@ -393,6 +970,16 @@ export type BoundarySwarmRequestMeta = {
   handoff?: BoundarySwarmHandoff;
   /** Validations already completed on the handed-off artifact. */
   completedValidation?: string[];
+  /** Provenance and trust posture for the handed-off material. */
+  provenance?: BoundarySwarmProvenance;
+  /** Freshness and staleness controls for the handed-off material. */
+  freshness?: BoundarySwarmFreshness;
+  /** Composition and readiness-history controls for multi-step continuation. */
+  composition?: BoundarySwarmComposition;
+  /** Heartbeat, timeout, and takeover state for the current ownership path. */
+  coordination?: BoundarySwarmCoordinationState;
+  /** Cross-domain posture that can block or arbitrate continuation. */
+  domainStatus?: BoundarySwarmDomainStatus;
   /** Cost tracking for the acting agent or group. */
   cost?: BoundarySwarmCost;
 };
@@ -440,10 +1027,28 @@ export type BoundarySwarmGroup = {
   handoff?: BoundarySwarmHandoff;
   /** Completed validations attached to this group. */
   completedValidation?: string[];
+  /** Provenance and trust posture for the group artifact. */
+  provenance?: BoundarySwarmProvenance;
+  /** Freshness and staleness posture for the group artifact. */
+  freshness?: BoundarySwarmFreshness;
+  /** Composition and required-history posture for the group artifact. */
+  composition?: BoundarySwarmComposition;
+  /** Coordination and heartbeat posture for the group. */
+  coordination?: BoundarySwarmCoordinationState;
+  /** Cross-domain status for arbitration and precedence. */
+  domainStatus?: BoundarySwarmDomainStatus;
   /** Cost tracking for the agent(s) in this group. */
   cost?: BoundarySwarmCost;
   /** Novelty classification attached to this group. */
   novelty?: BoundaryNoveltyState;
+  /** Stable code for the current path decision. */
+  pathCode?: string;
+  /** Explicit subtype when the group is on the yellow path. */
+  yellowReason?: BoundarySwarmYellowReason;
+  /** Explicit definition action when the group is on the purple path. */
+  purpleAction?: BoundarySwarmPurpleAction;
+  /** Definition task emitted for purple/underspecified continuation. */
+  definitionRequest?: BoundarySwarmDefinitionRequest;
 };
 
 type BoundarySwarmResolution =
@@ -522,6 +1127,7 @@ function classifyNoveltyPath(
       disposition: "deny",
       reason,
       lawIds: noveltyLawIds(novelty),
+      code: "SWARM.NOVELTY.DENY",
     };
   }
 
@@ -530,6 +1136,13 @@ function classifyNoveltyPath(
     disposition: "queue",
     reason,
     lawIds: noveltyLawIds(novelty),
+    code: "SWARM.NOVELTY.QUEUE",
+    purpleAction: "define",
+    definitionRequest: {
+      action: "define",
+      reason,
+      evidenceNeeded: ["novelty classification"],
+    },
   };
 }
 
@@ -546,12 +1159,20 @@ function classifyRequestSwarmPath(
   }
   return classifySwarmPath({
     action: resolveSwarmAction(swarm),
+    actionKind: mapInterceptToBoundaryAction(request),
     readiness: swarm.readiness ?? "draft",
     intent: swarm.intent,
+    intentLedger: swarm.intentLedger,
     ownership: swarm.ownership,
     actorRole: swarm.actorRole,
     handoff: swarm.handoff,
     completedValidation: swarm.completedValidation,
+    provenance: swarm.provenance,
+    freshness: swarm.freshness,
+    composition: swarm.composition,
+    coordination: swarm.coordination,
+    domainStatus: swarm.domainStatus,
+    cost: swarm.cost,
   });
 }
 
@@ -586,6 +1207,24 @@ function buildSwarmKey(sessionId: string, request: BoundaryInterceptRequest): st
         artifactId: request.swarm.handoff.artifactId,
         version: request.swarm.handoff.version,
       } : null,
+      provenance: request.swarm.provenance ? {
+        source: request.swarm.provenance.source,
+        trust: request.swarm.provenance.trust,
+        containsUnverifiedClaims: request.swarm.provenance.containsUnverifiedClaims === true,
+        safeToActOn: request.swarm.provenance.safeToActOn !== false,
+      } : null,
+      freshness: request.swarm.freshness ? {
+        staleAt: request.swarm.freshness.staleAt ?? null,
+        observedAt: request.swarm.freshness.observedAt ?? null,
+        maxAgeMs: request.swarm.freshness.maxAgeMs ?? null,
+        invalidated: request.swarm.freshness.invalidated === true,
+      } : null,
+      composition: request.swarm.composition ? {
+        pathId: request.swarm.composition.pathId ?? null,
+        artifactVersion: request.swarm.composition.artifactVersion ?? null,
+        expectedVersion: request.swarm.composition.expectedVersion ?? null,
+      } : null,
+      domainStatus: request.swarm.domainStatus ?? null,
     } : null,
   };
   const encoded = JSON.stringify(normalized);
@@ -594,7 +1233,7 @@ function buildSwarmKey(sessionId: string, request: BoundaryInterceptRequest): st
 }
 
 /** Waiter with a hard timeout — never hangs forever. */
-function createWaiter(): BoundarySwarmWaiter {
+function createWaiter(timeoutMs = WAITER_TIMEOUT_MS): BoundarySwarmWaiter {
   let resolvePromise: ((resolution: BoundarySwarmResolution) => void) | null = null;
   let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
@@ -602,7 +1241,7 @@ function createWaiter(): BoundarySwarmWaiter {
     resolvePromise = resolve;
     timeoutHandle = setTimeout(() => {
       resolve({ kind: "deny", reason: "swarm waiter timed out — no approval received within window" });
-    }, WAITER_TIMEOUT_MS);
+    }, timeoutMs);
   });
 
   return {
@@ -746,6 +1385,11 @@ async function appendSwarmLedger(args: {
   readiness?: BoundarySwarmReadiness;
   intent?: BoundarySwarmIntent;
   cost?: BoundarySwarmCost;
+  provenance?: BoundarySwarmProvenance;
+  freshness?: BoundarySwarmFreshness;
+  composition?: BoundarySwarmComposition;
+  coordination?: BoundarySwarmCoordinationState;
+  domainStatus?: BoundarySwarmDomainStatus;
   novelty?: BoundaryNoveltyState;
 }): Promise<Awaited<ReturnType<typeof appendBoundaryLedger>>> {
   const config = args.store.getConfig();
@@ -775,6 +1419,17 @@ async function appendSwarmLedger(args: {
       ...(args.request.swarm?.handoff?.artifactId ? { swarm_handoff_artifact_id: args.request.swarm.handoff.artifactId } : {}),
       ...(args.request.swarm?.handoff?.version ? { swarm_handoff_version: args.request.swarm.handoff.version } : {}),
       ...(args.cost ? { swarm_cost_units_consumed: args.cost.unitsConsumed, swarm_cost_unit: args.cost.unit } : {}),
+      ...(args.provenance ? { swarm_provenance_source: args.provenance.source, swarm_provenance_trust: args.provenance.trust } : {}),
+      ...(args.freshness?.staleAt ? { swarm_freshness_stale_at: args.freshness.staleAt } : {}),
+      ...(args.composition?.pathId ? { swarm_composition_path_id: args.composition.pathId } : {}),
+      ...(args.coordination?.lastHeartbeatAt ? { swarm_last_heartbeat_at: args.coordination.lastHeartbeatAt } : {}),
+      ...(args.domainStatus ? {
+        swarm_domain_user: args.domainStatus.user ?? "unset",
+        swarm_domain_security: args.domainStatus.security ?? "unset",
+        swarm_domain_legal: args.domainStatus.legal ?? "unset",
+        swarm_domain_product: args.domainStatus.product ?? "unset",
+        swarm_domain_engineering: args.domainStatus.engineering ?? "unset",
+      } : {}),
       ...(args.novelty?.detected ? { novelty_detected: true } : {}),
       ...(args.novelty?.selfOriginated ? { novelty_self_originated: true } : {}),
       ...(args.novelty?.classes?.length ? { novelty_classes: args.novelty.classes.join(",") } : {}),
@@ -788,8 +1443,7 @@ async function appendSwarmLedger(args: {
 
 /** Returns true if the group has exceeded its cost cap. */
 function isOverBudget(cost: BoundarySwarmCost | undefined): boolean {
-  if (!cost || cost.unitCap === undefined) return false;
-  return cost.unitsConsumed >= cost.unitCap;
+  return findBudgetOverflow(cost) !== null;
 }
 
 function createSyntheticSwarmResult(args: {
@@ -825,6 +1479,7 @@ export function createBoundarySwarmCoordinator(
 ) {
   const maxPendingGroups = options.maxPendingGroups ?? MAX_PENDING_GROUPS;
   const maxWaitersPerGroup = options.maxWaitersPerGroup ?? MAX_WAITERS_PER_GROUP;
+  const waiterTimeoutMs = options.waiterTimeoutMs ?? WAITER_TIMEOUT_MS;
 
   const pendingGroups = new Map<string, BoundarySwarmPendingGroup>();
   const recentGroups = new Map<string, BoundarySwarmGroup>();
@@ -868,8 +1523,17 @@ export function createBoundarySwarmCoordinator(
       ownership: group.ownership,
       handoff: group.handoff,
       completedValidation: group.completedValidation ? [...group.completedValidation] : undefined,
+      provenance: group.provenance,
+      freshness: group.freshness,
+      composition: group.composition,
+      coordination: group.coordination,
+      domainStatus: group.domainStatus,
       cost: group.cost,
       novelty: group.novelty,
+      pathCode: group.pathCode,
+      yellowReason: group.yellowReason,
+      purpleAction: group.purpleAction,
+      definitionRequest: group.definitionRequest,
     };
   }
 
@@ -918,8 +1582,17 @@ export function createBoundarySwarmCoordinator(
       ownership: request.swarm?.ownership,
       handoff: request.swarm?.handoff,
       completedValidation: request.swarm?.completedValidation ? [...request.swarm.completedValidation] : undefined,
+      provenance: request.swarm?.provenance,
+      freshness: request.swarm?.freshness,
+      composition: request.swarm?.composition,
+      coordination: request.swarm?.coordination,
+      domainStatus: request.swarm?.domainStatus,
       cost: request.swarm?.cost,
       novelty: request.novelty,
+      pathCode: pathClassification?.code,
+      yellowReason: pathClassification?.yellowReason,
+      purpleAction: pathClassification?.purpleAction,
+      definitionRequest: pathClassification?.definitionRequest,
     };
     recentGroups.set(resolvedGroup.groupId, resolvedGroup);
     const resolved = [...recentGroups.values()]
@@ -952,8 +1625,12 @@ export function createBoundarySwarmCoordinator(
       if (existing.waiters.size >= maxWaitersPerGroup) {
         return { denied: true, reason: `swarm group waiter cap reached (${maxWaitersPerGroup})` };
       }
-      if (isOverBudget(existing.cost)) {
-        return { denied: true, reason: `swarm group cost cap exceeded (${existing.cost?.unitsConsumed} ${existing.cost?.unit})` };
+      const existingBudgetOverflow = findBudgetOverflow(existing.cost);
+      if (existingBudgetOverflow) {
+        return {
+          denied: true,
+          reason: `swarm ${existingBudgetOverflow.scope} cost cap exceeded (${existingBudgetOverflow.consumed}/${existingBudgetOverflow.cap} ${existingBudgetOverflow.unit})`,
+        };
       }
       existing.updatedAt = now;
       existing.memberCount += 1;
@@ -998,8 +1675,23 @@ export function createBoundarySwarmCoordinator(
       ownership: swarm?.ownership,
       handoff: swarm?.handoff,
       completedValidation: swarm?.completedValidation ? [...swarm.completedValidation] : undefined,
+      provenance: swarm?.provenance,
+      freshness: swarm?.freshness,
+      composition: swarm?.composition,
+      coordination: swarm?.coordination,
+      domainStatus: swarm?.domainStatus,
       cost: swarm?.cost,
       novelty: request.novelty,
+      pathCode: pathClassification?.code,
+      yellowReason: pathClassification?.yellowReason,
+      purpleAction: pathClassification?.purpleAction,
+      definitionRequest: pathClassification?.definitionRequest
+        ? {
+            ...pathClassification.definitionRequest,
+            expiresAt: pathClassification.definitionRequest.expiresAt
+              ?? new Date(Date.now() + waiterTimeoutMs).toISOString(),
+          }
+        : undefined,
       retryOnApproval: Boolean(request.novelty?.detected && !request.novelty.admitted),
     };
     pendingGroups.set(key, group);
@@ -1023,7 +1715,7 @@ export function createBoundarySwarmCoordinator(
     }
 
     const { group, joined } = ensureResult;
-    const waiter = createWaiter();
+    const waiter = createWaiter(waiterTimeoutMs);
     group.waiters.add(waiter);
     recentGroups.set(group.groupId, snapshotGroup(group));
 
@@ -1042,6 +1734,11 @@ export function createBoundarySwarmCoordinator(
       joined,
       readiness: group.readiness,
       intent: group.intent,
+      provenance: group.provenance,
+      freshness: group.freshness,
+      composition: group.composition,
+      coordination: group.coordination,
+      domainStatus: group.domainStatus,
       cost: group.cost,
       novelty: group.novelty,
     });
@@ -1079,11 +1776,12 @@ export function createBoundarySwarmCoordinator(
     const swarm = normalizedRequest.swarm;
 
     // Cost guard — if caller tracks cost and cap is exceeded, deny before evaluation.
-    if (swarm?.cost && isOverBudget(swarm.cost)) {
+    const budgetOverflow = findBudgetOverflow(swarm?.cost);
+    if (budgetOverflow) {
       const denyResult = createSyntheticSwarmResult({
         request: normalizedRequest,
         decision: "deny",
-        reason: `agent cost cap exceeded (${swarm.cost.unitsConsumed} ${swarm.cost.unit})`,
+        reason: `swarm ${budgetOverflow.scope} cost cap exceeded (${budgetOverflow.consumed}/${budgetOverflow.cap} ${budgetOverflow.unit})`,
         lawIds: ["SWARM.COST.CAP_EXCEEDED"],
       });
       rememberImmediateResolution(normalizedRequest, denyResult);
@@ -1179,6 +1877,11 @@ export function createBoundarySwarmCoordinator(
       actorId: args.issuedBy,
       readiness: group.readiness,
       intent: group.intent,
+      provenance: group.provenance,
+      freshness: group.freshness,
+      composition: group.composition,
+      coordination: group.coordination,
+      domainStatus: group.domainStatus,
       cost: group.cost,
       novelty: group.novelty,
     });
@@ -1237,6 +1940,11 @@ export function createBoundarySwarmCoordinator(
       actorId: args.deniedBy,
       readiness: group.readiness,
       intent: group.intent,
+      provenance: group.provenance,
+      freshness: group.freshness,
+      composition: group.composition,
+      coordination: group.coordination,
+      domainStatus: group.domainStatus,
       cost: group.cost,
       novelty: group.novelty,
     });

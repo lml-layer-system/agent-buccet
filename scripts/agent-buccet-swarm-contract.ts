@@ -6,6 +6,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import {
+  classifySwarmPath,
   createPersistentBoundaryRuntimeStore,
   readBoundaryLedgerBySession,
   sendBoundaryInterceptServerInput,
@@ -70,6 +71,144 @@ async function main() {
     seedBaseAcceptance: false,
   });
 
+  const lowRiskMissingIntent = classifySwarmPath({
+    action: "inspect",
+    actionKind: "fs.read",
+    readiness: "draft",
+  });
+  assert.equal(lowRiskMissingIntent.path, "yellow");
+  assert.equal(lowRiskMissingIntent.disposition, "continue");
+  assert.equal(lowRiskMissingIntent.yellowReason, "speculative_allowed");
+
+  const highRiskMissingIntent = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "deployment",
+    ownership: {
+      primaryOwner: "deployment",
+    },
+  });
+  assert.equal(highRiskMissingIntent.path, "purple");
+  assert.equal(highRiskMissingIntent.disposition, "queue");
+  assert.equal(highRiskMissingIntent.code, "SWARM.INTENT.MISSING.HIGH_RISK");
+  assert.equal(highRiskMissingIntent.definitionRequest?.action, "ask");
+
+  const staleHighRisk = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "deployment",
+    ownership: {
+      primaryOwner: "deployment",
+    },
+    intent: { goal: "ship the release" },
+    freshness: {
+      staleAt: new Date(Date.now() - 1_000).toISOString(),
+    },
+  });
+  assert.equal(staleHighRisk.path, "yellow");
+  assert.equal(staleHighRisk.code, "SWARM.FRESHNESS.STALE");
+  assert.equal(staleHighRisk.yellowReason, "stale_version");
+
+  const compositionPending = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "deployment",
+    ownership: {
+      primaryOwner: "deployment",
+    },
+    intent: { goal: "ship the release" },
+    composition: {
+      completedHistory: ["build_pass"],
+      requiredHistory: ["security_review", "rollback_plan"],
+    },
+  });
+  assert.equal(compositionPending.path, "yellow");
+  assert.equal(compositionPending.disposition, "queue");
+  assert.equal(compositionPending.code, "SWARM.COMPOSITION.HISTORY_PENDING");
+
+  const backupOwnerDenied = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "backup",
+    ownership: {
+      primaryOwner: "primary",
+      backupOwner: "backup",
+    },
+    intent: { goal: "ship the release" },
+  });
+  assert.equal(backupOwnerDenied.path, "red");
+  assert.equal(backupOwnerDenied.code, "SWARM.OWNERSHIP.BACKUP_NOT_ACTIVATED");
+
+  const reviewerExecDenied = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "review",
+    ownership: {
+      primaryOwner: "coding",
+      reviewer: "review",
+    },
+    intent: { goal: "ship the release" },
+  });
+  assert.equal(reviewerExecDenied.path, "red");
+  assert.equal(reviewerExecDenied.code, "SWARM.OWNERSHIP.REVIEWER_EXECUTION_DENIED");
+
+  const silenceTimeout = classifySwarmPath({
+    action: "integrate",
+    actionKind: "fs.write",
+    readiness: "dependency_ready",
+    actorRole: "coding",
+    ownership: {
+      primaryOwner: "coding",
+      timeoutMs: 1_000,
+    },
+    coordination: {
+      lastHeartbeatAt: new Date(Date.now() - 10_000).toISOString(),
+      timeoutAction: "reroute",
+    },
+    intent: { goal: "ship the patch" },
+  });
+  assert.equal(silenceTimeout.path, "yellow");
+  assert.equal(silenceTimeout.code, "SWARM.SILENCE.TIMEOUT");
+
+  const securityBlock = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "deployment",
+    ownership: {
+      primaryOwner: "deployment",
+    },
+    intent: { goal: "ship the release" },
+    domainStatus: {
+      security: "red",
+    },
+  });
+  assert.equal(securityBlock.path, "red");
+  assert.equal(securityBlock.code, "SWARM.DOMAIN.SECURITY_BLOCK");
+
+  const evidenceOnly = classifySwarmPath({
+    action: "deploy",
+    actionKind: "tool.exec",
+    readiness: "globally_ready",
+    actorRole: "deployment",
+    ownership: {
+      primaryOwner: "deployment",
+    },
+    intent: { goal: "ship the release" },
+    provenance: {
+      source: "model",
+      trust: "unverified",
+      safeToActOn: false,
+    },
+  });
+  assert.equal(evidenceOnly.path, "red");
+  assert.equal(evidenceOnly.code, "SWARM.PROVENANCE.EVIDENCE_ONLY");
+
   const interceptServer = spawn(process.execPath, [
     path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
     "--session-id",
@@ -121,6 +260,9 @@ async function main() {
       nextAction: "integrate",
     },
     completedValidation: ["tests"],
+    composition: {
+      completedHistory: ["owner_approval"],
+    },
     cost: {
       unitsConsumed: 2,
       unitCap: 10,
@@ -281,6 +423,87 @@ async function main() {
   assert.equal(costDenied.decision, "deny");
   assert.equal(costDenied.lawIds.includes("SWARM.COST.CAP_EXCEEDED"), true);
 
+  const aggregateCostDenied = await sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      actionClass: "file",
+      operation: "write",
+      target: path.join(tempRoot, "aggregate-cost-denied.txt"),
+      payloadSummary: "pid=1005b agent=budget-aggregate",
+      swarm: {
+        action: "integrate",
+        actorRole: "coding",
+        readiness: "dependency_ready",
+        intent: { goal: "ship the patch" },
+        cost: {
+          unitsConsumed: 1,
+          unitCap: 10,
+          unit: "tokens",
+          swarmBudget: {
+            consumed: 100,
+            cap: 100,
+            unit: "tokens",
+          },
+        },
+      },
+    },
+  });
+  assert.equal(aggregateCostDenied.type, "decision");
+  assert.equal(aggregateCostDenied.decision, "deny");
+  assert.equal(aggregateCostDenied.lawIds.includes("SWARM.COST.CAP_EXCEEDED"), true);
+
+  const highRiskPurpleTarget = path.join(tempRoot, "high-risk-intent-missing.txt");
+  const highRiskPurpleRequest = sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      actionClass: "file",
+      operation: "write",
+      target: highRiskPurpleTarget,
+      payloadSummary: "pid=1005c agent=deployment",
+      swarm: {
+        action: "deploy",
+        actorRole: "deployment",
+        readiness: "globally_ready",
+        ownership: {
+          primaryOwner: "deployment",
+        },
+      },
+    },
+  });
+
+  const highRiskPurpleStatus = await waitForSwarmStatus({
+    target,
+    label: "high-risk intent missing queue",
+    predicate: (status) =>
+      status.groups.some((group) =>
+        group.target === highRiskPurpleTarget
+        && group.state === "waiting"
+        && group.path === "purple"
+        && group.pathCode === "SWARM.INTENT.MISSING.HIGH_RISK"
+        && group.definitionRequest?.action === "ask"),
+  });
+  const highRiskPurpleGroup = requireSwarmGroup(highRiskPurpleStatus, highRiskPurpleTarget);
+  assert.equal(highRiskPurpleGroup.purpleAction, "ask");
+  assert.equal(highRiskPurpleGroup.definitionRequest?.owner, "deployment");
+
+  const highRiskPurpleDeny = await sendBoundaryInterceptServerInput({
+    target,
+    input: {
+      command: "swarm_deny",
+      groupId: highRiskPurpleGroup.groupId,
+      deniedBy: "user:swarm-contract",
+      reason: "high-risk deploy cannot continue without intent",
+      asLaw: false,
+    },
+  });
+  assert.equal(highRiskPurpleDeny.type, "ack");
+  assert.equal(highRiskPurpleDeny.command, "swarm_deny");
+
+  const highRiskPurpleDecision = await highRiskPurpleRequest;
+  assert.equal(highRiskPurpleDecision.type, "decision");
+  assert.equal(highRiskPurpleDecision.decision, "deny");
+  assert.equal(highRiskPurpleDecision.reason, "high-risk deploy cannot continue without intent");
+
   const purpleTarget = path.join(tempRoot, "intent-purple.txt");
   const purpleRequest = sendBoundaryInterceptServerInput({
     target,
@@ -341,6 +564,8 @@ async function main() {
   console.log(`readiness denial: ${readinessDenied.type === "decision" ? readinessDenied.decision : "error"}`);
   console.log(`handoff denial: ${handoffDenied.type === "decision" ? handoffDenied.decision : "error"}`);
   console.log(`cost denial: ${costDenied.type === "decision" ? costDenied.decision : "error"}`);
+  console.log(`aggregate cost denial: ${aggregateCostDenied.type === "decision" ? aggregateCostDenied.decision : "error"}`);
+  console.log(`high-risk purple decision: ${highRiskPurpleDecision.type === "decision" ? highRiskPurpleDecision.decision : "error"}`);
   console.log(`purple decision: ${purpleDecision.type === "decision" ? purpleDecision.decision : "error"}`);
 }
 

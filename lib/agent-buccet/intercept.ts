@@ -22,14 +22,22 @@ import type {
   BodyguardMove,
 } from "./types.ts";
 import type {
+  BoundarySwarmComposition,
   BoundarySwarmCost,
+  BoundarySwarmCoordinationState,
+  BoundarySwarmDefinitionRequest,
+  BoundarySwarmDomainStatus,
+  BoundarySwarmFreshness,
   BoundarySwarmHandoff,
   BoundarySwarmIntent,
   BoundarySwarmIntentLedger,
   BoundarySwarmOwnership,
   BoundarySwarmPath,
+  BoundarySwarmPurpleAction,
   BoundarySwarmReadiness,
   BoundarySwarmRequestMeta,
+  BoundarySwarmProvenance,
+  BoundarySwarmYellowReason,
 } from "./swarm.ts";
 
 export type BoundaryInterceptActionClass =
@@ -103,8 +111,17 @@ export type BoundaryInterceptSwarmGroup = {
   ownership?: BoundarySwarmOwnership;
   handoff?: BoundarySwarmHandoff;
   completedValidation?: string[];
+  provenance?: BoundarySwarmProvenance;
+  freshness?: BoundarySwarmFreshness;
+  composition?: BoundarySwarmComposition;
+  coordination?: BoundarySwarmCoordinationState;
+  domainStatus?: BoundarySwarmDomainStatus;
   cost?: BoundarySwarmCost;
   novelty?: BoundaryNoveltyState;
+  pathCode?: string;
+  yellowReason?: BoundarySwarmYellowReason;
+  purpleAction?: BoundarySwarmPurpleAction;
+  definitionRequest?: BoundarySwarmDefinitionRequest;
 };
 
 export type BoundaryInterceptResult = {
