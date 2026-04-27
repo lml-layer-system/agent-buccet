@@ -14,12 +14,15 @@ import {
   detectBuccetPathSwitch,
   describeBuccetFormationLiveView,
   ensureBuccetPathInLibrary,
+  freezeBuccetFormation,
   getBuccetPathTemplate,
+  getBuccetFormationAdvanceBlockReason,
   getCurrentBuccetStageAgents,
   getCurrentBuccetStage,
   hasBuccetPath,
   instantiateBuccetFormation,
   loadBuccetPathMemorySnapshot,
+  applyBuccetFormationAgentAction,
   renderBuccetFormationLiveView,
   saveBuccetPathMemorySnapshot,
   switchBuccetFormation,
@@ -215,6 +218,76 @@ async function main() {
   assert.ok(
     switched.agentRoster.some((agent) => agent.id === "delivery-operator"),
     "expected messaging specialist roster after switch",
+  );
+
+  let frozenFormation = instantiateBuccetFormation({
+    sessionId: "session-path-freeze",
+    userRequest: "coordinate the coding swarm",
+    pathName: "coding",
+    library,
+  });
+  frozenFormation = freezeBuccetFormation({
+    state: frozenFormation,
+    issuedBy: "operator:test",
+    reason: "swarm uncertainty detected",
+  });
+  assert.equal(frozenFormation.control.massFrozen, true, "expected formation mass freeze");
+  assert.ok(
+    frozenFormation.agentRoster.every((agent) =>
+      agent.control.state === "FROZEN" || agent.control.state === "QUARANTINED" || agent.control.state === "REPLACED" || agent.control.state === "ABORTED"),
+    "expected all working agents to freeze under mass freeze",
+  );
+  assert.match(
+    getBuccetFormationAdvanceBlockReason(frozenFormation) ?? "",
+    /mass-frozen/,
+    "expected freeze to block continuation",
+  );
+  assert.throws(
+    () => advanceBuccetFormation({ state: frozenFormation, result: "success" }),
+    /mass-frozen/,
+    "expected frozen formation to reject advancement",
+  );
+  frozenFormation = applyBuccetFormationAgentAction({
+    state: frozenFormation,
+    agentId: "requirements-analyst",
+    action: "inspect",
+    issuedBy: "operator:test",
+    reason: "inspect intake output",
+  });
+  assert.equal(
+    frozenFormation.agentRoster.find((agent) => agent.id === "requirements-analyst")?.control.state,
+    "INSPECTING",
+    "expected inspect action to move agent into inspecting state",
+  );
+  frozenFormation = applyBuccetFormationAgentAction({
+    state: frozenFormation,
+    agentId: "requirements-analyst",
+    action: "quarantine",
+    issuedBy: "operator:test",
+    reason: "active-stage output contaminated",
+  });
+  assert.equal(
+    frozenFormation.agentRoster.find((agent) => agent.id === "requirements-analyst")?.control.state,
+    "QUARANTINED",
+    "expected quarantine action to persist",
+  );
+  for (const agent of frozenFormation.agentRoster) {
+    if (agent.id === "requirements-analyst") {
+      continue;
+    }
+    frozenFormation = applyBuccetFormationAgentAction({
+      state: frozenFormation,
+      agentId: agent.id,
+      action: "resume",
+      issuedBy: "operator:test",
+      reason: "agent cleared",
+    });
+  }
+  assert.equal(frozenFormation.control.massFrozen, false, "expected freeze to clear once no frozen/inspecting agents remain");
+  assert.match(
+    getBuccetFormationAdvanceBlockReason(frozenFormation) ?? "",
+    /requirements-analyst:quarantined/,
+    "expected unresolved active-stage quarantine to keep the stage blocked",
   );
 
   const customLibrary = createBuccetPathLibrary({

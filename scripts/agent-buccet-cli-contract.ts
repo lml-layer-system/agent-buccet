@@ -420,6 +420,91 @@ async function main() {
   };
   assert.ok(formationList.formations.some((entry) => entry.formationId === pathRun.formation.formationId && entry.pathName === customPathName && entry.sourceCount === 1));
 
+  const pathFreezeResult = await runCli([
+    "path",
+    "freeze",
+    customPathName,
+    "--reason",
+    "swarm uncertainty detected",
+    "--json",
+  ], env);
+  assert.equal(pathFreezeResult.code, 0, pathFreezeResult.stderr);
+  const pathFreeze = JSON.parse(pathFreezeResult.stdout) as {
+    formationId: string;
+    control: {
+      massFrozen: boolean;
+      pendingInspectionAgentIds: string[];
+    };
+    agents: Array<{ id: string; controlState: string }>;
+  };
+  assert.equal(pathFreeze.formationId, pathRun.formation.formationId);
+  assert.equal(pathFreeze.control.massFrozen, true);
+  assert.ok(pathFreeze.control.pendingInspectionAgentIds.length > 0, "expected frozen agents to require inspection");
+  assert.ok(pathFreeze.agents.every((agent) => agent.controlState === "FROZEN"), "expected whole work swarm to freeze");
+
+  const pathAgentsResult = await runCli(["path", "agents", customPathName, "--json"], env);
+  assert.equal(pathAgentsResult.code, 0, pathAgentsResult.stderr);
+  const pathAgents = JSON.parse(pathAgentsResult.stdout) as {
+    control: {
+      massFrozen: boolean;
+      pendingInspectionAgentIds: string[];
+    };
+    agents: Array<{ id: string; controlState: string }>;
+  };
+  assert.equal(pathAgents.control.massFrozen, true);
+  assert.deepEqual(
+    [...pathAgents.control.pendingInspectionAgentIds].sort(),
+    pathAgents.agents.map((agent) => agent.id).sort(),
+    "expected pending inspection to cover the full frozen swarm",
+  );
+
+  const frozenRunResult = await runCli(["path", "run", customPathName, "--steps", "1", "--json"], env);
+  assert.notEqual(frozenRunResult.code, 0, "expected frozen formation to reject continuation");
+  assert.match(frozenRunResult.stderr, /mass-frozen/, "expected frozen continuation error");
+
+  const inspectAgentResult = await runCli([
+    "path",
+    "agent",
+    "inspect",
+    customPathName,
+    pathAgents.agents[0]!.id,
+    "--reason",
+    "inspect first agent",
+    "--json",
+  ], env);
+  assert.equal(inspectAgentResult.code, 0, inspectAgentResult.stderr);
+  const inspectAgent = JSON.parse(inspectAgentResult.stdout) as {
+    agent: { id: string; controlState: string };
+  };
+  assert.equal(inspectAgent.agent.controlState, "INSPECTING");
+
+  for (const agent of pathAgents.agents) {
+    const resumeResult = await runCli([
+      "path",
+      "agent",
+      "resume",
+      customPathName,
+      agent.id,
+      "--reason",
+      "agent cleared",
+      "--json",
+    ], env);
+    assert.equal(resumeResult.code, 0, resumeResult.stderr);
+  }
+
+  const pathAgentsAfterResumeResult = await runCli(["path", "agents", customPathName, "--json"], env);
+  assert.equal(pathAgentsAfterResumeResult.code, 0, pathAgentsAfterResumeResult.stderr);
+  const pathAgentsAfterResume = JSON.parse(pathAgentsAfterResumeResult.stdout) as {
+    control: {
+      massFrozen: boolean;
+      pendingInspectionAgentIds: string[];
+    };
+    agents: Array<{ controlState: string }>;
+  };
+  assert.equal(pathAgentsAfterResume.control.massFrozen, false);
+  assert.equal(pathAgentsAfterResume.control.pendingInspectionAgentIds.length, 0);
+  assert.ok(pathAgentsAfterResume.agents.every((agent) => agent.controlState === "CLEAR"));
+
   const pathRunAllResult = await runCli(["path", "run", customPathName, "--all", "--json"], env);
   assert.equal(pathRunAllResult.code, 0, pathRunAllResult.stderr);
   const pathRunAll = JSON.parse(pathRunAllResult.stdout) as {

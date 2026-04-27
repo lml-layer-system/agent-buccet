@@ -27,6 +27,13 @@ export type BuccetPathAgentStatus =
   | "COMPLETED"
   | "BLOCKED"
   | "FAILED";
+export type BuccetPathAgentControlState =
+  | "CLEAR"
+  | "FROZEN"
+  | "INSPECTING"
+  | "QUARANTINED"
+  | "REPLACED"
+  | "ABORTED";
 export type BuccetPathFormationStatus =
   | "READY"
   | "RUNNING"
@@ -34,6 +41,8 @@ export type BuccetPathFormationStatus =
   | "FAILED"
   | "COMPLETED";
 export type BuccetPathAdvanceResult = "success" | "complete" | "blocked" | "failed";
+export type BuccetPathFormationFreezeScope = "whole_swarm";
+export type BuccetPathAgentAction = "inspect" | "resume" | "quarantine" | "replace" | "abort";
 
 export type BuccetPathUplBinding = {
   actionKinds: BoundaryActionKind[];
@@ -55,6 +64,24 @@ export type BuccetPathAgentMemoryBank = {
   sourceIds: string[];
   sourceTitles: string[];
   notes?: string;
+};
+
+export type BuccetPathAgentControl = {
+  state: BuccetPathAgentControlState;
+  updatedAt: string;
+  reason?: string | null;
+  issuedBy?: string;
+  replacementAgentId?: string;
+};
+
+export type BuccetPathFormationControl = {
+  massFrozen: boolean;
+  freezeScope?: BuccetPathFormationFreezeScope;
+  frozenAt?: string;
+  frozenBy?: string;
+  freezeReason?: string;
+  pendingInspectionAgentIds: string[];
+  updatedAt: string;
 };
 
 export type BuccetPathAgentTemplate = {
@@ -111,6 +138,7 @@ export type BuccetPathAgentState = BuccetPathAgentTemplate & {
   stageIds: string[];
   completedStageIds: string[];
   memoryBank: BuccetPathAgentMemoryBank;
+  control: BuccetPathAgentControl;
   currentStageId?: string;
   status: BuccetPathAgentStatus;
   activatedAt?: string;
@@ -128,7 +156,19 @@ export type BuccetPathStageState = BuccetPathStageTemplate & {
 };
 
 export type BuccetPathFormationEvent = {
-  kind: "created" | "advanced" | "switched" | "blocked" | "failed" | "completed";
+  kind:
+    | "created"
+    | "advanced"
+    | "switched"
+    | "blocked"
+    | "failed"
+    | "completed"
+    | "frozen"
+    | "agent_inspected"
+    | "agent_resumed"
+    | "agent_quarantined"
+    | "agent_replaced"
+    | "agent_aborted";
   at: string;
   stageId?: string;
   detail?: string | null;
@@ -150,6 +190,7 @@ export type BuccetPathFormationState = {
   pathSources: BuccetPathSource[];
   uplBindings: BuccetPathUplBinding[];
   agentRoster: BuccetPathAgentState[];
+  control: BuccetPathFormationControl;
   context: Record<string, unknown>;
   stages: BuccetPathStageState[];
   events: BuccetPathFormationEvent[];
@@ -188,6 +229,9 @@ export type BuccetPathLiveView = {
   pathName: string;
   domain: string;
   status: BuccetPathFormationStatus;
+  swarmFrozen: boolean;
+  freezeReason?: string;
+  pendingInspectionAgentIds: string[];
   currentStageId?: string;
   activeAgentIds: string[];
   activeAgentTitles: string[];
@@ -196,6 +240,17 @@ export type BuccetPathLiveView = {
   pathSourceTitles: string[];
   pathLawfulActionKinds: BoundaryActionKind[];
   pathLawfulTargets: string[];
+  agents: Array<{
+    id: string;
+    title: string;
+    status: BuccetPathAgentStatus;
+    controlState: BuccetPathAgentControlState;
+    currentStageId?: string;
+    sourceTitles: string[];
+    stageIds: string[];
+    completedStageIds: string[];
+    replacementAgentId?: string;
+  }>;
   steps: BuccetPathLiveStep[];
   events: string[];
 };
@@ -249,6 +304,49 @@ function clonePathSource(source: BuccetPathSource): BuccetPathSource {
   return {
     ...source,
     tags: [...(source.tags ?? [])],
+  };
+}
+
+function defaultBuccetPathAgentControl(at: string): BuccetPathAgentControl {
+  return {
+    state: "CLEAR",
+    updatedAt: at,
+  };
+}
+
+function normalizeBuccetPathAgentControl(
+  control: Partial<BuccetPathAgentControl> | undefined,
+  at: string,
+): BuccetPathAgentControl {
+  return {
+    state: control?.state ?? "CLEAR",
+    updatedAt: control?.updatedAt ?? at,
+    ...(control?.reason !== undefined ? { reason: control.reason } : {}),
+    ...(control?.issuedBy ? { issuedBy: control.issuedBy } : {}),
+    ...(control?.replacementAgentId ? { replacementAgentId: control.replacementAgentId } : {}),
+  };
+}
+
+function requiresManualInspection(control: BuccetPathAgentControl): boolean {
+  return control.state === "FROZEN" || control.state === "INSPECTING";
+}
+
+function recomputeBuccetFormationControl(
+  control: Partial<BuccetPathFormationControl> | undefined,
+  agents: BuccetPathAgentState[],
+  at: string,
+): BuccetPathFormationControl {
+  const pendingInspectionAgentIds = agents
+    .filter((agent) => requiresManualInspection(agent.control))
+    .map((agent) => agent.id);
+  return {
+    massFrozen: pendingInspectionAgentIds.length > 0,
+    freezeScope: pendingInspectionAgentIds.length > 0 ? (control?.freezeScope ?? "whole_swarm") : control?.freezeScope,
+    frozenAt: control?.frozenAt,
+    frozenBy: control?.frozenBy,
+    freezeReason: control?.freezeReason,
+    pendingInspectionAgentIds,
+    updatedAt: control?.updatedAt ?? at,
   };
 }
 
@@ -653,6 +751,28 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
 }
 
 function deepCloneFormationState(state: BuccetPathFormationState): BuccetPathFormationState {
+  const controlAnchor = state.updatedAt ?? state.createdAt ?? new Date().toISOString();
+  const agentRoster = state.agentRoster.map((agent) => ({
+    ...agent,
+    stageIds: [...agent.stageIds],
+    completedStageIds: [...agent.completedStageIds],
+    sourceIds: [...(agent.sourceIds ?? [])],
+    memoryBank: {
+      sourceIds: [...agent.memoryBank.sourceIds],
+      sourceTitles: [...agent.memoryBank.sourceTitles],
+      ...(agent.memoryBank.notes ? { notes: agent.memoryBank.notes } : {}),
+    },
+    control: normalizeBuccetPathAgentControl(
+      (agent as Partial<BuccetPathAgentState>).control,
+      agent.completedAt ?? agent.activatedAt ?? controlAnchor,
+    ),
+    tools: [...(agent.tools ?? [])],
+    uplBindings: agent.uplBindings.map((binding) => ({
+      ...binding,
+      actionKinds: [...binding.actionKinds],
+      targets: [...(binding.targets ?? [])],
+    })),
+  }));
   return {
     ...state,
     pathSources: state.pathSources.map((source) => clonePathSource(source)),
@@ -661,23 +781,12 @@ function deepCloneFormationState(state: BuccetPathFormationState): BuccetPathFor
       actionKinds: [...binding.actionKinds],
       targets: [...(binding.targets ?? [])],
     })),
-    agentRoster: state.agentRoster.map((agent) => ({
-      ...agent,
-      stageIds: [...agent.stageIds],
-      completedStageIds: [...agent.completedStageIds],
-      sourceIds: [...(agent.sourceIds ?? [])],
-      memoryBank: {
-        sourceIds: [...agent.memoryBank.sourceIds],
-        sourceTitles: [...agent.memoryBank.sourceTitles],
-        ...(agent.memoryBank.notes ? { notes: agent.memoryBank.notes } : {}),
-      },
-      tools: [...(agent.tools ?? [])],
-      uplBindings: agent.uplBindings.map((binding) => ({
-        ...binding,
-        actionKinds: [...binding.actionKinds],
-        targets: [...(binding.targets ?? [])],
-      })),
-    })),
+    agentRoster,
+    control: recomputeBuccetFormationControl(
+      (state as Partial<BuccetPathFormationState>).control,
+      agentRoster,
+      controlAnchor,
+    ),
     context: { ...state.context },
     laws: [...state.laws],
     tools: [...state.tools],
@@ -934,6 +1043,7 @@ function buildAgentRosterForTemplate(template: BuccetPathTemplate, createdAt: st
       position,
       stageIds,
       completedStageIds: [],
+      control: defaultBuccetPathAgentControl(createdAt),
       currentStageId: active ? firstStage.id : undefined,
       status: active ? "ACTIVE" : "IDLE",
       activatedAt: active ? createdAt : undefined,
@@ -1071,6 +1181,7 @@ export function instantiateBuccetFormation(args: {
     userRequest: args.userRequest,
     draft: args.draft,
   });
+  const agentRoster = buildAgentRosterForTemplate(template, createdAt);
 
   return {
     formationId: makeFormationId(args.sessionId, args.pathName, createdAt),
@@ -1091,7 +1202,8 @@ export function instantiateBuccetFormation(args: {
       actionKinds: [...binding.actionKinds],
       targets: [...(binding.targets ?? [])],
     })),
-    agentRoster: buildAgentRosterForTemplate(template, createdAt),
+    agentRoster,
+    control: recomputeBuccetFormationControl(undefined, agentRoster, createdAt),
     context: {
       user_request: args.userRequest,
       path_name: args.pathName,
@@ -1137,6 +1249,7 @@ export function getCurrentBuccetStageAgents(state: BuccetPathFormationState): Bu
         sourceTitles: [...agent.memoryBank.sourceTitles],
         ...(agent.memoryBank.notes ? { notes: agent.memoryBank.notes } : {}),
       },
+      control: { ...agent.control },
       uplBindings: agent.uplBindings.map((binding) => ({
         ...binding,
         actionKinds: [...binding.actionKinds],
@@ -1202,6 +1315,9 @@ export function describeBuccetFormationLiveView(state: BuccetPathFormationState)
     pathName: state.pathName,
     domain: state.domain,
     status: state.status,
+    swarmFrozen: state.control.massFrozen,
+    freezeReason: state.control.freezeReason,
+    pendingInspectionAgentIds: [...state.control.pendingInspectionAgentIds],
     currentStageId: currentStage?.id,
     activeAgentIds: activeAgents.map((agent) => agent.id),
     activeAgentTitles: activeAgents.map((agent) => agent.title),
@@ -1210,6 +1326,17 @@ export function describeBuccetFormationLiveView(state: BuccetPathFormationState)
     pathSourceTitles: state.pathSources.map((source) => source.title),
     pathLawfulActionKinds: pathBinding.actionKinds,
     pathLawfulTargets: pathBinding.targets,
+    agents: state.agentRoster.map((agent) => ({
+      id: agent.id,
+      title: agent.title,
+      status: agent.status,
+      controlState: agent.control.state,
+      currentStageId: agent.currentStageId,
+      sourceTitles: [...agent.memoryBank.sourceTitles],
+      stageIds: [...agent.stageIds],
+      completedStageIds: [...agent.completedStageIds],
+      replacementAgentId: agent.control.replacementAgentId,
+    })),
     steps,
     events: state.events.map((event) => {
       const stageSuffix = event.stageId ? ` stage=${event.stageId}` : "";
@@ -1227,6 +1354,8 @@ export function renderBuccetFormationLiveView(state: BuccetPathFormationState): 
     `path=${view.pathName}`,
     `domain=${view.domain}`,
     `status=${view.status}`,
+    `swarm_frozen=${view.swarmFrozen ? "yes" : "no"}`,
+    `pending_inspection_agents=${view.pendingInspectionAgentIds.join(", ") || "none"}`,
     `current_stage=${view.currentStageId ?? "none"}`,
     `active_agents=${view.activeAgentTitles.join(", ") || "none"}`,
     `path_agent_count=${view.pathAgentCount}`,
@@ -1234,8 +1363,17 @@ export function renderBuccetFormationLiveView(state: BuccetPathFormationState): 
     `path_sources=${renderPathSourcesSummary(state.pathSources)}`,
     `path_lawful_action_kinds=${renderResolvedSurface(view.pathLawfulActionKinds, currentTemplateBindings)}`,
     `path_lawful_targets=${renderResolvedSurface(view.pathLawfulTargets, currentTemplateBindings)}`,
-    "steps:",
+    ...(view.freezeReason ? [`freeze_reason=${view.freezeReason}`] : []),
+    "agents:",
   ];
+  for (const agent of view.agents) {
+    lines.push(
+      `  - ${agent.id} [${agent.status}/${agent.controlState}] stage=${agent.currentStageId ?? "none"} sources=${agent.sourceTitles.join(" + ") || "none"}${agent.replacementAgentId ? ` replacement=${agent.replacementAgentId}` : ""}`,
+    );
+  }
+  lines.push(
+    "steps:",
+  );
   for (const step of view.steps) {
     const stageBindings = state.stages[step.position]
       ? [
@@ -1264,6 +1402,23 @@ function isTerminalFormationStatus(status: BuccetPathFormationStatus): boolean {
   return status === "COMPLETED" || status === "BLOCKED" || status === "FAILED";
 }
 
+export function getBuccetFormationAdvanceBlockReason(state: BuccetPathFormationState): string | null {
+  const currentStage = getCurrentBuccetStage(state);
+  if (state.control.massFrozen) {
+    return `formation ${state.formationId} is mass-frozen — inspect each frozen agent before continuation`;
+  }
+  if (!currentStage) {
+    return null;
+  }
+  const blockedAgents = state.agentRoster.filter(
+    (agent) => currentStage.agentIds.includes(agent.id) && agent.control.state !== "CLEAR",
+  );
+  if (blockedAgents.length === 0) {
+    return null;
+  }
+  return `stage ${currentStage.id} cannot continue until agent control clears: ${blockedAgents.map((agent) => `${agent.id}:${agent.control.state.toLowerCase()}`).join(", ")}`;
+}
+
 export function advanceBuccetFormation(args: {
   state: BuccetPathFormationState;
   result: BuccetPathAdvanceResult;
@@ -1273,6 +1428,10 @@ export function advanceBuccetFormation(args: {
 }): BuccetPathFormationState {
   const occurredAt = args.occurredAt ?? new Date().toISOString();
   const state = deepCloneFormationState(args.state);
+  const blockReason = getBuccetFormationAdvanceBlockReason(state);
+  if (blockReason) {
+    throw new Error(blockReason);
+  }
 
   if (isTerminalFormationStatus(state.status)) {
     throw new Error(`cannot advance terminal formation in status ${state.status}`);
@@ -1362,6 +1521,123 @@ export function advanceBuccetFormation(args: {
     at: occurredAt,
     stageId: nextStage.id,
     detail: `${currentStage.id} -> ${nextStage.id}`,
+  });
+  return state;
+}
+
+export function freezeBuccetFormation(args: {
+  state: BuccetPathFormationState;
+  issuedBy: string;
+  reason?: string;
+  occurredAt?: string;
+}): BuccetPathFormationState {
+  const occurredAt = args.occurredAt ?? new Date().toISOString();
+  const state = deepCloneFormationState(args.state);
+  state.agentRoster = state.agentRoster.map((agent) => ({
+    ...agent,
+    control: agent.control.state === "QUARANTINED" || agent.control.state === "REPLACED" || agent.control.state === "ABORTED"
+      ? agent.control
+      : {
+          state: "FROZEN",
+          updatedAt: occurredAt,
+          issuedBy: args.issuedBy,
+          ...(args.reason !== undefined ? { reason: args.reason } : {}),
+          ...(agent.control.replacementAgentId ? { replacementAgentId: agent.control.replacementAgentId } : {}),
+        },
+  }));
+  state.control = recomputeBuccetFormationControl({
+    massFrozen: true,
+    freezeScope: "whole_swarm",
+    frozenAt: occurredAt,
+    frozenBy: args.issuedBy,
+    freezeReason: args.reason ?? "operator mass freeze",
+    updatedAt: occurredAt,
+  }, state.agentRoster, occurredAt);
+  state.updatedAt = occurredAt;
+  state.events.push({
+    kind: "frozen",
+    at: occurredAt,
+    stageId: state.stages[state.currentStageIndex]?.id,
+    detail: `${args.issuedBy} mass-froze the work swarm${args.reason ? `: ${args.reason}` : ""}`,
+  });
+  return state;
+}
+
+function resolveAgentControlActionState(action: BuccetPathAgentAction): BuccetPathAgentControlState {
+  switch (action) {
+    case "inspect":
+      return "INSPECTING";
+    case "resume":
+      return "CLEAR";
+    case "quarantine":
+      return "QUARANTINED";
+    case "replace":
+      return "REPLACED";
+    case "abort":
+      return "ABORTED";
+  }
+}
+
+function resolveAgentControlEvent(action: BuccetPathAgentAction): BuccetPathFormationEvent["kind"] {
+  switch (action) {
+    case "inspect":
+      return "agent_inspected";
+    case "resume":
+      return "agent_resumed";
+    case "quarantine":
+      return "agent_quarantined";
+    case "replace":
+      return "agent_replaced";
+    case "abort":
+      return "agent_aborted";
+  }
+}
+
+export function applyBuccetFormationAgentAction(args: {
+  state: BuccetPathFormationState;
+  agentId: string;
+  action: BuccetPathAgentAction;
+  issuedBy: string;
+  reason?: string;
+  replacementAgentId?: string;
+  occurredAt?: string;
+}): BuccetPathFormationState {
+  const occurredAt = args.occurredAt ?? new Date().toISOString();
+  const state = deepCloneFormationState(args.state);
+  const agent = state.agentRoster.find((entry) => entry.id === args.agentId);
+  if (!agent) {
+    throw new Error(`unknown Buccet path agent: ${args.agentId}`);
+  }
+  if (args.action === "replace" && args.replacementAgentId) {
+    if (args.replacementAgentId === args.agentId) {
+      throw new Error(`replacement agent must differ from the frozen agent: ${args.agentId}`);
+    }
+    if (!state.agentRoster.some((entry) => entry.id === args.replacementAgentId)) {
+      throw new Error(`unknown replacement agent: ${args.replacementAgentId}`);
+    }
+  }
+  agent.control = {
+    state: resolveAgentControlActionState(args.action),
+    updatedAt: occurredAt,
+    issuedBy: args.issuedBy,
+    ...(args.reason !== undefined ? { reason: args.reason } : {}),
+    ...(args.action === "replace" && args.replacementAgentId ? { replacementAgentId: args.replacementAgentId } : {}),
+  };
+  state.control = recomputeBuccetFormationControl({
+    ...state.control,
+    updatedAt: occurredAt,
+  }, state.agentRoster, occurredAt);
+  state.updatedAt = occurredAt;
+  const detailParts = [
+    `${args.issuedBy} ${args.action} ${agent.id}`,
+    args.reason ? `reason=${args.reason}` : null,
+    args.action === "replace" && args.replacementAgentId ? `replacement=${args.replacementAgentId}` : null,
+  ].filter(Boolean);
+  state.events.push({
+    kind: resolveAgentControlEvent(args.action),
+    at: occurredAt,
+    stageId: agent.currentStageId,
+    detail: detailParts.join(" "),
   });
   return state;
 }

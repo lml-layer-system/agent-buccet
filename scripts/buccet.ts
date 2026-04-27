@@ -18,6 +18,7 @@ import type {
   BoundaryUplLineage,
   BoundaryUplLineageMode,
   BoundaryRuntimeConfig,
+  BuccetPathAgentAction,
   BuccetPathFormationState,
   BuccetPathMemorySnapshot,
   BuccetPathSource,
@@ -299,6 +300,9 @@ function usage(): never {
     "  buccet path run <path-name> [--request <text>] [--domain <domain>] [--steps <n>|--all] [--fresh] [--json]",
     "  buccet path watch <path-name|formation-id> [--follow] [--interval-ms <n>] [--json]",
     "  buccet path formations list [--all-sessions] [--json]",
+    "  buccet path freeze <path-name|formation-id> [--issued-by <id>] [--reason <text>] [--json]",
+    "  buccet path agents <path-name|formation-id> [--json]",
+    "  buccet path agent <inspect|resume|quarantine|replace|abort> <path-name|formation-id> <agent-id> [--issued-by <id>] [--reason <text>] [--replacement <agent-id>] [--json]",
     "  buccet path close <path-name|formation-id> [--json]",
     "  buccet path sources add <path-name> <file...> [--domain <domain>] [--json]",
     "  buccet path sources list <path-name> [--json]",
@@ -1547,6 +1551,9 @@ async function ensurePathMemoryHome(home: ReturnType<typeof resolveHomePaths>): 
       "- buccet path run <path-name>",
       "- buccet path watch <path-name|formation-id>",
       "- buccet path formations list",
+      "- buccet path freeze <path-name|formation-id>",
+      "- buccet path agents <path-name|formation-id>",
+      "- buccet path agent <inspect|resume|quarantine|replace|abort> <path-name|formation-id> <agent-id>",
       "- buccet path close <path-name|formation-id>",
       "- buccet path sources add <path-name> <file...>",
       "- buccet path sources list <path-name>",
@@ -5425,6 +5432,192 @@ async function handlePath(rest: string[]) {
         `${formation.formationId}  |  path=${formation.pathName}  |  domain=${formation.domain}  |  status=${formation.status}  |  stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"}  |  agents=${formation.agentRoster.length}  |  sources=${formation.pathSources.length}`
       ))
       : ["none"]);
+    return;
+  }
+
+  if (subcommand === "freeze") {
+    const selector = rest.find((token, index) => index > 0 && token !== "--json" && !token.startsWith("--"));
+    if (!selector) {
+      usage();
+    }
+    let issuedBy = config.actorId;
+    let reason: string | undefined;
+    for (let index = 2; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--issued-by") {
+        issuedBy = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--reason") {
+        reason = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--json" || !token.startsWith("--")) {
+        continue;
+      }
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    const formation = resolveFormationSelector({
+      store,
+      selector,
+      sessionId: config.sessionId,
+    });
+    if (!formation) {
+      throw new Error(`unknown Buccet path formation or path: ${selector}`);
+    }
+    const frozen = boundary.freezeBuccetFormation({
+      state: formation,
+      issuedBy,
+      reason,
+    }) as BuccetPathFormationState;
+    store.remember(frozen);
+    await savePersistedBuccetPathMemoryStore(boundary, home, store);
+    if (asJson) {
+      printJson({
+        formationsPath: home.pathFormationSnapshotPath,
+        formationId: frozen.formationId,
+        pathName: frozen.pathName,
+        control: frozen.control,
+        agents: frozen.agentRoster.map((agent) => ({
+          id: agent.id,
+          title: agent.title,
+          status: agent.status,
+          controlState: agent.control.state,
+        })),
+      });
+      return;
+    }
+    console.log(`Mass-froze work swarm`);
+    console.log(`formation: ${frozen.formationId}`);
+    console.log(`path: ${frozen.pathName}`);
+    console.log(`pending inspection: ${frozen.control.pendingInspectionAgentIds.join(", ") || "none"}`);
+    return;
+  }
+
+  if (subcommand === "agents") {
+    const selector = rest.find((token, index) => index > 0 && token !== "--json");
+    if (!selector) {
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    const formation = resolveFormationSelector({
+      store,
+      selector,
+      sessionId: config.sessionId,
+    });
+    if (!formation) {
+      throw new Error(`unknown Buccet path formation or path: ${selector}`);
+    }
+    const liveView = boundary.describeBuccetFormationLiveView(formation);
+    if (asJson) {
+      printJson({
+        formationsPath: home.pathFormationSnapshotPath,
+        formationId: formation.formationId,
+        pathName: formation.pathName,
+        control: formation.control,
+        agents: liveView.agents,
+      });
+      return;
+    }
+    printCliHeader("Buccet Path Agents");
+    printCliSection("Formation", [
+      formatCliKeyValue("formation", formation.formationId),
+      formatCliKeyValue("path", formation.pathName),
+      formatCliKeyValue("swarm frozen", formation.control.massFrozen ? "yes" : "no"),
+      formatCliKeyValue("pending inspection", formation.control.pendingInspectionAgentIds.join(", ") || "none"),
+      formation.control.freezeReason ? formatCliKeyValue("freeze reason", formation.control.freezeReason) : null,
+    ]);
+    printCliSection("Agents", liveView.agents.map((agent) => (
+      `${agent.id}  |  ${agent.title}  |  status=${agent.status}  |  control=${agent.controlState}  |  stage=${agent.currentStageId ?? "none"}${agent.replacementAgentId ? `  |  replacement=${agent.replacementAgentId}` : ""}`
+    )));
+    return;
+  }
+
+  if (subcommand === "agent") {
+    const actionToken = rest[1];
+    const selector = rest[2];
+    const agentId = rest[3];
+    const allowedActions = new Set<BuccetPathAgentAction>(["inspect", "resume", "quarantine", "replace", "abort"]);
+    if (!actionToken || !allowedActions.has(actionToken as BuccetPathAgentAction) || !selector || !agentId) {
+      usage();
+    }
+    const action = actionToken as BuccetPathAgentAction;
+    let issuedBy = config.actorId;
+    let reason: string | undefined;
+    let replacementAgentId: string | undefined;
+    for (let index = 4; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--issued-by") {
+        issuedBy = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--reason") {
+        reason = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--replacement") {
+        replacementAgentId = rest[index + 1] ?? usage();
+        index += 1;
+        continue;
+      }
+      if (token === "--json") {
+        continue;
+      }
+      usage();
+    }
+    const boundary = await importBoundary(homePath);
+    const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
+    const formation = resolveFormationSelector({
+      store,
+      selector,
+      sessionId: config.sessionId,
+    });
+    if (!formation) {
+      throw new Error(`unknown Buccet path formation or path: ${selector}`);
+    }
+    const updated = boundary.applyBuccetFormationAgentAction({
+      state: formation,
+      agentId,
+      action,
+      issuedBy,
+      reason,
+      replacementAgentId,
+    }) as BuccetPathFormationState;
+    store.remember(updated);
+    await savePersistedBuccetPathMemoryStore(boundary, home, store);
+    const agent = updated.agentRoster.find((entry) => entry.id === agentId);
+    if (!agent) {
+      throw new Error(`agent disappeared after action: ${agentId}`);
+    }
+    if (asJson) {
+      printJson({
+        formationsPath: home.pathFormationSnapshotPath,
+        formationId: updated.formationId,
+        pathName: updated.pathName,
+        control: updated.control,
+        agent: {
+          id: agent.id,
+          title: agent.title,
+          status: agent.status,
+          controlState: agent.control.state,
+          replacementAgentId: agent.control.replacementAgentId,
+        },
+      });
+      return;
+    }
+    console.log(`Applied agent action`);
+    console.log(`formation: ${updated.formationId}`);
+    console.log(`path: ${updated.pathName}`);
+    console.log(`agent: ${agent.id}`);
+    console.log(`control: ${agent.control.state}`);
+    console.log(`pending inspection: ${updated.control.pendingInspectionAgentIds.join(", ") || "none"}`);
     return;
   }
 
