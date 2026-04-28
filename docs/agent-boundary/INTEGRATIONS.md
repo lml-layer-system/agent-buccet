@@ -81,7 +81,7 @@ Agent Buccet also fits runtimes like:
 - `@anthropic-ai/sdk` (Claude SDK) — use `createClaudeSDKBoundaryGuard`
 - Claude CoWork
 - Claude Dispatch
-- OpenClaw
+- capability-dense agent shells
 - other agent shells that can read, write, execute, send, or mutate state
 
 Why this works:

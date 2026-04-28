@@ -31,7 +31,7 @@ export * from "./upl-traffic.ts";
 export * from "./document-law.ts";
 export * from "./gravity.ts";
 export * from "./gravity-core/index.ts";
-export * from "./openclaw-acceptance-intake.ts";
+export * from "./capability-acceptance-intake.ts";
 export * from "./gravity-adapter/gravity-service.ts";
 export * from "./gravity-adapter/boundary-to-gravity.ts";
 export * from "./gravity-adapter/ledger-to-gravity.ts";

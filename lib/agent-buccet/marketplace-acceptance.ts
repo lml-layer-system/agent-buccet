@@ -21,16 +21,18 @@ function namedLane(args: {
   name: string;
   summary: string;
   actionKinds: BoundaryActionKind[];
+  targetAliases?: string[];
   requestTextPatterns?: string[];
   seedInBasePack?: boolean;
 }): MarketplaceAcceptanceLane {
+  const targetPatterns = args.targetAliases ? [args.name, ...args.targetAliases] : undefined;
   return {
     id: args.id,
     source: args.source,
     name: args.name,
     summary: args.summary,
     actionKinds: args.actionKinds,
-    targetPattern: args.name,
+    ...(targetPatterns ? { targetPatterns } : { targetPattern: args.name }),
     targetMatchMode: "exact",
     requestTextPatterns: args.requestTextPatterns ?? [args.name],
     seedInBasePack: args.seedInBasePack,
@@ -41,10 +43,11 @@ export const SKILLSMP_ACCEPTANCE_LANES: readonly MarketplaceAcceptanceLane[] = [
   namedLane({
     id: "ACCEPT.MARKETPLACE.SKILL.3001",
     source: "skillsmp",
-    name: "openclaw-pr-maintainer",
+    name: "pr-maintainer",
     summary: "named rail for pull-request triage, issue review, and maintainer workflow motion",
     actionKinds: ["network.send", "fs.read", "fs.write", "chat.emit"],
-    requestTextPatterns: ["openclaw-pr-maintainer", "pull request", "issue triage", "maintainer"],
+    targetAliases: ["openclaw-pr-maintainer"],
+    requestTextPatterns: ["pr-maintainer", "openclaw-pr-maintainer", "pull request", "issue triage", "maintainer"],
   }),
   namedLane({
     id: "ACCEPT.MARKETPLACE.SKILL.3002",

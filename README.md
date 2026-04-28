@@ -499,7 +499,7 @@ It is the control body under the agent stack you already run:
 - Claude Code style workflows
 - OpenAI Agents
 - LangGraph
-- OpenClaw
+- capability-dense agent shells
 - NeMo / NemoClaw style runtimes
 - custom tool-using agents
 

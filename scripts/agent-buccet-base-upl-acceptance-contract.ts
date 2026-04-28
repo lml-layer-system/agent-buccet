@@ -153,39 +153,39 @@ async function main() {
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "tmux"),
-      "expected tmux OpenClaw skill rail",
+      "expected tmux Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "weather"),
-      "expected weather OpenClaw skill rail",
+      "expected weather Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "notion"),
-      "expected notion OpenClaw skill rail",
+      "expected notion Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "telegram"),
-      "expected telegram OpenClaw skill rail",
+      "expected telegram Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "whatsapp"),
-      "expected whatsapp OpenClaw skill rail",
+      "expected whatsapp Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-mail"),
-      "expected agent-mail awesome OpenClaw skill rail",
+      "expected agent-mail extended Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "google-calendar"),
-      "expected google-calendar awesome OpenClaw skill rail",
+      "expected google-calendar extended Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "audio-transcribe"),
-      "expected audio-transcribe awesome OpenClaw skill rail",
+      "expected audio-transcribe extended Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "azure-devops"),
-      "expected azure-devops awesome OpenClaw skill rail",
+      "expected azure-devops extended Buccet skill rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "docx"),
@@ -248,8 +248,8 @@ async function main() {
       "expected ai-failure-periodic-table curated capability entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "openclaw-pr-maintainer"),
-      "expected openclaw-pr-maintainer marketplace entry",
+      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "pr-maintainer"),
+      "expected pr-maintainer marketplace entry",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "ai-content-pipeline"),
@@ -409,7 +409,7 @@ async function main() {
       target: "tmux",
       payloadSummary: "tmux skill attach session",
     }));
-    assert.equal(tmuxSkillDecision.result.decision, "allow", "expected tmux OpenClaw skill rail to allow named tmux skill motion");
+    assert.equal(tmuxSkillDecision.result.decision, "allow", "expected tmux Buccet skill rail to allow named tmux skill motion");
 
     const weatherSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -417,7 +417,7 @@ async function main() {
       target: "https://api.weather.gov/points/39.7456,-97.0892",
       payloadSummary: "weather forecast lookup",
     }));
-    assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather OpenClaw skill rail to allow bounded weather-domain motion");
+    assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather Buccet skill rail to allow bounded weather-domain motion");
 
     const notionSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -425,7 +425,7 @@ async function main() {
       target: "https://api.notion.com/v1/pages",
       payloadSummary: "notion page update request",
     }));
-    assert.equal(notionSkillDecision.result.decision, "allow", "expected notion OpenClaw skill rail to allow bounded notion-domain motion");
+    assert.equal(notionSkillDecision.result.decision, "allow", "expected notion Buccet skill rail to allow bounded notion-domain motion");
 
     const slackChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -433,7 +433,7 @@ async function main() {
       target: "slack",
       payloadSummary: "slack notify channel",
     }));
-    assert.equal(slackChannelDecision.result.decision, "allow", "expected slack OpenClaw skill rail to allow channel-shaped chat delivery");
+    assert.equal(slackChannelDecision.result.decision, "allow", "expected slack Buccet skill rail to allow channel-shaped chat delivery");
 
     const telegramChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -441,7 +441,7 @@ async function main() {
       target: "telegram",
       payloadSummary: "telegram bot delivery",
     }));
-    assert.equal(telegramChannelDecision.result.decision, "allow", "expected telegram OpenClaw skill rail to allow channel-shaped chat delivery");
+    assert.equal(telegramChannelDecision.result.decision, "allow", "expected telegram Buccet skill rail to allow channel-shaped chat delivery");
 
     const whatsappChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -449,7 +449,7 @@ async function main() {
       target: "whatsapp",
       payloadSummary: "whatsapp delivery",
     }));
-    assert.equal(whatsappChannelDecision.result.decision, "allow", "expected whatsapp OpenClaw skill rail to allow channel-shaped chat delivery");
+    assert.equal(whatsappChannelDecision.result.decision, "allow", "expected whatsapp Buccet skill rail to allow channel-shaped chat delivery");
 
     const slackNetworkDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
@@ -547,13 +547,13 @@ async function main() {
     }));
     assert.equal(brandGuidelinesDecision.result.decision, "allow", "expected brand-guidelines curated capability entry to allow style-bound output workflow motion");
 
-    const openclawPrMaintainerDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
+    const prMaintainerDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,
       actionKind: "network.send",
-      target: "openclaw-pr-maintainer",
+      target: "pr-maintainer",
       payloadSummary: "review related pull requests and issues",
     }));
-    assert.equal(openclawPrMaintainerDecision.result.decision, "allow", "expected openclaw-pr-maintainer marketplace entry to allow maintainer workflow motion");
+    assert.equal(prMaintainerDecision.result.decision, "allow", "expected pr-maintainer marketplace entry to allow maintainer workflow motion");
 
     const aiContentPipelineDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
       sessionId,

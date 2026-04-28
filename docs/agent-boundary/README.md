@@ -47,7 +47,7 @@ If you are new, start with these three:
 - [Base Acceptance Pack](BASE_ACCEPTANCE_PACK.md)
 - [Base Denial Pack](BASE_DENIAL_PACK.md)
 - [Integration Surface](INTEGRATION_SURFACE.md)
-- [OpenClaw Acceptance Intake](OPENCLAW_ACCEPTANCE_INTAKE.md)
+- [Capability Acceptance Intake](CAPABILITY_ACCEPTANCE_INTAKE.md)
 - [Governor Physics](GOVERNOR_PHYSICS.md)
 - [enterprise-witness](enterprise-witness.md)
 

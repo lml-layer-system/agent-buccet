@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
-import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
+import { BASE_EXTENDED_SKILL_ACCEPTANCE_LANES } from "./extended-skill-acceptance.ts";
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
 import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
-import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
+import { BASE_CORE_SKILL_ACCEPTANCE_LANES } from "./core-skill-acceptance.ts";
 import {
   createEmptyUserPathLedger,
   getActiveUserLawIds,
@@ -32,7 +32,7 @@ export type BaseAcceptanceClass =
   | "bounded_web_research"
   | "agent_spend"
   | "notes_and_tasks"
-  | "openclaw_skill"
+  | "buccet_skill"
   | "curated_capability"
   | "marketplace_skill";
 
@@ -217,9 +217,9 @@ const AGENT_SPEND_SEEDS = [
     spendAllowedCommitIntents: ["transfer", "withdraw"],
   },
 ] as const;
-const BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES = [
-  ...BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES,
-  ...BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES,
+const BASE_ACCEPTANCE_BUCCET_SKILL_LANES = [
+  ...BASE_CORE_SKILL_ACCEPTANCE_LANES,
+  ...BASE_EXTENDED_SKILL_ACCEPTANCE_LANES,
 ] as const;
 
 function hashSeedWitnessId(rootPath: string, grantedActions: readonly BoundaryActionKind[]): string {
@@ -368,18 +368,18 @@ function buildBaseAcceptanceSeeds(args: {
     });
   }
 
-  for (const lane of BASE_ACCEPTANCE_OPENCLAW_SKILL_LANES) {
+  for (const lane of BASE_ACCEPTANCE_BUCCET_SKILL_LANES) {
     seeds.push({
       id: lane.id,
-      acceptanceClass: "openclaw_skill",
-      reason: `OpenClaw skill '${lane.skill}' is a lawful acceptance rail for ${lane.summary}.`,
+      acceptanceClass: "buccet_skill",
+      reason: `Buccet skill '${lane.skill}' is a lawful acceptance rail for ${lane.summary}.`,
       actionKinds: [...lane.actionKinds],
       ...(lane.targetPattern ? { targetPattern: lane.targetPattern } : {}),
       ...(lane.targetPatterns ? { targetPatterns: [...lane.targetPatterns] } : {}),
       ...(lane.targetMatchMode ? { targetMatchMode: lane.targetMatchMode } : {}),
       ...(lane.requestTextPatterns ? { requestTextPatterns: [...lane.requestTextPatterns] } : {}),
       requestBasisTarget: lane.skill,
-      requestBasisSummary: `openclaw-skill:${lane.skill}`,
+      requestBasisSummary: `buccet-skill:${lane.skill}`,
     });
   }
 

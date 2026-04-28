@@ -3,8 +3,8 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBaseAcceptanceLaws } from "../lib/agent-buccet/base-upl-acceptance.ts";
 import {
-  BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES,
-} from "../lib/agent-buccet/awesome-openclaw-skill-acceptance.ts";
+  BASE_EXTENDED_SKILL_ACCEPTANCE_LANES,
+} from "../lib/agent-buccet/extended-skill-acceptance.ts";
 import {
   BASE_LIST_V_ACCEPTANCE_LANES,
   createListVWorkflowAcceptanceLanes,
@@ -18,9 +18,9 @@ import {
   type MarketplaceAcceptanceLane,
 } from "../lib/agent-buccet/marketplace-acceptance.ts";
 import {
-  BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES,
-  type OpenClawSkillAcceptanceLane,
-} from "../lib/agent-buccet/openclaw-skill-acceptance.ts";
+  BASE_CORE_SKILL_ACCEPTANCE_LANES,
+  type BuccetSkillAcceptanceLane,
+} from "../lib/agent-buccet/core-skill-acceptance.ts";
 import type { BoundaryActionKind, CompiledDocumentLaw } from "../lib/agent-buccet/types.ts";
 
 type BaseEntry = {
@@ -132,10 +132,10 @@ function describeRegexPattern(pattern: string): string {
 
 function describeConnectsToFromLane(lane: LaneLike): string {
   if (lane.targetPatterns?.length) {
+    if (lane.targetMatchMode === "exact") {
+      return `exact Buccet target \`${normalizeDisplay(lane.targetPatterns[0]!)}\``;
+    }
     const described = lane.targetPatterns.map((pattern) => {
-      if (lane.targetMatchMode === "exact") {
-        return `exact Buccet target \`${normalizeDisplay(pattern)}\``;
-      }
       if (lane.targetMatchMode === "prefix") {
         return `prefix corridor \`${normalizeDisplay(pattern)}\``;
       }
@@ -231,11 +231,11 @@ async function main() {
   const safeExecEntries = SAFE_EXEC_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const webResearchEntries = WEB_RESEARCH_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const agentSpendEntries = AGENT_SPEND_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
-  const bundledOpenClawEntries = BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES.map((lane) =>
-    laneToEntry((lane as OpenClawSkillAcceptanceLane).skill, lane),
+  const bundledBuccetEntries = BASE_CORE_SKILL_ACCEPTANCE_LANES.map((lane) =>
+    laneToEntry((lane as BuccetSkillAcceptanceLane).skill, lane),
   );
-  const awesomeOpenClawEntries = BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES.map((lane) =>
-    laneToEntry((lane as OpenClawSkillAcceptanceLane).skill, lane),
+  const extendedBuccetEntries = BASE_EXTENDED_SKILL_ACCEPTANCE_LANES.map((lane) =>
+    laneToEntry((lane as BuccetSkillAcceptanceLane).skill, lane),
   );
   const curatedCapabilityEntries = BASE_LIST_V_ACCEPTANCE_LANES.map((lane) =>
     laneToEntry((lane as ListVAcceptanceLane).capability, lane),
@@ -261,8 +261,8 @@ async function main() {
     safeExecEntries.length +
     webResearchEntries.length +
     agentSpendEntries.length +
-    bundledOpenClawEntries.length +
-    awesomeOpenClawEntries.length +
+    bundledBuccetEntries.length +
+    extendedBuccetEntries.length +
     curatedCapabilityEntries.length +
     curatedWorkflowEntries.length +
     skillsmpEntries.length +
@@ -286,9 +286,9 @@ async function main() {
     `- Safe local exec entries: ${safeExecEntries.length}`,
     `- Bounded web research entries: ${webResearchEntries.length}`,
     `- Agent spend entries: ${agentSpendEntries.length}`,
-    `- OpenClaw skill entries: ${bundledOpenClawEntries.length + awesomeOpenClawEntries.length}`,
-    `  Bundled OpenClaw entries: ${bundledOpenClawEntries.length}`,
-    `  Awesome OpenClaw entries: ${awesomeOpenClawEntries.length}`,
+    `- Buccet skill entries: ${bundledBuccetEntries.length + extendedBuccetEntries.length}`,
+    `  Bundled Buccet entries: ${bundledBuccetEntries.length}`,
+    `  Extended Buccet entries: ${extendedBuccetEntries.length}`,
     `- Curated capability entries: ${curatedCapabilityEntries.length}`,
     `- Curated workflow entries: ${curatedWorkflowEntries.length}`,
     `- Marketplace-derived entries: ${skillsmpEntries.length + skillhubEntries.length + aitmplEntries.length + agentSkillsEntries.length}`,
@@ -303,7 +303,7 @@ async function main() {
     "- `ACCEPT.SAFE.LOCAL.EXEC.*`: built-in Buccet bounded local command entries.",
     "- `ACCEPT.BOUNDED.WEB.RESEARCH.*`: built-in Buccet bounded retrieval and research entries.",
     "- `ACCEPT.AGENT.SPEND.*`: built-in Buccet protocol-agnostic spend rails inside the same acceptance pack.",
-    "- `ACCEPT.OPENCLAW.SKILL.*`: OpenClaw-derived yes-side entries carried inside the same Buccet acceptance pack.",
+    "- `ACCEPT.BUCCET.SKILL.*`: Buccet bundled yes-side entries carried inside the same Buccet acceptance pack.",
     "- `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.",
     "- `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.",
     "- `ACCEPT.MARKETPLACE.SKILL.*`: marketplace-derived yes-side entries pulled from broader public skill catalogs.",
@@ -331,15 +331,15 @@ async function main() {
     `## Agent Spend Entries (${agentSpendEntries.length})`,
     "",
     ...agentSpendEntries.map((entry) => renderEntry(entry)),
-    `## Bundled OpenClaw Skill Entries (${bundledOpenClawEntries.length})`,
+    `## Bundled Buccet Skill Entries (${bundledBuccetEntries.length})`,
     "",
-    ...bundledOpenClawEntries.map((entry, index) =>
-      renderEntry(entry, BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES[index]!.skill),
+    ...bundledBuccetEntries.map((entry, index) =>
+      renderEntry(entry, BASE_CORE_SKILL_ACCEPTANCE_LANES[index]!.skill),
     ),
-    `## Awesome OpenClaw Skill Entries (${awesomeOpenClawEntries.length})`,
+    `## Extended Buccet Skill Entries (${extendedBuccetEntries.length})`,
     "",
-    ...awesomeOpenClawEntries.map((entry, index) =>
-      renderEntry(entry, BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES[index]!.skill),
+    ...extendedBuccetEntries.map((entry, index) =>
+      renderEntry(entry, BASE_EXTENDED_SKILL_ACCEPTANCE_LANES[index]!.skill),
     ),
     `## Curated Capability Entries (${curatedCapabilityEntries.length})`,
     "",

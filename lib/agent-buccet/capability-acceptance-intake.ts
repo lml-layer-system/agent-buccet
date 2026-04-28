@@ -1,13 +1,13 @@
 import type { BoundaryActionKind } from "./types.ts";
 
-export type OpenClawAcceptanceDisposition =
+export type CapabilityAcceptanceDisposition =
   | "base_candidate"
   | "scoped_candidate"
   | "channel_candidate"
   | "provider_candidate"
   | "device_candidate";
 
-export type OpenClawAcceptanceIntakeFamily = {
+export type CapabilityAcceptanceIntakeFamily = {
   id: string;
   title: string;
   summary: string;
@@ -15,13 +15,13 @@ export type OpenClawAcceptanceIntakeFamily = {
   sourceNames: string[];
   normalizedActionKinds: BoundaryActionKind[];
   runtimeShapes: string[];
-  disposition: OpenClawAcceptanceDisposition;
+  disposition: CapabilityAcceptanceDisposition;
   notes?: string;
 };
 
-export const OPENCLAW_ACCEPTANCE_SOURCE = {
-  repo: "openclaw/openclaw",
-  commit: "9978d2276b",
+export const CAPABILITY_INTAKE_SNAPSHOT = {
+  snapshotId: "BUCCET.CAPABILITY.SNAPSHOT.01",
+  label: "bundled_capability_surface",
   builtInTools: [
     "exec",
     "process",
@@ -265,11 +265,11 @@ export const OPENCLAW_ACCEPTANCE_SOURCE = {
   ] as const,
 } as const;
 
-export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceIntakeFamily[] = [
+export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanceIntakeFamily[] = [
   {
-    id: "OPENCLAW.ACCEPT.LOCAL.WORKSPACE",
+    id: "BUCCET.CAPABILITY.LOCAL.WORKSPACE",
     title: "Local Workspace I/O",
-    summary: "OpenClaw's base coding surface: read, write, edit, patch, move, and organize local workspace files.",
+    summary: "Buccet bundled base coding surface: read, write, edit, patch, move, and organize local workspace files.",
     sourceKinds: ["tool", "skill", "extension"],
     sourceNames: [
       "read",
@@ -287,9 +287,9 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "This is the clearest direct intake for Buccet base acceptance rails.",
   },
   {
-    id: "OPENCLAW.ACCEPT.LOCAL.EXEC",
+    id: "BUCCET.CAPABILITY.LOCAL.EXEC",
     title: "Local Command and Runtime Work",
-    summary: "Shell, process, and coding runtimes that let OpenClaw execute local development or workflow commands.",
+    summary: "Shell, process, and coding runtimes that let Buccet execute local development or workflow commands.",
     sourceKinds: ["tool", "skill", "extension"],
     sourceNames: [
       "exec",
@@ -308,7 +308,7 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "Should become bounded tool families, not a broad exec road.",
   },
   {
-    id: "OPENCLAW.ACCEPT.WEB.RESEARCH",
+    id: "BUCCET.CAPABILITY.WEB.RESEARCH",
     title: "Browser and Web Research",
     summary: "Browser control, search, fetch, PDF, and search-provider integrations used for bounded research and retrieval.",
     sourceKinds: ["tool", "skill", "extension"],
@@ -332,13 +332,13 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "Good acceptance intake, but domains and browser targets need explicit corridor binding.",
   },
   {
-    id: "OPENCLAW.ACCEPT.MESSAGE.CHANNELS",
+    id: "BUCCET.CAPABILITY.MESSAGE.CHANNELS",
     title: "Channel and Messaging Delivery",
     summary: "Message delivery surfaces across chat channels and telephony.",
     sourceKinds: ["tool", "channel", "extension", "skill"],
     sourceNames: [
       "message",
-      ...OPENCLAW_ACCEPTANCE_SOURCE.channels,
+      ...CAPABILITY_INTAKE_SNAPSHOT.channels,
       "slack",
       "discord",
       "bluebubbles",
@@ -352,9 +352,9 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "Denial-side external communication walls should override unless specific recipients/channels are opened.",
   },
   {
-    id: "OPENCLAW.ACCEPT.CANVAS.NODES.DEVICES",
+    id: "BUCCET.CAPABILITY.CANVAS.NODES.DEVICES",
     title: "Canvas, Nodes, and Paired Devices",
-    summary: "Interactive surfaces that let OpenClaw control Canvas and paired nodes/devices.",
+    summary: "Interactive surfaces that let Buccet control Canvas and paired nodes/devices.",
     sourceKinds: ["tool", "skill", "extension"],
     sourceNames: [
       "canvas",
@@ -374,7 +374,7 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "These need device pairing and target-specific corridors before acceptance.",
   },
   {
-    id: "OPENCLAW.ACCEPT.MEDIA.PROCESSING",
+    id: "BUCCET.CAPABILITY.MEDIA.PROCESSING",
     title: "Media Understanding and Generation",
     summary: "Image, audio, video, transcription, and generation workflows.",
     sourceKinds: ["tool", "skill", "extension", "provider_doc"],
@@ -395,7 +395,7 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     disposition: "scoped_candidate",
   },
   {
-    id: "OPENCLAW.ACCEPT.MEMORY.NOTES.TASKS",
+    id: "BUCCET.CAPABILITY.MEMORY.NOTES.TASKS",
     title: "Memory, Notes, and Task Systems",
     summary: "Local and SaaS knowledge stores, notes, reminders, task boards, and memory backends.",
     sourceKinds: ["skill", "extension"],
@@ -421,7 +421,7 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "Good acceptance intake, but secret-bearing stores still need denial carve-outs.",
   },
   {
-    id: "OPENCLAW.ACCEPT.AUTOMATION.SESSIONS",
+    id: "BUCCET.CAPABILITY.AUTOMATION.SESSIONS",
     title: "Automation, Sessions, and Sub-Agents",
     summary: "Cron, gateway control, session inspection, spawning, and workflow orchestration.",
     sourceKinds: ["tool", "skill", "extension"],
@@ -446,13 +446,13 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     disposition: "scoped_candidate",
   },
   {
-    id: "OPENCLAW.ACCEPT.MODEL.PROVIDERS",
+    id: "BUCCET.CAPABILITY.MODEL.PROVIDERS",
     title: "Model and Provider Transport",
-    summary: "LLM, speech, and gateway providers that OpenClaw can route through.",
+    summary: "LLM, speech, and gateway providers that Buccet can route through.",
     sourceKinds: ["extension", "provider_doc"],
     sourceNames: [
-      ...OPENCLAW_ACCEPTANCE_SOURCE.extensionGroups.modelAndGatewayExtensions,
-      ...OPENCLAW_ACCEPTANCE_SOURCE.providerDocs,
+      ...CAPABILITY_INTAKE_SNAPSHOT.extensionGroups.modelAndGatewayExtensions,
+      ...CAPABILITY_INTAKE_SNAPSHOT.providerDocs,
     ],
     normalizedActionKinds: ["network.send", "sys.env.read", "sys.credential.use"],
     runtimeShapes: ["approved_provider", "model_profile", "credential_slot"],
@@ -460,9 +460,9 @@ export const OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES: readonly OpenClawAcceptanceInt
     notes: "Provider transport is acceptance intake, but credentials stay denied unless explicit provider law opens them.",
   },
   {
-    id: "OPENCLAW.ACCEPT.UTILITY.CONNECTORS",
+    id: "BUCCET.CAPABILITY.UTILITY.CONNECTORS",
     title: "Utility and Connector Skills",
-    summary: "Smaller app integrations and operator helpers that broaden what OpenClaw can do.",
+    summary: "Smaller app integrations and operator helpers that broaden the bundled capability surface.",
     sourceKinds: ["skill"],
     sourceNames: [
       "gh-issues",

@@ -146,11 +146,11 @@ The built-in classes are:
 - `notes_and_tasks`
 - `safe_local_exec`
 - `bounded_web_research`
-- `openclaw_skill`
+- `buccet_skill`
 - `curated_capability`
 - `marketplace_skill`
 
-For the larger acceptance-side source intake pulled from OpenClaw capability surfaces, see [OpenClaw Acceptance Intake](./OPENCLAW_ACCEPTANCE_INTAKE.md).
+For the larger acceptance-side source intake carried through the bundled capability surface, see [Capability Acceptance Intake](./CAPABILITY_ACCEPTANCE_INTAKE.md).
 
 In plain terms, opening a workspace seeds lawful roads for:
 
@@ -161,9 +161,9 @@ In plain terms, opening a workspace seeds lawful roads for:
 - local notes, tasks, memory, and `.buccet` roots inside the workspace
 - bounded local developer commands like `git status`, `npm test`, `pytest`, `eslint`, `cargo test`, and similar quality/runtime inspection tools
 - bounded research fetch/search motion against explicit documentation and source domains like MDN, Python docs, GitHub, and search/fetch providers
-- `110` explicit OpenClaw skill entries on the acceptance side
-  Bundled OpenClaw entries: `53`
-  Awesome OpenClaw entries: `57`
+- `110` explicit Buccet skill entries on the acceptance side
+  Bundled Buccet entries: `53`
+  Extended Buccet entries: `57`
 - `66` curated List V entries on the acceptance side
   Named capability entries: `43`
   Workflow-shaped entries: `23`
@@ -179,7 +179,7 @@ In plain terms, opening a workspace seeds lawful roads for:
   SkillHub entries: `29`
   AITmpl entries: `6`
   AgentSkills entries: `9`
-  SkillsMP work: `openclaw-pr-maintainer`, `deep-research`, `technical-writer`, `jupyter-notebook`, `parallel-debugging`, `data-analyst`, `visualization-expert`, `excel-analysis`, `market-research-reports`, `api-design`, `browser-automation`, `playwright-automation-expert`, `google-workspace-cli`, `googlesheets-automation`, `email`, `gws-workspace`, `google-gogcli`, `n8n`
+  SkillsMP work: `pr-maintainer`, `deep-research`, `technical-writer`, `jupyter-notebook`, `parallel-debugging`, `data-analyst`, `visualization-expert`, `excel-analysis`, `market-research-reports`, `api-design`, `browser-automation`, `playwright-automation-expert`, `google-workspace-cli`, `googlesheets-automation`, `email`, `gws-workspace`, `google-gogcli`, `n8n`
   SkillHub work: `ai-content-pipeline`, `metabase-docs-review`, `azure-prepare`, `agentic-qe-test-data-management`, `academic-research-suite`, `ui-ux-pro-max`, `workflow-orchestrator`, `claude-api`, `testing-core`, `test-writer`, `test-data-management`, `mcp-builder`, `agent-browser`, `playwright-browser`, `chrome-devtools`, `n8n-automation`, `playwright-mcp`
   AITmpl work: `webapp-testing`, `design-mirror`, `cf-crawl`, `deslop`, `mcp-builder-template`, `email-composer`
   AgentSkills work: `agent-skills-quickstart`, `agent-skills-best-practices`, `agent-skills-evaluation`, `agent-skills-description-optimization`, `agent-skills-scripts`, `agent-skills-specification`, `agent-skills-progressive-disclosure`, `agent-skills-assets-resources`, `agent-skills-validation`
@@ -196,7 +196,7 @@ The acceptance pack stays narrow on purpose:
 - it does not create a broad outbound network entry
 - denial still overrides every acceptance entry on overlap
 
-That means the OpenClaw intake is now materializing as real UPL acceptance law, but only in bounded forms that can live safely in the same runtime field as the denial constitution.
+That means the Buccet capability intake is now materializing as real UPL acceptance law, but only in bounded forms that can live safely in the same runtime field as the denial constitution.
 
 ## Why the packs are separate for authors but one at runtime
 

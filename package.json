@@ -78,7 +78,7 @@
     "test:agent-buccet:upl-governance": "node scripts/agent-buccet-upl-governance-contract.ts",
     "test:agent-buccet:upl-tracks": "node scripts/agent-buccet-upl-tracks-contract.ts",
     "test:agent-buccet:upl-traffic": "node scripts/agent-buccet-upl-traffic-contract.ts",
-    "test:agent-buccet:openclaw-acceptance-intake": "node scripts/agent-buccet-openclaw-acceptance-intake-contract.ts",
+    "test:agent-buccet:capability-acceptance-intake": "node scripts/agent-buccet-capability-acceptance-intake-contract.ts",
     "test:agent-buccet:live-upl-field": "node scripts/agent-buccet-live-upl-field-contract.ts",
     "test:agent-buccet:base-upl-acceptance": "node scripts/agent-buccet-base-upl-acceptance-contract.ts",
     "test:agent-buccet:upl-source-sync": "node scripts/agent-buccet-upl-source-sync-contract.ts",

@@ -8568,7 +8568,7 @@ async function handleConsole() {
           console.log(formatCliKeyValue("  workspace", `${classCounts["workspace_read"] ?? 0} read  ${classCounts["workspace_mutation"] ?? 0} write  ${classCounts["local_organization"] ?? 0} org  ${classCounts["internal_artifacts"] ?? 0} artifacts  ${classCounts["notes_and_tasks"] ?? 0} notes`));
           console.log(formatCliKeyValue("  exec", `${classCounts["safe_local_exec"] ?? 0} bounded commands  ${clrDim("(git full cycle · gh CLI · npm/bun/npx · cargo/go/make · pytest/eslint/tsc)")}`));
           console.log(formatCliKeyValue("  web", `${classCounts["bounded_web_research"] ?? 0} research corridors  ${clrDim("(MDN · GitHub · Stack Overflow · Anthropic/OpenAI docs · search providers)")}`));
-          console.log(formatCliKeyValue("  skills", `${(classCounts["openclaw_skill"] ?? 0) + (classCounts["curated_capability"] ?? 0) + (classCounts["marketplace_skill"] ?? 0)} lanes  ${clrDim("(OpenClaw · curated capabilities · marketplace)")}`));
+          console.log(formatCliKeyValue("  skills", `${(classCounts["buccet_skill"] ?? 0) + (classCounts["curated_capability"] ?? 0) + (classCounts["marketplace_skill"] ?? 0)} lanes  ${clrDim("(Buccet bundled skills · curated capabilities · marketplace)")}`));
           console.log(``);
           printCliSection("Customizing the Yes Side", [
             `${clrDim("The base pack is the floor. You build on top of it.")}`

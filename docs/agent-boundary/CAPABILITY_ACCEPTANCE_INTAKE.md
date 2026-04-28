@@ -1,14 +1,14 @@
-# OpenClaw Acceptance Intake
+# Capability Acceptance Intake
 
-This page is the intake surface for the Buccet acceptance side sourced from OpenClaw.
+This page is the intake surface for the Buccet acceptance side.
 
 Source snapshot:
 
-- repo: `openclaw/openclaw`
-- commit: `9978d2276b`
+- snapshot id: `BUCCET.CAPABILITY.SNAPSHOT.01`
+- label: `bundled_capability_surface`
 
 This is not a second engine.
-It is a source catalog for what OpenClaw can do so Buccet can normalize those capabilities into acceptance rails.
+It is a bundled capability catalog so Buccet can normalize those surfaces into bounded acceptance rails.
 
 Denial still overrides acceptance everywhere.
 
@@ -229,61 +229,61 @@ Denial still overrides acceptance everywhere.
 
 These are the capability families that should feed the acceptance side.
 
-### `OPENCLAW.ACCEPT.LOCAL.WORKSPACE`
+### `BUCCET.CAPABILITY.LOCAL.WORKSPACE`
 
 - what it is: local workspace read/write/append/mkdir/move and patch-style coding work
 - Buccet action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.mkdir`, `fs.move`
 - disposition: `base_candidate`
 
-### `OPENCLAW.ACCEPT.LOCAL.EXEC`
+### `BUCCET.CAPABILITY.LOCAL.EXEC`
 
 - what it is: shell/process/runtime work for coding and workflow commands
 - Buccet action kinds: `tool.exec`
 - disposition: `scoped_candidate`
 
-### `OPENCLAW.ACCEPT.WEB.RESEARCH`
+### `BUCCET.CAPABILITY.WEB.RESEARCH`
 
 - what it is: browser control, search, fetch, PDF, and research retrieval
 - Buccet action kinds: `network.send`, `tool.exec`, `fs.read`, `fs.write`
 - disposition: `scoped_candidate`
 
-### `OPENCLAW.ACCEPT.MESSAGE.CHANNELS`
+### `BUCCET.CAPABILITY.MESSAGE.CHANNELS`
 
 - what it is: outbound and interactive delivery across configured chat channels
 - Buccet action kinds: `chat.emit`, `comm.send`, `network.send`
 - disposition: `channel_candidate`
 
-### `OPENCLAW.ACCEPT.CANVAS.NODES.DEVICES`
+### `BUCCET.CAPABILITY.CANVAS.NODES.DEVICES`
 
 - what it is: canvas control, paired devices, node actions, and device-side integrations
 - Buccet action kinds: `tool.exec`, `network.send`, `sys.config.read`, `sys.config.write`, `chat.emit`
 - disposition: `device_candidate`
 
-### `OPENCLAW.ACCEPT.MEDIA.PROCESSING`
+### `BUCCET.CAPABILITY.MEDIA.PROCESSING`
 
 - what it is: image/audio/video understanding and generation
 - Buccet action kinds: `fs.read`, `fs.write`, `network.send`, `tool.exec`
 - disposition: `scoped_candidate`
 
-### `OPENCLAW.ACCEPT.MEMORY.NOTES.TASKS`
+### `BUCCET.CAPABILITY.MEMORY.NOTES.TASKS`
 
 - what it is: memory backends, notes, reminders, and task systems
 - Buccet action kinds: `fs.read`, `fs.write`, `db.query`, `db.insert`, `db.update`, `network.send`
 - disposition: `scoped_candidate`
 
-### `OPENCLAW.ACCEPT.AUTOMATION.SESSIONS`
+### `BUCCET.CAPABILITY.AUTOMATION.SESSIONS`
 
 - what it is: cron, gateway control, sessions, sub-agents, and orchestration
 - Buccet action kinds: `tool.exec`, `fs.read`, `fs.write`, `chat.emit`, `network.send`
 - disposition: `scoped_candidate`
 
-### `OPENCLAW.ACCEPT.MODEL.PROVIDERS`
+### `BUCCET.CAPABILITY.MODEL.PROVIDERS`
 
 - what it is: model/provider transport, speech providers, and gateway backends
 - Buccet action kinds: `network.send`, `sys.env.read`, `sys.credential.use`
 - disposition: `provider_candidate`
 
-### `OPENCLAW.ACCEPT.UTILITY.CONNECTORS`
+### `BUCCET.CAPABILITY.UTILITY.CONNECTORS`
 
 - what it is: smaller connector and utility skills
 - Buccet action kinds: `network.send`, `tool.exec`, `fs.read`, `fs.write`, `chat.emit`
@@ -295,7 +295,7 @@ This intake does not weaken Buccet.
 
 It only says:
 
-- OpenClaw capability surfaces are acceptance candidates
+- Buccet bundled capability surfaces are acceptance candidates
 - Buccet normalizes them into rails
 - the denial constitution still overrides them on overlap
 
@@ -314,4 +314,4 @@ the denial side still wins.
 
 The structured intake catalog lives in:
 
-- [openclaw-acceptance-intake.ts](../../lib/agent-buccet/openclaw-acceptance-intake.ts)
+- [capability-acceptance-intake.ts](../../lib/agent-buccet/capability-acceptance-intake.ts)
