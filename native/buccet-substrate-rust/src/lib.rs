@@ -2,14 +2,8 @@
 //!
 //! Production-grade enforcement substrate for Agent Buccet.
 //!
-//! ## Ancestor Lineage
-//! ```text
-//! D-ContainmentBuccet   ← Docker      (containment, resource limits, lifecycle)
-//! K-OrchestrationBuccet ← Kubernetes  (scheduling, routing, reconciliation, admission)
-//! Q-TrustBuccet         ← Qubes OS    (trust domains, policy gates, RPC interception)
-//! ```
-//! The prefix letter is the traceability anchor. If a function drifts from its
-//! ancestor's expected behavior, trace back using D / K / Q to the source system.
+//! Internal D/K/Q prefixes remain Buccet shorthand for grouped substrate
+//! surfaces. Public consumers use the exports as Buccet substrate functions.
 //!
 //! ## Build Targets
 //! ```bash
@@ -30,16 +24,13 @@
 //!
 //! await init();
 //!
-//! // D-ContainmentBuccet
 //! const isolation = d_apply_isolation_wasm("unit-1", { namespace_flags: 0x66020000 });
 //!
-//! // K-OrchestrationBuccet
 //! const decision = k_enforce_wasm("unit-1", { subject: "agent", action: "write", resource: "secret", roles: [] });
 //! // decision === { Deny: null } — no matching role = DENY
 //!
-//! // Q-TrustBuccet
 //! const policy = q_enforce_policy_wasm("agent-a", "vault", "read", { policy_rules: [] });
-//! // policy === { Deny: null } — Qubes default is deny
+//! // policy === { Deny: null } — deny-by-default
 //! ```
 //!
 //! ## Verification
@@ -62,7 +53,7 @@ pub use types::{
     ValidationResult,
 };
 
-// D-ContainmentBuccet
+// Buccet containment surface
 pub use d_containment::{
     d_apply_isolation,
     d_enforce_contract,
@@ -73,7 +64,7 @@ pub use d_containment::{
     d_persist_state,
 };
 
-// K-OrchestrationBuccet
+// Buccet orchestration surface
 pub use k_orchestration::{
     k_enforce,
     k_orchestrate,
@@ -83,7 +74,7 @@ pub use k_orchestration::{
     k_validate,
 };
 
-// Q-TrustBuccet
+// Buccet trust surface
 pub use q_trust::{
     q_apply_isolation,
     q_assign_trust_domain,

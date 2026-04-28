@@ -1,7 +1,7 @@
 {
   "name": "buccet-substrate",
   "type": "module",
-  "description": "Production-grade enforcement substrate. Ancestor lineage: D=Docker · K=Kubernetes · Q=Qubes. verified=True · ∀i: Snap(S)(i) = S(i)",
+  "description": "Production-grade Buccet enforcement substrate. verified=True · ∀i: Snap(S)(i) = S(i)",
   "version": "0.1.0",
   "license": "MIT",
   "files": [

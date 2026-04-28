@@ -1,14 +1,4 @@
-//! D-ContainmentBuccet — enforcement substrate for process containment.
-//!
-//! Ancestor: Docker (D)
-//! Lineage tracing: if any function in this module begins returning unexpected
-//! results, compare against Docker's enforcement behaviors:
-//!   D:ISOLATION           → d_apply_isolation
-//!   D:RESOURCE_CONSTRAINT → d_enforce_resource_limit
-//!   D:LIFECYCLE           → d_manage_lifecycle
-//!   D:PERSISTENCE         → d_persist_state
-//!   D:CONTRACT            → d_enforce_contract
-//!   D:NETWORK_CONTROL     → d_control_network
+//! Buccet containment surface — process containment and packaged runtime entry.
 //!
 //! CALLER NOTES (TypeScript / Agent Buccet):
 //!   d_manage_lifecycle "start" returns Some(pid) — store it, pass as _pid for stop/status.
@@ -22,7 +12,6 @@ use crate::types::{cfg_str, IsolationContext, SubstrateError};
 // ── D:ISOLATION ───────────────────────────────────────────────────────────────
 
 /// Enforce process namespace isolation.
-/// Ancestor D:ISOLATION — Docker uses unshare(2) via runc to create new namespaces.
 pub fn d_apply_isolation(unit_id: &str, config: &serde_json::Value) -> IsolationContext {
     const CLONE_NEWNS:  u32 = 0x0002_0000;
     const CLONE_NEWPID: u32 = 0x2000_0000;
@@ -46,7 +35,6 @@ pub fn d_apply_isolation(unit_id: &str, config: &serde_json::Value) -> Isolation
 // ── D:RESOURCE_CONSTRAINT ─────────────────────────────────────────────────────
 
 /// Enforce cgroup v2 resource limits.
-/// Ancestor D:RESOURCE_CONSTRAINT — Docker writes to cgroupfs to cap memory/cpu/pids.
 /// Signature matches Python substrate: (unit_id, config, limits).
 pub fn d_enforce_resource_limit(
     unit_id: &str,
@@ -88,7 +76,6 @@ pub fn d_enforce_resource_limit(
 // ── D:LIFECYCLE ───────────────────────────────────────────────────────────────
 
 /// Enforce process lifecycle: start, stop, status.
-/// Ancestor D:LIFECYCLE — Docker manages container lifecycle via containerd + runc.
 ///
 /// Returns:
 ///   "start"  → Some(pid) — caller MUST store this pid for later stop/status calls
@@ -144,7 +131,6 @@ pub fn d_manage_lifecycle(_unit_id: &str, config: &serde_json::Value) -> Option<
 // ── D:PERSISTENCE ─────────────────────────────────────────────────────────────
 
 /// Enforce overlay filesystem persistence.
-/// Ancestor D:PERSISTENCE — Docker uses overlayfs for container layer storage.
 pub fn d_persist_state(_unit_id: &str, config: &serde_json::Value) -> Result<(), SubstrateError> {
     let base   = cfg_str(config, "base_dir", "/var/lib/substrate/default");
     let lower  = cfg_str(config, "lower",  &format!("{}/lower",  base));
@@ -181,10 +167,9 @@ pub fn d_persist_state(_unit_id: &str, config: &serde_json::Value) -> Result<(),
     }
 }
 
-// ── D:ENVIRONMENT ─────────────────────────────────────────────────────────────
+// ── Environment ───────────────────────────────────────────────────────────────
 
 /// Enter the packaged runtime root.
-/// Ancestor D:ENVIRONMENT — Docker swaps process root into the merged container fs.
 ///
 /// Native Linux:
 ///   - validates the packaged root
@@ -290,10 +275,9 @@ pub fn d_enter_environment(_unit_id: &str, config: &serde_json::Value) -> Result
     Ok(())
 }
 
-// ── D:CONTRACT ────────────────────────────────────────────────────────────────
+// ── Contract ──────────────────────────────────────────────────────────────────
 
 /// Enforce Linux capability bounding set (capability drop).
-/// Ancestor D:CONTRACT — Docker drops capabilities via prctl(PR_CAP_AMBIENT_LOWER).
 pub fn d_enforce_contract(_unit_id: &str, config: &serde_json::Value) -> Result<(), SubstrateError> {
     let caps = config.get("drop_capabilities")
         .and_then(|v| v.as_array())
@@ -325,10 +309,9 @@ pub fn d_enforce_contract(_unit_id: &str, config: &serde_json::Value) -> Result<
     }
 }
 
-// ── D:NETWORK_CONTROL ─────────────────────────────────────────────────────────
+// ── Network Control ───────────────────────────────────────────────────────────
 
 /// Enforce network namespace rules.
-/// Ancestor D:NETWORK_CONTROL — Docker sets up veth pairs + iptables rules via libnetwork.
 ///
 /// Actions: "create" (default) | "destroy"
 /// UID sanitization matches Python substrate: unit_id[:8].replace('-', '')
@@ -426,7 +409,7 @@ pub mod wasm_api {
         d_persist_state(unit_id, &from_js(config)).is_ok()
     }
 
-    /// D:ENVIRONMENT — enter frozen environment via pivot_root.
+    /// Enter frozen environment via pivot_root.
     /// Native: calls pivot_root(2) + MNT_DETACH umount — requires CAP_SYS_ADMIN + CLONE_NEWNS.
     /// WASM: path validation only, pivot_root deferred to native runtime.
     /// Call AFTER d_apply_isolation + d_persist_state.

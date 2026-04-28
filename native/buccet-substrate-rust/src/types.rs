@@ -1,18 +1,12 @@
 //! Shared enforcement types for the Buccet substrate.
 //!
-//! Ancestor lineage:
-//!   D = Docker      → ContainmentBuccet
-//!   K = Kubernetes  → OrchestrationBuccet
-//!   Q = Qubes       → TrustBuccet
-//!
 //! ∀i: Snap(S)(i) = S(i) — verified=True — production-grade — ready to merge.
 
 use serde::{Deserialize, Serialize};
 
 // ── Core Types ────────────────────────────────────────────────────────────────
 
-/// Returned by D-ContainmentBuccet isolation enforcement.
-/// Ancestor: Docker namespace isolation via unshare(2).
+/// Returned by Buccet isolation enforcement.
 /// If active=false on a native build: kernel denied the syscall (insufficient privileges).
 /// If active=false on a WASM build: decision recorded, kernel call deferred to native runtime.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -22,8 +16,7 @@ pub struct IsolationContext {
     pub active:          bool,
 }
 
-/// Returned by K-OrchestrationBuccet validation enforcement.
-/// Ancestor: Kubernetes admission validation (ValidatingWebhookConfiguration).
+/// Returned by Buccet validation enforcement.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ValidationResult {
     pub passed:  bool,
@@ -39,8 +32,7 @@ pub enum PolicyDecision {
     Deny,
 }
 
-/// A state-reconciliation action emitted by K-OrchestrationBuccet.
-/// Ancestor: Kubernetes controller reconcile loop.
+/// A state-reconciliation action emitted by Buccet reconciliation.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Action {
     pub op:        String,  // "ADD" | "UPDATE" | "REMOVE"
@@ -49,11 +41,7 @@ pub struct Action {
     pub old_value: serde_json::Value,
 }
 
-/// Unified error type for all three Buccet substrate layers.
-///
-/// Drift detection: if a function that previously returned Ok(())
-/// starts returning Err(SubstrateError::*), the layer may have drifted
-/// from its ancestor's behavior. Trace back using the ancestor initial.
+/// Unified error type for Buccet substrate layers.
 #[derive(Debug, Clone, PartialEq)]
 pub enum SubstrateError {
     /// Kernel or OS denied the operation (maps to PermissionError in Python substrate).

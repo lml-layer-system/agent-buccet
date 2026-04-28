@@ -6,15 +6,9 @@ Agent Buccet now carries the fused Rust substrate in-repo at:
 native/buccet-substrate-rust
 ```
 
-This is the D/K/Q fused surface:
-
-- `D` = Docker lineage
-- `K` = Kubernetes lineage
-- `Q` = Qubes lineage
-
 It contains the native and WASM build targets for the vendored substrate crate.
 It also now carries the built `pkg/` WASM bundle and a Buccet-owned TypeScript adapter.
-That means Buccet can carry a portable bounded runtime surface across machines in the same way teams used Docker for "works here, works there" transport, but without inheriting Docker's full runtime bloat or dropping Buccet's law/ledger/governor stack.
+That means Buccet can carry a portable bounded runtime surface across machines without inheriting full container-runtime bloat or dropping Buccet's law/ledger/governor stack.
 
 ## What It Means
 
@@ -26,7 +20,6 @@ The crate is part of the Agent Buccet repo now so the system can:
 - build native Rust artifacts from the same repo surface
 - build and vendor a WASM target for Buccet-side consumption
 - carry portable bounded demos, workloads, and runtime behavior between machines through the same Buccet substrate surface
-- keep D/K/Q lineage visible and auditable inside Buccet itself
 
 ## What It Does Not Mean
 
@@ -63,7 +56,7 @@ The missing portability step is now present too: `d_enter_environment_wasm`, exp
 
 ## Portable Runtime Chain
 
-Docker-style portability is three steps, not two:
+Portable bounded runtime entry is three steps, not two:
 
 1. `applyIsolation(...)` creates the bounded namespace shell.
 2. `persistState(...)` mounts the portable overlay and writable layer.

@@ -1,14 +1,5 @@
-//! K-OrchestrationBuccet — enforcement substrate for orchestration at scale.
-//!
-//! Ancestor: Kubernetes (K)
-//! Lineage tracing: if any function in this module begins returning unexpected
-//! results, compare against Kubernetes enforcement behaviors:
-//!   K:STATE_RECONCILIATION → k_reconcile_state
-//!   K:ORCHESTRATION        → k_orchestrate
-//!   K:VALIDATION           → k_validate
-//!   K:SCHEDULING           → k_schedule
-//!   K:ENFORCEMENT          → k_enforce
-//!   K:ROUTING              → k_route
+//! Buccet orchestration surface — reconciliation, validation, scheduling,
+//! enforcement, and routing at runtime scale.
 //!
 //! verified=True · ∀i: Snap(S)(i) = S(i) · <10ms · deterministic
 
@@ -17,7 +8,6 @@ use crate::types::{cfg_str, Action, PolicyDecision, RouteResult, SubstrateError,
 // ── K:STATE_RECONCILIATION ────────────────────────────────────────────────────
 
 /// Enforce state reconciliation — compute delta between desired and actual state.
-/// Ancestor K:STATE_RECONCILIATION — Kubernetes controller manager reconcile loop.
 /// Emits ADD/UPDATE/REMOVE actions to bring actual state in line with desired.
 pub fn k_reconcile_state(
     _unit_id: &str,
@@ -68,7 +58,6 @@ pub fn k_reconcile_state(
 // ── K:ORCHESTRATION ───────────────────────────────────────────────────────────
 
 /// Enforce workload orchestration lifecycle.
-/// Ancestor K:ORCHESTRATION — Kubernetes manages pod lifecycle via kubelet + kube-controller-manager.
 pub fn k_orchestrate(unit_id: &str, config: &serde_json::Value) -> Result<(), SubstrateError> {
     let action = cfg_str(config, "action", "create");
     match action.as_str() {
@@ -105,7 +94,6 @@ pub fn k_orchestrate(unit_id: &str, config: &serde_json::Value) -> Result<(), Su
 // ── K:VALIDATION ──────────────────────────────────────────────────────────────
 
 /// Enforce manifest validation — structural and policy checks.
-/// Ancestor K:VALIDATION — Kubernetes admission webhooks (ValidatingAdmissionWebhook).
 pub fn k_validate(unit_id: &str, config: &serde_json::Value) -> ValidationResult {
     let manifest = match config.get("manifest") {
         Some(m) => m,
@@ -148,7 +136,6 @@ pub fn k_validate(unit_id: &str, config: &serde_json::Value) -> ValidationResult
 // ── K:SCHEDULING ──────────────────────────────────────────────────────────────
 
 /// Enforce bin-pack scheduling — first-fit decreasing by resource score.
-/// Ancestor K:SCHEDULING — Kubernetes default scheduler (kube-scheduler bin-pack profile).
 pub fn k_schedule(
     candidates:  &[serde_json::Value],
     constraints: &[serde_json::Value],
@@ -187,7 +174,6 @@ pub fn k_schedule(
 // ── K:ENFORCEMENT ─────────────────────────────────────────────────────────────
 
 /// Enforce admission control — RBAC + policy check before resource creation.
-/// Ancestor K:ENFORCEMENT — Kubernetes admission controllers (RBAC, PodSecurityPolicy).
 pub fn k_enforce(unit_id: &str, config: &serde_json::Value) -> PolicyDecision {
     let subject  = cfg_str(config, "subject", "");
     let action   = cfg_str(config, "action",  "");
@@ -223,7 +209,6 @@ pub fn k_enforce(unit_id: &str, config: &serde_json::Value) -> PolicyDecision {
 // ── K:ROUTING ─────────────────────────────────────────────────────────────────
 
 /// Enforce service mesh routing — weighted round-robin over backend endpoints.
-/// Ancestor K:ROUTING — Kubernetes Service + Ingress + Envoy sidecar routing.
 ///
 /// Rust is stateless — returns RouteResult { endpoint, next_counter }.
 /// Caller (TypeScript / Agent Buccet) MUST pass next_counter back as

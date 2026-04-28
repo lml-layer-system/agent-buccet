@@ -2,7 +2,7 @@
 name    = "buccet-substrate"
 version = "0.1.0"
 edition = "2021"
-description = "Production-grade enforcement substrate. Ancestor lineage: D=Docker · K=Kubernetes · Q=Qubes. verified=True · ∀i: Snap(S)(i) = S(i)"
+description = "Production-grade Buccet enforcement substrate. verified=True · ∀i: Snap(S)(i) = S(i)"
 license = "Apache-2.0"
 
 # Build as both a native library and a WASM module

@@ -31,7 +31,7 @@ If you are new, start with these three:
 
 ## Product Shape
 
-- [Buccet Rust Substrate](BUCCET_SUBSTRATE_RUST.md): vendored D/K/Q fusion crate for native and WASM builds
+- [Buccet Rust Substrate](BUCCET_SUBSTRATE_RUST.md): vendored Buccet substrate crate for native and WASM builds
 - [Entry Surface](ENTRY_SURFACE.md): frictionless adoption doors that still enter the same Buccet body
 - [Public Private Boundary](PUBLIC_PRIVATE_BOUNDARY.md): shared core vs private extensions
 - [Current Limits](CURRENT_LIMITS.md): what is still intentionally bounded

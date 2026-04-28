@@ -1,13 +1,5 @@
-//! Q-TrustBuccet — enforcement substrate for trust domain separation.
-//!
-//! Ancestor: Qubes OS (Q)
-//! Lineage tracing: if any function in this module begins returning unexpected
-//! results, compare against Qubes enforcement behaviors:
-//!   Q:ISOLATION         → q_apply_isolation
-//!   Q:LIFECYCLE         → q_manage_lifecycle
-//!   Q:INTERCEPTION      → q_intercept_call
-//!   Q:TRUST_DOMAIN      → q_assign_trust_domain
-//!   Q:POLICY_ENFORCEMENT → q_enforce_policy
+//! Buccet trust surface — trust-domain separation, interception, lifecycle,
+//! and deny-by-default policy gates.
 //!
 //! verified=True · ∀i: Snap(S)(i) = S(i) · <10ms · deterministic
 
@@ -16,7 +8,6 @@ use crate::types::{cfg_str, IsolationContext, PolicyDecision, SubstrateError};
 // ── Q:ISOLATION ───────────────────────────────────────────────────────────────
 
 /// Enforce VM-level isolation — separate address space per trust domain.
-/// Ancestor Q:ISOLATION — Qubes uses Xen hypervisor to provide hardware VM isolation.
 /// Native: uses Linux namespaces as approximation (full Xen requires hypervisor context).
 /// WASM:   isolation decision recorded; kernel boundary enforcement deferred.
 pub fn q_apply_isolation(unit_id: &str, config: &serde_json::Value) -> IsolationContext {
@@ -24,8 +15,8 @@ pub fn q_apply_isolation(unit_id: &str, config: &serde_json::Value) -> Isolation
     const CLONE_NEWPID: u32 = 0x2000_0000;
     const CLONE_NEWNET: u32 = 0x4000_0000;
     const CLONE_NEWUTS: u32 = 0x0400_0000;
-    const CLONE_NEWUSER: u32 = 0x1000_0000; // Q adds user namespace — Qubes trust domain boundary
-    const CLONE_NEWIPC: u32 = 0x0800_0000;  // Q adds IPC namespace — Qubes qube isolation
+    const CLONE_NEWUSER: u32 = 0x1000_0000; // adds user namespace for trust-domain separation
+    const CLONE_NEWIPC: u32 = 0x0800_0000;  // adds IPC namespace for isolated communication surfaces
 
     let flags = config.get("namespace_flags")
         .and_then(|v| v.as_u64())
@@ -47,8 +38,7 @@ pub fn q_apply_isolation(unit_id: &str, config: &serde_json::Value) -> Isolation
 
 // ── Q:LIFECYCLE ───────────────────────────────────────────────────────────────
 
-/// Enforce qube lifecycle — start, shutdown, pause.
-/// Ancestor Q:LIFECYCLE — Qubes manages qube lifecycle via qubesd (qvm-start, qvm-shutdown).
+/// Enforce trust-domain lifecycle — start, shutdown, pause.
 pub fn q_manage_lifecycle(unit_id: &str, config: &serde_json::Value) -> Result<(), SubstrateError> {
     let action = cfg_str(config, "action", "start");
     let domain  = cfg_str(config, "domain", unit_id);
@@ -74,10 +64,9 @@ pub fn q_manage_lifecycle(unit_id: &str, config: &serde_json::Value) -> Result<(
 
 // ── Q:INTERCEPTION ────────────────────────────────────────────────────────────
 
-/// Enforce qrexec-style RPC call interception.
-/// Ancestor Q:INTERCEPTION — Qubes intercepts all inter-qube calls via qrexec-policy.
+/// Enforce inter-domain RPC call interception.
 /// Every call from source_domain to target_domain for a service is subject to policy table lookup.
-/// Default: DENY (Qubes is deny-by-default).
+/// Default: DENY.
 pub fn q_intercept_call(unit_id: &str, config: &serde_json::Value) -> PolicyDecision {
     let source_domain = cfg_str(config, "source_domain", unit_id);
     let target_domain = cfg_str(config, "target_domain", "");
@@ -90,7 +79,7 @@ pub fn q_intercept_call(unit_id: &str, config: &serde_json::Value) -> PolicyDeci
         .cloned()
         .unwrap_or_default();
 
-    // qrexec policy lookup: most-specific match wins
+    // most-specific policy match wins
     // key formats: "src@tgt@svc", "*@tgt@svc", "src@*@svc", "*@*@svc", "*@*@*"
     let lookup_keys = [
         format!("{}@{}@{}", source_domain, target_domain, service),
@@ -119,13 +108,12 @@ pub fn q_intercept_call(unit_id: &str, config: &serde_json::Value) -> PolicyDeci
         }
     }
 
-    PolicyDecision::Deny // Qubes default: deny if no rule matches
+    PolicyDecision::Deny // deny if no rule matches
 }
 
 // ── Q:TRUST_DOMAIN ────────────────────────────────────────────────────────────
 
 /// Assign a trust domain label to a unit.
-/// Ancestor Q:TRUST_DOMAIN — Qubes assigns qubes to trust domains (personal, work, vault, untrusted).
 /// The trust domain label controls which inter-domain operations are permitted.
 pub fn q_assign_trust_domain(unit_id: &str, config: &serde_json::Value) -> String {
     let domain_map = config.get("domain_map")
@@ -138,7 +126,7 @@ pub fn q_assign_trust_domain(unit_id: &str, config: &serde_json::Value) -> Strin
         return domain.to_string();
     }
 
-    // classify by prefix pattern (Qubes convention)
+    // classify by prefix pattern
     let domain = if unit_id.starts_with("vault") || unit_id.contains("-vault") {
         "vault"       // highest trust — air-gapped secret storage
     } else if unit_id.starts_with("personal") || unit_id.contains("-personal") {
@@ -157,7 +145,6 @@ pub fn q_assign_trust_domain(unit_id: &str, config: &serde_json::Value) -> Strin
 // ── Q:POLICY_ENFORCEMENT ──────────────────────────────────────────────────────
 
 /// Enforce policy gate — subject/target/action → allow/deny.
-/// Ancestor Q:POLICY_ENFORCEMENT — Qubes policy enforced by qubesd for every qrexec call.
 /// mTLS-style: the policy table is the source of truth. No table entry = DENY.
 pub fn q_enforce_policy(
     subject:  &str,
@@ -189,7 +176,7 @@ pub fn q_enforce_policy(
         }
     }
 
-    PolicyDecision::Deny // Qubes default: no matching rule = deny
+    PolicyDecision::Deny // no matching rule = deny
 }
 
 // ── WASM API ──────────────────────────────────────────────────────────────────

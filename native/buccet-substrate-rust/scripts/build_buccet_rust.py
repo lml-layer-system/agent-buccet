@@ -2,10 +2,10 @@
 """
 build_buccet_rust.py — vendored Buccet Rust substrate builder.
 
-This crate is already the fused D/K/Q substrate artifact. In this repo it is a
-first-class native surface, not a separate extractor workspace. This helper
-builds the native release artifact and, when available, the WASM bundle used by
-TypeScript consumers.
+This crate is already the fused Buccet substrate artifact. In this repo it is
+a first-class native surface, not a separate extractor workspace. This helper
+builds the native release artifact and, when available, the WASM bundle used
+by TypeScript consumers.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ def main() -> int:
 
     print("=" * 70)
     print("  Agent Buccet Rust Substrate")
-    print("  D/K/Q fused crate build")
+    print("  fused Buccet substrate build")
     print("=" * 70)
     print(f"  crate: {CRATE_ROOT}")
     print()
