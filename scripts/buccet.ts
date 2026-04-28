@@ -37,7 +37,14 @@ import {
   type LocalLlmProvider,
   type RemoteLlmProvider,
   type TeamManifest,
+  type TeamSlug,
 } from "../lib/agent-buccet/team-workshop.ts";
+import {
+  BrainPassPreconditionError,
+  runBrainPass,
+  teamCanBrainPass,
+} from "../lib/agent-buccet/brain-pass.ts";
+import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
 import type {
   BoundaryActionKind,
   BoundaryUplLineage,
@@ -7587,8 +7594,68 @@ async function handleAsk(rest: string[]) {
     console.error(`No team named "${teamName}".`);
     process.exit(1);
   }
+
+  if (await teamCanBrainPass(homePath, slug)) {
+    const ran = await tryBrainPass({ homePath, slug, manifest, text });
+    if (ran) return;
+    // tryBrainPass already printed the install hint; fall through to queue.
+  }
+
   const record = await recordTeamAsk({ homePath, manifest, text });
   printAskAcknowledgement(manifest, record);
+}
+
+async function tryBrainPass(args: {
+  homePath: string;
+  slug: TeamSlug;
+  manifest: TeamManifest;
+  text: string;
+}): Promise<boolean> {
+  const lane = formatTeamLane(args.manifest);
+  const agentId = args.manifest.agents[0]?.id ?? "default";
+  console.log(`  ${clrDim("[" + lane + "]")} ${clrDim("running brain pass via Pi (engine) ↔ AI...")}`);
+  try {
+    const result = await runBrainPass({
+      homePath: args.homePath,
+      slug: args.slug,
+      agentId,
+      userRequest: args.text,
+      onEvent: (e) => {
+        if (e.type === "session_started") {
+          console.log(
+            `  ${clrDim("[" + lane + "]")} ${clrDim("session " + e.sessionId.slice(-12) + " started · ai=" + e.aiProvider + " · engine=" + e.engineProvider)}`,
+          );
+        }
+      },
+    });
+    console.log("");
+    console.log(`  ${clrOk("[" + lane + " · " + agentId + "]:")}`);
+    for (const line of result.output.split("\n")) {
+      console.log(`  ${line}`);
+    }
+    console.log("");
+    console.log(
+      `  ${clrDim("Witnessed in ledger; session " + result.sessionId.slice(-12) + " ended.")}`,
+    );
+    return true;
+  } catch (err) {
+    if (err instanceof PiNotInstalledError) {
+      console.error(`  ${clrWarn("Pi engine bound to " + args.slug + " but not installed.")}`);
+      for (const line of (err.message ?? "").split("\n").slice(1)) {
+        console.error(`  ${clrDim(line)}`);
+      }
+      console.error("");
+      console.error(`  ${clrDim("Falling back to message-queue mode for this ask.")}`);
+      return false;
+    }
+    if (err instanceof BrainPassPreconditionError) {
+      console.error(`  ${clrWarn(err.message)}`);
+      return false;
+    }
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`  ${clrWarn("brain pass failed: " + message)}`);
+    return false;
+  }
 }
 
 async function handleEnter(rest: string[]) {
@@ -7655,6 +7722,13 @@ async function handleEnter(rest: string[]) {
       console.log(`  ${clrDim("/peers · /quit · /help · type any task")}`);
       prompt();
       continue;
+    }
+    if (await teamCanBrainPass(homePath, slug)) {
+      const ran = await tryBrainPass({ homePath, slug, manifest, text: line });
+      if (ran) {
+        prompt();
+        continue;
+      }
     }
     const record = await recordTeamAsk({ homePath, manifest, text: line });
     printAskAcknowledgement(manifest, record);
