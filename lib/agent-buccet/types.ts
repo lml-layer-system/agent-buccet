@@ -780,14 +780,14 @@ export type BoundaryLedgerCheckpoint = {
 export type BoundaryUplEntryType = "APPROVED" | "DENIED";
 export type BoundaryUplScope = "SESSION" | "GLOBAL" | "DOMAIN";
 export type BoundaryUplStatus = "ACTIVE" | "MUTED" | "DELETED";
-export type BoundaryUplLineageMode = "upl_sync" | "upl_import";
+export type BoundaryUplSourceTrackMode = "upl_sync" | "upl_import";
 export type BoundaryUplSourceLane = "acceptance" | "denial";
 
-export type BoundaryUplLineage = {
+export type BoundaryUplSourceTrack = {
   sourceDocumentPath: string;
   sourceDocumentHash: string;
   compiledBatchHash: string;
-  syncMode: BoundaryUplLineageMode;
+  syncMode: BoundaryUplSourceTrackMode;
   lane?: BoundaryUplSourceLane;
 };
 
@@ -816,11 +816,11 @@ export type BoundaryUplEntry = {
    */
   trackConstraint?: BoundaryUplTrackConstraint;
   /**
-   * Source-to-live-law lineage for document-sourced law. This remains inside
-   * the same UPL body so live law can always be traced back to the witnessed
-   * source document and compiled batch that activated it.
+   * Source-to-live-law source track for document-sourced law. This remains
+   * inside the same UPL body so live law can always be traced back to the
+   * witnessed source document and compiled batch that activated it.
    */
-  lineage?: BoundaryUplLineage;
+  sourceTrack?: BoundaryUplSourceTrack;
 };
 
 export type BoundaryUserPathLedger = {
@@ -835,7 +835,7 @@ export type CompiledDocumentLaw = {
   notes?: string | null;
   requestBasis: BoundaryUplRequestBasis;
   trackConstraint?: BoundaryUplTrackConstraint;
-  lineage?: BoundaryUplLineage;
+  sourceTrack?: BoundaryUplSourceTrack;
 };
 
 export type BoundaryPolicySourceKind =

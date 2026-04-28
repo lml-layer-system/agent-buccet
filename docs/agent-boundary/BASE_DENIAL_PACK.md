@@ -2010,9 +2010,9 @@ Connects to: request text trigger `*ARCH-SECURE-DEL-249*`; request text trigger 
 Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `agent.spend`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
 Bounds: listed request-text triggers only; deny wins on overlap.
 
-### DENY.PERIODIC.ARCH-LINEAGE-LOSS-250
-What it is: [architectural] ARCH5.7: DATA LINEAGE LOSS — Lineage must be maintained.
-Connects to: request text trigger `*ARCH-LINEAGE-LOSS-250*`; request text trigger `*ARCH5.7: DATA LINEAGE LOSS*`.
+### DENY.PERIODIC.ARCH-SOURCE-TRACE-250
+What it is: [architectural] ARCH5.7: SOURCE TRACE LOSS — Source trace must be maintained.
+Connects to: request text trigger `*ARCH-SOURCE-TRACE-250*`; request text trigger `*ARCH5.7: SOURCE TRACE LOSS*`.
 Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `agent.spend`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
 Bounds: listed request-text triggers only; deny wins on overlap.
 
@@ -54009,8 +54009,8 @@ Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.m
 Bounds: listed request-text triggers only; deny wins on overlap.
 
 ### DENY.BASE.ALIAS.0079
-What it is: [list of failures.txt] UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS.
-Connects to: request text trigger `*UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS*`; request text trigger `*UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN LINEAGE / GRANDMA / DEV-MODE)*`; request text trigger `*UNIVERSAL. JAILBREAK SOCIAL ENGINEERING*`.
+What it is: [list of failures.txt] UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN FAMILY / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS.
+Connects to: request text trigger `*UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN FAMILY / GRANDMA / DEV-MODE) — NEGATIVE — PERSONA / EMOTION / AUTHORITY-SPOOF CLASS*`; request text trigger `*UNIVERSAL. JAILBREAK SOCIAL ENGINEERING (DAN FAMILY / GRANDMA / DEV-MODE)*`; request text trigger `*UNIVERSAL. JAILBREAK SOCIAL ENGINEERING*`.
 Action kinds: `fs.read`, `fs.write`, `fs.append`, `fs.delete`, `fs.mkdir`, `fs.move`, `agent.spend`, `tool.exec`, `network.send`, `comm.send`, `db.query`, `db.insert`, `db.update`, `db.delete`, `sys.env.read`, `sys.env.write`, `sys.config.read`, `sys.config.write`, `sys.credential.read`, `sys.credential.use`, `chat.emit`.
 Bounds: listed request-text triggers only; deny wins on overlap.
 

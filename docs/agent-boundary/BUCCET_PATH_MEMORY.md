@@ -8,7 +8,7 @@ It is a finite path-memory substrate that keeps higher-order work forward-only, 
 
 ## Purpose
 
-The ancestor pattern is simple:
+The core pattern is simple:
 
 - infinite user requests should not produce infinite agent loops
 - work should collapse into a finite path

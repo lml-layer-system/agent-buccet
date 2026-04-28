@@ -166,7 +166,16 @@ async function writeLedger(ledger: BoundaryUserPathLedger): Promise<void> {
 }
 
 function normalizeEntry(rawEntry: BoundaryUplEntry): BoundaryUplEntry {
-  let entry = { ...rawEntry };
+  let entry = {
+    ...(rawEntry as BoundaryUplEntry & { lineage?: BoundaryUplEntry["sourceTrack"] }),
+  };
+  if (!entry.sourceTrack && entry.lineage) {
+    const { lineage, ...rest } = entry;
+    entry = {
+      ...rest,
+      sourceTrack: lineage,
+    };
+  }
   if (!entry.requestBasis) {
     return entry;
   }
@@ -713,7 +722,7 @@ function createEntry(args: {
   session: BoundarySession;
   decision?: BoundaryApprovalDecision;
   trackConstraintOverride?: BoundaryUplEntry["trackConstraint"];
-  lineage?: BoundaryUplEntry["lineage"];
+  sourceTrack?: BoundaryUplEntry["sourceTrack"];
   entryId?: string;
 }): BoundaryUplEntry {
   const scope = normalizeScope({ decision: args.decision });
@@ -741,7 +750,7 @@ function createEntry(args: {
     ...(scope === "DOMAIN" ? { domain: args.decision?.domain ?? classifyUserPathDomain(args.request) } : {}),
     requestBasis: toRequestBasis(args.request),
     ...(trackConstraint ? { trackConstraint } : {}),
-    ...(args.lineage ? { lineage: args.lineage } : {}),
+    ...(args.sourceTrack ? { sourceTrack: args.sourceTrack } : {}),
   };
 }
 
@@ -858,7 +867,7 @@ export async function writeCompiledUserPathLaws(args: {
         session: args.session,
         decision: withNormalizedScope(decision, scope),
         trackConstraintOverride: item.compiledLaw.trackConstraint,
-        lineage: item.compiledLaw.lineage,
+        sourceTrack: item.compiledLaw.sourceTrack,
         entryId: args.entryIdFactory?.({
           itemIndex,
           compiledLaw: item.compiledLaw,
@@ -909,7 +918,7 @@ export async function writeCompiledUserPathLaws(args: {
       session: args.session,
       decision: withNormalizedScope(decision, scope),
       trackConstraintOverride: item.compiledLaw.trackConstraint,
-      lineage: item.compiledLaw.lineage,
+      sourceTrack: item.compiledLaw.sourceTrack,
       entryId: args.entryIdFactory?.({
         itemIndex,
         compiledLaw: item.compiledLaw,

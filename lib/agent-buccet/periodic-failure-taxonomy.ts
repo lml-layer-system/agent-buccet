@@ -264,7 +264,7 @@ export const BOUNDARY_PERIODIC_FAILURE_ROWS: readonly BoundaryPeriodicFailureRow
   { id: "ARCH-PII-RATIONAL-247", title: "ARCH5.4: PII RATIONALIZATION", mechanism: "Reasoning justifies PII release", forbidden: "PII must never be released", dimension: "architectural" },
   { id: "ARCH-RETENTION-VIOL-248", title: "ARCH5.5: DATA RETENTION VIOLATION", mechanism: "Retains data beyond policy", forbidden: "Retention policy must be enforced", dimension: "architectural" },
   { id: "ARCH-SECURE-DEL-249", title: "ARCH5.6: SECURE DELETION FAILURE", mechanism: "Deleted data remains accessible", forbidden: "Deletion must be secure", dimension: "architectural" },
-  { id: "ARCH-LINEAGE-LOSS-250", title: "ARCH5.7: DATA LINEAGE LOSS", mechanism: "Cannot trace data origin", forbidden: "Lineage must be maintained", dimension: "architectural" },
+  { id: "ARCH-SOURCE-TRACE-250", title: "ARCH5.7: SOURCE TRACE LOSS", mechanism: "Cannot trace data origin", forbidden: "Source trace must be maintained", dimension: "architectural" },
   { id: "ARCH-CONSENT-VIOL-251", title: "ARCH5.8: CONSENT VIOLATION", mechanism: "Uses data without consent", forbidden: "Consent must be enforced", dimension: "architectural" },
   { id: "ARCH-PURPOSE-FAIL-252", title: "ARCH5.9: PURPOSE LIMITATION FAILURE", mechanism: "Uses data for unintended purpose", forbidden: "Purpose must be enforced", dimension: "architectural" },
   { id: "ARCH-MIN-FAIL-253", title: "ARCH5.10: DATA MINIMIZATION FAILURE", mechanism: "Collects excessive data", forbidden: "Only necessary data collected", dimension: "architectural" },

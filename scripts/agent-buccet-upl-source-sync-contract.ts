@@ -213,18 +213,18 @@ async function main() {
   assert.equal(activeDenials.length, 1, "expected one active denial doc law");
   assert.ok(runtimeTrackFieldOne.some((segment) => segment.polarity === "allow" && segment.entry.notes?.includes("[upl-doc-lane:acceptance]")));
   assert.ok(runtimeTrackFieldOne.some((segment) => segment.polarity === "deny" && segment.entry.notes?.includes("[upl-doc-lane:denial]")));
-  assert.ok(activeAcceptance[0]?.lineage, "expected acceptance doc law to carry source lineage");
-  assert.ok(activeDenials[0]?.lineage, "expected denial doc law to carry source lineage");
-  assert.equal(activeAcceptance[0]?.lineage?.sourceDocumentPath, acceptanceDocPath);
-  assert.equal(activeDenials[0]?.lineage?.sourceDocumentPath, denialDocPath);
-  assert.equal(activeAcceptance[0]?.lineage?.syncMode, "upl_sync");
-  assert.equal(activeDenials[0]?.lineage?.syncMode, "upl_sync");
-  assert.equal(activeAcceptance[0]?.lineage?.lane, "acceptance");
-  assert.equal(activeDenials[0]?.lineage?.lane, "denial");
-  assert.match(activeAcceptance[0]?.lineage?.sourceDocumentHash ?? "", /^[a-f0-9]{64}$/);
-  assert.match(activeDenials[0]?.lineage?.sourceDocumentHash ?? "", /^[a-f0-9]{64}$/);
-  assert.match(activeAcceptance[0]?.lineage?.compiledBatchHash ?? "", /^[a-f0-9]{64}$/);
-  assert.match(activeDenials[0]?.lineage?.compiledBatchHash ?? "", /^[a-f0-9]{64}$/);
+  assert.ok(activeAcceptance[0]?.sourceTrack, "expected acceptance doc law to carry a source track");
+  assert.ok(activeDenials[0]?.sourceTrack, "expected denial doc law to carry a source track");
+  assert.equal(activeAcceptance[0]?.sourceTrack?.sourceDocumentPath, acceptanceDocPath);
+  assert.equal(activeDenials[0]?.sourceTrack?.sourceDocumentPath, denialDocPath);
+  assert.equal(activeAcceptance[0]?.sourceTrack?.syncMode, "upl_sync");
+  assert.equal(activeDenials[0]?.sourceTrack?.syncMode, "upl_sync");
+  assert.equal(activeAcceptance[0]?.sourceTrack?.lane, "acceptance");
+  assert.equal(activeDenials[0]?.sourceTrack?.lane, "denial");
+  assert.match(activeAcceptance[0]?.sourceTrack?.sourceDocumentHash ?? "", /^[a-f0-9]{64}$/);
+  assert.match(activeDenials[0]?.sourceTrack?.sourceDocumentHash ?? "", /^[a-f0-9]{64}$/);
+  assert.match(activeAcceptance[0]?.sourceTrack?.compiledBatchHash ?? "", /^[a-f0-9]{64}$/);
+  assert.match(activeDenials[0]?.sourceTrack?.compiledBatchHash ?? "", /^[a-f0-9]{64}$/);
 
   const initialLedgerRecords = await readLedgerBySessionFromHome(homePath, cliSessionId);
   const sourceReadRecords = initialLedgerRecords.filter((record) => record.META.event_type === "UPL_SOURCE_READ");
@@ -239,10 +239,10 @@ async function main() {
   const denialActivation = batchActivatedRecords.find((record) => record.payload.metadata?.source_document === denialDocPath);
   assert.ok(acceptanceActivation, "expected acceptance activation witness");
   assert.ok(denialActivation, "expected denial activation witness");
-  assert.equal(acceptanceActivation?.payload.metadata?.source_document_hash, activeAcceptance[0]?.lineage?.sourceDocumentHash);
-  assert.equal(denialActivation?.payload.metadata?.source_document_hash, activeDenials[0]?.lineage?.sourceDocumentHash);
-  assert.equal(acceptanceActivation?.payload.metadata?.compiled_batch_hash, activeAcceptance[0]?.lineage?.compiledBatchHash);
-  assert.equal(denialActivation?.payload.metadata?.compiled_batch_hash, activeDenials[0]?.lineage?.compiledBatchHash);
+  assert.equal(acceptanceActivation?.payload.metadata?.source_document_hash, activeAcceptance[0]?.sourceTrack?.sourceDocumentHash);
+  assert.equal(denialActivation?.payload.metadata?.source_document_hash, activeDenials[0]?.sourceTrack?.sourceDocumentHash);
+  assert.equal(acceptanceActivation?.payload.metadata?.compiled_batch_hash, activeAcceptance[0]?.sourceTrack?.compiledBatchHash);
+  assert.equal(denialActivation?.payload.metadata?.compiled_batch_hash, activeDenials[0]?.sourceTrack?.compiledBatchHash);
 
   const secondSync = await runCli(["upl", "sync", "--json"], env);
   assert.equal(secondSync.code, 0, secondSync.stderr);
@@ -250,8 +250,8 @@ async function main() {
   const uplTwoEntries = listUserPathEntries(uplTwo);
   const secondAcceptance = uplTwoEntries.find((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]"));
   const secondDenial = uplTwoEntries.find((entry) => entry.type === "DENIED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:denial]"));
-  assert.equal(secondAcceptance?.lineage?.sourceDocumentHash, activeAcceptance[0]?.lineage?.sourceDocumentHash, "expected unchanged source doc to keep the same source hash on re-sync");
-  assert.equal(secondDenial?.lineage?.sourceDocumentHash, activeDenials[0]?.lineage?.sourceDocumentHash, "expected unchanged denial doc to keep the same source hash on re-sync");
+  assert.equal(secondAcceptance?.sourceTrack?.sourceDocumentHash, activeAcceptance[0]?.sourceTrack?.sourceDocumentHash, "expected unchanged source doc to keep the same source hash on re-sync");
+  assert.equal(secondDenial?.sourceTrack?.sourceDocumentHash, activeDenials[0]?.sourceTrack?.sourceDocumentHash, "expected unchanged denial doc to keep the same source hash on re-sync");
   assert.equal(
     uplTwoEntries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE" && entry.notes?.includes("[upl-doc-lane:acceptance]")).length,
     1,

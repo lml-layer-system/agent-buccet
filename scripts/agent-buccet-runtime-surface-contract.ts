@@ -129,7 +129,7 @@ async function main() {
   assert.equal(
     runtimeMuscle.manifest.artifactPaths.activeLawBodySource,
     ACTIVE_LAW_BODY_SOURCE,
-    "runtime muscle should retain lineage back to the rich active law source",
+    "runtime muscle should retain a source track back to the rich active law source",
   );
   assert.ok(runtimeMuscle.activeLawIds.length > 0, "runtime muscle should load active law ids from the snapped law body");
   assert.ok(

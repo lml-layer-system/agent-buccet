@@ -15,8 +15,8 @@ import {
 } from "../lib/agent-buccet/entry-doors.ts";
 import type {
   BoundaryActionKind,
-  BoundaryUplLineage,
-  BoundaryUplLineageMode,
+  BoundaryUplSourceTrack,
+  BoundaryUplSourceTrackMode,
   BoundaryRuntimeConfig,
   BuccetPathAgentAction,
   BuccetPathFormationState,
@@ -59,7 +59,7 @@ const FULL_FS_SCOPE_ACTIONS: BoundaryActionKind[] = [
 
 type ConsoleApprovalMode = "interactive" | "standing_law";
 type UplSourceLane = "acceptance" | "denial";
-type UplImportMode = BoundaryUplLineageMode;
+type UplImportMode = BoundaryUplSourceTrackMode;
 
 type UplSourceSpec = {
   lane: UplSourceLane;
@@ -1347,14 +1347,14 @@ function formatUplSourceNote(args: {
   return args.notes ? `${base} | ${args.notes}` : base;
 }
 
-function stableLineageStringify(value: unknown): string {
+function stableSourceTrackStringify(value: unknown): string {
   if (Array.isArray(value)) {
-    return `[${value.map((item) => stableLineageStringify(item)).join(",")}]`;
+    return `[${value.map((item) => stableSourceTrackStringify(item)).join(",")}]`;
   }
   if (value && typeof value === "object") {
     const entries = Object.entries(value as Record<string, unknown>)
       .sort(([left], [right]) => left.localeCompare(right))
-      .map(([key, nested]) => `${JSON.stringify(key)}:${stableLineageStringify(nested)}`);
+      .map(([key, nested]) => `${JSON.stringify(key)}:${stableSourceTrackStringify(nested)}`);
     return `{${entries.join(",")}}`;
   }
   return JSON.stringify(value);
@@ -1364,7 +1364,7 @@ function computeUplSourceDocumentHash(markdown: string): string {
   return createHash("sha256").update(markdown).digest("hex");
 }
 
-function compiledLawLineageShape(law: CompiledDocumentLaw) {
+function compiledLawSourceTrackShape(law: CompiledDocumentLaw) {
   return {
     type: law.type,
     scope: law.scope ?? null,
@@ -1374,7 +1374,7 @@ function compiledLawLineageShape(law: CompiledDocumentLaw) {
   };
 }
 
-function attachUplDocumentLineage(args: {
+function attachUplDocumentSourceTrack(args: {
   filePath: string;
   sourceDocumentHash: string;
   compiledLaws: CompiledDocumentLaw[];
@@ -1385,15 +1385,15 @@ function attachUplDocumentLineage(args: {
   compiledLaws: CompiledDocumentLaw[];
 } {
   const compiledBatchHash = createHash("sha256")
-    .update(stableLineageStringify({
+    .update(stableSourceTrackStringify({
       filePath: args.filePath,
       sourceDocumentHash: args.sourceDocumentHash,
       syncMode: args.syncMode,
       lane: args.lane ?? null,
-      compiled: args.compiledLaws.map(compiledLawLineageShape),
+      compiled: args.compiledLaws.map(compiledLawSourceTrackShape),
     }))
     .digest("hex");
-  const lineage: BoundaryUplLineage = {
+  const sourceTrack: BoundaryUplSourceTrack = {
     sourceDocumentPath: args.filePath,
     sourceDocumentHash: args.sourceDocumentHash,
     compiledBatchHash,
@@ -1404,7 +1404,7 @@ function attachUplDocumentLineage(args: {
     compiledBatchHash,
     compiledLaws: args.compiledLaws.map((compiledLaw) => ({
       ...compiledLaw,
-      lineage,
+      sourceTrack,
     })),
   };
 }
@@ -2928,7 +2928,7 @@ function normalizeUplSearchText(entry: BoundaryUplEntry): string {
     summarizeUplEntrySource(entry),
     JSON.stringify(entry.requestBasis ?? {}),
     JSON.stringify(entry.trackConstraint ?? {}),
-    JSON.stringify(entry.lineage ?? {}),
+    JSON.stringify(entry.sourceTrack ?? {}),
   ].join("\n").toLowerCase();
 }
 
@@ -3040,8 +3040,8 @@ function buildUplEntryView(entry: BoundaryUplEntry): {
       : null,
     constraint?.completionGrammar ? `completion = ${constraint.completionGrammar}` : null,
     constraint?.expressionProfile ? `expression = ${constraint.expressionProfile}` : null,
-    entry.lineage
-      ? `lineage = ${entry.lineage.syncMode}:${entry.lineage.sourceDocumentHash.slice(0, 12)}`
+    entry.sourceTrack
+      ? `source track = ${entry.sourceTrack.syncMode}:${entry.sourceTrack.sourceDocumentHash.slice(0, 12)}`
       : null,
   ]);
 
@@ -4108,7 +4108,7 @@ async function importCompiledDocumentLaws(args: {
   importReason: string;
   metadata?: Record<string, string | number | boolean>;
 }): Promise<{ upl: BoundaryUserPathLedger; entryIds: string[]; imported: number }> {
-  const { compiledBatchHash, compiledLaws } = attachUplDocumentLineage({
+  const { compiledBatchHash, compiledLaws } = attachUplDocumentSourceTrack({
     filePath: args.filePath,
     sourceDocumentHash: args.sourceDocumentHash,
     compiledLaws: args.compiled.map((entry) => ({
@@ -4128,7 +4128,7 @@ async function importCompiledDocumentLaws(args: {
     ...(args.lane ? { document_lane: args.lane } : {}),
     ...(args.metadata ?? {}),
   };
-  const witnessRequestId = `upl-lineage-${createHash("sha256")
+  const witnessRequestId = `upl-source-track-${createHash("sha256")
     .update(`${args.filePath}:${args.sourceDocumentHash}:${compiledBatchHash}:${args.syncMode}`)
     .digest("hex")
     .slice(0, 16)}`;
@@ -4155,7 +4155,7 @@ async function importCompiledDocumentLaws(args: {
     requestId: `${witnessRequestId}:hash`,
     actionKind: "fs.read",
     target: args.filePath,
-    reason: "UPL source document hashed for lineage",
+    reason: "UPL source document hashed for source track",
     lawIds: [],
     metadata: {
       ...sharedMetadata,
@@ -4749,13 +4749,13 @@ async function handleUpl(rest: string[]) {
         formatCliKeyValue("corridor", boundary.formatTrackConstraint(entry.trackConstraint)),
       ]);
     }
-    if (entry.lineage) {
-      printCliSection("Lineage", [
-        formatCliKeyValue("mode", entry.lineage.syncMode),
-        entry.lineage.lane ? formatCliKeyValue("lane", entry.lineage.lane) : null,
-        formatCliKeyValue("source", entry.lineage.sourceDocumentPath),
-        formatCliKeyValue("source hash", entry.lineage.sourceDocumentHash),
-        formatCliKeyValue("batch hash", entry.lineage.compiledBatchHash),
+    if (entry.sourceTrack) {
+      printCliSection("Source Track", [
+        formatCliKeyValue("mode", entry.sourceTrack.syncMode),
+        entry.sourceTrack.lane ? formatCliKeyValue("lane", entry.sourceTrack.lane) : null,
+        formatCliKeyValue("source", entry.sourceTrack.sourceDocumentPath),
+        formatCliKeyValue("source hash", entry.sourceTrack.sourceDocumentHash),
+        formatCliKeyValue("batch hash", entry.sourceTrack.compiledBatchHash),
       ]);
     }
     printCliSection("Live Field", [
