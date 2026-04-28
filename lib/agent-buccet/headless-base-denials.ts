@@ -57,6 +57,7 @@ export type DenialClass =
   | "external_communication"
   | "unsafe_external_communication"
   | "kernel_boundary"
+  | "user_telemetry_boundary"
   | "agent_spend";
 
 export interface HeadlessActionRequest {
@@ -1512,6 +1513,32 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     actionKinds: ["agent.spend"],
     spendAllowedCommitIntents: ["swap", "sign"],
     requestBasisTarget: "base-headless-denials:agent-spend-irreversible-commit",
+  },
+  {
+    id: "DENY.USER_TELEMETRY.DISCLOSURE.01",
+    denialClass: "user_telemetry_boundary",
+    reason: "Outbound data disclosure is denied by default and requires explicit user law to be allowed.",
+    actionKinds: ["network.send", "comm.send", ...externalCommKinds],
+    requestBasisTarget: "base-headless-denials:user-telemetry-default-disclosure",
+  },
+  {
+    id: "DENY.USER_TELEMETRY.TOOL_EXFIL.01",
+    denialClass: "user_telemetry_boundary",
+    reason: "Outbound data exfiltration via common tools is denied by default.",
+    actionKinds: ["tool.exec"],
+    requestTextPatterns: toContainsRegexList([
+      "*curl*--upload-file*",
+      "*curl*-d*",
+      "*curl*-F*",
+      "*wget*--post-file=*",
+      "*scp*:*",
+      "*rsync*:*",
+      "*ftp put*",
+      "*sftp put*",
+      "*aws s3 cp*",
+      "*gcloud storage cp*",
+    ]),
+    requestBasisTarget: "base-headless-denials:user-telemetry-tool-exfil",
   },
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),
