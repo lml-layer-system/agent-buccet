@@ -3,6 +3,7 @@ import path from "node:path";
 import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
 import {
   BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES,
+  ENGINE_ACCEPTANCE_LANES,
   LOCAL_LLM_ACCEPTANCE_LANES,
   REMOTE_LLM_ACCEPTANCE_LANES,
 } from "./agent-comprehension-acceptance.ts";
@@ -473,6 +474,20 @@ export function buildBaseAcceptanceSeeds(args: {
       requestTextPatterns: [...lane.requestTextPatterns],
       requestBasisTarget: lane.invariant,
       requestBasisSummary: `agent-source:local-llm:${lane.provider}`,
+    });
+  }
+
+  for (const lane of ENGINE_ACCEPTANCE_LANES) {
+    seeds.push({
+      id: lane.id,
+      acceptanceClass: "agent_comprehension",
+      reason: `Execution-engine path-source corridor for provider '${lane.provider}': ${lane.summary}`,
+      actionKinds: [...lane.actionKinds],
+      targetPattern: lane.targetPattern,
+      targetMatchMode: lane.targetMatchMode,
+      requestTextPatterns: [...lane.requestTextPatterns],
+      requestBasisTarget: lane.invariant,
+      requestBasisSummary: `agent-source:engine:${lane.provider}`,
     });
   }
 

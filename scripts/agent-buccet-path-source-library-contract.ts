@@ -49,8 +49,8 @@ async function main(): Promise<void> {
     await writeFile(fileSrc, "# Brand voice\n", "utf8");
     await addTeamSource({ homePath: home, slug, filePath: fileSrc, kind: "file:md" });
 
-    // ----- 2. Remote-LLM transport (Pi) ------------------------------------
-    await addTeamRemoteLlmSource({ homePath: home, slug, provider: "pi" });
+    // ----- 2. Remote-LLM transport (Anthropic) -----------------------------
+    await addTeamRemoteLlmSource({ homePath: home, slug, provider: "anthropic" });
 
     // ----- 3. Local-LLM transport (Ollama) ---------------------------------
     await addTeamLocalLlmSource({ homePath: home, slug, provider: "ollama", model: "llama3:8b" });
@@ -60,21 +60,21 @@ async function main(): Promise<void> {
 
     const corpus = manifest.pathSourceCorpus;
     const fileSource = corpus.find((s) => s.kind === "file:md");
-    const piSource = corpus.find((s) => s.transport === "remote-llm" && s.remote?.provider === "pi");
+    const aiSource = corpus.find((s) => s.transport === "remote-llm" && s.remote?.provider === "anthropic");
     const ollamaSource = corpus.find((s) => s.transport === "local-llm" && s.local?.provider === "ollama");
 
     assert.ok(fileSource, "file transport source must persist");
-    assert.ok(piSource, "remote-llm:pi source must persist");
+    assert.ok(aiSource, "remote-llm:anthropic source must persist");
     assert.ok(ollamaSource, "local-llm:ollama source must persist");
 
     // Auth key must NEVER be stored — only the env-var name.
-    assert.equal(piSource!.remote!.authEnvVar, "INFLECTION_API_KEY", "Pi source must carry the env-var name only");
-    const piJson = JSON.stringify(piSource);
-    assert.ok(!/sk-/.test(piJson), "remote source manifest must not contain key-like material");
-    assert.ok(!/Bearer/i.test(piJson), "remote source manifest must not contain bearer header material");
+    assert.equal(aiSource!.remote!.authEnvVar, "ANTHROPIC_API_KEY", "Anthropic source must carry the env-var name only");
+    const aiJson = JSON.stringify(aiSource);
+    assert.ok(!/sk-ant-/i.test(aiJson), "remote source manifest must not contain key-like material");
+    assert.ok(!/Bearer/i.test(aiJson), "remote source manifest must not contain bearer header material");
 
     // Endpoint defaults populate when not overridden.
-    assert.equal(piSource!.remote!.endpoint, REMOTE_LLM_PROVIDER_DEFAULTS.pi.endpoint, "Pi default endpoint must apply");
+    assert.equal(aiSource!.remote!.endpoint, REMOTE_LLM_PROVIDER_DEFAULTS.anthropic.endpoint, "Anthropic default endpoint must apply");
     assert.equal(ollamaSource!.local!.endpoint, LOCAL_LLM_PROVIDER_DEFAULTS.ollama.endpoint, "Ollama default endpoint must apply");
 
     console.log("SUCCESS: file, remote-llm, and local-llm transports all persist with no key material.");
@@ -120,12 +120,15 @@ async function main(): Promise<void> {
 
     // ----- 5. Unknown remote endpoints are NOT covered ---------------------
     const unknownHost = "https://api.unknown-llm.example.com/v1/chat";
-    const matches = seeds.filter((s) =>
-      s.acceptanceClass === "agent_comprehension"
-      && s.actionKinds.includes("network.send")
-      && s.targetMatchMode === "regex"
-      && new RegExp(s.targetPattern.replace(/^\/(.*)\/[a-z]*$/, "$1"), "i").test(unknownHost),
-    );
+    const matches = seeds.filter((s) => {
+      if (s.acceptanceClass !== "agent_comprehension") return false;
+      if (!s.actionKinds.includes("network.send")) return false;
+      if (s.targetMatchMode !== "regex") return false;
+      const pattern = s.targetPattern;
+      if (typeof pattern !== "string" || pattern.length === 0) return false;
+      const inner = pattern.replace(/^\/(.*)\/[a-z]*$/, "$1");
+      return new RegExp(inner, "i").test(unknownHost);
+    });
     assert.equal(matches.length, 0, "an unknown remote endpoint must NOT match any shipped corridor — operator must add it explicitly");
     console.log("SUCCESS: unknown remote endpoints are not silently allowed; operator must opt them in.");
 

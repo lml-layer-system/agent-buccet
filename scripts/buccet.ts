@@ -15,9 +15,11 @@ import {
 } from "../lib/agent-buccet/entry-doors.ts";
 import {
   COMPREHENSION_STAGE_IDS,
+  ENGINE_PROVIDER_DEFAULTS,
   LOCAL_LLM_PROVIDER_DEFAULTS,
   REMOTE_LLM_PROVIDER_DEFAULTS,
   addTeamAgent,
+  addTeamEngineSource,
   addTeamLocalLlmSource,
   addTeamRemoteLlmSource,
   addTeamSource,
@@ -31,6 +33,7 @@ import {
   teamSlug,
   teamsRoot,
   type ComprehensionStageId,
+  type EngineProvider,
   type LocalLlmProvider,
   type RemoteLlmProvider,
   type TeamManifest,
@@ -6896,6 +6899,7 @@ function printHookStatusDetails(payload: HookStatusPayload): void {
 function createUsage(): never {
   const remoteProviders = Object.keys(REMOTE_LLM_PROVIDER_DEFAULTS).join(", ");
   const localProviders = Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ");
+  const engineProviders = Object.keys(ENGINE_PROVIDER_DEFAULTS).join(", ");
   console.error([
     "Usage:",
     "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
@@ -6912,15 +6916,23 @@ function createUsage(): never {
     "  buccet create add-source <team-name> --remote <provider> [--model <m>] [--endpoint <url>]",
     "                                              [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
     "                                              [--title <t>] [--summary <s>]",
-    "                                              ; remote-llm transport (network.send, gated by UPL)",
+    "                                              ; AI/LLM transport (network.send, gated by UPL)",
     "  buccet create add-source <team-name> --local <provider> --model <m> [--binary <bin>]",
     "                                              [--endpoint <url>] [--title <t>] [--summary <s>]",
-    "                                              ; local-llm transport (tool.exec, gated by UPL)",
+    "                                              ; local-LLM transport (tool.exec, gated by UPL)",
+    "  buccet create add-source <team-name> --engine <provider> [--package <pkg>]",
+    "                                              [--ai-package <pkg>] [--allow-tools <csv>]",
+    "                                              [--tool-execution parallel|sequential]",
+    "                                              [--title <t>] [--summary <s>]",
+    "                                              ; HANDS — Pi (or other) execution engine; one per team.",
+    "                                              ; tools dispatch through fs.* / tool.exec / network.send,",
+    "                                              ; each gated by UPL via Pi's beforeToolCall hook.",
     "  buccet create remove-source <team-name> --id <source-id>",
     "",
     `  Stages for --owns-step:    ${COMPREHENSION_STAGE_IDS.join(", ")}`,
     `  Remote providers (--remote): ${remoteProviders}`,
     `  Local providers (--local):   ${localProviders}`,
+    `  Engine providers (--engine): ${engineProviders}`,
   ].join("\n"));
   process.exit(1);
 }
@@ -7183,6 +7195,39 @@ async function handleCreate(rest: string[]) {
       });
       console.log(`${clrOk(`local source ${localFlag}:${model} added to ${manifest.slug}`)}`);
       console.log(`${clrDim("  Calls flow as tool.exec through the boundary; UPL acceptance is required.")}`);
+      printTeamCorpus(manifest);
+      return;
+    }
+
+    const engineFlag = flags["engine"];
+    if (engineFlag !== undefined) {
+      if (!(engineFlag in ENGINE_PROVIDER_DEFAULTS)) {
+        console.error(`Unknown engine provider "${engineFlag}". Allowed: ${Object.keys(ENGINE_PROVIDER_DEFAULTS).join(", ")}`);
+        process.exit(1);
+      }
+      const allowedToolsRaw = flags["allow-tools"];
+      const allowedTools = allowedToolsRaw
+        ? allowedToolsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+        : undefined;
+      const toolExecutionRaw = flags["tool-execution"];
+      const toolExecution =
+        toolExecutionRaw === "parallel" || toolExecutionRaw === "sequential" ? toolExecutionRaw : undefined;
+      const manifest = await addTeamEngineSource({
+        homePath,
+        slug,
+        provider: engineFlag as EngineProvider,
+        agentCorePackage: flags["package"],
+        aiPackage: flags["ai-package"],
+        toolExecution,
+        allowedTools,
+        installPath: flags["install-path"],
+        title: flags["title"],
+        summary: flags["summary"],
+      });
+      console.log(`${clrOk(`engine ${engineFlag} bound to ${manifest.slug}`)}`);
+      console.log(`${clrDim("  Hands of the team. Pi imports as a peer dep; install with:")}`);
+      console.log(`${clrDim("    npm i @mariozechner/pi-agent-core @mariozechner/pi-ai")}`);
+      console.log(`${clrDim("  Every tool dispatch flows through Buccet's boundary via beforeToolCall.")}`);
       printTeamCorpus(manifest);
       return;
     }

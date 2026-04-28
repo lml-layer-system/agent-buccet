@@ -60,24 +60,34 @@ export type TeamAgent = {
 };
 
 /**
- * Transport tells the runtime how a path source supplies knowledge:
- *  - file        : on-disk markdown / code / json (the original path-source kind)
- *  - remote-llm  : remote inference endpoint (Pi, OpenAI, Anthropic, Gemini, Mistral, ...)
- *  - local-llm   : local inference runtime (Ollama, llama.cpp, LM Studio, MLX, vLLM, ...)
- *  - http-api    : generic HTTP knowledge endpoint (vector DBs, search, custom RAG)
+ * Transport tells the runtime what a path source IS and how Buccet wires
+ * it into the boundary surface:
  *
- * Every transport routes through the boundary on every fetch:
- *   file       → fs.read   (gated by scope + UPL)
- *   remote-llm → network.send (gated by UPL acceptance + spend)
- *   local-llm  → tool.exec  (gated by UPL acceptance + tool-exec rules)
- *   http-api   → network.send (gated by UPL acceptance)
+ *  - file        : on-disk markdown / code / json (the original path-source kind)
+ *  - remote-llm  : remote inference endpoint (Anthropic, OpenAI, Gemini, ...)
+ *  - local-llm   : local inference runtime (Ollama, llama.cpp, LM Studio, ...)
+ *  - http-api    : generic HTTP knowledge endpoint (vector DBs, search, RAG)
+ *  - engine      : the singular execution engine — Pi today — that runs as
+ *                  the team's HANDS. The brain (UBIE + AI/LLM + library)
+ *                  proposes; the engine carries proposals through Buccet's
+ *                  boundary and only executes the lawful subset.
+ *
+ * Every transport routes through the boundary on every action:
+ *   file       → fs.read       (gated by scope + UPL)
+ *   remote-llm → network.send  (gated by UPL acceptance + spend)
+ *   local-llm  → tool.exec     (gated by UPL acceptance + tool-exec rules)
+ *   http-api   → network.send  (gated by UPL acceptance)
+ *   engine     → declaratory (the engine itself emits no calls; the tools
+ *                it dispatches do, through fs.* / tool.exec / network.send /
+ *                agent.spend, all of which are already gated. The engine
+ *                acceptance lane NAMES that Pi is this team's lawful hands)
  *
  * Output is also subject to the creative-wall denial — sources cannot write
  * back into UPL/scope/ledger state.
  */
-export type SourceTransport = "file" | "remote-llm" | "local-llm" | "http-api";
+export type SourceTransport = "file" | "remote-llm" | "local-llm" | "http-api" | "engine";
 
-export type RemoteLlmProvider = "pi" | "openai" | "anthropic" | "gemini" | "mistral" | "groq" | "custom";
+export type RemoteLlmProvider = "openai" | "anthropic" | "gemini" | "mistral" | "groq" | "deepseek" | "custom";
 
 export type RemoteLlmSourceConfig = {
   provider: RemoteLlmProvider;
@@ -106,6 +116,44 @@ export type HttpApiSourceConfig = {
   rateCapPerMinute?: number;
 };
 
+/**
+ * The execution engine that acts as a team's HANDS. Pi today is the
+ * canonical (and only) provider; the architecture leaves room for an
+ * operator to point at a compatible alternative without changing the
+ * substrate. Pi is downloaded by the operator (e.g.
+ * `npm i @mariozechner/pi-agent-core @mariozechner/pi-ai`) and registered
+ * as a path source; Buccet's pi-adapter imports it as a peer dep at runtime.
+ *
+ * The engine itself emits no boundary calls — it is the body that dispatches
+ * tools, and those tools (read/write/bash/network) flow through Buccet's
+ * existing fs.* / tool.exec / network.send corridors via Pi's
+ * `beforeToolCall` hook.
+ */
+export type EngineProvider = "pi" | "custom";
+
+export type EngineSourceConfig = {
+  provider: EngineProvider;
+  agentCorePackage?: string;
+  aiPackage?: string;
+  toolExecution?: "parallel" | "sequential";
+  allowedTools?: string[];
+  installPath?: string;
+  notes?: string;
+};
+
+export const ENGINE_PROVIDER_DEFAULTS: Record<EngineProvider, EngineSourceConfig> = {
+  pi: {
+    provider: "pi",
+    agentCorePackage: "@mariozechner/pi-agent-core",
+    aiPackage: "@mariozechner/pi-ai",
+    toolExecution: "parallel",
+    allowedTools: ["bash", "read", "write", "edit", "grep", "glob"],
+  },
+  custom: {
+    provider: "custom",
+  },
+};
+
 export type TeamSourceRef = {
   id: string;
   title: string;
@@ -117,6 +165,7 @@ export type TeamSourceRef = {
   remote?: RemoteLlmSourceConfig;
   local?: LocalLlmSourceConfig;
   httpApi?: HttpApiSourceConfig;
+  engine?: EngineSourceConfig;
 };
 
 /**
@@ -125,11 +174,6 @@ export type TeamSourceRef = {
  * here; we only carry the env-var name.
  */
 export const REMOTE_LLM_PROVIDER_DEFAULTS: Record<RemoteLlmProvider, Partial<RemoteLlmSourceConfig>> = {
-  pi: {
-    endpoint: "https://api.inflection.ai/external/api/inference",
-    model: "inflection_3_pi",
-    authEnvVar: "INFLECTION_API_KEY",
-  },
   openai: {
     endpoint: "https://api.openai.com/v1/chat/completions",
     model: "gpt-4o-mini",
@@ -154,6 +198,11 @@ export const REMOTE_LLM_PROVIDER_DEFAULTS: Record<RemoteLlmProvider, Partial<Rem
     endpoint: "https://api.groq.com/openai/v1/chat/completions",
     model: "llama-3.1-8b-instant",
     authEnvVar: "GROQ_API_KEY",
+  },
+  deepseek: {
+    endpoint: "https://api.deepseek.com/v1/chat/completions",
+    model: "deepseek-chat",
+    authEnvVar: "DEEPSEEK_API_KEY",
   },
   custom: {},
 };
@@ -552,6 +601,66 @@ export async function addTeamLocalLlmSource(args: AddLocalLlmSourceArgs): Promis
   return manifest;
 }
 
+export type AddEngineSourceArgs = {
+  homePath: string;
+  slug: TeamSlug;
+  provider: EngineProvider;
+  agentCorePackage?: string;
+  aiPackage?: string;
+  toolExecution?: "parallel" | "sequential";
+  allowedTools?: string[];
+  installPath?: string;
+  title?: string;
+  summary?: string;
+  notes?: string;
+};
+
+export async function addTeamEngineSource(args: AddEngineSourceArgs): Promise<TeamManifest> {
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) throw new Error(`Team "${args.slug}" not found`);
+
+  const defaults = ENGINE_PROVIDER_DEFAULTS[args.provider] ?? ENGINE_PROVIDER_DEFAULTS.custom;
+  const engine: EngineSourceConfig = {
+    provider: args.provider,
+    ...(args.agentCorePackage ?? defaults.agentCorePackage
+      ? { agentCorePackage: args.agentCorePackage ?? defaults.agentCorePackage }
+      : {}),
+    ...(args.aiPackage ?? defaults.aiPackage
+      ? { aiPackage: args.aiPackage ?? defaults.aiPackage }
+      : {}),
+    toolExecution: args.toolExecution ?? defaults.toolExecution ?? "parallel",
+    allowedTools: args.allowedTools ?? defaults.allowedTools ?? [],
+    ...(args.installPath ? { installPath: args.installPath } : {}),
+    ...(args.notes ? { notes: args.notes } : {}),
+  };
+
+  // The team can have at most one engine source: hands are singular.
+  const existingEngine = manifest.pathSourceCorpus.find((s) => s.transport === "engine");
+  if (existingEngine) {
+    throw new Error(
+      `Team "${args.slug}" already has an engine source (${existingEngine.kind}). Remove it first with \`buccet create remove-source ${args.slug} --id ${existingEngine.id}\`.`,
+    );
+  }
+
+  const sourceId = synthesizeEngineSourceId(engine);
+  const ref: TeamSourceRef = {
+    id: sourceId,
+    title: args.title ?? args.provider,
+    kind: `engine:${args.provider}`,
+    summary:
+      args.summary ??
+      `Execution engine via ${args.provider}. Hands of the brain — every tool call routed through Buccet's boundary before execution.${
+        engine.agentCorePackage ? ` Peer dep: ${engine.agentCorePackage}.` : ""
+      }`,
+    sourceUri: engine.agentCorePackage ? `npm:${engine.agentCorePackage}` : `engine:${args.provider}`,
+    transport: "engine",
+    engine,
+  };
+  manifest.pathSourceCorpus.push(ref);
+  await saveTeam(args.homePath, manifest);
+  return manifest;
+}
+
 export async function removeTeamSource(args: {
   homePath: string;
   slug: TeamSlug;
@@ -617,6 +726,16 @@ function synthesizeLocalSourceId(local: LocalLlmSourceConfig): string {
     .digest("hex")
     .slice(0, 16);
   return `team-source-local-${digest}`;
+}
+
+function synthesizeEngineSourceId(engine: EngineSourceConfig): string {
+  const digest = createHash("sha256")
+    .update(
+      `engine::${engine.provider}::${engine.agentCorePackage ?? ""}::${engine.aiPackage ?? ""}`,
+    )
+    .digest("hex")
+    .slice(0, 16);
+  return `team-source-engine-${digest}`;
 }
 
 export function expandTeamPathSourcesForFormation(

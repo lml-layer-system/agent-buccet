@@ -266,12 +266,12 @@ type LocalLlmCorridor = {
 };
 
 export const REMOTE_LLM_ACCEPTANCE_CORRIDORS: readonly RemoteLlmCorridor[] = [
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.PI",        provider: "pi",        hostPattern: "/api\\.inflection\\.ai/i",                                  defaultModel: "inflection_3_pi" },
   { id: "ACCEPT.AGENT.SOURCE.PROVIDER.OPENAI",    provider: "openai",    hostPattern: "/api\\.openai\\.com/i",                                     defaultModel: "gpt-4o-mini" },
   { id: "ACCEPT.AGENT.SOURCE.PROVIDER.ANTHROPIC", provider: "anthropic", hostPattern: "/api\\.anthropic\\.com/i",                                  defaultModel: "claude-3-5-sonnet-latest" },
   { id: "ACCEPT.AGENT.SOURCE.PROVIDER.GEMINI",    provider: "gemini",    hostPattern: "/generativelanguage\\.googleapis\\.com/i",                  defaultModel: "gemini-1.5-flash" },
   { id: "ACCEPT.AGENT.SOURCE.PROVIDER.MISTRAL",   provider: "mistral",   hostPattern: "/api\\.mistral\\.ai/i",                                     defaultModel: "mistral-small-latest" },
   { id: "ACCEPT.AGENT.SOURCE.PROVIDER.GROQ",      provider: "groq",      hostPattern: "/api\\.groq\\.com/i",                                       defaultModel: "llama-3.1-8b-instant" },
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.DEEPSEEK", provider: "deepseek",   hostPattern: "/api\\.deepseek\\.com/i",                                   defaultModel: "deepseek-chat" },
 ];
 
 export const LOCAL_LLM_ACCEPTANCE_CORRIDORS: readonly LocalLlmCorridor[] = [
@@ -327,4 +327,62 @@ export const LOCAL_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] = LOC
   brainSourceUri: BRAIN_SOURCE_URI,
   provider: c.provider,
   transport: "local-llm" as const,
+}));
+
+/**
+ * Engine acceptance lanes — declaratory NAMING that the operator has chosen
+ * a particular execution engine as a team's lawful hands. The engine itself
+ * emits no boundary calls; it dispatches tools, and those tools (Bash,
+ * Read, Write, Edit, network, etc.) flow through the existing per-action
+ * corridors (fs.*, tool.exec, network.send, agent.spend) via the engine's
+ * pre-execution hook (Pi: `beforeToolCall`). UPL adjudicates each tool;
+ * denial returns to the engine as a structured `block` that the brain
+ * (LLM) sees as "you can't do that, try lawful or escalate."
+ *
+ * Bound to chat.emit (the "naming" surface) per the comprehension-lane
+ * convention; the engine's tool dispatches are gated by per-action lanes.
+ */
+type EngineCorridor = {
+  id: string;
+  provider: string;
+  packageHint: string;
+  summary: string;
+};
+
+export const ENGINE_ACCEPTANCE_CORRIDORS: readonly EngineCorridor[] = [
+  {
+    id: "ACCEPT.AGENT.SOURCE.ENGINE.PI",
+    provider: "pi",
+    packageHint: "@mariozechner/pi-agent-core",
+    summary:
+      "Pi (the open-source Mario Zechner agent runtime, peer dep `@mariozechner/pi-agent-core`) is a lawful execution engine — it is a team's hands. Pi never bypasses UPL: every tool call routes through Buccet's `enforceBoundaryProposal` via Pi's `beforeToolCall` hook before any side effect leaves the engine.",
+  },
+];
+
+export type EngineAcceptanceLane = {
+  id: string;
+  invariant: string;
+  summary: string;
+  actionKinds: BoundaryActionKind[];
+  targetPattern: string;
+  targetMatchMode: "prefix" | "exact" | "regex";
+  requestTextPatterns: string[];
+  brainSourceUri: string;
+  provider: string;
+};
+
+export const ENGINE_ACCEPTANCE_LANES: readonly EngineAcceptanceLane[] = ENGINE_ACCEPTANCE_CORRIDORS.map((c) => ({
+  id: c.id,
+  invariant: `agent-source-engine-${c.provider}`,
+  summary: c.summary,
+  actionKinds: ["chat.emit"],
+  targetPattern: `agent-source-engine-${c.provider}`,
+  targetMatchMode: "exact" as const,
+  requestTextPatterns: [
+    `engine:${c.provider}`,
+    `hands engine ${c.provider}`,
+    c.packageHint,
+  ],
+  brainSourceUri: BRAIN_SOURCE_URI,
+  provider: c.provider,
 }));
