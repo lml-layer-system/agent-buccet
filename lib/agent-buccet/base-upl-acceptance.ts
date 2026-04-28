@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
+import { BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES } from "./agent-comprehension-acceptance.ts";
 import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
 import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
@@ -34,7 +35,8 @@ export type BaseAcceptanceClass =
   | "notes_and_tasks"
   | "openclaw_skill"
   | "curated_capability"
-  | "marketplace_skill";
+  | "marketplace_skill"
+  | "agent_comprehension";
 
 type BaseAcceptanceSeed = {
   id: string;
@@ -425,6 +427,20 @@ function buildBaseAcceptanceSeeds(args: {
       ...(lane.requestTextPatterns ? { requestTextPatterns: [...lane.requestTextPatterns] } : {}),
       requestBasisTarget: lane.name,
       requestBasisSummary: `marketplace:${lane.source}:${lane.name}`,
+    });
+  }
+
+  for (const lane of BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES) {
+    seeds.push({
+      id: lane.id,
+      acceptanceClass: "agent_comprehension",
+      reason: `Agent comprehension invariant '${lane.invariant}' (stage=${lane.stage}) is a lawful acceptance entry: ${lane.summary}.`,
+      actionKinds: [...lane.actionKinds],
+      targetPattern: lane.targetPattern,
+      targetMatchMode: lane.targetMatchMode,
+      requestTextPatterns: [...lane.requestTextPatterns],
+      requestBasisTarget: lane.invariant,
+      requestBasisSummary: `agent-comprehension:${lane.stage}:${lane.invariant}`,
     });
   }
 

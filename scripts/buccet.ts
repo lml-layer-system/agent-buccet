@@ -13,6 +13,22 @@ import {
   mergeBoundaryHostConfig,
   type BoundaryHostKind,
 } from "../lib/agent-buccet/entry-doors.ts";
+import {
+  COMPREHENSION_STAGE_IDS,
+  addTeamAgent,
+  addTeamSource,
+  createTeam,
+  deleteTeam,
+  listTeams,
+  loadTeam,
+  removeTeamAgent,
+  removeTeamSource,
+  saveTeam,
+  teamSlug,
+  teamsRoot,
+  type ComprehensionStageId,
+  type TeamManifest,
+} from "../lib/agent-buccet/team-workshop.ts";
 import type {
   BoundaryActionKind,
   BoundaryUplLineage,
@@ -44,7 +60,7 @@ type BuccetConfig = {
 };
 
 type ParsedGlobal = {
-  command: string;
+  command: string | undefined;
   rest: string[];
 };
 
@@ -272,69 +288,141 @@ function formatConsoleApprovalMode(mode: ConsoleApprovalMode): string {
   return mode === "standing_law" ? "24/7 no-questions (standing law)" : "interactive";
 }
 
-function usage(): never {
-  console.error([
-    "Usage:",
-    "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope] [--arm-now]",
-    "  buccet console                                            — open the unified operator cockpit (shield + control + witness)",
-    "  buccet where [--json]                                     — show exactly where approved law, denied law, path sources, and scopes go",
-    "  buccet doctor [--strict]                                  — health check: platform, backend, intercept, ledger",
-    "  buccet run [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] -- <command> [args...]",
-    "  buccet status [--json]",
-    "  buccet logs [--limit <n>] [--json]",
-    "  buccet ledger [--limit <n>] [--json] [--follow]          — optional split witness view",
-    "  buccet scope add <path> [--actions <csv>]",
-    "  buccet scope list [--json]",
-    "  buccet upl list [--all] [--type approved|denied] [--status active|muted|deleted] [--search <query...>] [--json]",
-    "  buccet upl search <query...> [--all] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl show <upl-id> [--json]",
-    "  buccet upl diff [--all] [--type approved|denied] [--status active|muted|deleted] [--search <query...>] [--json]",
-    "  buccet upl mute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl unmute <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl remove <upl-id...> [--search <query...>] [--type approved|denied] [--status active|muted|deleted] [--json]",
-    "  buccet upl sources [--open <catalog|all>] [--json]       — show authored lanes plus external UPL intake catalogs",
-    "  buccet upl import <file...> [--scope GLOBAL|SESSION] [--json]",
-    "  buccet upl sync [--scope GLOBAL|SESSION] [--lane acceptance|denial] [--json]",
-    "  buccet path list [--json]",
-    "  buccet path show <path-name> [--json]",
-    "  buccet path run <path-name> [--request <text>] [--domain <domain>] [--steps <n>|--all] [--fresh] [--json]",
-    "  buccet path watch <path-name|formation-id> [--follow] [--interval-ms <n>] [--json]",
-    "  buccet path formations list [--all-sessions] [--json]",
-    "  buccet path freeze <path-name|formation-id> [--issued-by <id>] [--reason <text>] [--json]",
-    "  buccet path agents <path-name|formation-id> [--json]",
-    "  buccet path agent <inspect|resume|quarantine|replace|abort> <path-name|formation-id> <agent-id> [--issued-by <id>] [--reason <text>] [--replacement <agent-id>] [--json]",
-    "  buccet path close <path-name|formation-id> [--json]",
-    "  buccet path sources add <path-name> <file...> [--domain <domain>] [--json]",
-    "  buccet path sources list <path-name> [--json]",
-    "  buccet transport pack <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--with-law] [--json] [-- <entrypoint> ...]",
-    "  buccet transport export <source-dir> [--output <artifact.buccet.tgz>] [--name <name>] [--workdir </path>] [--with-law] [--json] [-- <entrypoint> ...]",
-    "  buccet transport import <artifact.buccet.tgz> [--into <dir>] [--json]",
-    "  buccet transport run <artifact-or-dir> [--into <runtime-dir>] [--unit-id <id>] [--json] [-- <command> ...]",
-    "  buccet shed [--reason <text>] [--json]                  — deny-side shed and clean disposable respawn",
-    "  buccet shed status [--limit <n>] [--json]               — recent shed / respawn witness history",
-    "  buccet quarantine [status] [--limit <n>] [--json]       — shed reboot boundary-on-self status and caught set",
-    "  buccet quarantine review [--json]                       — interactive first-screen deny flow for shed reboot quarantine",
-    "  buccet quarantine deny-all [--json]                     — write all caught quarantine items into denial law",
-    "  buccet quarantine deny <item-id...> [--json]            — write selected caught quarantine items into denial law",
-    "  buccet hook build",
-    "  buccet hook start",
-    "  buccet hook status [--json] [--watch]                     — optional split shield / heartbeat view",
-    "  buccet hook env [--json]",
-    "  buccet hook run -- <command> [args...]",
-    "  buccet hook stop",
-    "  buccet host attach <claude-code|claude-desktop|cursor|vscode> [--project <path>] [--name <server-name>] [--command <path>] [--write] [--json]",
-    "  buccet git [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] [-- <git args...>]",
-    "  buccet gh [--scope <path>] [--cwd <path>] [--session-id <id>] [--actor-id <id>] [--dry-run] [-- <gh args...>]",
-    "  buccet swarm list [--json]",
-    "  buccet swarm mode [interactive|standing-law] [--json]",
-    "  buccet swarm approve <group-id> [--issued-by <id>] [--reason <text>] [--json]",
-    "  buccet swarm deny <group-id> [--denied-by <id>] [--reason <text>] [--json]",
-    "  buccet mcp [--session-id <id>] [--actor-id <id>] [--dry-run]      — start MCP server (JSON-RPC 2.0 over stdio, full boundary enforcement)",
-    "  buccet mcp status                                                  — show MCP session, hook daemon state, and ledger location",
-    "  buccet uninstall",
-  "  buccet extract-laws <file.md> [--lane acceptance|denial] [--json]  — extract and inspect law directives from a markdown document",
-  ].join("\n"));
-  process.exit(1);
+function usage(stream: "stdout" | "stderr" = "stderr"): never {
+  const out = stream === "stdout" ? console.log.bind(console) : console.error.bind(console);
+  const sections: Array<[string, string[]]> = [
+    [
+      "Defense — law and verdict",
+      [
+        "  buccet console                                                    open the unified operator cockpit",
+        "  buccet upl list|search|show|diff [...]                            inspect standing law (acceptance + denial)",
+        "  buccet upl mute|unmute|remove <upl-id...> [...]                   curate standing law",
+        "  buccet upl import|sync [--lane acceptance|denial] [...]           ratify authored law",
+        "  buccet upl sources [--open <catalog|all>]                         browse the upstream law-source catalogs",
+        "  buccet scope add <path> [--actions <csv>]                         grant a scope corridor",
+        "  buccet scope list [--json]                                        list standing scope grants",
+        "  buccet swarm list                                                 show swarm groups awaiting verdict",
+        "  buccet swarm approve|deny <group-id> [--reason <text>]            issue a single verdict for a swarm group",
+        "  buccet swarm mode [interactive|standing-law]                      pick how swarms get resolved",
+        "  buccet swarm view <team-name>                                     SWARM GOVERNANCE peer-row view for a team",
+        "  buccet shed [--reason <text>]                                     deny-side shed and clean respawn",
+        "  buccet quarantine [status|review|deny-all|deny <id...>] [...]     work the shed-reboot caught set",
+      ],
+    ],
+    [
+      "Run — daily motion",
+      [
+        "  buccet run [--scope <path>] [...] -- <command> [args...]          run a bounded command under the boundary",
+        "  buccet path run <path-name> [--request <text>] [...]              execute a path with a request",
+        "  buccet path list|show|watch|formations|freeze|close|agents|...    work formations and rosters",
+        "  buccet path sources add|list <path-name> [...]                    enrich path knowledge",
+        "  buccet hook build|start|run|status|env|stop                       run with hook daemon",
+        "  buccet git|gh [...] [-- <args...>]                                bounded git/gh tool door",
+        "  buccet mcp [--session-id <id>] [...]                              start MCP server (stdio)",
+        "  buccet host attach <claude-code|claude-desktop|cursor|vscode>     wire MCP into a host",
+        "  buccet transport pack|export|import|run [...]                     portable Buccet artifacts",
+      ],
+    ],
+    [
+      "Inspect — see what is standing",
+      [
+        "  buccet status [--json]                                            workspace overview",
+        "  buccet where [--json]                                             show where law, sources, and scope live",
+        "  buccet doctor [--strict]                                          platform/backend/intercept/ledger health",
+        "  buccet logs [--limit <n>] [--json]                                recent operator logs",
+        "  buccet ledger [--limit <n>] [--json] [--follow]                   witness ledger view",
+        "  buccet extract-laws <file.md> [--lane acceptance|denial]          inspect law directives in a markdown doc",
+        "  buccet mcp status                                                 MCP session and hook state",
+      ],
+    ],
+    [
+      "Workshop — build hyper-specialized teams (creativity face)",
+      [
+        "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track snapped)",
+        "  buccet create list                                                list standing teams",
+        "  buccet create show <team-name>                                    show a team manifest",
+        "  buccet create add-agent <team-name> --name <id> --specialty <t>",
+        "                  [--model <hint>] [--owns-step <stage>] [--tools <csv>] [--sources <csv>] [--cap <n>]",
+        "  buccet create remove-agent <team-name> --name <id>",
+        "  buccet create add-source <team-name> <file> [--title <t>] [--kind <k>]",
+        "  buccet create remove-source <team-name> --id <source-id>",
+        "  buccet create remove <team-name> --force",
+        "  buccet team list|status|start|stop <team-name>                   lifecycle for standing teams",
+        "  buccet team export <team-name> [--output <file.json>]            portable team manifest",
+        "  buccet team import <file.json> [--rename <new-name>]             materialize a team from a manifest",
+        "  buccet enter <team-name>                                         interactive chat box for a team",
+        "  buccet ask <team-name> \"<task>\"                                  one-shot task entry",
+        "  buccet mute creative                                             hide creative-side messages in `buccet console` (presentation only)",
+        "  buccet unmute creative                                           re-show creative-side messages",
+      ],
+    ],
+    [
+      "Lifecycle — install and remove",
+      [
+        "  buccet init [--session-id <id>] [--actor-id <id>] [--scope <path>] [--dry-run] [--no-default-scope] [--arm-now]",
+        "  buccet uninstall",
+      ],
+    ],
+  ];
+
+  out("");
+  out("Usage: buccet <command> [options]");
+  for (const [title, lines] of sections) {
+    out("");
+    out(`  ${title}`);
+    for (const line of lines) {
+      out(line);
+    }
+  }
+  out("");
+  out("  Tip: run `buccet` with no arguments for the welcome panel.");
+  out("");
+  process.exit(stream === "stdout" ? 0 : 1);
+}
+
+function printBuccetWelcome(): void {
+  printBuccetWordmark();
+  const C = c;
+
+  const defenseLines = [
+    `  ${clrBold("buccet console")}                       ${clrDim("open the unified operator cockpit")}`,
+    `  ${clrBold("buccet upl list|search|show")}          ${clrDim("inspect standing law")}`,
+    `  ${clrBold("buccet swarm list")}                    ${clrDim("see groups awaiting one verdict")}`,
+    `  ${clrBold("buccet scope add <path>")}              ${clrDim("grant a scope corridor")}`,
+  ];
+  const runLines = [
+    `  ${clrBold("buccet run -- <command>")}              ${clrDim("run a bounded command")}`,
+    `  ${clrBold("buccet path run <path-name>")}          ${clrDim("execute a named path with a request")}`,
+    `  ${clrBold("buccet hook start")}                    ${clrDim("start the hook daemon")}`,
+    `  ${clrBold("buccet mcp")}                           ${clrDim("start the MCP server (stdio)")}`,
+  ];
+  const inspectLines = [
+    `  ${clrBold("buccet status")}                        ${clrDim("workspace overview")}`,
+    `  ${clrBold("buccet where")}                         ${clrDim("show law, source, and scope locations")}`,
+    `  ${clrBold("buccet doctor")}                        ${clrDim("platform/backend/intercept/ledger health")}`,
+    `  ${clrBold("buccet ledger --follow")}               ${clrDim("watch the witness ledger live")}`,
+  ];
+
+  console.log(`  ${clrBold("Agent Buccet")}  ${clrDim("· law-bound boundary for AI agents")}`);
+  console.log("");
+  console.log(`  ${C.dim}Standing law decides. Operator ratifies. Ledger witnesses.${C.reset}`);
+
+  console.log("");
+  console.log(`  ${clrBold("Defense — law and verdict")}`);
+  for (const line of defenseLines) console.log(line);
+
+  console.log("");
+  console.log(`  ${clrBold("Run — daily motion")}`);
+  for (const line of runLines) console.log(line);
+
+  console.log("");
+  console.log(`  ${clrBold("Inspect — see what is standing")}`);
+  for (const line of inspectLines) console.log(line);
+
+  console.log("");
+  console.log(`  ${clrDim("Run")} ${clrBold("buccet --help")} ${clrDim("for the full command map.")}`);
+  console.log(`  ${clrDim("Run")} ${clrBold("buccet doctor")} ${clrDim("if anything looks off.")}`);
+  console.log("");
 }
 
 function currentScriptDir(): string {
@@ -351,7 +439,7 @@ function shortSocketPath(homePath: string, label: string): string {
 function parseGlobal(argv: string[]): ParsedGlobal {
   const command = argv[0];
   if (!command) {
-    usage();
+    return { command: undefined, rest: [] };
   }
   return {
     command,
@@ -3822,9 +3910,14 @@ async function handleStatus(rest: string[]) {
   const config = await loadConfig(home.configPath);
 
   if (!config) {
+    const teamsForUninit = await listTeams(homePath);
     const payload = {
       initialized: false,
       home: home.homePath,
+      workshop: {
+        total: teamsForUninit.length,
+        running: teamsForUninit.filter((t) => t.status === "running").length,
+      },
     };
     if (asJson) {
       printJson(payload);
@@ -3834,6 +3927,10 @@ async function handleStatus(rest: string[]) {
     console.log(`  ${clrWarn()}  ${clrBold("Agent Buccet is not initialized.")}`);
     console.log(`  ${clrDim("home:")}  ${home.homePath}`);
     console.log(`  Run ${clrBold("buccet init")} to get started.`);
+    if (teamsForUninit.length > 0) {
+      console.log(``);
+      console.log(`  ${clrDim("Workshop has")} ${clrBold(String(teamsForUninit.length))} ${clrDim("team(s); they will activate after init.")}`);
+    }
     console.log(``);
     return;
   }
@@ -3851,6 +3948,9 @@ async function handleStatus(rest: string[]) {
     .then((raw) => JSON.parse(raw) as { witness?: { status?: string; mode?: string; target?: string; fallback?: boolean; generated_at?: string } })
     .catch(() => null);
   const witnessStatus = releaseManifest?.witness ?? null;
+
+  const teams = await listTeams(homePath);
+  const runningTeams = teams.filter((t) => t.status === "running");
 
   const payload = {
     initialized: true,
@@ -3877,6 +3977,16 @@ async function handleStatus(rest: string[]) {
           published_at: witnessStatus.generated_at ?? null,
         }
       : null,
+    workshop: {
+      total: teams.length,
+      running: runningTeams.length,
+      teams: teams.map((t) => ({
+        slug: t.slug,
+        domain: t.domain,
+        status: t.status,
+        peers: t.agents.length,
+      })),
+    },
   };
 
   if (asJson) {
@@ -3916,6 +4026,26 @@ async function handleStatus(rest: string[]) {
       "unavailable (run package build to generate)",
     ]);
   }
+
+  const workshopRows: string[] = [];
+  workshopRows.push(formatCliKeyValue("teams total", payload.workshop.total));
+  workshopRows.push(formatCliKeyValue("teams running", payload.workshop.running));
+  if (payload.workshop.teams.length > 0) {
+    workshopRows.push("");
+    for (const team of payload.workshop.teams) {
+      const statusBadge =
+        team.status === "running" ? clrOk(team.status) :
+        team.status === "stopped" ? clrWarn(team.status) :
+        clrDim(team.status);
+      workshopRows.push(
+        `  ${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(18))} ${team.peers} peer${team.peers === 1 ? "" : "s"}`,
+      );
+    }
+  } else {
+    workshopRows.push("");
+    workshopRows.push(`  ${clrDim("Use")} ${clrBold("buccet create <team-name> --domain <domain>")} ${clrDim("to spin up a team.")}`);
+  }
+  printCliSection("Workshop — creativity face", workshopRows);
 }
 
 async function handleLogs(rest: string[]) {
@@ -6755,7 +6885,777 @@ function printHookStatusDetails(payload: HookStatusPayload): void {
   }
 }
 
+// ─── workshop · buccet create ──────────────────────────────────────────────
+
+function createUsage(): never {
+  console.error([
+    "Usage:",
+    "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
+    "  buccet create show <team-name> [--json]",
+    "  buccet create list [--json]",
+    "  buccet create remove <team-name> [--force]",
+    "  buccet create add-agent <team-name> --name <agent-id> --specialty <text> [--title <text>]",
+    "                                       [--model <hint>] [--owns-step <stage>] [--tools <csv>]",
+    "                                       [--sources <csv>] [--cap <number>] [--notes <text>]",
+    "  buccet create remove-agent <team-name> --name <agent-id>",
+    "  buccet create add-source <team-name> <file> [--title <text>] [--kind <kind>] [--summary <text>]",
+    "  buccet create remove-source <team-name> --id <source-id>",
+    "",
+    "  Stages for --owns-step: " + COMPREHENSION_STAGE_IDS.join(", "),
+  ].join("\n"));
+  process.exit(1);
+}
+
+function parseFlagPairs(rest: string[]): { positional: string[]; flags: Record<string, string>; bools: Set<string> } {
+  const positional: string[] = [];
+  const flags: Record<string, string> = {};
+  const bools = new Set<string>();
+  for (let i = 0; i < rest.length; i++) {
+    const arg = rest[i];
+    if (arg === "--") break;
+    if (arg.startsWith("--")) {
+      const key = arg.slice(2);
+      const next = rest[i + 1];
+      if (next === undefined || next.startsWith("--")) {
+        bools.add(key);
+      } else {
+        flags[key] = next;
+        i++;
+      }
+    } else {
+      positional.push(arg);
+    }
+  }
+  return { positional, flags, bools };
+}
+
+function csvList(value: string | undefined): string[] {
+  if (!value) return [];
+  return value.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+function printTeamHeader(manifest: TeamManifest): void {
+  printCliHeader(`Team · ${manifest.name}`, manifest.summary);
+  printCliSection("Identity", [
+    formatCliKeyValue("slug", manifest.slug),
+    formatCliKeyValue("domain", manifest.domain),
+    formatCliKeyValue("status", manifest.status),
+    formatCliKeyValue("created", manifest.createdAt),
+    formatCliKeyValue("updated", manifest.updatedAt),
+    formatCliKeyValue("brain", manifest.brainSourceId),
+  ]);
+}
+
+function printTeamRoster(manifest: TeamManifest): void {
+  if (manifest.agents.length === 0) {
+    printCliSection("Roster", [`  ${clrDim("(no agents yet — `buccet create add-agent " + manifest.slug + " --name <id> --specialty <text>` to add one)")}`]);
+    return;
+  }
+  const rows: string[] = [];
+  for (const agent of manifest.agents) {
+    const cap = agent.spend.capNormalized === null ? "no cap" : `cap ${agent.spend.capNormalized}`;
+    const sources = agent.sourceIds.length;
+    const tools = agent.tools.length;
+    rows.push(
+      `  ${clrBold(agent.id)}  ${clrDim(agent.specialty)}`,
+    );
+    rows.push(
+      `    ${clrDim("model:")} ${agent.modelHint ?? "-"}    ${clrDim("owns-step:")} ${agent.ownsStep}    ${clrDim("sources:")} ${sources}    ${clrDim("tools:")} ${tools}    ${clrDim("spend:")} ${agent.spend.spentNormalized}/${cap}`,
+    );
+  }
+  printCliSection("Roster", rows);
+}
+
+function printTeamCorpus(manifest: TeamManifest): void {
+  const rows: string[] = [];
+  for (const source of manifest.pathSourceCorpus) {
+    rows.push(`  ${clrBold(source.id)}  ${clrDim(source.title)}`);
+    rows.push(`    ${clrDim("kind:")} ${source.kind}${source.sourceUri ? `    ${clrDim("uri:")} ${source.sourceUri}` : ""}`);
+  }
+  printCliSection("Path-source corpus", rows);
+}
+
+function printTeamUplSnap(manifest: TeamManifest): void {
+  printCliSection("UPL track snap", [
+    formatCliKeyValue("taken at", manifest.uplTrackSnap.takenAt),
+    formatCliKeyValue("ledger", manifest.uplTrackSnap.ledgerPath ?? "-"),
+    formatCliKeyValue("acceptance", manifest.uplTrackSnap.acceptanceCount ?? "-"),
+    formatCliKeyValue("denial", manifest.uplTrackSnap.denialCount ?? "-"),
+    formatCliKeyValue("digest", manifest.uplTrackSnap.digest ?? "-"),
+  ]);
+}
+
+async function handleCreate(rest: string[]) {
+  const sub = rest[0];
+  const homePath = resolveHome();
+
+  if (!sub || sub === "--help" || sub === "-h") {
+    createUsage();
+  }
+
+  if (sub === "list") {
+    const parsed = parseFlagPairs(rest.slice(1));
+    const teams = await listTeams(homePath);
+    if (parsed.bools.has("json")) {
+      console.log(JSON.stringify(teams, null, 2));
+      return;
+    }
+    if (teams.length === 0) {
+      console.log("");
+      console.log(`  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`);
+      console.log("");
+      return;
+    }
+    printCliHeader("Teams", `Workshop · ${teamsRoot(homePath)}`);
+    const rows: string[] = [];
+    for (const team of teams) {
+      rows.push(`  ${clrBold(team.slug.padEnd(20))} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}    ${clrDim(team.summary)}`);
+    }
+    printCliSection("Standing teams", rows);
+    return;
+  }
+
+  if (sub === "show") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const slug = teamSlug(teamName);
+    const manifest = await loadTeam(homePath, slug);
+    if (!manifest) {
+      console.error(`No team named "${teamName}" (slug ${slug}).`);
+      process.exit(1);
+    }
+    if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
+      console.log(JSON.stringify(manifest, null, 2));
+      return;
+    }
+    printTeamHeader(manifest);
+    printTeamRoster(manifest);
+    printTeamCorpus(manifest);
+    printTeamUplSnap(manifest);
+    console.log("");
+    return;
+  }
+
+  if (sub === "remove") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const { bools } = parseFlagPairs(rest.slice(2));
+    const slug = teamSlug(teamName);
+    const manifest = await loadTeam(homePath, slug);
+    if (!manifest) {
+      console.error(`No team named "${teamName}".`);
+      process.exit(1);
+    }
+    if (!bools.has("force")) {
+      console.error(`Refusing to remove team "${slug}" without --force. Use \`buccet create remove ${slug} --force\`.`);
+      process.exit(1);
+    }
+    const ok = await deleteTeam(homePath, slug);
+    if (!ok) {
+      console.error(`Could not remove team "${slug}".`);
+      process.exit(1);
+    }
+    console.log(`${clrOk(`team ${slug} removed`)}`);
+    return;
+  }
+
+  if (sub === "add-agent") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const { flags } = parseFlagPairs(rest.slice(2));
+    const slug = teamSlug(teamName);
+    const agentId = flags["name"];
+    const specialty = flags["specialty"];
+    if (!agentId || !specialty) {
+      console.error("buccet create add-agent requires --name and --specialty.");
+      createUsage();
+    }
+    const ownsStep = (flags["owns-step"] as ComprehensionStageId | undefined) ?? "all";
+    const cap = flags["cap"] !== undefined ? Number(flags["cap"]) : null;
+    if (cap !== null && Number.isNaN(cap)) {
+      console.error("--cap must be a number.");
+      process.exit(1);
+    }
+    const manifest = await addTeamAgent({
+      homePath,
+      slug,
+      agentId: agentId,
+      title: flags["title"] ?? agentId,
+      specialty: specialty,
+      modelHint: flags["model"],
+      ownsStep,
+      tools: csvList(flags["tools"]),
+      sourceIds: csvList(flags["sources"]),
+      memoryNotes: flags["notes"],
+      spendCapNormalized: cap,
+    });
+    console.log(`${clrOk(`peer ${agentId} added to ${manifest.slug}`)}`);
+    printTeamRoster(manifest);
+    return;
+  }
+
+  if (sub === "remove-agent") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const { flags } = parseFlagPairs(rest.slice(2));
+    const slug = teamSlug(teamName);
+    const agentId = flags["name"];
+    if (!agentId) {
+      console.error("buccet create remove-agent requires --name.");
+      createUsage();
+    }
+    const manifest = await removeTeamAgent({ homePath, slug, agentId });
+    console.log(`${clrOk(`peer ${agentId} removed from ${manifest.slug}`)}`);
+    return;
+  }
+
+  if (sub === "add-source") {
+    const teamName = rest[1];
+    const filePath = rest[2];
+    if (!teamName || !filePath) createUsage();
+    const { flags } = parseFlagPairs(rest.slice(3));
+    const slug = teamSlug(teamName);
+    const manifest = await addTeamSource({
+      homePath,
+      slug,
+      filePath,
+      title: flags["title"],
+      kind: flags["kind"],
+      summary: flags["summary"],
+    });
+    console.log(`${clrOk(`source ${filePath} added to ${manifest.slug}`)}`);
+    printTeamCorpus(manifest);
+    return;
+  }
+
+  if (sub === "remove-source") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const { flags } = parseFlagPairs(rest.slice(2));
+    const slug = teamSlug(teamName);
+    const sourceId = flags["id"];
+    if (!sourceId) {
+      console.error("buccet create remove-source requires --id.");
+      createUsage();
+    }
+    const manifest = await removeTeamSource({ homePath, slug, sourceId });
+    console.log(`${clrOk(`source ${sourceId} removed from ${manifest.slug}`)}`);
+    return;
+  }
+
+  // default: `buccet create <team-name> [--domain ...]`
+  const teamName = sub;
+  const { flags } = parseFlagPairs(rest.slice(1));
+  const domain = flags["domain"];
+  if (!domain) {
+    console.error("buccet create <team-name> requires --domain <domain>.");
+    createUsage();
+  }
+  const manifest = await createTeam({
+    homePath,
+    name: teamName,
+    domain,
+    summary: flags["summary"],
+    notes: flags["notes"],
+    createdBy: defaultActorId(),
+  });
+  console.log("");
+  console.log(`${clrOk(`team created`)}    ${clrBold(manifest.slug)}`);
+  console.log(`${clrDim("home:        ")}${homePath}`);
+  console.log(`${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), manifest.slug, "manifest.json")}`);
+  console.log(`${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(auto-injected)")}`);
+  console.log(`${clrDim("upl-track:   ")}snapped at ${manifest.uplTrackSnap.takenAt}`);
+  console.log("");
+  console.log(`  ${clrDim("Next:")}`);
+  console.log(`    ${clrBold(`buccet create add-agent ${manifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`);
+  console.log(`    ${clrBold(`buccet create add-source ${manifest.slug} <file>`)}`);
+  console.log(`    ${clrBold(`buccet create show ${manifest.slug}`)}`);
+  console.log("");
+}
+
+// ─── workshop · buccet team ────────────────────────────────────────────────
+
+function teamUsage(): never {
+  console.error([
+    "Usage:",
+    "  buccet team list [--json]",
+    "  buccet team status <team-name> [--json]",
+    "  buccet team start <team-name> [--json]",
+    "  buccet team stop <team-name> [--json]",
+    "  buccet team export <team-name> [--output <file.json>] [--json]",
+    "  buccet team import <file.json> [--rename <new-name>] [--json]",
+  ].join("\n"));
+  process.exit(1);
+}
+
+async function handleTeam(rest: string[]) {
+  const sub = rest[0];
+  const homePath = resolveHome();
+
+  if (!sub || sub === "--help" || sub === "-h") {
+    teamUsage();
+  }
+
+  if (sub === "list") {
+    const teams = await listTeams(homePath);
+    if (parseFlagPairs(rest.slice(1)).bools.has("json")) {
+      console.log(JSON.stringify(teams, null, 2));
+      return;
+    }
+    if (teams.length === 0) {
+      console.log("");
+      console.log(`  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`);
+      console.log("");
+      return;
+    }
+    printCliHeader("Teams", `Workshop · ${teamsRoot(homePath)}`);
+    const rows: string[] = [];
+    for (const team of teams) {
+      const statusBadge =
+        team.status === "running" ? clrOk(team.status) :
+        team.status === "stopped" ? clrWarn(team.status) :
+        clrDim(team.status);
+      rows.push(`  ${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}`);
+    }
+    printCliSection("Standing teams", rows);
+    return;
+  }
+
+  if (sub === "status") {
+    const teamName = rest[1];
+    if (!teamName) teamUsage();
+    const slug = teamSlug(teamName);
+    const manifest = await loadTeam(homePath, slug);
+    if (!manifest) {
+      console.error(`No team named "${teamName}".`);
+      process.exit(1);
+    }
+    if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
+      console.log(JSON.stringify(manifest, null, 2));
+      return;
+    }
+    printTeamHeader(manifest);
+    printTeamRoster(manifest);
+    printTeamCorpus(manifest);
+    printTeamUplSnap(manifest);
+    console.log("");
+    return;
+  }
+
+  if (sub === "start" || sub === "stop") {
+    const teamName = rest[1];
+    if (!teamName) teamUsage();
+    const slug = teamSlug(teamName);
+    const manifest = await loadTeam(homePath, slug);
+    if (!manifest) {
+      console.error(`No team named "${teamName}".`);
+      process.exit(1);
+    }
+    if (sub === "start" && manifest.agents.length === 0) {
+      console.error(`Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`);
+      process.exit(1);
+    }
+    manifest.status = sub === "start" ? "running" : "stopped";
+    await saveTeam(homePath, manifest);
+    if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
+      console.log(JSON.stringify({ slug, status: manifest.status }, null, 2));
+      return;
+    }
+    const note =
+      sub === "start"
+        ? `Creative messages from this team will surface in \`buccet console\`. Defense face still decides every action.`
+        : `Team marked stopped. Existing manifest preserved.`;
+    console.log(`${clrOk(`team ${slug} ${manifest.status}`)}    ${clrDim(note)}`);
+    return;
+  }
+
+  if (sub === "export") {
+    const teamName = rest[1];
+    if (!teamName) teamUsage();
+    const { flags, bools } = parseFlagPairs(rest.slice(2));
+    const slug = teamSlug(teamName);
+    const manifest = await loadTeam(homePath, slug);
+    if (!manifest) {
+      console.error(`No team named "${teamName}".`);
+      process.exit(1);
+    }
+    const outputPath = flags["output"] ?? path.resolve(`${slug}.team.json`);
+    const payload = `${JSON.stringify(manifest, null, 2)}\n`;
+    await fs.writeFile(outputPath, payload, "utf8");
+    if (bools.has("json")) {
+      console.log(JSON.stringify({ slug, outputPath }, null, 2));
+      return;
+    }
+    console.log(`${clrOk(`team ${slug} exported`)}    ${clrDim(outputPath)}`);
+    return;
+  }
+
+  if (sub === "import") {
+    const filePath = rest[1];
+    if (!filePath) teamUsage();
+    const { flags, bools } = parseFlagPairs(rest.slice(2));
+    const resolved = path.resolve(filePath);
+    let raw: string;
+    try {
+      raw = await fs.readFile(resolved, "utf8");
+    } catch (error) {
+      console.error(`Cannot read ${resolved}: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+    let manifest: TeamManifest;
+    try {
+      manifest = JSON.parse(raw) as TeamManifest;
+    } catch (error) {
+      console.error(`Cannot parse ${resolved} as JSON: ${error instanceof Error ? error.message : String(error)}`);
+      process.exit(1);
+    }
+    if (manifest.manifestVersion !== "1") {
+      console.error(`Unsupported manifest version "${manifest.manifestVersion}".`);
+      process.exit(1);
+    }
+    if (flags["rename"]) {
+      manifest.name = flags["rename"];
+      manifest.slug = teamSlug(flags["rename"]);
+    }
+    const existing = await loadTeam(homePath, manifest.slug);
+    if (existing) {
+      console.error(`Team "${manifest.slug}" already exists. Use --rename or remove it first.`);
+      process.exit(1);
+    }
+    manifest.updatedAt = new Date().toISOString();
+    await saveTeam(homePath, manifest);
+    if (bools.has("json")) {
+      console.log(JSON.stringify({ slug: manifest.slug }, null, 2));
+      return;
+    }
+    console.log(`${clrOk(`team ${manifest.slug} imported`)}    ${clrDim(resolved)}`);
+    printTeamRoster(manifest);
+    return;
+  }
+
+  teamUsage();
+}
+
+// ─── workshop · console mute toggle ────────────────────────────────────────
+
+type ConsolePresentationState = {
+  muteCreative: boolean;
+  updatedAt: string;
+};
+
+function consoleStatePath(homePath: string): string {
+  return path.join(homePath, "console.json");
+}
+
+async function loadConsolePresentation(homePath: string): Promise<ConsolePresentationState> {
+  try {
+    const raw = await fs.readFile(consoleStatePath(homePath), "utf8");
+    const parsed = JSON.parse(raw) as ConsolePresentationState;
+    return {
+      muteCreative: Boolean(parsed.muteCreative),
+      updatedAt: parsed.updatedAt ?? new Date().toISOString(),
+    };
+  } catch {
+    return { muteCreative: false, updatedAt: new Date().toISOString() };
+  }
+}
+
+async function saveConsolePresentation(homePath: string, state: ConsolePresentationState): Promise<void> {
+  const targetPath = consoleStatePath(homePath);
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.writeFile(targetPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
+}
+
+async function handleMute(rest: string[]) {
+  const lane = rest[0];
+  if (lane !== "creative") {
+    console.error("Usage: buccet mute creative   (only the creative lane is mute-able; defense never mutes)");
+    process.exit(1);
+  }
+  const homePath = resolveHome();
+  const state = await loadConsolePresentation(homePath);
+  state.muteCreative = true;
+  state.updatedAt = new Date().toISOString();
+  await saveConsolePresentation(homePath, state);
+  console.log(`${clrOk("creative messages muted in buccet console")}`);
+  console.log(`${clrDim("Defense face still decides every action; the mute is presentation-only.")}`);
+}
+
+async function handleUnmute(rest: string[]) {
+  const lane = rest[0];
+  if (lane !== "creative") {
+    console.error("Usage: buccet unmute creative");
+    process.exit(1);
+  }
+  const homePath = resolveHome();
+  const state = await loadConsolePresentation(homePath);
+  state.muteCreative = false;
+  state.updatedAt = new Date().toISOString();
+  await saveConsolePresentation(homePath, state);
+  console.log(`${clrOk("creative messages unmuted")}`);
+}
+
+// ─── workshop · buccet enter / ask ─────────────────────────────────────────
+
+type TeamAskRecord = {
+  type: "user_ask" | "team_response" | "team_status";
+  at: string;
+  team: string;
+  text: string;
+  askId?: string;
+  meta?: Record<string, unknown>;
+};
+
+function teamSessionLogPath(homePath: string, slug: string): string {
+  return path.join(homePath, "teams", slug, "session.jsonl");
+}
+
+async function appendTeamSessionRecord(homePath: string, slug: string, record: TeamAskRecord): Promise<void> {
+  const targetPath = teamSessionLogPath(homePath, slug);
+  await fs.mkdir(path.dirname(targetPath), { recursive: true });
+  await fs.appendFile(targetPath, `${JSON.stringify(record)}\n`, "utf8");
+}
+
+function nextAskId(): string {
+  return `ask-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function formatTeamLane(manifest: TeamManifest): string {
+  return `creative · ${manifest.domain} · ${manifest.slug}`;
+}
+
+async function recordTeamAsk(args: {
+  homePath: string;
+  manifest: TeamManifest;
+  text: string;
+}): Promise<TeamAskRecord> {
+  const askId = nextAskId();
+  const record: TeamAskRecord = {
+    type: "user_ask",
+    at: new Date().toISOString(),
+    team: args.manifest.slug,
+    text: args.text,
+    askId,
+    meta: {
+      lane: formatTeamLane(args.manifest),
+      domain: args.manifest.domain,
+      peers: args.manifest.agents.map((a) => ({ id: a.id, ownsStep: a.ownsStep, modelHint: a.modelHint ?? null })),
+      brain: args.manifest.brainSourceId,
+    },
+  };
+  await appendTeamSessionRecord(args.homePath, args.manifest.slug, record);
+  return record;
+}
+
+function printAskAcknowledgement(manifest: TeamManifest, record: TeamAskRecord): void {
+  const lane = formatTeamLane(manifest);
+  console.log(`  ${clrDim("[" + lane + "]")} ${clrOk("ask queued")} ${clrDim(record.askId ?? "")}`);
+  console.log(`  ${clrDim("Defense face decides every action this team proposes.")}`);
+  console.log(`  ${clrDim("Watch:")} ${clrBold(`buccet console`)} ${clrDim("· peers will surface for review here.")}`);
+}
+
+async function handleAsk(rest: string[]) {
+  const teamName = rest[0];
+  const text = rest.slice(1).join(" ").trim();
+  if (!teamName || !text) {
+    console.error("Usage: buccet ask <team-name> \"<your task>\"");
+    process.exit(1);
+  }
+  const homePath = resolveHome();
+  const slug = teamSlug(teamName);
+  const manifest = await loadTeam(homePath, slug);
+  if (!manifest) {
+    console.error(`No team named "${teamName}".`);
+    process.exit(1);
+  }
+  const record = await recordTeamAsk({ homePath, manifest, text });
+  printAskAcknowledgement(manifest, record);
+}
+
+async function handleEnter(rest: string[]) {
+  const teamName = rest[0];
+  if (!teamName) {
+    console.error("Usage: buccet enter <team-name>");
+    process.exit(1);
+  }
+  const homePath = resolveHome();
+  const slug = teamSlug(teamName);
+  const manifest = await loadTeam(homePath, slug);
+  if (!manifest) {
+    console.error(`No team named "${teamName}".`);
+    process.exit(1);
+  }
+  if (manifest.agents.length === 0) {
+    console.error(`Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`);
+    process.exit(1);
+  }
+
+  printCliHeader(`Team · ${manifest.name}`, formatTeamLane(manifest));
+  printCliSection("Peers", manifest.agents.map((a) =>
+    `  ${clrBold(a.id.padEnd(20))} ${clrDim(("owns " + a.ownsStep).padEnd(22))} ${clrDim((a.modelHint ?? "no model hint").padEnd(20))} ${clrDim(a.specialty)}`
+  ));
+  console.log("");
+  console.log(`  ${clrDim("Type a task and press enter. Lines flow through the boundary; defense face decides every action.")}`);
+  console.log(`  ${clrDim("Press")} ${clrBold("Ctrl+D")} ${clrDim("or type")} ${clrBold("/quit")} ${clrDim("to leave.")}`);
+  console.log("");
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: process.stdin.isTTY === true,
+  });
+
+  const promptText = isTTY
+    ? `${c.bold}${c.blueBright}${manifest.slug}${c.reset}${clrDim(" › ")}`
+    : `${manifest.slug} > `;
+
+  function prompt(): void {
+    rl.setPrompt(promptText);
+    rl.prompt();
+  }
+
+  prompt();
+
+  for await (const rawLine of rl) {
+    const line = rawLine.trim();
+    if (!line) {
+      prompt();
+      continue;
+    }
+    if (line === "/quit" || line === "/exit") {
+      break;
+    }
+    if (line === "/peers") {
+      for (const a of manifest.agents) {
+        console.log(`  ${clrBold(a.id)} ${clrDim("· owns " + a.ownsStep)} ${clrDim("· " + (a.modelHint ?? "no model hint"))}`);
+      }
+      prompt();
+      continue;
+    }
+    if (line === "/help") {
+      console.log(`  ${clrDim("/peers · /quit · /help · type any task")}`);
+      prompt();
+      continue;
+    }
+    const record = await recordTeamAsk({ homePath, manifest, text: line });
+    printAskAcknowledgement(manifest, record);
+    prompt();
+  }
+  rl.close();
+  console.log(`  ${clrDim("Left team")} ${clrBold(manifest.slug)}`);
+}
+
+async function handleSwarmView(rest: string[]): Promise<void> {
+  const teamName = rest[0];
+  if (!teamName) {
+    console.error("Usage: buccet swarm view <team-name> [--json]");
+    process.exit(1);
+  }
+  const homePath = resolveHome();
+  const slug = teamSlug(teamName);
+  const manifest = await loadTeam(homePath, slug);
+  if (!manifest) {
+    console.error(`No team named "${teamName}".`);
+    process.exit(1);
+  }
+  const asJson = rest.includes("--json");
+
+  const sessionLog = await fs.readFile(teamSessionLogPath(homePath, slug), "utf8")
+    .then((raw) => raw.split("\n").filter(Boolean).map((line) => {
+      try { return JSON.parse(line) as TeamAskRecord; } catch { return null; }
+    }).filter((value): value is TeamAskRecord => value !== null))
+    .catch(() => [] as TeamAskRecord[]);
+
+  type PeerRow = {
+    id: string;
+    title: string;
+    specialty: string;
+    modelHint: string | null;
+    ownsStep: ComprehensionStageId;
+    status: "active" | "idle" | "blocked" | "shed";
+    approvals: number;
+    denials: number;
+    spendSpent: number;
+    spendCap: number | null;
+  };
+
+  const teamActive = manifest.status === "running";
+  const peers: PeerRow[] = manifest.agents.map((agent) => {
+    let approvals = 0;
+    let denials = 0;
+    for (const record of sessionLog) {
+      if (record.type === "team_response" && (record.meta?.approved as boolean | undefined) === true && (record.meta?.peer as string | undefined) === agent.id) {
+        approvals += 1;
+      } else if (record.type === "team_response" && (record.meta?.approved as boolean | undefined) === false && (record.meta?.peer as string | undefined) === agent.id) {
+        denials += 1;
+      }
+    }
+    const overspent = agent.spend.capNormalized !== null && agent.spend.spentNormalized > agent.spend.capNormalized;
+    const status: PeerRow["status"] =
+      overspent ? "blocked" :
+      teamActive ? "active" : "idle";
+    return {
+      id: agent.id,
+      title: agent.title,
+      specialty: agent.specialty,
+      modelHint: agent.modelHint ?? null,
+      ownsStep: agent.ownsStep,
+      status,
+      approvals,
+      denials,
+      spendSpent: agent.spend.spentNormalized,
+      spendCap: agent.spend.capNormalized,
+    };
+  });
+
+  if (asJson) {
+    printJson({
+      slug: manifest.slug,
+      domain: manifest.domain,
+      teamStatus: manifest.status,
+      peers,
+    });
+    return;
+  }
+
+  console.log("");
+  console.log(`  ${clrBold("SWARM GOVERNANCE")}`);
+  console.log(`  ${clrDim("Many agents. One law body.")}`);
+  console.log(`  ${clrDim(`team: ${manifest.slug}    domain: ${manifest.domain}    status: ${manifest.status}`)}`);
+  console.log("");
+
+  if (peers.length === 0) {
+    console.log(`  ${clrDim("(no peers yet — `buccet create add-agent " + manifest.slug + "` to add one)")}`);
+    console.log("");
+    return;
+  }
+
+  const idCol = Math.max(20, ...peers.map((p) => p.id.length + 2));
+  for (const peer of peers) {
+    const statusLabel =
+      peer.status === "active"  ? `${c.green}active${c.reset}` :
+      peer.status === "blocked" ? `${c.red}blocked${c.reset}` :
+      peer.status === "shed"    ? `${c.yellow}SHED${c.reset} ${clrDim("· instance discarded")}` :
+      `${c.dim}idle${c.reset}`;
+    const tally = peer.status === "shed" ? "" : `${c.green}✓${peer.approvals}${c.reset} ${c.red}✗${peer.denials}${c.reset}`;
+    const ownsLabel = clrDim(`owns ${peer.ownsStep}`);
+    const modelLabel = clrDim(`· ${peer.modelHint ?? "no model hint"}`);
+    console.log(`  ${clrBold(peer.id.padEnd(idCol))} ${statusLabel.padEnd(28)} ${tally.padEnd(18)} ${ownsLabel} ${modelLabel}`);
+  }
+  console.log("");
+  console.log(`  ${clrDim("Hooks freeze and hold at swarm scale.")}`);
+  console.log(`  ${clrDim("One verdict resolves the whole group.")}`);
+  console.log(`  ${clrDim("Standing law follows across all peers.")}`);
+  console.log("");
+}
+
 async function handleSwarm(rest: string[]) {
+  const subcommand = rest[0];
+  if (subcommand === "view") {
+    await handleSwarmView(rest.slice(1));
+    return;
+  }
+
   const homePath = resolveHome();
   const home = resolveHomePaths(homePath);
   const config = await loadConfig(home.configPath);
@@ -6764,7 +7664,6 @@ async function handleSwarm(rest: string[]) {
   }
 
   const boundary = await importBoundary(homePath);
-  const subcommand = rest[0];
   const asJson = rest.includes("--json");
   if (!subcommand) {
     usage();
@@ -8930,6 +9829,14 @@ async function handleExtractLaws(rest: string[]) {
 async function main() {
   const parsed = parseGlobal(process.argv.slice(2));
 
+  if (parsed.command === undefined) {
+    printBuccetWelcome();
+    return;
+  }
+  if (parsed.command === "--help" || parsed.command === "-h" || parsed.command === "help") {
+    usage("stdout");
+    return;
+  }
   if (parsed.command === "init") {
     await handleInit(parsed.rest);
     return;
@@ -9008,6 +9915,30 @@ async function main() {
   }
   if (parsed.command === "swarm") {
     await handleSwarm(parsed.rest);
+    return;
+  }
+  if (parsed.command === "create") {
+    await handleCreate(parsed.rest);
+    return;
+  }
+  if (parsed.command === "team") {
+    await handleTeam(parsed.rest);
+    return;
+  }
+  if (parsed.command === "ask") {
+    await handleAsk(parsed.rest);
+    return;
+  }
+  if (parsed.command === "enter") {
+    await handleEnter(parsed.rest);
+    return;
+  }
+  if (parsed.command === "mute") {
+    await handleMute(parsed.rest);
+    return;
+  }
+  if (parsed.command === "unmute") {
+    await handleUnmute(parsed.rest);
     return;
   }
   if (parsed.command === "uninstall") {

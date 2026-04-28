@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 285, "expected base acceptance pack to seed two hundred eighty-five session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 297, "expected base acceptance pack to seed two hundred ninety-seven session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -105,6 +105,22 @@ async function main() {
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[agent_spend]")),
       "expected agent spend rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) => entry.notes?.includes("[agent_comprehension]")),
+      "expected agent comprehension rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.AGENT.COMPREHENSION.0001")
+      ),
+      "expected agent comprehension pass-required rail",
+    );
+    assert.ok(
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.AGENT.COMPREHENSION.0010")
+      ),
+      "expected agent bounded-by-upl-track rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005E")),

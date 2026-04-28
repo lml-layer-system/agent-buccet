@@ -58,7 +58,8 @@ export type DenialClass =
   | "unsafe_external_communication"
   | "kernel_boundary"
   | "user_telemetry_boundary"
-  | "agent_spend";
+  | "agent_spend"
+  | "creative_wall";
 
 export interface HeadlessActionRequest {
   actionKind: string;
@@ -1539,6 +1540,64 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*gcloud storage cp*",
     ]),
     requestBasisTarget: "base-headless-denials:user-telemetry-tool-exfil",
+  },
+  {
+    id: "DENY.BOUNDARY.CREATIVE.WALL.001A",
+    denialClass: "creative_wall",
+    reason:
+      "Creative-side actions cannot override, modify, or contaminate defense-side decisions, in any form. Defense-face state — UPL acceptance, UPL denial, scope grants, ledger, witness, intercept socket, team registry, and console mode — is denial-locked to creative-side mutation. Operators ratify defense-face changes through `buccet upl` and `buccet scope` only.",
+    actionKinds: ["fs.write", "fs.append", "fs.delete", "fs.move", "sys.config.write", "sys.env.write"],
+    targetPatterns: toRegexList([
+      "*/.buccet/upl/*",
+      "*/.buccet/upl-docs/*",
+      "*/.buccet/scope/*",
+      "*/.buccet/ledger/*",
+      "*/.buccet/witness/*",
+      "*/.buccet/sockets/*",
+      "*/.buccet/teams/*/manifest.lock",
+      "*/.buccet/console.json",
+      "*/.buccet/config/*",
+    ]),
+    requestBasisTarget: "base-headless-denials:creative-wall-defense-state",
+  },
+  {
+    id: "DENY.BOUNDARY.CREATIVE.WALL.001B",
+    denialClass: "creative_wall",
+    reason:
+      "Creative-side actions cannot manipulate the running boundary daemon, the intercept socket, the verdict pipeline, or any process that delivers defense-face decisions.",
+    actionKinds: ["tool.exec"],
+    requestTextPatterns: toContainsRegexList([
+      "*kill*buccet*intercept*",
+      "*pkill*buccet*intercept*",
+      "*signal*buccet*daemon*",
+      "*override*defense*",
+      "*bypass*upl*",
+      "*bypass*denial*",
+      "*disable*creative*wall*",
+      "*creative*override*defense*",
+      "*self approve*",
+      "*self-approve*",
+      "*forge*verdict*",
+      "*forge*tag*",
+    ]),
+    requestBasisTarget: "base-headless-denials:creative-wall-daemon-tamper",
+  },
+  {
+    id: "DENY.BOUNDARY.CREATIVE.WALL.001C",
+    denialClass: "creative_wall",
+    reason:
+      "Creative-side rendering cannot claim authority it does not have. Output that asserts override of a defense-face verdict, self-approval, swarm exception, or law bypass is structurally denied.",
+    actionKinds: ["chat.emit"],
+    requestTextPatterns: toContainsRegexList([
+      "*override*defense*verdict*",
+      "*creative-side*authorized*",
+      "*self-approved*",
+      "*bypass*denial*",
+      "*ignore*upl*",
+      "*swarm exception path*",
+      "*creative wall lifted*",
+    ]),
+    requestBasisTarget: "base-headless-denials:creative-wall-rendering-claim",
   },
   ...createPeriodicDimensionSeeds(),
   ...createPeriodicFailureSeeds(),
