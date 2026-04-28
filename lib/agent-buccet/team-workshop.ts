@@ -108,12 +108,63 @@ export type LocalLlmSourceConfig = {
   defaultParams?: Record<string, unknown>;
 };
 
+/**
+ * Preset integrations for generic HTTP knowledge / retrieval (vector DB,
+ * hybrid search, RAG gateways). Calls flow through `network.send`; UPL gates
+ * every request. Operators can also use `--http custom --endpoint <url>`.
+ *
+ * Providers without a default base URL MUST pass `--endpoint` (their cluster /
+ * tenancy URL varies per deployment).
+ */
+export type HttpApiProvider =
+  | "pinecone"
+  | "qdrant"
+  | "weaviate"
+  | "chromadb"
+  | "meilisearch"
+  | "elasticsearch"
+  | "algolia"
+  | "custom";
+
 export type HttpApiSourceConfig = {
+  /** Registered preset name; omit only on backward-compat manifests written before presets existed. */
+  provider?: HttpApiProvider;
   endpoint: string;
   method?: "GET" | "POST";
   authEnvVar?: string;
   defaultHeaders?: Record<string, string>;
   rateCapPerMinute?: number;
+};
+
+export const HTTP_API_PROVIDER_DEFAULTS: Record<HttpApiProvider, Partial<HttpApiSourceConfig>> = {
+  pinecone: {
+    endpoint: "https://api.pinecone.io",
+    method: "POST",
+    authEnvVar: "PINECONE_API_KEY",
+  },
+  qdrant: {
+    authEnvVar: "QDRANT_API_KEY",
+  },
+  weaviate: {
+    authEnvVar: "WEAVIATE_API_KEY",
+  },
+  chromadb: {
+    endpoint: "http://127.0.0.1:8000",
+    method: "POST",
+  },
+  meilisearch: {
+    endpoint: "http://127.0.0.1:7700",
+    method: "POST",
+    authEnvVar: "MEILISEARCH_KEY",
+  },
+  elasticsearch: {
+    endpoint: "http://127.0.0.1:9200",
+    method: "POST",
+  },
+  algolia: {
+    authEnvVar: "ALGOLIA_API_KEY",
+  },
+  custom: {},
 };
 
 /**
@@ -565,6 +616,70 @@ export type AddLocalLlmSourceArgs = {
   summary?: string;
 };
 
+export type AddTeamHttpApiSourceArgs = {
+  homePath: string;
+  slug: TeamSlug;
+  provider: HttpApiProvider;
+  endpoint?: string;
+  method?: "GET" | "POST";
+  authEnvVar?: string;
+  rateCapPerMinute?: number;
+  defaultHeaders?: Record<string, string>;
+  title?: string;
+  summary?: string;
+};
+
+export async function addTeamHttpApiSource(args: AddTeamHttpApiSourceArgs): Promise<TeamManifest> {
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) throw new Error(`Team "${args.slug}" not found`);
+
+  const defaults = HTTP_API_PROVIDER_DEFAULTS[args.provider] ?? {};
+  const endpoint = args.endpoint ?? defaults.endpoint;
+  if (!endpoint) {
+    throw new Error(
+      `HTTP provider "${args.provider}" has no bundled default endpoint; pass --endpoint <url> (examples: cluster URL for Qdrant/Weaviate/Algolia).`,
+    );
+  }
+  const authEnvVar = args.authEnvVar ?? defaults.authEnvVar;
+  const method = args.method ?? defaults.method ?? ("POST" as const);
+
+  const httpApi: HttpApiSourceConfig = {
+    provider: args.provider,
+    endpoint,
+    method,
+    ...(authEnvVar ? { authEnvVar } : {}),
+    ...(args.rateCapPerMinute !== undefined ? { rateCapPerMinute: args.rateCapPerMinute } : {}),
+    ...(args.defaultHeaders ? { defaultHeaders: args.defaultHeaders } : {}),
+  };
+
+  const sourceId = synthesizeHttpApiSourceId(httpApi);
+  if (manifest.pathSourceCorpus.some((s) => s.id === sourceId)) {
+    throw new Error(`Source "${sourceId}" is already in team "${args.slug}".`);
+  }
+
+  let titleHost = String(args.provider);
+  try {
+    titleHost = new URL(endpoint).hostname;
+  } catch {
+    titleHost = String(args.provider);
+  }
+
+  const ref: TeamSourceRef = {
+    id: sourceId,
+    title: args.title ?? `${args.provider}:${titleHost}`,
+    kind: `http-api:${args.provider}`,
+    summary:
+      args.summary ??
+      `HTTP knowledge / retrieval (${args.provider}) at ${endpoint}; calls flow as network.send, gated by UPL.`,
+    sourceUri: endpoint,
+    transport: "http-api",
+    httpApi,
+  };
+  manifest.pathSourceCorpus.push(ref);
+  await saveTeam(args.homePath, manifest);
+  return manifest;
+}
+
 export async function addTeamLocalLlmSource(args: AddLocalLlmSourceArgs): Promise<TeamManifest> {
   const manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) throw new Error(`Team "${args.slug}" not found`);
@@ -736,6 +851,14 @@ function synthesizeEngineSourceId(engine: EngineSourceConfig): string {
     .digest("hex")
     .slice(0, 16);
   return `team-source-engine-${digest}`;
+}
+
+function synthesizeHttpApiSourceId(cfg: HttpApiSourceConfig): string {
+  const digest = createHash("sha256")
+    .update(`http-api::${cfg.provider ?? "custom"}::${cfg.endpoint}::${cfg.method ?? "POST"}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `team-source-http-${digest}`;
 }
 
 export function expandTeamPathSourcesForFormation(

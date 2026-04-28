@@ -16,10 +16,12 @@ import {
 import {
   COMPREHENSION_STAGE_IDS,
   ENGINE_PROVIDER_DEFAULTS,
+  HTTP_API_PROVIDER_DEFAULTS,
   LOCAL_LLM_PROVIDER_DEFAULTS,
   REMOTE_LLM_PROVIDER_DEFAULTS,
   addTeamAgent,
   addTeamEngineSource,
+  addTeamHttpApiSource,
   addTeamLocalLlmSource,
   addTeamRemoteLlmSource,
   addTeamSource,
@@ -34,6 +36,7 @@ import {
   teamsRoot,
   type ComprehensionStageId,
   type EngineProvider,
+  type HttpApiProvider,
   type LocalLlmProvider,
   type RemoteLlmProvider,
   type TeamManifest,
@@ -6907,6 +6910,7 @@ function createUsage(): never {
   const remoteProviders = Object.keys(REMOTE_LLM_PROVIDER_DEFAULTS).join(", ");
   const localProviders = Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ");
   const engineProviders = Object.keys(ENGINE_PROVIDER_DEFAULTS).join(", ");
+  const httpProviders = Object.keys(HTTP_API_PROVIDER_DEFAULTS).join(", ");
   console.error([
     "Usage:",
     "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
@@ -6927,6 +6931,10 @@ function createUsage(): never {
     "  buccet create add-source <team-name> --local <provider> --model <m> [--binary <bin>]",
     "                                              [--endpoint <url>] [--title <t>] [--summary <s>]",
     "                                              ; local-LLM transport (tool.exec, gated by UPL)",
+    "  buccet create add-source <team-name> --http <preset> [--endpoint <url>] [--method GET|POST]",
+    "                                             [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
+    "                                             [--title <t>] [--summary <s>]",
+    "                                             ; http-api transport — vectors / hybrid search / RAG (network.send)",
     "  buccet create add-source <team-name> --engine <provider> [--package <pkg>]",
     "                                              [--ai-package <pkg>] [--allow-tools <csv>]",
     "                                              [--tool-execution parallel|sequential]",
@@ -6939,6 +6947,7 @@ function createUsage(): never {
     `  Stages for --owns-step:    ${COMPREHENSION_STAGE_IDS.join(", ")}`,
     `  Remote providers (--remote): ${remoteProviders}`,
     `  Local providers (--local):   ${localProviders}`,
+    `  HTTP presets (--http):      ${httpProviders}`,
     `  Engine providers (--engine): ${engineProviders}`,
   ].join("\n"));
   process.exit(1);
@@ -7202,6 +7211,38 @@ async function handleCreate(rest: string[]) {
       });
       console.log(`${clrOk(`local source ${localFlag}:${model} added to ${manifest.slug}`)}`);
       console.log(`${clrDim("  Calls flow as tool.exec through the boundary; UPL acceptance is required.")}`);
+      printTeamCorpus(manifest);
+      return;
+    }
+
+    const httpFlag = flags["http"];
+    if (httpFlag !== undefined) {
+      if (!(httpFlag in HTTP_API_PROVIDER_DEFAULTS)) {
+        console.error(`Unknown HTTP preset "${httpFlag}". Allowed: ${Object.keys(HTTP_API_PROVIDER_DEFAULTS).join(", ")}`);
+        process.exit(1);
+      }
+      const methodRaw = (flags["method"] ?? "").toUpperCase();
+      const rateRaw = flags["rate-cap-per-minute"];
+      const manifest = await addTeamHttpApiSource({
+        homePath,
+        slug,
+        provider: httpFlag as HttpApiProvider,
+        endpoint: flags["endpoint"],
+        method:
+          methodRaw === "GET" || methodRaw === "POST"
+            ? (methodRaw as "GET" | "POST")
+            : undefined,
+        authEnvVar: flags["key-env"],
+        rateCapPerMinute:
+          rateRaw !== undefined && rateRaw.trim() !== ""
+            ? Number(rateRaw)
+            : undefined,
+        title: flags["title"],
+        summary: flags["summary"],
+      });
+      console.log(`${clrOk(`http-api source (${httpFlag}) added to ${manifest.slug}`)}`);
+      console.log(`${clrDim("  Calls flow as network.send; UPL acceptance corridors match the host pattern.")}`);
+      console.log(`${clrDim("  `--http custom` requires --endpoint — add acceptance for that host explicitly if not covered.")}`);
       printTeamCorpus(manifest);
       return;
     }

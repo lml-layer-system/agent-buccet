@@ -73,7 +73,7 @@ async function main() {
       entry.sessionId === sessionId &&
       entry.notes?.includes("Buccet base acceptance pack")
     );
-    assert.equal(baseAcceptanceEntries.length, 309, "expected base acceptance pack to seed three hundred nine session-scoped entries");
+    assert.equal(baseAcceptanceEntries.length, 316, "expected base acceptance pack to seed three hundred sixteen session-scoped entries");
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",

@@ -329,6 +329,82 @@ export const LOCAL_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] = LOC
   transport: "local-llm" as const,
 }));
 
+type HttpApiCorridor = {
+  id: string;
+  provider: string;
+  hostPattern: string;
+};
+
+/**
+ * HTTP knowledge endpoints (vector stores, hybrid search, lightweight RAG
+ * gateways). Same boundary call as chat LLMs: `network.send` to host
+ * matching the corridor regex — operator extends / mutes unknown hosts
+ * explicitly through UPL (`--http custom` presets do not seed a corridor).
+ */
+export const HTTP_API_ACCEPTANCE_CORRIDORS: readonly HttpApiCorridor[] = [
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.PINECONE",
+    provider: "pinecone",
+    hostPattern: "/api\\.pinecone\\.io/i",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.QDRANT",
+    provider: "qdrant",
+    hostPattern: "/cloud\\.qdrant\\.io|\\.qdrant\\.(?:io|technology)|localhost:6333/i",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.WEAVIATE",
+    provider: "weaviate",
+    hostPattern: "/\\.weaviate\\.(?:network|cloud)|\\/v1\\/graphql|\\/v1\\/vectors/i",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.CHROMADB",
+    provider: "chromadb",
+    hostPattern: "/127\\.0\\.0\\.1:8000|localhost:8000|\\/(?:api\\/v2\\/|v1\\/)(?:collections|tenants)\\b|chromadb/i",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.MEILISEARCH",
+    provider: "meilisearch",
+    hostPattern: "/127\\.0\\.0\\.1:7700|localhost:7700|\\/(?:indexes\\/|indexes\\?)|meilisearch/i",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.ELASTICSEARCH",
+    provider: "elasticsearch",
+    hostPattern: "/9200|\\/\\_search|\\.elastic\\.(?:co|cloud)|elasticsearch\\/|localhost:9200/i",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.HTTP_API.ALGOLIA",
+    provider: "algolia",
+    hostPattern: "/algolia\\.(?:net|io)/i",
+  },
+];
+
+export type HttpApiAcceptanceLane = {
+  id: string;
+  invariant: string;
+  summary: string;
+  actionKinds: BoundaryActionKind[];
+  targetPattern: string;
+  targetMatchMode: "prefix" | "exact" | "regex";
+  requestTextPatterns: string[];
+  brainSourceUri: string;
+  provider: string;
+  transport: "http-api";
+};
+
+export const HTTP_API_ACCEPTANCE_LANES: readonly HttpApiAcceptanceLane[] = HTTP_API_ACCEPTANCE_CORRIDORS.map((c) => ({
+  id: c.id,
+  invariant: `agent-source-http-${c.provider}`,
+  summary: `HTTP knowledge connector via ${c.provider} is a lawful agent retrieval corridor (\`network.send\` matched to ${c.hostPattern}); bounded by rate caps per team.`,
+  actionKinds: ["network.send"],
+  targetPattern: c.hostPattern,
+  targetMatchMode: "regex" as const,
+  requestTextPatterns: [`http-api:${c.provider}`, `${c.provider} vector`, `${c.provider} search`],
+  brainSourceUri: BRAIN_SOURCE_URI,
+  provider: c.provider,
+  transport: "http-api" as const,
+}));
+
 /**
  * Engine acceptance lanes — declaratory NAMING that the operator has chosen
  * a particular execution engine as a team's lawful hands. The engine itself
