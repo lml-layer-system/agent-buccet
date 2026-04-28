@@ -15,7 +15,11 @@ import {
 } from "../lib/agent-buccet/entry-doors.ts";
 import {
   COMPREHENSION_STAGE_IDS,
+  LOCAL_LLM_PROVIDER_DEFAULTS,
+  REMOTE_LLM_PROVIDER_DEFAULTS,
   addTeamAgent,
+  addTeamLocalLlmSource,
+  addTeamRemoteLlmSource,
   addTeamSource,
   createTeam,
   deleteTeam,
@@ -27,6 +31,8 @@ import {
   teamSlug,
   teamsRoot,
   type ComprehensionStageId,
+  type LocalLlmProvider,
+  type RemoteLlmProvider,
   type TeamManifest,
 } from "../lib/agent-buccet/team-workshop.ts";
 import type {
@@ -6888,6 +6894,8 @@ function printHookStatusDetails(payload: HookStatusPayload): void {
 // ─── workshop · buccet create ──────────────────────────────────────────────
 
 function createUsage(): never {
+  const remoteProviders = Object.keys(REMOTE_LLM_PROVIDER_DEFAULTS).join(", ");
+  const localProviders = Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ");
   console.error([
     "Usage:",
     "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
@@ -6898,10 +6906,21 @@ function createUsage(): never {
     "                                       [--model <hint>] [--owns-step <stage>] [--tools <csv>]",
     "                                       [--sources <csv>] [--cap <number>] [--notes <text>]",
     "  buccet create remove-agent <team-name> --name <agent-id>",
-    "  buccet create add-source <team-name> <file> [--title <text>] [--kind <kind>] [--summary <text>]",
+    "",
+    "  buccet create add-source <team-name> <file> [--title <t>] [--kind <k>] [--summary <s>]",
+    "                                              ; on-disk markdown / code / json (file transport)",
+    "  buccet create add-source <team-name> --remote <provider> [--model <m>] [--endpoint <url>]",
+    "                                              [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
+    "                                              [--title <t>] [--summary <s>]",
+    "                                              ; remote-llm transport (network.send, gated by UPL)",
+    "  buccet create add-source <team-name> --local <provider> --model <m> [--binary <bin>]",
+    "                                              [--endpoint <url>] [--title <t>] [--summary <s>]",
+    "                                              ; local-llm transport (tool.exec, gated by UPL)",
     "  buccet create remove-source <team-name> --id <source-id>",
     "",
-    "  Stages for --owns-step: " + COMPREHENSION_STAGE_IDS.join(", "),
+    `  Stages for --owns-step:    ${COMPREHENSION_STAGE_IDS.join(", ")}`,
+    `  Remote providers (--remote): ${remoteProviders}`,
+    `  Local providers (--local):   ${localProviders}`,
   ].join("\n"));
   process.exit(1);
 }
@@ -7111,10 +7130,65 @@ async function handleCreate(rest: string[]) {
 
   if (sub === "add-source") {
     const teamName = rest[1];
-    const filePath = rest[2];
-    if (!teamName || !filePath) createUsage();
-    const { flags } = parseFlagPairs(rest.slice(3));
+    if (!teamName) createUsage();
     const slug = teamSlug(teamName);
+
+    const afterTeam = rest.slice(2);
+    const { positional, flags } = parseFlagPairs(afterTeam);
+    const remoteFlag = flags["remote"];
+    const localFlag = flags["local"];
+
+    if (remoteFlag !== undefined) {
+      if (!(remoteFlag in REMOTE_LLM_PROVIDER_DEFAULTS)) {
+        console.error(`Unknown remote provider "${remoteFlag}". Allowed: ${Object.keys(REMOTE_LLM_PROVIDER_DEFAULTS).join(", ")}`);
+        process.exit(1);
+      }
+      const rateCap = flags["rate-cap-per-minute"];
+      const manifest = await addTeamRemoteLlmSource({
+        homePath,
+        slug,
+        provider: remoteFlag as RemoteLlmProvider,
+        endpoint: flags["endpoint"],
+        model: flags["model"],
+        authEnvVar: flags["key-env"],
+        rateCapPerMinute: rateCap !== undefined ? Number(rateCap) : undefined,
+        title: flags["title"],
+        summary: flags["summary"],
+      });
+      console.log(`${clrOk(`remote source ${remoteFlag} added to ${manifest.slug}`)}`);
+      console.log(`${clrDim("  Calls flow as network.send through the boundary; UPL acceptance is required.")}`);
+      printTeamCorpus(manifest);
+      return;
+    }
+
+    if (localFlag !== undefined) {
+      if (!(localFlag in LOCAL_LLM_PROVIDER_DEFAULTS)) {
+        console.error(`Unknown local provider "${localFlag}". Allowed: ${Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ")}`);
+        process.exit(1);
+      }
+      const model = flags["model"];
+      if (!model) {
+        console.error(`Local provider "${localFlag}" requires --model.`);
+        process.exit(1);
+      }
+      const manifest = await addTeamLocalLlmSource({
+        homePath,
+        slug,
+        provider: localFlag as LocalLlmProvider,
+        model,
+        binary: flags["binary"],
+        endpoint: flags["endpoint"],
+        title: flags["title"],
+        summary: flags["summary"],
+      });
+      console.log(`${clrOk(`local source ${localFlag}:${model} added to ${manifest.slug}`)}`);
+      console.log(`${clrDim("  Calls flow as tool.exec through the boundary; UPL acceptance is required.")}`);
+      printTeamCorpus(manifest);
+      return;
+    }
+
+    const filePath = positional[0];
+    if (!filePath) createUsage();
     const manifest = await addTeamSource({
       homePath,
       slug,

@@ -1,7 +1,11 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
-import { BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES } from "./agent-comprehension-acceptance.ts";
+import {
+  BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES,
+  LOCAL_LLM_ACCEPTANCE_LANES,
+  REMOTE_LLM_ACCEPTANCE_LANES,
+} from "./agent-comprehension-acceptance.ts";
 import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
 import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
@@ -243,7 +247,7 @@ function resolveNotesAndTaskRoots(rootPath: string): string[] {
   return NOTES_AND_TASK_DIR_NAMES.map((name) => path.join(rootPath, name));
 }
 
-function buildBaseAcceptanceSeeds(args: {
+export function buildBaseAcceptanceSeeds(args: {
   rootPath: string;
   grantedActions: readonly BoundaryActionKind[];
 }): BaseAcceptanceSeed[] {
@@ -441,6 +445,34 @@ function buildBaseAcceptanceSeeds(args: {
       requestTextPatterns: [...lane.requestTextPatterns],
       requestBasisTarget: lane.invariant,
       requestBasisSummary: `agent-comprehension:${lane.stage}:${lane.invariant}`,
+    });
+  }
+
+  for (const lane of REMOTE_LLM_ACCEPTANCE_LANES) {
+    seeds.push({
+      id: lane.id,
+      acceptanceClass: "agent_comprehension",
+      reason: `Remote LLM path-source corridor for provider '${lane.provider}': ${lane.summary}`,
+      actionKinds: [...lane.actionKinds],
+      targetPattern: lane.targetPattern,
+      targetMatchMode: lane.targetMatchMode,
+      requestTextPatterns: [...lane.requestTextPatterns],
+      requestBasisTarget: lane.invariant,
+      requestBasisSummary: `agent-source:remote-llm:${lane.provider}`,
+    });
+  }
+
+  for (const lane of LOCAL_LLM_ACCEPTANCE_LANES) {
+    seeds.push({
+      id: lane.id,
+      acceptanceClass: "agent_comprehension",
+      reason: `Local LLM path-source corridor for provider '${lane.provider}': ${lane.summary}`,
+      actionKinds: [...lane.actionKinds],
+      targetPattern: lane.targetPattern,
+      targetMatchMode: lane.targetMatchMode,
+      requestTextPatterns: [...lane.requestTextPatterns],
+      requestBasisTarget: lane.invariant,
+      requestBasisSummary: `agent-source:local-llm:${lane.provider}`,
     });
   }
 

@@ -240,3 +240,91 @@ export const BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES: readonly AgentComprehens
     ],
   }),
 ];
+
+/**
+ * Per-provider acceptance corridors for path-source transports.
+ *
+ * Remote LLM providers run as `network.send` to a known endpoint host.
+ * Local LLM providers run as `tool.exec` of a known binary.
+ *
+ * These corridors NAME the lawful corridor — the bodyguard still applies them
+ * against actual requests, and the operator can mute or extend any of them
+ * via the standard `buccet upl` flow without touching code.
+ */
+type RemoteLlmCorridor = {
+  id: string;
+  provider: string;
+  hostPattern: string;
+  defaultModel: string;
+};
+
+type LocalLlmCorridor = {
+  id: string;
+  provider: string;
+  binary: string;
+  defaultEndpoint?: string;
+};
+
+export const REMOTE_LLM_ACCEPTANCE_CORRIDORS: readonly RemoteLlmCorridor[] = [
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.PI",        provider: "pi",        hostPattern: "/api\\.inflection\\.ai/i",                                  defaultModel: "inflection_3_pi" },
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.OPENAI",    provider: "openai",    hostPattern: "/api\\.openai\\.com/i",                                     defaultModel: "gpt-4o-mini" },
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.ANTHROPIC", provider: "anthropic", hostPattern: "/api\\.anthropic\\.com/i",                                  defaultModel: "claude-3-5-sonnet-latest" },
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.GEMINI",    provider: "gemini",    hostPattern: "/generativelanguage\\.googleapis\\.com/i",                  defaultModel: "gemini-1.5-flash" },
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.MISTRAL",   provider: "mistral",   hostPattern: "/api\\.mistral\\.ai/i",                                     defaultModel: "mistral-small-latest" },
+  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.GROQ",      provider: "groq",      hostPattern: "/api\\.groq\\.com/i",                                       defaultModel: "llama-3.1-8b-instant" },
+];
+
+export const LOCAL_LLM_ACCEPTANCE_CORRIDORS: readonly LocalLlmCorridor[] = [
+  { id: "ACCEPT.AGENT.SOURCE.LOCAL.OLLAMA",    provider: "ollama",    binary: "ollama",        defaultEndpoint: "http://127.0.0.1:11434" },
+  { id: "ACCEPT.AGENT.SOURCE.LOCAL.LLAMA_CPP", provider: "llama-cpp", binary: "llama-cli",     defaultEndpoint: "http://127.0.0.1:8080" },
+  { id: "ACCEPT.AGENT.SOURCE.LOCAL.LM_STUDIO", provider: "lm-studio", binary: "lms",           defaultEndpoint: "http://127.0.0.1:1234" },
+  { id: "ACCEPT.AGENT.SOURCE.LOCAL.MLX",       provider: "mlx",       binary: "mlx_lm.server", defaultEndpoint: "http://127.0.0.1:8080" },
+  { id: "ACCEPT.AGENT.SOURCE.LOCAL.VLLM",      provider: "vllm",      binary: "vllm",          defaultEndpoint: "http://127.0.0.1:8000" },
+];
+
+export type ProviderAcceptanceLane = {
+  id: string;
+  invariant: string;
+  summary: string;
+  actionKinds: BoundaryActionKind[];
+  targetPattern: string;
+  targetMatchMode: "prefix" | "exact" | "regex";
+  requestTextPatterns: string[];
+  brainSourceUri: string;
+  provider: string;
+  transport: "remote-llm" | "local-llm";
+};
+
+export const REMOTE_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] = REMOTE_LLM_ACCEPTANCE_CORRIDORS.map((c) => ({
+  id: c.id,
+  invariant: `agent-source-remote-${c.provider}`,
+  summary: `Remote LLM path-source via ${c.provider} is a lawful agent knowledge corridor (network.send to ${c.hostPattern}); UPL spend caps and rate caps apply per attached team.`,
+  actionKinds: ["network.send"],
+  targetPattern: c.hostPattern,
+  targetMatchMode: "regex" as const,
+  requestTextPatterns: [
+    `remote-llm:${c.provider}`,
+    `${c.provider}-source`,
+    `${c.provider} model ${c.defaultModel}`,
+  ],
+  brainSourceUri: BRAIN_SOURCE_URI,
+  provider: c.provider,
+  transport: "remote-llm" as const,
+}));
+
+export const LOCAL_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] = LOCAL_LLM_ACCEPTANCE_CORRIDORS.map((c) => ({
+  id: c.id,
+  invariant: `agent-source-local-${c.provider}`,
+  summary: `Local LLM path-source via ${c.provider} (${c.binary}${c.defaultEndpoint ? ` at ${c.defaultEndpoint}` : ""}) is a lawful agent knowledge corridor (tool.exec); per-team UPL spend caps and rate caps apply.`,
+  actionKinds: ["tool.exec"],
+  targetPattern: c.binary,
+  targetMatchMode: "exact" as const,
+  requestTextPatterns: [
+    `local-llm:${c.provider}`,
+    c.binary,
+    `${c.provider} local model`,
+  ],
+  brainSourceUri: BRAIN_SOURCE_URI,
+  provider: c.provider,
+  transport: "local-llm" as const,
+}));

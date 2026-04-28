@@ -59,6 +59,53 @@ export type TeamAgent = {
   };
 };
 
+/**
+ * Transport tells the runtime how a path source supplies knowledge:
+ *  - file        : on-disk markdown / code / json (the original path-source kind)
+ *  - remote-llm  : remote inference endpoint (Pi, OpenAI, Anthropic, Gemini, Mistral, ...)
+ *  - local-llm   : local inference runtime (Ollama, llama.cpp, LM Studio, MLX, vLLM, ...)
+ *  - http-api    : generic HTTP knowledge endpoint (vector DBs, search, custom RAG)
+ *
+ * Every transport routes through the boundary on every fetch:
+ *   file       → fs.read   (gated by scope + UPL)
+ *   remote-llm → network.send (gated by UPL acceptance + spend)
+ *   local-llm  → tool.exec  (gated by UPL acceptance + tool-exec rules)
+ *   http-api   → network.send (gated by UPL acceptance)
+ *
+ * Output is also subject to the creative-wall denial — sources cannot write
+ * back into UPL/scope/ledger state.
+ */
+export type SourceTransport = "file" | "remote-llm" | "local-llm" | "http-api";
+
+export type RemoteLlmProvider = "pi" | "openai" | "anthropic" | "gemini" | "mistral" | "groq" | "custom";
+
+export type RemoteLlmSourceConfig = {
+  provider: RemoteLlmProvider;
+  endpoint: string;
+  model: string;
+  authEnvVar?: string;
+  defaultParams?: Record<string, unknown>;
+  rateCapPerMinute?: number;
+};
+
+export type LocalLlmProvider = "ollama" | "llama-cpp" | "lm-studio" | "mlx" | "vllm" | "custom";
+
+export type LocalLlmSourceConfig = {
+  provider: LocalLlmProvider;
+  binary?: string;
+  endpoint?: string;
+  model: string;
+  defaultParams?: Record<string, unknown>;
+};
+
+export type HttpApiSourceConfig = {
+  endpoint: string;
+  method?: "GET" | "POST";
+  authEnvVar?: string;
+  defaultHeaders?: Record<string, string>;
+  rateCapPerMinute?: number;
+};
+
 export type TeamSourceRef = {
   id: string;
   title: string;
@@ -66,6 +113,73 @@ export type TeamSourceRef = {
   summary?: string;
   sourceUri?: string;
   importedFromPath?: string;
+  transport?: SourceTransport;
+  remote?: RemoteLlmSourceConfig;
+  local?: LocalLlmSourceConfig;
+  httpApi?: HttpApiSourceConfig;
+};
+
+/**
+ * Default endpoint + auth + model hints for known providers. Operators can
+ * override every field at registration time. Keys are never read or stored
+ * here; we only carry the env-var name.
+ */
+export const REMOTE_LLM_PROVIDER_DEFAULTS: Record<RemoteLlmProvider, Partial<RemoteLlmSourceConfig>> = {
+  pi: {
+    endpoint: "https://api.inflection.ai/external/api/inference",
+    model: "inflection_3_pi",
+    authEnvVar: "INFLECTION_API_KEY",
+  },
+  openai: {
+    endpoint: "https://api.openai.com/v1/chat/completions",
+    model: "gpt-4o-mini",
+    authEnvVar: "OPENAI_API_KEY",
+  },
+  anthropic: {
+    endpoint: "https://api.anthropic.com/v1/messages",
+    model: "claude-3-5-sonnet-latest",
+    authEnvVar: "ANTHROPIC_API_KEY",
+  },
+  gemini: {
+    endpoint: "https://generativelanguage.googleapis.com/v1beta/models",
+    model: "gemini-1.5-flash",
+    authEnvVar: "GOOGLE_API_KEY",
+  },
+  mistral: {
+    endpoint: "https://api.mistral.ai/v1/chat/completions",
+    model: "mistral-small-latest",
+    authEnvVar: "MISTRAL_API_KEY",
+  },
+  groq: {
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    model: "llama-3.1-8b-instant",
+    authEnvVar: "GROQ_API_KEY",
+  },
+  custom: {},
+};
+
+export const LOCAL_LLM_PROVIDER_DEFAULTS: Record<LocalLlmProvider, Partial<LocalLlmSourceConfig>> = {
+  ollama: {
+    binary: "ollama",
+    endpoint: "http://127.0.0.1:11434",
+  },
+  "llama-cpp": {
+    binary: "llama-cli",
+    endpoint: "http://127.0.0.1:8080",
+  },
+  "lm-studio": {
+    binary: "lms",
+    endpoint: "http://127.0.0.1:1234",
+  },
+  mlx: {
+    binary: "mlx_lm.server",
+    endpoint: "http://127.0.0.1:8080",
+  },
+  vllm: {
+    binary: "vllm",
+    endpoint: "http://127.0.0.1:8000",
+  },
+  custom: {},
 };
 
 export type TeamUplTrackSnap = {
@@ -336,6 +450,108 @@ export async function addTeamSource(args: AddSourceArgs): Promise<TeamManifest> 
   return manifest;
 }
 
+export type AddRemoteLlmSourceArgs = {
+  homePath: string;
+  slug: TeamSlug;
+  provider: RemoteLlmProvider;
+  endpoint?: string;
+  model?: string;
+  authEnvVar?: string;
+  rateCapPerMinute?: number;
+  defaultParams?: Record<string, unknown>;
+  title?: string;
+  summary?: string;
+};
+
+export async function addTeamRemoteLlmSource(args: AddRemoteLlmSourceArgs): Promise<TeamManifest> {
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) throw new Error(`Team "${args.slug}" not found`);
+
+  const defaults = REMOTE_LLM_PROVIDER_DEFAULTS[args.provider] ?? {};
+  const endpoint = args.endpoint ?? defaults.endpoint;
+  const model = args.model ?? defaults.model;
+  if (!endpoint) {
+    throw new Error(`Provider "${args.provider}" has no default endpoint; pass --endpoint`);
+  }
+  if (!model) {
+    throw new Error(`Provider "${args.provider}" has no default model; pass --model`);
+  }
+  const authEnvVar = args.authEnvVar ?? defaults.authEnvVar;
+
+  const remote: RemoteLlmSourceConfig = {
+    provider: args.provider,
+    endpoint,
+    model,
+    ...(authEnvVar ? { authEnvVar } : {}),
+    ...(args.rateCapPerMinute !== undefined ? { rateCapPerMinute: args.rateCapPerMinute } : {}),
+    ...(args.defaultParams ? { defaultParams: args.defaultParams } : {}),
+  };
+  const sourceId = synthesizeRemoteSourceId(remote);
+  if (manifest.pathSourceCorpus.some((s) => s.id === sourceId)) {
+    throw new Error(`Source "${sourceId}" is already in team "${args.slug}".`);
+  }
+  const ref: TeamSourceRef = {
+    id: sourceId,
+    title: args.title ?? `${args.provider}:${model}`,
+    kind: `remote-llm:${args.provider}`,
+    summary: args.summary ?? `Remote LLM via ${args.provider} at ${endpoint}, model ${model}.`,
+    sourceUri: endpoint,
+    transport: "remote-llm",
+    remote,
+  };
+  manifest.pathSourceCorpus.push(ref);
+  await saveTeam(args.homePath, manifest);
+  return manifest;
+}
+
+export type AddLocalLlmSourceArgs = {
+  homePath: string;
+  slug: TeamSlug;
+  provider: LocalLlmProvider;
+  binary?: string;
+  endpoint?: string;
+  model: string;
+  defaultParams?: Record<string, unknown>;
+  title?: string;
+  summary?: string;
+};
+
+export async function addTeamLocalLlmSource(args: AddLocalLlmSourceArgs): Promise<TeamManifest> {
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) throw new Error(`Team "${args.slug}" not found`);
+
+  const defaults = LOCAL_LLM_PROVIDER_DEFAULTS[args.provider] ?? {};
+  const binary = args.binary ?? defaults.binary;
+  const endpoint = args.endpoint ?? defaults.endpoint;
+  if (!args.model) {
+    throw new Error(`Local provider "${args.provider}" requires --model`);
+  }
+
+  const local: LocalLlmSourceConfig = {
+    provider: args.provider,
+    ...(binary ? { binary } : {}),
+    ...(endpoint ? { endpoint } : {}),
+    model: args.model,
+    ...(args.defaultParams ? { defaultParams: args.defaultParams } : {}),
+  };
+  const sourceId = synthesizeLocalSourceId(local);
+  if (manifest.pathSourceCorpus.some((s) => s.id === sourceId)) {
+    throw new Error(`Source "${sourceId}" is already in team "${args.slug}".`);
+  }
+  const ref: TeamSourceRef = {
+    id: sourceId,
+    title: args.title ?? `${args.provider}:${args.model}`,
+    kind: `local-llm:${args.provider}`,
+    summary: args.summary ?? `Local LLM via ${args.provider}${binary ? ` (${binary})` : ""}${endpoint ? ` at ${endpoint}` : ""}, model ${args.model}.`,
+    sourceUri: endpoint ?? `local://${args.provider}/${args.model}`,
+    transport: "local-llm",
+    local,
+  };
+  manifest.pathSourceCorpus.push(ref);
+  await saveTeam(args.homePath, manifest);
+  return manifest;
+}
+
 export async function removeTeamSource(args: {
   homePath: string;
   slug: TeamSlug;
@@ -385,6 +601,22 @@ function uniqueIds(values: string[]): string[] {
 function synthesizeSourceId(filePath: string, content: string): string {
   const digest = createHash("sha256").update(`${filePath}::${content.length}`).update(content).digest("hex").slice(0, 16);
   return `team-source-${digest}`;
+}
+
+function synthesizeRemoteSourceId(remote: RemoteLlmSourceConfig): string {
+  const digest = createHash("sha256")
+    .update(`remote-llm::${remote.provider}::${remote.endpoint}::${remote.model}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `team-source-remote-${digest}`;
+}
+
+function synthesizeLocalSourceId(local: LocalLlmSourceConfig): string {
+  const digest = createHash("sha256")
+    .update(`local-llm::${local.provider}::${local.binary ?? ""}::${local.endpoint ?? ""}::${local.model}`)
+    .digest("hex")
+    .slice(0, 16);
+  return `team-source-local-${digest}`;
 }
 
 export function expandTeamPathSourcesForFormation(
