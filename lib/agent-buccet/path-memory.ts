@@ -13,6 +13,17 @@ export const BUCCET_PATH_NAMES = [
   "general",
 ] as const;
 
+export const UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE: BuccetPathSource = {
+  id: "base-agent-comprehension-process",
+  title: "Universal Agent Comprehension Process",
+  kind: "cognitive-framework",
+  content:
+    "Receive → Represent → Infer Intent → Bind Constraints → Select Method → Acquire/Use Knowledge → Transform → Validate → Render → Return",
+  summary: "The hardcoded, procedural pipeline that governs all valid agent comprehension and action.",
+  sourceUri: "buccet://internal/agent-comprehension-process",
+  tags: ["base", "framework", "cognition"],
+};
+
 export type BuccetPathName = string;
 export type BuccetPathDomain = string;
 export type BuccetPathStageStatus =
@@ -355,7 +366,10 @@ function clonePathTemplate(template: BuccetPathTemplate): BuccetPathTemplate {
     ...template,
     laws: [...template.laws],
     tools: [...template.tools],
-    pathSources: template.pathSources.map((source) => clonePathSource(source)),
+    pathSources: [
+      UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
+      ...template.pathSources.map((source) => clonePathSource(source)),
+    ],
     uplBindings: template.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -1181,6 +1195,10 @@ export function instantiateBuccetFormation(args: {
     userRequest: args.userRequest,
     draft: args.draft,
   });
+  // Ensure the template has the brain source before building the roster.
+  if (!template.pathSources.some((s) => s.id === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id)) {
+    template.pathSources.unshift(UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE);
+  }
   const agentRoster = buildAgentRosterForTemplate(template, createdAt);
 
   return {
@@ -1196,7 +1214,10 @@ export function instantiateBuccetFormation(args: {
     modelHint: template.modelHint,
     laws: [...template.laws],
     tools: [...template.tools],
-    pathSources: template.pathSources.map((source) => clonePathSource(source)),
+    pathSources: [
+      UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
+      ...template.pathSources.map((source) => clonePathSource(source)),
+    ],
     uplBindings: template.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
