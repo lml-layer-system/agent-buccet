@@ -9,7 +9,9 @@
  *
  * Layered architecture:
  *
- *   BRAIN   = UBIE  (cognitive-framework path source, base-agent-comprehension-process)
+ *   BRAIN   = UBIE cognitive-framework path source: workshop teams use
+ *           `base-agent-comprehension-process`; SPEND Buccets use
+ *           `spending-agent-ubie-value-boundary` (value boundary / spend packet).
  *           +  AI/LLM  (path source, transport=remote-llm or local-llm)
  *           +  Library  (path sources, transport=file / http-api / etc.)
  *           Brain proposes; never mutates UPL.
@@ -31,14 +33,18 @@
 
 import { enforceBoundaryProposal } from "./bodyguard.ts";
 import { appendBoundaryLedger } from "./ledger.ts";
-import { UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE } from "./path-memory.ts";
-import type {
-  EngineSourceConfig,
-  RemoteLlmSourceConfig,
-  LocalLlmSourceConfig,
-  TeamAgent,
-  TeamManifest,
-  TeamSourceRef,
+import {
+  isBuiltinTeamBrainSourceId,
+  resolveTeamBrainPathSource,
+} from "./path-memory.ts";
+import {
+  teamManifestBrainSourceId,
+  type EngineSourceConfig,
+  type RemoteLlmSourceConfig,
+  type LocalLlmSourceConfig,
+  type TeamAgent,
+  type TeamManifest,
+  type TeamSourceRef,
 } from "./team-workshop.ts";
 import type { BoundaryActionKind, BoundaryRuntimeConfig } from "./types.ts";
 
@@ -257,7 +263,8 @@ export function buildBuccetSystemContext(args: {
   const lines: string[] = [];
 
   lines.push("=== BRAIN PROTOCOL ===");
-  lines.push(UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.content);
+  const brain = resolveTeamBrainPathSource(teamManifestBrainSourceId(args.manifest));
+  lines.push(brain.content);
   lines.push("");
 
   lines.push(`=== TEAM: ${args.manifest.name} (${args.manifest.slug}) ===`);
@@ -273,10 +280,10 @@ export function buildBuccetSystemContext(args: {
   lines.push("");
 
   const requestedSourceIds = args.agent.sourceIds.filter(
-    (sourceId) => sourceId !== UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id,
+    (sourceId) => !isBuiltinTeamBrainSourceId(sourceId),
   );
   const libraryRefs = args.manifest.pathSourceCorpus.filter((s) => {
-    if (s.id === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id || s.transport === "engine") {
+    if (isBuiltinTeamBrainSourceId(s.id) || s.transport === "engine") {
       return false;
     }
     if (requestedSourceIds.length === 0) return true;

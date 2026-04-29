@@ -15,6 +15,7 @@ import type {
   TeamSlug,
   TeamSourceRef,
 } from "./team-workshop.ts";
+import { isBuiltinTeamBrainSourceId } from "./path-memory.ts";
 
 export const TEAM_SOURCE_CHECKPOINT_FORMAT = "buccet-checkpoint-v1";
 const DEFAULT_REGION_LINE_SPAN = 200;
@@ -530,7 +531,7 @@ export async function buildTeamWholeView(args: {
 }
 
 function agentNonBrainSourceIds(agent: TeamAgent): string[] {
-  return agent.sourceIds.filter((id) => id !== "base-agent-comprehension-process");
+  return agent.sourceIds.filter((id) => !isBuiltinTeamBrainSourceId(id));
 }
 
 function candidateWholeViewSourcesForAgent(agent: TeamAgent, wholeView: TeamWholeView): TeamWholeViewSource[] {

@@ -175,6 +175,7 @@ type WorkshopCockpitRunState = "active" | "waiting" | "blocked" | "completed" | 
 type WorkshopCockpitTeamSummary = {
   slug: string;
   domain: string;
+  buccetClass?: TeamManifest["buccetClass"];
   manifestStatus: TeamManifest["status"];
   runState: WorkshopCockpitRunState;
   peerCount: number;
@@ -427,6 +428,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
       "Workshop — build hyper-specialized teams (creativity face)",
       [
         "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track snapped)",
+        "  buccet create spend <team-name> --domain <domain> [--summary <text>]   SPEND Buccet — financial agents only (see warning + `--confirm-spend`)",
         "  buccet create list                                                list standing teams",
         "  buccet create show <team-name>                                    show a team manifest",
         "  buccet create cockpit [--json]                                    multi-Buccet creation proof-of-work snapshot",
@@ -7000,6 +7002,8 @@ function createUsage(): never {
   console.error([
     "Usage:",
     "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
+    "  buccet create spend <team-name> --domain <domain> [--summary <text>] [--notes <text>] [--confirm-spend]",
+    "                                   SPEND Buccet only — prints a warning; non-interactive shells need --confirm-spend",
     "  buccet create trace <team-name> [--tail <n>] [--json]           proof-of-work trace from path-source memory",
     "  buccet create show <team-name> [--json]",
     "  buccet create list [--json]",
@@ -7072,16 +7076,47 @@ function csvList(value: string | undefined): string[] {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+function promptYesNo(question: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const iface = readline.createInterface({ input: process.stdin, output: process.stdout });
+    iface.question(question, (answer) => {
+      iface.close();
+      resolve(/^y(es)?$/i.test(answer.trim()));
+    });
+  });
+}
+
+function printSpendBuccetCautionBanner(): void {
+  console.log("");
+  printCliHeader("SPEND BUCCET — financial agents only", "Real money & value obligations");
+  printCliSection("Read carefully", [
+    "  This path creates a Buccet slice for agents that can spend real money or create financial obligations — shopping, trading, subscriptions, bill pay, procurement, donations, paid APIs, ads, and similar.",
+    `  It is ${clrBold("not")} the default creative-coding / general workshop slice. Mission here is ${clrBold("value-boundary")} work.`,
+    "  Standing UPL laws, agent.spend tracks, and operator decisions in `buccet console` / `buccet upl` are what bound those agents — not informal intent.",
+    "  The injected brain is the UBIE value-boundary / spend-packet framework — not the default creative workshop comprehension brain.",
+    "  The team manifest will be stamped with [SPEND BUCCET] notes you can inspect via `buccet create show <team>`.",
+  ]);
+  console.log("");
+}
+
 function printTeamHeader(manifest: TeamManifest): void {
   printCliHeader(`Team · ${manifest.name}`, manifest.summary);
-  printCliSection("Identity", [
+  const identity: string[] = [
     formatCliKeyValue("slug", manifest.slug),
     formatCliKeyValue("domain", manifest.domain),
+    formatCliKeyValue("class", manifest.buccetClass === "spend" ? "SPEND (financial agents)" : "workshop (default)"),
     formatCliKeyValue("status", manifest.status),
     formatCliKeyValue("created", manifest.createdAt),
     formatCliKeyValue("updated", manifest.updatedAt),
     formatCliKeyValue("brain", manifest.brainSourceId),
-  ]);
+  ];
+  printCliSection("Identity", identity);
+  if (manifest.buccetClass === "spend") {
+    printCliSection("SPEND BUCCET", [
+      `  ${clrWarn("Caution:")} peers in this slice are meant to operate under Agent Buccet ${clrBold("UPL")} and ${clrBold("agent.spend")} rails.`,
+      "  Use `buccet upl` and `buccet console` to ratify corridors — not optional for real money.",
+    ]);
+  }
 }
 
 function printTeamRoster(manifest: TeamManifest): void {
@@ -7159,13 +7194,15 @@ async function handleCreate(rest: string[]) {
     if (teams.length === 0) {
       console.log("");
       console.log(`  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`);
+      console.log(`  ${clrDim("Financial agents:")}  ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")}`);
       console.log("");
       return;
     }
     printCliHeader("Teams", `Workshop · ${teamsRoot(homePath)}`);
     const rows: string[] = [];
     for (const team of teams) {
-      rows.push(`  ${clrBold(team.slug.padEnd(20))} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}    ${clrDim(team.summary)}`);
+      const spendTag = team.buccetClass === "spend" ? `${clrWarn("SPEND")} ` : "";
+      rows.push(`  ${spendTag}${clrBold(team.slug.padEnd(20))} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}    ${clrDim(team.summary)}`);
     }
     printCliSection("Standing teams", rows);
     return;
@@ -7537,6 +7574,53 @@ async function handleCreate(rest: string[]) {
     return;
   }
 
+  if (sub === "spend") {
+    const spendTeamName = rest[1];
+    if (!spendTeamName) createUsage();
+    const { flags, bools } = parseFlagPairs(rest.slice(2));
+    const spendDomain = flags["domain"];
+    if (!spendDomain) {
+      console.error("buccet create spend requires --domain <domain>.");
+      process.exit(1);
+    }
+    printSpendBuccetCautionBanner();
+    if (!bools.has("confirm-spend")) {
+      if (process.stdin.isTTY === true && process.stdout.isTTY === true) {
+        const ok = await promptYesNo("Create this SPEND BUCCET now? Financial agents only. Type yes: ");
+        if (!ok) {
+          console.log(`  ${clrDim("Aborted — no team created.")}`);
+          return;
+        }
+      } else {
+        console.error("Non-interactive shell: add --confirm-spend to create a spend Buccet.");
+        process.exit(1);
+      }
+    }
+    const spendManifest = await createTeam({
+      homePath,
+      name: spendTeamName,
+      domain: spendDomain,
+      summary: flags["summary"],
+      notes: flags["notes"],
+      createdBy: defaultActorId(),
+      buccetClass: "spend",
+    });
+    console.log("");
+    console.log(`${clrOk(`SPEND BUCCET created`)}    ${clrBold(spendManifest.slug)}`);
+    console.log(`${clrDim("home:        ")}${homePath}`);
+    console.log(`${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), spendManifest.slug, "manifest.json")}`);
+    console.log(`${clrDim("class:       ")}${clrWarn("SPEND")} — UPL + agent.spend bound real-money agents.`);
+    console.log(`${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(UBIE value-boundary · auto-injected)")}`);
+    console.log(`${clrDim("upl-track:   ")}snapped at ${spendManifest.uplTrackSnap.takenAt}`);
+    console.log("");
+    console.log(`  ${clrDim("Next:")}`);
+    console.log(`    ${clrBold(`buccet create add-agent ${spendManifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`);
+    console.log(`    ${clrBold(`buccet create add-source ${spendManifest.slug} <file>`)}`);
+    console.log(`    ${clrBold(`buccet create show ${spendManifest.slug}`)}`);
+    console.log("");
+    return;
+  }
+
   // default: `buccet create <team-name> [--domain ...]`
   // Console shortcut: if --domain is absent, check whether the team exists and show
   // its proof-of-work trace. `create <team>` and `create <team> <n>` both work.
@@ -7574,7 +7658,7 @@ async function handleCreate(rest: string[]) {
   console.log(`${clrOk(`team created`)}    ${clrBold(manifest.slug)}`);
   console.log(`${clrDim("home:        ")}${homePath}`);
   console.log(`${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), manifest.slug, "manifest.json")}`);
-  console.log(`${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(auto-injected)")}`);
+  console.log(`${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(Universal comprehension · auto-injected)")}`);
   console.log(`${clrDim("upl-track:   ")}snapped at ${manifest.uplTrackSnap.takenAt}`);
   console.log("");
   console.log(`  ${clrDim("Next:")}`);
@@ -7616,6 +7700,7 @@ async function handleTeam(rest: string[]) {
     if (teams.length === 0) {
       console.log("");
       console.log(`  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`);
+      console.log(`  ${clrDim("Financial agents:")}  ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")}`);
       console.log("");
       return;
     }
@@ -7626,7 +7711,8 @@ async function handleTeam(rest: string[]) {
         team.status === "running" ? clrOk(team.status) :
         team.status === "stopped" ? clrWarn(team.status) :
         clrDim(team.status);
-      rows.push(`  ${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}`);
+      const spendTag = team.buccetClass === "spend" ? `${clrWarn("SPEND")} ` : "";
+      rows.push(`  ${spendTag}${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}`);
     }
     printCliSection("Standing teams", rows);
     return;
@@ -7915,6 +8001,7 @@ function summarizeWorkshopTeamState(args: {
   return {
     slug: args.manifest.slug,
     domain: args.manifest.domain,
+    buccetClass: args.manifest.buccetClass,
     manifestStatus: args.manifest.status,
     runState,
     peerCount: args.manifest.agents.length,
@@ -7988,6 +8075,7 @@ function printWorkshopCockpitSnapshot(snapshot: WorkshopCockpitSnapshot): void {
   if (snapshot.teams.length === 0) {
     printCliSection("Creation Runs", [
       `  ${clrDim("Use")} ${clrBold("buccet create <team-name> --domain <domain>")} ${clrDim("to spin up a Buccet.")}`,
+      `  ${clrDim("Use")} ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")} ${clrDim("for financial / money-moving agents only.")}`,
     ]);
     return;
   }
@@ -8001,7 +8089,7 @@ function printWorkshopCockpitSnapshot(snapshot: WorkshopCockpitSnapshot): void {
       team.runState === "completed" ? clrOk(team.runState) :
       clrDim(team.runState);
     rows.push(
-      `  ${clrBold(team.slug.padEnd(18))} ${stateLabel.padEnd(20)} ${clrDim(team.domain.padEnd(16))} ${team.peerCount} peer${team.peerCount === 1 ? "" : "s"}`,
+      `  ${team.buccetClass === "spend" ? `${clrWarn("SPEND")} ` : ""}${clrBold(team.slug.padEnd(18))} ${stateLabel.padEnd(20)} ${clrDim(team.domain.padEnd(16))} ${team.peerCount} peer${team.peerCount === 1 ? "" : "s"}`,
     );
     const proof = team.latestProofTitle
       ? `${team.latestProofKind ?? "work"} · ${team.latestProofTitle}`
@@ -8042,7 +8130,8 @@ function nextAskId(): string {
 }
 
 function formatTeamLane(manifest: TeamManifest): string {
-  return `creative · ${manifest.domain} · ${manifest.slug}`;
+  const lane = manifest.buccetClass === "spend" ? "spend" : "creative";
+  return `${lane} · ${manifest.domain} · ${manifest.slug}`;
 }
 
 async function recordTeamAsk(args: {
@@ -9986,6 +10075,7 @@ async function handleConsole() {
             formatCliKeyValue("where", "full operator map — every surface and command"),
             formatCliKeyValue("status", "unified operator snapshot"),
             formatCliKeyValue("create", "multi-Buccet creation cockpit"),
+            formatCliKeyValue("create spend <team> --domain <d> [--confirm-spend]", "SPEND Buccet — financial agents; shell also: buccet create spend …"),
             formatCliKeyValue("create <team> [n]", "per-Buccet proof-of-work trace (latest n entries)"),
             formatCliKeyValue("shield", "protected execution lane heartbeat"),
             formatCliKeyValue("logs [n]", "last n witness ledger entries (default 10)"),
@@ -10165,6 +10255,12 @@ async function handleConsole() {
         }
 
         if (cmd === "create") {
+          if (arg1 === "spend") {
+            await handleCreate(["spend", ...parts.slice(2)]);
+            console.log(``);
+            rl.prompt();
+            return;
+          }
           if (arg1) {
             // create <team> [n] — per-Buccet proof-of-work trace
             const traceSlug = teamSlug(arg1);

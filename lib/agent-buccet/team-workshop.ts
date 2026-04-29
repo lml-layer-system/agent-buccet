@@ -4,6 +4,9 @@ import { createHash } from "node:crypto";
 
 import {
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
+  SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
+  isBuiltinTeamBrainSourceId,
+  resolveTeamBrainPathSource,
   type BuccetPathSource,
 } from "./path-memory.ts";
 import {
@@ -30,8 +33,8 @@ import {
  *  - a domain
  *  - a roster of peer agents (each with model hint, --owns-step, source slice,
  *    spend cap)
- *  - a brain instance (the Universal Agent Comprehension Process auto-injected
- *    into every formation; the team carries a copy in its manifest for audit)
+ *  - a brain instance (Universal Agent Comprehension Process for workshop teams,
+ *    or the UBIE value-boundary brain for SPEND Buccets; auto-injected per class)
  *  - a path-source corpus (the team's library)
  *  - a UPL track snap reference (taken at create time so audits can replay)
  *  - per-agent conscience-spend trackers (running spend + cap per peer)
@@ -316,6 +319,11 @@ export type TeamManifest = {
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
+  /**
+   * When "spend", this Buccet is for agents that move real money or create financial obligations.
+   * UPL / agent.spend rails are the control plane; not a general creative-only slice.
+   */
+  buccetClass?: "spend";
   brainSourceId: string;
   pathSourceCorpus: TeamSourceRef[];
   agents: TeamAgent[];
@@ -502,10 +510,15 @@ export function teamWorkMemorySourceId(slug: TeamSlug): string {
 }
 
 export function isSharedInternalTeamSourceId(sourceId: string): boolean {
-  return (
-    sourceId === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id ||
-    sourceId.startsWith("team-work-memory-")
-  );
+  return isBuiltinTeamBrainSourceId(sourceId) || sourceId.startsWith("team-work-memory-");
+}
+
+/** Effective brain id for runtime / Pi / formation (SPEND class always uses the value-boundary brain). */
+export function teamManifestBrainSourceId(manifest: TeamManifest): string {
+  if (manifest.buccetClass === "spend") {
+    return SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id;
+  }
+  return manifest.brainSourceId;
 }
 
 function teamWorkMemorySourceUri(slug: TeamSlug): string {
@@ -1024,8 +1037,19 @@ export type CreateTeamArgs = {
   summary?: string;
   createdBy?: string;
   notes?: string;
+  /** Spend Buccets are for financial agents; see `buccet create spend`. */
+  buccetClass?: "spend";
   uplTrackSnap?: Partial<TeamUplTrackSnap>;
 };
+
+const SPEND_BUCCET_NOTES_STAMP = [
+  "[SPEND BUCCET — financial agents only]",
+  "This slice is for agents that can move real money or create financial obligations (shopping, trading, subscriptions, bill pay, procurement, donations, cloud/API spend, and similar).",
+  "It is not a general-purpose creative-coding or research-only Buccet — the mission is value-boundary work.",
+  "The team brain is the UBIE value-boundary framework (`spending-agent-ubie-value-boundary`), not the default Universal Agent Comprehension Process.",
+  "Standing Agent Buccet UPL laws, agent.spend tracks, and operator approvals in `buccet console` / `buccet upl` are the control plane for any value movement.",
+  "If you did not intend a money-moving workload, use `buccet create <team> --domain ...` instead.",
+].join("\n");
 
 export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
   const slug = teamSlug(args.name);
@@ -1035,7 +1059,14 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
   }
 
   const now = new Date().toISOString();
-  const brain = brainSourceRef();
+  const brainPath =
+    args.buccetClass === "spend"
+      ? SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE
+      : UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE;
+  const brain = teamBrainSourceRef(brainPath);
+  const mergedNotes =
+    [args.notes?.trim(), args.buccetClass === "spend" ? SPEND_BUCCET_NOTES_STAMP : ""].filter(Boolean).join("\n\n") ||
+    undefined;
   const manifest: TeamManifest = {
     manifestVersion: TEAM_MANIFEST_VERSION,
     slug,
@@ -1045,7 +1076,8 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
     createdAt: now,
     updatedAt: now,
     createdBy: args.createdBy,
-    brainSourceId: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id,
+    ...(args.buccetClass === "spend" ? { buccetClass: "spend" as const } : {}),
+    brainSourceId: brainPath.id,
     pathSourceCorpus: [brain],
     agents: [],
     uplTrackSnap: {
@@ -1053,7 +1085,7 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
       ...(args.uplTrackSnap ?? {}),
     },
     status: "draft",
-    notes: args.notes,
+    notes: mergedNotes,
   };
   await saveTeam(args.homePath, manifest);
   const ensured = await ensureTeamWorkMemorySource({
@@ -1066,7 +1098,9 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
     kind: "team_created",
     title: `team_created:${slug}`,
     text:
-      `Created team ${slug} for ${args.domain}. Persistent brain source and Buccet path-source memory are ready before live input.`,
+      args.buccetClass === "spend"
+        ? `Created SPEND Buccet ${slug} for ${args.domain}. UBIE value-boundary brain injected; path-source memory ready — real spend remains gated by UPL, agent.spend, and operator law.`
+        : `Created team ${slug} for ${args.domain}. Persistent brain source and Buccet path-source memory are ready before live input.`,
     meta: {
       name: args.name,
       domain: args.domain,
@@ -1075,6 +1109,7 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
       createdBy: args.createdBy ?? null,
       pathSourceCount: ensured.manifest.pathSourceCorpus.length,
       agentCount: ensured.manifest.agents.length,
+      buccetClass: args.buccetClass ?? null,
     },
   });
 }
@@ -1120,7 +1155,7 @@ export async function addTeamAgent(args: AddAgentArgs): Promise<TeamManifest> {
   }
 
   const sourceIds = uniqueIds([
-    UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id,
+    teamManifestBrainSourceId(manifest),
     teamWorkMemorySourceId(args.slug),
     ...requestedSources,
   ]);
@@ -1555,7 +1590,7 @@ export async function removeTeamSource(args: {
   slug: TeamSlug;
   sourceId: string;
 }): Promise<TeamManifest> {
-  if (args.sourceId === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id) {
+  if (isBuiltinTeamBrainSourceId(args.sourceId)) {
     throw new Error("The brain source is auto-injected and cannot be removed from a team.");
   }
   if (args.sourceId === teamWorkMemorySourceId(args.slug)) {
@@ -1597,13 +1632,13 @@ export async function removeTeamSource(args: {
   });
 }
 
-function brainSourceRef(): TeamSourceRef {
+function teamBrainSourceRef(source: BuccetPathSource): TeamSourceRef {
   return {
-    id: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id,
-    title: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.title,
-    kind: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.kind,
-    summary: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.summary,
-    sourceUri: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.sourceUri,
+    id: source.id,
+    title: source.title,
+    kind: source.kind,
+    summary: source.summary,
+    sourceUri: source.sourceUri,
     internalRole: "brain",
   };
 }
@@ -1663,9 +1698,10 @@ export function expandTeamPathSourcesForFormation(
   manifest: TeamManifest,
   resolvers: Map<string, BuccetPathSource>,
 ): BuccetPathSource[] {
-  const out: BuccetPathSource[] = [UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE];
+  const brain = resolveTeamBrainPathSource(teamManifestBrainSourceId(manifest));
+  const out: BuccetPathSource[] = [brain];
   for (const ref of manifest.pathSourceCorpus) {
-    if (ref.id === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id) continue;
+    if (isBuiltinTeamBrainSourceId(ref.id)) continue;
     const resolved = resolvers.get(ref.id);
     if (resolved) {
       out.push(resolved);
