@@ -38,6 +38,7 @@ import {
   loadTeam,
   readTeamPathSourceMemoryEntries,
   teamSlug,
+  type TeamAgent,
 } from "../lib/agent-buccet/team-workshop.ts";
 import {
   buildProofOfWorkTraceOutput,
@@ -66,7 +67,7 @@ async function runBuccet(
 }
 
 /** Minimal TeamAgent stub for context building. */
-function makeAgent(id: string, ownsStep: string) {
+function makeAgent(id: string, ownsStep: TeamAgent["ownsStep"]): TeamAgent {
   return {
     id,
     title: id,
@@ -74,7 +75,11 @@ function makeAgent(id: string, ownsStep: string) {
     ownsStep,
     sourceIds: [] as string[],
     memoryNotes: undefined as string | undefined,
-    spend: { capNormalized: null as number | null },
+    tools: [] as string[],
+    spend: {
+      capNormalized: null as number | null,
+      spentNormalized: 0,
+    },
   };
 }
 

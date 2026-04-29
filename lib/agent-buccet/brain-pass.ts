@@ -37,6 +37,7 @@ import {
   recordComprehensionRender,
   recordComprehensionReturn,
   recordComprehensionTransform,
+  recordComprehensionValueBoundary,
   recordComprehensionValidation,
   renderComprehensionPassForPrompt,
   type AgentComprehensionPass,
@@ -72,6 +73,7 @@ import {
   type TeamSlug,
   type TeamSourceRef,
 } from "./team-workshop.ts";
+import { syncTeamSpendBoundaryProofOfWork } from "./spend-boundary-proof.ts";
 import type { BoundaryActionKind } from "./types.ts";
 
 export type BrainPassEvent =
@@ -228,6 +230,7 @@ export async function preflightBrainPass(args: {
     packetCount: peerTaskGraph.packets.length,
     projectionCount: peerTaskGraph.packets.reduce((sum, packet) => sum + packet.projectionHandles.length, 0),
     spokespersonAgentId: agent.id,
+    valueBoundaryRequired: manifest.buccetClass === "spend",
     peers: agents.map((entry) => ({
       id: entry.id,
       specialty: entry.specialty,
@@ -312,6 +315,8 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
   const config = await startPersistentBoundarySession({
     sessionId,
     actorId,
+    teamSlug: manifest.slug,
+    teamBuccetClass: manifest.buccetClass === "spend" ? "spend" : "workshop",
     approvalRequiredFor: [],
     sessionsDir,
   });
@@ -346,6 +351,26 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
       meta,
     });
     manifest = appended.manifest;
+  };
+  const syncSpendProof = async (): Promise<void> => {
+    if (manifest.buccetClass !== "spend") {
+      return;
+    }
+    const mirrored = await syncTeamSpendBoundaryProofOfWork({
+      homePath: args.homePath,
+      slug: args.slug,
+      sessionId,
+    });
+    if (mirrored.manifest) {
+      manifest = mirrored.manifest;
+    }
+    if (mirrored.latestDecision) {
+      comprehensionPass = recordComprehensionValueBoundary(comprehensionPass, {
+        blocked: mirrored.latestDecision.decision !== "allow",
+        disposition: mirrored.latestDecision.decision ?? "pending",
+        reasons: [mirrored.latestDecision.reason],
+      });
+    }
   };
   try {
     await appendWorkRecord(
@@ -420,6 +445,7 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
           projectionBundle,
         }),
       );
+      await syncSpendProof();
       const peerOutput = extractTextOutput(result).trim() || "(peer returned empty output)";
       peerResults.push({
         packetId: packet.packetId,
@@ -528,6 +554,7 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
           comprehensionPass,
         }),
       );
+      await syncSpendProof();
       output = extractTextOutput(result).trim();
       if (output.length === 0) {
         output = "(brain pass returned empty output)";
@@ -551,6 +578,7 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     try {
+      await syncSpendProof();
       await appendWorkRecord("brain_pass_failure", "brain-pass failed", message, {
         sessionId,
         agent: agent.id,

@@ -279,6 +279,8 @@ export type BoundarySession = {
   persistent: boolean;
   status: "active" | "ended";
   endedAt?: string;
+  teamSlug?: string;
+  teamBuccetClass?: "spend" | "workshop";
 };
 
 export type BoundaryQuarantineStatus =
@@ -360,6 +362,7 @@ export type BoundaryActionFlagName = keyof NonNullable<BoundaryActionRequest["fl
 
 export type BoundarySpendDestinationKind =
   | "merchant"
+  | "exchange"
   | "wallet"
   | "contract"
   | "account"
@@ -379,10 +382,28 @@ export type BoundarySpendCommitIntent =
   | "authorize"
   | "capture"
   | "purchase"
+  | "subscribe"
   | "transfer"
   | "withdraw"
   | "swap"
   | "sign";
+
+export type BoundarySpendRiskClass =
+  | "low"
+  | "medium"
+  | "high"
+  | "irreversible"
+  | "recurring"
+  | "volatile"
+  | "identity_sensitive"
+  | "legal_obligation";
+
+export type BoundarySpendPeriodWindow =
+  | "1h"
+  | "24h"
+  | "7d"
+  | "30d"
+  | "month";
 
 export type BoundarySpendIntent = {
   amountRaw: string;
@@ -391,6 +412,17 @@ export type BoundarySpendIntent = {
   destinationKind: BoundarySpendDestinationKind;
   sourceAuthorityKind: BoundarySpendSourceAuthorityKind;
   commitIntent: BoundarySpendCommitIntent;
+  principal: string;
+  purpose: string;
+  bucketId: string;
+  termsSummary: string;
+  recurring: boolean;
+  riskClass: BoundarySpendRiskClass;
+  accountabilityRef: string;
+  instructionSource?: BoundaryRequestProvenance;
+  obligationCreated?: boolean;
+  periodCapNormalized?: number;
+  periodWindow?: BoundarySpendPeriodWindow;
   currencyHint?: string;
   merchantHint?: string;
 };
@@ -496,6 +528,20 @@ export type BoundaryUplTrackConstraint = {
   spendAllowedSourceAuthorityKinds?: BoundarySpendSourceAuthorityKind[];
   /** Spend tracks may require the same commit intent. */
   spendAllowedCommitIntents?: BoundarySpendCommitIntent[];
+  /** Spend tracks may bind the same principal/owner. */
+  spendAllowedPrincipals?: string[];
+  /** Spend tracks may bind the same purpose string. */
+  spendAllowedPurposes?: string[];
+  /** Spend tracks may bind the same bucket/category. */
+  spendAllowedBucketIds?: string[];
+  /** Spend tracks may bind the same risk class. */
+  spendAllowedRiskClasses?: BoundarySpendRiskClass[];
+  /** Spend tracks may bind the same recurring disposition. */
+  spendRecurringAllowed?: boolean;
+  /** Spend tracks may bind a rolling aggregate cap. */
+  spendMaxPeriodAmountNormalized?: number;
+  /** Spend tracks may bind the rolling period window used for the cap. */
+  spendPeriodWindow?: BoundarySpendPeriodWindow;
   /** Human-readable description of the corridor. */
   description: string;
 };

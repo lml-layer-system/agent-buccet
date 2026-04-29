@@ -1516,6 +1516,22 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:agent-spend-irreversible-commit",
   },
   {
+    id: "DENY.AGENT.SPEND.013E",
+    denialClass: "agent_spend",
+    reason: "Exchange destinations are denied without explicit law.",
+    actionKinds: ["agent.spend"],
+    spendAllowedDestinationKinds: ["exchange"],
+    requestBasisTarget: "base-headless-denials:agent-spend-exchange-destination",
+  },
+  {
+    id: "DENY.AGENT.SPEND.013F",
+    denialClass: "agent_spend",
+    reason: "Recurring subscription commit intents are denied without explicit law.",
+    actionKinds: ["agent.spend"],
+    spendAllowedCommitIntents: ["subscribe"],
+    requestBasisTarget: "base-headless-denials:agent-spend-subscribe-commit",
+  },
+  {
     id: "DENY.USER_TELEMETRY.DISCLOSURE.01",
     denialClass: "user_telemetry_boundary",
     reason: "Outbound data disclosure is denied by default and requires explicit user law to be allowed.",
@@ -1755,6 +1771,14 @@ export function createBaseHeadlessDenialEntries(): BoundaryUplEntry[] {
                 destinationKind: seed.spendAllowedDestinationKinds?.[0] ?? "other",
                 sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds?.[0] ?? "other",
                 commitIntent: seed.spendAllowedCommitIntents?.[0] ?? "purchase",
+                principal: "base-denial-system",
+                purpose: seed.reason,
+                bucketId: seed.id,
+                termsSummary: "base denial spend seed",
+                recurring: false,
+                riskClass: "low",
+                accountabilityRef: `seed:${seed.id}`,
+                instructionSource: "trusted_system",
               },
             }
           : {}

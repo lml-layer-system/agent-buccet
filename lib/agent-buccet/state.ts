@@ -390,6 +390,8 @@ export async function startPersistentBoundarySession(args: {
   actorId: string;
   dryRun?: boolean;
   expiresAt?: string;
+  teamSlug?: string;
+  teamBuccetClass?: "spend" | "workshop";
   laws?: BoundaryLaw[];
   approvalRequiredFor?: BoundaryActionKind[];
   sessionsDir?: string;
@@ -404,6 +406,8 @@ export async function startPersistentBoundarySession(args: {
     dryRun: args.dryRun ?? false,
     persistent: true,
     status: "active",
+    ...(args.teamSlug ? { teamSlug: args.teamSlug } : {}),
+    ...(args.teamBuccetClass ? { teamBuccetClass: args.teamBuccetClass } : {}),
   };
 
   const defaultChatGrant = instantiateBoundaryGrant({

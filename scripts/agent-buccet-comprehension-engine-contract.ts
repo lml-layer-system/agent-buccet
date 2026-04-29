@@ -78,6 +78,43 @@ async function main(): Promise<void> {
   assert.ok(allowedActionKindsForComprehensionStage("all").includes("chat.emit"));
   console.log("SUCCESS: shared stage contracts drive outputs and action permissions.");
 
+  const spendPass = buildInitialComprehensionPass({
+    teamId: "spend-demo",
+    requestedBy: "team-run:spend-demo",
+    userRequest: "Buy the approved cloud credits within budget.",
+    wholeViewPrepared: true,
+    sourceCount: 2,
+    checkpointedSourceCount: 1,
+    totalLineCount: 240,
+    packetCount: 1,
+    projectionCount: 4,
+    spokespersonAgentId: "spokes",
+    valueBoundaryRequired: true,
+    peers: [
+      { id: "spender", specialty: "bounded spend", ownsStep: "transform" },
+      { id: "spokes", specialty: "group spokesperson", ownsStep: "render" },
+    ],
+  });
+  assert.deepEqual(
+    spendPass.stages.map((stage) => stage.id),
+    [
+      "receive",
+      "represent",
+      "infer_intent",
+      "bind_constraints",
+      "select_method",
+      "acquire_knowledge",
+      "transform",
+      "validate",
+      "value_boundary",
+      "render",
+      "return",
+    ],
+    "spend teams insert the hardcoded value boundary before render/return",
+  );
+  assert.deepEqual(allowedActionKindsForComprehensionStage("value_boundary"), ["fs.read", "agent.spend"]);
+  console.log("SUCCESS: spend teams expose the hardcoded value-boundary stage in the engine.");
+
   console.log("\n--- Comprehension Engine Contract Verified ---");
 }
 

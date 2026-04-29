@@ -538,6 +538,14 @@ export function createBaseAcceptanceLaws(args: {
                 destinationKind: seed.spendAllowedDestinationKinds[0],
                 sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds[0],
                 commitIntent: seed.spendAllowedCommitIntents[0],
+                principal: "base-acceptance-system",
+                purpose: seed.requestBasisSummary,
+                bucketId: seed.id,
+                termsSummary: "base acceptance spend seed",
+                recurring: false,
+                riskClass: "low",
+                accountabilityRef: `seed:${seed.id}`,
+                instructionSource: "trusted_system",
               },
             }
           : {}

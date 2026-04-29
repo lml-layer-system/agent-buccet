@@ -7,6 +7,10 @@ import {
 import { appendBoundaryLedger } from "./ledger.ts";
 import { evaluateBoundaryLaws } from "./laws.ts";
 import { grantsForAction } from "./orchestrator.ts";
+import {
+  evaluateSpendBoundaryAction,
+  evaluateSpendBoundaryActionRuntime,
+} from "./spend-boundary.ts";
 import { resolveBoundaryUplTraffic } from "./upl-traffic.ts";
 import {
   getActiveUserLawIds,
@@ -83,6 +87,16 @@ function mergeBodyguardLawResults(
     uplTrackId: primary.uplTrackId ?? secondary.uplTrackId,
     ...(primary.uplTrackViolated || secondary.uplTrackViolated ? { uplTrackViolated: true } : {}),
   };
+}
+
+function mergeBodyguardLawResultsMany(
+  primary: BoundaryLawResult,
+  secondary: Array<BoundaryLawResult | null | undefined>,
+): BoundaryLawResult {
+  return secondary.reduce<BoundaryLawResult>(
+    (result, next) => (next ? mergeBodyguardLawResults(result, next) : result),
+    primary,
+  );
 }
 
 function resolveBodyguardPriorityLaw(args: {
@@ -236,6 +250,9 @@ export function evaluateBodyguardAction(args: {
 }): BodyguardAdjudication {
   const priorityLaw = resolveBodyguardPriorityLaw(args);
   const standingLaw = resolveBodyguardStandingLaw(args);
+  const spendBoundary = args.request.actionKind === "agent.spend"
+    ? evaluateSpendBoundaryAction(args.request)
+    : null;
   const boundaryResult = expandRuntimeMuscleTriggeredLawIds(args.config, evaluateBoundaryLaws({
     session: args.config.session,
     request: args.request,
@@ -246,14 +263,25 @@ export function evaluateBodyguardAction(args: {
 
   if (priorityLaw?.decision === "deny") {
     return {
-      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      result: mergeBodyguardLawResultsMany(priorityLaw, [spendBoundary, standingLaw]),
       bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+  if (spendBoundary?.decision === "deny") {
+    const result = mergeBodyguardLawResultsMany(spendBoundary, [
+      standingLaw?.decision === "deny" ? standingLaw : null,
+      boundaryResult.decision === "deny" ? boundaryResult : null,
+      priorityLaw,
+    ]);
+    return {
+      result,
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
     };
   }
   if (standingLaw?.decision === "deny") {
     const result = boundaryResult.decision === "deny"
-      ? mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(standingLaw, priorityLaw))
-      : mergeBodyguardLawResults(standingLaw, priorityLaw);
+      ? mergeBodyguardLawResultsMany(boundaryResult, [standingLaw, spendBoundary, priorityLaw])
+      : mergeBodyguardLawResultsMany(standingLaw, [spendBoundary, priorityLaw]);
     return {
       result,
       bodyguardMoves: boundaryResult.decision === "deny"
@@ -263,15 +291,21 @@ export function evaluateBodyguardAction(args: {
   }
   if (standingLaw?.decision === "require_approval" && args.request.actionKind === "agent.spend") {
     return {
-      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      result: mergeBodyguardLawResultsMany(standingLaw, [spendBoundary, priorityLaw]),
       bodyguardMoves: [],
     };
   }
   if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {
-    const result = mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(priorityLaw ?? boundaryResult, standingLaw));
+    const result = mergeBodyguardLawResultsMany(boundaryResult, [priorityLaw, standingLaw, spendBoundary]);
     return {
       result,
       bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
+    };
+  }
+  if (spendBoundary?.decision === "require_approval" && standingLaw?.decision === "allow") {
+    return {
+      result: mergeBodyguardLawResultsMany(spendBoundary, [standingLaw, priorityLaw]),
+      bodyguardMoves: [],
     };
   }
   if (standingLaw?.decision === "require_approval") {
@@ -311,6 +345,9 @@ async function evaluateBodyguardActionRuntime(args: {
 }): Promise<BodyguardAdjudication> {
   const priorityLaw = resolveBodyguardPriorityLaw(args);
   const standingLaw = await resolveBoundarySubstrateTraffic(args);
+  const spendBoundary = args.request.actionKind === "agent.spend"
+    ? await evaluateSpendBoundaryActionRuntime(args)
+    : null;
   const boundaryResult = expandRuntimeMuscleTriggeredLawIds(args.config, evaluateBoundaryLaws({
     session: args.config.session,
     request: args.request,
@@ -321,14 +358,25 @@ async function evaluateBodyguardActionRuntime(args: {
 
   if (priorityLaw?.decision === "deny") {
     return {
-      result: mergeBodyguardLawResults(priorityLaw, standingLaw),
+      result: mergeBodyguardLawResultsMany(priorityLaw, [spendBoundary, standingLaw]),
       bodyguardMoves: buildBoundaryBodyguardMoves(args.request, priorityLaw),
+    };
+  }
+  if (spendBoundary?.decision === "deny") {
+    const result = mergeBodyguardLawResultsMany(spendBoundary, [
+      standingLaw?.decision === "deny" ? standingLaw : null,
+      boundaryResult.decision === "deny" ? boundaryResult : null,
+      priorityLaw,
+    ]);
+    return {
+      result,
+      bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
     };
   }
   if (standingLaw?.decision === "deny") {
     const result = boundaryResult.decision === "deny"
-      ? mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(standingLaw, priorityLaw))
-      : mergeBodyguardLawResults(standingLaw, priorityLaw);
+      ? mergeBodyguardLawResultsMany(boundaryResult, [standingLaw, spendBoundary, priorityLaw])
+      : mergeBodyguardLawResultsMany(standingLaw, [spendBoundary, priorityLaw]);
     return {
       result,
       bodyguardMoves: boundaryResult.decision === "deny"
@@ -338,15 +386,21 @@ async function evaluateBodyguardActionRuntime(args: {
   }
   if (standingLaw?.decision === "require_approval" && args.request.actionKind === "agent.spend") {
     return {
-      result: mergeBodyguardLawResults(standingLaw, priorityLaw),
+      result: mergeBodyguardLawResultsMany(standingLaw, [spendBoundary, priorityLaw]),
       bodyguardMoves: [],
     };
   }
   if (standingLaw?.decision !== "allow" && boundaryResult.decision === "deny") {
-    const result = mergeBodyguardLawResults(boundaryResult, mergeBodyguardLawResults(priorityLaw ?? boundaryResult, standingLaw));
+    const result = mergeBodyguardLawResultsMany(boundaryResult, [priorityLaw, standingLaw, spendBoundary]);
     return {
       result,
       bodyguardMoves: buildBoundaryBodyguardMoves(args.request, result),
+    };
+  }
+  if (spendBoundary?.decision === "require_approval" && standingLaw?.decision === "allow") {
+    return {
+      result: mergeBodyguardLawResultsMany(spendBoundary, [standingLaw, priorityLaw]),
+      bodyguardMoves: [],
     };
   }
   if (standingLaw?.decision === "require_approval") {

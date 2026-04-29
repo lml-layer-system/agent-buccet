@@ -171,6 +171,17 @@ export function buildAutoTrackConstraint(
         spendAllowedDestinationKinds: [request.spendIntent.destinationKind],
         spendAllowedSourceAuthorityKinds: [request.spendIntent.sourceAuthorityKind],
         spendAllowedCommitIntents: [request.spendIntent.commitIntent],
+        spendAllowedPrincipals: [request.spendIntent.principal],
+        spendAllowedPurposes: [request.spendIntent.purpose],
+        spendAllowedBucketIds: [request.spendIntent.bucketId],
+        spendAllowedRiskClasses: [request.spendIntent.riskClass],
+        spendRecurringAllowed: request.spendIntent.recurring,
+        ...(request.spendIntent.periodCapNormalized !== undefined
+          ? { spendMaxPeriodAmountNormalized: request.spendIntent.periodCapNormalized }
+          : {}),
+        ...(request.spendIntent.periodWindow
+          ? { spendPeriodWindow: request.spendIntent.periodWindow }
+          : {}),
         description: `agent spend to ${request.spendIntent.destination} under ${request.spendIntent.amountNormalized}`,
       };
     }
@@ -305,6 +316,16 @@ function buildRequestTrackText(request: BoundaryActionRequest): string {
     request.spendIntent?.destinationKind ?? "",
     request.spendIntent?.sourceAuthorityKind ?? "",
     request.spendIntent?.commitIntent ?? "",
+    request.spendIntent?.principal ?? "",
+    request.spendIntent?.purpose ?? "",
+    request.spendIntent?.bucketId ?? "",
+    request.spendIntent?.termsSummary ?? "",
+    String(request.spendIntent?.recurring ?? ""),
+    request.spendIntent?.riskClass ?? "",
+    request.spendIntent?.accountabilityRef ?? "",
+    request.spendIntent?.instructionSource ?? "",
+    request.spendIntent?.periodWindow ?? "",
+    request.spendIntent?.periodCapNormalized !== undefined ? String(request.spendIntent.periodCapNormalized) : "",
     request.reviewContext?.question ?? "",
     request.reviewContext?.attemptedOutput ?? "",
     request.reviewContext?.userInput ?? "",
@@ -400,7 +421,14 @@ export function checkTrackConstraint(
     constraint.spendMaxAmountNormalized !== undefined ||
     constraint.spendAllowedDestinationKinds?.length ||
     constraint.spendAllowedSourceAuthorityKinds?.length ||
-    constraint.spendAllowedCommitIntents?.length
+    constraint.spendAllowedCommitIntents?.length ||
+    constraint.spendAllowedPrincipals?.length ||
+    constraint.spendAllowedPurposes?.length ||
+    constraint.spendAllowedBucketIds?.length ||
+    constraint.spendAllowedRiskClasses?.length ||
+    constraint.spendRecurringAllowed !== undefined ||
+    constraint.spendMaxPeriodAmountNormalized !== undefined ||
+    constraint.spendPeriodWindow !== undefined
   ) {
     if (!spendIntent) {
       return `request exits the approved spend corridor (missing normalized spend intent | track: ${constraint.description})`;
@@ -439,6 +467,69 @@ export function checkTrackConstraint(
       return (
         `spend commit intent '${spendIntent.commitIntent}' exits the approved execution corridor ` +
         `(allowed: ${constraint.spendAllowedCommitIntents.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedPrincipals?.length &&
+      !constraint.spendAllowedPrincipals.includes(spendIntent.principal)
+    ) {
+      return (
+        `spend principal '${spendIntent.principal}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedPrincipals.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedPurposes?.length &&
+      !constraint.spendAllowedPurposes.includes(spendIntent.purpose)
+    ) {
+      return (
+        `spend purpose '${spendIntent.purpose}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedPurposes.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedBucketIds?.length &&
+      !constraint.spendAllowedBucketIds.includes(spendIntent.bucketId)
+    ) {
+      return (
+        `spend bucket '${spendIntent.bucketId}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedBucketIds.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendAllowedRiskClasses?.length &&
+      !constraint.spendAllowedRiskClasses.includes(spendIntent.riskClass)
+    ) {
+      return (
+        `spend risk class '${spendIntent.riskClass}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendAllowedRiskClasses.join(", ")} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendRecurringAllowed !== undefined &&
+      spendIntent.recurring !== constraint.spendRecurringAllowed
+    ) {
+      return (
+        `spend recurring disposition '${spendIntent.recurring ? "recurring" : "one-time"}' exits the approved execution corridor ` +
+        `(track requires: ${constraint.spendRecurringAllowed ? "recurring" : "one-time"} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendMaxPeriodAmountNormalized !== undefined &&
+      spendIntent.periodCapNormalized !== constraint.spendMaxPeriodAmountNormalized
+    ) {
+      return (
+        `spend period cap '${spendIntent.periodCapNormalized ?? "unset"}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendMaxPeriodAmountNormalized} | track: ${constraint.description})`
+      );
+    }
+    if (
+      constraint.spendPeriodWindow !== undefined &&
+      spendIntent.periodWindow !== constraint.spendPeriodWindow
+    ) {
+      return (
+        `spend period window '${spendIntent.periodWindow ?? "unset"}' exits the approved execution corridor ` +
+        `(allowed: ${constraint.spendPeriodWindow} | track: ${constraint.description})`
       );
     }
   }
@@ -518,6 +609,27 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
       : null,
     constraint.spendAllowedCommitIntents?.length
       ? `commit_intents=${constraint.spendAllowedCommitIntents.join(",")}`
+      : null,
+    constraint.spendAllowedPrincipals?.length
+      ? `principals=${constraint.spendAllowedPrincipals.join(",")}`
+      : null,
+    constraint.spendAllowedPurposes?.length
+      ? `purposes=${constraint.spendAllowedPurposes.join(",")}`
+      : null,
+    constraint.spendAllowedBucketIds?.length
+      ? `buckets=${constraint.spendAllowedBucketIds.join(",")}`
+      : null,
+    constraint.spendAllowedRiskClasses?.length
+      ? `risk=${constraint.spendAllowedRiskClasses.join(",")}`
+      : null,
+    constraint.spendRecurringAllowed !== undefined
+      ? `recurring=${constraint.spendRecurringAllowed ? "yes" : "no"}`
+      : null,
+    constraint.spendMaxPeriodAmountNormalized !== undefined
+      ? `period_max=${constraint.spendMaxPeriodAmountNormalized}`
+      : null,
+    constraint.spendPeriodWindow !== undefined
+      ? `period_window=${constraint.spendPeriodWindow}`
       : null,
   ].filter(Boolean).join(" | ");
   const invariantPart = constraint.reviewInvariantLawId

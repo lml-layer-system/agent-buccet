@@ -169,6 +169,8 @@ export async function createPersistentBoundaryRuntimeStore(args: {
   actorId: string;
   dryRun?: boolean;
   expiresAt?: string;
+  teamSlug?: string;
+  teamBuccetClass?: "spend" | "workshop";
   laws?: BoundaryLaw[];
   approvalRequiredFor?: BoundaryActionKind[];
   sessionsDir?: string;

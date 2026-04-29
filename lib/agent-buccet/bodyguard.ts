@@ -22,6 +22,11 @@ import {
 } from "./novelty.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 import { maybeShedCompromisedBoundaryUnit } from "./shed.ts";
+import {
+  evaluateSpendBoundaryAction,
+  spendIntentLedgerMetadata,
+  summarizeBoundarySpendIntent,
+} from "./spend-boundary.ts";
 import { assessBoundarySubstrateApprovalRequest } from "./substrate-live.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
 import { inferBoundaryTimeConstraintSignals } from "./time-constraint-flags.ts";
@@ -235,6 +240,10 @@ function noveltyLedgerMetadata(request: BoundaryActionRequest): Record<string, s
   };
 }
 
+function spendLedgerMetadata(request: BoundaryActionRequest): Record<string, string | number | boolean> {
+  return request.spendIntent ? spendIntentLedgerMetadata(request.spendIntent) : {};
+}
+
 export async function recordBoundaryBlockedAction(
   config: BoundaryRuntimeConfig,
   request: BoundaryActionRequest,
@@ -253,6 +262,7 @@ export async function recordBoundaryBlockedAction(
     metadata: {
       provenance: request.provenance,
       ...noveltyLedgerMetadata(request),
+      ...spendLedgerMetadata(request),
     },
     createdAt: new Date().toISOString(),
   });
@@ -275,6 +285,7 @@ export async function recordBoundaryExecutedAction(
     metadata: {
       provenance: request.provenance,
       ...noveltyLedgerMetadata(request),
+      ...spendLedgerMetadata(request),
       ...(metadata ?? {}),
     },
     createdAt: new Date().toISOString(),
@@ -333,6 +344,7 @@ export async function recordBoundaryProposedAction(
     metadata: {
       provenance: request.provenance,
       ...noveltyLedgerMetadata(request),
+      ...spendLedgerMetadata(request),
     },
     createdAt: request.requestedAt,
   });
@@ -357,6 +369,7 @@ export async function recordBoundaryDecisionReturned(
     metadata: {
       provenance: request.provenance,
       ...noveltyLedgerMetadata(request),
+      ...spendLedgerMetadata(request),
     },
     createdAt: new Date().toISOString(),
   });
@@ -380,6 +393,7 @@ export async function recordBoundaryApprovalRequested(args: {
     metadata: {
       provenance: args.request.provenance,
       ...noveltyLedgerMetadata(args.request),
+      ...spendLedgerMetadata(args.request),
     },
     createdAt: new Date().toISOString(),
   });
@@ -607,9 +621,14 @@ function buildDefaultActionAttemptLines(request: BoundaryActionRequest): string[
         ...(spendIntent
           ? [
             `  amount: ${spendIntent.amountRaw}${spendIntent.currencyHint ? ` ${spendIntent.currencyHint}` : ""}`,
+            `  principal: ${spendIntent.principal}`,
+            `  purpose: ${spendIntent.purpose}`,
+            `  bucket: ${spendIntent.bucketId}`,
             `  destination_kind: ${spendIntent.destinationKind}`,
             `  source_authority: ${spendIntent.sourceAuthorityKind}`,
             `  commit_intent: ${spendIntent.commitIntent}`,
+            `  recurring: ${spendIntent.recurring ? "yes" : "no"}`,
+            `  risk: ${spendIntent.riskClass}`,
           ]
           : []),
         ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
@@ -1172,12 +1191,6 @@ export function createBoundaryChatEmissionRequest(args: {
   });
 }
 
-function summarizeBoundarySpendIntent(spendIntent: BoundarySpendIntent): string {
-  const currency = spendIntent.currencyHint ? ` ${spendIntent.currencyHint}` : "";
-  const merchant = spendIntent.merchantHint ? ` (${spendIntent.merchantHint})` : "";
-  return `${spendIntent.commitIntent} ${spendIntent.amountRaw}${currency} -> ${spendIntent.destinationKind}:${spendIntent.destination} via ${spendIntent.sourceAuthorityKind}${merchant}`;
-}
-
 export function createBoundarySpendRequest(args: {
   config: BoundaryRuntimeConfig;
   spendIntent: BoundarySpendIntent;
@@ -1212,17 +1225,43 @@ export async function guardBoundarySpendIntent<T = unknown>(args: {
   config: BoundaryRuntimeConfig;
   proposal: BoundarySpendProposal<T>;
 }): Promise<BoundaryExecutionResult<T>> {
+  const request = createBoundarySpendRequest({
+    config: args.config,
+    target: args.proposal.target,
+    spendIntent: args.proposal.spendIntent,
+    payloadSummary: args.proposal.payloadSummary,
+    provenance: args.proposal.provenance,
+    flags: args.proposal.flags,
+    reviewContext: args.proposal.reviewContext,
+  });
+  const spendBoundary = evaluateSpendBoundaryAction(request);
+  if (spendBoundary?.decision === "deny") {
+    await recordBoundaryProposedAction(args.config, request, "spend packet proposed");
+    await recordBoundaryDecisionReturned(
+      args.config,
+      request,
+      spendBoundary.reason,
+      spendBoundary.decision,
+      spendBoundary.triggeredLawIds,
+    );
+    await recordBoundaryBlockedAction(
+      args.config,
+      request,
+      spendBoundary.reason,
+      spendBoundary.triggeredLawIds,
+    );
+    return {
+      config: args.config,
+      allowed: false,
+      executed: false,
+      requiresApproval: false,
+      reason: spendBoundary.reason,
+      bodyguardMoves: [],
+    };
+  }
   return runBoundaryControlledAction({
     config: enableBodyguardControl(args.config),
-    request: createBoundarySpendRequest({
-      config: args.config,
-      target: args.proposal.target,
-      spendIntent: args.proposal.spendIntent,
-      payloadSummary: args.proposal.payloadSummary,
-      provenance: args.proposal.provenance,
-      flags: args.proposal.flags,
-      reviewContext: args.proposal.reviewContext,
-    }),
+    request,
     execute: args.proposal.execute,
     successReason: args.proposal.successReason,
     dryRunPreviewReason: args.proposal.dryRunPreviewReason,

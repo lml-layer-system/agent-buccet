@@ -326,6 +326,14 @@ async function main() {
           destinationKind: "merchant",
           sourceAuthorityKind: "linked_account",
           commitIntent: "purchase",
+          principal: "contract-user",
+          purpose: "stripe payment intent",
+          bucketId: "shopping:stripe",
+          termsSummary: "one-time purchase seed",
+          recurring: false,
+          riskClass: "low",
+          accountabilityRef: "receipt:stripe",
+          instructionSource: "trusted_user",
           currencyHint: "USD",
           merchantHint: "Stripe",
         },
@@ -350,6 +358,14 @@ async function main() {
           destinationKind: "merchant",
           sourceAuthorityKind: "card",
           commitIntent: "purchase",
+          principal: "contract-user",
+          purpose: "approved vendor payment",
+          bucketId: "shopping:vendor",
+          termsSummary: "one-time purchase seed",
+          recurring: false,
+          riskClass: "low",
+          accountabilityRef: "receipt:vendor",
+          instructionSource: "trusted_user",
           currencyHint: "USD",
           merchantHint: "Vendor",
         },
@@ -358,6 +374,36 @@ async function main() {
     assert.ok(riskySpendAuthority, "expected risky spend authority to match the base denial pack");
     assert.equal(riskySpendAuthority?.decision, "deny");
     assert.equal(riskySpendAuthority?.entry.id, "DENY.AGENT.SPEND.013B");
+
+    const exchangeSpend = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "agent.spend",
+        "exchange:coinbase",
+        "approved exchange trade",
+        undefined,
+        {
+          amountRaw: "25.00",
+          amountNormalized: 25,
+          destination: "exchange:coinbase",
+          destinationKind: "exchange",
+          sourceAuthorityKind: "linked_account",
+          commitIntent: "purchase",
+          principal: "contract-user",
+          purpose: "buy exchange asset",
+          bucketId: "trade:coinbase",
+          termsSummary: "one-time exchange order",
+          recurring: false,
+          riskClass: "volatile",
+          accountabilityRef: "trade:coinbase",
+          instructionSource: "trusted_user",
+        },
+      ),
+    });
+    assert.ok(exchangeSpend, "expected exchange spend to match the base denial pack");
+    assert.equal(exchangeSpend?.decision, "deny");
+    assert.equal(exchangeSpend?.entry.id, "DENY.AGENT.SPEND.013E");
 
     const buccetFailure = lookupUserPathTrackDecision({
       ledger,
@@ -417,12 +463,42 @@ async function main() {
         destinationKind: "merchant",
         sourceAuthorityKind: "card",
         commitIntent: "purchase",
+        principal: "contract-user",
+        purpose: "approved vendor payment",
+        bucketId: "shopping:vendor",
+        termsSummary: "one-time purchase seed",
+        recurring: false,
+        riskClass: "low",
+        accountabilityRef: "receipt:vendor",
+        instructionSource: "trusted_user",
         currencyHint: "USD",
         merchantHint: "Vendor",
       },
     });
     assert.equal(evaluatedSpend.decision, "deny");
     assert.equal(evaluatedSpend.ruleId, "DENY.AGENT.SPEND.013B");
+    const evaluatedSubscribeSpend = evaluateBaseHeadlessDenials({
+      actionKind: "agent.spend",
+      target: "merchant:saas",
+      spendIntent: {
+        amountRaw: "9.99",
+        amountNormalized: 9.99,
+        destination: "merchant:saas",
+        destinationKind: "merchant",
+        sourceAuthorityKind: "linked_account",
+        commitIntent: "subscribe",
+        principal: "contract-user",
+        purpose: "subscribe to SaaS",
+        bucketId: "saas:vendor",
+        termsSummary: "$9.99 monthly until cancelled",
+        recurring: true,
+        riskClass: "recurring",
+        accountabilityRef: "subscription:saas",
+        instructionSource: "trusted_user",
+      },
+    });
+    assert.equal(evaluatedSubscribeSpend.decision, "deny");
+    assert.equal(evaluatedSubscribeSpend.ruleId, "DENY.AGENT.SPEND.013F");
 
     console.log("Agent Buccet headless base denials contract");
     console.log(`seeded entries: ${ledger.userDeniedLawPaths.length}`);

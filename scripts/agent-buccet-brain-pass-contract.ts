@@ -214,6 +214,39 @@ async function main(): Promise<void> {
     assert.equal(storedPreparation?.teamStatus, "ready", "stored runtime snapshot captures ready status");
     console.log("SUCCESS: runtime preparation persists the prebuilt whole-view map before live input.");
 
+    const spendSlug = teamSlug("brain-pass-spend-team");
+    await createTeam({
+      homePath: home,
+      name: "brain-pass-spend-team",
+      domain: "financial agents",
+      summary: "spend pass contract",
+      buccetClass: "spend",
+    });
+    await addTeamRemoteLlmSource({ homePath: home, slug: spendSlug, provider: "anthropic" });
+    await addTeamEngineSource({ homePath: home, slug: spendSlug, provider: "pi" });
+    await addTeamAgent({
+      homePath: home,
+      slug: spendSlug,
+      agentId: "spender",
+      title: "Bounded Spender",
+      specialty: "approved merchant spend",
+      ownsStep: "transform",
+    });
+    await addTeamAgent({
+      homePath: home,
+      slug: spendSlug,
+      agentId: "spokes-spend",
+      title: "Spend Spokesperson",
+      specialty: "render synthesis",
+      ownsStep: "render",
+    });
+    const spendPreflight = await preflightBrainPass({ homePath: home, slug: spendSlug });
+    assert.ok(
+      spendPreflight.comprehensionPass.stages.some((stage) => stage.id === "value_boundary"),
+      "spend teams should insert the hardcoded value boundary stage",
+    );
+    console.log("SUCCESS: spend-team preflight inserts the value-boundary stage before render.");
+
     console.log("\n--- Brain Pass Contract Verified ---");
   } finally {
     await rm(home, { recursive: true, force: true });

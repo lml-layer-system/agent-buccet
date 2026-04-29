@@ -13,9 +13,23 @@ export const AGENT_COMPREHENSION_STAGE_SEQUENCE = [
   "return",
 ] as const;
 
-export type AgentComprehensionStageId = (typeof AGENT_COMPREHENSION_STAGE_SEQUENCE)[number];
+export const SPEND_AGENT_COMPREHENSION_STAGE_SEQUENCE = [
+  "receive",
+  "represent",
+  "infer_intent",
+  "bind_constraints",
+  "select_method",
+  "acquire_knowledge",
+  "transform",
+  "validate",
+  "value_boundary",
+  "render",
+  "return",
+] as const;
 
-export const AGENT_TEAM_STAGE_IDS = [...AGENT_COMPREHENSION_STAGE_SEQUENCE, "all"] as const;
+export type AgentComprehensionStageId = (typeof SPEND_AGENT_COMPREHENSION_STAGE_SEQUENCE)[number];
+
+export const AGENT_TEAM_STAGE_IDS = [...SPEND_AGENT_COMPREHENSION_STAGE_SEQUENCE, "all"] as const;
 
 export type AgentTeamStageId = (typeof AGENT_TEAM_STAGE_IDS)[number];
 
@@ -70,6 +84,7 @@ export type AgentComprehensionInitialPassArgs = {
   packetCount: number;
   projectionCount: number;
   spokespersonAgentId?: string;
+  valueBoundaryRequired?: boolean;
   peers: AgentComprehensionPeerOwner[];
 };
 
@@ -82,6 +97,7 @@ const STAGE_TITLES: Record<AgentComprehensionStageId, string> = {
   acquire_knowledge: "Acquire/Use Knowledge",
   transform: "Transform",
   validate: "Validate",
+  value_boundary: "Value Boundary",
   render: "Render",
   return: "Return",
 };
@@ -111,6 +127,9 @@ function defaultOwnersForStage(
       .filter((peer) => peer.ownsStep === stage || peer.ownsStep === "all")
       .map((peer) => peer.id);
     return owners.length > 0 ? owners : ["buccet-engine"];
+  }
+  if (stage === "value_boundary") {
+    return ["buccet-engine"];
   }
   const owners = peers
     .filter((peer) => peer.ownsStep === stage || peer.ownsStep === "all")
@@ -176,6 +195,7 @@ export function allowedOutputsForComprehensionStage(stage: AgentTeamStageId): st
     ];
   }
   if (stage === "render" || stage === "return") return ["render-fragment", "answer-fragment", "blocked"];
+  if (stage === "value_boundary") return ["validation", "blocked", "refusal"];
   if (stage === "validate") return ["validation", "blocked", "refusal"];
   if (stage === "infer_intent") return ["intent", "constraints", "blocked"];
   return ["analysis", "plan", "constraint", "blocked"];
@@ -183,6 +203,7 @@ export function allowedOutputsForComprehensionStage(stage: AgentTeamStageId): st
 
 export function allowedActionKindsForComprehensionStage(stage: AgentTeamStageId): BoundaryActionKind[] {
   if (stage === "all") return ["fs.read", "fs.write", "tool.exec", "network.send", "chat.emit"];
+  if (stage === "value_boundary") return ["fs.read", "agent.spend"];
   if (stage === "acquire_knowledge") return ["fs.read", "network.send"];
   if (stage === "transform") return ["fs.read", "fs.write", "tool.exec"];
   if (stage === "render" || stage === "return") return ["chat.emit"];
@@ -203,6 +224,130 @@ export function buildInitialComprehensionPass(args: AgentComprehensionInitialPas
     "Intent coherence must stay aligned with user law and declared goal.",
     "Execution coherence must stay inside UPL, safety, privacy, and project limits.",
   ];
+  const financialConstraints = [
+    ...sharedConstraints,
+    "Value movement or financial obligation cannot bypass the spend packet and UPL gate.",
+  ];
+  const stages: AgentComprehensionStageRecord[] = [
+    stageRecord({
+      id: "receive",
+      status: "completed",
+      owners: defaultOwnersForStage("receive", peers, args.spokespersonAgentId),
+      summary: "Exterior input was captured by the Buccet engine before any peer reasoning began.",
+      inputs: ["user request"],
+      outputs: [args.userRequest],
+      constraints: sharedConstraints,
+    }),
+    stageRecord({
+      id: "represent",
+      status: "completed",
+      owners: defaultOwnersForStage("represent", peers, args.spokespersonAgentId),
+      summary: "The request was normalized into a bounded team-run representation.",
+      inputs: ["raw user request"],
+      outputs: ["bounded request representation"],
+      constraints: sharedConstraints,
+    }),
+    stageRecord({
+      id: "infer_intent",
+      status: "completed",
+      owners: defaultOwnersForStage("infer_intent", peers, args.spokespersonAgentId),
+      summary: "Declared user intent was bound before any method or tool motion.",
+      inputs: ["bounded request representation"],
+      outputs: [args.userRequest.trim() || "intent unavailable"],
+      constraints: [
+        ...sharedConstraints,
+        "If intent cannot be bound cleanly, lawful continuation is clarification or explicit assumption.",
+      ],
+    }),
+    stageRecord({
+      id: "bind_constraints",
+      status: "completed",
+      owners: defaultOwnersForStage("bind_constraints", peers, args.spokespersonAgentId),
+      summary: "UPL, safety, privacy, format, and project constraints were attached before the peer field moved.",
+      inputs: ["declared intent", "team UPL track snap"],
+      outputs: sharedConstraints,
+      constraints: sharedConstraints,
+    }),
+    stageRecord({
+      id: "select_method",
+      status: "completed",
+      owners: defaultOwnersForStage("select_method", peers, args.spokespersonAgentId),
+      summary: `The Buccet engine selected ${method} as the sufficient method for this run.`,
+      inputs: ["declared intent", "constraint set", "team topology"],
+      outputs: [method],
+      constraints: sharedConstraints,
+    }),
+    stageRecord({
+      id: "acquire_knowledge",
+      status: args.wholeViewPrepared ? "completed" : "ready",
+      owners: defaultOwnersForStage("acquire_knowledge", peers, args.spokespersonAgentId),
+      summary: args.wholeViewPrepared
+        ? "The whole-view map and projection shards were prepared before live reasoning."
+        : "The engine must open the whole-view map before peer reasoning can begin.",
+      inputs: ["path sources", "checkpoint bodies"],
+      outputs: [
+        `${args.sourceCount} path sources`,
+        `${args.checkpointedSourceCount} checkpointed sources`,
+        `${args.totalLineCount} visible whole-view lines`,
+        `${args.packetCount} peer packets`,
+        `${args.projectionCount} projection handles`,
+      ],
+      constraints: [
+        ...sharedConstraints,
+        "Knowledge is opened through path sources; peers do not own raw storage directly.",
+      ],
+    }),
+    stageRecord({
+      id: "transform",
+      status: "ready",
+      owners: defaultOwnersForStage("transform", peers, args.spokespersonAgentId),
+      summary: "The specialist field must work bounded shards and return structured claims to Pi.",
+      inputs: ["whole-view map", "projection shards", "peer specialties"],
+      constraints: [
+        ...sharedConstraints,
+        "Peers do not speak as final authority.",
+      ],
+    }),
+    stageRecord({
+      id: "validate",
+      status: "ready",
+      owners: defaultOwnersForStage("validate", peers, args.spokespersonAgentId),
+      summary: "A coherence judge must test claims against truth, intent, and execution law before finalization.",
+      inputs: ["peer claims", "evidence", "contradictions"],
+      constraints: sharedConstraints,
+    }),
+  ];
+  if (args.valueBoundaryRequired) {
+    stages.push(stageRecord({
+      id: "value_boundary",
+      status: "ready",
+      owners: defaultOwnersForStage("value_boundary", peers, args.spokespersonAgentId),
+      summary: "Any spend or obligation-creating act must satisfy the hardcoded spend packet and value boundary before commit.",
+      inputs: ["validated claim set", "spend packet", "UPL spend rails"],
+      constraints: financialConstraints,
+    }));
+  }
+  stages.push(
+    stageRecord({
+      id: "render",
+      status: "ready",
+      owners: defaultOwnersForStage("render", peers, args.spokespersonAgentId),
+      summary: "Pi renders only after validation, speaking as the group spokesperson rather than the whole mind.",
+      inputs: ["validated claim set", "coherence disposition"],
+      constraints: [
+        ...sharedConstraints,
+        "Render must be usable by the receiver.",
+      ],
+    }),
+    stageRecord({
+      id: "return",
+      status: "ready",
+      owners: defaultOwnersForStage("return", peers, args.spokespersonAgentId),
+      summary: "The result returns only after the bounded render completes and the ledger-worthy state is known.",
+      inputs: ["rendered answer or blocked state"],
+      constraints: sharedConstraints,
+    }),
+  );
 
   return {
     passId,
@@ -214,114 +359,7 @@ export function buildInitialComprehensionPass(args: AgentComprehensionInitialPas
     method,
     wholeViewPrepared: args.wholeViewPrepared,
     lawLayers: ["truth", "intent", "execution"],
-    stages: [
-      stageRecord({
-        id: "receive",
-        status: "completed",
-        owners: defaultOwnersForStage("receive", peers, args.spokespersonAgentId),
-        summary: "Exterior input was captured by the Buccet engine before any peer reasoning began.",
-        inputs: ["user request"],
-        outputs: [args.userRequest],
-        constraints: sharedConstraints,
-      }),
-      stageRecord({
-        id: "represent",
-        status: "completed",
-        owners: defaultOwnersForStage("represent", peers, args.spokespersonAgentId),
-        summary: "The request was normalized into a bounded team-run representation.",
-        inputs: ["raw user request"],
-        outputs: ["bounded request representation"],
-        constraints: sharedConstraints,
-      }),
-      stageRecord({
-        id: "infer_intent",
-        status: "completed",
-        owners: defaultOwnersForStage("infer_intent", peers, args.spokespersonAgentId),
-        summary: "Declared user intent was bound before any method or tool motion.",
-        inputs: ["bounded request representation"],
-        outputs: [args.userRequest.trim() || "intent unavailable"],
-        constraints: [
-          ...sharedConstraints,
-          "If intent cannot be bound cleanly, lawful continuation is clarification or explicit assumption.",
-        ],
-      }),
-      stageRecord({
-        id: "bind_constraints",
-        status: "completed",
-        owners: defaultOwnersForStage("bind_constraints", peers, args.spokespersonAgentId),
-        summary: "UPL, safety, privacy, format, and project constraints were attached before the peer field moved.",
-        inputs: ["declared intent", "team UPL track snap"],
-        outputs: sharedConstraints,
-        constraints: sharedConstraints,
-      }),
-      stageRecord({
-        id: "select_method",
-        status: "completed",
-        owners: defaultOwnersForStage("select_method", peers, args.spokespersonAgentId),
-        summary: `The Buccet engine selected ${method} as the sufficient method for this run.`,
-        inputs: ["declared intent", "constraint set", "team topology"],
-        outputs: [method],
-        constraints: sharedConstraints,
-      }),
-      stageRecord({
-        id: "acquire_knowledge",
-        status: args.wholeViewPrepared ? "completed" : "ready",
-        owners: defaultOwnersForStage("acquire_knowledge", peers, args.spokespersonAgentId),
-        summary: args.wholeViewPrepared
-          ? "The whole-view map and projection shards were prepared before live reasoning."
-          : "The engine must open the whole-view map before peer reasoning can begin.",
-        inputs: ["path sources", "checkpoint bodies"],
-        outputs: [
-          `${args.sourceCount} path sources`,
-          `${args.checkpointedSourceCount} checkpointed sources`,
-          `${args.totalLineCount} visible whole-view lines`,
-          `${args.packetCount} peer packets`,
-          `${args.projectionCount} projection handles`,
-        ],
-        constraints: [
-          ...sharedConstraints,
-          "Knowledge is opened through path sources; peers do not own raw storage directly.",
-        ],
-      }),
-      stageRecord({
-        id: "transform",
-        status: "ready",
-        owners: defaultOwnersForStage("transform", peers, args.spokespersonAgentId),
-        summary: "The specialist field must work bounded shards and return structured claims to Pi.",
-        inputs: ["whole-view map", "projection shards", "peer specialties"],
-        constraints: [
-          ...sharedConstraints,
-          "Peers do not speak as final authority.",
-        ],
-      }),
-      stageRecord({
-        id: "validate",
-        status: "ready",
-        owners: defaultOwnersForStage("validate", peers, args.spokespersonAgentId),
-        summary: "A coherence judge must test claims against truth, intent, and execution law before finalization.",
-        inputs: ["peer claims", "evidence", "contradictions"],
-        constraints: sharedConstraints,
-      }),
-      stageRecord({
-        id: "render",
-        status: "ready",
-        owners: defaultOwnersForStage("render", peers, args.spokespersonAgentId),
-        summary: "Pi renders only after validation, speaking as the group spokesperson rather than the whole mind.",
-        inputs: ["validated claim set", "coherence disposition"],
-        constraints: [
-          ...sharedConstraints,
-          "Render must be usable by the receiver.",
-        ],
-      }),
-      stageRecord({
-        id: "return",
-        status: "ready",
-        owners: defaultOwnersForStage("return", peers, args.spokespersonAgentId),
-        summary: "The result returns only after the bounded render completes and the ledger-worthy state is known.",
-        inputs: ["rendered answer or blocked state"],
-        constraints: sharedConstraints,
-      }),
-    ],
+    stages,
   };
 }
 
@@ -378,6 +416,18 @@ export function recordComprehensionValidation(pass: AgentComprehensionPass, args
       `execution:${args.executionCoherent ? "yes" : "no"}`,
       ...args.reasons,
     ],
+  });
+}
+
+export function recordComprehensionValueBoundary(pass: AgentComprehensionPass, args: {
+  blocked: boolean;
+  disposition: string;
+  reasons: string[];
+}): AgentComprehensionPass {
+  return updateStage(pass, "value_boundary", {
+    status: args.blocked ? "blocked" : "completed",
+    summary: `Value boundary finished with disposition ${args.disposition}.`,
+    appendOutputs: args.reasons,
   });
 }
 
