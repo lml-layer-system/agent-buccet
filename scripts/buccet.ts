@@ -68,14 +68,21 @@ import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
 import {
   activateCompiledBoundaryUplState,
   approveBoundaryUplReview,
+  buildBoundarySpendLawPackDraft,
   compileApprovedBoundaryUplReview,
   draftBoundaryUplProcess,
+  findBoundarySpendLawPack,
+  listBoundarySpendLawPacks,
   reviewBoundaryUplDraft,
   writeApprovedBoundaryUplReviewToLedger,
 } from "../lib/agent-buccet/index.ts";
 import type {
   BoundaryActionKind,
   BoundaryApprovedUplReview,
+  BoundarySpendLawPack,
+  BoundarySpendLawPackId,
+  BoundarySpendPeriodWindow,
+  BoundarySpendSourceAuthorityKind,
   BoundaryUplLineage,
   BoundaryUplLineageMode,
   BoundaryCompiledUplState,
@@ -440,6 +447,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet upl review <draft-id|review-id|latest> [--json]           inspect exact before/after law deltas",
         "  buccet upl apply <draft-id|review-id|latest> [--json]            human-activate one reviewed law delta",
         "  buccet upl workspace [--json]                                     inspect the typed UPL proposal workspace",
+        "  buccet upl spend list|show|draft [...]                            stage spend-specific corridor packs into UPL workspace",
         "  buccet scope add <path> [--actions <csv>]                         grant a scope corridor",
         "  buccet scope list [--json]                                        list standing scope grants",
         "  buccet swarm list                                                 show swarm groups awaiting verdict",
@@ -786,6 +794,84 @@ function normalizeRequestedSyncTargets(rawTargets: readonly BoundaryUplSyncTarge
   const normalized = [...new Set((rawTargets ?? ["buccet"]).map((target) => String(target).trim() as BoundaryUplSyncTarget))]
     .filter((target) => allowed.has(target));
   return normalized.length > 0 ? normalized : ["buccet"];
+}
+
+function parseRequestedSyncTargetsCsv(rawValue: string | undefined): BoundaryUplSyncTarget[] | undefined {
+  if (!rawValue) {
+    return undefined;
+  }
+  return normalizeRequestedSyncTargets(
+    rawValue.split(",").map((target) => target.trim()).filter(Boolean) as BoundaryUplSyncTarget[],
+  );
+}
+
+function parseBoundaryUplScopeToken(rawScope: string | undefined): BoundaryUplScope | undefined {
+  if (!rawScope) {
+    return undefined;
+  }
+  const scope = rawScope.trim().toUpperCase();
+  if (scope === "GLOBAL" || scope === "SESSION") {
+    return scope;
+  }
+  throw new Error(`unsupported UPL scope: ${rawScope}`);
+}
+
+function parseSpendPeriodWindowToken(rawWindow: string | undefined): BoundarySpendPeriodWindow | undefined {
+  if (!rawWindow) {
+    return undefined;
+  }
+  const normalized = rawWindow.trim() as BoundarySpendPeriodWindow;
+  if (["1h", "24h", "7d", "30d", "month"].includes(normalized)) {
+    return normalized;
+  }
+  throw new Error(`unsupported spend period window: ${rawWindow}`);
+}
+
+function parseSpendSourceAuthorityKindToken(rawKind: string | undefined): BoundarySpendSourceAuthorityKind | undefined {
+  if (!rawKind) {
+    return undefined;
+  }
+  const normalized = rawKind.trim() as BoundarySpendSourceAuthorityKind;
+  if (["wallet", "linked_account", "card", "treasury", "merchant_balance", "api_credential", "other"].includes(normalized)) {
+    return normalized;
+  }
+  throw new Error(`unsupported spend source authority kind: ${rawKind}`);
+}
+
+function parseNormalizedMoney(rawValue: string | undefined, fieldLabel: string): number {
+  if (!rawValue) {
+    throw new Error(`${fieldLabel} is required`);
+  }
+  const parsed = Number(rawValue);
+  if (!Number.isFinite(parsed) || parsed <= 0) {
+    throw new Error(`${fieldLabel} must be a positive number`);
+  }
+  return parsed;
+}
+
+function printSpendLawPackSummary(pack: BoundarySpendLawPack): void {
+  console.log(`  ${clrBold(pack.id)}  ${clrDim(pack.category)}  ${pack.title}`);
+  console.log(`    ${clrDim("locked:")} ${pack.lockedByDefault}`);
+}
+
+function printSpendLawPackDetails(pack: BoundarySpendLawPack): void {
+  console.log(``);
+  printCliHeader(`  Spend Pack  ${clrDim(pack.id)}`, pack.title);
+  printCliSection("Identity", [
+    formatCliKeyValue("category", pack.category),
+    formatCliKeyValue("default scope", pack.defaultScope),
+    formatCliKeyValue("default sync", pack.defaultSyncTargets.join(", ")),
+    formatCliKeyValue("capability", pack.capability),
+    formatCliKeyValue("commit intent", pack.commitIntent),
+    formatCliKeyValue("destination", pack.destinationKind),
+    formatCliKeyValue("risk", pack.riskClass),
+    formatCliKeyValue("recurring", pack.recurring ? "yes" : "no"),
+    formatCliKeyValue("source auth", pack.defaultSourceAuthorityKind),
+  ]);
+  printCliSection("What It Opens", pack.opensCorridor.map((line) => `  ${line}`));
+  printCliSection("Still Denied", pack.keepsDenied.map((line) => `  ${line}`));
+  printCliSection("Required Switches", pack.requires.map((line) => `  ${line}`));
+  console.log(``);
 }
 
 function workspaceRecordApplied(record: UplProcessWorkspaceRecord): boolean {
@@ -5036,6 +5122,116 @@ async function handleUpl(rest: string[]) {
     console.log(`  ${clrDim("6.")} inspect what landed:  ${clrBold(commands.inspectDiff)}`);
     console.log(``);
     return;
+  }
+
+  if (subcommand === "spend") {
+    const spendSub = rest[1];
+    if (!spendSub) {
+      throw new Error("usage: buccet upl spend list|show|draft [...]");
+    }
+    if (spendSub === "list") {
+      const packs = listBoundarySpendLawPacks();
+      if (asJson) {
+        printJson({ packs });
+        return;
+      }
+      console.log(``);
+      printCliHeader("  Spend Law Packs");
+      printCliSection("Locked By Default", [
+        "  These are dormant spend corridors. Nothing here becomes active until a human reviews and applies the exact delta.",
+      ]);
+      for (const pack of packs) {
+        printSpendLawPackSummary(pack);
+      }
+      console.log(``);
+      return;
+    }
+    if (spendSub === "show") {
+      const packId = rest[2];
+      if (!packId) {
+        throw new Error("usage: buccet upl spend show <pack-id> [--json]");
+      }
+      const pack = findBoundarySpendLawPack(packId);
+      if (!pack) {
+        throw new Error(`unknown spend law pack: ${packId}`);
+      }
+      if (asJson) {
+        printJson({ pack });
+        return;
+      }
+      printSpendLawPackDetails(pack);
+      return;
+    }
+    if (spendSub === "draft") {
+      const packId = rest[2];
+      if (!packId) {
+        throw new Error(
+          "usage: buccet upl spend draft <pack-id> --handle <handle> --principal <principal> --bucket <bucket> --max-amount <n> [...]",
+        );
+      }
+      const pack = findBoundarySpendLawPack(packId);
+      if (!pack) {
+        throw new Error(`unknown spend law pack: ${packId}`);
+      }
+      const { positional, flags, bools } = parseFlagPairs(rest.slice(3));
+      if (positional.length > 0) {
+        throw new Error(`unexpected positional args for spend draft: ${positional.join(" ")}`);
+      }
+      const proposal = buildBoundarySpendLawPackDraft({
+        packId: pack.id as BoundarySpendLawPackId,
+        handle: (flags["handle"] ?? "").trim(),
+        principal: (flags["principal"] ?? "").trim(),
+        bucketId: (flags["bucket"] ?? "").trim(),
+        amountLimitNormalized: parseNormalizedMoney(flags["max-amount"], "--max-amount"),
+        ...(flags["period-limit"] ? { periodLimitNormalized: parseNormalizedMoney(flags["period-limit"], "--period-limit") } : {}),
+        ...(flags["period-window"] ? { periodWindow: parseSpendPeriodWindowToken(flags["period-window"]) } : {}),
+        ...(flags["scope"] ? { scope: parseBoundaryUplScopeToken(flags["scope"]) } : {}),
+        ...(flags["source-authority"] ? { sourceAuthorityKind: parseSpendSourceAuthorityKindToken(flags["source-authority"]) } : {}),
+        ...(flags["sync"] ? { syncTargets: parseRequestedSyncTargetsCsv(flags["sync"]) } : {}),
+        ...(flags["law-key"] ? { lawKey: flags["law-key"] } : {}),
+        ...(flags["notes"] ? { notes: flags["notes"] } : {}),
+      });
+      const workspace = await loadUplProcessWorkspace(home.uplProcessWorkspacePath);
+      const draft = draftBoundaryUplProcess({
+        observation: proposal.observation,
+        boundary: proposal.boundary,
+        invariant: proposal.invariant,
+        draftedByKind: proposal.draftedByKind,
+        draftedBy: proposal.draftedBy,
+        mutations: proposal.mutations,
+      });
+      const review = reviewBoundaryUplDraft({
+        currentLaws: workspace.activeLaws,
+        draft,
+      });
+      const record: UplProcessWorkspaceRecord = {
+        sourcePath: proposal.sourceLabel,
+        requestedSyncTargets: proposal.syncTargets,
+        draft,
+        review,
+      };
+      const nextWorkspace: UplProcessWorkspace = {
+        ...workspace,
+        updatedAt: new Date().toISOString(),
+        records: [...workspace.records, record],
+      };
+      await saveUplProcessWorkspace(home.uplProcessWorkspacePath, nextWorkspace);
+      if (bools.has("json")) {
+        printJson({
+          pack,
+          workspacePath: home.uplProcessWorkspacePath,
+          sourcePath: proposal.sourceLabel,
+          syncTargets: record.requestedSyncTargets,
+          draft,
+          review,
+        });
+        return;
+      }
+      printSpendLawPackDetails(pack);
+      printUplProcessReview(record, workspaceRecordStale(nextWorkspace, record));
+      return;
+    }
+    throw new Error(`unknown upl spend command: ${spendSub}`);
   }
 
   if (subcommand === "workspace") {
