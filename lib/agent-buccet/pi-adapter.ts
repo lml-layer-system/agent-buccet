@@ -267,6 +267,18 @@ export function buildBuccetSystemContext(args: {
   lines.push(brain.content);
   lines.push("");
 
+  if (args.manifest.buccetClass === "spend") {
+    lines.push("=== SPEND BUCCET — same Pi flow, different domain law ===");
+    lines.push(
+      "Pi operates identically on this team — same beforeToolCall boundary hooks, same standing UPL law, " +
+        "same tool execution pipeline. The domain changes: this team uses the UBIE value-boundary brain " +
+        "(spending agents / agent buckets). No agent.spend action may reach Commit without a complete, " +
+        "authorized spend packet. UPL and operator law are the enforcement plane; this brain is the " +
+        "procedural law inside the SPEND slice.",
+    );
+    lines.push("");
+  }
+
   lines.push(`=== TEAM: ${args.manifest.name} (${args.manifest.slug}) ===`);
   lines.push(`Domain: ${args.manifest.domain}`);
   lines.push(`Summary: ${args.manifest.summary}`);
