@@ -140,6 +140,7 @@
     "test:agent-buccet:create-prompt": "node scripts/agent-buccet-create-prompt-contract.ts",
     "test:agent-buccet:create-cockpit": "node scripts/agent-buccet-create-cockpit-contract.ts",
     "test:agent-buccet:path-source-memory": "node scripts/agent-buccet-path-source-memory-contract.ts",
+    "test:agent-buccet:shard-handoff": "node scripts/agent-buccet-shard-handoff-contract.ts",
     "test:agent-buccet:team-continuity": "node scripts/agent-buccet-team-continuity-contract.ts",
     "test:agent-buccet:shed-contract": "node scripts/agent-buccet-shed-contract.ts",
     "test:agent-buccet:quarantine-contract": "node scripts/agent-buccet-quarantine-contract.ts",

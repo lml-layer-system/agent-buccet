@@ -11,6 +11,7 @@ import {
 import type {
   TeamAgent,
   TeamManifest,
+  TeamPathSourceMemoryRecord,
   TeamSlug,
   TeamSourceRef,
 } from "./team-workshop.ts";
@@ -111,6 +112,7 @@ export type TeamWholeView = {
 export type TeamPeerTaskPacket = {
   teamId: string;
   runId: string;
+  packetId: string;
   peerId: string;
   specialty: string;
   ownsStep: string;
@@ -120,6 +122,7 @@ export type TeamPeerTaskPacket = {
   constraints: string[];
   sourceIds: string[];
   projectionHandles: TeamSourceProjectionHandle[];
+  shards: TeamWorkShard[];
   requiredReadiness: string[];
   upstreamDependencies: string[];
   allowedOutputs: string[];
@@ -128,7 +131,42 @@ export type TeamPeerTaskPacket = {
 
 export type TeamPeerTaskGraph = {
   runId: string;
+  intentDigest: string;
+  shards: TeamWorkShard[];
   packets: TeamPeerTaskPacket[];
+};
+
+export type TeamWorkShard = {
+  shardId: string;
+  teamId: string;
+  intentDigest: string;
+  ownsStep: string;
+  sourceId: string;
+  regionId: string;
+  kind: TeamSourceProjectionKind;
+  title: string;
+  stableAddress: string;
+  preview: string;
+  eligiblePeerIds: string[];
+  assignedPeerId: string;
+};
+
+export type TeamShardLedgerEventKind = "dispatch" | "result" | "handoff";
+
+export type TeamShardLedgerEvent = {
+  recordId: string;
+  at: string;
+  recordKind: string;
+  eventKind: TeamShardLedgerEventKind;
+  peerId: string | null;
+  status: "pending" | "assigned" | "completed" | "blocked";
+};
+
+export type TeamShardLedgerState = TeamWorkShard & {
+  currentPeerId: string | null;
+  currentStatus: "pending" | "assigned" | "completed" | "blocked";
+  lastRecordId: string | null;
+  history: TeamShardLedgerEvent[];
 };
 
 export function teamCheckpointRoot(homePath: string, slug: TeamSlug): string {
@@ -145,6 +183,28 @@ export function absoluteCheckpointPath(homePath: string, slug: TeamSlug, ref: Te
 
 function hashText(value: string): string {
   return createHash("sha256").update(value).digest("hex");
+}
+
+export function buildTeamTaskIntentDigest(userRequest: string): string {
+  const normalized = userRequest.trim().replaceAll(/\s+/g, " ");
+  if (normalized.length === 0) return "no-intent";
+  return hashText(normalized).slice(0, 12);
+}
+
+export function buildTeamWorkShardId(args: {
+  teamId: string;
+  intentDigest: string;
+  ownsStep: string;
+  handle: TeamSourceProjectionHandle;
+}): string {
+  return [
+    "shard",
+    args.teamId,
+    args.intentDigest,
+    args.ownsStep,
+    args.handle.sourceId,
+    args.handle.regionId,
+  ].join(":");
 }
 
 function buildRegions(sourceId: string, content: string): TeamSourceCheckpointRegion[] {
@@ -534,9 +594,12 @@ export async function buildTeamPeerTaskGraph(args: {
   runId?: string;
 }): Promise<TeamPeerTaskGraph> {
   const runId = args.runId ?? `run-${Date.now().toString(36)}`;
+  const intentDigest = buildTeamTaskIntentDigest(args.userRequest);
   const packets: TeamPeerTaskPacket[] = [];
+  const shardsById = new Map<string, TeamWorkShard>();
   const sourceNodesByAgent = new Map<string, TeamWholeViewSource[]>();
   const assignedHandles = new Map<string, TeamSourceProjectionHandle[]>();
+  const eligiblePeerIdsBySource = new Map<string, string[]>();
 
   for (const agent of args.agents) {
     sourceNodesByAgent.set(agent.id, candidateWholeViewSourcesForAgent(agent, args.wholeView));
@@ -548,6 +611,7 @@ export async function buildTeamPeerTaskGraph(args: {
       (sourceNodesByAgent.get(agent.id) ?? []).some((entry) => entry.sourceId === source.sourceId),
     );
     const receivers = eligibleAgents.length > 0 ? eligibleAgents : args.agents;
+    eligiblePeerIdsBySource.set(source.sourceId, uniqueSourceIds(receivers.map((entry) => entry.id)));
     for (const receiver of receivers) {
       assignedHandles.get(receiver.id)?.push(source.wholeHandle);
     }
@@ -587,10 +651,37 @@ export async function buildTeamPeerTaskGraph(args: {
         return a.startLine - b.startLine;
       })
       .slice(0, 8);
+    const packetShards = constrainedHandles
+      .filter((handle) => handle.kind !== "whole-view")
+      .map((handle) => {
+        const shardId = buildTeamWorkShardId({
+          teamId: args.manifest.slug,
+          intentDigest,
+          ownsStep: agent.ownsStep,
+          handle,
+        });
+        const shard: TeamWorkShard = {
+          shardId,
+          teamId: args.manifest.slug,
+          intentDigest,
+          ownsStep: agent.ownsStep,
+          sourceId: handle.sourceId,
+          regionId: handle.regionId,
+          kind: handle.kind,
+          title: handle.title,
+          stableAddress: handle.stableAddress,
+          preview: handle.preview,
+          eligiblePeerIds: eligiblePeerIdsBySource.get(handle.sourceId) ?? [agent.id],
+          assignedPeerId: agent.id,
+        };
+        shardsById.set(shardId, shard);
+        return shard;
+      });
     const previews = constrainedHandles.filter((handle) => handle.kind !== "whole-view").map((handle) => handle.preview);
     packets.push({
       teamId: args.manifest.slug,
       runId,
+      packetId: `${runId}:${agent.id}:${agent.ownsStep}`,
       peerId: agent.id,
       specialty: agent.specialty,
       ownsStep: agent.ownsStep,
@@ -607,6 +698,7 @@ export async function buildTeamPeerTaskGraph(args: {
       ],
       sourceIds: uniqueSourceIds(sourceNodes.map((source) => source.sourceId)),
       projectionHandles: constrainedHandles,
+      shards: packetShards,
       requiredReadiness: ["team-ready", "projection-opened", "upl-bound"],
       upstreamDependencies: [],
       allowedOutputs: allowedOutputsForComprehensionStage(agent.ownsStep),
@@ -614,7 +706,146 @@ export async function buildTeamPeerTaskGraph(args: {
     });
   }
 
-  return { runId, packets };
+  return {
+    runId,
+    intentDigest,
+    shards: [...shardsById.values()].sort((left, right) => left.shardId.localeCompare(right.shardId)),
+    packets,
+  };
+}
+
+type TeamShardRecordRef = {
+  shardId: string;
+  sourceId: string;
+  regionId: string;
+  stableAddress: string;
+  title: string;
+  ownsStep: string;
+  kind: TeamSourceProjectionKind;
+  eligiblePeerIds: string[];
+};
+
+function isProjectionKind(value: unknown): value is TeamSourceProjectionKind {
+  return value === "whole-view" || value === "region" || value === "span";
+}
+
+function readShardRefsFromMemoryRecord(
+  record: TeamPathSourceMemoryRecord,
+): TeamShardRecordRef[] {
+  const refs: TeamShardRecordRef[] = [];
+  const meta = record.meta;
+  if (!meta || typeof meta !== "object") return refs;
+  const shards = (meta as Record<string, unknown>).shards;
+  if (!Array.isArray(shards)) return refs;
+  for (const shard of shards) {
+    if (!shard || typeof shard !== "object") continue;
+    const value = shard as Record<string, unknown>;
+    if (
+      typeof value.shardId !== "string" ||
+      typeof value.sourceId !== "string" ||
+      typeof value.regionId !== "string" ||
+      typeof value.stableAddress !== "string" ||
+      typeof value.title !== "string" ||
+      typeof value.ownsStep !== "string" ||
+      !isProjectionKind(value.kind)
+    ) {
+      continue;
+    }
+    refs.push({
+      shardId: value.shardId,
+      sourceId: value.sourceId,
+      regionId: value.regionId,
+      stableAddress: value.stableAddress,
+      title: value.title,
+      ownsStep: value.ownsStep,
+      kind: value.kind,
+      eligiblePeerIds: Array.isArray(value.eligiblePeerIds)
+        ? value.eligiblePeerIds.filter((entry): entry is string => typeof entry === "string")
+        : [],
+    });
+  }
+  return refs;
+}
+
+function statusFromMemoryRecord(record: TeamPathSourceMemoryRecord): TeamShardLedgerState["currentStatus"] {
+  if (record.kind === "shard_dispatch" || record.kind === "shard_handoff") return "assigned";
+  const raw = record.meta && typeof record.meta === "object"
+    ? (record.meta as Record<string, unknown>).status
+    : undefined;
+  if (raw === "blocked" || raw === "completed" || raw === "assigned" || raw === "pending") {
+    return raw;
+  }
+  return record.kind === "peer_result" ? "completed" : "pending";
+}
+
+function eventKindFromRecordKind(recordKind: string): TeamShardLedgerEventKind | null {
+  if (recordKind === "shard_dispatch") return "dispatch";
+  if (recordKind === "peer_result") return "result";
+  if (recordKind === "shard_handoff") return "handoff";
+  return null;
+}
+
+export function rebuildTeamShardLedger(args: {
+  graph: TeamPeerTaskGraph;
+  workEntries: TeamPathSourceMemoryRecord[];
+}): TeamShardLedgerState[] {
+  const states = new Map<string, TeamShardLedgerState>();
+  for (const shard of args.graph.shards) {
+    states.set(shard.shardId, {
+      ...shard,
+      currentPeerId: shard.assignedPeerId,
+      currentStatus: "pending",
+      lastRecordId: null,
+      history: [],
+    });
+  }
+
+  for (const record of args.workEntries) {
+    const eventKind = eventKindFromRecordKind(record.kind);
+    if (!eventKind) continue;
+    const peerId =
+      record.meta && typeof record.meta === "object" && typeof (record.meta as Record<string, unknown>).peerId === "string"
+        ? ((record.meta as Record<string, unknown>).peerId as string)
+        : null;
+    const status = statusFromMemoryRecord(record);
+    for (const ref of readShardRefsFromMemoryRecord(record)) {
+      let state = states.get(ref.shardId);
+      if (!state) {
+        state = {
+          shardId: ref.shardId,
+          teamId: args.graph.packets[0]?.teamId ?? "unknown-team",
+          intentDigest: args.graph.intentDigest,
+          ownsStep: ref.ownsStep,
+          sourceId: ref.sourceId,
+          regionId: ref.regionId,
+          kind: ref.kind,
+          title: ref.title,
+          stableAddress: ref.stableAddress,
+          preview: "",
+          eligiblePeerIds: ref.eligiblePeerIds,
+          assignedPeerId: peerId ?? ref.eligiblePeerIds[0] ?? "unknown-peer",
+          currentPeerId: peerId,
+          currentStatus: "pending",
+          lastRecordId: null,
+          history: [],
+        };
+        states.set(ref.shardId, state);
+      }
+      state.currentPeerId = peerId ?? state.currentPeerId;
+      state.currentStatus = status;
+      state.lastRecordId = record.id;
+      state.history.push({
+        recordId: record.id,
+        at: record.at,
+        recordKind: record.kind,
+        eventKind,
+        peerId,
+        status,
+      });
+    }
+  }
+
+  return [...states.values()].sort((left, right) => left.shardId.localeCompare(right.shardId));
 }
 
 function uniqueSourceIds(values: string[]): string[] {

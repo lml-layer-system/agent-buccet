@@ -134,10 +134,12 @@ export type BrainPassPreflight = {
 };
 
 export type BrainPassPeerResult = {
+  packetId: string;
   peerId: string;
   specialty: string;
   ownsStep: string;
   sourceIds: string[];
+  shardIds: string[];
   projectionCount: number;
   output: string;
   status: "completed" | "blocked";
@@ -363,12 +365,15 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         },
         comprehensionPass,
         packets: peerTaskGraph.packets.map((packet) => ({
+          packetId: packet.packetId,
           peerId: packet.peerId,
           ownsStep: packet.ownsStep,
           sourceIds: packet.sourceIds,
+          shardIds: packet.shards.map((shard) => shard.shardId),
           projectionCount: packet.projectionHandles.length,
           taskSlice: packet.taskSlice,
         })),
+        shardCount: peerTaskGraph.shards.length,
       },
     );
     for (const packet of peerTaskGraph.packets) {
@@ -380,9 +385,12 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         packet.taskSlice,
         {
           peerId: packet.peerId,
+          packetId: packet.packetId,
           specialty: packet.specialty,
           ownsStep: packet.ownsStep,
           sourceIds: packet.sourceIds,
+          shardIds: packet.shards.map((shard) => shard.shardId),
+          shards: packet.shards,
           allowedOutputs: packet.allowedOutputs,
           allowedActionKinds: packet.allowedActionKinds,
           projectionHandles: packet.projectionHandles,
@@ -414,10 +422,12 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
       );
       const peerOutput = extractTextOutput(result).trim() || "(peer returned empty output)";
       peerResults.push({
+        packetId: packet.packetId,
         peerId: peerAgent.id,
         specialty: peerAgent.specialty,
         ownsStep: peerAgent.ownsStep,
         sourceIds: packet.sourceIds,
+        shardIds: packet.shards.map((shard) => shard.shardId),
         projectionCount: packet.projectionHandles.length,
         output: peerOutput,
         status: "completed",
@@ -430,10 +440,14 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         peerOutput,
         {
           peerId: peerAgent.id,
+          packetId: packet.packetId,
           specialty: peerAgent.specialty,
           ownsStep: peerAgent.ownsStep,
           sourceIds: packet.sourceIds,
+          shardIds: packet.shards.map((shard) => shard.shardId),
+          shards: packet.shards,
           projectionCount: packet.projectionHandles.length,
+          status: "completed",
           resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
           proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
         },
@@ -639,9 +653,18 @@ function buildPeerPrompt(args: {
     JSON.stringify(
       {
         peerId: args.packet.peerId,
+        packetId: args.packet.packetId,
         specialty: args.packet.specialty,
         ownsStep: args.packet.ownsStep,
         taskSlice: args.packet.taskSlice,
+        shardIds: args.packet.shards.map((shard) => shard.shardId),
+        shards: args.packet.shards.map((shard) => ({
+          shardId: shard.shardId,
+          stableAddress: shard.stableAddress,
+          title: shard.title,
+          assignedPeerId: shard.assignedPeerId,
+          eligiblePeerIds: shard.eligiblePeerIds,
+        })),
         sourceIds: args.packet.sourceIds,
         projectionHandles: args.packet.projectionHandles.map((handle) => ({
           sourceId: handle.sourceId,

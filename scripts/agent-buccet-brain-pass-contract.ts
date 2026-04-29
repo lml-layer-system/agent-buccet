@@ -207,6 +207,9 @@ async function main(): Promise<void> {
     assert.ok((fileRefs[0]?.checkpoint?.regionCount ?? 0) >= 3, "large source fractures into multiple regions");
     assert.ok(after.wholeView.sources.some((s) => s.sourceId === fileRefs[0]?.id && s.regionCount >= 3), "whole-view exposes checkpoint regions");
     assert.ok(after.peerTaskGraph.packets.every((packet) => packet.projectionHandles.length >= 1), "each peer receives a bounded projection packet");
+    assert.ok(after.peerTaskGraph.shards.length >= 1, "task graph materializes canonical transferable shards");
+    assert.ok(after.peerTaskGraph.packets.every((packet) => packet.packetId.length > 0), "each packet carries a stable packet id");
+    assert.ok(after.peerTaskGraph.packets.some((packet) => packet.shards.length >= 1), "at least one packet owns explicit shard assignments");
     assert.ok(after.peerTaskGraph.packets.some((packet) => packet.peerId === "lead"), "knowledge peer receives a packet");
     assert.ok(after.peerTaskGraph.packets.some((packet) => packet.peerId === "spokes"), "spokesperson peer receives a packet");
     assert.equal(after.comprehensionPass.method, "whole-view-fracture-specialist-team", "preflight chooses whole-view fracture as the bounded team method");
