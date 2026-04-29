@@ -138,6 +138,7 @@
     "test:agent-buccet:comprehension-engine": "node scripts/agent-buccet-comprehension-engine-contract.ts",
     "test:agent-buccet:coherence-adjudication": "node scripts/agent-buccet-coherence-adjudication-contract.ts",
     "test:agent-buccet:create-prompt": "node scripts/agent-buccet-create-prompt-contract.ts",
+    "test:agent-buccet:create-trace": "node scripts/agent-buccet-create-trace-contract.ts",
     "test:agent-buccet:create-cockpit": "node scripts/agent-buccet-create-cockpit-contract.ts",
     "test:agent-buccet:path-source-memory": "node scripts/agent-buccet-path-source-memory-contract.ts",
     "test:agent-buccet:shard-handoff": "node scripts/agent-buccet-shard-handoff-contract.ts",

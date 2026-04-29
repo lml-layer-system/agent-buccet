@@ -60,6 +60,10 @@ import {
   renderCreatePromptEvent,
   type BuccetPromptMode,
 } from "../lib/agent-buccet/create-prompt.ts";
+import {
+  buildProofOfWorkTraceOutput,
+  renderProofOfWorkTraceText,
+} from "../lib/agent-buccet/create-trace.ts";
 import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
 import type {
   BoundaryActionKind,
@@ -426,6 +430,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet create list                                                list standing teams",
         "  buccet create show <team-name>                                    show a team manifest",
         "  buccet create cockpit [--json]                                    multi-Buccet creation proof-of-work snapshot",
+        "  buccet create trace <team-name> [--tail <n>] [--json]            per-Buccet proof-of-work trace from path-source memory",
         "  buccet create add-agent <team-name> --name <id> --specialty <t>",
         "                  [--model <hint>] [--owns-step <stage>] [--tools <csv>] [--sources <csv>] [--cap <n>]",
         "  buccet create remove-agent <team-name> --name <id>",
@@ -6995,6 +7000,7 @@ function createUsage(): never {
   console.error([
     "Usage:",
     "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
+    "  buccet create trace <team-name> [--tail <n>] [--json]           proof-of-work trace from path-source memory",
     "  buccet create show <team-name> [--json]",
     "  buccet create list [--json]",
     "  buccet create cockpit [--json]",
@@ -7509,11 +7515,50 @@ async function handleCreate(rest: string[]) {
     return;
   }
 
+  if (sub === "trace") {
+    const teamName = rest[1];
+    if (!teamName) {
+      console.error("Usage: buccet create trace <team-name> [--tail <n>] [--json]");
+      process.exit(1);
+    }
+    const slug = teamSlug(teamName);
+    const { flags, bools } = parseFlagPairs(rest.slice(2));
+    const tailRaw = flags["tail"];
+    const tail = tailRaw !== undefined ? Math.max(1, parseInt(tailRaw, 10) || 1) : undefined;
+    const records = await readTeamPathSourceMemoryEntries(homePath, slug);
+    const output = buildProofOfWorkTraceOutput(slug, records, { tail });
+    if (bools.has("json")) {
+      console.log(JSON.stringify(output, null, 2));
+      return;
+    }
+    printCliHeader(`Proof-of-Work · ${slug}`, `creation trace · ${teamsRoot(homePath)}`);
+    console.log(renderProofOfWorkTraceText(output));
+    console.log("");
+    return;
+  }
+
   // default: `buccet create <team-name> [--domain ...]`
+  // Console shortcut: if --domain is absent, check whether the team exists and show
+  // its proof-of-work trace. `create <team>` and `create <team> <n>` both work.
   const teamName = sub;
-  const { flags } = parseFlagPairs(rest.slice(1));
+  const { flags, positional: defaultPositional } = parseFlagPairs(rest.slice(1));
   const domain = flags["domain"];
   if (!domain) {
+    const slug = teamSlug(teamName);
+    const records = await readTeamPathSourceMemoryEntries(homePath, slug);
+    // If the team has any persisted state (even empty records), show the trace.
+    // `readTeamPathSourceMemoryEntries` returns [] for a missing/new team too,
+    // so also check that the manifest exists before deciding.
+    const existingManifest = await loadTeam(homePath, slug);
+    if (existingManifest !== null) {
+      const tailArg = defaultPositional[0];
+      const tail = tailArg !== undefined ? Math.max(1, parseInt(tailArg, 10) || 1) : undefined;
+      const output = buildProofOfWorkTraceOutput(slug, records, { tail });
+      printCliHeader(`Proof-of-Work · ${slug}`, `creation trace · ${teamsRoot(homePath)}`);
+      console.log(renderProofOfWorkTraceText(output));
+      console.log("");
+      return;
+    }
     console.error("buccet create <team-name> requires --domain <domain>.");
     createUsage();
   }
@@ -9941,6 +9986,7 @@ async function handleConsole() {
             formatCliKeyValue("where", "full operator map — every surface and command"),
             formatCliKeyValue("status", "unified operator snapshot"),
             formatCliKeyValue("create", "multi-Buccet creation cockpit"),
+            formatCliKeyValue("create <team> [n]", "per-Buccet proof-of-work trace (latest n entries)"),
             formatCliKeyValue("shield", "protected execution lane heartbeat"),
             formatCliKeyValue("logs [n]", "last n witness ledger entries (default 10)"),
             formatCliKeyValue("feed", "toggle live shield + witness feed"),
@@ -10119,11 +10165,25 @@ async function handleConsole() {
         }
 
         if (cmd === "create") {
-          const workshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
-          console.log(``);
-          printCliHeader("  Creation Cockpit");
-          printWorkshopCockpitSnapshot(workshopCockpit);
-          console.log(``);
+          if (arg1) {
+            // create <team> [n] — per-Buccet proof-of-work trace
+            const traceSlug = teamSlug(arg1);
+            const tailArg = parts[2];
+            const tail = tailArg !== undefined ? Math.max(1, parseInt(tailArg, 10) || 1) : undefined;
+            const traceRecords = await readTeamPathSourceMemoryEntries(homePath, traceSlug);
+            const traceOutput = buildProofOfWorkTraceOutput(traceSlug, traceRecords, { tail });
+            console.log(``);
+            printCliHeader(`  Proof-of-Work · ${traceSlug}`);
+            console.log(renderProofOfWorkTraceText(traceOutput));
+            console.log(``);
+          } else {
+            // create — multi-Buccet creation cockpit
+            const workshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
+            console.log(``);
+            printCliHeader("  Creation Cockpit");
+            printWorkshopCockpitSnapshot(workshopCockpit);
+            console.log(``);
+          }
           rl.prompt();
           return;
         }
