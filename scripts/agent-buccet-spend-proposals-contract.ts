@@ -116,6 +116,24 @@ async function main() {
   assert.equal(blend.singlePackOnlyByDefault, true);
   assert.ok(blend.notes.some((note) => note.includes("no blended draft")));
 
+  const slackProposal = await runCli([
+    "upl",
+    "spend",
+    "propose",
+    "add five slack seats for the team workspace under our monthly software budget",
+    "--json",
+  ], env);
+  assert.equal(slackProposal.code, 0, slackProposal.stderr);
+  const slack = JSON.parse(slackProposal.stdout) as {
+    candidates: Array<{
+      pack: { id: string };
+      matchedSignals: string[];
+    }>;
+  };
+  assert.equal(slack.candidates[0]?.pack.id, "license.seat");
+  assert.ok(slack.candidates[0]?.matchedSignals.includes("slack"));
+  assert.ok(slack.candidates[0]?.matchedSignals.includes("seats") || slack.candidates[0]?.matchedSignals.includes("seat"));
+
   const workspaceAfter = await runCli(["upl", "workspace", "--json"], env);
   assert.equal(workspaceAfter.code, 0, workspaceAfter.stderr);
   const after = JSON.parse(workspaceAfter.stdout) as {
@@ -129,6 +147,7 @@ async function main() {
   console.log(`subscription top pack: ${subscription.candidates[0]?.pack.id}`);
   console.log(`multiple classes detected: ${multi.multipleBoundaryClassesDetected}`);
   console.log(`blend request blocked to single-pack: ${blend.singlePackOnlyByDefault}`);
+  console.log(`slack seat request top pack: ${slack.candidates[0]?.pack.id}`);
   console.log(`workspace unchanged: ${after.pendingCount === before.pendingCount && after.activeLawCount === before.activeLawCount}`);
 }
 

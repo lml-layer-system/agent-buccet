@@ -57,6 +57,7 @@ async function main() {
   const packIds = listed.packs.map((pack) => pack.id);
   assert.ok(packIds.includes("merchant.purchase"));
   assert.ok(packIds.includes("subscription.provider"));
+  assert.ok(packIds.includes("license.seat"));
   assert.ok(packIds.includes("exchange.trade"));
   assert.ok(packIds.includes("platform.signup"));
 

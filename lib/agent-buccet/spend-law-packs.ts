@@ -21,6 +21,7 @@ import type {
 export type BoundarySpendLawPackId =
   | "merchant.purchase"
   | "subscription.provider"
+  | "license.seat"
   | "exchange.trade"
   | "api.credit"
   | "platform.signup"
@@ -30,7 +31,7 @@ export type BoundarySpendLawPackId =
 export type BoundarySpendLawPack = {
   id: BoundarySpendLawPackId;
   title: string;
-  category: "shopping" | "recurring" | "trading" | "signup" | "transfer" | "contract";
+  category: "shopping" | "recurring" | "license" | "trading" | "signup" | "transfer" | "contract";
   description: string;
   lockedByDefault: string;
   requires: string[];
@@ -157,6 +158,40 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     humanConfirmationRule: "notify_before_commit",
     proofRequirement: "receipt_required",
     defaultTermsSummary: "recurring provider subscription inside exact monthly cap",
+  },
+  {
+    id: "license.seat",
+    title: "SaaS Seat / License Management",
+    category: "license",
+    description: "Open a bounded seat, workspace, or license corridor to one named SaaS provider handle.",
+    lockedByDefault: "Seat, workspace, and license changes stay denied until the exact provider corridor is opened.",
+    requires: ["handle", "principal", "bucket", "max monthly amount"],
+    opensCorridor: [
+      "agent.spend only",
+      "exact provider handle only",
+      "subscribe intent only",
+      "seat / license / workspace spend inside exact recurring cap",
+    ],
+    keepsDenied: [
+      "other providers and other workspaces",
+      "broad signup drift outside the exact provider corridor",
+      "raw checkout and payment-link side doors",
+    ],
+    defaultScope: "GLOBAL",
+    defaultSyncTargets: ["buccet"],
+    capability: "license.seat.manage",
+    domain: "spend",
+    destinationKind: "merchant",
+    commitIntent: "subscribe",
+    riskClass: "recurring",
+    recurring: true,
+    defaultSourceAuthorityKind: "card",
+    defaultPeriodWindow: "30d",
+    recurringPolicy: "allow",
+    substitutionPolicy: "deny",
+    humanConfirmationRule: "notify_before_commit",
+    proofRequirement: "artifact_required",
+    defaultTermsSummary: "bounded SaaS seat or license changes inside exact provider corridor",
   },
   {
     id: "exchange.trade",
@@ -350,6 +385,12 @@ const SPEND_PROPOSAL_SIGNAL_RULES: Record<BoundarySpendLawPackId, SpendProposalS
     { terms: ["subscription", "subscribe", "subscribed"], score: 6, reason: "request explicitly asks for a subscription" },
     { terms: ["monthly", "annual", "yearly", "renew", "renewal"], score: 4, reason: "request names recurring billing terms" },
     { terms: ["recurring", "plan"], score: 3, reason: "request describes an ongoing provider plan" },
+    { terms: ["slack", "notion", "github", "discord", "linear", "figma", "zoom"], score: 2, reason: "request names a common SaaS subscription provider" },
+  ],
+  "license.seat": [
+    { terms: ["seat", "seats", "license", "licenses"], score: 6, reason: "request explicitly asks for seat or license changes" },
+    { terms: ["workspace", "member", "users", "team seats"], score: 4, reason: "request describes workspace membership or seat expansion" },
+    { terms: ["slack", "notion", "github", "linear", "figma", "zoom"], score: 5, reason: "request names a common seat-based SaaS provider" },
   ],
   "exchange.trade": [
     { terms: ["trade", "trading", "exchange", "swap"], score: 6, reason: "request explicitly asks for trading or exchange motion" },
@@ -360,11 +401,13 @@ const SPEND_PROPOSAL_SIGNAL_RULES: Record<BoundarySpendLawPackId, SpendProposalS
     { terms: ["api credit", "api credits", "cloud credit", "cloud credits"], score: 6, reason: "request explicitly asks for credit top-ups" },
     { terms: ["top up", "top-up", "recharge", "prepay"], score: 4, reason: "request describes prepaid credit purchase" },
     { terms: ["usage credits", "buy credits", "openai credits"], score: 5, reason: "request targets paid API / cloud usage credits" },
+    { terms: ["openai", "anthropic", "aws", "gcp", "azure", "vercel"], score: 2, reason: "request names a common paid API or cloud provider" },
   ],
   "platform.signup": [
     { terms: ["sign up", "signup", "create account"], score: 6, reason: "request explicitly asks for account creation" },
     { terms: ["free trial", "trial", "billing setup"], score: 5, reason: "request describes a signup with future billing risk" },
     { terms: ["api key", "paid account", "paid plan"], score: 4, reason: "request combines provider signup with billing authority" },
+    { terms: ["slack workspace", "notion workspace", "github organization", "openai account", "anthropic account"], score: 5, reason: "request names a provider signup with billing authority" },
   ],
   "account.transfer": [
     { terms: ["transfer", "send money", "wire", "ach"], score: 6, reason: "request explicitly asks for account transfer motion" },
