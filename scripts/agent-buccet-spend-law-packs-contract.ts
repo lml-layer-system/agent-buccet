@@ -111,7 +111,7 @@ async function main() {
   };
   assert.equal(subscription.pack.id, "subscription.provider");
   assert.equal(subscription.sourcePath, "spend-pack:subscription.provider");
-  assert.deepEqual(subscription.syncTargets, ["buccet", "future_buccets"]);
+  assert.deepEqual(subscription.syncTargets, ["buccet"]);
   assert.equal(subscription.review.deltas[0]?.after?.runtime.primaryTarget, "provider:vercel");
   assert.deepEqual(subscription.review.deltas[0]?.after?.approvedCommitIntents, ["subscribe"]);
   assert.deepEqual(subscription.review.deltas[0]?.after?.approvedDestinationKinds, ["merchant"]);

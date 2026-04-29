@@ -159,6 +159,10 @@ async function main() {
       "CLI output must reference value-boundary brain",
     );
     assert.ok(
+      cliResult.stdout.includes("buccet upl spend propose"),
+      "CLI output must point to spend proposal drafting",
+    );
+    assert.ok(
       cliResult.stdout.includes("buccet upl spend list"),
       "CLI output must point to spend pack listing",
     );
@@ -244,7 +248,7 @@ async function main() {
     console.log("notes stamp:                     [SPEND BUCCET] + financial + value-boundary");
     console.log("teamManifestBrainSourceId:       value-boundary for SPEND; default for workshop");
     console.log("CLI --confirm-spend:             exits 0, SPEND + value-boundary in output");
-    console.log("CLI spend next-steps:            points to upl spend list + upl spend setup");
+    console.log("CLI spend next-steps:            points to upl spend propose + upl spend list + upl spend setup");
     console.log("CLI no --confirm-spend (non-TTY): exits non-zero, mentions confirm-spend");
     console.log("UBIE prose vocabulary:           all 10 terms present incl. exchange + subscribe");
   } finally {

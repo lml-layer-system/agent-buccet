@@ -53,6 +53,25 @@ export type BoundarySpendLawPack = {
   defaultTermsSummary: string;
 };
 
+export type BoundarySpendProposalCandidate = {
+  pack: BoundarySpendLawPack;
+  score: number;
+  matchedSignals: string[];
+  reasons: string[];
+};
+
+export type BoundarySpendProposalAnalysis = {
+  requestText: string;
+  normalizedRequest: string;
+  requiresHumanPick: true;
+  singlePackOnlyByDefault: true;
+  blendRequested: boolean;
+  multipleBoundaryClassesDetected: boolean;
+  suggestedSyncTargets: BoundaryUplSyncTarget[];
+  candidates: BoundarySpendProposalCandidate[];
+  notes: string[];
+};
+
 export type BoundarySpendLawPackDraftArgs = {
   packId: BoundarySpendLawPackId;
   handle: string;
@@ -90,7 +109,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "subscriptions and recurring obligations",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "merchant.purchase",
     domain: "spend",
     destinationKind: "merchant",
@@ -124,7 +143,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "raw checkout and payment-link side doors",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "subscription.start",
     domain: "spend",
     destinationKind: "merchant",
@@ -158,7 +177,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "transfers, withdrawals, and raw API side doors",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "exchange.trade",
     domain: "spend",
     destinationKind: "exchange",
@@ -192,7 +211,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "subscriptions and raw checkout side doors",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "api.credit.purchase",
     domain: "spend",
     destinationKind: "merchant",
@@ -226,7 +245,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "implicit free-trial to paid-plan drift",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "platform.signup",
     domain: "identity",
     destinationKind: "merchant",
@@ -260,7 +279,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "withdraw and swap outside the exact transfer rail",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "account.transfer",
     domain: "spend",
     destinationKind: "account",
@@ -294,7 +313,7 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
       "debt, transfer, and subscription motion outside the exact corridor",
     ],
     defaultScope: "GLOBAL",
-    defaultSyncTargets: ["buccet", "future_buccets"],
+    defaultSyncTargets: ["buccet"],
     capability: "contract.sign",
     domain: "contract",
     destinationKind: "contract",
@@ -315,12 +334,135 @@ function slugifyFragment(value: string): string {
   return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "unnamed";
 }
 
+type SpendProposalSignalRule = {
+  terms: string[];
+  score: number;
+  reason: string;
+};
+
+const SPEND_PROPOSAL_SIGNAL_RULES: Record<BoundarySpendLawPackId, SpendProposalSignalRule[]> = {
+  "merchant.purchase": [
+    { terms: ["buy", "purchase", "order"], score: 5, reason: "request uses direct purchase language" },
+    { terms: ["checkout", "cart", "shopping"], score: 4, reason: "request describes a shopping / checkout flow" },
+    { terms: ["merchant", "product", "item"], score: 2, reason: "request names a merchant-style purchase target" },
+  ],
+  "subscription.provider": [
+    { terms: ["subscription", "subscribe", "subscribed"], score: 6, reason: "request explicitly asks for a subscription" },
+    { terms: ["monthly", "annual", "yearly", "renew", "renewal"], score: 4, reason: "request names recurring billing terms" },
+    { terms: ["recurring", "plan"], score: 3, reason: "request describes an ongoing provider plan" },
+  ],
+  "exchange.trade": [
+    { terms: ["trade", "trading", "exchange", "swap"], score: 6, reason: "request explicitly asks for trading or exchange motion" },
+    { terms: ["rebalance", "market order", "limit order", "portfolio"], score: 4, reason: "request names exchange order mechanics" },
+    { terms: ["coinbase", "binance", "kraken"], score: 5, reason: "request names an exchange handle directly" },
+  ],
+  "api.credit": [
+    { terms: ["api credit", "api credits", "cloud credit", "cloud credits"], score: 6, reason: "request explicitly asks for credit top-ups" },
+    { terms: ["top up", "top-up", "recharge", "prepay"], score: 4, reason: "request describes prepaid credit purchase" },
+    { terms: ["usage credits", "buy credits", "openai credits"], score: 5, reason: "request targets paid API / cloud usage credits" },
+  ],
+  "platform.signup": [
+    { terms: ["sign up", "signup", "create account"], score: 6, reason: "request explicitly asks for account creation" },
+    { terms: ["free trial", "trial", "billing setup"], score: 5, reason: "request describes a signup with future billing risk" },
+    { terms: ["api key", "paid account", "paid plan"], score: 4, reason: "request combines provider signup with billing authority" },
+  ],
+  "account.transfer": [
+    { terms: ["transfer", "send money", "wire", "ach"], score: 6, reason: "request explicitly asks for account transfer motion" },
+    { terms: ["withdraw", "payout", "bank transfer", "treasury"], score: 5, reason: "request describes fund movement to an account rail" },
+    { terms: ["bank", "account"], score: 2, reason: "request names an account-style destination" },
+  ],
+  "contract.signature": [
+    { terms: ["sign contract", "sign agreement", "contract"], score: 6, reason: "request explicitly asks for contract execution" },
+    { terms: ["agreement", "legal obligation", "terms"], score: 4, reason: "request names a binding legal commitment" },
+    { terms: ["loan", "debt", "borrow"], score: 5, reason: "request describes debt or obligation creation" },
+  ],
+};
+
+const SPEND_BLEND_REQUEST_TERMS = [
+  "blend",
+  "combined",
+  "combine",
+  "together",
+  "single draft",
+  "one draft",
+  "multi-pack",
+  "multipack",
+];
+
+function countMatchedTerms(normalizedRequest: string, terms: readonly string[]): string[] {
+  return terms.filter((term) => normalizedRequest.includes(term));
+}
+
 export function listBoundarySpendLawPacks(): BoundarySpendLawPack[] {
   return SPEND_LAW_PACKS.map((pack) => ({ ...pack, requires: [...pack.requires], opensCorridor: [...pack.opensCorridor], keepsDenied: [...pack.keepsDenied], defaultSyncTargets: [...pack.defaultSyncTargets] }));
 }
 
 export function findBoundarySpendLawPack(packId: string): BoundarySpendLawPack | null {
   return SPEND_LAW_PACKS.find((pack) => pack.id === packId) ?? null;
+}
+
+export function proposeBoundarySpendLawPacks(args: {
+  requestText: string;
+  limit?: number;
+}): BoundarySpendProposalAnalysis {
+  const requestText = args.requestText.trim();
+  const normalizedRequest = requestText.toLowerCase();
+  const limit = Math.max(1, args.limit ?? 3);
+  const blendRequested = SPEND_BLEND_REQUEST_TERMS.some((term) => normalizedRequest.includes(term));
+
+  const candidates = SPEND_LAW_PACKS.map((pack) => {
+    const rules = SPEND_PROPOSAL_SIGNAL_RULES[pack.id];
+    const matchedSignals: string[] = [];
+    const reasons: string[] = [];
+    let score = 0;
+    for (const rule of rules) {
+      const matchedTerms = countMatchedTerms(normalizedRequest, rule.terms);
+      if (matchedTerms.length === 0) {
+        continue;
+      }
+      matchedSignals.push(...matchedTerms);
+      reasons.push(rule.reason);
+      score += rule.score + Math.max(0, matchedTerms.length - 1);
+    }
+    return {
+      pack,
+      score,
+      matchedSignals: [...new Set(matchedSignals)],
+      reasons: [...new Set(reasons)],
+    };
+  })
+    .filter((candidate) => candidate.score > 0)
+    .sort((left, right) =>
+      right.score - left.score || left.pack.id.localeCompare(right.pack.id))
+    .slice(0, limit);
+
+  const multipleBoundaryClassesDetected = candidates.length > 1;
+  const notes = [
+    "Pi is suggestion-only here. No spend pack is auto-selected.",
+    "Drafts stay single-pack by default. If you want a blended draft, ask for it explicitly.",
+    "Suggested drafts default to `buccet` sync only. Future Buccets stay locked unless you widen the sync targets yourself.",
+  ];
+  if (multipleBoundaryClassesDetected) {
+    notes.push("Multiple financial boundary classes were detected. Pick one pack first, then stage separate drafts if you need more than one corridor.");
+  }
+  if (blendRequested) {
+    notes.push("A blended-draft request was detected, but no blended draft was created automatically.");
+  }
+  if (candidates.length === 0) {
+    notes.push("No safe pack match was found from this text. Inspect the spend pack catalog directly and choose the corridor by hand.");
+  }
+
+  return {
+    requestText,
+    normalizedRequest,
+    requiresHumanPick: true,
+    singlePackOnlyByDefault: true,
+    blendRequested,
+    multipleBoundaryClassesDetected,
+    suggestedSyncTargets: ["buccet"],
+    candidates,
+    notes,
+  };
 }
 
 export function buildBoundarySpendLawPackDraft(args: BoundarySpendLawPackDraftArgs): {

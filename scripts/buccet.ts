@@ -73,6 +73,7 @@ import {
   draftBoundaryUplProcess,
   findBoundarySpendLawPack,
   listBoundarySpendLawPacks,
+  proposeBoundarySpendLawPacks,
   reviewBoundaryUplDraft,
   writeApprovedBoundaryUplReviewToLedger,
 } from "../lib/agent-buccet/index.ts";
@@ -81,6 +82,7 @@ import type {
   BoundaryApprovedUplReview,
   BoundarySpendLawPack,
   BoundarySpendLawPackId,
+  BoundarySpendProposalAnalysis,
   BoundarySpendPeriodWindow,
   BoundarySpendSourceAuthorityKind,
   BoundaryUplLineage,
@@ -447,7 +449,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet upl review <draft-id|review-id|latest> [--json]           inspect exact before/after law deltas",
         "  buccet upl apply <draft-id|review-id|latest> [--json]            human-activate one reviewed law delta",
         "  buccet upl workspace [--json]                                     inspect the typed UPL proposal workspace",
-        "  buccet upl spend list|show|draft|setup [...]                      stage spend-specific corridor packs into UPL workspace",
+        "  buccet upl spend list|show|propose|draft|setup [...]              inspect spend packs and stage narrow spend corridors",
         "  buccet scope add <path> [--actions <csv>]                         grant a scope corridor",
         "  buccet scope list [--json]                                        list standing scope grants",
         "  buccet swarm list                                                 show swarm groups awaiting verdict",
@@ -871,6 +873,38 @@ function printSpendLawPackDetails(pack: BoundarySpendLawPack): void {
   printCliSection("What It Opens", pack.opensCorridor.map((line) => `  ${line}`));
   printCliSection("Still Denied", pack.keepsDenied.map((line) => `  ${line}`));
   printCliSection("Required Switches", pack.requires.map((line) => `  ${line}`));
+  console.log(``);
+}
+
+function printSpendProposalAnalysis(analysis: BoundarySpendProposalAnalysis): void {
+  console.log(``);
+  printCliHeader("  Spend Proposal");
+  printCliSection("Request", [
+    formatCliKeyValue("text", analysis.requestText),
+    formatCliKeyValue("human pick required", analysis.requiresHumanPick ? "yes" : "no"),
+    formatCliKeyValue("single-pack only", analysis.singlePackOnlyByDefault ? "yes" : "no"),
+    formatCliKeyValue("blend requested", analysis.blendRequested ? "yes" : "no"),
+    formatCliKeyValue("default sync", analysis.suggestedSyncTargets.join(", ")),
+  ]);
+  if (analysis.candidates.length === 0) {
+    printCliSection("Candidates", [
+      "  No safe pack match found from the request text.",
+      `  ${clrDim("Inspect instead:")} ${clrBold("buccet upl spend list")}`,
+    ]);
+  } else {
+    printCliSection("Candidate Packs", analysis.candidates.map((candidate, index) => {
+      const matched = candidate.matchedSignals.length > 0 ? `signals=${candidate.matchedSignals.join(", ")}` : "signals=none";
+      const reason = candidate.reasons[0] ?? candidate.pack.description;
+      return `  ${index + 1}. ${clrBold(candidate.pack.id)}  ${clrDim(candidate.pack.title)}\n     ${clrDim(`score=${candidate.score} · ${matched}`)}\n     ${reason}`;
+    }));
+    const topPack = analysis.candidates[0]!.pack.id;
+    printCliSection("Next", [
+      `  ${clrDim("inspect:")} ${clrBold(`buccet upl spend show ${topPack}`)}`,
+      `  ${clrDim("stage:")}   ${clrBold(`buccet upl spend setup ${topPack}`)}`,
+      `  ${clrDim("catalog:")} ${clrBold("buccet upl spend list")}`,
+    ]);
+  }
+  printCliSection("Policy Notes", analysis.notes.map((note) => `  ${note}`));
   console.log(``);
 }
 
@@ -5198,7 +5232,7 @@ async function handleUpl(rest: string[]) {
   if (subcommand === "spend") {
     const spendSub = rest[1];
     if (!spendSub) {
-      throw new Error("usage: buccet upl spend list|show|draft|setup [...]");
+      throw new Error("usage: buccet upl spend list|show|propose|draft|setup [...]");
     }
     if (spendSub === "list") {
       const packs = listBoundarySpendLawPacks();
@@ -5231,6 +5265,22 @@ async function handleUpl(rest: string[]) {
         return;
       }
       printSpendLawPackDetails(pack);
+      return;
+    }
+    if (spendSub === "propose") {
+      const { positional, flags } = parseFlagPairs(rest.slice(2));
+      const requestText = positional.join(" ").trim();
+      const limitRaw = flags["limit"];
+      const limit = limitRaw !== undefined ? Math.max(1, parseInt(limitRaw, 10) || 1) : 3;
+      if (!requestText) {
+        throw new Error("usage: buccet upl spend propose <plain-language request> [--limit <n>] [--json]");
+      }
+      const analysis = proposeBoundarySpendLawPacks({ requestText, limit });
+      if (asJson) {
+        printJson(analysis);
+        return;
+      }
+      printSpendProposalAnalysis(analysis);
       return;
     }
     if (spendSub === "draft") {
@@ -8445,6 +8495,7 @@ async function handleCreate(rest: string[]) {
     console.log(`${clrDim("upl-track:   ")}snapped at ${spendManifest.uplTrackSnap.takenAt}`);
     console.log("");
     console.log(`  ${clrDim("Next:")}`);
+    console.log(`    ${clrBold(`buccet upl spend propose "describe the money move you want"`)} ${clrDim("(Pi suggests packs; you still pick the corridor)")}`);
     console.log(`    ${clrBold(`buccet upl spend list`)}`);
     console.log(`    ${clrBold(`buccet upl spend setup subscription.provider`)} ${clrDim("(stage one exact corridor into review)")}`);
     console.log(`    ${clrBold(`buccet upl workspace`)}`);
