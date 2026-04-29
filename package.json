@@ -134,6 +134,7 @@
     "test:agent-buccet:oss-surface": "node scripts/agent-buccet-oss-surface-contract.ts",
     "test:agent-buccet:mcp": "node scripts/agent-buccet-mcp-contract.ts",
     "test:agent-buccet:mcp-coexistence": "node scripts/agent-buccet-mcp-coexistence-contract.ts",
+    "test:agent-buccet:brain-pass": "node scripts/agent-buccet-brain-pass-contract.ts",
     "test:agent-buccet:shed-contract": "node scripts/agent-buccet-shed-contract.ts",
     "test:agent-buccet:quarantine-contract": "node scripts/agent-buccet-quarantine-contract.ts",
     "test:agent-buccet:runtime-snap": "node scripts/agent-buccet-runtime-snap-contract.ts",

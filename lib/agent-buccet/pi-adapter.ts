@@ -274,9 +274,16 @@ export function buildBuccetSystemContext(args: {
   if (args.agent.memoryNotes) lines.push(`Notes: ${args.agent.memoryNotes}`);
   lines.push("");
 
-  const libraryRefs = args.manifest.pathSourceCorpus.filter(
-    (s) => s.id !== UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id && s.transport !== "engine",
+  const requestedSourceIds = args.agent.sourceIds.filter(
+    (sourceId) => sourceId !== UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id,
   );
+  const libraryRefs = args.manifest.pathSourceCorpus.filter((s) => {
+    if (s.id === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id || s.transport === "engine") {
+      return false;
+    }
+    if (requestedSourceIds.length === 0) return true;
+    return requestedSourceIds.includes(s.id);
+  });
   if (libraryRefs.length > 0) {
     lines.push("=== LIBRARY (path sources) ===");
     for (const s of libraryRefs) {

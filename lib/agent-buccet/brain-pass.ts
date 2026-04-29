@@ -38,6 +38,14 @@ import {
   tryLoadPiBindings,
 } from "./pi-adapter.ts";
 import {
+  buildTeamPeerTaskGraph,
+  buildTeamWholeView,
+  renderProjectionBundle,
+  type TeamPeerTaskGraph,
+  type TeamPeerTaskPacket,
+  type TeamWholeView,
+} from "./path-source-checkpoints.ts";
+import {
   endPersistentBoundarySession,
   startPersistentBoundarySession,
 } from "./state.ts";
@@ -70,6 +78,10 @@ export type RunBrainPassResult = {
   events: BrainPassEvent[];
   manifest: TeamManifest;
   agent: TeamAgent;
+  agents: TeamAgent[];
+  wholeView: TeamWholeView;
+  peerTaskGraph: TeamPeerTaskGraph;
+  peerResults: BrainPassPeerResult[];
 };
 
 const PI_RUN_GRANTED_ACTIONS: BoundaryActionKind[] = [
@@ -97,6 +109,19 @@ export type BrainPassPreflight = {
   engineSource: TeamSourceRef;
   aiSource: TeamSourceRef;
   agent: TeamAgent;
+  agents: TeamAgent[];
+  wholeView: TeamWholeView;
+  peerTaskGraph: TeamPeerTaskGraph;
+};
+
+export type BrainPassPeerResult = {
+  peerId: string;
+  specialty: string;
+  ownsStep: string;
+  sourceIds: string[];
+  projectionCount: number;
+  output: string;
+  status: "completed" | "blocked";
 };
 
 /**
@@ -109,6 +134,7 @@ export async function preflightBrainPass(args: {
   homePath: string;
   slug: TeamSlug;
   agentId?: string;
+  userRequest?: string;
 }): Promise<BrainPassPreflight> {
   const manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
@@ -134,17 +160,38 @@ export async function preflightBrainPass(args: {
     );
   }
 
-  const agent = (args.agentId
-    ? manifest.agents.find((a) => a.id === args.agentId)
-    : manifest.agents[0]) ?? null;
-  if (!agent) {
+  if (manifest.agents.length === 0) {
     throw new BrainPassPreconditionError(
       `Team "${args.slug}" has no peers yet. ` +
         `Add one with: \`buccet create add-agent ${args.slug} --name <id> --specialty "<text>"\`.`,
     );
   }
 
-  return { manifest, engineSource, aiSource, agent };
+  let agents = manifest.agents.slice();
+  if (args.agentId) {
+    const selected = manifest.agents.find((entry) => entry.id === args.agentId) ?? null;
+    if (!selected) {
+      throw new BrainPassPreconditionError(
+        `Team "${args.slug}" has no peer "${args.agentId}".`,
+      );
+    }
+    agents = [selected];
+  }
+
+  const wholeView = await buildTeamWholeView({
+    homePath: args.homePath,
+    manifest,
+  });
+  const peerTaskGraph = await buildTeamPeerTaskGraph({
+    homePath: args.homePath,
+    manifest,
+    wholeView,
+    userRequest: args.userRequest ?? "",
+    agents,
+  });
+  const agent = selectSpokespersonAgent(agents);
+
+  return { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph };
 }
 
 function aiProviderLabel(source: TeamSourceRef): string {
@@ -196,10 +243,11 @@ function extractTextOutput(value: unknown): string {
  * existing message-queue ack.
  */
 export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPassResult> {
-  const { manifest, engineSource, aiSource, agent } = await preflightBrainPass({
+  const { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph } = await preflightBrainPass({
     homePath: args.homePath,
     slug: args.slug,
     agentId: args.agentId,
+    userRequest: args.userRequest,
   });
 
   const bindings = await tryLoadPiBindings();
@@ -213,8 +261,8 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
     args.onEvent?.(e);
   };
 
-  const sessionId = `team:${manifest.slug}:${agent.id}:${Date.now()}`;
-  const actorId = `team-agent:${manifest.slug}:${agent.id}`;
+  const sessionId = `team:${manifest.slug}:run:${Date.now()}`;
+  const actorId = `team-run:${manifest.slug}`;
   const sessionsDir = path.join(args.homePath, "sessions");
 
   const config = await startPersistentBoundarySession({
@@ -233,7 +281,45 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
   });
 
   let output = "";
+  const peerResults: BrainPassPeerResult[] = [];
   try {
+    for (const packet of peerTaskGraph.packets) {
+      const peerAgent = agents.find((entry) => entry.id === packet.peerId);
+      if (!peerAgent) continue;
+      const projectionBundle = await renderProjectionBundle({
+        homePath: args.homePath,
+        slug: args.slug,
+        manifest,
+        packet,
+      });
+      const built = await buildBuccetGovernedPiAgent({
+        config,
+        manifest,
+        agent: peerAgent,
+        engineSource,
+        aiSource,
+        uplTrackSnapDescription: `UPL track snap taken at ${manifest.uplTrackSnap.takenAt}; live system UPL applies (allow/deny adjudicates every Pi tool dispatch).`,
+      });
+      const result = await built.promptFn(
+        buildPeerPrompt({
+          userRequest: args.userRequest,
+          packet,
+          wholeView,
+          projectionBundle,
+        }),
+      );
+      const peerOutput = extractTextOutput(result).trim() || "(peer returned empty output)";
+      peerResults.push({
+        peerId: peerAgent.id,
+        specialty: peerAgent.specialty,
+        ownsStep: peerAgent.ownsStep,
+        sourceIds: packet.sourceIds,
+        projectionCount: packet.projectionHandles.length,
+        output: peerOutput,
+        status: "completed",
+      });
+    }
+
     const built = await buildBuccetGovernedPiAgent({
       config,
       manifest,
@@ -242,8 +328,13 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
       aiSource,
       uplTrackSnapDescription: `UPL track snap taken at ${manifest.uplTrackSnap.takenAt}; live system UPL applies (allow/deny adjudicates every Pi tool dispatch).`,
     });
-
-    const result = await built.promptFn(args.userRequest);
+    const result = await built.promptFn(
+      buildReconcilePrompt({
+        userRequest: args.userRequest,
+        wholeView,
+        peerResults,
+      }),
+    );
     output = extractTextOutput(result).trim();
     if (output.length === 0) {
       output = "(brain pass returned empty output)";
@@ -268,6 +359,10 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
     events,
     manifest,
     agent,
+    agents,
+    wholeView,
+    peerTaskGraph,
+    peerResults,
   };
 }
 
@@ -289,4 +384,107 @@ export async function teamCanBrainPass(
   );
   const hasAgent = manifest.agents.length > 0;
   return hasEngine && hasAi && hasAgent;
+}
+
+function selectSpokespersonAgent(agents: TeamAgent[]): TeamAgent {
+  return (
+    agents.find((entry) => entry.ownsStep === "render") ??
+    agents.find((entry) => entry.ownsStep === "return") ??
+    agents.find((entry) => entry.ownsStep === "all") ??
+    agents[0]
+  );
+}
+
+function formatWholeView(wholeView: TeamWholeView): string {
+  const lines: string[] = [
+    `Team whole-view: ${wholeView.sourceCount} sources, ${wholeView.checkpointedSourceCount} checkpointed, ${wholeView.totalLineCount} lines, ${wholeView.totalCharCount} chars.`,
+  ];
+  for (const source of wholeView.sources) {
+    lines.push(
+      `- ${source.sourceId} · ${source.title} · ${source.kind} · ${source.lineCount} lines · ${source.regionCount} regions`,
+    );
+  }
+  return lines.join("\n");
+}
+
+function buildPeerPrompt(args: {
+  userRequest: string;
+  packet: TeamPeerTaskPacket;
+  wholeView: TeamWholeView;
+  projectionBundle: string;
+}): string {
+  return [
+    "You are one specialist peer inside a Buccet team run.",
+    "Do not answer as the final spokesperson. Return only your specialist contribution for Pi to reconcile.",
+    "",
+    "## User Request",
+    args.userRequest,
+    "",
+    "## Whole View",
+    formatWholeView(args.wholeView),
+    "",
+    "## Peer Packet",
+    JSON.stringify(
+      {
+        peerId: args.packet.peerId,
+        specialty: args.packet.specialty,
+        ownsStep: args.packet.ownsStep,
+        taskSlice: args.packet.taskSlice,
+        sourceIds: args.packet.sourceIds,
+        projectionHandles: args.packet.projectionHandles.map((handle) => ({
+          sourceId: handle.sourceId,
+          stableAddress: handle.stableAddress,
+          title: handle.title,
+        })),
+        constraints: args.packet.constraints,
+        allowedOutputs: args.packet.allowedOutputs,
+        allowedActionKinds: args.packet.allowedActionKinds,
+      },
+      null,
+      2,
+    ),
+    "",
+    "## Opened Projection Region",
+    args.projectionBundle || args.packet.inputExcerpt || "(no projection bundle available)",
+    "",
+    "## Return Format",
+    [
+      "result_kind: <one of your allowed outputs>",
+      "specialist_findings:",
+      "<your bounded findings>",
+      "assumptions:",
+      "<assumptions or none>",
+      "open_questions:",
+      "<open questions or none>",
+      "proposed_actions:",
+      "<lawful proposals only, or none>",
+    ].join("\n"),
+  ].join("\n");
+}
+
+function buildReconcilePrompt(args: {
+  userRequest: string;
+  wholeView: TeamWholeView;
+  peerResults: BrainPassPeerResult[];
+}): string {
+  return [
+    "You are Pi acting as the Buccet team spokesperson.",
+    "Reconcile the specialist peer outputs below into one final answer for the user.",
+    "Do not erase disagreement. Surface conflicts, missing evidence, and blocked edges clearly.",
+    "",
+    "## User Request",
+    args.userRequest,
+    "",
+    "## Whole View",
+    formatWholeView(args.wholeView),
+    "",
+    "## Peer Results",
+    JSON.stringify(args.peerResults, null, 2),
+    "",
+    "## Final Answer Rules",
+    "- speak as the group spokesperson",
+    "- preserve important disagreements",
+    "- name blocked or missing work explicitly",
+    "- propose only lawful actions",
+  ].join("\n");
 }

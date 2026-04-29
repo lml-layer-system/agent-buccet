@@ -6,6 +6,12 @@ import {
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
   type BuccetPathSource,
 } from "./path-memory.ts";
+import {
+  buildTeamSourceCheckpoint,
+  deleteTeamSourceCheckpoint,
+  persistTeamSourceCheckpoint,
+  type TeamSourceCheckpointRef,
+} from "./path-source-checkpoints.ts";
 
 /**
  * Team Workshop — the operator-facing surface for creating hyper-specialized
@@ -212,6 +218,7 @@ export type TeamSourceRef = {
   summary?: string;
   sourceUri?: string;
   importedFromPath?: string;
+  checkpoint?: TeamSourceCheckpointRef;
   transport?: SourceTransport;
   remote?: RemoteLlmSourceConfig;
   local?: LocalLlmSourceConfig;
@@ -537,6 +544,20 @@ export async function addTeamSource(args: AddSourceArgs): Promise<TeamManifest> 
     throw new Error(`Source "${sourceId}" is already in team "${args.slug}".`);
   }
   const ext = path.extname(resolved).slice(1) || "text";
+  const checkpointBuilt = buildTeamSourceCheckpoint({
+    sourceId,
+    title: args.title ?? path.basename(resolved),
+    kind: args.kind ?? `file:${ext}`,
+    content,
+    sourceUri: `file://${resolved}`,
+    importedFromPath: resolved,
+    summary: args.summary ?? `Imported from ${resolved}`,
+  });
+  await persistTeamSourceCheckpoint({
+    homePath: args.homePath,
+    slug: args.slug,
+    checkpoint: checkpointBuilt.checkpoint,
+  });
   const ref: TeamSourceRef = {
     id: sourceId,
     title: args.title ?? path.basename(resolved),
@@ -544,6 +565,7 @@ export async function addTeamSource(args: AddSourceArgs): Promise<TeamManifest> 
     summary: args.summary ?? `Imported from ${resolved}`,
     sourceUri: `file://${resolved}`,
     importedFromPath: resolved,
+    checkpoint: checkpointBuilt.ref,
   };
   manifest.pathSourceCorpus.push(ref);
   await saveTeam(args.homePath, manifest);
@@ -788,6 +810,7 @@ export async function removeTeamSource(args: {
   if (!manifest) {
     throw new Error(`Team "${args.slug}" not found`);
   }
+  const removed = manifest.pathSourceCorpus.find((s) => s.id === args.sourceId);
   const before = manifest.pathSourceCorpus.length;
   manifest.pathSourceCorpus = manifest.pathSourceCorpus.filter((s) => s.id !== args.sourceId);
   if (manifest.pathSourceCorpus.length === before) {
@@ -796,6 +819,11 @@ export async function removeTeamSource(args: {
   for (const agent of manifest.agents) {
     agent.sourceIds = agent.sourceIds.filter((id) => id !== args.sourceId);
   }
+  await deleteTeamSourceCheckpoint({
+    homePath: args.homePath,
+    slug: args.slug,
+    ref: removed?.checkpoint,
+  });
   await saveTeam(args.homePath, manifest);
   return manifest;
 }

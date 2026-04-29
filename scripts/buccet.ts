@@ -7653,13 +7653,21 @@ async function tryBrainPass(args: {
   text: string;
 }): Promise<boolean> {
   const lane = formatTeamLane(args.manifest);
-  const agentId = args.manifest.agents[0]?.id ?? "default";
   console.log(`  ${clrDim("[" + lane + "]")} ${clrDim("running brain pass via Pi (engine) ↔ AI...")}`);
+  await appendTeamSessionRecord(args.homePath, args.slug, {
+    type: "team_status",
+    at: new Date().toISOString(),
+    team: args.slug,
+    text: "brain pass started",
+    meta: {
+      status: "running",
+      peerCount: args.manifest.agents.length,
+    },
+  });
   try {
     const result = await runBrainPass({
       homePath: args.homePath,
       slug: args.slug,
-      agentId,
       userRequest: args.text,
       onEvent: (e) => {
         if (e.type === "session_started") {
@@ -7669,8 +7677,34 @@ async function tryBrainPass(args: {
         }
       },
     });
+    for (const peer of result.peerResults) {
+      await appendTeamSessionRecord(args.homePath, args.slug, {
+        type: "team_response",
+        at: new Date().toISOString(),
+        team: args.slug,
+        text: peer.output,
+        meta: {
+          approved: peer.status === "completed",
+          peer: peer.peerId,
+          specialty: peer.specialty,
+          ownsStep: peer.ownsStep,
+          projectionCount: peer.projectionCount,
+        },
+      });
+    }
+    await appendTeamSessionRecord(args.homePath, args.slug, {
+      type: "team_status",
+      at: new Date().toISOString(),
+      team: args.slug,
+      text: "brain pass completed",
+      meta: {
+        status: "completed",
+        peerCount: result.peerResults.length,
+        spokesperson: result.agent.id,
+      },
+    });
     console.log("");
-    console.log(`  ${clrOk("[" + lane + " · " + agentId + "]:")}`);
+    console.log(`  ${clrOk("[" + lane + " · " + result.agent.id + "]:")}`);
     for (const line of result.output.split("\n")) {
       console.log(`  ${line}`);
     }
@@ -7687,14 +7721,44 @@ async function tryBrainPass(args: {
       }
       console.error("");
       console.error(`  ${clrDim("Falling back to message-queue mode for this ask.")}`);
+      await appendTeamSessionRecord(args.homePath, args.slug, {
+        type: "team_status",
+        at: new Date().toISOString(),
+        team: args.slug,
+        text: "brain pass unavailable; queued fallback",
+        meta: {
+          status: "queued",
+          reason: "pi_not_installed",
+        },
+      });
       return false;
     }
     if (err instanceof BrainPassPreconditionError) {
       console.error(`  ${clrWarn(err.message)}`);
+      await appendTeamSessionRecord(args.homePath, args.slug, {
+        type: "team_status",
+        at: new Date().toISOString(),
+        team: args.slug,
+        text: "brain pass blocked",
+        meta: {
+          status: "blocked",
+          reason: err.message,
+        },
+      });
       return false;
     }
     const message = err instanceof Error ? err.message : String(err);
     console.error(`  ${clrWarn("brain pass failed: " + message)}`);
+    await appendTeamSessionRecord(args.homePath, args.slug, {
+      type: "team_status",
+      at: new Date().toISOString(),
+      team: args.slug,
+      text: "brain pass failed",
+      meta: {
+        status: "failed",
+        reason: message,
+      },
+    });
     return false;
   }
 }
@@ -7813,7 +7877,13 @@ async function handleSwarmView(rest: string[]): Promise<void> {
     spendCap: number | null;
   };
 
-  const teamActive = manifest.status === "running";
+  const latestTeamStatus = [...sessionLog]
+    .reverse()
+    .find((record) => record.type === "team_status");
+  const latestStatusToken = typeof latestTeamStatus?.meta?.status === "string"
+    ? latestTeamStatus.meta.status
+    : manifest.status;
+  const teamActive = latestStatusToken === "running";
   const peers: PeerRow[] = manifest.agents.map((agent) => {
     let approvals = 0;
     let denials = 0;
@@ -7846,7 +7916,7 @@ async function handleSwarmView(rest: string[]): Promise<void> {
     printJson({
       slug: manifest.slug,
       domain: manifest.domain,
-      teamStatus: manifest.status,
+      teamStatus: latestStatusToken,
       peers,
     });
     return;
@@ -7855,7 +7925,7 @@ async function handleSwarmView(rest: string[]): Promise<void> {
   console.log("");
   console.log(`  ${clrBold("SWARM GOVERNANCE")}`);
   console.log(`  ${clrDim("Many agents. One law body.")}`);
-  console.log(`  ${clrDim(`team: ${manifest.slug}    domain: ${manifest.domain}    status: ${manifest.status}`)}`);
+  console.log(`  ${clrDim(`team: ${manifest.slug}    domain: ${manifest.domain}    status: ${latestStatusToken}`)}`);
   console.log("");
 
   if (peers.length === 0) {

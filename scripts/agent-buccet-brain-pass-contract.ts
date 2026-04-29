@@ -63,7 +63,15 @@ async function main(): Promise<void> {
       agentId: "lead",
       title: "Lead Researcher",
       specialty: "contract testing",
-      ownsStep: "all",
+      ownsStep: "acquire_knowledge",
+    });
+    await addTeamAgent({
+      homePath: home,
+      slug,
+      agentId: "spokes",
+      title: "Group Spokesperson",
+      specialty: "render synthesis",
+      ownsStep: "render",
     });
     assert.equal(await teamCanBrainPass(home, slug), true, "engine + ai + agent → true");
     console.log("SUCCESS: teamCanBrainPass returns true only when engine + ai + agent are all present.");
@@ -153,16 +161,27 @@ async function main(): Promise<void> {
     const preflight = await preflightBrainPass({ homePath: home, slug });
     assert.equal(preflight.engineSource.kind, "engine:pi", "preflight returns the engine source");
     assert.equal(preflight.aiSource.kind, "remote-llm:anthropic", "preflight returns the AI source");
-    assert.equal(preflight.agent.id, "lead", "preflight returns the target agent");
-    console.log("SUCCESS: preflightBrainPass returns the resolved triple without invoking Pi.");
+    assert.equal(preflight.agent.id, "spokes", "preflight selects the render peer as spokesperson");
+    assert.equal(preflight.agents.length, 2, "preflight returns the peer field");
+    assert.equal(preflight.peerTaskGraph.packets.length, 2, "preflight fans out one packet per peer");
+    assert.ok(preflight.wholeView.sourceCount >= 2, "whole-view includes the team corpus");
+    console.log("SUCCESS: preflightBrainPass returns the resolved team runtime surfaces without invoking Pi.");
 
     // Touch a path-source file path through file transport for completeness.
     const docPath = path.join(home, "voice.md");
-    await writeFile(docPath, "# Brand voice\n", "utf8");
+    const largeDoc = Array.from({ length: 480 }, (_, index) => `line ${index + 1}: Brand voice and codebase note.`).join("\n");
+    await writeFile(docPath, `${largeDoc}\n`, "utf8");
     await addTeamSource({ homePath: home, slug, filePath: docPath, kind: "file:md" });
     const after = await preflightBrainPass({ homePath: home, slug });
     const fileRefs = after.manifest.pathSourceCorpus.filter((s) => s.kind === "file:md");
     assert.equal(fileRefs.length, 1, "file source persists alongside engine + ai");
+    assert.ok(fileRefs[0]?.checkpoint, "file source is backed by a checkpoint ref");
+    assert.ok((fileRefs[0]?.checkpoint?.regionCount ?? 0) >= 3, "large source fractures into multiple regions");
+    assert.ok(after.wholeView.sources.some((s) => s.sourceId === fileRefs[0]?.id && s.regionCount >= 3), "whole-view exposes checkpoint regions");
+    assert.ok(after.peerTaskGraph.packets.every((packet) => packet.projectionHandles.length >= 1), "each peer receives a bounded projection packet");
+    assert.ok(after.peerTaskGraph.packets.some((packet) => packet.peerId === "lead"), "knowledge peer receives a packet");
+    assert.ok(after.peerTaskGraph.packets.some((packet) => packet.peerId === "spokes"), "spokesperson peer receives a packet");
+    console.log("SUCCESS: file path sources become checkpoint-backed whole-view regions and fan out across the peer field.");
 
     console.log("\n--- Brain Pass Contract Verified ---");
   } finally {
