@@ -134,6 +134,50 @@ async function main() {
   assert.ok(slack.candidates[0]?.matchedSignals.includes("slack"));
   assert.ok(slack.candidates[0]?.matchedSignals.includes("seats") || slack.candidates[0]?.matchedSignals.includes("seat"));
 
+  const brokerageProposal = await runCli([
+    "upl",
+    "spend",
+    "propose",
+    "rebalance my robinhood portfolio and place the trade inside my investing bucket",
+    "--json",
+  ], env);
+  assert.equal(brokerageProposal.code, 0, brokerageProposal.stderr);
+  const brokerage = JSON.parse(brokerageProposal.stdout) as {
+    candidates: Array<{
+      pack: { id: string };
+      matchedSignals: string[];
+    }>;
+  };
+  assert.equal(brokerage.candidates[0]?.pack.id, "exchange.trade");
+  assert.ok(brokerage.candidates[0]?.matchedSignals.includes("robinhood"));
+  assert.ok(brokerage.candidates[0]?.matchedSignals.includes("rebalance") || brokerage.candidates[0]?.matchedSignals.includes("portfolio"));
+
+  const travelProposal = await runCli([
+    "upl",
+    "spend",
+    "propose",
+    "book a hotel for the trip and keep the booking under our travel cap",
+    "--json",
+  ], env);
+  assert.equal(travelProposal.code, 0, travelProposal.stderr);
+  const travel = JSON.parse(travelProposal.stdout) as {
+    candidates: Array<{ pack: { id: string } }>;
+  };
+  assert.equal(travel.candidates[0]?.pack.id, "travel.booking");
+
+  const billProposal = await runCli([
+    "upl",
+    "spend",
+    "propose",
+    "pay the utility bill before the due date from the operations account",
+    "--json",
+  ], env);
+  assert.equal(billProposal.code, 0, billProposal.stderr);
+  const bill = JSON.parse(billProposal.stdout) as {
+    candidates: Array<{ pack: { id: string } }>;
+  };
+  assert.equal(bill.candidates[0]?.pack.id, "bill.payment");
+
   const workspaceAfter = await runCli(["upl", "workspace", "--json"], env);
   assert.equal(workspaceAfter.code, 0, workspaceAfter.stderr);
   const after = JSON.parse(workspaceAfter.stdout) as {
@@ -148,6 +192,9 @@ async function main() {
   console.log(`multiple classes detected: ${multi.multipleBoundaryClassesDetected}`);
   console.log(`blend request blocked to single-pack: ${blend.singlePackOnlyByDefault}`);
   console.log(`slack seat request top pack: ${slack.candidates[0]?.pack.id}`);
+  console.log(`brokerage trade top pack: ${brokerage.candidates[0]?.pack.id}`);
+  console.log(`travel booking top pack: ${travel.candidates[0]?.pack.id}`);
+  console.log(`bill payment top pack: ${bill.candidates[0]?.pack.id}`);
   console.log(`workspace unchanged: ${after.pendingCount === before.pendingCount && after.activeLawCount === before.activeLawCount}`);
 }
 

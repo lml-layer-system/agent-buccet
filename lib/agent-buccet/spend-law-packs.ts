@@ -23,6 +23,11 @@ export type BoundarySpendLawPackId =
   | "subscription.provider"
   | "license.seat"
   | "exchange.trade"
+  | "bill.payment"
+  | "travel.booking"
+  | "ad.spend"
+  | "donation.gift"
+  | "procurement.order"
   | "api.credit"
   | "platform.signup"
   | "account.transfer"
@@ -31,7 +36,19 @@ export type BoundarySpendLawPackId =
 export type BoundarySpendLawPack = {
   id: BoundarySpendLawPackId;
   title: string;
-  category: "shopping" | "recurring" | "license" | "trading" | "signup" | "transfer" | "contract";
+  category:
+    | "shopping"
+    | "recurring"
+    | "license"
+    | "trading"
+    | "billing"
+    | "travel"
+    | "advertising"
+    | "donation"
+    | "procurement"
+    | "signup"
+    | "transfer"
+    | "contract";
   description: string;
   lockedByDefault: string;
   requires: string[];
@@ -228,6 +245,176 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     defaultTermsSummary: "bounded exchange order inside exact handle and bucket",
   },
   {
+    id: "bill.payment",
+    title: "Bill / Invoice Payment",
+    category: "billing",
+    description: "Open a bounded bill-payment corridor to one exact biller or invoice payee handle.",
+    lockedByDefault: "Bill and invoice payments stay denied until the exact payee corridor is opened.",
+    requires: ["handle", "principal", "bucket", "max amount"],
+    opensCorridor: [
+      "agent.spend only",
+      "exact biller or invoice payee handle only",
+      "transfer intent only",
+      "exact principal and billing bucket only",
+    ],
+    keepsDenied: [
+      "other payees and other billing buckets",
+      "raw account and payment-link side doors",
+      "subscription or shopping drift outside the exact payee corridor",
+    ],
+    defaultScope: "GLOBAL",
+    defaultSyncTargets: ["buccet"],
+    capability: "bill.payment",
+    domain: "spend",
+    destinationKind: "account",
+    commitIntent: "transfer",
+    riskClass: "high",
+    recurring: false,
+    defaultSourceAuthorityKind: "linked_account",
+    defaultPeriodWindow: "30d",
+    recurringPolicy: "deny",
+    substitutionPolicy: "deny",
+    humanConfirmationRule: "require_human_execution",
+    proofRequirement: "receipt_required",
+    defaultTermsSummary: "bounded bill or invoice payment to one exact payee",
+  },
+  {
+    id: "travel.booking",
+    title: "Travel Booking",
+    category: "travel",
+    description: "Open a bounded travel booking corridor to one exact airline, hotel, or travel provider handle.",
+    lockedByDefault: "Travel bookings stay denied until the exact provider corridor is opened.",
+    requires: ["handle", "principal", "bucket", "max amount"],
+    opensCorridor: [
+      "agent.spend only",
+      "exact travel provider handle only",
+      "purchase intent only",
+      "travel bucket bound to one principal",
+    ],
+    keepsDenied: [
+      "other providers and date/route substitutions outside the exact corridor",
+      "non-travel purchases and payment-link side doors",
+      "implicit obligation drift outside the exact booking rail",
+    ],
+    defaultScope: "GLOBAL",
+    defaultSyncTargets: ["buccet"],
+    capability: "travel.booking",
+    domain: "spend",
+    destinationKind: "merchant",
+    commitIntent: "purchase",
+    riskClass: "irreversible",
+    recurring: false,
+    defaultSourceAuthorityKind: "card",
+    defaultPeriodWindow: "30d",
+    recurringPolicy: "deny",
+    substitutionPolicy: "deny",
+    humanConfirmationRule: "require_human_execution",
+    proofRequirement: "artifact_required",
+    defaultTermsSummary: "bounded travel booking on one exact provider rail",
+  },
+  {
+    id: "ad.spend",
+    title: "Advertising Spend",
+    category: "advertising",
+    description: "Open a bounded ad-spend corridor to one exact ad platform handle.",
+    lockedByDefault: "Advertising spend stays denied until the exact platform corridor is opened.",
+    requires: ["handle", "principal", "bucket", "max amount"],
+    opensCorridor: [
+      "agent.spend only",
+      "exact ad platform handle only",
+      "purchase intent only",
+      "campaign spend inside exact budget bucket and cap",
+    ],
+    keepsDenied: [
+      "other ad platforms and audience drift outside the exact corridor",
+      "shopping, subscription, and payment-link side doors",
+      "uncapped campaign scaling outside the exact spend rail",
+    ],
+    defaultScope: "GLOBAL",
+    defaultSyncTargets: ["buccet"],
+    capability: "ad.spend",
+    domain: "spend",
+    destinationKind: "merchant",
+    commitIntent: "purchase",
+    riskClass: "high",
+    recurring: false,
+    defaultSourceAuthorityKind: "card",
+    defaultPeriodWindow: "24h",
+    recurringPolicy: "deny",
+    substitutionPolicy: "deny",
+    humanConfirmationRule: "notify_before_commit",
+    proofRequirement: "artifact_required",
+    defaultTermsSummary: "bounded advertising spend on one exact platform rail",
+  },
+  {
+    id: "donation.gift",
+    title: "Donation / Gift",
+    category: "donation",
+    description: "Open a bounded donation corridor to one exact charity or gift destination handle.",
+    lockedByDefault: "Donations and gifts stay denied until the exact recipient corridor is opened.",
+    requires: ["handle", "principal", "bucket", "max amount"],
+    opensCorridor: [
+      "agent.spend only",
+      "exact charity or recipient handle only",
+      "transfer intent only",
+      "one donation bucket and one principal only",
+    ],
+    keepsDenied: [
+      "other recipients and other buckets",
+      "subscription drift and recurring gift obligations",
+      "payment-link side doors outside the exact recipient rail",
+    ],
+    defaultScope: "GLOBAL",
+    defaultSyncTargets: ["buccet"],
+    capability: "donation.gift",
+    domain: "spend",
+    destinationKind: "account",
+    commitIntent: "transfer",
+    riskClass: "irreversible",
+    recurring: false,
+    defaultSourceAuthorityKind: "linked_account",
+    defaultPeriodWindow: "30d",
+    recurringPolicy: "deny",
+    substitutionPolicy: "deny",
+    humanConfirmationRule: "notify_before_commit",
+    proofRequirement: "receipt_required",
+    defaultTermsSummary: "bounded one-recipient donation or gift corridor",
+  },
+  {
+    id: "procurement.order",
+    title: "Procurement Order",
+    category: "procurement",
+    description: "Open a bounded procurement corridor to one exact vendor handle for organizational buying.",
+    lockedByDefault: "Procurement orders stay denied until the exact vendor corridor is opened.",
+    requires: ["handle", "principal", "bucket", "max amount"],
+    opensCorridor: [
+      "agent.spend only",
+      "exact vendor handle only",
+      "purchase intent only",
+      "procurement bucket bound to one principal or budget center",
+    ],
+    keepsDenied: [
+      "other vendors and other budget buckets",
+      "contract, transfer, and signup drift outside the exact vendor rail",
+      "raw payment-link and checkout side doors",
+    ],
+    defaultScope: "GLOBAL",
+    defaultSyncTargets: ["buccet"],
+    capability: "procurement.order",
+    domain: "spend",
+    destinationKind: "merchant",
+    commitIntent: "purchase",
+    riskClass: "high",
+    recurring: false,
+    defaultSourceAuthorityKind: "treasury",
+    defaultPeriodWindow: "30d",
+    recurringPolicy: "deny",
+    substitutionPolicy: "deny",
+    humanConfirmationRule: "require_human_execution",
+    proofRequirement: "artifact_required",
+    defaultTermsSummary: "bounded procurement order to one exact vendor corridor",
+  },
+  {
     id: "api.credit",
     title: "API / Cloud Credit Purchase",
     category: "signup",
@@ -394,8 +581,34 @@ const SPEND_PROPOSAL_SIGNAL_RULES: Record<BoundarySpendLawPackId, SpendProposalS
   ],
   "exchange.trade": [
     { terms: ["trade", "trading", "exchange", "swap"], score: 6, reason: "request explicitly asks for trading or exchange motion" },
-    { terms: ["rebalance", "market order", "limit order", "portfolio"], score: 4, reason: "request names exchange order mechanics" },
-    { terms: ["coinbase", "binance", "kraken"], score: 5, reason: "request names an exchange handle directly" },
+    { terms: ["rebalance", "market order", "limit order", "portfolio", "brokerage", "broker"], score: 4, reason: "request names trading or brokerage order mechanics" },
+    { terms: ["coinbase", "binance", "kraken", "robinhood", "fidelity", "schwab", "ibkr", "interactive brokers", "alpaca"], score: 5, reason: "request names an exchange or brokerage handle directly" },
+    { terms: ["stocks", "equities", "etf", "shares"], score: 3, reason: "request targets market trading assets" },
+  ],
+  "bill.payment": [
+    { terms: ["bill", "bills", "invoice", "invoices"], score: 6, reason: "request explicitly asks for bill or invoice payment" },
+    { terms: ["pay bill", "pay invoice", "utility", "rent", "vendor bill"], score: 5, reason: "request describes a payment obligation" },
+    { terms: ["due date", "biller", "statement"], score: 3, reason: "request names billing obligation details" },
+  ],
+  "travel.booking": [
+    { terms: ["travel", "book flight", "flight", "hotel", "airbnb"], score: 6, reason: "request explicitly asks for travel booking" },
+    { terms: ["airline", "reservation", "trip", "fare"], score: 4, reason: "request names travel-booking details" },
+    { terms: ["booking", "non-refundable", "itinerary"], score: 4, reason: "request describes booking commitment terms" },
+  ],
+  "ad.spend": [
+    { terms: ["ads", "ad spend", "campaign", "campaigns"], score: 6, reason: "request explicitly asks for advertising spend" },
+    { terms: ["meta ads", "google ads", "linkedin ads", "tiktok ads"], score: 5, reason: "request names an ad platform directly" },
+    { terms: ["bid", "audience", "budget", "pacing"], score: 4, reason: "request describes campaign-spend mechanics" },
+  ],
+  "donation.gift": [
+    { terms: ["donate", "donation", "gift"], score: 6, reason: "request explicitly asks for a donation or gift" },
+    { terms: ["charity", "nonprofit", "cause"], score: 5, reason: "request names a donation-style recipient" },
+    { terms: ["tip", "microdonation", "support"], score: 3, reason: "request describes a small gift or support transfer" },
+  ],
+  "procurement.order": [
+    { terms: ["procurement", "purchase order", "po"], score: 6, reason: "request explicitly asks for procurement motion" },
+    { terms: ["vendor", "supplier", "quote", "quotes"], score: 5, reason: "request names procurement vendor workflow" },
+    { terms: ["requisition", "budget center", "approve vendor"], score: 4, reason: "request describes organizational buying flow" },
   ],
   "api.credit": [
     { terms: ["api credit", "api credits", "cloud credit", "cloud credits"], score: 6, reason: "request explicitly asks for credit top-ups" },

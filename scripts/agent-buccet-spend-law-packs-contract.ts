@@ -59,6 +59,11 @@ async function main() {
   assert.ok(packIds.includes("subscription.provider"));
   assert.ok(packIds.includes("license.seat"));
   assert.ok(packIds.includes("exchange.trade"));
+  assert.ok(packIds.includes("bill.payment"));
+  assert.ok(packIds.includes("travel.booking"));
+  assert.ok(packIds.includes("ad.spend"));
+  assert.ok(packIds.includes("donation.gift"));
+  assert.ok(packIds.includes("procurement.order"));
   assert.ok(packIds.includes("platform.signup"));
 
   const showResult = await runCli(["upl", "spend", "show", "subscription.provider", "--json"], env);
