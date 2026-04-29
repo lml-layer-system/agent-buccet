@@ -7,11 +7,17 @@ import {
   type BuccetPathSource,
 } from "./path-memory.ts";
 import {
+  buildTeamWholeView,
   buildTeamSourceCheckpoint,
   deleteTeamSourceCheckpoint,
   persistTeamSourceCheckpoint,
   type TeamSourceCheckpointRef,
+  type TeamWholeView,
 } from "./path-source-checkpoints.ts";
+import {
+  AGENT_TEAM_STAGE_IDS,
+  type AgentTeamStageId,
+} from "./agent-comprehension-engine.ts";
 
 /**
  * Team Workshop — the operator-facing surface for creating hyper-specialized
@@ -34,21 +40,9 @@ import {
 
 export const TEAM_MANIFEST_VERSION = "1";
 
-export const COMPREHENSION_STAGE_IDS = [
-  "receive",
-  "represent",
-  "infer_intent",
-  "bind_constraints",
-  "select_method",
-  "acquire_knowledge",
-  "transform",
-  "validate",
-  "render",
-  "return",
-  "all",
-] as const;
+export const COMPREHENSION_STAGE_IDS = AGENT_TEAM_STAGE_IDS;
 
-export type ComprehensionStageId = (typeof COMPREHENSION_STAGE_IDS)[number];
+export type ComprehensionStageId = AgentTeamStageId;
 
 export type TeamAgent = {
   id: string;
@@ -316,6 +310,29 @@ export type TeamManifest = {
 
 export type TeamSlug = string;
 
+export type TeamRuntimePreparedSource = {
+  sourceId: string;
+  title: string;
+  kind: string;
+  charCount: number;
+  lineCount: number;
+  regionCount: number;
+};
+
+export type TeamRuntimePreparation = {
+  preparedAt: string;
+  teamId: string;
+  teamStatus: TeamManifest["status"];
+  peerCount: number;
+  pathSourceCount: number;
+  checkpointedSourceCount: number;
+  totalCharCount: number;
+  totalLineCount: number;
+  canBrainPass: boolean;
+  spokespersonAgentId?: string;
+  sources: TeamRuntimePreparedSource[];
+};
+
 export function teamSlug(name: string): TeamSlug {
   const slug = name
     .toLowerCase()
@@ -339,6 +356,10 @@ export function teamDir(homePath: string, slug: TeamSlug): string {
 
 export function teamManifestPath(homePath: string, slug: TeamSlug): string {
   return path.join(teamDir(homePath, slug), "manifest.json");
+}
+
+export function teamRuntimePath(homePath: string, slug: TeamSlug): string {
+  return path.join(teamDir(homePath, slug), "runtime.json");
 }
 
 async function ensureDir(targetPath: string): Promise<void> {
@@ -389,6 +410,77 @@ export async function saveTeam(homePath: string, manifest: TeamManifest): Promis
   await ensureDir(dir);
   const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
   await fs.writeFile(teamManifestPath(homePath, manifest.slug), manifestText, "utf8");
+}
+
+export async function loadTeamRuntimePreparation(
+  homePath: string,
+  slug: TeamSlug,
+): Promise<TeamRuntimePreparation | null> {
+  try {
+    const raw = await fs.readFile(teamRuntimePath(homePath, slug), "utf8");
+    return JSON.parse(raw) as TeamRuntimePreparation;
+  } catch {
+    return null;
+  }
+}
+
+function teamCanBrainPassFromManifest(manifest: TeamManifest): boolean {
+  const hasEngine = manifest.pathSourceCorpus.some((s) => s.transport === "engine");
+  const hasAi = manifest.pathSourceCorpus.some(
+    (s) => s.transport === "remote-llm" || s.transport === "local-llm",
+  );
+  const hasAgent = manifest.agents.length > 0;
+  return hasEngine && hasAi && hasAgent;
+}
+
+function selectTeamSpokespersonAgentId(manifest: TeamManifest): string | undefined {
+  return (
+    manifest.agents.find((entry) => entry.ownsStep === "render")?.id ??
+    manifest.agents.find((entry) => entry.ownsStep === "return")?.id ??
+    manifest.agents.find((entry) => entry.ownsStep === "all")?.id ??
+    manifest.agents[0]?.id
+  );
+}
+
+export async function prepareTeamRuntime(args: {
+  homePath: string;
+  slug: TeamSlug;
+  markReady?: boolean;
+}): Promise<{ manifest: TeamManifest; preparation: TeamRuntimePreparation; wholeView: TeamWholeView }> {
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) {
+    throw new Error(`Team "${args.slug}" not found`);
+  }
+  const wholeView = await buildTeamWholeView({
+    homePath: args.homePath,
+    manifest,
+  });
+  if (args.markReady && manifest.status !== "running") {
+    manifest.status = "ready";
+    await saveTeam(args.homePath, manifest);
+  }
+  const preparation: TeamRuntimePreparation = {
+    preparedAt: new Date().toISOString(),
+    teamId: manifest.slug,
+    teamStatus: manifest.status,
+    peerCount: manifest.agents.length,
+    pathSourceCount: wholeView.sourceCount,
+    checkpointedSourceCount: wholeView.checkpointedSourceCount,
+    totalCharCount: wholeView.totalCharCount,
+    totalLineCount: wholeView.totalLineCount,
+    canBrainPass: teamCanBrainPassFromManifest(manifest),
+    spokespersonAgentId: selectTeamSpokespersonAgentId(manifest),
+    sources: wholeView.sources.map((source) => ({
+      sourceId: source.sourceId,
+      title: source.title,
+      kind: source.kind,
+      charCount: source.charCount,
+      lineCount: source.lineCount,
+      regionCount: source.regionCount,
+    })),
+  };
+  await fs.writeFile(teamRuntimePath(args.homePath, args.slug), `${JSON.stringify(preparation, null, 2)}\n`, "utf8");
+  return { manifest, preparation, wholeView };
 }
 
 export async function deleteTeam(homePath: string, slug: TeamSlug): Promise<boolean> {

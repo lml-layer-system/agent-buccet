@@ -29,6 +29,8 @@ import {
   deleteTeam,
   listTeams,
   loadTeam,
+  loadTeamRuntimePreparation,
+  prepareTeamRuntime,
   removeTeamAgent,
   removeTeamSource,
   saveTeam,
@@ -40,6 +42,7 @@ import {
   type LocalLlmProvider,
   type RemoteLlmProvider,
   type TeamManifest,
+  type TeamRuntimePreparation,
   type TeamSlug,
 } from "../lib/agent-buccet/team-workshop.ts";
 import {
@@ -7032,6 +7035,24 @@ function printTeamUplSnap(manifest: TeamManifest): void {
   ]);
 }
 
+function printTeamPreparation(preparation: TeamRuntimePreparation | null): void {
+  if (!preparation) {
+    printCliSection("Prepared map", [
+      formatCliKeyValue("status", "not prepared yet"),
+      formatCliKeyValue("note", "run `buccet team start <team>` to prepare the whole-view before first input"),
+    ]);
+    return;
+  }
+  printCliSection("Prepared map", [
+    formatCliKeyValue("prepared at", preparation.preparedAt),
+    formatCliKeyValue("team status", preparation.teamStatus),
+    formatCliKeyValue("brain-pass ready", preparation.canBrainPass ? "yes" : "no"),
+    formatCliKeyValue("spokesperson", preparation.spokespersonAgentId ?? "-"),
+    formatCliKeyValue("path sources", `${preparation.pathSourceCount} (${preparation.checkpointedSourceCount} checkpointed)`),
+    formatCliKeyValue("whole-view size", `${preparation.totalLineCount} lines · ${preparation.totalCharCount} chars`),
+  ]);
+}
+
 async function handleCreate(rest: string[]) {
   const sub = rest[0];
   const homePath = resolveHome();
@@ -7397,11 +7418,13 @@ async function handleTeam(rest: string[]) {
       console.error(`No team named "${teamName}".`);
       process.exit(1);
     }
+    const preparation = await loadTeamRuntimePreparation(homePath, slug);
     if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
-      console.log(JSON.stringify(manifest, null, 2));
+      console.log(JSON.stringify({ manifest, runtimePreparation: preparation }, null, 2));
       return;
     }
     printTeamHeader(manifest);
+    printTeamPreparation(preparation);
     printTeamRoster(manifest);
     printTeamCorpus(manifest);
     printTeamUplSnap(manifest);
@@ -7422,17 +7445,31 @@ async function handleTeam(rest: string[]) {
       console.error(`Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`);
       process.exit(1);
     }
-    manifest.status = sub === "start" ? "running" : "stopped";
-    await saveTeam(homePath, manifest);
+    let preparation: TeamRuntimePreparation | null = null;
+    if (sub === "start") {
+      const prepared = await prepareTeamRuntime({
+        homePath,
+        slug,
+        markReady: true,
+      });
+      manifest.status = prepared.manifest.status;
+      preparation = prepared.preparation;
+    } else {
+      manifest.status = "stopped";
+      await saveTeam(homePath, manifest);
+    }
     if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
-      console.log(JSON.stringify({ slug, status: manifest.status }, null, 2));
+      console.log(JSON.stringify({ slug, status: manifest.status, runtimePreparation: preparation }, null, 2));
       return;
     }
     const note =
       sub === "start"
-        ? `Creative messages from this team will surface in \`buccet console\`. Defense face still decides every action.`
+        ? `Whole-view prepared. Creative messages from this team will surface in \`buccet console\`. Defense face still decides every action.`
         : `Team marked stopped. Existing manifest preserved.`;
     console.log(`${clrOk(`team ${slug} ${manifest.status}`)}    ${clrDim(note)}`);
+    if (preparation) {
+      console.log(`  ${clrDim(`Prepared ${preparation.pathSourceCount} path sources · ${preparation.checkpointedSourceCount} checkpointed · ${preparation.totalLineCount} lines visible in whole-view`)}`);
+    }
     return;
   }
 
@@ -7652,6 +7689,12 @@ async function tryBrainPass(args: {
   manifest: TeamManifest;
   text: string;
 }): Promise<boolean> {
+  const prepared = await prepareTeamRuntime({
+    homePath: args.homePath,
+    slug: args.slug,
+    markReady: args.manifest.status !== "running",
+  });
+  args.manifest = prepared.manifest;
   const lane = formatTeamLane(args.manifest);
   console.log(`  ${clrDim("[" + lane + "]")} ${clrDim("running brain pass via Pi (engine) ↔ AI...")}`);
   await appendTeamSessionRecord(args.homePath, args.slug, {
@@ -7662,6 +7705,9 @@ async function tryBrainPass(args: {
     meta: {
       status: "running",
       peerCount: args.manifest.agents.length,
+      wholeViewPreparedAt: prepared.preparation.preparedAt,
+      checkpointedSourceCount: prepared.preparation.checkpointedSourceCount,
+      comprehensionMethod: "whole-view-prepared",
     },
   });
   try {
@@ -7684,11 +7730,14 @@ async function tryBrainPass(args: {
         team: args.slug,
         text: peer.output,
         meta: {
-          approved: peer.status === "completed",
+          approved: result.coherence.selectedPeerIds.includes(peer.peerId),
           peer: peer.peerId,
           specialty: peer.specialty,
           ownsStep: peer.ownsStep,
           projectionCount: peer.projectionCount,
+          comprehensionPass: result.comprehensionPass.passId,
+          coherenceDisposition: result.coherence.disposition,
+          peerDisposition: peer.proposedDisposition ?? null,
         },
       });
     }
@@ -7698,9 +7747,14 @@ async function tryBrainPass(args: {
       team: args.slug,
       text: "brain pass completed",
       meta: {
-        status: "completed",
+        status: result.coherence.finalizationBlocked ? "blocked" : "completed",
         peerCount: result.peerResults.length,
         spokesperson: result.agent.id,
+        comprehensionPass: result.comprehensionPass.passId,
+        comprehensionMethod: result.comprehensionPass.method,
+        coherenceDisposition: result.coherence.disposition,
+        finalizationBlocked: result.coherence.finalizationBlocked,
+        dissentBeatsMajority: result.coherence.dissentBeatsMajority,
       },
     });
     console.log("");

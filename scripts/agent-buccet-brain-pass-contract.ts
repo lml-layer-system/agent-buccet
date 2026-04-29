@@ -16,6 +16,8 @@ import {
   addTeamRemoteLlmSource,
   addTeamSource,
   createTeam,
+  loadTeamRuntimePreparation,
+  prepareTeamRuntime,
   teamSlug,
 } from "../lib/agent-buccet/team-workshop.ts";
 
@@ -165,6 +167,32 @@ async function main(): Promise<void> {
     assert.equal(preflight.agents.length, 2, "preflight returns the peer field");
     assert.equal(preflight.peerTaskGraph.packets.length, 2, "preflight fans out one packet per peer");
     assert.ok(preflight.wholeView.sourceCount >= 2, "whole-view includes the team corpus");
+    assert.deepEqual(
+      preflight.comprehensionPass.stages.map((stage) => stage.id),
+      [
+        "receive",
+        "represent",
+        "infer_intent",
+        "bind_constraints",
+        "select_method",
+        "acquire_knowledge",
+        "transform",
+        "validate",
+        "render",
+        "return",
+      ],
+      "preflight builds the canonical ten-stage comprehension engine order",
+    );
+    assert.deepEqual(
+      preflight.comprehensionPass.stages.slice(0, 6).map((stage) => stage.status),
+      ["completed", "completed", "completed", "completed", "completed", "completed"],
+      "preflight completes the engine-owned and map-preparation stages before Pi runs",
+    );
+    assert.deepEqual(
+      preflight.comprehensionPass.stages.slice(6).map((stage) => stage.status),
+      ["ready", "ready", "ready", "ready"],
+      "transform/validate/render/return remain ready until runtime completion",
+    );
     console.log("SUCCESS: preflightBrainPass returns the resolved team runtime surfaces without invoking Pi.");
 
     // Touch a path-source file path through file transport for completeness.
@@ -181,7 +209,19 @@ async function main(): Promise<void> {
     assert.ok(after.peerTaskGraph.packets.every((packet) => packet.projectionHandles.length >= 1), "each peer receives a bounded projection packet");
     assert.ok(after.peerTaskGraph.packets.some((packet) => packet.peerId === "lead"), "knowledge peer receives a packet");
     assert.ok(after.peerTaskGraph.packets.some((packet) => packet.peerId === "spokes"), "spokesperson peer receives a packet");
+    assert.equal(after.comprehensionPass.method, "whole-view-fracture-specialist-team", "preflight chooses whole-view fracture as the bounded team method");
     console.log("SUCCESS: file path sources become checkpoint-backed whole-view regions and fan out across the peer field.");
+
+    const prepared = await prepareTeamRuntime({ homePath: home, slug, markReady: true });
+    assert.equal(prepared.manifest.status, "ready", "prepareTeamRuntime marks the team ready");
+    assert.equal(prepared.preparation.canBrainPass, true, "prepared runtime captures brain-pass readiness");
+    assert.equal(prepared.preparation.spokespersonAgentId, "spokes", "prepared runtime records the spokesperson");
+    assert.ok(prepared.preparation.totalLineCount >= 480, "prepared runtime records the whole-view size");
+    const storedPreparation = await loadTeamRuntimePreparation(home, slug);
+    assert.ok(storedPreparation, "prepared runtime snapshot persists to disk");
+    assert.equal(storedPreparation?.teamId, slug, "stored runtime snapshot names the team");
+    assert.equal(storedPreparation?.teamStatus, "ready", "stored runtime snapshot captures ready status");
+    console.log("SUCCESS: runtime preparation persists the prebuilt whole-view map before live input.");
 
     console.log("\n--- Brain Pass Contract Verified ---");
   } finally {

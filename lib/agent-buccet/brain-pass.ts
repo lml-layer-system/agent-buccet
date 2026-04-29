@@ -33,6 +33,20 @@
 import path from "node:path";
 
 import {
+  buildInitialComprehensionPass,
+  recordComprehensionRender,
+  recordComprehensionReturn,
+  recordComprehensionTransform,
+  recordComprehensionValidation,
+  renderComprehensionPassForPrompt,
+  type AgentComprehensionPass,
+} from "./agent-comprehension-engine.ts";
+import {
+  adjudicateMultiAgentCoherence,
+  renderCoherenceGateReport,
+  type CoherenceAdjudication,
+} from "./coherence-adjudication.ts";
+import {
   buildBuccetGovernedPiAgent,
   PiNotInstalledError,
   tryLoadPiBindings,
@@ -81,7 +95,9 @@ export type RunBrainPassResult = {
   agents: TeamAgent[];
   wholeView: TeamWholeView;
   peerTaskGraph: TeamPeerTaskGraph;
+  comprehensionPass: AgentComprehensionPass;
   peerResults: BrainPassPeerResult[];
+  coherence: CoherenceAdjudication;
 };
 
 const PI_RUN_GRANTED_ACTIONS: BoundaryActionKind[] = [
@@ -112,6 +128,7 @@ export type BrainPassPreflight = {
   agents: TeamAgent[];
   wholeView: TeamWholeView;
   peerTaskGraph: TeamPeerTaskGraph;
+  comprehensionPass: AgentComprehensionPass;
 };
 
 export type BrainPassPeerResult = {
@@ -122,6 +139,8 @@ export type BrainPassPeerResult = {
   projectionCount: number;
   output: string;
   status: "completed" | "blocked";
+  resultKind?: string;
+  proposedDisposition?: string;
 };
 
 /**
@@ -190,8 +209,25 @@ export async function preflightBrainPass(args: {
     agents,
   });
   const agent = selectSpokespersonAgent(agents);
+  const comprehensionPass = buildInitialComprehensionPass({
+    teamId: manifest.slug,
+    requestedBy: `team-run:${manifest.slug}`,
+    userRequest: args.userRequest ?? "",
+    wholeViewPrepared: true,
+    sourceCount: wholeView.sourceCount,
+    checkpointedSourceCount: wholeView.checkpointedSourceCount,
+    totalLineCount: wholeView.totalLineCount,
+    packetCount: peerTaskGraph.packets.length,
+    projectionCount: peerTaskGraph.packets.reduce((sum, packet) => sum + packet.projectionHandles.length, 0),
+    spokespersonAgentId: agent.id,
+    peers: agents.map((entry) => ({
+      id: entry.id,
+      specialty: entry.specialty,
+      ownsStep: entry.ownsStep,
+    })),
+  });
 
-  return { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph };
+  return { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph, comprehensionPass };
 }
 
 function aiProviderLabel(source: TeamSourceRef): string {
@@ -243,7 +279,7 @@ function extractTextOutput(value: unknown): string {
  * existing message-queue ack.
  */
 export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPassResult> {
-  const { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph } = await preflightBrainPass({
+  const { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph, comprehensionPass: initialComprehensionPass } = await preflightBrainPass({
     homePath: args.homePath,
     slug: args.slug,
     agentId: args.agentId,
@@ -282,6 +318,11 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
 
   let output = "";
   const peerResults: BrainPassPeerResult[] = [];
+  let comprehensionPass = initialComprehensionPass;
+  let coherence: CoherenceAdjudication = adjudicateMultiAgentCoherence({
+    peers: [],
+    userRequest: args.userRequest,
+  });
   try {
     for (const packet of peerTaskGraph.packets) {
       const peerAgent = agents.find((entry) => entry.id === packet.peerId);
@@ -305,6 +346,7 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
           userRequest: args.userRequest,
           packet,
           wholeView,
+          comprehensionPass,
           projectionBundle,
         }),
       );
@@ -317,29 +359,80 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         projectionCount: packet.projectionHandles.length,
         output: peerOutput,
         status: "completed",
+        resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
+        proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
       });
     }
 
-    const built = await buildBuccetGovernedPiAgent({
-      config,
-      manifest,
-      agent,
-      engineSource,
-      aiSource,
-      uplTrackSnapDescription: `UPL track snap taken at ${manifest.uplTrackSnap.takenAt}; live system UPL applies (allow/deny adjudicates every Pi tool dispatch).`,
+    comprehensionPass = recordComprehensionTransform(comprehensionPass, {
+      peerSummaries: peerResults.map((peer) => ({
+        peerId: peer.peerId,
+        ownsStep: peer.ownsStep,
+        resultKind: peer.resultKind,
+        status: peer.status,
+      })),
     });
-    const result = await built.promptFn(
-      buildReconcilePrompt({
+    coherence = adjudicateMultiAgentCoherence({
+      peers: peerResults,
+      userRequest: args.userRequest,
+    });
+    comprehensionPass = recordComprehensionValidation(comprehensionPass, {
+      disposition: coherence.disposition,
+      truthCoherent: coherence.truthCoherent,
+      intentCoherent: coherence.intentCoherent,
+      executionCoherent: coherence.executionCoherent,
+      reasons: coherence.reasons,
+      finalizationBlocked: coherence.finalizationBlocked,
+    });
+
+    if (coherence.finalizationBlocked) {
+      output = renderCoherenceGateReport({
         userRequest: args.userRequest,
-        wholeView,
-        peerResults,
-      }),
-    );
-    output = extractTextOutput(result).trim();
-    if (output.length === 0) {
-      output = "(brain pass returned empty output)";
+        adjudication: coherence,
+      });
+      comprehensionPass = recordComprehensionRender(comprehensionPass, {
+        blocked: true,
+        spokesperson: agent.id,
+        outputPreview: output.slice(0, 240),
+      });
+      comprehensionPass = recordComprehensionReturn(comprehensionPass, {
+        blocked: true,
+        outputPreview: output.slice(0, 240),
+      });
+      emit({ type: "completed", output });
+    } else {
+      const built = await buildBuccetGovernedPiAgent({
+        config,
+        manifest,
+        agent,
+        engineSource,
+        aiSource,
+        uplTrackSnapDescription: `UPL track snap taken at ${manifest.uplTrackSnap.takenAt}; live system UPL applies (allow/deny adjudicates every Pi tool dispatch).`,
+      });
+      const result = await built.promptFn(
+        buildReconcilePrompt({
+          userRequest: args.userRequest,
+          wholeView,
+          peerResults,
+          coherence,
+          comprehensionPass,
+        }),
+      );
+      output = extractTextOutput(result).trim();
+      if (output.length === 0) {
+        output = "(brain pass returned empty output)";
+      }
+      comprehensionPass = recordComprehensionRender(comprehensionPass, {
+        blocked: false,
+        spokesperson: agent.id,
+        outputPreview: output.slice(0, 240),
+      });
+      comprehensionPass = recordComprehensionReturn(comprehensionPass, {
+        blocked: false,
+        outputPreview: output.slice(0, 240),
+      });
+      emit({ type: "completed", output });
     }
-    emit({ type: "completed", output });
   } finally {
     try {
       await endPersistentBoundarySession({
@@ -362,7 +455,9 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
     agents,
     wholeView,
     peerTaskGraph,
+    comprehensionPass,
     peerResults,
+    coherence,
   };
 }
 
@@ -411,14 +506,19 @@ function buildPeerPrompt(args: {
   userRequest: string;
   packet: TeamPeerTaskPacket;
   wholeView: TeamWholeView;
+  comprehensionPass: AgentComprehensionPass;
   projectionBundle: string;
 }): string {
   return [
     "You are one specialist peer inside a Buccet team run.",
     "Do not answer as the final spokesperson. Return only your specialist contribution for Pi to reconcile.",
+    "The hardcoded comprehension engine owns the sequence. You are filling only your bounded stage contribution inside that engine.",
     "",
     "## User Request",
     args.userRequest,
+    "",
+    "## Comprehension Engine",
+    renderComprehensionPassForPrompt(args.comprehensionPass),
     "",
     "## Whole View",
     formatWholeView(args.wholeView),
@@ -450,6 +550,17 @@ function buildPeerPrompt(args: {
     "## Return Format",
     [
       "result_kind: <one of your allowed outputs>",
+      "claim: <single claim sentence>",
+      "evidence: <sources, tests, proofs, or none>",
+      "confidence: <0.0-1.0>",
+      "independence: <independent|mixed|shared_context|correlated|unknown>",
+      "user_law_relation: <aligned|conflicts|supports|unspecified>",
+      "constraints_affected: <safety,budget,privacy,... or none>",
+      "contradictions: <contradictions or none>",
+      "test_status: <verified|tested|untested|blocked|contradicted|unknown>",
+      "risk_level: <low|medium|high|critical>",
+      "proposed_disposition: <Accept|Reject|Revise|SplitClaim|RunTest|RequestEvidence|Escalate|Defer|MarkUncertain|AskUser|BlockFinalization>",
+      "sources_used: <source ids or none>",
       "specialist_findings:",
       "<your bounded findings>",
       "assumptions:",
@@ -466,14 +577,22 @@ function buildReconcilePrompt(args: {
   userRequest: string;
   wholeView: TeamWholeView;
   peerResults: BrainPassPeerResult[];
+  coherence: CoherenceAdjudication;
+  comprehensionPass: AgentComprehensionPass;
 }): string {
   return [
     "You are Pi acting as the Buccet team spokesperson.",
-    "Reconcile the specialist peer outputs below into one final answer for the user.",
-    "Do not erase disagreement. Surface conflicts, missing evidence, and blocked edges clearly.",
+    "A Buccet coherence judge has already adjudicated the specialist outputs below.",
+    "Do not override the coherence gate. Agreement is signal; coherence is authority.",
+    "The hardcoded comprehension engine already owns the sequence; you are serving the render/return end of that engine only.",
+    "Reconcile the specialist peer outputs into one final answer for the user only if the coherence disposition is Accept.",
+    "If coherence is not Accept, explain the block/revise state instead of pretending finalization succeeded.",
     "",
     "## User Request",
     args.userRequest,
+    "",
+    "## Comprehension Engine",
+    renderComprehensionPassForPrompt(args.comprehensionPass),
     "",
     "## Whole View",
     formatWholeView(args.wholeView),
@@ -481,10 +600,18 @@ function buildReconcilePrompt(args: {
     "## Peer Results",
     JSON.stringify(args.peerResults, null, 2),
     "",
+    "## Coherence Adjudication",
+    JSON.stringify(args.coherence, null, 2),
+    "",
     "## Final Answer Rules",
     "- speak as the group spokesperson",
     "- preserve important disagreements",
     "- name blocked or missing work explicitly",
     "- propose only lawful actions",
   ].join("\n");
+}
+
+function extractTaggedScalar(text: string, key: string): string | null {
+  const match = text.match(new RegExp(`^${key}:\\s*(.+)$`, "im"));
+  return match?.[1]?.trim() ?? null;
 }

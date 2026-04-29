@@ -4,6 +4,10 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 
 import type { BoundaryActionKind } from "./types.ts";
+import {
+  allowedActionKindsForComprehensionStage,
+  allowedOutputsForComprehensionStage,
+} from "./agent-comprehension-engine.ts";
 import type {
   TeamAgent,
   TeamManifest,
@@ -472,20 +476,6 @@ function candidateWholeViewSourcesForAgent(agent: TeamAgent, wholeView: TeamWhol
   return wholeView.sources.filter((source) => !source.kind.startsWith("remote-llm:") && !source.kind.startsWith("local-llm:"));
 }
 
-function defaultAllowedOutputsForStage(stage: string): string[] {
-  if (stage === "render" || stage === "return") return ["render-fragment", "answer-fragment", "blocked"];
-  if (stage === "validate") return ["validation", "blocked", "refusal"];
-  if (stage === "infer_intent") return ["intent", "constraints", "blocked"];
-  return ["analysis", "plan", "constraint", "blocked"];
-}
-
-function defaultAllowedActionKindsForStage(stage: string): BoundaryActionKind[] {
-  if (stage === "acquire_knowledge") return ["fs.read", "network.send"];
-  if (stage === "transform") return ["fs.read", "fs.write", "tool.exec"];
-  if (stage === "render" || stage === "return") return ["chat.emit"];
-  return ["fs.read"];
-}
-
 function buildInputExcerpt(previews: string[]): string {
   return previews
     .filter((value) => value.trim().length > 0)
@@ -612,8 +602,8 @@ export async function buildTeamPeerTaskGraph(args: {
       projectionHandles: constrainedHandles,
       requiredReadiness: ["team-ready", "projection-opened", "upl-bound"],
       upstreamDependencies: [],
-      allowedOutputs: defaultAllowedOutputsForStage(agent.ownsStep),
-      allowedActionKinds: defaultAllowedActionKindsForStage(agent.ownsStep),
+      allowedOutputs: allowedOutputsForComprehensionStage(agent.ownsStep),
+      allowedActionKinds: allowedActionKindsForComprehensionStage(agent.ownsStep),
     });
   }
 
