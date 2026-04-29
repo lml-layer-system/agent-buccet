@@ -135,6 +135,13 @@ async function main() {
       request: allowRequest,
       witness: allowWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing spend allow law",
+        approvalRef: allowWitness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
     await applyLedger(approvedLedger);
@@ -258,6 +265,13 @@ async function main() {
       request: subscribeRequest,
       witness: subscribeWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing subscribe allow law",
+        approvalRef: subscribeWitness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
     await applyLedger(subscribeLedger);
@@ -348,6 +362,13 @@ async function main() {
       request: cappedRequest,
       witness: cappedWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing capped spend allow law",
+        approvalRef: cappedWitness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
     await applyLedger(cappedLedger);
@@ -429,6 +450,13 @@ async function main() {
       request: loopRequest,
       witness: loopWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing loop spend allow law",
+        approvalRef: loopWitness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
     await applyLedger(loopLedger);
@@ -509,6 +537,13 @@ async function main() {
       request: denyRequest,
       witness: denyWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing spend deny law",
+        approvalRef: denyWitness.META.id,
+      },
       decision: { choice: "deny_as_law" },
     });
     await applyLedger(deniedLedger);
@@ -585,6 +620,13 @@ async function main() {
       request: workshopAllowRequest,
       witness: workshopAllowWitness,
       session: workshopStore.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing spend allow law for workshop-lane test",
+        approvalRef: workshopAllowWitness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
     await applyWorkshopLedger(workshopApprovedLedger);

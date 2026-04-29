@@ -828,6 +828,16 @@ export type BoundaryUplScope = "SESSION" | "GLOBAL" | "DOMAIN";
 export type BoundaryUplStatus = "ACTIVE" | "MUTED" | "DELETED";
 export type BoundaryUplLineageMode = "upl_sync" | "upl_import";
 export type BoundaryUplSourceLane = "acceptance" | "denial";
+export type BoundaryActiveUplWriteAuthorityKind = "human_approved" | "trusted_system_sync" | "base_seed";
+export type BoundaryActiveUplWriteActorKind = "human" | "system";
+
+export type BoundaryActiveUplWriteAuthority = {
+  authorityKind: BoundaryActiveUplWriteAuthorityKind;
+  actorKind: BoundaryActiveUplWriteActorKind;
+  actorId: string;
+  reason: string;
+  approvalRef?: string;
+};
 
 export type BoundaryUplLineage = {
   sourceDocumentPath: string;

@@ -31,6 +31,7 @@ export * from "./upl-traffic.ts";
 export * from "./spend-boundary.ts";
 export * from "./spend-boundary-proof.ts";
 export * from "./document-law.ts";
+export * from "./upl-process.ts";
 export * from "./gravity.ts";
 export * from "./gravity-core/index.ts";
 export * from "./openclaw-acceptance-intake.ts";

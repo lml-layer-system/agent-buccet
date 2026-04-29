@@ -311,6 +311,71 @@ async function main() {
     assert.equal(unsafeExternalComm?.decision, "deny");
     assert.equal(unsafeExternalComm?.entry.id, "DENY.UNSAFE.EXTERNAL.COMMUNICATION.012C");
 
+    const networkSpendBypass = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "network.send",
+        "https://api.stripe.com/v1/payment_intents",
+        "POST create payment intent for checkout confirmation",
+      ),
+    });
+    assert.ok(networkSpendBypass, "expected financial network commit bypass to match the base denial pack");
+    assert.equal(networkSpendBypass?.decision, "deny");
+    assert.equal(networkSpendBypass?.entry.id, "DENY.AGENT.SPEND.013G");
+
+    const toolSpendBypass = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "tool.exec",
+        "playwright",
+        "open stripe checkout session and confirm recurring subscription purchase",
+      ),
+    });
+    assert.ok(toolSpendBypass, "expected financial tool/browser bypass to match the base denial pack");
+    assert.equal(toolSpendBypass?.decision, "deny");
+    assert.equal(toolSpendBypass?.entry.id, "DENY.AGENT.SPEND.013H");
+
+    const activeUplWrite = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "fs.write",
+        "/tmp/project/data/agent-buccet-law-foundation/user-path-ledger.json",
+        "stage active upl ledger write from draft workspace",
+      ),
+    });
+    assert.ok(activeUplWrite, "expected direct active UPL write path to match the base denial pack");
+    assert.equal(activeUplWrite?.decision, "deny");
+    assert.equal(activeUplWrite?.entry.id, "DENY.BOUNDARY.UPL.ACTIVE.001D");
+
+    const draftPromotionBypass = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "tool.exec",
+        "uplctl",
+        "apply upl draft and promote draft to active upl without human approval",
+      ),
+    });
+    assert.ok(draftPromotionBypass, "expected draft-to-active promotion bypass to match the base denial pack");
+    assert.equal(draftPromotionBypass?.decision, "deny");
+    assert.equal(draftPromotionBypass?.entry.id, "DENY.BOUNDARY.UPL.ACTIVE.001E");
+
+    const falseActiveClaim = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest(
+        "chat.emit",
+        "chat:primary",
+        "Pi activated the UPL and the proposal workspace updated active law without your approval.",
+      ),
+    });
+    assert.ok(falseActiveClaim, "expected false active-law authority claim to match the base denial pack");
+    assert.equal(falseActiveClaim?.decision, "deny");
+    assert.equal(falseActiveClaim?.entry.id, "DENY.BOUNDARY.UPL.ACTIVE.001F");
+
     const rawSpendTarget = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -522,6 +587,8 @@ async function main() {
     console.log(`base catalog deny: ${baseCatalog?.entry.id}`);
     console.log(`stealth browser deny: ${stealthBrowser?.entry.id}`);
     console.log(`unsafe external comm deny: ${unsafeExternalComm?.entry.id}`);
+    console.log(`network spend bypass deny: ${networkSpendBypass?.entry.id}`);
+    console.log(`tool/browser spend bypass deny: ${toolSpendBypass?.entry.id}`);
     console.log(`raw spend target deny: ${rawSpendTarget?.entry.id}`);
     console.log(`risky spend authority deny: ${riskySpendAuthority?.entry.id}`);
     console.log(`buccet failure deny: ${buccetFailure?.entry.id}`);

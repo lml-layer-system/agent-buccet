@@ -117,6 +117,13 @@ async function main() {
         request: approvedRequest,
         witness: approvedWitness,
         session: runtimeConfig.session,
+        authority: {
+          authorityKind: "human_approved",
+          actorKind: "human",
+          actorId: runtimeConfig.session.actorId,
+          reason: "seed approved upl item for quarantine cli contract",
+          approvalRef: approvedWitness.META.id,
+        },
         decision: { choice: "allow_as_law", scope: "SESSION" },
       });
 
@@ -135,6 +142,13 @@ async function main() {
         request: deniedRequest,
         witness: deniedWitness,
         session: runtimeConfig.session,
+        authority: {
+          authorityKind: "human_approved",
+          actorKind: "human",
+          actorId: runtimeConfig.session.actorId,
+          reason: "seed denied upl item for quarantine cli contract",
+          approvalRef: deniedWitness.META.id,
+        },
         decision: { choice: "deny_as_law", scope: "SESSION" },
       });
     }

@@ -1194,6 +1194,13 @@ export async function applyBoundaryQuarantinePitDenials(args: {
           request,
           witness,
           session: config.session,
+          authority: {
+            authorityKind: "human_approved",
+            actorKind: "human",
+            actorId: config.session.actorId,
+            reason: "human ratified quarantined replay denial",
+            approvalRef: witness.META.id,
+          },
           decision: decisionForEntry(snapshotItem.entry),
         });
         item.resolution = "denied_as_law";

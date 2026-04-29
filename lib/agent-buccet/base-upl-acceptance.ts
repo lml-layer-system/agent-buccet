@@ -652,6 +652,12 @@ export async function seedBaseAcceptanceIntoConfig(args: {
     ledger,
     compiledLaws: compiledLaws.map((compiledLaw) => ({ compiledLaw, witness })),
     session: args.config.session,
+    authority: {
+      authorityKind: "base_seed",
+      actorKind: "system",
+      actorId: args.issuedBy,
+      reason: "seed base acceptance pack into live UPL",
+    },
     skipReplacement: true,
     persist: !useSessionOverlayFastPath,
     ...(useSessionOverlayFastPath

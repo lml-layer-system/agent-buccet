@@ -63,6 +63,12 @@ export async function writePolicyBindings(args: {
       witness: args.witness,
     })),
     session: args.session,
+    authority: {
+      authorityKind: "trusted_system_sync",
+      actorKind: "system",
+      actorId: `system:policy-binding:${args.witness.META.id}`,
+      reason: "trusted policy binding sync into live UPL",
+    },
   });
 }
 

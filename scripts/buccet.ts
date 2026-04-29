@@ -65,10 +65,28 @@ import {
   renderProofOfWorkTraceText,
 } from "../lib/agent-buccet/create-trace.ts";
 import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
+import {
+  activateCompiledBoundaryUplState,
+  approveBoundaryUplReview,
+  compileApprovedBoundaryUplReview,
+  draftBoundaryUplProcess,
+  reviewBoundaryUplDraft,
+  writeApprovedBoundaryUplReviewToLedger,
+} from "../lib/agent-buccet/index.ts";
 import type {
   BoundaryActionKind,
+  BoundaryApprovedUplReview,
   BoundaryUplLineage,
   BoundaryUplLineageMode,
+  BoundaryCompiledUplState,
+  BoundaryStructuredUplLaw,
+  BoundaryUplBoundaryDefinition,
+  BoundaryUplDraft,
+  BoundaryUplDraftActorKind,
+  BoundaryUplInvariantDefinition,
+  BoundaryUplMutation,
+  BoundaryUplObservation,
+  BoundaryUplReviewPacket,
   BoundaryRuntimeConfig,
   BuccetPathAgentAction,
   BuccetPathFormationState,
@@ -77,6 +95,7 @@ import type {
   BuccetPathTemplate,
   DocumentLawDiagnosticEntry,
   BoundarySession,
+  BoundaryUplSyncTarget,
   BoundaryUplEntry,
   BoundaryUplEntryType,
   BoundaryUplScope,
@@ -136,6 +155,35 @@ type UplAutoSyncState = {
   fingerprint: string;
   syncedAt: string;
   fileCount: number;
+};
+
+type UplProcessWorkspaceRecord = {
+  sourcePath: string;
+  requestedSyncTargets: BoundaryUplSyncTarget[];
+  draft: BoundaryUplDraft;
+  review: BoundaryUplReviewPacket;
+  appliedApprovalId?: string;
+  appliedVersionId?: string;
+  appliedAt?: string;
+};
+
+type UplProcessWorkspace = {
+  schemaVersion: 1;
+  updatedAt: string;
+  activeLaws: BoundaryStructuredUplLaw[];
+  records: UplProcessWorkspaceRecord[];
+  approvals: BoundaryApprovedUplReview[];
+  compiledVersions: BoundaryCompiledUplState[];
+};
+
+type UplDraftInputFile = {
+  observation: Omit<BoundaryUplObservation, "observationId"> & { observationId?: string };
+  boundary: Omit<BoundaryUplBoundaryDefinition, "boundaryId"> & { boundaryId?: string };
+  invariant: Omit<BoundaryUplInvariantDefinition, "invariantId"> & { invariantId?: string };
+  draftedByKind?: BoundaryUplDraftActorKind;
+  draftedBy?: string;
+  mutations: Array<Omit<BoundaryUplMutation, "mutationId"> & { mutationId?: string }>;
+  syncTargets?: BoundaryUplSyncTarget[];
 };
 
 type UplAcceptanceSourceCatalog = {
@@ -388,6 +436,10 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet upl mute|unmute|remove <upl-id...> [...]                   curate standing law",
         "  buccet upl import|sync [--lane acceptance|denial] [...]           ratify authored law",
         "  buccet upl sources [--open <catalog|all>]                         browse the upstream law-source catalogs",
+        "  buccet upl draft <file.json> [--json]                             stage a typed UPL law proposal into workspace",
+        "  buccet upl review <draft-id|review-id|latest> [--json]           inspect exact before/after law deltas",
+        "  buccet upl apply <draft-id|review-id|latest> [--json]            human-activate one reviewed law delta",
+        "  buccet upl workspace [--json]                                     inspect the typed UPL proposal workspace",
         "  buccet scope add <path> [--actions <csv>]                         grant a scope corridor",
         "  buccet scope list [--json]                                        list standing scope grants",
         "  buccet swarm list                                                 show swarm groups awaiting verdict",
@@ -684,6 +736,178 @@ async function saveConfig(configPath: string, config: BuccetConfig): Promise<voi
   await fs.writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
 }
 
+function stableUplProcessHash(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function createEmptyUplProcessWorkspace(): UplProcessWorkspace {
+  return {
+    schemaVersion: 1,
+    updatedAt: new Date().toISOString(),
+    activeLaws: [],
+    records: [],
+    approvals: [],
+    compiledVersions: [],
+  };
+}
+
+async function loadUplProcessWorkspace(workspacePath: string): Promise<UplProcessWorkspace> {
+  try {
+    const raw = await fs.readFile(workspacePath, "utf8");
+    const parsed = JSON.parse(raw) as Partial<UplProcessWorkspace>;
+    return {
+      schemaVersion: 1,
+      updatedAt: parsed.updatedAt ?? new Date().toISOString(),
+      activeLaws: Array.isArray(parsed.activeLaws) ? parsed.activeLaws as BoundaryStructuredUplLaw[] : [],
+      records: Array.isArray(parsed.records) ? parsed.records as UplProcessWorkspaceRecord[] : [],
+      approvals: Array.isArray(parsed.approvals) ? parsed.approvals as BoundaryApprovedUplReview[] : [],
+      compiledVersions: Array.isArray(parsed.compiledVersions) ? parsed.compiledVersions as BoundaryCompiledUplState[] : [],
+    };
+  } catch {
+    return createEmptyUplProcessWorkspace();
+  }
+}
+
+async function saveUplProcessWorkspace(workspacePath: string, workspace: UplProcessWorkspace): Promise<void> {
+  await ensureDir(path.dirname(workspacePath));
+  await fs.writeFile(
+    workspacePath,
+    `${JSON.stringify({
+      ...workspace,
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+    }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
+function normalizeRequestedSyncTargets(rawTargets: readonly BoundaryUplSyncTarget[] | undefined): BoundaryUplSyncTarget[] {
+  const allowed = new Set<BoundaryUplSyncTarget>(["session", "team", "buccet", "future_buccets", "global"]);
+  const normalized = [...new Set((rawTargets ?? ["buccet"]).map((target) => String(target).trim() as BoundaryUplSyncTarget))]
+    .filter((target) => allowed.has(target));
+  return normalized.length > 0 ? normalized : ["buccet"];
+}
+
+function workspaceRecordApplied(record: UplProcessWorkspaceRecord): boolean {
+  return Boolean(record.appliedAt && record.appliedApprovalId && record.appliedVersionId);
+}
+
+function workspaceRecordStale(workspace: UplProcessWorkspace, record: UplProcessWorkspaceRecord): boolean {
+  return stableUplProcessHash(record.review.beforeLaws) !== stableUplProcessHash(workspace.activeLaws);
+}
+
+function workspaceRecordRef(record: UplProcessWorkspaceRecord): string {
+  return record.review.reviewId;
+}
+
+function resolveUplProcessWorkspaceRecord(
+  workspace: UplProcessWorkspace,
+  ref: string,
+): { record: UplProcessWorkspaceRecord; stale: boolean } {
+  const resolved = ref.trim().toLowerCase() === "latest"
+    ? workspace.records.at(-1) ?? null
+    : workspace.records.find((candidate) =>
+      candidate.review.reviewId === ref.trim() || candidate.draft.draftId === ref.trim(),
+    ) ?? null;
+  if (!resolved) {
+    throw new Error(`unknown UPL process reference: ${ref}`);
+  }
+  return {
+    record: resolved,
+    stale: workspaceRecordStale(workspace, resolved),
+  };
+}
+
+function parseUplDraftInputFile(raw: string, filePath: string): UplDraftInputFile {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`UPL draft input must be valid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error(`UPL draft input must be a JSON object: ${filePath}`);
+  }
+  const candidate = parsed as Partial<UplDraftInputFile>;
+  if (!candidate.observation || !candidate.boundary || !candidate.invariant || !Array.isArray(candidate.mutations)) {
+    throw new Error(`UPL draft input must include observation, boundary, invariant, and mutations: ${filePath}`);
+  }
+  return {
+    observation: candidate.observation,
+    boundary: candidate.boundary,
+    invariant: candidate.invariant,
+    draftedByKind: candidate.draftedByKind ?? "pi",
+    draftedBy: candidate.draftedBy ?? "pi",
+    mutations: candidate.mutations,
+    syncTargets: normalizeRequestedSyncTargets(
+      Array.isArray(candidate.syncTargets) ? candidate.syncTargets as BoundaryUplSyncTarget[] : undefined,
+    ),
+  };
+}
+
+function summarizeStructuredLaw(law: BoundaryStructuredUplLaw | null): string {
+  if (!law) {
+    return "removed";
+  }
+  const bounds: string[] = [];
+  if (law.bucketId) bounds.push(`bucket=${law.bucketId}`);
+  if (law.principal) bounds.push(`principal=${law.principal}`);
+  if (law.amountLimitNormalized !== undefined) bounds.push(`max=${law.amountLimitNormalized}`);
+  if (law.periodLimitNormalized !== undefined && law.periodWindow) {
+    bounds.push(`period=${law.periodLimitNormalized}/${law.periodWindow}`);
+  }
+  if (law.approvedHandles.length > 0) bounds.push(`handles=${law.approvedHandles.join(",")}`);
+  return `${law.domain}:${law.capability}:${law.state}  ${law.runtime.actionKinds.join(",")} -> ${law.runtime.primaryTarget}${bounds.length > 0 ? `  ${clrDim(bounds.join(" | "))}` : ""}`;
+}
+
+function printUplProcessReview(record: UplProcessWorkspaceRecord, stale: boolean): void {
+  const { review } = record;
+  console.log(``);
+  printCliHeader(`  UPL Review  ${clrDim(review.reviewId)}`);
+  printCliSection("Identity", [
+    formatCliKeyValue("draft", review.draft.draftId),
+    formatCliKeyValue("source", record.sourcePath),
+    formatCliKeyValue("sync", record.requestedSyncTargets.join(", ")),
+    formatCliKeyValue("fingerprint", review.candidateFingerprint.slice(0, 16)),
+    formatCliKeyValue("status", workspaceRecordApplied(record) ? "applied" : stale ? "stale" : "pending"),
+  ]);
+  printCliSection("Observation", [
+    formatCliKeyValue("title", review.draft.observation.title),
+    formatCliKeyValue("boundary", review.draft.boundary.title),
+    formatCliKeyValue("invariant", review.draft.invariant.statement),
+  ]);
+  for (const delta of review.deltas) {
+    console.log(`  ${clrBold(delta.kind)}  ${delta.lawKey}`);
+    console.log(`    ${clrDim("before:")} ${summarizeStructuredLaw(delta.before)}`);
+    console.log(`    ${clrDim("after:")}  ${summarizeStructuredLaw(delta.after)}`);
+    console.log(`    ${clrDim("reason:")} ${delta.reason}`);
+  }
+  console.log(``);
+}
+
+function buildUplProcessWorkspacePayload(workspacePath: string, workspace: UplProcessWorkspace) {
+  return {
+    workspacePath,
+    activeLawCount: workspace.activeLaws.length,
+    recordCount: workspace.records.length,
+    pendingCount: workspace.records.filter((record) => !workspaceRecordApplied(record)).length,
+    appliedCount: workspace.records.filter((record) => workspaceRecordApplied(record)).length,
+    latestReviewId: workspace.records.at(-1)?.review.reviewId ?? null,
+    latestDraftId: workspace.records.at(-1)?.draft.draftId ?? null,
+    records: workspace.records.map((record) => ({
+      draftId: record.draft.draftId,
+      reviewId: record.review.reviewId,
+      sourcePath: record.sourcePath,
+      syncTargets: record.requestedSyncTargets,
+      stale: workspaceRecordStale(workspace, record),
+      appliedAt: record.appliedAt ?? null,
+      deltaCount: record.review.deltas.length,
+      mutationCount: record.draft.mutations.length,
+      observationTitle: record.draft.observation.title,
+    })),
+  };
+}
+
 function baseConfig(args: {
   sessionId: string;
   actorId: string;
@@ -805,6 +1029,7 @@ function resolveHomePaths(homePath: string) {
     uplAcceptancePipelinePath: path.join(uplDocsDir, "acceptance", "PIPELINE.txt"),
     uplAcceptanceSkillTemplatePath: path.join(uplDocsDir, "acceptance", "SKILL_INTAKE_TEMPLATE.txt"),
     uplAutoSyncStatePath: path.join(uplDocsDir, ".autosync-state.json"),
+    uplProcessWorkspacePath: path.join(uplDocsDir, ".process-workspace.json"),
     pathMemoryDir,
     pathLibraryPath: path.join(pathMemoryDir, "library.json"),
     pathFormationSnapshotPath: path.join(pathMemoryDir, "formations.json"),
@@ -4464,6 +4689,12 @@ async function importCompiledDocumentLaws(args: {
     ledger: args.upl,
     compiledLaws: batch,
     session: args.store.getConfig().session,
+    authority: {
+      authorityKind: "trusted_system_sync",
+      actorKind: "system",
+      actorId: "system:buccet-upl-import",
+      reason: args.importReason,
+    },
   });
   for (const entry of upl.userApprovedLawPaths.slice(approvedCountBefore)) {
     entryIds.push(entry.id);
@@ -4803,6 +5034,217 @@ async function handleUpl(rest: string[]) {
     console.log(`  ${clrDim("4.")} scaffold a new doc:   ${clrBold(commands.copyTemplate)}`);
     console.log(`  ${clrDim("5.")} compile to live UPL:  ${clrBold(commands.sync)}`);
     console.log(`  ${clrDim("6.")} inspect what landed:  ${clrBold(commands.inspectDiff)}`);
+    console.log(``);
+    return;
+  }
+
+  if (subcommand === "workspace") {
+    const workspace = await loadUplProcessWorkspace(home.uplProcessWorkspacePath);
+    const payload = buildUplProcessWorkspacePayload(home.uplProcessWorkspacePath, workspace);
+    if (asJson) {
+      printJson(payload);
+      return;
+    }
+    console.log(``);
+    printCliHeader("  UPL Workspace");
+    printCliSection("Summary", [
+      formatCliKeyValue("workspace", home.uplProcessWorkspacePath),
+      formatCliKeyValue("active laws", payload.activeLawCount),
+      formatCliKeyValue("records", payload.recordCount),
+      formatCliKeyValue("pending", payload.pendingCount),
+      formatCliKeyValue("applied", payload.appliedCount),
+    ]);
+    if (payload.records.length === 0) {
+      console.log(`  ${clrDim("no typed UPL proposals staged yet")}`);
+      console.log(``);
+      return;
+    }
+    for (const record of payload.records.slice(-10).reverse()) {
+      console.log(`  ${clrBold(record.reviewId)}  ${clrDim(record.observationTitle)}`);
+      console.log(
+        `    ${clrDim("draft:")} ${record.draftId}    ${clrDim("status:")} ${record.appliedAt ? "applied" : record.stale ? "stale" : "pending"}    ${clrDim("sync:")} ${record.syncTargets.join(", ")}`,
+      );
+      console.log(`    ${clrDim("source:")} ${record.sourcePath}`);
+    }
+    console.log(``);
+    return;
+  }
+
+  if (subcommand === "draft") {
+    let inputPath: string | null = null;
+    for (let index = 1; index < rest.length; index += 1) {
+      const token = rest[index];
+      if (token === "--json") {
+        continue;
+      }
+      if (inputPath) {
+        usage();
+      }
+      inputPath = path.resolve(resolveCallerCwd(), token);
+    }
+    if (!inputPath) {
+      usage();
+    }
+    const workspace = await loadUplProcessWorkspace(home.uplProcessWorkspacePath);
+    const input = parseUplDraftInputFile(await fs.readFile(inputPath, "utf8"), inputPath);
+    const draft = draftBoundaryUplProcess({
+      observation: input.observation,
+      boundary: input.boundary,
+      invariant: input.invariant,
+      draftedByKind: input.draftedByKind ?? "pi",
+      draftedBy: input.draftedBy ?? "pi",
+      mutations: input.mutations,
+    });
+    const review = reviewBoundaryUplDraft({
+      currentLaws: workspace.activeLaws,
+      draft,
+    });
+    const record: UplProcessWorkspaceRecord = {
+      sourcePath: inputPath,
+      requestedSyncTargets: input.syncTargets ?? ["buccet"],
+      draft,
+      review,
+    };
+    const nextWorkspace: UplProcessWorkspace = {
+      ...workspace,
+      updatedAt: new Date().toISOString(),
+      records: [...workspace.records, record],
+    };
+    await saveUplProcessWorkspace(home.uplProcessWorkspacePath, nextWorkspace);
+    if (asJson) {
+      printJson({
+        workspacePath: home.uplProcessWorkspacePath,
+        sourcePath: inputPath,
+        syncTargets: record.requestedSyncTargets,
+        draft,
+        review,
+      });
+      return;
+    }
+    printUplProcessReview(record, workspaceRecordStale(nextWorkspace, record));
+    return;
+  }
+
+  if (subcommand === "review") {
+    const ref = rest.find((token, index) => index > 0 && token !== "--json");
+    if (!ref) {
+      usage();
+    }
+    const workspace = await loadUplProcessWorkspace(home.uplProcessWorkspacePath);
+    const { record, stale } = resolveUplProcessWorkspaceRecord(workspace, ref);
+    if (asJson) {
+      printJson({
+        workspacePath: home.uplProcessWorkspacePath,
+        sourcePath: record.sourcePath,
+        syncTargets: record.requestedSyncTargets,
+        stale,
+        applied: workspaceRecordApplied(record),
+        draft: record.draft,
+        review: record.review,
+      });
+      return;
+    }
+    printUplProcessReview(record, stale);
+    return;
+  }
+
+  if (subcommand === "apply") {
+    const ref = rest.find((token, index) => index > 0 && token !== "--json");
+    if (!ref) {
+      usage();
+    }
+    const workspace = await loadUplProcessWorkspace(home.uplProcessWorkspacePath);
+    const { record, stale } = resolveUplProcessWorkspaceRecord(workspace, ref);
+    if (workspaceRecordApplied(record)) {
+      throw new Error(`UPL review already applied: ${workspaceRecordRef(record)}`);
+    }
+    if (stale) {
+      throw new Error(`UPL review is stale: ${workspaceRecordRef(record)}. Re-draft against the current active law field.`);
+    }
+    const approved = approveBoundaryUplReview({
+      review: record.review,
+      actorId: config.actorId,
+    });
+    const active = activateCompiledBoundaryUplState({
+      compiled: compileApprovedBoundaryUplReview({
+        approved,
+        syncTargets: record.requestedSyncTargets,
+      }),
+      syncTargets: record.requestedSyncTargets,
+    });
+    const store = await ensureStore(boundary, {
+      config,
+      sessionsDir: home.sessionsDir,
+    });
+    await boundary.assertBoundaryGravityLawUpdateAllowed({
+      config: store.getConfig(),
+      requestId: `upl-process-apply:${record.review.reviewId}`,
+      target: `${record.requestedSyncTargets.join("+")}:upl-process-apply`,
+      reason: "human approved structured UPL review activated live law",
+      provenance: "trusted_user",
+    });
+    const session = await loadActiveBoundarySession(boundary, home, config);
+    const currentLedger = await boundary.loadUserPathLedger();
+    const approvedCountBefore = currentLedger.userApprovedLawPaths.length;
+    const deniedCountBefore = currentLedger.userDeniedLawPaths.length;
+    const upl = await writeApprovedBoundaryUplReviewToLedger({
+      ledger: currentLedger,
+      approved,
+      witness: {
+        META: {
+          id: `upl-process:${record.review.reviewId}`,
+          timestamp: new Date().toISOString(),
+          actor: config.actorId,
+        },
+      } as never,
+      session,
+    });
+    store.replaceConfig({
+      ...store.getConfig(),
+      upl,
+      userLawIds: await buildEffectiveUserLawIds(boundary, store.getConfig(), upl),
+    });
+    await store.persist();
+    const nextWorkspace: UplProcessWorkspace = {
+      ...workspace,
+      updatedAt: new Date().toISOString(),
+      activeLaws: active.activeLaws,
+      approvals: [...workspace.approvals, approved],
+      compiledVersions: [...workspace.compiledVersions, active],
+      records: workspace.records.map((candidate) =>
+        candidate.review.reviewId === record.review.reviewId
+          ? {
+            ...candidate,
+            appliedApprovalId: approved.approval.approvalId,
+            appliedVersionId: active.versionId,
+            appliedAt: active.activatedAt ?? new Date().toISOString(),
+          }
+          : candidate),
+    };
+    await saveUplProcessWorkspace(home.uplProcessWorkspacePath, nextWorkspace);
+    const activatedEntryIds = [
+      ...upl.userApprovedLawPaths.slice(approvedCountBefore).map((entry) => entry.id),
+      ...upl.userDeniedLawPaths.slice(deniedCountBefore).map((entry) => entry.id),
+    ];
+    if (asJson) {
+      printJson({
+        workspacePath: home.uplProcessWorkspacePath,
+        approved,
+        active,
+        activatedEntryIds,
+      });
+      return;
+    }
+    console.log(``);
+    printCliHeader("  UPL Applied");
+    printCliSection("Activation", [
+      formatCliKeyValue("review", record.review.reviewId),
+      formatCliKeyValue("approval", approved.approval.approvalId),
+      formatCliKeyValue("version", active.versionId),
+      formatCliKeyValue("sync", active.syncTargets.join(", ")),
+      formatCliKeyValue("active laws", active.activeLaws.length),
+      formatCliKeyValue("entries", activatedEntryIds.length),
+    ]);
     console.log(``);
     return;
   }

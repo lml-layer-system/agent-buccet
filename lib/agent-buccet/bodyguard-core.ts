@@ -554,6 +554,13 @@ export async function applyBodyguardUserLawDecision(args: {
       request: args.request,
       witness: args.witness,
       session: args.config.session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId: args.config.session.actorId,
+        reason: "human ratified standing UPL approval",
+        approvalRef: args.witness.META.id,
+      },
       decision: args.decision,
     });
     const newEntry = upl.userApprovedLawPaths[upl.userApprovedLawPaths.length - 1];
@@ -607,6 +614,13 @@ export async function applyBodyguardUserLawDecision(args: {
       request: args.request,
       witness: args.witness,
       session: args.config.session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId: args.config.session.actorId,
+        reason: "human ratified standing UPL denial",
+        approvalRef: args.witness.META.id,
+      },
       decision: args.decision,
     });
     const newEntry = upl.userDeniedLawPaths[upl.userDeniedLawPaths.length - 1];

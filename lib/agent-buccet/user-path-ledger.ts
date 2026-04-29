@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { createBaseHeadlessDenialLedger } from "./headless-base-denials.ts";
 import { stableBoundaryNoveltyDescriptor } from "./novelty.ts";
 import type {
+  BoundaryActiveUplWriteAuthority,
   BoundaryActionRequest,
   BoundaryApprovalDecision,
   CompiledDocumentLaw,
@@ -238,6 +239,31 @@ function composeRuntimeLedger(overlayLedger: BoundaryUserPathLedger): BoundaryUs
     baseLedger: getDefaultLedger(),
     overlayLedger,
   });
+}
+
+function assertActiveUplWriteAuthority(authority: BoundaryActiveUplWriteAuthority): void {
+  if (!authority.actorId.trim()) {
+    throw new Error("active UPL write requires non-empty actorId");
+  }
+  if (!authority.reason.trim()) {
+    throw new Error("active UPL write requires non-empty reason");
+  }
+  switch (authority.authorityKind) {
+    case "human_approved":
+      if (authority.actorKind !== "human") {
+        throw new Error("human_approved active UPL write requires actorKind=human");
+      }
+      if (!authority.approvalRef?.trim()) {
+        throw new Error("human_approved active UPL write requires approvalRef");
+      }
+      return;
+    case "trusted_system_sync":
+    case "base_seed":
+      if (authority.actorKind !== "system") {
+        throw new Error(`${authority.authorityKind} active UPL write requires actorKind=system`);
+      }
+      return;
+  }
 }
 
 export function mergeUserPathLedgers(args: {
@@ -793,8 +819,10 @@ export async function writeApprovedUserPathLaw(args: {
   request: BoundaryActionRequest;
   witness: BoundaryLedgerRecord;
   session: BoundarySession;
+  authority: BoundaryActiveUplWriteAuthority;
   decision?: BoundaryApprovalDecision;
 }): Promise<BoundaryUserPathLedger> {
+  assertActiveUplWriteAuthority(args.authority);
   const scope = normalizeScope({ decision: args.decision });
   const nextLedger = applyUserLawReplacement({
     ledger: args.ledger,
@@ -823,8 +851,10 @@ export async function writeDeniedUserPathLaw(args: {
   request: BoundaryActionRequest;
   witness: BoundaryLedgerRecord;
   session: BoundarySession;
+  authority: BoundaryActiveUplWriteAuthority;
   decision?: BoundaryApprovalDecision;
 }): Promise<BoundaryUserPathLedger> {
+  assertActiveUplWriteAuthority(args.authority);
   const scope = normalizeScope({ decision: args.decision });
   const nextLedger = applyUserLawReplacement({
     ledger: args.ledger,
@@ -853,11 +883,13 @@ export async function writeCompiledUserPathLaw(args: {
   compiledLaw: CompiledDocumentLaw;
   witness: BoundaryLedgerRecord;
   session: BoundarySession;
+  authority: BoundaryActiveUplWriteAuthority;
 }): Promise<BoundaryUserPathLedger> {
   return writeCompiledUserPathLaws({
     ledger: args.ledger,
     compiledLaws: [{ compiledLaw: args.compiledLaw, witness: args.witness }],
     session: args.session,
+    authority: args.authority,
   });
 }
 
@@ -868,6 +900,7 @@ export async function writeCompiledUserPathLaws(args: {
     witness: BoundaryLedgerRecord;
   }>;
   session: BoundarySession;
+  authority: BoundaryActiveUplWriteAuthority;
   skipReplacement?: boolean;
   persist?: boolean;
   entryIdFactory?: (args: {
@@ -876,6 +909,7 @@ export async function writeCompiledUserPathLaws(args: {
     ledger: BoundaryUserPathLedger;
   }) => string;
 }): Promise<BoundaryUserPathLedger> {
+  assertActiveUplWriteAuthority(args.authority);
   if (args.skipReplacement) {
     const approvedEntries = [...args.ledger.userApprovedLawPaths];
     const deniedEntries = [...args.ledger.userDeniedLawPaths];

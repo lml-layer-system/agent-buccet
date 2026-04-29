@@ -111,6 +111,13 @@ async function main() {
       request: allowRequest,
       witness: allowWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "seed standing spend proof allow law",
+        approvalRef: allowWitness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
     await applyLedger(approvedLedger);

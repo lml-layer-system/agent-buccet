@@ -53,6 +53,13 @@ async function main() {
       request,
       witness: denyWitness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "human recorded standing deny in governance contract",
+        approvalRef: denyWitness.META.id,
+      },
       decision: { choice: "deny_as_law" },
     });
 
@@ -101,6 +108,13 @@ async function main() {
       request,
       witness,
       session: store.getConfig().session,
+      authority: {
+        authorityKind: "human_approved",
+        actorKind: "human",
+        actorId,
+        reason: "human replaced standing deny with allow in governance contract",
+        approvalRef: witness.META.id,
+      },
       decision: { choice: "allow_as_law" },
     });
 
