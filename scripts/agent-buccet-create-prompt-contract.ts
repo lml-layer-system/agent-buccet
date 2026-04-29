@@ -165,14 +165,109 @@ assert.equal(eventFromPersistedMeta.runId, "research-team:comprehension-pass");
 assert.equal(eventFromPersistedMeta.agentId, "pi-spokesperson");
 assert.equal(eventFromPersistedMeta.disposition, "Accept");
 
+// ── 9. Fallback: Pi not installed → queued → kind=waiting ────────────────────
+// Mirrors the PiNotInstalledError branch in tryBrainPass.
+
+const queuedEvent = buildCreatePromptEvent({
+  teamSlug: "research-team",
+  runId: "research-team:queued-abc123",
+  agentId: "pi-spokesperson",
+  disposition: "Defer",
+  finalizationBlocked: false,
+  status: "queued",
+  waitingReason: "Pi engine not installed — run queued to message queue",
+  at: "2026-04-28T01:00:00.000Z",
+});
+
+assert.equal(queuedEvent.kind, "waiting", "queued status must resolve to kind=waiting");
+assert.ok(queuedEvent.waitingFor !== null);
+assert.ok(queuedEvent.waitingFor!.includes("Pi engine not installed"));
+assert.ok(queuedEvent.nextOperatorAction !== null);
+
+const renderedQueued = renderCreatePromptEvent(queuedEvent, "interactive");
+assert.ok(renderedQueued !== null, "queued fallback must emit in interactive mode");
+assert.ok(renderedQueued!.includes("waiting"), "rendered queued event must state outcome");
+assert.ok(renderedQueued!.includes("research-team"), "rendered queued event must name team");
+
+assert.equal(renderCreatePromptEvent(queuedEvent, "standing_law"), null,
+  "headless must suppress queued fallback prompt");
+
+// ── 10. Fallback: BrainPassPreconditionError → blocked ───────────────────────
+// Mirrors the BrainPassPreconditionError branch in tryBrainPass.
+
+const precondEvent = buildCreatePromptEvent({
+  teamSlug: "research-team",
+  runId: "research-team:blocked-def456",
+  agentId: "pi-spokesperson",
+  disposition: "BlockFinalization",
+  finalizationBlocked: true,
+  status: "blocked",
+  waitingReason: "team has no engine source configured",
+  at: "2026-04-28T01:01:00.000Z",
+});
+
+assert.equal(precondEvent.kind, "blocked", "blocked status must resolve to kind=blocked");
+assert.ok(precondEvent.waitingFor !== null);
+assert.ok(precondEvent.waitingFor!.includes("team has no engine source configured"),
+  "precondition reason must be preserved in waitingFor");
+assert.ok(precondEvent.nextOperatorAction !== null);
+
+const renderedPrecond = renderCreatePromptEvent(precondEvent, "interactive");
+assert.ok(renderedPrecond !== null, "precondition blocked fallback must emit in interactive mode");
+assert.ok(renderedPrecond!.includes("blocked"), "rendered precond event must state outcome");
+assert.ok(renderedPrecond!.includes("waiting for"), "rendered precond event must include waitingFor label");
+
+assert.equal(renderCreatePromptEvent(precondEvent, "standing_law"), null,
+  "headless must suppress precondition blocked fallback prompt");
+
+// ── 11. Fallback: general error → status=failed → kind=waiting ───────────────
+// Mirrors the catch-all branch in tryBrainPass.
+
+const failedEvent = buildCreatePromptEvent({
+  teamSlug: "research-team",
+  runId: "research-team:failed-ghi789",
+  agentId: "pi-spokesperson",
+  disposition: "Defer",
+  finalizationBlocked: false,
+  status: "failed",
+  waitingReason: "network timeout reaching AI provider",
+  at: "2026-04-28T01:02:00.000Z",
+});
+
+assert.equal(failedEvent.kind, "waiting", "failed status must route through kind=waiting");
+assert.ok(failedEvent.waitingFor !== null);
+assert.ok(failedEvent.waitingFor!.includes("network timeout"), "error reason must appear in waitingFor");
+assert.ok(failedEvent.nextOperatorAction !== null);
+
+const renderedFailed = renderCreatePromptEvent(failedEvent, "interactive");
+assert.ok(renderedFailed !== null, "failed fallback must emit in interactive mode");
+assert.ok(renderedFailed!.includes("waiting"), "rendered failed event must state waiting outcome");
+assert.ok(renderedFailed!.includes("network timeout"), "rendered failed event must include error reason");
+
+assert.equal(renderCreatePromptEvent(failedEvent, "standing_law"), null,
+  "headless must suppress failed fallback prompt");
+
+// ── 12. All three fallbacks suppressed by headless ────────────────────────────
+
+assert.equal(renderCreatePromptEvent(queuedEvent, "standing_law"), null,
+  "standing_law suppresses queued");
+assert.equal(renderCreatePromptEvent(precondEvent, "standing_law"), null,
+  "standing_law suppresses blocked precondition");
+assert.equal(renderCreatePromptEvent(failedEvent, "standing_law"), null,
+  "standing_law suppresses failed");
+
 console.log("Create-Prompt Routing Contract");
-console.log("defense prompt path:                 untouched (no BODYGUARD/BOUNDARY prefix)");
-console.log("completed run event:                 kind=completed · waitingFor=null");
-console.log("blocked run event:                   kind=blocked · waitingFor=disposition");
-console.log("waiting run event:                   kind=waiting · custom reason preserved");
-console.log("JSON shape:                          deterministic round-trip");
-console.log("headless (standing_law) — completed: null");
-console.log("headless (standing_law) — blocked:   null");
-console.log("headless (standing_law) — waiting:   null");
-console.log("interactive — all kinds:             emitted");
-console.log("persisted meta round-trip:           matches");
+console.log("defense prompt path:                      untouched (no BODYGUARD/BOUNDARY prefix)");
+console.log("completed run event:                      kind=completed · waitingFor=null");
+console.log("blocked run event:                        kind=blocked · waitingFor=disposition");
+console.log("waiting run event:                        kind=waiting · custom reason preserved");
+console.log("JSON shape:                               deterministic round-trip");
+console.log("headless (standing_law) — completed:      null");
+console.log("headless (standing_law) — blocked:        null");
+console.log("headless (standing_law) — waiting:        null");
+console.log("interactive — all kinds:                  emitted");
+console.log("persisted meta round-trip:                matches");
+console.log("fallback queued (Pi not installed):       kind=waiting · emitted interactive · null headless");
+console.log("fallback blocked (precondition):          kind=blocked · emitted interactive · null headless");
+console.log("fallback failed (general error):          kind=waiting · emitted interactive · null headless");
+console.log("all three fallbacks — standing_law:       null");

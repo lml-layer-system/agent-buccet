@@ -34,6 +34,7 @@ import {
   loadTeam,
   loadTeamRuntimePreparation,
   prepareTeamRuntime,
+  readTeamPathSourceMemoryEntries,
   removeTeamAgent,
   removeTeamSource,
   rollbackTeamToContinuitySnapshot,
@@ -163,6 +164,41 @@ type SourceIntakeDoc = {
   url: string;
   sourceText: string;
   mode: "template" | "raw_markdown";
+};
+
+type WorkshopCockpitRunState = "active" | "waiting" | "blocked" | "completed" | "idle";
+
+type WorkshopCockpitTeamSummary = {
+  slug: string;
+  domain: string;
+  manifestStatus: TeamManifest["status"];
+  runState: WorkshopCockpitRunState;
+  peerCount: number;
+  latestStatus: string;
+  waitingFor: string | null;
+  nextOperatorAction: string | null;
+  latestProofAt: string | null;
+  latestProofKind: string | null;
+  latestProofTitle: string | null;
+  latestSnapshotAt: string | null;
+  latestSnapshotId: string | null;
+  continuitySnapshotCount: number;
+};
+
+type WorkshopCockpitSnapshot = {
+  generatedAt: string;
+  totalTeams: number;
+  activeTeams: number;
+  waitingTeams: number;
+  blockedTeams: number;
+  completedTeams: number;
+  idleTeams: number;
+  activePeers: number;
+  waitingPeers: number;
+  blockedPeers: number;
+  completedPeers: number;
+  teamsNeedingAttention: number;
+  teams: WorkshopCockpitTeamSummary[];
 };
 
 type BuccetTransportManifest = {
@@ -389,6 +425,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track snapped)",
         "  buccet create list                                                list standing teams",
         "  buccet create show <team-name>                                    show a team manifest",
+        "  buccet create cockpit [--json]                                    multi-Buccet creation proof-of-work snapshot",
         "  buccet create add-agent <team-name> --name <id> --specialty <t>",
         "                  [--model <hint>] [--owns-step <stage>] [--tools <csv>] [--sources <csv>] [--cap <n>]",
         "  buccet create remove-agent <team-name> --name <id>",
@@ -3962,12 +3999,14 @@ async function handleStatus(rest: string[]) {
 
   if (!config) {
     const teamsForUninit = await listTeams(homePath);
+    const cockpit = await buildWorkshopCockpitSnapshot(homePath);
     const payload = {
       initialized: false,
       home: home.homePath,
       workshop: {
         total: teamsForUninit.length,
         running: teamsForUninit.filter((t) => t.status === "running").length,
+        cockpit,
       },
     };
     if (asJson) {
@@ -4002,6 +4041,7 @@ async function handleStatus(rest: string[]) {
 
   const teams = await listTeams(homePath);
   const runningTeams = teams.filter((t) => t.status === "running");
+  const cockpit = await buildWorkshopCockpitSnapshot(homePath);
 
   const payload = {
     initialized: true,
@@ -4031,6 +4071,7 @@ async function handleStatus(rest: string[]) {
     workshop: {
       total: teams.length,
       running: runningTeams.length,
+      cockpit,
       teams: teams.map((t) => ({
         slug: t.slug,
         domain: t.domain,
@@ -4081,6 +4122,13 @@ async function handleStatus(rest: string[]) {
   const workshopRows: string[] = [];
   workshopRows.push(formatCliKeyValue("teams total", payload.workshop.total));
   workshopRows.push(formatCliKeyValue("teams running", payload.workshop.running));
+  workshopRows.push(formatCliKeyValue("teams needing attention", payload.workshop.cockpit.teamsNeedingAttention));
+  workshopRows.push(
+    formatCliKeyValue(
+      "peer field",
+      `${payload.workshop.cockpit.activePeers} active · ${payload.workshop.cockpit.waitingPeers} waiting · ${payload.workshop.cockpit.blockedPeers} blocked`,
+    ),
+  );
   if (payload.workshop.teams.length > 0) {
     workshopRows.push("");
     for (const team of payload.workshop.teams) {
@@ -4097,6 +4145,7 @@ async function handleStatus(rest: string[]) {
     workshopRows.push(`  ${clrDim("Use")} ${clrBold("buccet create <team-name> --domain <domain>")} ${clrDim("to spin up a team.")}`);
   }
   printCliSection("Workshop — creativity face", workshopRows);
+  printWorkshopCockpitSnapshot(payload.workshop.cockpit);
 }
 
 async function handleLogs(rest: string[]) {
@@ -6948,6 +6997,7 @@ function createUsage(): never {
     "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
     "  buccet create show <team-name> [--json]",
     "  buccet create list [--json]",
+    "  buccet create cockpit [--json]",
     "  buccet create remove <team-name> [--force]",
     "  buccet create history <team-name> [--json]",
     "  buccet create rollback <team-name> --snapshot <snapshot-id> [--json]",
@@ -7112,6 +7162,18 @@ async function handleCreate(rest: string[]) {
       rows.push(`  ${clrBold(team.slug.padEnd(20))} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}    ${clrDim(team.summary)}`);
     }
     printCliSection("Standing teams", rows);
+    return;
+  }
+
+  if (sub === "cockpit") {
+    const snapshot = await buildWorkshopCockpitSnapshot(homePath);
+    if (parseFlagPairs(rest.slice(1)).bools.has("json")) {
+      console.log(JSON.stringify(snapshot, null, 2));
+      return;
+    }
+    printCliHeader("Creation Cockpit", `Workshop · ${teamsRoot(homePath)}`);
+    printWorkshopCockpitSnapshot(snapshot);
+    console.log("");
     return;
   }
 
@@ -7730,6 +7792,188 @@ function teamSessionLogPath(homePath: string, slug: string): string {
   return path.join(homePath, "teams", slug, "session.jsonl");
 }
 
+async function readTeamSessionLog(homePath: string, slug: string): Promise<TeamAskRecord[]> {
+  return fs.readFile(teamSessionLogPath(homePath, slug), "utf8")
+    .then((raw) => raw.split("\n").filter(Boolean).map((line) => {
+      try {
+        return JSON.parse(line) as TeamAskRecord;
+      } catch {
+        return null;
+      }
+    }).filter((value): value is TeamAskRecord => value !== null))
+    .catch(() => [] as TeamAskRecord[]);
+}
+
+function summarizeWorkshopTeamState(args: {
+  manifest: TeamManifest;
+  sessionLog: TeamAskRecord[];
+  latestWork?: Awaited<ReturnType<typeof readTeamPathSourceMemoryEntries>>[number];
+  continuityHistory: Awaited<ReturnType<typeof listTeamContinuitySnapshots>>;
+}): WorkshopCockpitTeamSummary {
+  const latestTeamStatus = [...args.sessionLog]
+    .reverse()
+    .find((record) => record.type === "team_status");
+  const latestStatus = typeof latestTeamStatus?.meta?.status === "string"
+    ? latestTeamStatus.meta.status
+    : args.manifest.status;
+
+  const fallbackReason = typeof latestTeamStatus?.meta?.reason === "string"
+    ? latestTeamStatus.meta.reason
+    : undefined;
+  const latestStatusSupportsPrompt =
+    latestStatus === "completed" ||
+    latestStatus === "blocked" ||
+    latestStatus === "waiting" ||
+    latestStatus === "queued" ||
+    latestStatus === "failed";
+  const promptEvent = latestTeamStatus && latestStatusSupportsPrompt
+    ? buildCreatePromptEvent({
+        teamSlug: args.manifest.slug,
+        runId:
+          typeof latestTeamStatus.meta?.comprehensionPass === "string"
+            ? latestTeamStatus.meta.comprehensionPass
+            : `${args.manifest.slug}:pending`,
+        agentId:
+          typeof latestTeamStatus.meta?.spokesperson === "string"
+            ? latestTeamStatus.meta.spokesperson
+            : "pi",
+        disposition:
+          typeof latestTeamStatus.meta?.coherenceDisposition === "string"
+            ? latestTeamStatus.meta.coherenceDisposition
+            : latestStatus === "blocked"
+              ? "BlockFinalization"
+              : "AwaitingPi",
+        finalizationBlocked:
+          typeof latestTeamStatus.meta?.finalizationBlocked === "boolean"
+            ? latestTeamStatus.meta.finalizationBlocked
+            : latestStatus === "blocked",
+        status: latestStatus,
+        ...(fallbackReason ? { waitingReason: fallbackReason } : {}),
+        at: latestTeamStatus.at,
+      })
+    : null;
+
+  let runState: WorkshopCockpitRunState;
+  if (latestStatus === "running" || args.manifest.status === "running") {
+    runState = "active";
+  } else if (promptEvent?.kind === "blocked") {
+    runState = "blocked";
+  } else if (promptEvent?.kind === "waiting") {
+    runState = "waiting";
+  } else if (promptEvent?.kind === "completed") {
+    runState = "completed";
+  } else {
+    runState = "idle";
+  }
+
+  const latestSnapshot = args.continuityHistory.at(-1) ?? null;
+  return {
+    slug: args.manifest.slug,
+    domain: args.manifest.domain,
+    manifestStatus: args.manifest.status,
+    runState,
+    peerCount: args.manifest.agents.length,
+    latestStatus,
+    waitingFor: promptEvent?.waitingFor ?? null,
+    nextOperatorAction: promptEvent?.nextOperatorAction ?? null,
+    latestProofAt: args.latestWork?.at ?? null,
+    latestProofKind: args.latestWork?.kind ?? null,
+    latestProofTitle: args.latestWork?.title ?? null,
+    latestSnapshotAt: latestSnapshot?.at ?? null,
+    latestSnapshotId: latestSnapshot?.snapshotId ?? null,
+    continuitySnapshotCount: args.continuityHistory.length,
+  };
+}
+
+async function buildWorkshopCockpitSnapshot(homePath: string): Promise<WorkshopCockpitSnapshot> {
+  const manifests = await listTeams(homePath);
+  const teams = await Promise.all(
+    manifests.map(async (manifest) => {
+      const [sessionLog, workEntries, continuityHistory] = await Promise.all([
+        readTeamSessionLog(homePath, manifest.slug),
+        readTeamPathSourceMemoryEntries(homePath, manifest.slug),
+        listTeamContinuitySnapshots(homePath, manifest.slug),
+      ]);
+      return summarizeWorkshopTeamState({
+        manifest,
+        sessionLog,
+        latestWork: workEntries.at(-1),
+        continuityHistory,
+      });
+    }),
+  );
+  teams.sort((left, right) => left.slug.localeCompare(right.slug));
+
+  const countTeams = (state: WorkshopCockpitRunState) => teams.filter((team) => team.runState === state).length;
+  const countPeers = (state: WorkshopCockpitRunState) =>
+    teams.filter((team) => team.runState === state).reduce((sum, team) => sum + team.peerCount, 0);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    totalTeams: teams.length,
+    activeTeams: countTeams("active"),
+    waitingTeams: countTeams("waiting"),
+    blockedTeams: countTeams("blocked"),
+    completedTeams: countTeams("completed"),
+    idleTeams: countTeams("idle"),
+    activePeers: countPeers("active"),
+    waitingPeers: countPeers("waiting"),
+    blockedPeers: countPeers("blocked"),
+    completedPeers: countPeers("completed"),
+    teamsNeedingAttention: teams.filter((team) => team.runState === "waiting" || team.runState === "blocked").length,
+    teams,
+  };
+}
+
+function printWorkshopCockpitSnapshot(snapshot: WorkshopCockpitSnapshot): void {
+  const summaryRows = [
+    formatCliKeyValue("teams", snapshot.totalTeams),
+    formatCliKeyValue(
+      "state",
+      `${snapshot.activeTeams} active · ${snapshot.waitingTeams} waiting · ${snapshot.blockedTeams} blocked · ${snapshot.completedTeams} completed · ${snapshot.idleTeams} idle`,
+    ),
+    formatCliKeyValue(
+      "peers",
+      `${snapshot.activePeers} active · ${snapshot.waitingPeers} waiting · ${snapshot.blockedPeers} blocked · ${snapshot.completedPeers} completed`,
+    ),
+    formatCliKeyValue("attention", snapshot.teamsNeedingAttention),
+  ];
+  printCliSection("Creation Cockpit", summaryRows);
+
+  if (snapshot.teams.length === 0) {
+    printCliSection("Creation Runs", [
+      `  ${clrDim("Use")} ${clrBold("buccet create <team-name> --domain <domain>")} ${clrDim("to spin up a Buccet.")}`,
+    ]);
+    return;
+  }
+
+  const rows: string[] = [];
+  for (const team of snapshot.teams) {
+    const stateLabel =
+      team.runState === "active" ? clrOk(team.runState) :
+      team.runState === "blocked" ? clrFail(team.runState) :
+      team.runState === "waiting" ? clrWarn(team.runState) :
+      team.runState === "completed" ? clrOk(team.runState) :
+      clrDim(team.runState);
+    rows.push(
+      `  ${clrBold(team.slug.padEnd(18))} ${stateLabel.padEnd(20)} ${clrDim(team.domain.padEnd(16))} ${team.peerCount} peer${team.peerCount === 1 ? "" : "s"}`,
+    );
+    const proof = team.latestProofTitle
+      ? `${team.latestProofKind ?? "work"} · ${team.latestProofTitle}`
+      : "no proof-of-work yet";
+    rows.push(
+      `    ${clrDim("status:")} ${team.latestStatus}    ${clrDim("proof:")} ${proof}    ${clrDim("snapshots:")} ${team.continuitySnapshotCount}`,
+    );
+    if (team.waitingFor) {
+      rows.push(`    ${clrDim("waiting for:")} ${team.waitingFor}`);
+    }
+    if (team.nextOperatorAction) {
+      rows.push(`    ${clrDim("next action:")} ${team.nextOperatorAction}`);
+    }
+  }
+  printCliSection("Creation Runs", rows);
+}
+
 async function appendTeamSessionRecord(homePath: string, slug: string, record: TeamAskRecord): Promise<void> {
   const targetPath = teamSessionLogPath(homePath, slug);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
@@ -7922,9 +8166,10 @@ async function tryBrainPass(args: {
       }
       console.error("");
       console.error(`  ${clrDim("Falling back to message-queue mode for this ask.")}`);
+      const piAt = new Date().toISOString();
       await appendTeamSessionRecord(args.homePath, args.slug, {
         type: "team_status",
-        at: new Date().toISOString(),
+        at: piAt,
         team: args.slug,
         text: "brain pass unavailable; queued fallback",
         meta: {
@@ -7932,13 +8177,28 @@ async function tryBrainPass(args: {
           reason: "pi_not_installed",
         },
       });
+      const piEvent = buildCreatePromptEvent({
+        teamSlug: args.slug,
+        runId: `${args.slug}:queued-${Date.now().toString(36)}`,
+        agentId: args.manifest.agents[0]?.id ?? args.slug,
+        disposition: "Defer",
+        finalizationBlocked: false,
+        status: "queued",
+        waitingReason: "Pi engine not installed — run queued to message queue",
+        at: piAt,
+      });
+      const piLine = renderCreatePromptEvent(piEvent, args.mode ?? "interactive");
+      if (piLine !== null) {
+        console.log(`\n${clrDim(piLine)}`);
+      }
       return false;
     }
     if (err instanceof BrainPassPreconditionError) {
       console.error(`  ${clrWarn(err.message)}`);
+      const precondAt = new Date().toISOString();
       await appendTeamSessionRecord(args.homePath, args.slug, {
         type: "team_status",
-        at: new Date().toISOString(),
+        at: precondAt,
         team: args.slug,
         text: "brain pass blocked",
         meta: {
@@ -7946,13 +8206,28 @@ async function tryBrainPass(args: {
           reason: err.message,
         },
       });
+      const precondEvent = buildCreatePromptEvent({
+        teamSlug: args.slug,
+        runId: `${args.slug}:blocked-${Date.now().toString(36)}`,
+        agentId: args.manifest.agents[0]?.id ?? args.slug,
+        disposition: "BlockFinalization",
+        finalizationBlocked: true,
+        status: "blocked",
+        waitingReason: err.message,
+        at: precondAt,
+      });
+      const precondLine = renderCreatePromptEvent(precondEvent, args.mode ?? "interactive");
+      if (precondLine !== null) {
+        console.log(`\n${clrDim(precondLine)}`);
+      }
       return false;
     }
     const message = err instanceof Error ? err.message : String(err);
     console.error(`  ${clrWarn("brain pass failed: " + message)}`);
+    const failedAt = new Date().toISOString();
     await appendTeamSessionRecord(args.homePath, args.slug, {
       type: "team_status",
-      at: new Date().toISOString(),
+      at: failedAt,
       team: args.slug,
       text: "brain pass failed",
       meta: {
@@ -7960,6 +8235,20 @@ async function tryBrainPass(args: {
         reason: message,
       },
     });
+    const failedEvent = buildCreatePromptEvent({
+      teamSlug: args.slug,
+      runId: `${args.slug}:failed-${Date.now().toString(36)}`,
+      agentId: args.manifest.agents[0]?.id ?? args.slug,
+      disposition: "Defer",
+      finalizationBlocked: false,
+      status: "failed",
+      waitingReason: message,
+      at: failedAt,
+    });
+    const failedLine = renderCreatePromptEvent(failedEvent, args.mode ?? "interactive");
+    if (failedLine !== null) {
+      console.log(`\n${clrDim(failedLine)}`);
+    }
     return false;
   }
 }
@@ -9077,6 +9366,7 @@ async function handleConsole() {
     sessionId: config.sessionId,
     sessionsDir: home.sessionsDir,
   });
+  const initialWorkshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
 
   if (initialSessionState?.quarantineState?.required) {
     const review = await runInteractiveQuarantineReview({
@@ -9115,6 +9405,13 @@ async function handleConsole() {
   console.log(kv("shield", formatHookOperatorSummary(initialHookPayload)));
   console.log(kv("session", `${clrDim(config.sessionId)}`));
   console.log(kv("status", sessionStateAfterQuarantine?.session.status ?? "missing"));
+  console.log(
+    kv(
+      "creation",
+      `${initialWorkshopCockpit.totalTeams} Buccet${initialWorkshopCockpit.totalTeams === 1 ? "" : "s"} · ` +
+        `${initialWorkshopCockpit.activeTeams} active · ${initialWorkshopCockpit.waitingTeams} waiting · ${initialWorkshopCockpit.blockedTeams} blocked`,
+    ),
+  );
   console.log(`  ${c.blue}${bar}${c.reset}`);
   if (!hintsMuted) {
     console.log(``);
@@ -9643,6 +9940,7 @@ async function handleConsole() {
           printCliSection("Observability", [
             formatCliKeyValue("where", "full operator map — every surface and command"),
             formatCliKeyValue("status", "unified operator snapshot"),
+            formatCliKeyValue("create", "multi-Buccet creation cockpit"),
             formatCliKeyValue("shield", "protected execution lane heartbeat"),
             formatCliKeyValue("logs [n]", "last n witness ledger entries (default 10)"),
             formatCliKeyValue("feed", "toggle live shield + witness feed"),
@@ -9813,6 +10111,18 @@ async function handleConsole() {
               currentIngressEntries.filter((entry) => entry.state === "canyon").length,
             ),
           ]);
+          const workshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
+          printWorkshopCockpitSnapshot(workshopCockpit);
+          console.log(``);
+          rl.prompt();
+          return;
+        }
+
+        if (cmd === "create") {
+          const workshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
+          console.log(``);
+          printCliHeader("  Creation Cockpit");
+          printWorkshopCockpitSnapshot(workshopCockpit);
           console.log(``);
           rl.prompt();
           return;
