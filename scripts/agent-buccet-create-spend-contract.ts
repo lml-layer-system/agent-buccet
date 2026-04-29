@@ -13,6 +13,7 @@
  *   8. teamManifestBrainSourceId returns value-boundary id for SPEND class.
  *   9. teamManifestBrainSourceId returns default brain id for workshop class.
  *  10. CLI output for spend create includes "SPEND" and "value-boundary" markers.
+ *  11. CLI output points the operator into the spend-law switchboard.
  */
 import assert from "node:assert/strict";
 import os from "node:os";
@@ -157,6 +158,14 @@ async function main() {
       cliResult.stdout.includes("value-boundary") || cliResult.stdout.includes("spending-agent-ubie"),
       "CLI output must reference value-boundary brain",
     );
+    assert.ok(
+      cliResult.stdout.includes("buccet upl spend list"),
+      "CLI output must point to spend pack listing",
+    );
+    assert.ok(
+      cliResult.stdout.includes("buccet upl spend setup subscription.provider"),
+      "CLI output must point to guided spend corridor setup",
+    );
 
     const cliSlug = teamSlug("cli-spend-team");
     const cliManifest = await loadTeam(tempRoot, cliSlug);
@@ -235,6 +244,7 @@ async function main() {
     console.log("notes stamp:                     [SPEND BUCCET] + financial + value-boundary");
     console.log("teamManifestBrainSourceId:       value-boundary for SPEND; default for workshop");
     console.log("CLI --confirm-spend:             exits 0, SPEND + value-boundary in output");
+    console.log("CLI spend next-steps:            points to upl spend list + upl spend setup");
     console.log("CLI no --confirm-spend (non-TTY): exits non-zero, mentions confirm-spend");
     console.log("UBIE prose vocabulary:           all 10 terms present incl. exchange + subscribe");
   } finally {

@@ -10,18 +10,23 @@ const scriptPath = path.join(repoRoot, "scripts", "buccet.ts");
 function runCli(
   args: string[],
   env: NodeJS.ProcessEnv,
+  stdinInput?: string,
 ): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], {
       cwd: repoRoot,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: [stdinInput !== undefined ? "pipe" : "ignore", "pipe", "pipe"],
     });
     let stdout = "";
     let stderr = "";
     child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
     child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
     child.on("error", reject);
+    if (stdinInput !== undefined) {
+      child.stdin?.write(stdinInput);
+      child.stdin?.end();
+    }
     child.on("close", (code) => resolve({ stdout, stderr, code }));
   });
 }
@@ -171,6 +176,88 @@ async function main() {
   assert.equal(exchange.review.deltas[0]?.after?.periodLimitNormalized, 300);
   assert.equal(exchange.review.deltas[0]?.after?.periodWindow, "7d");
 
+  const setupWorkspaceBefore = await runCli(["upl", "workspace", "--json"], env);
+  assert.equal(setupWorkspaceBefore.code, 0, setupWorkspaceBefore.stderr);
+  const workspaceBeforeSetup = JSON.parse(setupWorkspaceBefore.stdout) as {
+    activeLawCount: number;
+    pendingCount: number;
+  };
+
+  const setupResult = await runCli([
+    "upl",
+    "spend",
+    "setup",
+    "platform.signup",
+    "--handle",
+    "provider:openai",
+    "--principal",
+    "ryan",
+    "--bucket",
+    "api-services",
+    "--max-amount",
+    "25",
+    "--period-limit",
+    "100",
+    "--period-window",
+    "30d",
+    "--source-authority",
+    "api_credential",
+    "--notes",
+    "bounded paid provider signup",
+    "--sync",
+    "buccet,future_buccets",
+    "--scope",
+    "GLOBAL",
+    "--yes",
+  ], env);
+  assert.equal(setupResult.code, 0, setupResult.stderr);
+  assert.match(setupResult.stdout, /Spend Pack/);
+  assert.match(setupResult.stdout, /Draft Summary/);
+  assert.match(setupResult.stdout, /UPL Review/);
+  assert.match(setupResult.stdout, /buccet upl review/);
+  assert.match(setupResult.stdout, /buccet upl apply/);
+
+  const setupWorkspaceAfter = await runCli(["upl", "workspace", "--json"], env);
+  assert.equal(setupWorkspaceAfter.code, 0, setupWorkspaceAfter.stderr);
+  const workspaceAfterSetup = JSON.parse(setupWorkspaceAfter.stdout) as {
+    activeLawCount: number;
+    pendingCount: number;
+    records: Array<{
+      sourcePath: string;
+      reviewId: string;
+    }>;
+  };
+  assert.equal(workspaceAfterSetup.activeLawCount, workspaceBeforeSetup.activeLawCount);
+  assert.equal(workspaceAfterSetup.pendingCount, workspaceBeforeSetup.pendingCount + 1);
+  assert.equal(workspaceAfterSetup.records.at(-1)?.sourcePath, "spend-pack:platform.signup");
+
+  const latestReviewResult = await runCli(["upl", "review", "latest", "--json"], env);
+  assert.equal(latestReviewResult.code, 0, latestReviewResult.stderr);
+  const latestReview = JSON.parse(latestReviewResult.stdout) as {
+    stale: boolean;
+    review: {
+      deltas: Array<{
+        after: {
+          runtime: { primaryTarget: string };
+          approvedCommitIntents: string[];
+          approvedDestinationKinds: string[];
+          approvedSourceAuthorityKinds: string[];
+          amountLimitNormalized: number;
+          periodLimitNormalized: number;
+          periodWindow: string;
+        } | null;
+      }>;
+    };
+  };
+  assert.equal(latestReview.stale, false);
+  assert.equal(latestReview.review.deltas[0]?.after?.runtime.primaryTarget, "provider:openai");
+  assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedCommitIntents, ["subscribe"]);
+  assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedDestinationKinds, ["merchant"]);
+  assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedSourceAuthorityKinds, ["api_credential"]);
+  assert.equal(latestReview.review.deltas[0]?.after?.amountLimitNormalized, 25);
+  assert.equal(latestReview.review.deltas[0]?.after?.periodLimitNormalized, 100);
+  assert.equal(latestReview.review.deltas[0]?.after?.periodWindow, "30d");
+
   const missingHandle = await runCli([
     "upl",
     "spend",
@@ -191,6 +278,7 @@ async function main() {
   console.log(`subscription draft target: ${subscription.review.deltas[0]?.after?.runtime.primaryTarget}`);
   console.log(`subscription apply activated: ${applied.activatedEntryIds.length === 1}`);
   console.log(`exchange draft risk: ${exchange.review.deltas[0]?.after?.riskClasses[0]}`);
+  console.log(`interactive setup latest source: ${workspaceAfterSetup.records.at(-1)?.sourcePath}`);
   console.log(`missing handle blocked: ${/handle/i.test(missingHandle.stderr)}`);
 }
 

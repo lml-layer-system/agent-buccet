@@ -447,7 +447,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet upl review <draft-id|review-id|latest> [--json]           inspect exact before/after law deltas",
         "  buccet upl apply <draft-id|review-id|latest> [--json]            human-activate one reviewed law delta",
         "  buccet upl workspace [--json]                                     inspect the typed UPL proposal workspace",
-        "  buccet upl spend list|show|draft [...]                            stage spend-specific corridor packs into UPL workspace",
+        "  buccet upl spend list|show|draft|setup [...]                      stage spend-specific corridor packs into UPL workspace",
         "  buccet scope add <path> [--actions <csv>]                         grant a scope corridor",
         "  buccet scope list [--json]                                        list standing scope grants",
         "  buccet swarm list                                                 show swarm groups awaiting verdict",
@@ -872,6 +872,77 @@ function printSpendLawPackDetails(pack: BoundarySpendLawPack): void {
   printCliSection("Still Denied", pack.keepsDenied.map((line) => `  ${line}`));
   printCliSection("Required Switches", pack.requires.map((line) => `  ${line}`));
   console.log(``);
+}
+
+async function promptSpendLawPackSelection(): Promise<BoundarySpendLawPack> {
+  const packs = listBoundarySpendLawPacks();
+  console.log(``);
+  printCliHeader("  Spend Pack Setup");
+  printCliSection("Choose One Locked Corridor", packs.map((pack, index) =>
+    `  ${index + 1}. ${clrBold(pack.id)}  ${clrDim(pack.title)}`
+  ));
+  while (true) {
+    const answer = await promptLine("Choose spend pack by number or id: ");
+    const numeric = Number(answer);
+    if (Number.isInteger(numeric) && numeric >= 1 && numeric <= packs.length) {
+      return packs[numeric - 1]!;
+    }
+    const matched = findBoundarySpendLawPack(answer);
+    if (matched) {
+      return matched;
+    }
+    console.log(`  ${clrWarn("Unknown.")} Enter a pack number or id from the list above.`);
+  }
+}
+
+async function stageUplWorkspaceRecord(args: {
+  workspacePath: string;
+  sourcePath: string;
+  syncTargets: BoundaryUplSyncTarget[];
+  observation: Omit<BoundaryUplObservation, "observationId"> & { observationId?: string };
+  boundary: Omit<BoundaryUplBoundaryDefinition, "boundaryId"> & { boundaryId?: string };
+  invariant: Omit<BoundaryUplInvariantDefinition, "invariantId"> & { invariantId?: string };
+  draftedByKind: BoundaryUplDraftActorKind;
+  draftedBy: string;
+  mutations: Array<Omit<BoundaryUplMutation, "mutationId"> & { mutationId?: string }>;
+}): Promise<{
+  workspace: UplProcessWorkspace;
+  nextWorkspace: UplProcessWorkspace;
+  record: UplProcessWorkspaceRecord;
+}> {
+  const workspace = await loadUplProcessWorkspace(args.workspacePath);
+  const draft = draftBoundaryUplProcess({
+    observation: args.observation,
+    boundary: args.boundary,
+    invariant: args.invariant,
+    draftedByKind: args.draftedByKind,
+    draftedBy: args.draftedBy,
+    mutations: args.mutations,
+  });
+  const review = reviewBoundaryUplDraft({
+    currentLaws: workspace.activeLaws,
+    draft,
+  });
+  const record: UplProcessWorkspaceRecord = {
+    sourcePath: args.sourcePath,
+    requestedSyncTargets: args.syncTargets,
+    draft,
+    review,
+  };
+  const nextWorkspace: UplProcessWorkspace = {
+    ...workspace,
+    updatedAt: new Date().toISOString(),
+    records: [...workspace.records, record],
+  };
+  await saveUplProcessWorkspace(args.workspacePath, nextWorkspace);
+  return { workspace, nextWorkspace, record };
+}
+
+function printUplDraftNextSteps(reviewId: string): void {
+  printCliSection("Next", [
+    `  ${clrDim("inspect:")} ${clrBold(`buccet upl review ${reviewId}`)}`,
+    `  ${clrDim("activate:")} ${clrBold(`buccet upl apply ${reviewId}`)} ${clrDim("(human switch only)")}`,
+  ]);
 }
 
 function workspaceRecordApplied(record: UplProcessWorkspaceRecord): boolean {
@@ -5127,7 +5198,7 @@ async function handleUpl(rest: string[]) {
   if (subcommand === "spend") {
     const spendSub = rest[1];
     if (!spendSub) {
-      throw new Error("usage: buccet upl spend list|show|draft [...]");
+      throw new Error("usage: buccet upl spend list|show|draft|setup [...]");
     }
     if (spendSub === "list") {
       const packs = listBoundarySpendLawPacks();
@@ -5173,7 +5244,7 @@ async function handleUpl(rest: string[]) {
       if (!pack) {
         throw new Error(`unknown spend law pack: ${packId}`);
       }
-      const { positional, flags, bools } = parseFlagPairs(rest.slice(3));
+      const { positional, flags } = parseFlagPairs(rest.slice(3));
       if (positional.length > 0) {
         throw new Error(`unexpected positional args for spend draft: ${positional.join(" ")}`);
       }
@@ -5191,8 +5262,10 @@ async function handleUpl(rest: string[]) {
         ...(flags["law-key"] ? { lawKey: flags["law-key"] } : {}),
         ...(flags["notes"] ? { notes: flags["notes"] } : {}),
       });
-      const workspace = await loadUplProcessWorkspace(home.uplProcessWorkspacePath);
-      const draft = draftBoundaryUplProcess({
+      const { nextWorkspace, record } = await stageUplWorkspaceRecord({
+        workspacePath: home.uplProcessWorkspacePath,
+        sourcePath: proposal.sourceLabel,
+        syncTargets: proposal.syncTargets,
         observation: proposal.observation,
         boundary: proposal.boundary,
         invariant: proposal.invariant,
@@ -5200,35 +5273,114 @@ async function handleUpl(rest: string[]) {
         draftedBy: proposal.draftedBy,
         mutations: proposal.mutations,
       });
-      const review = reviewBoundaryUplDraft({
-        currentLaws: workspace.activeLaws,
-        draft,
-      });
-      const record: UplProcessWorkspaceRecord = {
-        sourcePath: proposal.sourceLabel,
-        requestedSyncTargets: proposal.syncTargets,
-        draft,
-        review,
-      };
-      const nextWorkspace: UplProcessWorkspace = {
-        ...workspace,
-        updatedAt: new Date().toISOString(),
-        records: [...workspace.records, record],
-      };
-      await saveUplProcessWorkspace(home.uplProcessWorkspacePath, nextWorkspace);
-      if (bools.has("json")) {
+      if (asJson) {
         printJson({
           pack,
           workspacePath: home.uplProcessWorkspacePath,
           sourcePath: proposal.sourceLabel,
           syncTargets: record.requestedSyncTargets,
-          draft,
-          review,
+          draft: record.draft,
+          review: record.review,
         });
         return;
       }
       printSpendLawPackDetails(pack);
       printUplProcessReview(record, workspaceRecordStale(nextWorkspace, record));
+      printUplDraftNextSteps(record.review.reviewId);
+      return;
+    }
+    if (spendSub === "setup") {
+      const parsed = parseFlagPairs(rest.slice(2));
+      let pack = parsed.positional[0] ? findBoundarySpendLawPack(parsed.positional[0]) : null;
+      if (parsed.positional.length > 1) {
+        throw new Error(`unexpected positional args for spend setup: ${parsed.positional.slice(1).join(" ")}`);
+      }
+      if (!pack) {
+        pack = await promptSpendLawPackSelection();
+      }
+      printSpendLawPackDetails(pack);
+      const handle = parsed.flags["handle"] ? (parsed.flags["handle"] ?? "").trim() : await promptRequiredValue("Handle / provider", "");
+      const principal = parsed.flags["principal"] ? (parsed.flags["principal"] ?? "").trim() : await promptRequiredValue("Principal / owner", "");
+      const bucketId = parsed.flags["bucket"] ? (parsed.flags["bucket"] ?? "").trim() : await promptRequiredValue("Bucket / category", "");
+      const amountLimitNormalized = parsed.flags["max-amount"]
+        ? parseNormalizedMoney(parsed.flags["max-amount"], "--max-amount")
+        : await promptNumericValue("Max amount", undefined);
+      const defaultPeriodLimit = amountLimitNormalized;
+      const periodLimitNormalized = parsed.flags["period-limit"]
+        ? parseNormalizedMoney(parsed.flags["period-limit"], "--period-limit")
+        : await promptNumericValue("Period limit", defaultPeriodLimit);
+      const defaultPeriodWindow = pack.defaultPeriodWindow ?? "30d";
+      const periodWindow = parsed.flags["period-window"]
+        ? parseSpendPeriodWindowToken(parsed.flags["period-window"])
+        : parseSpendPeriodWindowToken(await promptOptionalValue("Period window (1h, 24h, 7d, 30d, month)", defaultPeriodWindow));
+      const sourceAuthorityKind = parsed.flags["source-authority"]
+        ? parseSpendSourceAuthorityKindToken(parsed.flags["source-authority"])
+        : parseSpendSourceAuthorityKindToken(await promptOptionalValue(
+          "Source authority (wallet, linked_account, card, treasury, merchant_balance, api_credential, other)",
+          pack.defaultSourceAuthorityKind,
+        ));
+      const notes = parsed.flags["notes"] ?? await promptOptionalValue("Notes / terms summary", pack.defaultTermsSummary);
+      const syncTargets = parsed.flags["sync"]
+        ? parseRequestedSyncTargetsCsv(parsed.flags["sync"])
+        : parseRequestedSyncTargetsCsv(await promptOptionalValue("Sync targets (csv)", pack.defaultSyncTargets.join(",")));
+      const scope = parsed.flags["scope"]
+        ? parseBoundaryUplScopeToken(parsed.flags["scope"])
+        : parseBoundaryUplScopeToken(await promptOptionalValue("Scope (GLOBAL or SESSION)", pack.defaultScope));
+      console.log(``);
+      printCliSection("Draft Summary", [
+        formatCliKeyValue("pack", pack.id),
+        formatCliKeyValue("handle", handle),
+        formatCliKeyValue("principal", principal),
+        formatCliKeyValue("bucket", bucketId),
+        formatCliKeyValue("max amount", amountLimitNormalized),
+        formatCliKeyValue("period", `${periodLimitNormalized}/${periodWindow}`),
+        formatCliKeyValue("source auth", sourceAuthorityKind),
+        formatCliKeyValue("scope", scope),
+        formatCliKeyValue("sync", (syncTargets ?? pack.defaultSyncTargets).join(", ")),
+      ]);
+      const confirmed = parsed.bools.has("yes")
+        ? true
+        : await promptYesNo("Stage this spend corridor as a draft only? Type yes: ");
+      if (!confirmed) {
+        throw new Error("spend setup aborted before draft staging");
+      }
+      const proposal = buildBoundarySpendLawPackDraft({
+        packId: pack.id,
+        handle,
+        principal,
+        bucketId,
+        amountLimitNormalized,
+        periodLimitNormalized,
+        periodWindow,
+        sourceAuthorityKind,
+        scope,
+        syncTargets,
+        notes,
+      });
+      const { nextWorkspace, record } = await stageUplWorkspaceRecord({
+        workspacePath: home.uplProcessWorkspacePath,
+        sourcePath: proposal.sourceLabel,
+        syncTargets: proposal.syncTargets,
+        observation: proposal.observation,
+        boundary: proposal.boundary,
+        invariant: proposal.invariant,
+        draftedByKind: proposal.draftedByKind,
+        draftedBy: proposal.draftedBy,
+        mutations: proposal.mutations,
+      });
+      if (asJson) {
+        printJson({
+          pack,
+          workspacePath: home.uplProcessWorkspacePath,
+          sourcePath: proposal.sourceLabel,
+          syncTargets: record.requestedSyncTargets,
+          draft: record.draft,
+          review: record.review,
+        });
+        return;
+      }
+      printUplProcessReview(record, workspaceRecordStale(nextWorkspace, record));
+      printUplDraftNextSteps(record.review.reviewId);
       return;
     }
     throw new Error(`unknown upl spend command: ${spendSub}`);
@@ -7714,6 +7866,16 @@ function csvList(value: string | undefined): string[] {
   return value.split(",").map((s) => s.trim()).filter(Boolean);
 }
 
+function promptLine(question: string): Promise<string> {
+  return new Promise((resolve) => {
+    const iface = readline.createInterface({ input: process.stdin, output: process.stdout });
+    iface.question(question, (answer) => {
+      iface.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
 function promptYesNo(question: string): Promise<boolean> {
   return new Promise((resolve) => {
     const iface = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -7722,6 +7884,37 @@ function promptYesNo(question: string): Promise<boolean> {
       resolve(/^y(es)?$/i.test(answer.trim()));
     });
   });
+}
+
+async function promptRequiredValue(label: string, defaultValue?: string): Promise<string> {
+  while (true) {
+    const renderedDefault = defaultValue?.trim() ? ` [${defaultValue.trim()}]` : "";
+    const answer = await promptLine(`${label}${renderedDefault}: `);
+    const resolved = answer || defaultValue?.trim() || "";
+    if (resolved) {
+      return resolved;
+    }
+    console.log(`  ${clrWarn("Required.")} ${label} cannot be empty.`);
+  }
+}
+
+async function promptOptionalValue(label: string, defaultValue?: string): Promise<string> {
+  const renderedDefault = defaultValue?.trim() ? ` [${defaultValue.trim()}]` : "";
+  const answer = await promptLine(`${label}${renderedDefault}: `);
+  return answer || defaultValue?.trim() || "";
+}
+
+async function promptNumericValue(label: string, defaultValue?: number): Promise<number> {
+  while (true) {
+    const renderedDefault = defaultValue !== undefined ? ` [${defaultValue}]` : "";
+    const answer = await promptLine(`${label}${renderedDefault}: `);
+    const raw = answer || (defaultValue !== undefined ? String(defaultValue) : "");
+    const parsed = Number(raw);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    console.log(`  ${clrWarn("Required.")} ${label} must be a positive number.`);
+  }
 }
 
 function printSpendBuccetCautionBanner(): void {
@@ -8252,6 +8445,9 @@ async function handleCreate(rest: string[]) {
     console.log(`${clrDim("upl-track:   ")}snapped at ${spendManifest.uplTrackSnap.takenAt}`);
     console.log("");
     console.log(`  ${clrDim("Next:")}`);
+    console.log(`    ${clrBold(`buccet upl spend list`)}`);
+    console.log(`    ${clrBold(`buccet upl spend setup subscription.provider`)} ${clrDim("(stage one exact corridor into review)")}`);
+    console.log(`    ${clrBold(`buccet upl workspace`)}`);
     console.log(`    ${clrBold(`buccet create add-agent ${spendManifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`);
     console.log(`    ${clrBold(`buccet create add-source ${spendManifest.slug} <file>`)}`);
     console.log(`    ${clrBold(`buccet create show ${spendManifest.slug}`)}`);
