@@ -184,16 +184,25 @@ async function evaluateRequestWithMode(args: {
     return args.swarm.evaluateOrWait(preparedRequest, preparedRequest.swarm);
   }
 
+  // Normalize reviewContext to match what evaluateBoundaryIntercept applies internally
+  // (it always defaults surface to "action" when missing). Both the standing-law UPL
+  // pre-check and the bodyguard's own UPL lookup must hash the same request, otherwise
+  // the bodyguard misses an entry that the pre-check found and denies a lawful request.
+  const normalizedRequest = {
+    ...preparedRequest,
+    reviewContext: preparedRequest.reviewContext ?? ({ surface: "action" } as const),
+  };
+
   const config = await args.store.hydrate();
   const boundaryRequest = createBoundaryActionRequest({
     config,
-    actionKind: mapInterceptToBoundaryAction(preparedRequest),
-    target: normalizeStandingLawTarget(preparedRequest),
-    payloadSummary: preparedRequest.payloadSummary,
-    provenance: preparedRequest.provenance,
-    novelty: preparedRequest.novelty,
-    flags: preparedRequest.flags,
-    reviewContext: preparedRequest.reviewContext,
+    actionKind: mapInterceptToBoundaryAction(normalizedRequest),
+    target: normalizeStandingLawTarget(normalizedRequest),
+    payloadSummary: normalizedRequest.payloadSummary,
+    provenance: normalizedRequest.provenance,
+    novelty: normalizedRequest.novelty,
+    flags: normalizedRequest.flags,
+    reviewContext: normalizedRequest.reviewContext,
   });
   const exactMatch = config.upl ? lookupUserPathDecision({
     ledger: config.upl,
@@ -202,10 +211,11 @@ async function evaluateRequestWithMode(args: {
   }) : null;
 
   if (exactMatch?.decision === "allow") {
-    const admittedNoveltyRequest = preparedRequest.novelty?.detected && !preparedRequest.novelty.admitted
-      ? withAdmittedBoundaryNovelty(preparedRequest)
-      : preparedRequest;
-    return args.swarm.evaluateOrWait(admittedNoveltyRequest, admittedNoveltyRequest.swarm);
+    // UPL confirmed allow — route through evaluateOrWait so the full bodyguard
+    // pipeline still executes (payload inspection, cost guards, novelty gates).
+    // Both this lookup and the bodyguard's internal lookup now use the same
+    // normalized reviewContext, so the bodyguard will also find the entry.
+    return args.swarm.evaluateOrWait(normalizedRequest, normalizedRequest.swarm);
   }
 
   const result: BoundaryInterceptResult = {

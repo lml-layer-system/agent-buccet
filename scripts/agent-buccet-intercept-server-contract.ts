@@ -80,6 +80,8 @@ async function main() {
   const uplPath = path.join(tempRoot, "user-path-ledger.json");
   const allowedTarget = "/bin/echo";
   const deniedTarget = "/usr/bin/id";
+  // reviewContext must include surface: "action" so the hash stored in the UPL ledger
+  // matches the normalized hash used by evaluateRequestWithMode and evaluateBoundaryIntercept.
   const allowedRequest = {
     sessionId,
     requestId: "standing-law-upl",
@@ -88,6 +90,7 @@ async function main() {
     target: allowedTarget,
     payloadSummary: "standing-law allow /bin/echo",
     provenance: "agent_inference" as const,
+    reviewContext: { surface: "action" as const },
   };
   await fs.writeFile(uplPath, `${JSON.stringify({
     specVersion: 1,
