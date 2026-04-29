@@ -449,6 +449,44 @@ function entrySpecificity(entry: BoundaryUplEntry): 0 | 1 | 2 {
   return 0;
 }
 
+function trackConstraintSpecificity(entry: BoundaryUplEntry): number {
+  const constraint = entry.trackConstraint;
+  if (!constraint) {
+    return 0;
+  }
+
+  let score = 0;
+  if (constraint.targetPattern) score += 1;
+  if (constraint.targetPatterns?.length) score += constraint.targetPatterns.length;
+  if (constraint.requestTextPatterns?.length) score += constraint.requestTextPatterns.length;
+  if (constraint.requiredFlags?.length) score += constraint.requiredFlags.length;
+  if (constraint.reviewSurface) score += 1;
+  if (constraint.reviewInvariantLawId) score += 1;
+  if (constraint.requiredTextPatterns?.length) score += constraint.requiredTextPatterns.length;
+  if (constraint.forbiddenTextPatterns?.length) score += constraint.forbiddenTextPatterns.length;
+  if (constraint.outputShape) score += 1;
+  if (constraint.outputCorridor?.requiredTextPatterns?.length) score += constraint.outputCorridor.requiredTextPatterns.length;
+  if (constraint.outputCorridor?.forbiddenTextPatterns?.length) score += constraint.outputCorridor.forbiddenTextPatterns.length;
+  if (constraint.completionGrammar) score += 1;
+  if (constraint.completionCorridor?.grammar) score += 1;
+  if (constraint.expressionProfile) score += 1;
+  if (constraint.expressionCorridor) score += 1;
+  if (constraint.actionCorridor?.targetPattern) score += 1;
+  if (constraint.actionCorridor?.reviewSurface) score += 1;
+  if (constraint.spendMaxAmountNormalized !== undefined) score += 1;
+  if (constraint.spendAllowedDestinationKinds?.length) score += constraint.spendAllowedDestinationKinds.length;
+  if (constraint.spendAllowedSourceAuthorityKinds?.length) score += constraint.spendAllowedSourceAuthorityKinds.length;
+  if (constraint.spendAllowedCommitIntents?.length) score += constraint.spendAllowedCommitIntents.length;
+  if (constraint.spendAllowedPrincipals?.length) score += constraint.spendAllowedPrincipals.length;
+  if (constraint.spendAllowedPurposes?.length) score += constraint.spendAllowedPurposes.length;
+  if (constraint.spendAllowedBucketIds?.length) score += constraint.spendAllowedBucketIds.length;
+  if (constraint.spendAllowedRiskClasses?.length) score += constraint.spendAllowedRiskClasses.length;
+  if (constraint.spendRecurringAllowed !== undefined) score += 1;
+  if (constraint.spendMaxPeriodAmountNormalized !== undefined) score += 1;
+  if (constraint.spendPeriodWindow !== undefined) score += 1;
+  return score;
+}
+
 function compareLiveUplFieldEntries(
   left: BoundaryLiveUplFieldEntry,
   right: BoundaryLiveUplFieldEntry,
@@ -458,6 +496,11 @@ function compareLiveUplFieldEntries(
   }
   if (right.specificity !== left.specificity) {
     return right.specificity - left.specificity;
+  }
+  const leftTrackSpecificity = trackConstraintSpecificity(left.entry);
+  const rightTrackSpecificity = trackConstraintSpecificity(right.entry);
+  if (rightTrackSpecificity !== leftTrackSpecificity) {
+    return rightTrackSpecificity - leftTrackSpecificity;
   }
   if (left.entry.createdAt !== right.entry.createdAt) {
     return right.entry.createdAt.localeCompare(left.entry.createdAt);
