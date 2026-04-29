@@ -46,8 +46,8 @@ import {
  *     library, the agent profile, and the standing-law reminder; nothing
  *     in the injected context can mutate UPL.
  *
- *  5) Pi packages are PEER deps — `tryLoadPiBindings` returns null when
- *     not installed; the adapter never crashes the substrate.
+ *  5) Pi ships as a direct dependency — `tryLoadPiBindings` returns live
+ *     bindings after a plain `npm install`; no separate install step needed.
  */
 
 async function main(): Promise<void> {
@@ -156,10 +156,12 @@ async function main(): Promise<void> {
 
     console.log("SUCCESS: system context injects brain, library, and standing-law guardrail.");
 
-    // ----- 6. Pi packages are PEER deps; missing is a graceful null ------
+    // ----- 6. Pi ships as a direct dep — tryLoadPiBindings returns live bindings ------
     const bindings = await tryLoadPiBindings();
-    assert.equal(bindings, null, "pi packages absent in this contract environment → graceful null");
-    console.log("SUCCESS: peer-dep load returns null when Pi is not installed; substrate ships without crashing.");
+    assert.ok(bindings !== null, "Pi is a direct dep — tryLoadPiBindings returns live bindings");
+    assert.ok(typeof (bindings as { agentCore: unknown }).agentCore === "object", "pi-agent-core loaded");
+    assert.ok(typeof (bindings as { piAi: unknown }).piAi === "object", "pi-ai loaded");
+    console.log("SUCCESS: Pi ships as a direct dependency; tryLoadPiBindings returns live bindings on install.");
 
     console.log("\n--- Pi Engine Contract Verified ---");
   } finally {

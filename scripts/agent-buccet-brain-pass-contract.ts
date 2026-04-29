@@ -9,7 +9,7 @@ import {
   runBrainPass,
   teamCanBrainPass,
 } from "../lib/agent-buccet/brain-pass.ts";
-import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
+import { tryLoadPiBindings } from "../lib/agent-buccet/pi-adapter.ts";
 import {
   addTeamAgent,
   addTeamEngineSource,
@@ -37,10 +37,9 @@ import {
  *      are present. CLI uses this to decide whether to attempt a brain
  *      pass at all.
  *
- *   3) When all preflight passes but Pi is not installed (peer dep
- *      missing), `runBrainPass` throws `PiNotInstalledError` with an
- *      install hint in the message. The CLI catches this and falls back
- *      to the message-queue ack (covered in the CLI smoke test).
+ *   3) Pi ships as a direct dependency — `tryLoadPiBindings` returns live
+ *      bindings (non-null) after a plain `npm install`. No manual peer-dep
+ *      install required.
  */
 
 async function main(): Promise<void> {
@@ -138,23 +137,12 @@ async function main(): Promise<void> {
 
     console.log("SUCCESS: preflight surfaces a friendly precondition error for each missing piece.");
 
-    // ----- 3. Fully-configured team but Pi not installed → PiNotInstalledError
-    // (Pi packages are peer deps and intentionally absent from this contract env.)
-    let err: unknown;
-    try {
-      await runBrainPass({
-        homePath: home,
-        slug,
-        userRequest: "ping",
-      });
-    } catch (e) {
-      err = e;
-    }
-    assert.ok(err instanceof PiNotInstalledError, "Pi peer-dep absent → PiNotInstalledError");
-    const msg = (err as Error).message;
-    assert.match(msg, /not installed/i, "install hint mentions not installed");
-    assert.match(msg, /@mariozechner\/pi-agent-core/, "install hint names the canonical Pi package");
-    assert.match(msg, /@mariozechner\/pi-ai/, "install hint names the canonical pi-ai package");
+    // ----- 3. Pi ships as a direct dependency — tryLoadPiBindings returns live bindings.
+    // Pi is no longer a peer dep; it installs automatically with `npm install`.
+    const piBindings = await tryLoadPiBindings();
+    assert.ok(piBindings !== null, "Pi is a direct dep — tryLoadPiBindings returns live bindings");
+    assert.ok(typeof (piBindings as { agentCore: unknown }).agentCore === "object", "pi-agent-core loaded");
+    assert.ok(typeof (piBindings as { piAi: unknown }).piAi === "object", "pi-ai loaded");
     console.log("SUCCESS: runBrainPass surfaces a PiNotInstalledError with install hint when Pi is not installed.");
 
     // Confirm preflight itself does NOT crash without Pi — only the actual

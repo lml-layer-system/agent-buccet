@@ -24,11 +24,9 @@
  *           `{ block: true, reason }` to Pi, which surfaces them to the AI
  *           so the AI can propose a lawful alternative or escalate.
  *
- * Pi is a PEER DEPENDENCY of agent-buccet — the operator installs it
- * separately (`npm i @mariozechner/pi-agent-core @mariozechner/pi-ai`).
- * This adapter dynamic-imports Pi only when actually needed, so the
- * substrate ships without the dep and surfaces a friendly install hint
- * if the operator forgot.
+ * Pi ships as a direct dependency of agent-buccet — it installs
+ * automatically with `npm install`. This adapter dynamic-imports Pi only
+ * when actually needed so startup cost is zero until a brain pass fires.
  */
 
 import { enforceBoundaryProposal } from "./bodyguard.ts";
