@@ -25,14 +25,18 @@ import {
   addTeamLocalLlmSource,
   addTeamRemoteLlmSource,
   addTeamSource,
+  appendTeamPathSourceMemoryEntry,
+  cherryPickTeamSnapshotSources,
   createTeam,
   deleteTeam,
   listTeams,
+  listTeamContinuitySnapshots,
   loadTeam,
   loadTeamRuntimePreparation,
   prepareTeamRuntime,
   removeTeamAgent,
   removeTeamSource,
+  rollbackTeamToContinuitySnapshot,
   saveTeam,
   teamSlug,
   teamsRoot,
@@ -50,6 +54,11 @@ import {
   runBrainPass,
   teamCanBrainPass,
 } from "../lib/agent-buccet/brain-pass.ts";
+import {
+  buildCreatePromptEvent,
+  renderCreatePromptEvent,
+  type BuccetPromptMode,
+} from "../lib/agent-buccet/create-prompt.ts";
 import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
 import type {
   BoundaryActionKind,
@@ -130,6 +139,23 @@ type UplAcceptanceSourceCatalog = {
   url: string;
   description: string;
 };
+
+function printTeamContinuityHistory(history: Awaited<ReturnType<typeof listTeamContinuitySnapshots>>): void {
+  if (history.length === 0) {
+    printCliSection("Continuity", [
+      formatCliKeyValue("status", "no snapshots yet"),
+    ]);
+    return;
+  }
+  const rows: string[] = [];
+  for (const entry of [...history].reverse().slice(0, 20)) {
+    rows.push(`  ${clrBold(entry.snapshotId)}  ${clrDim(entry.trigger.kind)}  ${clrDim(entry.at)}`);
+    rows.push(
+      `    ${clrDim("trigger:")} ${entry.trigger.title}    ${clrDim("sources:")} ${entry.pathSourceCount}    ${clrDim("agents:")} ${entry.agentCount}    ${clrDim("records:")} ${entry.workMemoryRecordCount}`,
+    );
+  }
+  printCliSection("Continuity", rows);
+}
 
 type SourceIntakeDoc = {
   name: string;
@@ -368,6 +394,9 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet create remove-agent <team-name> --name <id>",
         "  buccet create add-source <team-name> <file> [--title <t>] [--kind <k>]",
         "  buccet create remove-source <team-name> --id <source-id>",
+        "  buccet create history <team-name> [--json]                       inspect exact-time continuity snapshots",
+        "  buccet create rollback <team-name> --snapshot <id> [--json]     restore the Buccet map to one snapshot",
+        "  buccet create cherry-pick <team-name> --snapshot <id> --sources <csv> [--json]",
         "  buccet create remove <team-name> --force",
         "  buccet team list|status|start|stop <team-name>                   lifecycle for standing teams",
         "  buccet team export <team-name> [--output <file.json>]            portable team manifest",
@@ -6920,6 +6949,9 @@ function createUsage(): never {
     "  buccet create show <team-name> [--json]",
     "  buccet create list [--json]",
     "  buccet create remove <team-name> [--force]",
+    "  buccet create history <team-name> [--json]",
+    "  buccet create rollback <team-name> --snapshot <snapshot-id> [--json]",
+    "  buccet create cherry-pick <team-name> --snapshot <snapshot-id> --sources <csv> [--json]",
     "  buccet create add-agent <team-name> --name <agent-id> --specialty <text> [--title <text>]",
     "                                       [--model <hint>] [--owns-step <stage>] [--tools <csv>]",
     "                                       [--sources <csv>] [--cap <number>] [--notes <text>]",
@@ -7101,6 +7133,90 @@ async function handleCreate(rest: string[]) {
     printTeamCorpus(manifest);
     printTeamUplSnap(manifest);
     console.log("");
+    return;
+  }
+
+  if (sub === "history") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const slug = teamSlug(teamName);
+    const manifest = await loadTeam(homePath, slug);
+    if (!manifest) {
+      console.error(`No team named "${teamName}" (slug ${slug}).`);
+      process.exit(1);
+    }
+    const history = await listTeamContinuitySnapshots(homePath, slug);
+    if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
+      console.log(JSON.stringify({ team: slug, history }, null, 2));
+      return;
+    }
+    printTeamHeader(manifest);
+    printTeamContinuityHistory(history);
+    console.log("");
+    return;
+  }
+
+  if (sub === "rollback") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const { flags, bools } = parseFlagPairs(rest.slice(2));
+    const snapshotId = flags["snapshot"];
+    if (!snapshotId) {
+      console.error("buccet create rollback requires --snapshot <snapshot-id>.");
+      createUsage();
+    }
+    const slug = teamSlug(teamName);
+    const result = await rollbackTeamToContinuitySnapshot({
+      homePath,
+      slug,
+      snapshotId,
+    });
+    if (bools.has("json")) {
+      console.log(JSON.stringify({
+        team: slug,
+        snapshotId: result.snapshot.snapshotId,
+        at: result.snapshot.at,
+        trigger: result.snapshot.trigger,
+        manifest: result.manifest,
+      }, null, 2));
+      return;
+    }
+    console.log(`${clrOk(`team ${slug} restored`)}    ${clrDim(result.snapshot.snapshotId)}`);
+    console.log(`  ${clrDim(`Exact-time continuity restore from ${result.snapshot.at} via ${result.snapshot.trigger.kind}.`)}`);
+    console.log(`  ${clrDim(`Trigger:`)} ${result.snapshot.trigger.title}`);
+    return;
+  }
+
+  if (sub === "cherry-pick") {
+    const teamName = rest[1];
+    if (!teamName) createUsage();
+    const { flags, bools } = parseFlagPairs(rest.slice(2));
+    const snapshotId = flags["snapshot"];
+    const sourceIds = csvList(flags["sources"]);
+    if (!snapshotId || sourceIds.length === 0) {
+      console.error("buccet create cherry-pick requires --snapshot <snapshot-id> --sources <csv>.");
+      createUsage();
+    }
+    const slug = teamSlug(teamName);
+    const result = await cherryPickTeamSnapshotSources({
+      homePath,
+      slug,
+      snapshotId,
+      sourceIds,
+    });
+    if (bools.has("json")) {
+      console.log(JSON.stringify({
+        team: slug,
+        snapshotId: result.snapshot.snapshotId,
+        sources: result.sources,
+        manifest: result.manifest,
+      }, null, 2));
+      return;
+    }
+    console.log(`${clrOk(`sources cherry-picked into ${slug}`)}    ${clrDim(result.snapshot.snapshotId)}`);
+    for (const source of result.sources) {
+      console.log(`  ${clrDim(`${source.id}`)} ${source.title} ${clrDim(`(${source.kind})`)}`);
+    }
     return;
   }
 
@@ -7618,6 +7734,18 @@ async function appendTeamSessionRecord(homePath: string, slug: string, record: T
   const targetPath = teamSessionLogPath(homePath, slug);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.appendFile(targetPath, `${JSON.stringify(record)}\n`, "utf8");
+  await appendTeamPathSourceMemoryEntry({
+    homePath,
+    slug,
+    kind: record.type,
+    title: `${record.type}:${record.team}`,
+    text: record.text,
+    meta: {
+      at: record.at,
+      ...(record.askId ? { askId: record.askId } : {}),
+      ...(record.meta ? record.meta : {}),
+    },
+  });
 }
 
 function nextAskId(): string {
@@ -7659,10 +7787,12 @@ function printAskAcknowledgement(manifest: TeamManifest, record: TeamAskRecord):
 }
 
 async function handleAsk(rest: string[]) {
-  const teamName = rest[0];
-  const text = rest.slice(1).join(" ").trim();
+  const { positional, bools } = parseFlagPairs(rest);
+  const teamName = positional[0];
+  const text = positional.slice(1).join(" ").trim();
+  const mode: BuccetPromptMode = bools.has("headless") ? "standing_law" : "interactive";
   if (!teamName || !text) {
-    console.error("Usage: buccet ask <team-name> \"<your task>\"");
+    console.error("Usage: buccet ask <team-name> \"<your task>\" [--headless]");
     process.exit(1);
   }
   const homePath = resolveHome();
@@ -7674,7 +7804,7 @@ async function handleAsk(rest: string[]) {
   }
 
   if (await teamCanBrainPass(homePath, slug)) {
-    const ran = await tryBrainPass({ homePath, slug, manifest, text });
+    const ran = await tryBrainPass({ homePath, slug, manifest, text, mode });
     if (ran) return;
     // tryBrainPass already printed the install hint; fall through to queue.
   }
@@ -7688,6 +7818,7 @@ async function tryBrainPass(args: {
   slug: TeamSlug;
   manifest: TeamManifest;
   text: string;
+  mode?: BuccetPromptMode;
 }): Promise<boolean> {
   const prepared = await prepareTeamRuntime({
     homePath: args.homePath,
@@ -7741,13 +7872,14 @@ async function tryBrainPass(args: {
         },
       });
     }
+    const runStatus = result.coherence.finalizationBlocked ? "blocked" : "completed";
     await appendTeamSessionRecord(args.homePath, args.slug, {
       type: "team_status",
       at: new Date().toISOString(),
       team: args.slug,
       text: "brain pass completed",
       meta: {
-        status: result.coherence.finalizationBlocked ? "blocked" : "completed",
+        status: runStatus,
         peerCount: result.peerResults.length,
         spokesperson: result.agent.id,
         comprehensionPass: result.comprehensionPass.passId,
@@ -7757,6 +7889,21 @@ async function tryBrainPass(args: {
         dissentBeatsMajority: result.coherence.dissentBeatsMajority,
       },
     });
+
+    const createEvent = buildCreatePromptEvent({
+      teamSlug: args.slug,
+      runId: result.comprehensionPass.passId,
+      agentId: result.agent.id,
+      disposition: result.coherence.disposition,
+      finalizationBlocked: result.coherence.finalizationBlocked,
+      status: runStatus,
+      at: new Date().toISOString(),
+    });
+    const createPromptLine = renderCreatePromptEvent(createEvent, args.mode ?? "interactive");
+    if (createPromptLine !== null) {
+      console.log(`\n${clrDim(createPromptLine)}`);
+    }
+
     console.log("");
     console.log(`  ${clrOk("[" + lane + " · " + result.agent.id + "]:")}`);
     for (const line of result.output.split("\n")) {
@@ -7818,9 +7965,11 @@ async function tryBrainPass(args: {
 }
 
 async function handleEnter(rest: string[]) {
-  const teamName = rest[0];
+  const { positional, bools } = parseFlagPairs(rest);
+  const teamName = positional[0];
+  const mode: BuccetPromptMode = bools.has("headless") ? "standing_law" : "interactive";
   if (!teamName) {
-    console.error("Usage: buccet enter <team-name>");
+    console.error("Usage: buccet enter <team-name> [--headless]");
     process.exit(1);
   }
   const homePath = resolveHome();
@@ -7883,7 +8032,7 @@ async function handleEnter(rest: string[]) {
       continue;
     }
     if (await teamCanBrainPass(homePath, slug)) {
-      const ran = await tryBrainPass({ homePath, slug, manifest, text: line });
+      const ran = await tryBrainPass({ homePath, slug, manifest, text: line, mode });
       if (ran) {
         prompt();
         continue;

@@ -233,16 +233,17 @@ function inferIndependence(args: {
   }
   const others = args.peers.filter((peer) => peer.peerId !== args.currentPeerId);
   if (others.length === 0) return "unknown";
-  const own = new Set(args.sourceIds);
+  const own = new Set(args.sourceIds.filter((sourceId) => !isSharedInternalTeamSourceId(sourceId)));
   if (own.size === 0) return "unknown";
   let fullyShared = true;
   let anyOverlap = false;
   for (const other of others) {
-    const overlap = other.sourceIds.some((sourceId) => own.has(sourceId));
+    const comparable = other.sourceIds.filter((sourceId) => !isSharedInternalTeamSourceId(sourceId));
+    const overlap = comparable.some((sourceId) => own.has(sourceId));
     anyOverlap = anyOverlap || overlap;
     const sameSet =
-      other.sourceIds.length === args.sourceIds.length &&
-      other.sourceIds.every((sourceId) => own.has(sourceId));
+      comparable.length === own.size &&
+      comparable.every((sourceId) => own.has(sourceId));
     fullyShared = fullyShared && sameSet;
   }
   if (fullyShared) return "correlated";
@@ -512,3 +513,4 @@ export function renderCoherenceGateReport(args: {
   }
   return lines.join("\n");
 }
+import { isSharedInternalTeamSourceId } from "./team-workshop.ts";

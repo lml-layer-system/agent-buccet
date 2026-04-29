@@ -10,7 +10,10 @@ import {
   buildTeamWholeView,
   buildTeamSourceCheckpoint,
   deleteTeamSourceCheckpoint,
+  loadTeamSourceCheckpoint,
   persistTeamSourceCheckpoint,
+  teamCheckpointRoot,
+  type TeamSourceCheckpointBody,
   type TeamSourceCheckpointRef,
   type TeamWholeView,
 } from "./path-source-checkpoints.ts";
@@ -58,6 +61,8 @@ export type TeamAgent = {
     spentNormalized: number;
   };
 };
+
+export type TeamInternalSourceRole = "brain" | "work_memory";
 
 /**
  * Transport tells the runtime what a path source IS and how Buccet wires
@@ -213,11 +218,22 @@ export type TeamSourceRef = {
   sourceUri?: string;
   importedFromPath?: string;
   checkpoint?: TeamSourceCheckpointRef;
+  internalRole?: TeamInternalSourceRole;
   transport?: SourceTransport;
   remote?: RemoteLlmSourceConfig;
   local?: LocalLlmSourceConfig;
   httpApi?: HttpApiSourceConfig;
   engine?: EngineSourceConfig;
+};
+
+export type TeamPathSourceMemoryRecord = {
+  id: string;
+  kind: string;
+  at: string;
+  team: string;
+  title: string;
+  text: string;
+  meta?: Record<string, unknown>;
 };
 
 /**
@@ -333,6 +349,41 @@ export type TeamRuntimePreparation = {
   sources: TeamRuntimePreparedSource[];
 };
 
+export type TeamContinuitySnapshotTrigger = {
+  recordId: string;
+  kind: string;
+  title: string;
+  at: string;
+};
+
+export type TeamContinuitySnapshotMeta = {
+  schemaVersion: 1;
+  snapshotId: string;
+  teamId: string;
+  at: string;
+  trigger: TeamContinuitySnapshotTrigger;
+  teamStatus: TeamManifest["status"];
+  pathSourceCount: number;
+  agentCount: number;
+  checkpointCount: number;
+  workMemoryRecordCount: number;
+};
+
+export type TeamContinuitySnapshot = {
+  schemaVersion: 1;
+  snapshotId: string;
+  teamId: string;
+  at: string;
+  trigger: TeamContinuitySnapshotTrigger;
+  manifest: TeamManifest;
+  runtimePreparation: TeamRuntimePreparation | null;
+  workMemoryBody: string;
+  sourceCheckpoints: Array<{
+    sourceId: string;
+    checkpoint: TeamSourceCheckpointBody;
+  }>;
+};
+
 export function teamSlug(name: string): TeamSlug {
   const slug = name
     .toLowerCase()
@@ -360,6 +411,22 @@ export function teamManifestPath(homePath: string, slug: TeamSlug): string {
 
 export function teamRuntimePath(homePath: string, slug: TeamSlug): string {
   return path.join(teamDir(homePath, slug), "runtime.json");
+}
+
+export function teamWorkMemoryPath(homePath: string, slug: TeamSlug): string {
+  return path.join(teamDir(homePath, slug), "path-source-memory.jsonl");
+}
+
+export function teamContinuityRoot(homePath: string, slug: TeamSlug): string {
+  return path.join(teamDir(homePath, slug), "continuity");
+}
+
+export function teamContinuityIndexPath(homePath: string, slug: TeamSlug): string {
+  return path.join(teamContinuityRoot(homePath, slug), "index.jsonl");
+}
+
+function teamContinuitySnapshotPath(homePath: string, slug: TeamSlug, snapshotId: string): string {
+  return path.join(teamContinuityRoot(homePath, slug), `${snapshotId}.json`);
 }
 
 async function ensureDir(targetPath: string): Promise<void> {
@@ -406,10 +473,441 @@ export async function loadTeam(homePath: string, slug: TeamSlug): Promise<TeamMa
 
 export async function saveTeam(homePath: string, manifest: TeamManifest): Promise<void> {
   manifest.updatedAt = new Date().toISOString();
+  await writeTeamManifestExact(homePath, manifest);
+}
+
+async function writeTeamManifestExact(homePath: string, manifest: TeamManifest): Promise<void> {
   const dir = teamDir(homePath, manifest.slug);
   await ensureDir(dir);
   const manifestText = `${JSON.stringify(manifest, null, 2)}\n`;
   await fs.writeFile(teamManifestPath(homePath, manifest.slug), manifestText, "utf8");
+}
+
+async function writeTeamRuntimePreparationExact(
+  homePath: string,
+  slug: TeamSlug,
+  preparation: TeamRuntimePreparation | null,
+): Promise<void> {
+  const targetPath = teamRuntimePath(homePath, slug);
+  await ensureDir(path.dirname(targetPath));
+  if (!preparation) {
+    await fs.rm(targetPath, { force: true });
+    return;
+  }
+  await fs.writeFile(targetPath, `${JSON.stringify(preparation, null, 2)}\n`, "utf8");
+}
+
+export function teamWorkMemorySourceId(slug: TeamSlug): string {
+  return `team-work-memory-${slug}`;
+}
+
+export function isSharedInternalTeamSourceId(sourceId: string): boolean {
+  return (
+    sourceId === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id ||
+    sourceId.startsWith("team-work-memory-")
+  );
+}
+
+function teamWorkMemorySourceUri(slug: TeamSlug): string {
+  return `buccet://team/${slug}/path-source-memory`;
+}
+
+function teamWorkMemorySourceSummary(slug: TeamSlug, updatedAt?: string): string {
+  if (updatedAt) {
+    return `Durable path-source work memory for ${slug}; last committed at ${updatedAt}.`;
+  }
+  return `Durable path-source work memory for ${slug}; Pi commits proof-of-work and operator history here.`;
+}
+
+function buildTeamWorkMemorySourceRef(args: {
+  slug: TeamSlug;
+  checkpoint: TeamSourceCheckpointRef;
+  updatedAt?: string;
+}): TeamSourceRef {
+  return {
+    id: teamWorkMemorySourceId(args.slug),
+    title: "Buccet Path-Source Memory",
+    kind: "memory:path-source",
+    summary: teamWorkMemorySourceSummary(args.slug, args.updatedAt),
+    sourceUri: teamWorkMemorySourceUri(args.slug),
+    checkpoint: args.checkpoint,
+    internalRole: "work_memory",
+  };
+}
+
+async function writeTeamWorkMemoryCheckpoint(args: {
+  homePath: string;
+  manifest: TeamManifest;
+  body: string;
+  updatedAt?: string;
+}): Promise<TeamSourceRef> {
+  const built = buildTeamSourceCheckpoint({
+    sourceId: teamWorkMemorySourceId(args.manifest.slug),
+    title: "Buccet Path-Source Memory",
+    kind: "memory:path-source",
+    content: args.body,
+    sourceUri: teamWorkMemorySourceUri(args.manifest.slug),
+    summary: teamWorkMemorySourceSummary(args.manifest.slug, args.updatedAt),
+  });
+  await persistTeamSourceCheckpoint({
+    homePath: args.homePath,
+    slug: args.manifest.slug,
+    checkpoint: built.checkpoint,
+  });
+  return buildTeamWorkMemorySourceRef({
+    slug: args.manifest.slug,
+    checkpoint: built.ref,
+    updatedAt: args.updatedAt,
+  });
+}
+
+export async function ensureTeamWorkMemorySource(args: {
+  homePath: string;
+  manifest: TeamManifest;
+}): Promise<{ manifest: TeamManifest; source: TeamSourceRef }> {
+  const targetPath = teamWorkMemoryPath(args.homePath, args.manifest.slug);
+  let body = "";
+  try {
+    body = await fs.readFile(targetPath, "utf8");
+  } catch {
+    body = "";
+  }
+  await ensureDir(path.dirname(targetPath));
+  try {
+    await fs.access(targetPath);
+  } catch {
+    await fs.writeFile(targetPath, "", "utf8");
+  }
+
+  const source = await writeTeamWorkMemoryCheckpoint({
+    homePath: args.homePath,
+    manifest: args.manifest,
+    body,
+  });
+
+  let changed = false;
+  const existingIndex = args.manifest.pathSourceCorpus.findIndex((ref) => ref.id === source.id);
+  if (existingIndex === -1) {
+    args.manifest.pathSourceCorpus.push(source);
+    changed = true;
+  } else {
+    const existing = args.manifest.pathSourceCorpus[existingIndex]!;
+    const next = { ...existing, ...source };
+    if (JSON.stringify(existing) !== JSON.stringify(next)) {
+      args.manifest.pathSourceCorpus[existingIndex] = next;
+      changed = true;
+    }
+  }
+  for (const agent of args.manifest.agents) {
+    const next = uniqueIds([source.id, ...agent.sourceIds]);
+    if (JSON.stringify(next) !== JSON.stringify(agent.sourceIds)) {
+      agent.sourceIds = next;
+      changed = true;
+    }
+  }
+  if (changed) {
+    await saveTeam(args.homePath, args.manifest);
+  }
+  return { manifest: args.manifest, source };
+}
+
+function nextTeamWorkMemoryRecordId(): string {
+  return `work-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function nextTeamContinuitySnapshotId(record: TeamPathSourceMemoryRecord): string {
+  const stamp = record.at.replaceAll(/[:.]/g, "-");
+  return `snapshot-${stamp}-${record.id}`;
+}
+
+function countJsonlRecords(body: string): number {
+  return body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean).length;
+}
+
+async function captureTeamContinuitySnapshot(args: {
+  homePath: string;
+  manifest: TeamManifest;
+  record: TeamPathSourceMemoryRecord;
+  workMemoryBody: string;
+}): Promise<TeamContinuitySnapshotMeta> {
+  const runtimePreparation = await loadTeamRuntimePreparation(args.homePath, args.manifest.slug);
+  const sourceCheckpoints: TeamContinuitySnapshot["sourceCheckpoints"] = [];
+  for (const source of args.manifest.pathSourceCorpus) {
+    if (!source.checkpoint) continue;
+    const checkpoint = await loadTeamSourceCheckpoint({
+      homePath: args.homePath,
+      slug: args.manifest.slug,
+      ref: source.checkpoint,
+    });
+    if (!checkpoint) continue;
+    sourceCheckpoints.push({
+      sourceId: source.id,
+      checkpoint,
+    });
+  }
+
+  const snapshotId = nextTeamContinuitySnapshotId(args.record);
+  const snapshot: TeamContinuitySnapshot = {
+    schemaVersion: 1,
+    snapshotId,
+    teamId: args.manifest.slug,
+    at: args.record.at,
+    trigger: {
+      recordId: args.record.id,
+      kind: args.record.kind,
+      title: args.record.title,
+      at: args.record.at,
+    },
+    manifest: JSON.parse(JSON.stringify(args.manifest)) as TeamManifest,
+    runtimePreparation,
+    workMemoryBody: args.workMemoryBody,
+    sourceCheckpoints,
+  };
+  const meta: TeamContinuitySnapshotMeta = {
+    schemaVersion: 1,
+    snapshotId,
+    teamId: args.manifest.slug,
+    at: args.record.at,
+    trigger: snapshot.trigger,
+    teamStatus: args.manifest.status,
+    pathSourceCount: args.manifest.pathSourceCorpus.length,
+    agentCount: args.manifest.agents.length,
+    checkpointCount: sourceCheckpoints.length,
+    workMemoryRecordCount: countJsonlRecords(args.workMemoryBody),
+  };
+
+  const root = teamContinuityRoot(args.homePath, args.manifest.slug);
+  await ensureDir(root);
+  await fs.writeFile(teamContinuitySnapshotPath(args.homePath, args.manifest.slug, snapshotId), `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
+  await fs.appendFile(teamContinuityIndexPath(args.homePath, args.manifest.slug), `${JSON.stringify(meta)}\n`, "utf8");
+  return meta;
+}
+
+async function commitTeamStructuralMemory(args: {
+  homePath: string;
+  slug: TeamSlug;
+  kind: string;
+  title: string;
+  text: string;
+  meta?: Record<string, unknown>;
+}): Promise<TeamManifest> {
+  const appended = await appendTeamPathSourceMemoryEntry({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: args.kind,
+    title: args.title,
+    text: args.text,
+    ...(args.meta ? { meta: args.meta } : {}),
+  });
+  return appended.manifest;
+}
+
+export async function appendTeamPathSourceMemoryEntry(args: {
+  homePath: string;
+  slug: TeamSlug;
+  kind: string;
+  title: string;
+  text: string;
+  meta?: Record<string, unknown>;
+}): Promise<{ manifest: TeamManifest; source: TeamSourceRef; record: TeamPathSourceMemoryRecord }> {
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) {
+    throw new Error(`Team "${args.slug}" not found`);
+  }
+  const ensured = await ensureTeamWorkMemorySource({
+    homePath: args.homePath,
+    manifest,
+  });
+  const record: TeamPathSourceMemoryRecord = {
+    id: nextTeamWorkMemoryRecordId(),
+    kind: args.kind,
+    at: new Date().toISOString(),
+    team: args.slug,
+    title: args.title,
+    text: args.text,
+    ...(args.meta ? { meta: args.meta } : {}),
+  };
+  const targetPath = teamWorkMemoryPath(args.homePath, args.slug);
+  await fs.appendFile(targetPath, `${JSON.stringify(record)}\n`, "utf8");
+  const body = await fs.readFile(targetPath, "utf8");
+  const source = await writeTeamWorkMemoryCheckpoint({
+    homePath: args.homePath,
+    manifest: ensured.manifest,
+    body,
+    updatedAt: record.at,
+  });
+  const index = ensured.manifest.pathSourceCorpus.findIndex((ref) => ref.id === source.id);
+  if (index === -1) {
+    ensured.manifest.pathSourceCorpus.push(source);
+  } else {
+    ensured.manifest.pathSourceCorpus[index] = {
+      ...ensured.manifest.pathSourceCorpus[index]!,
+      ...source,
+    };
+  }
+  await saveTeam(args.homePath, ensured.manifest);
+  await captureTeamContinuitySnapshot({
+    homePath: args.homePath,
+    manifest: ensured.manifest,
+    record,
+    workMemoryBody: body,
+  });
+  return { manifest: ensured.manifest, source, record };
+}
+
+export async function readTeamPathSourceMemoryEntries(
+  homePath: string,
+  slug: TeamSlug,
+): Promise<TeamPathSourceMemoryRecord[]> {
+  try {
+    const raw = await fs.readFile(teamWorkMemoryPath(homePath, slug), "utf8");
+    return raw
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as TeamPathSourceMemoryRecord);
+  } catch {
+    return [];
+  }
+}
+
+export async function listTeamContinuitySnapshots(
+  homePath: string,
+  slug: TeamSlug,
+): Promise<TeamContinuitySnapshotMeta[]> {
+  try {
+    const raw = await fs.readFile(teamContinuityIndexPath(homePath, slug), "utf8");
+    return raw
+      .split("\n")
+      .filter(Boolean)
+      .map((line) => JSON.parse(line) as TeamContinuitySnapshotMeta)
+      .sort((left, right) => left.at.localeCompare(right.at));
+  } catch {
+    return [];
+  }
+}
+
+export async function loadTeamContinuitySnapshot(args: {
+  homePath: string;
+  slug: TeamSlug;
+  snapshotId: string;
+}): Promise<TeamContinuitySnapshot | null> {
+  try {
+    const raw = await fs.readFile(teamContinuitySnapshotPath(args.homePath, args.slug, args.snapshotId), "utf8");
+    return JSON.parse(raw) as TeamContinuitySnapshot;
+  } catch {
+    return null;
+  }
+}
+
+export async function rollbackTeamToContinuitySnapshot(args: {
+  homePath: string;
+  slug: TeamSlug;
+  snapshotId: string;
+}): Promise<{ manifest: TeamManifest; snapshot: TeamContinuitySnapshot }> {
+  const snapshot = await loadTeamContinuitySnapshot(args);
+  if (!snapshot) {
+    throw new Error(`Continuity snapshot "${args.snapshotId}" not found for team "${args.slug}".`);
+  }
+  if (snapshot.teamId !== args.slug) {
+    throw new Error(`Continuity snapshot "${args.snapshotId}" belongs to "${snapshot.teamId}", not "${args.slug}".`);
+  }
+  await ensureDir(teamDir(args.homePath, args.slug));
+  await fs.writeFile(teamWorkMemoryPath(args.homePath, args.slug), snapshot.workMemoryBody, "utf8");
+  await fs.rm(teamCheckpointRoot(args.homePath, args.slug), { recursive: true, force: true });
+  for (const entry of snapshot.sourceCheckpoints) {
+    await persistTeamSourceCheckpoint({
+      homePath: args.homePath,
+      slug: args.slug,
+      checkpoint: entry.checkpoint,
+    });
+  }
+  await writeTeamRuntimePreparationExact(args.homePath, args.slug, snapshot.runtimePreparation);
+  await writeTeamManifestExact(args.homePath, snapshot.manifest);
+  return {
+    manifest: snapshot.manifest,
+    snapshot,
+  };
+}
+
+export async function cherryPickTeamSnapshotSources(args: {
+  homePath: string;
+  slug: TeamSlug;
+  snapshotId: string;
+  sourceIds: string[];
+}): Promise<{
+  manifest: TeamManifest;
+  snapshot: TeamContinuitySnapshot;
+  sources: TeamSourceRef[];
+}> {
+  const snapshot = await loadTeamContinuitySnapshot({
+    homePath: args.homePath,
+    slug: args.slug,
+    snapshotId: args.snapshotId,
+  });
+  if (!snapshot) {
+    throw new Error(`Continuity snapshot "${args.snapshotId}" not found for team "${args.slug}".`);
+  }
+  const manifest = await loadTeam(args.homePath, args.slug);
+  if (!manifest) {
+    throw new Error(`Team "${args.slug}" not found`);
+  }
+  const requested = uniqueIds(args.sourceIds);
+  if (requested.length === 0) {
+    throw new Error("Cherry-pick requires at least one source id.");
+  }
+  const cherryPicked: TeamSourceRef[] = [];
+  for (const sourceId of requested) {
+    const source = snapshot.manifest.pathSourceCorpus.find((entry) => entry.id === sourceId);
+    if (!source) {
+      throw new Error(`Snapshot "${args.snapshotId}" has no source "${sourceId}".`);
+    }
+    if (source.internalRole === "brain" || source.internalRole === "work_memory") {
+      throw new Error(`Source "${sourceId}" is internal to Buccet and cannot be cherry-picked.`);
+    }
+    if (source.checkpoint) {
+      const checkpointEntry = snapshot.sourceCheckpoints.find((entry) => entry.sourceId === sourceId);
+      if (!checkpointEntry) {
+        throw new Error(`Snapshot "${args.snapshotId}" is missing checkpoint body for "${sourceId}".`);
+      }
+      await persistTeamSourceCheckpoint({
+        homePath: args.homePath,
+        slug: args.slug,
+        checkpoint: checkpointEntry.checkpoint,
+      });
+    }
+    const copy = JSON.parse(JSON.stringify(source)) as TeamSourceRef;
+    const existingIndex = manifest.pathSourceCorpus.findIndex((entry) => entry.id === sourceId);
+    if (existingIndex === -1) {
+      manifest.pathSourceCorpus.push(copy);
+    } else {
+      manifest.pathSourceCorpus[existingIndex] = copy;
+    }
+    cherryPicked.push(copy);
+  }
+  manifest.status = "draft";
+  await saveTeam(args.homePath, manifest);
+  const updatedManifest = await commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_cherry_picked",
+    title: `source_cherry_picked:${args.snapshotId}`,
+    text:
+      `Cherry-picked ${cherryPicked.length} source${cherryPicked.length === 1 ? "" : "s"} from continuity snapshot ${args.snapshotId} into ${args.slug}: ` +
+      `${cherryPicked.map((source) => `${source.title} (${source.id})`).join(", ")}.`,
+    meta: {
+      snapshotId: args.snapshotId,
+      sourceIds: cherryPicked.map((source) => source.id),
+      sourceKinds: cherryPicked.map((source) => source.kind),
+    },
+  });
+  return {
+    manifest: updatedManifest,
+    snapshot,
+    sources: cherryPicked,
+  };
 }
 
 export async function loadTeamRuntimePreparation(
@@ -447,10 +945,14 @@ export async function prepareTeamRuntime(args: {
   slug: TeamSlug;
   markReady?: boolean;
 }): Promise<{ manifest: TeamManifest; preparation: TeamRuntimePreparation; wholeView: TeamWholeView }> {
-  const manifest = await loadTeam(args.homePath, args.slug);
+  let manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
     throw new Error(`Team "${args.slug}" not found`);
   }
+  manifest = (await ensureTeamWorkMemorySource({
+    homePath: args.homePath,
+    manifest,
+  })).manifest;
   const wholeView = await buildTeamWholeView({
     homePath: args.homePath,
     manifest,
@@ -480,6 +982,28 @@ export async function prepareTeamRuntime(args: {
     })),
   };
   await fs.writeFile(teamRuntimePath(args.homePath, args.slug), `${JSON.stringify(preparation, null, 2)}\n`, "utf8");
+  manifest = await commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "runtime_prepared",
+    title: `runtime_prepared:${args.slug}`,
+    text:
+      `Pi prepared the whole-view map for ${args.slug}: ${preparation.pathSourceCount} path sources, ` +
+      `${preparation.peerCount} peers, ${preparation.checkpointedSourceCount} checkpoint-backed sources, ` +
+      `${preparation.totalLineCount} lines visible before live input.`,
+    meta: {
+      preparedAt: preparation.preparedAt,
+      teamStatus: preparation.teamStatus,
+      canBrainPass: preparation.canBrainPass,
+      spokespersonAgentId: preparation.spokespersonAgentId ?? null,
+      pathSourceCount: preparation.pathSourceCount,
+      checkpointedSourceCount: preparation.checkpointedSourceCount,
+      totalCharCount: preparation.totalCharCount,
+      totalLineCount: preparation.totalLineCount,
+      peerCount: preparation.peerCount,
+      sources: preparation.sources,
+    },
+  });
   return { manifest, preparation, wholeView };
 }
 
@@ -532,7 +1056,27 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
     notes: args.notes,
   };
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  const ensured = await ensureTeamWorkMemorySource({
+    homePath: args.homePath,
+    manifest,
+  });
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug,
+    kind: "team_created",
+    title: `team_created:${slug}`,
+    text:
+      `Created team ${slug} for ${args.domain}. Persistent brain source and Buccet path-source memory are ready before live input.`,
+    meta: {
+      name: args.name,
+      domain: args.domain,
+      summary: ensured.manifest.summary,
+      status: ensured.manifest.status,
+      createdBy: args.createdBy ?? null,
+      pathSourceCount: ensured.manifest.pathSourceCorpus.length,
+      agentCount: ensured.manifest.agents.length,
+    },
+  });
 }
 
 export type AddAgentArgs = {
@@ -550,10 +1094,14 @@ export type AddAgentArgs = {
 };
 
 export async function addTeamAgent(args: AddAgentArgs): Promise<TeamManifest> {
-  const manifest = await loadTeam(args.homePath, args.slug);
+  let manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
     throw new Error(`Team "${args.slug}" not found`);
   }
+  manifest = (await ensureTeamWorkMemorySource({
+    homePath: args.homePath,
+    manifest,
+  })).manifest;
   if (manifest.agents.some((a) => a.id === args.agentId)) {
     throw new Error(`Team "${args.slug}" already has agent "${args.agentId}"`);
   }
@@ -571,7 +1119,11 @@ export async function addTeamAgent(args: AddAgentArgs): Promise<TeamManifest> {
     }
   }
 
-  const sourceIds = uniqueIds([UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id, ...requestedSources]);
+  const sourceIds = uniqueIds([
+    UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id,
+    teamWorkMemorySourceId(args.slug),
+    ...requestedSources,
+  ]);
   const agent: TeamAgent = {
     id: args.agentId,
     title: args.title,
@@ -589,7 +1141,25 @@ export async function addTeamAgent(args: AddAgentArgs): Promise<TeamManifest> {
   manifest.agents.push(agent);
   manifest.status = "draft";
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "agent_added",
+    title: `agent_added:${args.agentId}`,
+    text:
+      `Added agent ${args.agentId} (${args.title}) to ${args.slug} for ${agent.specialty}; ` +
+      `owns ${agent.ownsStep} and sees ${agent.sourceIds.length} sources including the shared Batcave memory.`,
+    meta: {
+      agentId: agent.id,
+      title: agent.title,
+      specialty: agent.specialty,
+      ownsStep: agent.ownsStep,
+      tools: agent.tools,
+      sourceIds: agent.sourceIds,
+      modelHint: agent.modelHint ?? null,
+      spendCapNormalized: agent.spend.capNormalized,
+    },
+  });
 }
 
 export async function removeTeamAgent(args: {
@@ -607,7 +1177,17 @@ export async function removeTeamAgent(args: {
     throw new Error(`Team "${args.slug}" has no agent "${args.agentId}"`);
   }
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "agent_removed",
+    title: `agent_removed:${args.agentId}`,
+    text: `Removed agent ${args.agentId} from ${args.slug}. Buccet continuity stays with path-source memory, not the worker.`,
+    meta: {
+      agentId: args.agentId,
+      remainingAgentCount: manifest.agents.length,
+    },
+  });
 }
 
 export type AddSourceArgs = {
@@ -661,7 +1241,22 @@ export async function addTeamSource(args: AddSourceArgs): Promise<TeamManifest> 
   };
   manifest.pathSourceCorpus.push(ref);
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_added",
+    title: `source_added:${sourceId}`,
+    text: `Added source ${ref.title} (${ref.kind}) to ${args.slug}; whole-view can now project it before live input.`,
+    meta: {
+      sourceId: ref.id,
+      title: ref.title,
+      kind: ref.kind,
+      sourceUri: ref.sourceUri ?? null,
+      importedFromPath: ref.importedFromPath ?? null,
+      checkpointDigest: ref.checkpoint?.digest ?? null,
+      checkpointStoragePath: ref.checkpoint?.storagePath ?? null,
+    },
+  });
 }
 
 export type AddRemoteLlmSourceArgs = {
@@ -715,7 +1310,23 @@ export async function addTeamRemoteLlmSource(args: AddRemoteLlmSourceArgs): Prom
   };
   manifest.pathSourceCorpus.push(ref);
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_added",
+    title: `source_added:${sourceId}`,
+    text: `Added remote LLM source ${ref.title} to ${args.slug}; Pi can now bind this provider during map prep and live work.`,
+    meta: {
+      sourceId: ref.id,
+      title: ref.title,
+      kind: ref.kind,
+      transport: ref.transport,
+      provider: remote.provider,
+      endpoint: remote.endpoint,
+      model: remote.model,
+      authEnvVar: remote.authEnvVar ?? null,
+    },
+  });
 }
 
 export type AddLocalLlmSourceArgs = {
@@ -791,7 +1402,23 @@ export async function addTeamHttpApiSource(args: AddTeamHttpApiSourceArgs): Prom
   };
   manifest.pathSourceCorpus.push(ref);
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_added",
+    title: `source_added:${sourceId}`,
+    text: `Added HTTP API source ${ref.title} to ${args.slug}; retrieval is now available to whole-view prep and live peers.`,
+    meta: {
+      sourceId: ref.id,
+      title: ref.title,
+      kind: ref.kind,
+      transport: ref.transport,
+      provider: httpApi.provider ?? null,
+      endpoint: httpApi.endpoint,
+      method: httpApi.method ?? null,
+      authEnvVar: httpApi.authEnvVar ?? null,
+    },
+  });
 }
 
 export async function addTeamLocalLlmSource(args: AddLocalLlmSourceArgs): Promise<TeamManifest> {
@@ -827,7 +1454,23 @@ export async function addTeamLocalLlmSource(args: AddLocalLlmSourceArgs): Promis
   };
   manifest.pathSourceCorpus.push(ref);
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_added",
+    title: `source_added:${sourceId}`,
+    text: `Added local LLM source ${ref.title} to ${args.slug}; Pi can now bind this local provider during prep and runtime.`,
+    meta: {
+      sourceId: ref.id,
+      title: ref.title,
+      kind: ref.kind,
+      transport: ref.transport,
+      provider: local.provider,
+      binary: local.binary ?? null,
+      endpoint: local.endpoint ?? null,
+      model: local.model,
+    },
+  });
 }
 
 export type AddEngineSourceArgs = {
@@ -887,7 +1530,24 @@ export async function addTeamEngineSource(args: AddEngineSourceArgs): Promise<Te
   };
   manifest.pathSourceCorpus.push(ref);
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_added",
+    title: `source_added:${sourceId}`,
+    text: `Added engine source ${ref.title} to ${args.slug}; Pi hands are now available to carry lawful actions through the boundary.`,
+    meta: {
+      sourceId: ref.id,
+      title: ref.title,
+      kind: ref.kind,
+      transport: ref.transport,
+      provider: engine.provider,
+      toolExecution: engine.toolExecution,
+      allowedTools: engine.allowedTools ?? [],
+      agentCorePackage: engine.agentCorePackage ?? null,
+      aiPackage: engine.aiPackage ?? null,
+    },
+  });
 }
 
 export async function removeTeamSource(args: {
@@ -897,6 +1557,9 @@ export async function removeTeamSource(args: {
 }): Promise<TeamManifest> {
   if (args.sourceId === UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.id) {
     throw new Error("The brain source is auto-injected and cannot be removed from a team.");
+  }
+  if (args.sourceId === teamWorkMemorySourceId(args.slug)) {
+    throw new Error("The Buccet path-source memory is auto-injected and cannot be removed from a team.");
   }
   const manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
@@ -917,7 +1580,21 @@ export async function removeTeamSource(args: {
     ref: removed?.checkpoint,
   });
   await saveTeam(args.homePath, manifest);
-  return manifest;
+  return commitTeamStructuralMemory({
+    homePath: args.homePath,
+    slug: args.slug,
+    kind: "source_removed",
+    title: `source_removed:${args.sourceId}`,
+    text:
+      `Removed source ${removed?.title ?? args.sourceId} from ${args.slug}. The Batcave wall has been narrowed, but the structural history remains committed.`,
+    meta: {
+      sourceId: args.sourceId,
+      title: removed?.title ?? null,
+      kind: removed?.kind ?? null,
+      sourceUri: removed?.sourceUri ?? null,
+      remainingSourceCount: manifest.pathSourceCorpus.length,
+    },
+  });
 }
 
 function brainSourceRef(): TeamSourceRef {
@@ -927,6 +1604,7 @@ function brainSourceRef(): TeamSourceRef {
     kind: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.kind,
     summary: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.summary,
     sourceUri: UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE.sourceUri,
+    internalRole: "brain",
   };
 }
 

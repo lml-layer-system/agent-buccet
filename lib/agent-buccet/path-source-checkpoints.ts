@@ -333,6 +333,10 @@ export async function openProjectionHandle(args: {
   });
   if (!checkpoint) return null;
   if (args.handle.kind === "whole-view") {
+    const memoryTail =
+      args.sourceRef.internalRole === "work_memory"
+        ? decodeCheckpointBody(checkpoint).slice(-6_000)
+        : "";
     return {
       sourceId: checkpoint.sourceId,
       title: checkpoint.title,
@@ -349,6 +353,9 @@ export async function openProjectionHandle(args: {
         `regions: ${checkpoint.regionCount}`,
         checkpoint.summary ? `summary: ${checkpoint.summary}` : "",
         "",
+        args.sourceRef.internalRole === "work_memory" ? "latest-work:" : "",
+        args.sourceRef.internalRole === "work_memory" ? memoryTail : "",
+        args.sourceRef.internalRole === "work_memory" ? "" : "",
         "region-index:",
         ...checkpoint.regions.map((region) =>
           `- ${region.stableAddress} · ${region.title} · ${region.hash} · ${region.preview.replaceAll("\n", " ").slice(0, 120)}`,

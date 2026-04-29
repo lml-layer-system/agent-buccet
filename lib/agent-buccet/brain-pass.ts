@@ -64,6 +64,8 @@ import {
   startPersistentBoundarySession,
 } from "./state.ts";
 import {
+  appendTeamPathSourceMemoryEntry,
+  ensureTeamWorkMemorySource,
   loadTeam,
   type TeamAgent,
   type TeamManifest,
@@ -155,10 +157,14 @@ export async function preflightBrainPass(args: {
   agentId?: string;
   userRequest?: string;
 }): Promise<BrainPassPreflight> {
-  const manifest = await loadTeam(args.homePath, args.slug);
+  let manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
     throw new BrainPassPreconditionError(`No team named "${args.slug}".`);
   }
+  manifest = (await ensureTeamWorkMemorySource({
+    homePath: args.homePath,
+    manifest,
+  })).manifest;
 
   const engineSource = manifest.pathSourceCorpus.find((s) => s.transport === "engine");
   if (!engineSource) {
@@ -279,7 +285,7 @@ function extractTextOutput(value: unknown): string {
  * existing message-queue ack.
  */
 export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPassResult> {
-  const { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph, comprehensionPass: initialComprehensionPass } = await preflightBrainPass({
+  let { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph, comprehensionPass: initialComprehensionPass } = await preflightBrainPass({
     homePath: args.homePath,
     slug: args.slug,
     agentId: args.agentId,
@@ -323,10 +329,66 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
     peers: [],
     userRequest: args.userRequest,
   });
+  const appendWorkRecord = async (
+    kind: string,
+    title: string,
+    text: string,
+    meta?: Record<string, unknown>,
+  ): Promise<void> => {
+    const appended = await appendTeamPathSourceMemoryEntry({
+      homePath: args.homePath,
+      slug: args.slug,
+      kind,
+      title,
+      text,
+      meta,
+    });
+    manifest = appended.manifest;
+  };
   try {
+    await appendWorkRecord(
+      "brain_pass_preflight",
+      `brain-pass:${manifest.slug}`,
+      "Pi prepared the whole-view, fracture graph, and comprehension engine before live reasoning.",
+      {
+        sessionId,
+        agent: agent.id,
+        aiProvider,
+        engineProvider: (engineSource.engine?.provider as string | undefined) ?? "pi",
+        wholeView: {
+          sourceCount: wholeView.sourceCount,
+          checkpointedSourceCount: wholeView.checkpointedSourceCount,
+          totalLineCount: wholeView.totalLineCount,
+          totalCharCount: wholeView.totalCharCount,
+        },
+        comprehensionPass,
+        packets: peerTaskGraph.packets.map((packet) => ({
+          peerId: packet.peerId,
+          ownsStep: packet.ownsStep,
+          sourceIds: packet.sourceIds,
+          projectionCount: packet.projectionHandles.length,
+          taskSlice: packet.taskSlice,
+        })),
+      },
+    );
     for (const packet of peerTaskGraph.packets) {
       const peerAgent = agents.find((entry) => entry.id === packet.peerId);
       if (!peerAgent) continue;
+      await appendWorkRecord(
+        "shard_dispatch",
+        `${peerAgent.id}:${packet.ownsStep}`,
+        packet.taskSlice,
+        {
+          peerId: packet.peerId,
+          specialty: packet.specialty,
+          ownsStep: packet.ownsStep,
+          sourceIds: packet.sourceIds,
+          allowedOutputs: packet.allowedOutputs,
+          allowedActionKinds: packet.allowedActionKinds,
+          projectionHandles: packet.projectionHandles,
+          constraints: packet.constraints,
+        },
+      );
       const projectionBundle = await renderProjectionBundle({
         homePath: args.homePath,
         slug: args.slug,
@@ -362,6 +424,20 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
         proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
       });
+      await appendWorkRecord(
+        "peer_result",
+        `${peerAgent.id}:${packet.ownsStep}`,
+        peerOutput,
+        {
+          peerId: peerAgent.id,
+          specialty: peerAgent.specialty,
+          ownsStep: peerAgent.ownsStep,
+          sourceIds: packet.sourceIds,
+          projectionCount: packet.projectionHandles.length,
+          resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
+          proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
+        },
+      );
     }
 
     comprehensionPass = recordComprehensionTransform(comprehensionPass, {
@@ -376,6 +452,21 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
       peers: peerResults,
       userRequest: args.userRequest,
     });
+    await appendWorkRecord(
+      "coherence_adjudication",
+      `coherence:${coherence.disposition}`,
+      coherence.reasons.join("\n"),
+      {
+        disposition: coherence.disposition,
+        truthCoherent: coherence.truthCoherent,
+        intentCoherent: coherence.intentCoherent,
+        executionCoherent: coherence.executionCoherent,
+        finalizationBlocked: coherence.finalizationBlocked,
+        dissentBeatsMajority: coherence.dissentBeatsMajority,
+        selectedPeerIds: coherence.selectedPeerIds,
+        rejectedPeerIds: coherence.rejectedPeerIds,
+      },
+    );
     comprehensionPass = recordComprehensionValidation(comprehensionPass, {
       disposition: coherence.disposition,
       truthCoherent: coherence.truthCoherent,
@@ -398,6 +489,11 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
       comprehensionPass = recordComprehensionReturn(comprehensionPass, {
         blocked: true,
         outputPreview: output.slice(0, 240),
+      });
+      await appendWorkRecord("pi_return", `return:${coherence.disposition}`, output, {
+        blocked: true,
+        spokesperson: agent.id,
+        comprehensionPass,
       });
       emit({ type: "completed", output });
     } else {
@@ -431,8 +527,24 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         blocked: false,
         outputPreview: output.slice(0, 240),
       });
+      await appendWorkRecord("pi_return", "return:completed", output, {
+        blocked: false,
+        spokesperson: agent.id,
+        comprehensionPass,
+      });
       emit({ type: "completed", output });
     }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      await appendWorkRecord("brain_pass_failure", "brain-pass failed", message, {
+        sessionId,
+        agent: agent.id,
+      });
+    } catch {
+      // Persistence failure must not mask the original error.
+    }
+    throw error;
   } finally {
     try {
       await endPersistentBoundarySession({
