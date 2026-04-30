@@ -1109,6 +1109,49 @@ function summarizeStructuredLaw(law: BoundaryStructuredUplLaw | null): string {
   return `${law.domain}:${law.capability}:${law.state}  ${law.runtime.actionKinds.join(",")} -> ${law.runtime.primaryTarget}${bounds.length > 0 ? `  ${clrDim(bounds.join(" | "))}` : ""}`;
 }
 
+function structuredLawSideToken(law: BoundaryStructuredUplLaw | null): "yes_side" | "denial_side" | "runtime_ask" | "removed" {
+  if (!law) {
+    return "removed";
+  }
+  switch (law.state) {
+    case "allow":
+      return "yes_side";
+    case "deny":
+      return "denial_side";
+    case "ask":
+      return "runtime_ask";
+  }
+}
+
+function structuredLawSideLabel(law: BoundaryStructuredUplLaw | null): string {
+  switch (structuredLawSideToken(law)) {
+    case "yes_side":
+      return "yes side (approved UPL)";
+    case "denial_side":
+      return "denial side (denied UPL)";
+    case "runtime_ask":
+      return "runtime ask disposition";
+    case "removed":
+      return "removed";
+  }
+}
+
+function buildUplDeltaSideSummary(delta: UplProcessWorkspaceRecord["review"]["deltas"][number]) {
+  return {
+    beforeSide: structuredLawSideToken(delta.before),
+    afterSide: structuredLawSideToken(delta.after),
+    writesTo: structuredLawSideToken(delta.after ?? delta.before),
+    beforeSideLabel: structuredLawSideLabel(delta.before),
+    afterSideLabel: structuredLawSideLabel(delta.after),
+    writesToLabel: structuredLawSideLabel(delta.after ?? delta.before),
+  };
+}
+
+function summarizeReviewWriteSides(review: UplProcessWorkspaceRecord["review"]): string {
+  const sides = [...new Set(review.deltas.map((delta) => buildUplDeltaSideSummary(delta).writesToLabel))];
+  return sides.join(", ");
+}
+
 function printUplProcessReview(record: UplProcessWorkspaceRecord, stale: boolean): void {
   const { review } = record;
   console.log(``);
@@ -1119,6 +1162,7 @@ function printUplProcessReview(record: UplProcessWorkspaceRecord, stale: boolean
     formatCliKeyValue("sync", record.requestedSyncTargets.join(", ")),
     formatCliKeyValue("fingerprint", review.candidateFingerprint.slice(0, 16)),
     formatCliKeyValue("status", workspaceRecordApplied(record) ? "applied" : stale ? "stale" : "pending"),
+    formatCliKeyValue("writes to", summarizeReviewWriteSides(review)),
   ]);
   printCliSection("Observation", [
     formatCliKeyValue("title", review.draft.observation.title),
@@ -1126,7 +1170,9 @@ function printUplProcessReview(record: UplProcessWorkspaceRecord, stale: boolean
     formatCliKeyValue("invariant", review.draft.invariant.statement),
   ]);
   for (const delta of review.deltas) {
+    const side = buildUplDeltaSideSummary(delta);
     console.log(`  ${clrBold(delta.kind)}  ${delta.lawKey}`);
+    console.log(`    ${clrDim("writes to:")} ${side.writesToLabel}`);
     console.log(`    ${clrDim("before:")} ${summarizeStructuredLaw(delta.before)}`);
     console.log(`    ${clrDim("after:")}  ${summarizeStructuredLaw(delta.after)}`);
     console.log(`    ${clrDim("reason:")} ${delta.reason}`);
@@ -1151,8 +1197,20 @@ function buildUplProcessWorkspacePayload(workspacePath: string, workspace: UplPr
       stale: workspaceRecordStale(workspace, record),
       appliedAt: record.appliedAt ?? null,
       deltaCount: record.review.deltas.length,
+      writeSides: [...new Set(record.review.deltas.map((delta) => buildUplDeltaSideSummary(delta).writesTo))],
       mutationCount: record.draft.mutations.length,
       observationTitle: record.draft.observation.title,
+    })),
+  };
+}
+
+function buildReviewJsonPayload(review: UplProcessWorkspaceRecord["review"]) {
+  return {
+    ...review,
+    writesTo: summarizeReviewWriteSides(review),
+    deltas: review.deltas.map((delta) => ({
+      ...delta,
+      side: buildUplDeltaSideSummary(delta),
     })),
   };
 }
@@ -5388,7 +5446,7 @@ async function handleUpl(rest: string[]) {
           sourcePath: proposal.sourceLabel,
           syncTargets: record.requestedSyncTargets,
           draft: record.draft,
-          review: record.review,
+          review: buildReviewJsonPayload(record.review),
         });
         return;
       }
@@ -5432,7 +5490,7 @@ async function handleUpl(rest: string[]) {
           syncTargets: record.requestedSyncTargets,
           components: input.components,
           draft: record.draft,
-          review: record.review,
+          review: buildReviewJsonPayload(record.review),
         });
         return;
       }
@@ -5531,7 +5589,7 @@ async function handleUpl(rest: string[]) {
           sourcePath: proposal.sourceLabel,
           syncTargets: record.requestedSyncTargets,
           draft: record.draft,
-          review: record.review,
+          review: buildReviewJsonPayload(record.review),
         });
         return;
       }
@@ -5621,7 +5679,7 @@ async function handleUpl(rest: string[]) {
         sourcePath: inputPath,
         syncTargets: record.requestedSyncTargets,
         draft,
-        review,
+        review: buildReviewJsonPayload(review),
       });
       return;
     }
@@ -5644,7 +5702,7 @@ async function handleUpl(rest: string[]) {
         stale,
         applied: workspaceRecordApplied(record),
         draft: record.draft,
-        review: record.review,
+        review: buildReviewJsonPayload(record.review),
       });
       return;
     }
@@ -5736,6 +5794,7 @@ async function handleUpl(rest: string[]) {
         approved,
         active,
         activatedEntryIds,
+        activeSides: [...new Set(active.activeLaws.map((law) => structuredLawSideToken(law)))],
       });
       return;
     }
@@ -5748,6 +5807,7 @@ async function handleUpl(rest: string[]) {
       formatCliKeyValue("sync", active.syncTargets.join(", ")),
       formatCliKeyValue("active laws", active.activeLaws.length),
       formatCliKeyValue("entries", activatedEntryIds.length),
+      formatCliKeyValue("writes to", [...new Set(active.activeLaws.map((law) => structuredLawSideLabel(law)))].join(", ")),
     ]);
     console.log(``);
     return;
