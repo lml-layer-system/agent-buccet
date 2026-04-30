@@ -67,6 +67,7 @@ import {
 import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
 import {
   activateCompiledBoundaryUplState,
+  buildBoundarySpendLawBlendDraft,
   approveBoundaryUplReview,
   buildBoundarySpendLawPackDraft,
   compileApprovedBoundaryUplReview,
@@ -81,6 +82,7 @@ import type {
   BoundaryActionKind,
   BoundaryApprovedUplReview,
   BoundarySpendLawPack,
+  BoundarySpendLawBlendComponentArgs,
   BoundarySpendLawPackId,
   BoundarySpendProposalAnalysis,
   BoundarySpendPeriodWindow,
@@ -193,6 +195,16 @@ type UplDraftInputFile = {
   draftedBy?: string;
   mutations: Array<Omit<BoundaryUplMutation, "mutationId"> & { mutationId?: string }>;
   syncTargets?: BoundaryUplSyncTarget[];
+};
+
+type SpendBlendInputFile = {
+  title?: string;
+  summary?: string;
+  requestText?: string;
+  draftedByKind?: BoundaryUplDraftActorKind;
+  draftedBy?: string;
+  syncTargets?: BoundaryUplSyncTarget[];
+  components: BoundarySpendLawBlendComponentArgs[];
 };
 
 type UplAcceptanceSourceCatalog = {
@@ -449,7 +461,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet upl review <draft-id|review-id|latest> [--json]           inspect exact before/after law deltas",
         "  buccet upl apply <draft-id|review-id|latest> [--json]            human-activate one reviewed law delta",
         "  buccet upl workspace [--json]                                     inspect the typed UPL proposal workspace",
-        "  buccet upl spend list|show|propose|draft|setup [...]              inspect spend packs and stage narrow spend corridors",
+        "  buccet upl spend list|show|propose|draft|setup|blend [...]        inspect spend packs and stage exact spend corridors",
         "  buccet scope add <path> [--actions <csv>]                         grant a scope corridor",
         "  buccet scope list [--json]                                        list standing scope grants",
         "  buccet swarm list                                                 show swarm groups awaiting verdict",
@@ -902,9 +914,28 @@ function printSpendProposalAnalysis(analysis: BoundarySpendProposalAnalysis): vo
       `  ${clrDim("inspect:")} ${clrBold(`buccet upl spend show ${topPack}`)}`,
       `  ${clrDim("stage:")}   ${clrBold(`buccet upl spend setup ${topPack}`)}`,
       `  ${clrDim("catalog:")} ${clrBold("buccet upl spend list")}`,
+      `  ${clrDim("blend:")}   ${clrBold("buccet upl spend blend <spec.json>")} ${clrDim("(explicit only)")}`,
     ]);
   }
   printCliSection("Policy Notes", analysis.notes.map((note) => `  ${note}`));
+  console.log(``);
+}
+
+function printSpendBlendSummary(args: {
+  sourceLabel: string;
+  syncTargets: BoundaryUplSyncTarget[];
+  components: BoundarySpendLawBlendComponentArgs[];
+}): void {
+  console.log(``);
+  printCliHeader("  Spend Blend");
+  printCliSection("Identity", [
+    formatCliKeyValue("source", args.sourceLabel),
+    formatCliKeyValue("sync", args.syncTargets.join(", ")),
+    formatCliKeyValue("components", args.components.length),
+  ]);
+  printCliSection("Exact Corridors", args.components.map((component, index) =>
+    `  ${index + 1}. ${clrBold(component.packId)}  ${clrDim(component.handle)}  ${clrDim(`bucket=${component.bucketId} · principal=${component.principal} · max=${component.amountLimitNormalized}`)}`
+  ));
   console.log(``);
 }
 
@@ -1033,6 +1064,33 @@ function parseUplDraftInputFile(raw: string, filePath: string): UplDraftInputFil
     syncTargets: normalizeRequestedSyncTargets(
       Array.isArray(candidate.syncTargets) ? candidate.syncTargets as BoundaryUplSyncTarget[] : undefined,
     ),
+  };
+}
+
+function parseSpendBlendInputFile(raw: string, filePath: string): SpendBlendInputFile {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`spend blend input must be valid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+  }
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error(`spend blend input must be a JSON object: ${filePath}`);
+  }
+  const candidate = parsed as Partial<SpendBlendInputFile>;
+  if (!Array.isArray(candidate.components)) {
+    throw new Error(`spend blend input must include a components array: ${filePath}`);
+  }
+  return {
+    title: typeof candidate.title === "string" ? candidate.title : undefined,
+    summary: typeof candidate.summary === "string" ? candidate.summary : undefined,
+    requestText: typeof candidate.requestText === "string" ? candidate.requestText : undefined,
+    draftedByKind: candidate.draftedByKind ?? "pi",
+    draftedBy: candidate.draftedBy ?? "pi",
+    syncTargets: normalizeRequestedSyncTargets(
+      Array.isArray(candidate.syncTargets) ? candidate.syncTargets as BoundaryUplSyncTarget[] : undefined,
+    ),
+    components: candidate.components as BoundarySpendLawBlendComponentArgs[],
   };
 }
 
@@ -5232,7 +5290,7 @@ async function handleUpl(rest: string[]) {
   if (subcommand === "spend") {
     const spendSub = rest[1];
     if (!spendSub) {
-      throw new Error("usage: buccet upl spend list|show|propose|draft|setup [...]");
+      throw new Error("usage: buccet upl spend list|show|propose|draft|setup|blend [...]");
     }
     if (spendSub === "list") {
       const packs = listBoundarySpendLawPacks();
@@ -5335,6 +5393,54 @@ async function handleUpl(rest: string[]) {
         return;
       }
       printSpendLawPackDetails(pack);
+      printUplProcessReview(record, workspaceRecordStale(nextWorkspace, record));
+      printUplDraftNextSteps(record.review.reviewId);
+      return;
+    }
+    if (spendSub === "blend") {
+      let inputPath: string | null = null;
+      for (let index = 2; index < rest.length; index += 1) {
+        const token = rest[index];
+        if (token === "--json") {
+          continue;
+        }
+        if (inputPath) {
+          throw new Error("usage: buccet upl spend blend <spec.json> [--json]");
+        }
+        inputPath = path.resolve(resolveCallerCwd(), token);
+      }
+      if (!inputPath) {
+        throw new Error("usage: buccet upl spend blend <spec.json> [--json]");
+      }
+      const input = parseSpendBlendInputFile(await fs.readFile(inputPath, "utf8"), inputPath);
+      const proposal = buildBoundarySpendLawBlendDraft(input);
+      const { nextWorkspace, record } = await stageUplWorkspaceRecord({
+        workspacePath: home.uplProcessWorkspacePath,
+        sourcePath: proposal.sourceLabel,
+        syncTargets: proposal.syncTargets,
+        observation: proposal.observation,
+        boundary: proposal.boundary,
+        invariant: proposal.invariant,
+        draftedByKind: proposal.draftedByKind,
+        draftedBy: proposal.draftedBy,
+        mutations: proposal.mutations,
+      });
+      if (asJson) {
+        printJson({
+          workspacePath: home.uplProcessWorkspacePath,
+          sourcePath: proposal.sourceLabel,
+          syncTargets: record.requestedSyncTargets,
+          components: input.components,
+          draft: record.draft,
+          review: record.review,
+        });
+        return;
+      }
+      printSpendBlendSummary({
+        sourceLabel: proposal.sourceLabel,
+        syncTargets: proposal.syncTargets,
+        components: input.components,
+      });
       printUplProcessReview(record, workspaceRecordStale(nextWorkspace, record));
       printUplDraftNextSteps(record.review.reviewId);
       return;

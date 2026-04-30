@@ -107,6 +107,21 @@ export type BoundarySpendLawPackDraftArgs = {
   draftedBy?: string;
 };
 
+export type BoundarySpendLawBlendComponentArgs = Omit<
+  BoundarySpendLawPackDraftArgs,
+  "syncTargets" | "draftedByKind" | "draftedBy"
+>;
+
+export type BoundarySpendLawBlendDraftArgs = {
+  title?: string;
+  summary?: string;
+  requestText?: string;
+  syncTargets?: BoundaryUplSyncTarget[];
+  draftedByKind?: BoundaryUplDraftActorKind;
+  draftedBy?: string;
+  components: BoundarySpendLawBlendComponentArgs[];
+};
+
 const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
   {
     id: "merchant.purchase",
@@ -841,5 +856,93 @@ export function buildBoundarySpendLawPackDraft(args: BoundarySpendLawPackDraftAr
         nextLaw: law,
       },
     ],
+  };
+}
+
+export function buildBoundarySpendLawBlendDraft(args: BoundarySpendLawBlendDraftArgs): {
+  sourceLabel: string;
+  syncTargets: BoundaryUplSyncTarget[];
+  componentPacks: BoundarySpendLawPack[];
+  observation: {
+    title: string;
+    summary: string;
+    detectedAt: string;
+    detectedBy: string;
+    sourceText: string;
+  };
+  boundary: {
+    title: string;
+    crossing: string;
+    consequence: string;
+  };
+  invariant: {
+    statement: string;
+    allowed: string[];
+    denied: string[];
+    humanRequired: string[];
+    headlessAllowed: string[];
+  };
+  draftedByKind: BoundaryUplDraftActorKind;
+  draftedBy: string;
+  mutations: Array<Omit<BoundaryUplMutation, "mutationId"> & { mutationId?: string }>;
+} {
+  if (!Array.isArray(args.components) || args.components.length < 2) {
+    throw new Error("spend blend requires at least 2 components; use spend draft for a single corridor");
+  }
+  const drafts = args.components.map((component) =>
+    buildBoundarySpendLawPackDraft({
+      ...component,
+      draftedByKind: args.draftedByKind,
+      draftedBy: args.draftedBy,
+    }));
+  const mutations = drafts.flatMap((draft) => draft.mutations);
+  const lawKeys = mutations.map((mutation) => mutation.lawKey);
+  if (new Set(lawKeys).size !== lawKeys.length) {
+    throw new Error("spend blend produced duplicate law keys; each blended corridor must remain exact and distinct");
+  }
+  const componentPacks = args.components.map((component) => {
+    const pack = findBoundarySpendLawPack(component.packId);
+    if (!pack) {
+      throw new Error(`unknown spend law pack: ${component.packId}`);
+    }
+    return pack;
+  });
+  const sourceLabel = `spend-blend:${componentPacks.map((pack) => pack.id).join("+")}`;
+  const title = args.title?.trim() || `Blended spend corridors · ${componentPacks.map((pack) => pack.id).join(" + ")}`;
+  const summary = args.summary?.trim() || `Open ${componentPacks.length} exact spend corridors in one reviewed draft without widening anything else.`;
+  const requestText = args.requestText?.trim() || drafts.map((draft) => draft.observation.sourceText).join(" ; ");
+  return {
+    sourceLabel,
+    syncTargets: args.syncTargets?.length ? [...args.syncTargets] : ["buccet"],
+    componentPacks,
+    observation: {
+      title,
+      summary,
+      detectedAt: new Date().toISOString(),
+      detectedBy: args.draftedBy ?? "pi",
+      sourceText: requestText,
+    },
+    boundary: {
+      title: "value boundary blend",
+      crossing: `internal spend intent becomes external multi-corridor value movement across ${componentPacks.map((pack) => pack.capability).join(", ")}`,
+      consequence: "multiple exact spend corridors open together only because the human explicitly requested a blended draft",
+    },
+    invariant: {
+      statement: "only the explicit blended corridors may open together; no other spend authority widens automatically",
+      allowed: drafts.flatMap((draft) => draft.invariant.allowed.map((entry) => `[${draft.sourceLabel.replace("spend-pack:", "")}] ${entry}`)),
+      denied: [
+        "implicit widening outside the listed corridors",
+        "silent blending of unlisted packs",
+        ...new Set(drafts.flatMap((draft) => draft.invariant.denied)),
+      ],
+      humanRequired: [
+        "active law activation",
+        "explicit human request for the blended draft itself",
+      ],
+      headlessAllowed: drafts.flatMap((draft) => draft.invariant.headlessAllowed),
+    },
+    draftedByKind: args.draftedByKind ?? "pi",
+    draftedBy: args.draftedBy ?? "pi",
+    mutations,
   };
 }
