@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import {
   evaluateBaseHeadlessDenials,
-} from "../lib/agent-buccet/index.ts";
-import type { HeadlessActionRequest } from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
+import type { HeadlessActionRequest } from "./../../src/index.ts";
 
 async function main() {
   console.log("--- Agent Buccet User Telemetry Boundary Contract ---");

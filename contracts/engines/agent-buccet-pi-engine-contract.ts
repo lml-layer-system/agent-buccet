@@ -6,8 +6,8 @@ import path from "node:path";
 import {
   ENGINE_ACCEPTANCE_CORRIDORS,
   ENGINE_ACCEPTANCE_LANES,
-} from "../lib/agent-buccet/agent-comprehension-acceptance.ts";
-import { buildBaseAcceptanceSeeds } from "../lib/agent-buccet/base-upl-acceptance.ts";
+} from "./../../src/teams/agent-comprehension-acceptance.ts";
+import { buildBaseAcceptanceSeeds } from "./../../src/law/base-upl-acceptance.ts";
 import {
   ENGINE_PROVIDER_DEFAULTS,
   addTeamEngineSource,
@@ -16,13 +16,13 @@ import {
   loadTeam,
   teamSlug,
   type EngineSourceConfig,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 import {
   buildBuccetSystemContext,
   mapPiToolToBoundaryKind,
   summarizeToolCallForBoundary,
   tryLoadPiBindings,
-} from "../lib/agent-buccet/pi-adapter.ts";
+} from "./../../src/engines/pi/pi-adapter.ts";
 
 /**
  * Pi Engine Contract.

@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { assertBoundaryGravityProposalAllowed } from "./gravity-adapter/gravity-service.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
-import { armBoundaryQuarantineReboot } from "./quarantine.ts";
+import { assertBoundaryGravityProposalAllowed } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
+import { armBoundaryQuarantineReboot } from "./../boundaries/quarantine.ts";
 import { persistBoundarySessionState } from "./state.ts";
-import { substrate } from "./substrate-rust.ts";
+import { substrate } from "./substrate/substrate-rust.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,

@@ -1,10 +1,10 @@
 import { parentPort, workerData } from "node:worker_threads";
-import { materializeBoundaryActionRequestFromUplEntry } from "./user-path-ledger.ts";
+import { materializeBoundaryActionRequestFromUplEntry } from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundarySession,
   BoundaryUplEntry,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 type BoundaryQuarantineSnapshotItem = {
   itemId: string;

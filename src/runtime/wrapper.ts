@@ -1,8 +1,8 @@
 import path from "node:path";
-import { appendBoundaryLedger } from "./ledger.ts";
-import { enableBodyguardControl, enforceBoundaryProposal } from "./bodyguard.ts";
-import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
-import { loadBoundaryPolicyConfig, applyBoundaryPolicyConfig } from "./policy.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
+import { enableBodyguardControl, enforceBoundaryProposal } from "./../boundaries/bodyguard.ts";
+import { DEFAULT_BOUNDARY_LAWS } from "./../law/laws.ts";
+import { loadBoundaryPolicyConfig, applyBoundaryPolicyConfig } from "./../boundaries/policy.ts";
 import { prepareBoundaryProcess, runBoundaryProcess } from "./process.ts";
 import { sendBoundaryInterceptServerInput } from "./system-intercept.ts";
 import { createPersistentBoundaryRuntimeStore, restoreBoundaryRuntimeStore } from "./store.ts";

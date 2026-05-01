@@ -3,23 +3,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createBaseAcceptanceLaws,
-} from "./base-upl-acceptance.ts";
+} from "./../law/base-upl-acceptance.ts";
 import {
   createBaseHeadlessDenialEntries,
-} from "./headless-base-denials.ts";
+} from "./../law/headless-base-denials.ts";
 import {
   benchmarkBuccetSystemSnap,
   BUCCET_CONSEQUENCE_BOUNDARIES,
   BUCCET_SUBSTRATE_PLANES,
   BUCCET_SYSTEM_NODES,
   BUCCET_TERMINALS,
-} from "./system-substrate.ts";
+} from "./substrate/system-substrate.ts";
 import {
   createDefaultBuccetPathLibrary,
-} from "./path-memory.ts";
+} from "./../context/path-memory.ts";
 import {
   snapBuccetSystem,
-} from "./system-substrate.ts";
+} from "./substrate/system-substrate.ts";
 import type { BoundaryActionKind } from "./types.ts";
 
 const WORKSPACE_ROOT = "/<workspace-root>";
@@ -213,41 +213,29 @@ function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | 
   if (relativePath.startsWith("examples/") || relativePath.startsWith("demo/")) {
     return "OperatorBody";
   }
-  if (relativePath === "lib/agent-buccet/path-memory.ts" || relativePath === "lib/agent-buccet/swarm.ts") {
+  if (relativePath === "src/context/path-memory.ts" || relativePath === "src/runtime/swarm.ts") {
     return "PathBody";
   }
   if (
-    relativePath.startsWith("lib/agent-buccet/ledger")
-    || relativePath === "lib/agent-buccet/witness.ts"
-    || relativePath === "lib/agent-buccet/release-witness.ts"
+    relativePath.startsWith("src/proof/ledger")
+    || relativePath === "src/proof/witness.ts"
+    || relativePath === "src/proof/release-witness.ts"
   ) {
     return "WitnessBody";
   }
-  if (relativePath.startsWith("lib/agent-buccet/gravity-core/") || relativePath.startsWith("lib/agent-buccet/gravity-adapter/")) {
+  if (relativePath.startsWith("src/engines/gravity/gravity-core/") || relativePath.startsWith("src/engines/gravity/gravity-adapter/")) {
     return "RuntimeBody";
   }
-  if (relativePath.startsWith("lib/agent-buccet/integrations/")) {
+  if (relativePath.startsWith("src/integrations/")) {
     return "RuntimeBody";
   }
-  if (relativePath.startsWith("lib/agent-buccet/")) {
-    const file = relativePath.slice("lib/agent-buccet/".length);
+  if (relativePath.startsWith("src/law/")) {
+    return "LawBody";
+  }
+  if (relativePath.startsWith("src/")) {
+    const file = relativePath.slice("src/runtime/".length);
     if (
-      file.startsWith("base-upl-acceptance")
-      || file.startsWith("headless-base-denials")
-      || file.startsWith("document-law")
-      || file.startsWith("track-extractor")
-      || file.startsWith("upl-")
-      || file.startsWith("user-path-ledger")
-      || file.startsWith("openclaw-")
-      || file.startsWith("awesome-openclaw-")
-      || file.startsWith("list-v-acceptance")
-      || file.startsWith("marketplace-acceptance")
-      || file.startsWith("time-constraint-flags")
-      || file.startsWith("periodic-failure-taxonomy")
-      || file.startsWith("frontier-failure-aliases")
-      || file.startsWith("buccet-failure-catalog")
-      || file.startsWith("buccet-law-body-denial-catalog")
-      || file.startsWith("law")
+      file.startsWith("track-extractor")
       || file.startsWith("meta")
       || file.startsWith("full-system-body")
       || file.startsWith("foundation")
@@ -487,12 +475,12 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
     },
     step5: {
       implementationSurface: [
-        { label: "system body process", path: "lib/agent-buccet/full-system-body.ts" },
-        { label: "live UPL field and traffic", path: "lib/agent-buccet/user-path-ledger.ts" },
-        { label: "track snap", path: "lib/agent-buccet/track-extractor.ts" },
-        { label: "path runtime and path sources", path: "lib/agent-buccet/path-memory.ts" },
-        { label: "system substrate", path: "lib/agent-buccet/system-substrate.ts" },
-        { label: "operator/runtime surface", path: "scripts/buccet.ts" },
+        { label: "system body process", path: "src/runtime/full-system-body.ts" },
+        { label: "live UPL field and traffic", path: "src/proof/user-path-ledger.ts" },
+        { label: "track snap", path: "src/runtime/track-extractor.ts" },
+        { label: "path runtime and path sources", path: "src/context/path-memory.ts" },
+        { label: "system substrate", path: "src/runtime/substrate/system-substrate.ts" },
+        { label: "operator/runtime surface", path: "cli/buccet.ts" },
       ],
     },
     step6: {

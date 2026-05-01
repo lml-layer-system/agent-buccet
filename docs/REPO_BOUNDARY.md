@@ -5,10 +5,10 @@ This repository is an `Agent Buccet` repo.
 ## First-Class Surface
 
 The intended public surface is:
-- `docs/agent-boundary/`
-- `lib/agent-buccet/`
-- `scripts/agent-buccet-*`
-- `scripts/buccet.ts`
+- `docs/`
+- `src/`
+- `cli/buccet.ts`
+- `contracts/`
 - `scripts/install-agent-buccet.sh`
 - `scripts/install-agent-buccet-hosted.sh`
 - `scripts/prepare-agent-buccet-package.ts`

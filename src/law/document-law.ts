@@ -1,5 +1,5 @@
 export {
   compileMarkdownDocumentToLaws,
   extractDocumentLawsWithDiagnostics,
-} from "./track-extractor.ts";
-export type { DocumentLawDiagnosticEntry, DocumentLawExtractionResult } from "./track-extractor.ts";
+} from "./../runtime/track-extractor.ts";
+export type { DocumentLawDiagnosticEntry, DocumentLawExtractionResult } from "./../runtime/track-extractor.ts";

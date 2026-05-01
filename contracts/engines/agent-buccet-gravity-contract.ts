@@ -12,7 +12,7 @@ import {
   type GravityEvent,
   type GravityState,
   type LawSkill,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

@@ -6,7 +6,7 @@ import {
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
   restoreBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-secrets-boundary-"));

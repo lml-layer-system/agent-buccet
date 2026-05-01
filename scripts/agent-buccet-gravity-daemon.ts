@@ -3,7 +3,7 @@ import {
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
   restoreBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 
 type ParsedArgs = {
   sessionId: string;

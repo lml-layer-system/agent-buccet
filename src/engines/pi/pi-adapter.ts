@@ -31,12 +31,12 @@
  * when actually needed so startup cost is zero until a brain pass fires.
  */
 
-import { enforceBoundaryProposal } from "./bodyguard.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
+import { enforceBoundaryProposal } from "./../../boundaries/bodyguard.ts";
+import { appendBoundaryLedger } from "./../../proof/ledger.ts";
 import {
   isBuiltinTeamBrainSourceId,
   resolveTeamBrainPathSource,
-} from "./path-memory.ts";
+} from "./../../context/path-memory.ts";
 import {
   teamManifestBrainSourceId,
   type EngineSourceConfig,
@@ -45,8 +45,8 @@ import {
   type TeamAgent,
   type TeamManifest,
   type TeamSourceRef,
-} from "./team-workshop.ts";
-import type { BoundaryActionKind, BoundaryRuntimeConfig } from "./types.ts";
+} from "./../../teams/team-workshop.ts";
+import type { BoundaryActionKind, BoundaryRuntimeConfig } from "./../../runtime/types.ts";
 
 const PI_AGENT_CORE_PKG = "@mariozechner/pi-agent-core";
 const PI_AI_PKG = "@mariozechner/pi-ai";

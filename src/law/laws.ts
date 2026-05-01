@@ -1,8 +1,8 @@
 import {
   grantsForAction,
   isTargetReachable,
-} from "./orchestrator.ts";
-import { DEFENSIVE_TIME_LAWS } from "./time.ts";
+} from "./../runtime/orchestrator.ts";
+import { DEFENSIVE_TIME_LAWS } from "./../runtime/time.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -11,7 +11,7 @@ import type {
   BoundaryLaw,
   BoundaryLawResult,
   BoundarySession,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export function evaluateBoundaryLaws(args: {
   session: BoundarySession;

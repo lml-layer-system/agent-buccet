@@ -16,8 +16,8 @@ import {
   initialGovernorState,
   listUserPathEntries,
   loadAgentBuccetRuntimeMuscle,
-} from "../lib/agent-buccet/index.ts";
-import type { BoundaryLedgerRecord, BoundaryUserPathLedger } from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
+import type { BoundaryLedgerRecord, BoundaryUserPathLedger } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {

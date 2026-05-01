@@ -5,7 +5,7 @@ import type {
   BoundaryLegacyApprovalDecision,
   BoundaryApprovalRequest,
   BoundaryUplScope,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type PendingBoundaryApproval = {
   approvalId: string;

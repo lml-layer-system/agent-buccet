@@ -59,7 +59,7 @@ async function main() {
   const builtEntries = await fs.readdir(targetReleaseDir).catch(() => []);
   assert.ok(builtEntries.length > 0, "expected cargo build to produce release artifacts");
 
-  const adapterPath = path.join(repoRoot, "lib", "agent-buccet", "substrate-rust.ts");
+  const adapterPath = path.join(repoRoot, "src", "runtime", "substrate", "substrate-rust.ts");
   const adapterExists = await fs.access(adapterPath).then(() => true).catch(() => false);
   assert.equal(adapterExists, true, "expected Buccet TypeScript adapter for the Rust substrate");
   const dtsPath = path.join(crateRoot, "pkg", "buccet_substrate.d.ts");
@@ -77,12 +77,12 @@ async function main() {
   );
 
   const loaderScript = `
-    import { substrate, PolicyDecision } from ${JSON.stringify(new URL("../lib/agent-buccet/substrate-rust.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
-    import { evaluateBoundaryIntercept } from ${JSON.stringify(new URL("../lib/agent-buccet/intercept.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
-    import { DEFAULT_BOUNDARY_LAWS } from ${JSON.stringify(new URL("../lib/agent-buccet/laws.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
-    import { describeUserPath, hashUserPath } from ${JSON.stringify(new URL("../lib/agent-buccet/user-path-ledger.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
-    import { createBoundaryGravityService } from ${JSON.stringify(new URL("../lib/agent-buccet/gravity-adapter/gravity-service.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
-    import { createBoundaryActionRequest } from ${JSON.stringify(new URL("../lib/agent-buccet/bodyguard.ts", `file://${path.join(repoRoot, "scripts", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    import { substrate, PolicyDecision } from ${JSON.stringify(new URL("../../src/runtime/substrate/substrate-rust.ts", `file://${path.join(repoRoot, "contracts", "runtime", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    import { evaluateBoundaryIntercept } from ${JSON.stringify(new URL("../../src/runtime/intercept.ts", `file://${path.join(repoRoot, "contracts", "runtime", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    import { DEFAULT_BOUNDARY_LAWS } from ${JSON.stringify(new URL("../../src/law/laws.ts", `file://${path.join(repoRoot, "contracts", "runtime", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    import { describeUserPath, hashUserPath } from ${JSON.stringify(new URL("../../src/proof/user-path-ledger.ts", `file://${path.join(repoRoot, "contracts", "runtime", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    import { createBoundaryGravityService } from ${JSON.stringify(new URL("../../src/engines/gravity/gravity-adapter/gravity-service.ts", `file://${path.join(repoRoot, "contracts", "runtime", "agent-buccet-substrate-rust-contract.ts")}`).href)};
+    import { createBoundaryActionRequest } from ${JSON.stringify(new URL("../../src/boundaries/bodyguard.ts", `file://${path.join(repoRoot, "contracts", "runtime", "agent-buccet-substrate-rust-contract.ts")}`).href)};
     await substrate.init();
     const isolation = substrate.applyIsolation("unit-1");
     const persistedState = substrate.persistState("unit-1", {

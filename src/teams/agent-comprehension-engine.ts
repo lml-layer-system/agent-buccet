@@ -1,4 +1,4 @@
-import type { BoundaryActionKind } from "./types.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 
 export const AGENT_COMPREHENSION_STAGE_SEQUENCE = [
   "receive",

@@ -1,10 +1,10 @@
-import { grantsForAction, targetMatchesGrant } from "./orchestrator.ts";
+import { grantsForAction, targetMatchesGrant } from "./../orchestrator.ts";
 import { substrate, PolicyDecision, type RouteResult, type ValidationResult } from "./substrate-rust.ts";
-import { checkTrackConstraint } from "./upl-tracks.ts";
+import { checkTrackConstraint } from "./../../law/upl-tracks.ts";
 import {
   lookupUserPathDecision,
   lookupUserPathTrackDecision,
-} from "./user-path-ledger.ts";
+} from "./../../proof/user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -12,7 +12,7 @@ import type {
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
   BoundaryUplEntry,
-} from "./types.ts";
+} from "./../types.ts";
 
 type SubstrateTrafficMatchDecision = "allow" | "deny" | "require_approval" | "no_match";
 

@@ -1,14 +1,14 @@
 import { randomUUID } from "node:crypto";
-import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./bodyguard.ts";
+import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./../boundaries/bodyguard.ts";
 import {
   evaluateAdmission,
   initialAdmissionState,
   markCanyonLedgered,
 } from "./admission.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import { admitBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
-import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
-import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
+import { inferBoundaryProtectedMaterialSignals } from "./../boundaries/secrets-boundary.ts";
+import { assessBoundarySubstrateIntercept } from "./substrate/substrate-live.ts";
 import type {
   BoundaryActionRequest,
   BoundaryActionKind,

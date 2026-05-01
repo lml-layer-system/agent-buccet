@@ -6,11 +6,11 @@ import path from "node:path";
 import {
   describeUserPath,
   hashUserPath,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 import type {
   BoundaryLedgerRecord,
   BoundaryUplEntry,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "scripts", "buccet.ts");

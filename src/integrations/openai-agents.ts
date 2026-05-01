@@ -4,8 +4,8 @@ import {
   type BoundaryExecutionResult,
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
-} from "../bodyguard.ts";
-import type { BoundaryRuntimeConfig } from "../types.ts";
+} from "./../boundaries/bodyguard.ts";
+import type { BoundaryRuntimeConfig } from "./../runtime/types.ts";
 
 export async function enforceOpenAIAgentProposal<T>(args: {
   config: BoundaryRuntimeConfig;

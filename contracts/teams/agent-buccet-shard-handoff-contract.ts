@@ -7,7 +7,7 @@ import {
   buildTeamPeerTaskGraph,
   buildTeamWholeView,
   rebuildTeamShardLedger,
-} from "../lib/agent-buccet/path-source-checkpoints.ts";
+} from "./../../src/context/path-source-checkpoints.ts";
 import {
   addTeamAgent,
   addTeamSource,
@@ -17,7 +17,7 @@ import {
   readTeamPathSourceMemoryEntries,
   removeTeamAgent,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 async function main(): Promise<void> {
   console.log("--- Agent Buccet Shard Handoff Contract ---");

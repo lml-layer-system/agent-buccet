@@ -18,7 +18,7 @@ import {
   renderCreatePromptEvent,
   type CreatePromptEvent,
   type BuccetPromptMode,
-} from "../lib/agent-buccet/create-prompt.ts";
+} from "./../../src/runtime/create-prompt.ts";
 
 // ── 1. Defense prompt path — untouched ──────────────────────────────────────
 // The create-prompt module exports no function that touches boundary events.

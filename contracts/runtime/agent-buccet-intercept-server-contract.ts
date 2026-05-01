@@ -9,7 +9,7 @@ import { once } from "node:events";
 import {
   describeUserPath,
   hashUserPath,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));

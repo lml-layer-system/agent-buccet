@@ -6,8 +6,8 @@ import type {
   BoundaryPolicyConfig,
   BoundaryProcessPolicy,
   BoundaryRuntimeConfig,
-} from "./types.ts";
-import { instantiateBoundaryGrant } from "./orchestrator.ts";
+} from "./../runtime/types.ts";
+import { instantiateBoundaryGrant } from "./../runtime/orchestrator.ts";
 
 const VALID_ACTION_KINDS: BoundaryActionKind[] = [
   "fs.read",

@@ -1,4 +1,4 @@
-import { readAllBoundaryLedgerRecords } from "./ledger.ts";
+import { readAllBoundaryLedgerRecords } from "./../proof/ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryLawResult,
@@ -7,7 +7,7 @@ import type {
   BoundaryRuntimeConfig,
   BoundarySpendIntent,
   BoundarySpendPeriodWindow,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 const UNTRUSTED_SPEND_SOURCES = new Set<BoundaryRequestProvenance>([
   "external_content",

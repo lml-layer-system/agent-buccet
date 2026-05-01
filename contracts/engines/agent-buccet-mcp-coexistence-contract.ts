@@ -134,7 +134,7 @@ async function proveAiFailurePeriodicTableLane() {
       path.join(tempRoot, "data", "agent-buccet-law-foundation"),
       { recursive: true },
     );
-    const boundary = await import("../lib/agent-buccet/index.ts");
+    const boundary = await import("./../../src/index.ts");
     const sessionId = `agent-buccet-mcp-coexistence-${Date.now()}`;
     const actorId = "user:mcp-coexistence-contract";
     const workspace = path.join(tempRoot, "workspace");

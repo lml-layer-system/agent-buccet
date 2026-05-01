@@ -18,9 +18,9 @@ import {
   ledgerBodyguardConfirmedDeny,
   ledgerBodyguardGrantOffer,
 } from "./bodyguard-open-as-law.ts";
-import { appendBoundaryLedger } from "../ledger.ts";
-import { assessBoundarySubstrateGravity } from "../substrate-live.ts";
-import { compileLiveUplField } from "../user-path-ledger.ts";
+import { appendBoundaryLedger } from "./../../../proof/ledger.ts";
+import { assessBoundarySubstrateGravity } from "./../../../runtime/substrate/substrate-live.ts";
+import { compileLiveUplField } from "./../../../proof/user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalRequest,
@@ -28,7 +28,7 @@ import type {
   BoundaryRuntimeConfig,
   BoundaryUplEntry,
   BodyguardMove,
-} from "../types.ts";
+} from "./../../../runtime/types.ts";
 
 export type BoundaryGravityEnforcement =
   | {

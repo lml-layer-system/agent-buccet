@@ -5,15 +5,15 @@ import {
   type BodyguardGrantOffer,
   type BodyguardOpenAsLawStep,
 } from "../gravity-core/index.ts";
-import { appendBoundaryLedger } from "../ledger.ts";
-import { issueBoundaryGrant, openBoundaryPath } from "../runtime.ts";
+import { appendBoundaryLedger } from "./../../../proof/ledger.ts";
+import { issueBoundaryGrant, openBoundaryPath } from "./../../../runtime/runtime.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
   BodyguardMove,
-} from "../types.ts";
+} from "./../../../runtime/types.ts";
 
 // Re-export LEDGER_EVENTS so callers that imported it from here still work
 export { LEDGER_EVENTS };

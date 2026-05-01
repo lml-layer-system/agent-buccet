@@ -8,8 +8,8 @@ import {
   preflightBrainPass,
   runBrainPass,
   teamCanBrainPass,
-} from "../lib/agent-buccet/brain-pass.ts";
-import { tryLoadPiBindings } from "../lib/agent-buccet/pi-adapter.ts";
+} from "./../../src/teams/brain-pass.ts";
+import { tryLoadPiBindings } from "./../../src/engines/pi/pi-adapter.ts";
 import {
   addTeamAgent,
   addTeamEngineSource,
@@ -19,7 +19,7 @@ import {
   loadTeamRuntimePreparation,
   prepareTeamRuntime,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 /**
  * Brain Pass Contract.

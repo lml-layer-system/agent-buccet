@@ -2,8 +2,8 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createBaseHeadlessDenialLedger } from "./headless-base-denials.ts";
-import { stableBoundaryNoveltyDescriptor } from "./novelty.ts";
+import { createBaseHeadlessDenialLedger } from "./../law/headless-base-denials.ts";
+import { stableBoundaryNoveltyDescriptor } from "./../runtime/novelty.ts";
 import type {
   BoundaryActiveUplWriteAuthority,
   BoundaryActionRequest,
@@ -17,8 +17,8 @@ import type {
   BoundaryUplScope,
   BoundaryUplStatus,
   BoundaryUserPathLedger,
-} from "./types.ts";
-import { buildAutoTrackConstraint, checkTrackConstraint, isTrackSurface } from "./upl-tracks.ts";
+} from "./../runtime/types.ts";
+import { buildAutoTrackConstraint, checkTrackConstraint, isTrackSurface } from "./../law/upl-tracks.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const UPL_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "user-path-ledger.json");

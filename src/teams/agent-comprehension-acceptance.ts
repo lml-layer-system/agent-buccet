@@ -1,4 +1,4 @@
-import type { BoundaryActionKind } from "./types.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 
 /**
  * Agent comprehension acceptance lanes — the engine as law on the YES side.

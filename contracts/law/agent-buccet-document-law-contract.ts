@@ -9,7 +9,7 @@ import {
   getActiveUserLawIds,
   loadUserPathLedger,
   saveUserPathLedger,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "scripts", "buccet.ts");

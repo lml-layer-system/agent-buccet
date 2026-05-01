@@ -13,14 +13,14 @@ import {
   readBoundaryLedgerBySession,
   saveUserPathLedger,
   loadUserPathLedger,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
   BoundarySession,
   BoundaryUplEntry,
   BoundaryUserPathLedger,
-} from "../lib/agent-buccet/types.ts";
+} from "./../../src/runtime/types.ts";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

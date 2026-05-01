@@ -4,7 +4,7 @@ import {
   evaluateBoundaryGovernor,
   initialGovernorState,
   recordGovernorCrossing,
-} from "./governor.ts";
+} from "./../runtime/governor.ts";
 import {
   adjudicateBodyguardRequest,
   applyBodyguardUserLawDecision,
@@ -12,25 +12,25 @@ import {
   evaluateBodyguardAction,
   resolveBodyguardHeldRequest,
 } from "./bodyguard-core.ts";
-import { createBoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
-import { createBoundaryGravityAttachment } from "./gravity.ts";
-import { inferBoundaryMetaFlagsFromText } from "./meta-flags.ts";
+import { createBoundaryGravityService } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
+import { createBoundaryGravityAttachment } from "./../engines/gravity/gravity.ts";
+import { inferBoundaryMetaFlagsFromText } from "./../law/meta-flags.ts";
 import {
   normalizeBoundaryNoveltyState,
   noveltyFlagsForBoundaryRequest,
-} from "./novelty.ts";
+} from "./../runtime/novelty.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
-import { maybeShedCompromisedBoundaryUnit } from "./shed.ts";
+import { maybeShedCompromisedBoundaryUnit } from "./../runtime/shed.ts";
 import {
   evaluateSpendBoundaryAction,
   spendIntentLedgerMetadata,
   summarizeBoundarySpendIntent,
 } from "./spend-boundary.ts";
-import { assessBoundarySubstrateApprovalRequest } from "./substrate-live.ts";
-import type { BoundaryRuntimeStore } from "./store.ts";
-import { inferBoundaryTimeConstraintSignals } from "./time-constraint-flags.ts";
-import { buildTelegramBoundaryProposal } from "./integrations/telegram.ts";
+import { assessBoundarySubstrateApprovalRequest } from "./../runtime/substrate/substrate-live.ts";
+import type { BoundaryRuntimeStore } from "./../runtime/store.ts";
+import { inferBoundaryTimeConstraintSignals } from "./../law/time-constraint-flags.ts";
+import { buildTelegramBoundaryProposal } from "./../integrations/telegram.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -47,7 +47,7 @@ import type {
   BoundaryRuntimeConfig,
   BoundarySpendIntent,
   BodyguardMove,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export {
   type BodyguardAdjudication,

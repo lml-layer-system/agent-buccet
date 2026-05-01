@@ -1,5 +1,5 @@
 import path from "node:path";
-import type { BoundaryActionKind } from "./types.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 
 type TargetMatchMode = "prefix" | "exact" | "regex";
 

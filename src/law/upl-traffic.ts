@@ -4,13 +4,13 @@ import {
   lookupUserPathDecision,
   lookupUserPathTrackDecision,
   uplTrafficClassForPolarity,
-} from "./user-path-ledger.ts";
+} from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryLawResult,
   BoundaryRuntimeConfig,
   BoundaryUplEntry,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type BoundaryUplTrafficDecision = "allow" | "deny" | "drift" | "no_match";
 

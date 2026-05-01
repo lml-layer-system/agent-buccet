@@ -3,19 +3,19 @@ import path from "node:path";
 import {
   appendBoundaryLedger,
   readAllBoundaryLedgerRecords,
-} from "./ledger.ts";
+} from "./../proof/ledger.ts";
 import {
   buildActiveAgentBuccetLawIds,
   getAgentBuccetBaseLawIds,
   loadAgentBuccetRuntimeMuscle,
   normalizeTimeReferenceLawId,
 } from "./foundation.ts";
-import { assertBoundaryGravityEventAllowed } from "./gravity-adapter/gravity-service.ts";
+import { assertBoundaryGravityEventAllowed } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
 import { AGENT_BUCCET_TIME_LAW_REFERENCES } from "./time.ts";
 import { DEFAULT_ADMISSION_CONFIG } from "./admission.ts";
 import { initialAdmissionState } from "./admission.ts";
 import { DEFAULT_GOVERNOR_CONFIG, initialGovernorState } from "./governor.ts";
-import { DEFAULT_BOUNDARY_LAWS } from "./laws.ts";
+import { DEFAULT_BOUNDARY_LAWS } from "./../law/laws.ts";
 import { instantiateBoundaryGrant } from "./orchestrator.ts";
 import {
   extractSessionScopedUserPathLedger,
@@ -24,7 +24,7 @@ import {
   loadUserPathLedger,
   mergeUserPathLedgers,
   pruneSessionScopedUserPathLaws,
-} from "./user-path-ledger.ts";
+} from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryGrant,

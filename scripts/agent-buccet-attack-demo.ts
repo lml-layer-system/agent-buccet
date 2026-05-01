@@ -20,8 +20,8 @@ import {
   evaluateBoundaryIntercept,
   openBoundaryPath,
   saveUserPathLedger,
-} from "../lib/agent-buccet/index.ts";
-import { startPersistentBoundarySession } from "../lib/agent-buccet/state.ts";
+} from "./../src/index.ts";
+import { startPersistentBoundarySession } from "./../src/runtime/state.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

@@ -1,4 +1,4 @@
-import type { BoundaryActionKind } from "./types.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 import type { OpenClawSkillAcceptanceLane } from "./openclaw-skill-acceptance.ts";
 
 type TargetMatchMode = "prefix" | "exact" | "regex";

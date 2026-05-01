@@ -8,7 +8,7 @@ import {
   isBuiltinTeamBrainSourceId,
   resolveTeamBrainPathSource,
   type BuccetPathSource,
-} from "./path-memory.ts";
+} from "./../context/path-memory.ts";
 import {
   buildTeamWholeView,
   buildTeamSourceCheckpoint,
@@ -19,7 +19,7 @@ import {
   type TeamSourceCheckpointBody,
   type TeamSourceCheckpointRef,
   type TeamWholeView,
-} from "./path-source-checkpoints.ts";
+} from "./../context/path-source-checkpoints.ts";
 import {
   AGENT_TEAM_STAGE_IDS,
   type AgentTeamStageId,

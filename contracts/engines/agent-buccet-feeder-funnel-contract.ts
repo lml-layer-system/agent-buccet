@@ -2,9 +2,9 @@ import assert from "node:assert/strict";
 import {
   mapBoundaryGravityFunnelPayloadToInterceptRequests,
   parseBoundaryGravityFunnelPayload,
-} from "../lib/agent-buccet/intercept.ts";
-import { mapSystemInterceptEventToRequest } from "../lib/agent-buccet/system-intercept.ts";
-import { mapClaudeToolUseToInterceptRequest } from "../lib/agent-buccet/integrations/claude-sdk.ts";
+} from "./../../src/runtime/intercept.ts";
+import { mapSystemInterceptEventToRequest } from "./../../src/runtime/system-intercept.ts";
+import { mapClaudeToolUseToInterceptRequest } from "./../../src/integrations/claude-sdk.ts";
 
 function main() {
   console.log("Agent Buccet feeder funnel contract");

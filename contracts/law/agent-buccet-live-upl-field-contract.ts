@@ -8,7 +8,7 @@ import {
   lookupUserPathDecision,
   lookupUserPathTrackDecision,
   resolveBoundaryUplTrafficPolarity,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -16,7 +16,7 @@ import type {
   BoundaryUplEntry,
   BoundaryUplEntryType,
   BoundaryUserPathLedger,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function makeSession(): BoundarySession {
   return {

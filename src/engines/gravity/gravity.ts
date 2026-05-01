@@ -1,11 +1,11 @@
-import { enableBodyguardControl } from "./bodyguard.ts";
+import { enableBodyguardControl } from "./../../boundaries/bodyguard.ts";
 import {
   enforceBoundaryProposal,
   type BoundaryToolProposal,
-} from "./bodyguard.ts";
-import { auditBoundarySessionLedger } from "./ledger-audit.ts";
-import type { BoundaryApprovalHandler } from "./types.ts";
-import type { BoundaryRuntimeStore } from "./store.ts";
+} from "./../../boundaries/bodyguard.ts";
+import { auditBoundarySessionLedger } from "./../../proof/ledger-audit.ts";
+import type { BoundaryApprovalHandler } from "./../../runtime/types.ts";
+import type { BoundaryRuntimeStore } from "./../../runtime/store.ts";
 
 export type BoundaryGravityDecision = "allow" | "null";
 

@@ -21,11 +21,11 @@ import {
   appendTeamPathSourceMemoryEntry,
   readTeamPathSourceMemoryEntries,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 import {
   buildProofOfWorkTraceOutput,
   renderProofOfWorkTraceText,
-} from "../lib/agent-buccet/create-trace.ts";
+} from "./../../src/proof/create-trace.ts";
 
 async function runBuccet(args: string[], env: Record<string, string>): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {

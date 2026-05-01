@@ -5,7 +5,7 @@ import path from "node:path";
 import {
   prepareBoundaryProcess,
   startPersistentBoundarySession,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

@@ -2,19 +2,19 @@ import { createHash } from "node:crypto";
 import {
   AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS,
   AGENT_BUCCET_META_LAW_REFERENCES,
-} from "./meta.ts";
+} from "./../runtime/meta.ts";
 import {
   BOUNDARY_PERIODIC_FAILURE_DIMENSIONS,
   BOUNDARY_PERIODIC_FAILURE_ROWS,
-} from "./periodic-failure-taxonomy.ts";
+} from "./../runtime/substrate/periodic-failure-taxonomy.ts";
 import {
   BASE_BUCCET_FRONTIER_FAILURE_ALIASES,
-} from "./frontier-failure-aliases.ts";
+} from "./../runtime/substrate/frontier-failure-aliases.ts";
 import {
   BOUNDARY_BUCCET_CONTAINMENT_LAWS,
   BOUNDARY_BUCCET_FAILURE_DIMENSIONS,
   BOUNDARY_BUCCET_FAILURE_ROWS,
-} from "./buccet-failure-catalog.ts";
+} from "./../runtime/substrate/buccet-failure-catalog.ts";
 import {
   BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS,
 } from "./buccet-law-body-denial-catalog.ts";
@@ -27,7 +27,7 @@ import type {
   BoundarySpendSourceAuthorityKind,
   BoundaryUplEntry,
   BoundaryUserPathLedger,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type HeadlessDecision = "deny" | "no_match";
 

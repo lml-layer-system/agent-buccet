@@ -5,7 +5,7 @@ import {
   type BoundaryInterceptDaemonCommand,
   type BoundaryInterceptDaemonOutput,
   type BoundarySystemInterceptEvent,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 
 type ParsedArgs = {
   host?: string;

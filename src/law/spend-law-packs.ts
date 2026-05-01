@@ -5,7 +5,7 @@ import type {
   BoundarySpendRiskClass,
   BoundarySpendSourceAuthorityKind,
   BoundaryUplScope,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 import type {
   BoundaryStructuredUplLaw,
   BoundaryUplDomain,

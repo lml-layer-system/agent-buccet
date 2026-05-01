@@ -9,8 +9,8 @@ import type {
   BoundaryUplTrackConstraint,
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
-} from "./types.ts";
-import { loadUserPathLedger, writeCompiledUserPathLaws } from "./user-path-ledger.ts";
+} from "./../runtime/types.ts";
+import { loadUserPathLedger, writeCompiledUserPathLaws } from "./../proof/user-path-ledger.ts";
 
 export type BoundaryPolicyBinding = {
   sourceKind: BoundaryPolicySourceKind;

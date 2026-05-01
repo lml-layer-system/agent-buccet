@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   OPENCLAW_ACCEPTANCE_INTAKE_FAMILIES,
   OPENCLAW_ACCEPTANCE_SOURCE,
-} from "../lib/agent-buccet/openclaw-acceptance-intake.ts";
+} from "./../../src/teams/openclaw-acceptance-intake.ts";
 
 async function main() {
   assert.equal(OPENCLAW_ACCEPTANCE_SOURCE.repo, "openclaw/openclaw");

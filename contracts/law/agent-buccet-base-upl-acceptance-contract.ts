@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import type { BoundaryActionKind, BoundaryActionRequest } from "../lib/agent-buccet/index.ts";
+import type { BoundaryActionKind, BoundaryActionRequest } from "./../../src/index.ts";
 
 function makeRequest(args: {
   sessionId: string;
@@ -35,7 +35,7 @@ async function main() {
   );
 
   try {
-    const boundary = await import("../lib/agent-buccet/index.ts");
+    const boundary = await import("./../../src/index.ts");
     const sessionId = `agent-buccet-base-upl-acceptance-${Date.now()}`;
     const actorId = "user:base-upl-acceptance-contract";
     const workspace = path.join(tempRoot, "workspace");

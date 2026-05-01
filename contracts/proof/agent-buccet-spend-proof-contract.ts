@@ -12,12 +12,12 @@ import {
   saveUserPathLedger,
   syncTeamSpendBoundaryProofOfWork,
   writeApprovedUserPathLaw,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 import {
   createTeam,
   readTeamPathSourceMemoryEntries,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 async function main() {
   const originalLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;

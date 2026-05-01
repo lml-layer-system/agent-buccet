@@ -137,7 +137,7 @@ Install the runtime, initialize the machine, then open the Buccet operator cockp
 
 Hosted install coming soon.
 
-The next frictionless entry surfaces are tracked in [Entry Surface](docs/agent-boundary/ENTRY_SURFACE.md):
+The next frictionless entry surfaces are tracked in [Entry Surface](docs/guides/ENTRY_SURFACE.md):
 
 - hosted install
 - SDK middleware wrapper
@@ -165,7 +165,7 @@ Wire it into any MCP host — Claude Desktop, Cursor, or any compatible client:
 
 Every tool call from the host enters the same enforcement chain — same UPL, same bodyguard, same ledger. MCP is transport only. Adding a new host does not change what Buccet allows.
 
-See [MCP Server](docs/agent-boundary/MCP_SERVER.md) for setup, available tools, and how to authorize actions via UPL.
+See [MCP Server](docs/guides/mcp-server.md) for setup, available tools, and how to authorize actions via UPL.
 
 ## Portable Transport
 
@@ -562,30 +562,30 @@ X: [@lml_layer](https://x.com/lml_layer)
 
 Start here:
 
-- [Docs Home](docs/agent-boundary/README.md)
-- [Quickstart](docs/agent-boundary/QUICKSTART.md)
-- [Where To Add What](docs/agent-boundary/WHERE_TO_ADD_WHAT.md)
+- [Docs Home](docs/README.md)
+- [Quickstart](docs/quickstart.md)
+- [Where To Add What](docs/guides/WHERE_TO_ADD_WHAT.md)
 
 Operator and rules:
 
-- [UPL Base Packs](docs/agent-boundary/UPL_BASE_PACKS.md): starter allow and block rules
-- [UPL Acceptance Source Pipeline](docs/agent-boundary/UPL_ACCEPTANCE_SOURCE_PIPELINE.md): how copied source material becomes allowed rules
-- [Buccet Path Memory](docs/agent-boundary/BUCCET_PATH_MEMORY.md): saved workflows, attached context, and agent memory
-- [Law Catalog](docs/agent-boundary/LAW_CATALOG.md): grouped rule inventory
-- [Law Reference](docs/agent-boundary/LAW_REFERENCE.md): active rule reference
+- [UPL Base Packs](docs/specs/UPL_BASE_PACKS.md): starter allow and block rules
+- [UPL Acceptance Source Pipeline](docs/specs/UPL_ACCEPTANCE_SOURCE_PIPELINE.md): how copied source material becomes allowed rules
+- [Buccet Path Memory](docs/specs/BUCCET_PATH_MEMORY.md): saved workflows, attached context, and agent memory
+- [Law Catalog](docs/specs/LAW_CATALOG.md): grouped rule inventory
+- [Law Reference](docs/specs/LAW_REFERENCE.md): active rule reference
 
 Proof and release:
 
-- [Launch Proof](docs/agent-boundary/LAUNCH_PROOF.md)
-- [Release Checklist](docs/agent-boundary/RELEASE_CHECKLIST.md)
-- [Public / Private Boundary](docs/agent-boundary/PUBLIC_PRIVATE_BOUNDARY.md)
-- [Security Model](docs/agent-boundary/SECURITY_MODEL.md)
-- [Threat Model Traceability](docs/agent-boundary/THREAT_MODEL_TRACEABILITY.md)
+- [Launch Proof](docs/specs/LAUNCH_PROOF.md)
+- [Release Checklist](docs/release-checklist.md)
+- [Public / Private Boundary](docs/public-private-boundary.md)
+- [Security Model](docs/security-model.md)
+- [Threat Model Traceability](docs/specs/THREAT_MODEL_TRACEABILITY.md)
 
 System shape:
 
-- [Buccet Rust Substrate](docs/agent-boundary/BUCCET_SUBSTRATE_RUST.md)
-- [Current Limits](docs/agent-boundary/CURRENT_LIMITS.md)
+- [Buccet Rust Substrate](docs/specs/BUCCET_SUBSTRATE_RUST.md)
+- [Current Limits](docs/current-limits.md)
 
 ## Proof Commands
 

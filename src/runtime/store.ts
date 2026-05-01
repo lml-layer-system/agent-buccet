@@ -15,7 +15,7 @@ import {
 import {
   sealBoundaryProtectedFile,
   sealBoundaryProtectedSubject,
-} from "./secrets-boundary.ts";
+} from "./../boundaries/secrets-boundary.ts";
 import type {
   BoundaryActionKind,
   BoundaryLaw,

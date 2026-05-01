@@ -9,14 +9,14 @@
 
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { DEFENSIVE_TIME_LAWS } from "../lib/agent-buccet/time.ts";
-import { DEFAULT_BOUNDARY_LAWS, evaluateBoundaryLaws } from "../lib/agent-buccet/laws.ts";
+import { DEFENSIVE_TIME_LAWS } from "./../../src/runtime/time.ts";
+import { DEFAULT_BOUNDARY_LAWS, evaluateBoundaryLaws } from "./../../src/law/laws.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
   BoundaryGrant,
   BoundarySession,
-} from "../lib/agent-buccet/types.ts";
+} from "./../../src/runtime/types.ts";
 
 // ─── Fixtures ────────────────────────────────────────────────────────────────
 

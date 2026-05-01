@@ -10,7 +10,7 @@ import {
   saveUserPathLedger,
   writeDeniedUserPathLaw,
   writeApprovedUserPathLaw,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function main() {
   const originalLedger = await loadUserPathLedger();

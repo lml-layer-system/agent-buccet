@@ -10,7 +10,7 @@ import type {
   BoundaryProtectedSubjectKind,
   BoundaryRuntimeConfig,
   BoundaryReviewContext,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type BoundaryHostKind = "claude-code" | "claude-desktop" | "cursor" | "vscode";
 

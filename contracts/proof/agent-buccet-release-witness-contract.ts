@@ -6,7 +6,7 @@ import { promises as fs } from "node:fs";
 import {
   appendBoundaryLedger,
   publishBoundaryReleaseWitness,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-release-witness-"));

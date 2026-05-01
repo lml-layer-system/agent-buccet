@@ -3,7 +3,7 @@ import path from "node:path";
 import {
   buildBoundaryLedgerCheckpoint,
 } from "./ledger.ts";
-import type { BoundaryLedgerCheckpoint } from "./types.ts";
+import type { BoundaryLedgerCheckpoint } from "./../runtime/types.ts";
 
 export type BoundaryLedgerWitnessReceipt = {
   witness_id: string;

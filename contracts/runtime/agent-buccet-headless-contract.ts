@@ -24,8 +24,8 @@ import {
   openBoundaryPath,
   readBoundaryLedgerBySession,
   saveUserPathLedger,
-} from "../lib/agent-buccet/index.ts";
-import type { BoundaryApprovalRequest, BoundarySession } from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
+import type { BoundaryApprovalRequest, BoundarySession } from "./../../src/index.ts";
 
 const PASS = "\x1b[32m[pass]\x1b[0m";
 const FAIL = "\x1b[31m[FAIL]\x1b[0m";

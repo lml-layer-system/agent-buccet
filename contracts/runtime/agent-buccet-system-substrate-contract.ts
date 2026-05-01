@@ -6,7 +6,7 @@ import {
   BUCCET_SYSTEM_NODES,
   BUCCET_TERMINALS,
   snapBuccetSystem,
-} from "../lib/agent-buccet/system-substrate.ts";
+} from "./../../src/runtime/substrate/system-substrate.ts";
 
 async function main() {
   const substrate = snapBuccetSystem();

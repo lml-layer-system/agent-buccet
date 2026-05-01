@@ -1,27 +1,27 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createBaseAcceptanceLaws } from "../lib/agent-buccet/base-upl-acceptance.ts";
+import { createBaseAcceptanceLaws } from "./../src/law/base-upl-acceptance.ts";
 import {
   BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES,
-} from "../lib/agent-buccet/awesome-openclaw-skill-acceptance.ts";
+} from "./../src/teams/awesome-openclaw-skill-acceptance.ts";
 import {
   BASE_LIST_V_ACCEPTANCE_LANES,
   createListVWorkflowAcceptanceLanes,
   type ListVAcceptanceLane,
-} from "../lib/agent-buccet/list-v-acceptance.ts";
+} from "./../src/law/list-v-acceptance.ts";
 import {
   AGENTSKILLS_ACCEPTANCE_LANES,
   AITMPL_ACCEPTANCE_LANES,
   SKILLHUB_ACCEPTANCE_LANES,
   SKILLSMP_ACCEPTANCE_LANES,
   type MarketplaceAcceptanceLane,
-} from "../lib/agent-buccet/marketplace-acceptance.ts";
+} from "./../src/teams/marketplace-acceptance.ts";
 import {
   BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES,
   type OpenClawSkillAcceptanceLane,
-} from "../lib/agent-buccet/openclaw-skill-acceptance.ts";
-import type { BoundaryActionKind, CompiledDocumentLaw } from "../lib/agent-buccet/types.ts";
+} from "./../src/teams/openclaw-skill-acceptance.ts";
+import type { BoundaryActionKind, CompiledDocumentLaw } from "./../src/runtime/types.ts";
 
 type BaseEntry = {
   id: string;
@@ -174,7 +174,7 @@ function compiledLawToEntry(law: CompiledDocumentLaw): BaseEntry {
     whatItIs: extractReason(law),
     connectsTo: describeConnectsToFromLane({
       id: law.trackConstraint?.description ?? law.requestBasis.target,
-      summary: law.notes,
+      summary: law.notes ?? "",
       actionKinds: law.trackConstraint?.allowedActionKinds ?? [law.requestBasis.actionKind],
       targetPattern: law.trackConstraint?.targetPattern,
       targetPatterns: law.trackConstraint?.targetPatterns,
@@ -183,7 +183,7 @@ function compiledLawToEntry(law: CompiledDocumentLaw): BaseEntry {
     actionKinds: law.trackConstraint?.allowedActionKinds ?? [law.requestBasis.actionKind],
     bounds: describeBoundsFromLane({
       id: law.trackConstraint?.description ?? law.requestBasis.target,
-      summary: law.notes,
+      summary: law.notes ?? "",
       actionKinds: law.trackConstraint?.allowedActionKinds ?? [law.requestBasis.actionKind],
       targetPattern: law.trackConstraint?.targetPattern,
       targetPatterns: law.trackConstraint?.targetPatterns,
@@ -220,7 +220,7 @@ function entryMap(laws: readonly CompiledDocumentLaw[]) {
 
 async function main() {
   const repoRoot = repoRootFromHere();
-  const outputPath = path.join(repoRoot, "docs/agent-boundary/BASE_ACCEPTANCE_PACK.md");
+  const outputPath = path.join(repoRoot, "docs/specs/BASE_ACCEPTANCE_PACK.md");
   const compiledLaws = createBaseAcceptanceLaws({
     rootPath: WORKSPACE_ROOT,
     grantedActions: ALL_WORKSPACE_ACTIONS,

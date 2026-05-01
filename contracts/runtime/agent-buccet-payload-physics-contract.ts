@@ -1,7 +1,7 @@
-import { runBoundaryProcess } from "../lib/agent-buccet/index.ts";
+import { runBoundaryProcess } from "./../../src/index.ts";
 import {
   createPersistentBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

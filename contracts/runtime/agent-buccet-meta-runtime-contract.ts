@@ -7,7 +7,7 @@ import {
   evaluateBoundaryAction,
   openBoundaryPath,
   startPersistentBoundarySession,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function hasTriggeredLawAlias(ids: readonly string[], alias: string): boolean {
   const aliases = new Map<string, string>([

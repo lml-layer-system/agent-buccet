@@ -5,7 +5,7 @@ import {
   buildBoundaryLedgerRollup,
   readBoundaryLedgerRollups,
   writeBoundaryLedgerRollup,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function main() {
   const sessionId = `agent-buccet-ledger-rollup-${randomUUID()}`;

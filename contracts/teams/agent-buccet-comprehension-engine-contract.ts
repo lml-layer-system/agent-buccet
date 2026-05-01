@@ -9,7 +9,7 @@ import {
   recordComprehensionReturn,
   recordComprehensionTransform,
   recordComprehensionValidation,
-} from "../lib/agent-buccet/agent-comprehension-engine.ts";
+} from "./../../src/teams/agent-comprehension-engine.ts";
 
 async function main(): Promise<void> {
   console.log("--- Agent Buccet Comprehension Engine Contract ---");

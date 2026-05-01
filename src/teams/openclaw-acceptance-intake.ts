@@ -1,4 +1,4 @@
-import type { BoundaryActionKind } from "./types.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 
 export type OpenClawAcceptanceDisposition =
   | "base_candidate"

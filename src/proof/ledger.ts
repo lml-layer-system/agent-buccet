@@ -23,7 +23,7 @@ import type {
   BoundaryLedgerPathBlock,
   BoundaryLedgerPayload,
   BoundaryLedgerRecord,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 const LEDGER_DIR = path.join(process.cwd(), "data", "ledger");
 const BOUNDARY_LEDGER_FILE = path.join(LEDGER_DIR, "agent-boundary-ledger.jsonl");

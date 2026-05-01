@@ -24,11 +24,11 @@ import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 import {
   buildBuccetSystemContext,
-} from "../lib/agent-buccet/pi-adapter.ts";
+} from "./../../src/engines/pi/pi-adapter.ts";
 import {
   SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
-} from "../lib/agent-buccet/path-memory.ts";
+} from "./../../src/context/path-memory.ts";
 import {
   addTeamAgent,
   addTeamEngineSource,
@@ -39,11 +39,11 @@ import {
   readTeamPathSourceMemoryEntries,
   teamSlug,
   type TeamAgent,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 import {
   buildProofOfWorkTraceOutput,
   renderProofOfWorkTraceText,
-} from "../lib/agent-buccet/create-trace.ts";
+} from "./../../src/proof/create-trace.ts";
 
 async function runBuccet(
   args: string[],

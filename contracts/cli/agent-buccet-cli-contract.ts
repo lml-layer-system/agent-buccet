@@ -3,7 +3,7 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
-import type { BoundaryUplEntry } from "../lib/agent-buccet/index.ts";
+import type { BoundaryUplEntry } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {

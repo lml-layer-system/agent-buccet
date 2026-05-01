@@ -50,7 +50,7 @@ The Gemini branch already has these real pieces:
 
 This runtime also assumes the path-source checkpoint layer described in:
 
-- `docs/agent-boundary/BUCCET_PATH_SOURCE_CHECKPOINTS.md`
+- `docs/specs/path-source-checkpoints.md`
 
 The current live gap is:
 

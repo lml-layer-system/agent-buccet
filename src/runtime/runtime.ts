@@ -1,10 +1,10 @@
-import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
-import { adjudicateBoundaryRequest, enableBodyguardControl } from "./bodyguard.ts";
-import { seedBaseAcceptanceIntoConfig } from "./base-upl-acceptance.ts";
+import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./../proof/ledger.ts";
+import { adjudicateBoundaryRequest, enableBodyguardControl } from "./../boundaries/bodyguard.ts";
+import { seedBaseAcceptanceIntoConfig } from "./../law/base-upl-acceptance.ts";
 import {
   assertBoundaryGravityEventAllowed,
   mapBoundaryGrantToGravityGrant,
-} from "./gravity-adapter/gravity-service.ts";
+} from "./../engines/gravity/gravity-adapter/gravity-service.ts";
 import {
   instantiateBoundaryGrant,
   instantiatePathLaw,

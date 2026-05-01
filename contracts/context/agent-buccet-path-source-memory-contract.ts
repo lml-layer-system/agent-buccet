@@ -6,7 +6,7 @@ import path from "node:path";
 import {
   buildTeamWholeView,
   openProjectionHandle,
-} from "../lib/agent-buccet/path-source-checkpoints.ts";
+} from "./../../src/context/path-source-checkpoints.ts";
 import {
   addTeamAgent,
   addTeamSource,
@@ -17,7 +17,7 @@ import {
   readTeamPathSourceMemoryEntries,
   teamSlug,
   teamWorkMemorySourceId,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 async function main(): Promise<void> {
   console.log("--- Agent Buccet Path-Source Memory Contract ---");

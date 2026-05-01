@@ -7,7 +7,7 @@ import { once } from "node:events";
 import {
   evaluateSystemInterceptEvent,
   sendBoundaryInterceptServerInput,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));

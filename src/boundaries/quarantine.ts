@@ -4,22 +4,22 @@ import { availableParallelism } from "node:os";
 import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { enableBodyguardControl, adjudicateBoundaryRequest } from "./bodyguard.ts";
-import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
-import { assertBoundaryGravityLawUpdateAllowed } from "./gravity-adapter/gravity-service.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
-import { assessBoundarySubstrateIntercept } from "./substrate-live.ts";
+import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./../runtime/admission.ts";
+import { assertBoundaryGravityLawUpdateAllowed } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
+import { assessBoundarySubstrateIntercept } from "./../runtime/substrate/substrate-live.ts";
 import {
   loadBoundarySessionState,
   persistBoundarySessionState,
   restorePersistentBoundarySession,
   writeBoundarySessionQuarantineState,
-} from "./state.ts";
+} from "./../runtime/state.ts";
 import {
   listUserPathEntries,
   loadUserPathLedger,
   materializeBoundaryActionRequestFromUplEntry,
   writeDeniedUserPathLaw,
-} from "./user-path-ledger.ts";
+} from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryActionRequest,
   BoundaryAdmissionState,
@@ -29,7 +29,7 @@ import type {
   BoundarySession,
   BoundaryUplEntry,
   BoundaryUplScope,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 type BoundaryQuarantinePreparedItem = {
   itemId: string;

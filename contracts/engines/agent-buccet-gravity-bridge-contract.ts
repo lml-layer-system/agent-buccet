@@ -8,7 +8,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import {
   sendBoundaryInterceptServerInput,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));

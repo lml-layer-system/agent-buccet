@@ -2,7 +2,7 @@ import {
   appendBoundaryLedger,
   queryBoundaryLedger,
   verifyBoundaryLedgerChain,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 type Tier = "small" | "medium";
 

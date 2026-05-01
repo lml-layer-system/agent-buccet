@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import {
   adjudicateMultiAgentCoherence,
   buildCoherenceClaimPacket,
-} from "../lib/agent-buccet/coherence-adjudication.ts";
+} from "./../../src/teams/coherence-adjudication.ts";
 
 function peer(args: {
   peerId: string;

@@ -51,7 +51,7 @@ import {
   buildBuccetGovernedPiAgent,
   PiNotInstalledError,
   tryLoadPiBindings,
-} from "./pi-adapter.ts";
+} from "./../engines/pi/pi-adapter.ts";
 import {
   buildTeamPeerTaskGraph,
   buildTeamWholeView,
@@ -59,11 +59,11 @@ import {
   type TeamPeerTaskGraph,
   type TeamPeerTaskPacket,
   type TeamWholeView,
-} from "./path-source-checkpoints.ts";
+} from "./../context/path-source-checkpoints.ts";
 import {
   endPersistentBoundarySession,
   startPersistentBoundarySession,
-} from "./state.ts";
+} from "./../runtime/state.ts";
 import {
   appendTeamPathSourceMemoryEntry,
   ensureTeamWorkMemorySource,
@@ -73,8 +73,8 @@ import {
   type TeamSlug,
   type TeamSourceRef,
 } from "./team-workshop.ts";
-import { syncTeamSpendBoundaryProofOfWork } from "./spend-boundary-proof.ts";
-import type { BoundaryActionKind } from "./types.ts";
+import { syncTeamSpendBoundaryProofOfWork } from "./../proof/spend-boundary-proof.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 
 export type BrainPassEvent =
   | { type: "session_started"; sessionId: string; aiProvider: string; engineProvider: string }

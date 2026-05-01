@@ -12,7 +12,7 @@ import {
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
   type BoundaryInterceptSwarmGroup,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 type SwarmStatusOutput = Extract<BoundaryInterceptDaemonOutput, { type: "swarm_status" }>;
 

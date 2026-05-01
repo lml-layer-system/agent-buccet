@@ -3,7 +3,7 @@ import type {
   BoundaryLawResult,
   BodyguardMove,
   BodyguardMoveKind,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 function buildMove(kind: BodyguardMoveKind, title: string, description: string, target?: string): BodyguardMove {
   return {

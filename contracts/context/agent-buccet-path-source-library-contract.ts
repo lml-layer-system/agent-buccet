@@ -7,8 +7,8 @@ import {
   REMOTE_LLM_ACCEPTANCE_CORRIDORS,
   LOCAL_LLM_ACCEPTANCE_CORRIDORS,
   HTTP_API_ACCEPTANCE_CORRIDORS,
-} from "../lib/agent-buccet/agent-comprehension-acceptance.ts";
-import { buildBaseAcceptanceSeeds } from "../lib/agent-buccet/base-upl-acceptance.ts";
+} from "./../../src/teams/agent-comprehension-acceptance.ts";
+import { buildBaseAcceptanceSeeds } from "./../../src/law/base-upl-acceptance.ts";
 import {
   HTTP_API_PROVIDER_DEFAULTS,
   LOCAL_LLM_PROVIDER_DEFAULTS,
@@ -20,7 +20,7 @@ import {
   createTeam,
   loadTeam,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 /**
  * Path-Source Library Contract.

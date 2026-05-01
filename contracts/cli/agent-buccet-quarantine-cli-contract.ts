@@ -11,7 +11,7 @@ import {
   enableBodyguardControl,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 type CliResult = {
   code: number;
@@ -21,7 +21,7 @@ type CliResult = {
 
 async function runCli(args: string[], env: NodeJS.ProcessEnv, stdinText?: string): Promise<CliResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, ["scripts/buccet.ts", ...args], {
+    const child = spawn(process.execPath, ["cli/buccet.ts", ...args], {
       cwd: process.cwd(),
       env,
       stdio: "pipe",
@@ -71,7 +71,7 @@ async function main() {
       actorId: string;
     };
     const sessionsDir = path.join(homePath, "data", "agent-boundary", "sessions");
-    const boundary = await import("../lib/agent-buccet/index.ts");
+    const boundary = await import("./../../src/index.ts");
     const restored = await boundary.restoreBoundaryRuntimeStore({
       sessionId: config.sessionId,
       sessionsDir,

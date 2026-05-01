@@ -3,18 +3,18 @@ import { brotliCompressSync, brotliDecompressSync } from "node:zlib";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-import type { BoundaryActionKind } from "./types.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 import {
   allowedActionKindsForComprehensionStage,
   allowedOutputsForComprehensionStage,
-} from "./agent-comprehension-engine.ts";
+} from "./../teams/agent-comprehension-engine.ts";
 import type {
   TeamAgent,
   TeamManifest,
   TeamPathSourceMemoryRecord,
   TeamSlug,
   TeamSourceRef,
-} from "./team-workshop.ts";
+} from "./../teams/team-workshop.ts";
 import { isBuiltinTeamBrainSourceId } from "./path-memory.ts";
 
 export const TEAM_SOURCE_CHECKPOINT_FORMAT = "buccet-checkpoint-v1";

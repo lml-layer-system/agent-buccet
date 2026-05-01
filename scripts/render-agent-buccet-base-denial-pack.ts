@@ -3,12 +3,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createBaseHeadlessDenialEntries,
-} from "../lib/agent-buccet/headless-base-denials.ts";
+} from "./../src/law/headless-base-denials.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
   BoundaryUplEntry,
-} from "../lib/agent-buccet/types.ts";
+} from "./../src/runtime/types.ts";
 
 type DenialEntryDoc = {
   id: string;
@@ -155,7 +155,7 @@ function splitDenialEntries(entries: readonly BoundaryUplEntry[]) {
 
 async function main() {
   const repoRoot = repoRootFromHere();
-  const outputPath = path.join(repoRoot, "docs/agent-boundary/BASE_DENIAL_PACK.md");
+  const outputPath = path.join(repoRoot, "docs/specs/BASE_DENIAL_PACK.md");
   const entries = createBaseHeadlessDenialEntries();
   const groups = splitDenialEntries(entries);
 

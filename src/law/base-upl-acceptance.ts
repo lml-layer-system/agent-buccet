@@ -1,17 +1,17 @@
 import { createHash } from "node:crypto";
 import path from "node:path";
-import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./ledger.ts";
+import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./../proof/ledger.ts";
 import {
   BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES,
   ENGINE_ACCEPTANCE_LANES,
   HTTP_API_ACCEPTANCE_LANES,
   LOCAL_LLM_ACCEPTANCE_LANES,
   REMOTE_LLM_ACCEPTANCE_LANES,
-} from "./agent-comprehension-acceptance.ts";
-import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./awesome-openclaw-skill-acceptance.ts";
+} from "./../teams/agent-comprehension-acceptance.ts";
+import { BASE_AWESOME_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./../teams/awesome-openclaw-skill-acceptance.ts";
 import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
-import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./marketplace-acceptance.ts";
-import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./openclaw-skill-acceptance.ts";
+import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./../teams/marketplace-acceptance.ts";
+import { BASE_OPENCLAW_SKILL_ACCEPTANCE_LANES } from "./../teams/openclaw-skill-acceptance.ts";
 import {
   createEmptyUserPathLedger,
   getActiveUserLawIds,
@@ -19,7 +19,7 @@ import {
   loadUserPathLedger,
   SESSION_UPL_ENTRY_ID_PREFIX,
   writeCompiledUserPathLaws,
-} from "./user-path-ledger.ts";
+} from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryRuntimeConfig,
@@ -28,7 +28,7 @@ import type {
   BoundarySpendSourceAuthorityKind,
   BoundaryUplScope,
   CompiledDocumentLaw,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type BaseAcceptanceClass =
   | "workspace_read"

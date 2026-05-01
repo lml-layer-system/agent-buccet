@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import { promises as fs } from "node:fs";
-import { BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS } from "../lib/agent-buccet/buccet-law-body-denial-catalog.ts";
-import { loadAgentBuccetRuntimeMuscle } from "../lib/agent-buccet/foundation.ts";
-import { loadUserPathLedger } from "../lib/agent-buccet/user-path-ledger.ts";
-import { substrate } from "../lib/agent-buccet/substrate-rust.ts";
+import { BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS } from "./../../src/law/buccet-law-body-denial-catalog.ts";
+import { loadAgentBuccetRuntimeMuscle } from "./../../src/runtime/foundation.ts";
+import { loadUserPathLedger } from "./../../src/proof/user-path-ledger.ts";
+import { substrate } from "./../../src/runtime/substrate/substrate-rust.ts";
 
 const repoRoot = process.cwd();
 
@@ -21,18 +21,18 @@ const NATIVE_DEEP_INTERCEPT_DIR = "native/deep-intercept";
 const NATIVE_DEEP_INTERCEPT_BUILD = "native/deep-intercept/build.sh";
 
 const HOT_MODULES = [
-  "lib/agent-buccet/foundation.ts",
-  "lib/agent-buccet/buccet-law-body-denial-catalog.ts",
-  "lib/agent-buccet/headless-base-denials.ts",
-  "lib/agent-buccet/user-path-ledger.ts",
-  "lib/agent-buccet/substrate-rust.ts",
-  "lib/agent-buccet/process.ts",
-  "scripts/buccet.ts",
+  "src/runtime/foundation.ts",
+  "src/law/buccet-law-body-denial-catalog.ts",
+  "src/law/headless-base-denials.ts",
+  "src/proof/user-path-ledger.ts",
+  "src/runtime/substrate/substrate-rust.ts",
+  "src/runtime/process.ts",
+  "cli/buccet.ts",
   "scripts/agent-buccet-mcp-server.ts",
 ] as const;
 
 const READ_SURFACE_PATTERNS = [
-  "docs/agent-boundary/",
+  "docs/",
   "data/agent-buccet-law-foundation/data/working/base-law-runtime-corpus",
   "data/agent-buccet-law-foundation/data/working/time-law-runtime-corpus",
   "data/agent-buccet-law-foundation/data/working/base-law-families",
@@ -81,12 +81,12 @@ async function main() {
     }
   }
 
-  const foundationSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/foundation.ts")?.source ?? "";
+  const foundationSource = hotSources.find((entry) => entry.relativePath === "src/runtime/foundation.ts")?.source ?? "";
   assert.match(foundationSource, /active-law-body/, "foundation should load runtime from active law body");
   assert.doesNotMatch(foundationSource, /projected-laws\.json/, "foundation should not hot-load the rich active law rows");
   assert.match(foundationSource, /runtime-muscle\.json/, "foundation should load the snapped runtime muscle artifact");
 
-  const denialCatalogSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/buccet-law-body-denial-catalog.ts")?.source ?? "";
+  const denialCatalogSource = hotSources.find((entry) => entry.relativePath === "src/law/buccet-law-body-denial-catalog.ts")?.source ?? "";
   assert.doesNotMatch(
     denialCatalogSource,
     /projected-laws\.json/,
@@ -98,16 +98,16 @@ async function main() {
     "law-body denial catalog should load the snapped denial catalog artifact",
   );
 
-  const ledgerSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/user-path-ledger.ts")?.source ?? "";
+  const ledgerSource = hotSources.find((entry) => entry.relativePath === "src/proof/user-path-ledger.ts")?.source ?? "";
   assert.match(ledgerSource, /user-path-ledger\.json/, "UPL runtime should anchor to the live user-path ledger");
 
-  const processSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/process.ts")?.source ?? "";
+  const processSource = hotSources.find((entry) => entry.relativePath === "src/runtime/process.ts")?.source ?? "";
   assert.match(processSource, /native\/physwrap\/build/, "process runtime should anchor to the native physwrap binary");
 
-  const substrateSource = hotSources.find((entry) => entry.relativePath === "lib/agent-buccet/substrate-rust.ts")?.source ?? "";
+  const substrateSource = hotSources.find((entry) => entry.relativePath === "src/runtime/substrate/substrate-rust.ts")?.source ?? "";
   assert.match(substrateSource, /native\/buccet-substrate-rust\/pkg/, "substrate runtime should anchor to vendored WASM assets");
 
-  const cliSource = hotSources.find((entry) => entry.relativePath === "scripts/buccet.ts")?.source ?? "";
+  const cliSource = hotSources.find((entry) => entry.relativePath === "cli/buccet.ts")?.source ?? "";
   assert.match(cliSource, /deep-intercept/, "buccet runtime should anchor hook build/install to native deep intercept");
   assert.match(cliSource, /boundary\.substrate\.init\(\)/, "transport runtime should initialize the shared substrate");
   assert.match(cliSource, /boundary\.substrate\.applyIsolation/, "transport runtime should enter isolation through the shared substrate");

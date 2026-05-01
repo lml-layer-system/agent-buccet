@@ -3,12 +3,12 @@ import os from "node:os";
 import path from "node:path";
 import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
-import { restoreBoundaryRuntimeStore } from "../lib/agent-buccet/index.ts";
+import { restoreBoundaryRuntimeStore } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {
   const candidates = [
-    path.join(repoRoot, "scripts", "buccet.ts"),
+    path.join(repoRoot, "cli", "buccet.ts"),
     path.join(repoRoot, "bin", "buccet.ts"),
   ];
   for (const candidate of candidates) {
@@ -148,9 +148,9 @@ async function main() {
   const packageJson = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8")) as {
     exports?: Record<string, string>;
   };
-  assert.equal(packageJson.exports?.["./integrations"], "./lib/agent-buccet/integrations/index.ts");
+  assert.equal(packageJson.exports?.["./integrations"], "./src/integrations/index.ts");
   const integrationsIndex = await fs.readFile(
-    path.join(repoRoot, "lib", "agent-buccet", "integrations", "index.ts"),
+    path.join(repoRoot, "src", "integrations", "index.ts"),
     "utf8",
   );
   assert.match(integrationsIndex, /vercel-ai-sdk/, "expected vercel ai sdk integration export");

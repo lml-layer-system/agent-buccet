@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   mapBoundaryGravityFunnelPayloadToInterceptRequests,
   parseBoundaryGravityFunnelPayload,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function main() {
   console.log("Agent Buccet gravity funnel contract");

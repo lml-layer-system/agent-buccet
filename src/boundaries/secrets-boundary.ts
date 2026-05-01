@@ -7,7 +7,7 @@ import type {
   BoundaryProtectedSubject,
   BoundaryProtectedSubjectKind,
   BoundaryRuntimeConfig,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 const OUTBOUND_SECRETS_ACTION_KINDS = new Set<BoundaryActionKind>([
   "chat.emit",

@@ -25,11 +25,11 @@ import {
   loadTeam,
   teamManifestBrainSourceId,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 import {
   SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
-} from "../lib/agent-buccet/path-memory.ts";
+} from "./../../src/context/path-memory.ts";
 
 async function runBuccet(
   args: string[],

@@ -6,8 +6,8 @@ import {
   initialGovernorState,
   recordGovernorCrossing,
   inferBoundaryEgressFlagsFromPayload,
-} from "../lib/agent-buccet/index.ts";
-import type { BoundaryGovernorConfig, BoundaryGovernorState, BoundaryActionKind } from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
+import type { BoundaryGovernorConfig, BoundaryGovernorState, BoundaryActionKind } from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

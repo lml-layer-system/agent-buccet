@@ -102,7 +102,7 @@ async function main() {
     const packResult = await run(
       "node",
       [
-        "scripts/buccet.ts",
+        "cli/buccet.ts",
         "transport",
         "pack",
         appDir,
@@ -129,7 +129,7 @@ async function main() {
     const importResult = await run(
       "node",
       [
-        "scripts/buccet.ts",
+        "cli/buccet.ts",
         "transport",
         "import",
         artifactPath,
@@ -162,7 +162,7 @@ async function main() {
     const runResult = await run(
       "node",
       [
-        "scripts/buccet.ts",
+        "cli/buccet.ts",
         "transport",
         "run",
         artifactPath,

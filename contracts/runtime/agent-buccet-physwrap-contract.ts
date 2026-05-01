@@ -17,8 +17,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { isPhyswrapAvailable, PHYSWRAP_PLATFORM } from "../lib/agent-buccet/index.ts";
-import type { PhysicsSpawnMode } from "../lib/agent-buccet/index.ts";
+import { isPhyswrapAvailable, PHYSWRAP_PLATFORM } from "./../../src/index.ts";
+import type { PhysicsSpawnMode } from "./../../src/index.ts";
 
 const _moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const PHYSWRAP_BIN = path.resolve(_moduleDir, "../native/physwrap/build/buccet-physwrap");
@@ -271,7 +271,7 @@ assert(winSrc.includes("failing closed") || winSrc.includes("Fail closed") || wi
 
 // ─── 15c. process.ts: class-tagged metadata + coverage ───────────────────────
 const processSrc = readFileSync(
-  path.resolve(_moduleDir, "../lib/agent-buccet/process.ts"), "utf8");
+  path.resolve(_moduleDir, "../../src/runtime/process.ts"), "utf8");
 assert(processSrc.includes("physwrap_envelope_active"),
   "process.ts emits physwrap_envelope_active (Tier 2a class tag)");
 assert(processSrc.includes("physwrap_io_boundary_active"),
@@ -321,7 +321,7 @@ assert(
 
 // ─── 15d. types.ts: Tier 2b Windows fields are declared ──────────────────────
 const typesSrc = readFileSync(
-  path.resolve(_moduleDir, "../lib/agent-buccet/types.ts"), "utf8");
+  path.resolve(_moduleDir, "../../src/runtime/types.ts"), "utf8");
 assert(typesSrc.includes("maxIoRateBytesPerSec"),
   "types.ts declares maxIoRateBytesPerSec (Windows Tier 2b I/O bandwidth field)");
 assert(typesSrc.includes("maxIoOpsPerSec"),

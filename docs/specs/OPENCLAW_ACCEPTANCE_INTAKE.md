@@ -314,4 +314,4 @@ the denial side still wins.
 
 The structured intake catalog lives in:
 
-- [openclaw-acceptance-intake.ts](../../lib/agent-buccet/openclaw-acceptance-intake.ts)
+- [openclaw-acceptance-intake.ts](../../src/teams/openclaw-acceptance-intake.ts)

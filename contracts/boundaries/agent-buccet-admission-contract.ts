@@ -17,12 +17,12 @@ import {
   getInputWeight,
   initialAdmissionState,
   markCanyonLedgered,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 import type {
   BoundaryAdmissionConfig,
   BoundaryAdmissionState,
   BoundaryInputRequest,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

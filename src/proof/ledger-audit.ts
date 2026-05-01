@@ -6,7 +6,7 @@ import {
 import type {
   BoundaryLedgerEventType,
   BoundaryLedgerRecord,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type BoundaryLedgerAuditStatus = "complete" | "incomplete" | "missing";
 

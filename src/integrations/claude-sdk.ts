@@ -53,13 +53,13 @@
  * ```
  */
 
-import { createBoundaryFunnelInterceptRequest, evaluateBoundaryIntercept } from "../intercept.ts";
+import { createBoundaryFunnelInterceptRequest, evaluateBoundaryIntercept } from "./../runtime/intercept.ts";
 import type {
   BoundaryInterceptActionClass,
   BoundaryInterceptRequest,
   BoundaryInterceptResult,
-} from "../intercept.ts";
-import type { BoundaryRequestProvenance, BoundaryReviewContext, BoundaryRuntimeConfig } from "../types.ts";
+} from "./../runtime/intercept.ts";
+import type { BoundaryRequestProvenance, BoundaryReviewContext, BoundaryRuntimeConfig } from "./../runtime/types.ts";
 
 export type BoundaryClaudeToolMapping = {
   /** The boundary action class for this tool (file, shell, network, database, system, communication). */

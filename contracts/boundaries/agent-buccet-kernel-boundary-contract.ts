@@ -8,8 +8,8 @@ import {
   evaluateBoundaryIntercept,
   loadUserPathLedger,
   lookupUserPathTrackDecision,
-} from "../lib/agent-buccet/index.ts";
-import type { BoundaryActionKind, BoundaryActionRequest, BoundarySession } from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
+import type { BoundaryActionKind, BoundaryActionRequest, BoundarySession } from "./../../src/index.ts";
 
 function makeSession(): BoundarySession {
   return {

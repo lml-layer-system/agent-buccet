@@ -2,7 +2,7 @@ import { promises as fs } from "node:fs";
 import {
   createBoundaryGravitySupervisor,
   createPersistentBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

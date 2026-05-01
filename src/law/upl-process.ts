@@ -15,8 +15,8 @@ import type {
   BoundaryUplTrackConstraint,
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
-} from "./types.ts";
-import { writeCompiledUserPathLaws } from "./user-path-ledger.ts";
+} from "./../runtime/types.ts";
+import { writeCompiledUserPathLaws } from "./../proof/user-path-ledger.ts";
 
 export type BoundaryUplProcessStage =
   | "observed"

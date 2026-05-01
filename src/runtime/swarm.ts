@@ -3,8 +3,8 @@ import {
   createBoundaryActionRequest,
   enableBodyguardControl,
   recordBodyguardUserLawDecision,
-} from "./bodyguard.ts";
-import { createBoundaryHeadlessApprovalHandler } from "./headless.ts";
+} from "./../boundaries/bodyguard.ts";
+import { createBoundaryHeadlessApprovalHandler } from "./../boundaries/headless.ts";
 import {
   describeBoundaryNoveltyState,
   normalizeBoundaryNoveltyState,
@@ -19,7 +19,7 @@ import {
   type BoundaryInterceptRequest,
   type BoundaryInterceptResult,
 } from "./intercept.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryAdmissionState,
@@ -32,7 +32,7 @@ import type {
   BodyguardMove,
 } from "./types.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
-import { loadUserPathLedger } from "./user-path-ledger.ts";
+import { loadUserPathLedger } from "./../proof/user-path-ledger.ts";
 
 // ─── Structural limits ────────────────────────────────────────────────────────
 

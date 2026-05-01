@@ -6,7 +6,7 @@ import {
   AGENT_BUCCET_TIME_EXCLUDED_SELF_UPDATING_LAW_IDS,
   buildActiveAgentBuccetLawIds,
   startPersistentBoundarySession,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-foundation-"));

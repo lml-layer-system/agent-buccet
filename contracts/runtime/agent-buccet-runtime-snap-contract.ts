@@ -7,7 +7,7 @@ import {
   buildDenialCatalogSnap,
   buildRuntimeMuscleArtifact,
   loadActiveLawBodySource,
-} from "./agent-buccet-runtime-snap-shared.ts";
+} from "./../../scripts/agent-buccet-runtime-snap-shared.ts";
 
 const repoRoot = process.cwd();
 

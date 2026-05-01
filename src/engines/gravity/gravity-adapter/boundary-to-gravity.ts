@@ -1,5 +1,5 @@
 import type { GravityProposal, ScopePayload } from "../gravity-core/index.ts";
-import type { BoundaryActionRequest, BoundaryRequestProvenance } from "../types.ts";
+import type { BoundaryActionRequest, BoundaryRequestProvenance } from "./../../../runtime/types.ts";
 
 function mapKind(actionKind: BoundaryActionRequest["actionKind"]): GravityProposal["kind"] {
   switch (actionKind) {

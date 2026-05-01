@@ -21,12 +21,12 @@ import {
   initialAdmissionState,
   WEAK_PROVENANCE_HARD_BLOCK_CEILING,
   validateAdmissionConfig,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 import type {
   BoundaryAdmissionConfig,
   BoundaryAdmissionState,
   BoundaryProvenanceRecord,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) throw new Error(`HARD-CAP contract FAIL: ${message}`);
@@ -175,7 +175,7 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   const seedState = stateWithDeniedCount("ip:weak-h3", WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1, 1_000);
 
   let state = seedState;
-  let ceilingResult: typeof import("../lib/agent-buccet/index.ts").evaluateAdmission extends
+  let ceilingResult: typeof import("./../../src/index.ts").evaluateAdmission extends
     (args: infer _A) => infer R ? R : never | undefined;
   let found = false;
 

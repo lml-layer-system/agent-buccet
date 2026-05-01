@@ -3,24 +3,24 @@ import {
   assertBoundaryGravityLawUpdateAllowed,
   createBoundaryGravityService,
   type BoundaryGravityEnforcement,
-} from "./gravity-adapter/gravity-service.ts";
-import { appendBoundaryLedger } from "./ledger.ts";
-import { evaluateBoundaryLaws } from "./laws.ts";
-import { grantsForAction } from "./orchestrator.ts";
+} from "./../engines/gravity/gravity-adapter/gravity-service.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
+import { evaluateBoundaryLaws } from "./../law/laws.ts";
+import { grantsForAction } from "./../runtime/orchestrator.ts";
 import {
   evaluateSpendBoundaryAction,
   evaluateSpendBoundaryActionRuntime,
 } from "./spend-boundary.ts";
-import { resolveBoundaryUplTraffic } from "./upl-traffic.ts";
+import { resolveBoundaryUplTraffic } from "./../law/upl-traffic.ts";
 import {
   getActiveUserLawIds,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
-} from "./user-path-ledger.ts";
+} from "./../proof/user-path-ledger.ts";
 import {
   resolveBoundarySubstrateTraffic,
   validateBoundarySubstrateApprovalMutation,
-} from "./substrate-live.ts";
+} from "./../runtime/substrate/substrate-live.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -30,7 +30,7 @@ import type {
   BoundaryLegacyApprovalDecision,
   BoundaryRuntimeConfig,
   BodyguardMove,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 export type BodyguardAdjudication = {
   result: BoundaryLawResult;

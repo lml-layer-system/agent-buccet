@@ -23,13 +23,13 @@ import {
   evaluateHookAvailability,
   classifyCommandPayloadClass,
   inferBoundaryCommandDoorSignals,
-} from "../lib/agent-buccet/entry-doors.ts";
+} from "./../../src/boundaries/entry-doors.ts";
 import type {
   BoundaryEntryDoorAttachment,
-} from "../lib/agent-buccet/entry-doors.ts";
+} from "./../../src/boundaries/entry-doors.ts";
 import {
   createPersistentBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function listenUnixSocket(socketPath: string): Promise<net.Server> {
   return new Promise((resolve, reject) => {

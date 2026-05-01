@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { runBoundaryWrappedCommand } from "../lib/agent-buccet/index.ts";
+import { runBoundaryWrappedCommand } from "./../src/index.ts";
 
 type ParsedArgs = {
   sessionId: string;

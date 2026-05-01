@@ -12,7 +12,7 @@ import {
   prepareTeamRuntime,
   saveTeam,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {

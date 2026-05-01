@@ -3,7 +3,7 @@ import { existsSync, readFileSync, unlinkSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appendBoundaryLedger } from "./ledger.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import type {
   BoundaryProcessPhysics,
   BoundaryProcessPolicy,

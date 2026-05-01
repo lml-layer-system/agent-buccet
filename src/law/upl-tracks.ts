@@ -24,9 +24,9 @@
  */
 
 import path from "node:path";
-import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./types.ts";
-import { checkExpressionCorridor } from "./expression-track-extractor.ts";
-import { checkCompletionCorridor, checkOutputCorridor } from "./output-track-extractor.ts";
+import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./../runtime/types.ts";
+import { checkExpressionCorridor } from "./../runtime/expression-track-extractor.ts";
+import { checkCompletionCorridor, checkOutputCorridor } from "./../runtime/output-track-extractor.ts";
 
 /** All filesystem action kinds. */
 const FS_ACTION_KINDS: BoundaryActionKind[] = [

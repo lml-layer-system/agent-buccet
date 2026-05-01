@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   instantiateBuccetFormation,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
-} from "../lib/agent-buccet/path-memory.ts";
+} from "./../../src/context/path-memory.ts";
 
 async function main() {
   console.log("--- Agent Buccet Path Memory Contract ---");

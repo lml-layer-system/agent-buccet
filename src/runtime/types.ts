@@ -1,4 +1,4 @@
-import type { BoundaryGravityService } from "./gravity-adapter/gravity-service.ts";
+import type { BoundaryGravityService } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
 
 export type BoundaryActionKind =
   | "fs.read"

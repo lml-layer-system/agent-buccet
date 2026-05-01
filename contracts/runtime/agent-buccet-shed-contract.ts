@@ -8,7 +8,7 @@ import {
   enforceBoundaryProposal,
   readAllBoundaryLedgerRecords,
   type BoundaryLedgerRecord,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 function latestEvent(records: BoundaryLedgerRecord[], eventType: string) {
   return [...records].reverse().find((record) => record.META.event_type === eventType);

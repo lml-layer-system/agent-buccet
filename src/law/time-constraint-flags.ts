@@ -3,7 +3,7 @@ import type {
   BoundaryActionKind,
   BoundaryActionRequest,
   BoundaryReviewContext,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 type BoundaryTimeConstraintSignals = {
   flags: BoundaryActionRequest["flags"];

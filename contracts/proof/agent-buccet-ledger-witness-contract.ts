@@ -9,7 +9,7 @@ import {
   createHttpBoundaryLedgerWitness,
   publishBoundaryLedgerCheckpoint,
   readAllBoundaryLedgerRecords,
-} from "../lib/agent-buccet/index.ts";
+} from "./../../src/index.ts";
 
 async function main() {
   const targetPath = path.join(

@@ -3,7 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { buildTeamWholeView } from "../lib/agent-buccet/path-source-checkpoints.ts";
+import { buildTeamWholeView } from "./../../src/context/path-source-checkpoints.ts";
 import {
   addTeamAgent,
   addTeamSource,
@@ -17,7 +17,7 @@ import {
   readTeamPathSourceMemoryEntries,
   rollbackTeamToContinuitySnapshot,
   teamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../../src/teams/team-workshop.ts";
 
 async function main(): Promise<void> {
   console.log("--- Agent Buccet Team Continuity Contract ---");

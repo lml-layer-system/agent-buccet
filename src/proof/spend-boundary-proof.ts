@@ -5,12 +5,12 @@ import {
   type TeamManifest,
   type TeamPathSourceMemoryRecord,
   type TeamSlug,
-} from "./team-workshop.ts";
+} from "./../teams/team-workshop.ts";
 import type {
   BoundaryDecision,
   BoundaryLedgerEventType,
   BoundaryLedgerRecord,
-} from "./types.ts";
+} from "./../runtime/types.ts";
 
 const MIRRORED_SPEND_EVENT_TYPES = new Set<BoundaryLedgerEventType>([
   "ACTION_PROPOSED",

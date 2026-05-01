@@ -1,15 +1,15 @@
-import { createApprovalQueueAdapter } from "../approval.ts";
+import { createApprovalQueueAdapter } from "./../boundaries/approval.ts";
 import {
   enforceBoundaryProposal,
   type BoundaryExecutionResult,
   type BoundaryToolProposal,
-} from "../bodyguard.ts";
-import { buildRemoteBoundaryProposal } from "../remote.ts";
+} from "./../boundaries/bodyguard.ts";
+import { buildRemoteBoundaryProposal } from "./../runtime/remote.ts";
 import type {
   BoundaryActionKind,
   BoundaryRequestProvenance,
   BoundaryRuntimeConfig,
-} from "../types.ts";
+} from "./../runtime/types.ts";
 
 export function buildTelegramBoundaryProposal<T>(args: {
   actionKind: BoundaryActionKind;

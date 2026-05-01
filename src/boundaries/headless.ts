@@ -4,8 +4,8 @@ import type {
   BoundaryApprovalRequest,
   BoundaryRuntimeConfig,
   BoundaryUserPathLedger,
-} from "./types.ts";
-import { evaluateBoundaryUplTraffic } from "./upl-traffic.ts";
+} from "./../runtime/types.ts";
+import { evaluateBoundaryUplTraffic } from "./../law/upl-traffic.ts";
 
 /**
  * Headless approval policy — replaces the human in the chair for automated pipelines.

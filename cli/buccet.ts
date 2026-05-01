@@ -12,7 +12,7 @@ import {
   inferBoundaryToolDoorSignals,
   mergeBoundaryHostConfig,
   type BoundaryHostKind,
-} from "../lib/agent-buccet/entry-doors.ts";
+} from "./../src/boundaries/entry-doors.ts";
 import {
   COMPREHENSION_STAGE_IDS,
   ENGINE_PROVIDER_DEFAULTS,
@@ -49,22 +49,22 @@ import {
   type TeamManifest,
   type TeamRuntimePreparation,
   type TeamSlug,
-} from "../lib/agent-buccet/team-workshop.ts";
+} from "./../src/teams/team-workshop.ts";
 import {
   BrainPassPreconditionError,
   runBrainPass,
   teamCanBrainPass,
-} from "../lib/agent-buccet/brain-pass.ts";
+} from "./../src/teams/brain-pass.ts";
 import {
   buildCreatePromptEvent,
   renderCreatePromptEvent,
   type BuccetPromptMode,
-} from "../lib/agent-buccet/create-prompt.ts";
+} from "./../src/runtime/create-prompt.ts";
 import {
   buildProofOfWorkTraceOutput,
   renderProofOfWorkTraceText,
-} from "../lib/agent-buccet/create-trace.ts";
-import { PiNotInstalledError } from "../lib/agent-buccet/pi-adapter.ts";
+} from "./../src/proof/create-trace.ts";
+import { PiNotInstalledError } from "./../src/engines/pi/pi-adapter.ts";
 import {
   activateCompiledBoundaryUplState,
   buildBoundarySpendLawBlendDraft,
@@ -77,7 +77,7 @@ import {
   proposeBoundarySpendLawPacks,
   reviewBoundaryUplDraft,
   writeApprovedBoundaryUplReviewToLedger,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 import type {
   BoundaryActionKind,
   BoundaryApprovedUplReview,
@@ -113,7 +113,7 @@ import type {
   BoundaryUplStatus,
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -4153,13 +4153,13 @@ async function stopHookDaemonPid(pid: number): Promise<void> {
 async function importBoundary(homePath: string) {
   await ensureDir(homePath);
   process.chdir(homePath);
-  return import("../lib/agent-buccet/index.ts");
+  return import("./../src/index.ts");
 }
 
 async function importBaseAcceptance(homePath: string) {
   await ensureDir(homePath);
   process.chdir(homePath);
-  return import("../lib/agent-buccet/base-upl-acceptance.ts");
+  return import("./../src/law/base-upl-acceptance.ts");
 }
 
 async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
@@ -11745,7 +11745,7 @@ async function handleConsole() {
 async function handleExtractLaws(rest: string[]) {
   const { promises: fsp } = await import("node:fs");
   const { extractDocumentLawsWithDiagnostics } = await import(
-    "../lib/agent-buccet/index.ts"
+    "../src/index.ts"
   );
 
   const jsonFlag = rest.includes("--json");
