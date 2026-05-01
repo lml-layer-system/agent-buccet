@@ -1,0 +1,31 @@
+{
+  "version": "1",
+  "generated_at": "2026-05-01T00:00:00.000000+00:00",
+  "description": "Active UPL snapshot for demo-session-001. These rules are evaluated against every proposed action before any tool is called.",
+  "tracks": [
+    {
+      "id": "upl-001",
+      "type": "DENIED",
+      "action_kind": "tool.exec",
+      "target": "github.pr.create",
+      "scope": "SESSION",
+      "status": "ACTIVE",
+      "denial_class": "external_communication",
+      "reason": "Agent-initiated GitHub PR creation denied by operator policy. No standing authority to publish code changes on behalf of users.",
+      "created_at": "2026-05-01T00:00:00.000000+00:00",
+      "notes": "Applies to all PR creation regardless of branch or title content."
+    },
+    {
+      "id": "upl-002",
+      "type": "DENIED",
+      "action_kind": "agent.spend",
+      "target": "*",
+      "scope": "SESSION",
+      "status": "ACTIVE",
+      "denial_class": "agent_spend",
+      "reason": "Agent spend denied — no spend authority granted in this session. All financial actions require explicit user approval with a declared spend corridor.",
+      "created_at": "2026-05-01T00:00:00.000000+00:00",
+      "notes": "Wildcard target. Covers all spend destinations."
+    }
+  ]
+}
