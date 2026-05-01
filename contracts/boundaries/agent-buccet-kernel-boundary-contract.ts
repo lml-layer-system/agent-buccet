@@ -65,6 +65,42 @@ async function main() {
     assert.equal(processInjection?.decision, "deny");
     assert.equal(processInjection?.entry.id, "DENY.KERNEL.INJECTION.014D");
 
+    const continuationWrite = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "python", "writev(fd, iov, 2) then pwritev(fd, iov, 2, 0)"),
+    });
+    assert.ok(continuationWrite, "expected fd continuation write shape to match the kernel wall");
+    assert.equal(continuationWrite?.decision, "deny");
+    assert.equal(continuationWrite?.entry.id, "DENY.KERNEL.CONTINUATION.014V");
+
+    const zeroCopyTransfer = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "python", "sendfile(out_fd, in_fd) followed by splice(pipefd[0], fd)"),
+    });
+    assert.ok(zeroCopyTransfer, "expected zero-copy continuation shape to match the kernel wall");
+    assert.equal(zeroCopyTransfer?.decision, "deny");
+    assert.equal(zeroCopyTransfer?.entry.id, "DENY.KERNEL.CONTINUATION.014V");
+
+    const sharedMemory = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "python", "mmap MAP_SHARED shared memory write into foreign region"),
+    });
+    assert.ok(sharedMemory, "expected shared-memory continuation shape to match the kernel wall");
+    assert.equal(sharedMemory?.decision, "deny");
+    assert.equal(sharedMemory?.entry.id, "DENY.KERNEL.SHARED_MEMORY.014E");
+
+    const ioUring = lookupUserPathTrackDecision({
+      ledger,
+      session,
+      request: makeRequest("tool.exec", "python", "io_uring_enter submission queue write path"),
+    });
+    assert.ok(ioUring, "expected io_uring async submission shape to match the kernel wall");
+    assert.equal(ioUring?.decision, "deny");
+    assert.equal(ioUring?.entry.id, "DENY.KERNEL.EXEC.014A");
+
     const dockerSock = lookupUserPathTrackDecision({
       ledger,
       session,
@@ -180,6 +216,10 @@ async function main() {
     console.log("Agent Buccet kernel boundary contract");
     console.log(`driver wall: ${driverLoad?.entry.id}`);
     console.log(`injection wall: ${processInjection?.entry.id}`);
+    console.log(`continuation wall: ${continuationWrite?.entry.id}`);
+    console.log(`zero-copy wall: ${zeroCopyTransfer?.entry.id}`);
+    console.log(`shared-memory wall: ${sharedMemory?.entry.id}`);
+    console.log(`io_uring wall: ${ioUring?.entry.id}`);
     console.log(`docker socket wall: ${dockerSock?.entry.id}`);
     console.log(`raw network wall: ${rawNetwork?.entry.id}`);
     console.log(`hypervisor wall: ${hypervisorControl?.entry.id}`);

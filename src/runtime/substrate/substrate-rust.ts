@@ -62,12 +62,12 @@ type RawBuccetSubstrateBootstrapModule = RawBuccetSubstrateModule & {
 async function resolveSubstrateAssetUrls(): Promise<{ bgModuleUrl: URL; wasmUrl: URL }> {
   const candidates = [
     {
-      bgModuleUrl: new URL("../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
-      wasmUrl: new URL("../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
+      bgModuleUrl: new URL("../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
+      wasmUrl: new URL("../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
     },
     {
-      bgModuleUrl: new URL("../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
-      wasmUrl: new URL("../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
+      bgModuleUrl: new URL("../../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
+      wasmUrl: new URL("../../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
     },
   ];
 

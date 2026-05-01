@@ -280,7 +280,13 @@ Bounds: listed request-text triggers only; deny wins on overlap.
 
 ### DENY.KERNEL.SHARED_MEMORY.014E
 What it is: Kernel Boundary denies shared-memory write crossings and zero-copy authority bypass without explicit law.
-Connects to: request text trigger `*mmap*shared*`; request text trigger `*shm_open*`; request text trigger `*createfilemapping*`; request text trigger `*mapviewoffile*`; request text trigger `*shared memory write*`; request text trigger `*zero-copy transfer*`.
+Connects to: request text trigger `*mmap*shared*`; request text trigger `*map_shared*`; request text trigger `*map shared*`; request text trigger `*shm_open*`; request text trigger `*createfilemapping*`; request text trigger `*mapviewoffile*`; request text trigger `*shared memory write*`; request text trigger `*zero-copy transfer*`.
+Action kinds: `tool.exec`.
+Bounds: listed request-text triggers only; deny wins on overlap.
+
+### DENY.KERNEL.CONTINUATION.014V
+What it is: Kernel Boundary denies continuation-shape file-descriptor mutation and kernel-assisted transfer surfaces without explicit law.
+Connects to: request text trigger `*writev*`; request text trigger `*pwrite*`; request text trigger `*pwritev*`; request text trigger `*sendfile*`; request text trigger `*splice*`; request text trigger `* tee *`; request text trigger `*tee(*`; request text trigger `*copy_file_range*`.
 Action kinds: `tool.exec`.
 Bounds: listed request-text triggers only; deny wins on overlap.
 

@@ -144,14 +144,14 @@ The table below is therefore about native deep-intercept visibility and normaliz
 | `read` | **Covered** — deep-intercept hook |
 | `execve` / `execv` / `execvp` | **Covered** — deep-intercept hook |
 | `connect` / `socket` | **Covered** — deep-intercept hook |
-| `writev` | **Not explicitly covered** — continuation-shape visibility gap on an already-open fd |
-| `sendfile` | **Not explicitly covered** — kernel-assisted continuation copy path |
-| `splice` / `tee` | **Not explicitly covered** — zero-copy continuation paths |
-| `mmap(MAP_SHARED)` | **Not explicitly covered** — shared-memory mutation continuation path |
-| `pwrite` / `pwritev` | **Not explicitly covered** — offset-write continuation shape |
-| `io_uring` ops | **Not explicitly covered** — async submission path; this remains the hardest native gap |
+| `writev` | **Not explicitly deep-intercept normalized per-family** — denied on the kernel-side law plane via `DENY.KERNEL.CONTINUATION.014V` |
+| `sendfile` | **Not explicitly deep-intercept normalized per-family** — denied on the kernel-side law plane via `DENY.KERNEL.CONTINUATION.014V` |
+| `splice` / `tee` | **Not explicitly deep-intercept normalized per-family** — denied on the kernel-side law plane via `DENY.KERNEL.CONTINUATION.014V` |
+| `mmap(MAP_SHARED)` | **Not explicitly deep-intercept normalized per-family** — denied on the kernel-side law plane via `DENY.KERNEL.SHARED_MEMORY.014E` |
+| `pwrite` / `pwritev` | **Not explicitly deep-intercept normalized per-family** — denied on the kernel-side law plane via `DENY.KERNEL.CONTINUATION.014V` |
+| `io_uring` ops | **Not explicitly deep-intercept normalized per-family** — denied on the kernel-side law plane via `DENY.KERNEL.EXEC.014A`; native async coverage remains the hardest proof-depth gap |
 
-The uncovered families are documented, not hidden. For most of them, the consequence should already have crossed the same upstream Buccet boundary earlier as `fs.read`, `fs.write`, `network.send`, or another finite action class. What is missing is per-family native normalization/proof depth, not a new independent authority system. `io_uring` is the clearest remaining case where deeper native handling is still needed.
+These families are therefore not treated as silent allow-holes. The remaining gap is per-family native normalization and proof depth, not absence of a kernel-side denial wall. For most of them, the consequence should already have crossed the same upstream Buccet boundary earlier as `fs.read`, `fs.write`, `network.send`, or another finite action class. `io_uring` remains the clearest case where deeper native handling is still needed even though the law-plane denial is explicit.
 
 ### Egress: What is Checked at chat.emit vs Network Boundaries
 

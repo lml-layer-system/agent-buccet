@@ -895,11 +895,13 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.EXEC.014A",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies raw native execution and syscall-surface motion without explicit law.",
+    reason: "Kernel Boundary denies raw native execution, async submission, and syscall-surface motion without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*io_uring*",
-      "*sendfile*",
+      "*io_uring_enter*",
+      "*io_uring_setup*",
+      "*io_uring_register*",
       "*execve*",
       "*syscall *",
       "*clone3*",
@@ -983,6 +985,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*mmap*shared*",
+      "*map_shared*",
+      "*map shared*",
       "*shm_open*",
       "*createfilemapping*",
       "*mapviewoffile*",
@@ -990,6 +994,24 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
       "*zero-copy transfer*",
     ]),
     requestBasisTarget: "base-headless-denials:kernel-shared-memory",
+  },
+  {
+    id: "DENY.KERNEL.CONTINUATION.014V",
+    denialClass: "kernel_boundary",
+    reason:
+      "Kernel Boundary denies continuation-shape file-descriptor mutation and kernel-assisted transfer surfaces without explicit law.",
+    actionKinds: ["tool.exec"],
+    requestTextPatterns: toContainsRegexList([
+      "*writev*",
+      "*pwrite*",
+      "*pwritev*",
+      "*sendfile*",
+      "*splice*",
+      "* tee *",
+      "*tee(*",
+      "*copy_file_range*",
+    ]),
+    requestBasisTarget: "base-headless-denials:kernel-fd-continuation",
   },
   {
     id: "DENY.KERNEL.HANDLE_PASS.014F",
