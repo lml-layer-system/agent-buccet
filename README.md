@@ -91,6 +91,50 @@ Agent Buccet provides the *brakes* and runtime enforcement against AI failure mo
 - one repo-owned Rust/WASM substrate that carries portable bounded runtime behavior across machines without Docker-scale bloat
 - durable audit trail from first proposal to final consequence
 
+## Start Here
+
+If you are visiting the repo for the first time, use this order:
+
+- operators: [quickstart](docs/quickstart.md)
+- security review: [security model](docs/security-model.md)
+- limits and current scope: [current limits](docs/current-limits.md)
+- MCP setup: [MCP server guide](docs/guides/mcp-server.md)
+- contributor/repo map: [docs index](docs/README.md) and [where to add what](docs/guides/WHERE_TO_ADD_WHAT.md)
+- public surface vs internal surface: [public/private boundary](docs/public-private-boundary.md) and [repo boundary](docs/REPO_BOUNDARY.md)
+
+If you only want the shortest operator path:
+
+```bash
+sh scripts/install-agent-buccet.sh
+buccet init
+buccet console
+```
+
+## Repo Layout
+
+The repo is intentionally split by role, not by historical accident:
+
+- `src/` = runtime code, laws, boundaries, ledgers, engines, teams, context, substrate adapters
+- `cli/` = the Buccet operator entrypoint
+- `contracts/` = executable proofs for runtime, law, CLI, boundaries, teams, and packaging
+- `docs/` = operator docs, specs, guides, examples, release notes
+- `examples/` = minimal runnable examples
+- `data/` = law foundation payloads, runtime snaps, working state fixtures
+- `scripts/` = build, package, daemon, install, render, and support scripts
+- `native/` = lower-level interception and substrate surfaces
+- `demo/` = operator demos and scenario scripts
+
+The public repo boundary is the combination of:
+
+- `src/`
+- `cli/buccet.ts`
+- `contracts/`
+- `docs/`
+- `native/`
+- install/package scripts
+
+That is the surface meant to be inspected, packaged, verified, and published.
+
 ## What Actually Runs
 
 The repo is larger than the hot runtime on purpose.
