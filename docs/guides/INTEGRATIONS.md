@@ -8,8 +8,8 @@ They are explicit boundary entrypoints that make the compatibility claim concret
 ## Included
 
 ### Anthropic Claude SDK
-- [claude-sdk.ts](../../lib/agent-buccet/integrations/claude-sdk.ts)
-- [Example](examples/claude-sdk.md)
+- [claude-sdk.ts](../../src/integrations/claude-sdk.ts)
+- [Example](../examples/claude-sdk.md)
 
 Exports:
 - `guardClaudeToolUse(...)`
@@ -28,8 +28,8 @@ const result = await guard.evaluate(block.name, block.input);
 Unknown tools are denied by default (`BOUNDARY.TOOL.UNMAPPED`). No `@anthropic-ai/sdk` dependency required — works with any loop that receives Claude tool_use blocks.
 
 ### NeMo Guardrails
-- [nemo.ts](../../lib/agent-buccet/integrations/nemo.ts)
-- [Example](examples/nemo.md)
+- [nemo.ts](../../src/integrations/nemo.ts)
+- [Example](../examples/nemo.md)
 
 Exports:
 - `enforceNemoProposal(...)`
@@ -42,8 +42,8 @@ Use this when a NeMo workflow/tool wants to propose a real-world action and Bucc
 - `REQUIRE_APPROVAL`
 
 ### OpenAI Agents
-- [openai-agents.ts](../../lib/agent-buccet/integrations/openai-agents.ts)
-- [Example](examples/openai-agents.md)
+- [openai-agents.ts](../../src/integrations/openai-agents.ts)
+- [Example](../examples/openai-agents.md)
 
 Exports:
 - `enforceOpenAIAgentProposal(...)`
@@ -51,8 +51,8 @@ Exports:
 - `createOpenAIAgentsBoundaryGuard(...)`
 
 ### LangGraph / LangChain-style graphs
-- [langgraph.ts](../../lib/agent-buccet/integrations/langgraph.ts)
-- [Example](examples/langgraph.md)
+- [langgraph.ts](../../src/integrations/langgraph.ts)
+- [Example](../examples/langgraph.md)
 
 Exports:
 - `enforceLangGraphProposal(...)`
@@ -60,8 +60,8 @@ Exports:
 - `createLangGraphBoundaryGuard(...)`
 
 ### Telegram / remote async control
-- [telegram.ts](../../lib/agent-buccet/integrations/telegram.ts)
-- [Example](examples/telegram.md)
+- [telegram.ts](../../src/integrations/telegram.ts)
+- [Example](../examples/telegram.md)
 
 Exports:
 - `buildTelegramBoundaryProposal(...)`
@@ -92,12 +92,12 @@ Why this works:
 
 ## Supporting Examples
 
-- [Examples Index](examples/README.md)
-- [Approval Flow](examples/approval-flow.md)
-- [Ledger Audit](examples/ledger-audit.md)
-- [Filesystem Policy](examples/policies/filesystem-only.json)
-- [Remote Recipient Policy](examples/policies/remote-recipient.json)
-- [Tool Lockdown Policy](examples/policies/tool-lockdown.json)
+- [Examples Index](../examples/README.md)
+- [Approval Flow](../examples/approval-flow.md)
+- [Ledger Audit](../examples/ledger-audit.md)
+- [Filesystem Policy](../examples/policies/filesystem-only.json)
+- [Remote Recipient Policy](../examples/policies/remote-recipient.json)
+- [Tool Lockdown Policy](../examples/policies/tool-lockdown.json)
 
 ## Shared Attachment Layer
 

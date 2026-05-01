@@ -88,7 +88,7 @@ Keep outside the current runtime core:
 
 Optional Buccet-native path memory can sit beside this core as a finite orchestration substrate.
 It is not a second authority system.
-See [Buccet Path Memory](./BUCCET_PATH_MEMORY.md).
+See [Buccet Path Memory](./specs/BUCCET_PATH_MEMORY.md).
 
 ## Rule For Exposure
 

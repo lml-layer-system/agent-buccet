@@ -49,11 +49,11 @@ Laws are typed policy evaluators. Each `BoundaryLaw` has:
 
 `null` means the law has no opinion. A non-null result wins.
 
-Laws live in `lib/agent-buccet/laws.ts` and `lib/agent-buccet/time.ts`. The full law reference is at [`docs/agent-boundary/LAW_REFERENCE.md`](docs/agent-boundary/LAW_REFERENCE.md).
+Laws live in `src/law/laws.ts` and `src/runtime/time.ts`. The full law reference is at [`docs/specs/LAW_REFERENCE.md`](docs/specs/LAW_REFERENCE.md).
 
 **To add a new law:**
 ```typescript
-// In lib/agent-buccet/laws.ts, add to DEFAULT_BOUNDARY_LAWS:
+// In src/law/laws.ts, add to DEFAULT_BOUNDARY_LAWS:
 {
   lawId: "BOUNDARY.MYLAW.01",
   description: "What this law enforces.",
@@ -94,14 +94,14 @@ agent proposes action
 Key files:
 | File | Purpose |
 |------|---------|
-| `lib/agent-buccet/types.ts` | All core types |
-| `lib/agent-buccet/laws.ts` | Default boundary laws |
-| `lib/agent-buccet/time.ts` | Time-body defensive laws |
-| `lib/agent-buccet/runtime.ts` | Grant/path lifecycle, law evaluation |
-| `lib/agent-buccet/bodyguard.ts` | Primary integration surface |
-| `lib/agent-buccet/ledger.ts` | Append-only witness ledger |
-| `lib/agent-buccet/user-path-ledger.ts` | Standing user law (UPL) |
-| `lib/agent-buccet/gravity-core/` | Gravity kernel + law skills |
+| `src/runtime/types.ts` | All core types |
+| `src/law/laws.ts` | Default boundary laws |
+| `src/runtime/time.ts` | Time-body defensive laws |
+| `src/runtime/runtime.ts` | Grant/path lifecycle, law evaluation |
+| `src/boundaries/bodyguard.ts` | Primary integration surface |
+| `src/proof/ledger.ts` | Append-only witness ledger |
+| `src/proof/user-path-ledger.ts` | Standing user law (UPL) |
+| `src/engines/gravity/gravity-core/` | Gravity kernel + law skills |
 
 ## Branch Model
 
@@ -115,7 +115,7 @@ Open PRs against `buccet-base-time-law-transfer`, not `main`.
 
 **Welcome:**
 - Bug fixes in law evaluation logic
-- New integration adapters (new framework in `lib/agent-buccet/integrations/`)
+- New integration adapters (new framework in `src/integrations/`)
 - Additional contract tests for edge cases
 - Documentation improvements (law catalog, quickstart, examples)
 - Performance improvements to the ledger hot path

@@ -41,12 +41,12 @@ read -r
 echo ""
 echo "  [..] Verifying Buccet hook daemon..."
 cd "$REPO_DIR"
-HOOK_STATUS=$(node scripts/buccet.ts hook status --json 2>/dev/null || echo '{"ready":false}')
+HOOK_STATUS=$(node cli/buccet.ts hook status --json 2>/dev/null || echo '{"ready":false}')
 IS_READY=$(echo "$HOOK_STATUS" | python3 -c "import sys,json; d=json.load(sys.stdin); print(str(d.get('ready',False)).lower())" 2>/dev/null || echo "false")
 
 if [[ "$IS_READY" != "true" ]]; then
   echo "  [..] Starting hook daemon..."
-  node scripts/buccet.ts hook start
+  node cli/buccet.ts hook start
   sleep 2
   echo "  [OK]  Hook daemon started"
 else
@@ -68,11 +68,11 @@ echo ""
 
 # Launch all 3 workers in background, wait for all to finish
 cd "$REPO_DIR"
-node scripts/buccet.ts hook run -- "$PYTHON_BIN" "$DEMO_DIR/worker.py" "worker-1" "0.0" &
+node cli/buccet.ts hook run -- "$PYTHON_BIN" "$DEMO_DIR/worker.py" "worker-1" "0.0" &
 PID1=$!
-node scripts/buccet.ts hook run -- "$PYTHON_BIN" "$DEMO_DIR/worker.py" "worker-2" "0.15" &
+node cli/buccet.ts hook run -- "$PYTHON_BIN" "$DEMO_DIR/worker.py" "worker-2" "0.15" &
 PID2=$!
-node scripts/buccet.ts hook run -- "$PYTHON_BIN" "$DEMO_DIR/worker.py" "worker-3" "0.30" &
+node cli/buccet.ts hook run -- "$PYTHON_BIN" "$DEMO_DIR/worker.py" "worker-3" "0.30" &
 PID3=$!
 
 # Wait for all workers to finish (or be blocked)

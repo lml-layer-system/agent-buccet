@@ -71,6 +71,6 @@ Meaning:
 - the ledger records every decision, signed and chained
 
 See also:
-- [`createClaudeSDKBoundaryGuard`](../../../lib/agent-buccet/integrations/claude-sdk.ts)
-- [`evaluateBoundaryIntercept`](../../../lib/agent-buccet/intercept.ts)
-- [Quickstart](../../../examples/quickstart/index.ts)
+- [`createClaudeSDKBoundaryGuard`](../../src/integrations/claude-sdk.ts)
+- [`evaluateBoundaryIntercept`](../../src/runtime/intercept.ts)
+- [Quickstart](../../examples/quickstart/index.ts)

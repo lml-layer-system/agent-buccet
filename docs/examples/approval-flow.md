@@ -8,7 +8,7 @@ The approval queue adapter gives a concrete human loop.
 import {
   createPersistentBoundaryRuntimeStore,
   createBoundaryBodyguard,
-} from "@/lib/agent-buccet";
+} from "agent-buccet";
 
 const store = await createPersistentBoundaryRuntimeStore({
   sessionId: "approval-session-1",

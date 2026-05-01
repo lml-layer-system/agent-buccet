@@ -6,7 +6,7 @@ import { spawn } from "node:child_process";
 
 async function run(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   return await new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
-    const child = spawn(process.execPath, [path.join(cwd, "scripts", "buccet.ts"), ...args], {
+    const child = spawn(process.execPath, [path.join(cwd, "cli", "buccet.ts"), ...args], {
       cwd,
       env,
       stdio: ["ignore", "pipe", "pipe"],
@@ -25,7 +25,7 @@ async function run(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
 }
 
 function spawnBuccet(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
-  const child = spawn(process.execPath, [path.join(cwd, "scripts", "buccet.ts"), ...args], {
+  const child = spawn(process.execPath, [path.join(cwd, "cli", "buccet.ts"), ...args], {
     cwd,
     env,
     stdio: ["ignore", "pipe", "pipe"],

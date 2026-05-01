@@ -15,7 +15,7 @@ What it is for:
 - native Rust build for substrate verification and future low-level integration
 - WASM build for TypeScript-side consumers that want the fused substrate functions without a second repo
 - vendored `pkg/` bundle already built for the current repo
-- Buccet-owned adapter at `lib/agent-buccet/substrate-rust.ts`
+- Buccet-owned adapter at `src/runtime/substrate/substrate-rust.ts`
 - a portable bounded substrate surface for moving working demos and runtime behavior between machines without dragging Docker-scale runtime bloat into Buccet
 
 Portable runtime chain:

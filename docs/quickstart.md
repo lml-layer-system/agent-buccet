@@ -130,8 +130,8 @@ You can paste any of this into the acceptance or denial lanes:
 
 Operator map:
 
-- [Where To Add What](WHERE_TO_ADD_WHAT.md)
-- [UPL Acceptance Source Pipeline](UPL_ACCEPTANCE_SOURCE_PIPELINE.md)
+- [Where To Add What](guides/WHERE_TO_ADD_WHAT.md)
+- [UPL Acceptance Source Pipeline](specs/UPL_ACCEPTANCE_SOURCE_PIPELINE.md)
 
 ## 5. Add Path Sources
 
@@ -194,10 +194,10 @@ The short version:
 
 ## 8. Next Docs
 
-- [MCP Server](MCP_SERVER.md)
-- [Where To Add What](WHERE_TO_ADD_WHAT.md)
-- [Buccet Path Memory](BUCCET_PATH_MEMORY.md)
-- [UPL Base Packs](UPL_BASE_PACKS.md)
-- [Law Catalog](LAW_CATALOG.md)
-- [Security Model](SECURITY_MODEL.md)
-- [Launch Proof](LAUNCH_PROOF.md)
+- [MCP Server](guides/mcp-server.md)
+- [Where To Add What](guides/WHERE_TO_ADD_WHAT.md)
+- [Buccet Path Memory](specs/BUCCET_PATH_MEMORY.md)
+- [UPL Base Packs](specs/UPL_BASE_PACKS.md)
+- [Law Catalog](specs/LAW_CATALOG.md)
+- [Security Model](security-model.md)
+- [Launch Proof](specs/LAUNCH_PROOF.md)

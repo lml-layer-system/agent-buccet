@@ -20,11 +20,11 @@ const sourceDocsDir = path.join(repoRoot, "docs");
 const sourceLawFoundationDir = path.join(repoRoot, "data", "agent-buccet-law-foundation");
 const packagedDocs = [
   "README.md",
-  "QUICKSTART.md",
-  "CURRENT_LIMITS.md",
-  "SECURITY_MODEL.md",
-  "PUBLIC_PRIVATE_BOUNDARY.md",
-  "MCP_SERVER.md",
+  "quickstart.md",
+  "current-limits.md",
+  "security-model.md",
+  "public-private-boundary.md",
+  "guides/mcp-server.md",
 ] as const;
 const packagedLawFoundationFiles = [
   "data/working/active-law-body/manifest.json",
@@ -36,24 +36,24 @@ const packagedLawFoundationFiles = [
 ] as const;
 const sourceExample = path.join(repoRoot, "scripts", "agent-buccet-e2e.ts");
 const sourceGravityExample = path.join(repoRoot, "scripts", "agent-buccet-gravity-e2e.ts");
-const sourceGravityContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-contract.ts");
-const sourceLedgerContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-contract.ts");
-const sourceLedgerRollupContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-rollup-contract.ts");
-const sourceLedgerWriterContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-writer-contract.ts");
-const sourceLedgerWitnessContract = path.join(repoRoot, "scripts", "agent-buccet-ledger-witness-contract.ts");
-const sourceGravitySupervisorContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-supervisor-contract.ts");
-const sourceActionClassesContract = path.join(repoRoot, "scripts", "agent-buccet-action-classes-contract.ts");
-const sourceInterceptDaemonContract = path.join(repoRoot, "scripts", "agent-buccet-intercept-daemon-contract.ts");
-const sourceInterceptServerContract = path.join(repoRoot, "scripts", "agent-buccet-intercept-server-contract.ts");
-const sourceSystemInterceptContract = path.join(repoRoot, "scripts", "agent-buccet-system-intercept-contract.ts");
-const sourceGravityBridgeContract = path.join(repoRoot, "scripts", "agent-buccet-gravity-bridge-contract.ts");
-const sourceSwarmContract = path.join(repoRoot, "scripts", "agent-buccet-swarm-contract.ts");
-const sourceHookRuntimeContract = path.join(repoRoot, "scripts", "agent-buccet-hook-runtime-contract.ts");
-const sourceWrapperContract = path.join(repoRoot, "scripts", "agent-buccet-wrapper-contract.ts");
-const sourceCliContract = path.join(repoRoot, "scripts", "agent-buccet-cli-contract.ts");
-const sourceInstallContract = path.join(repoRoot, "scripts", "agent-buccet-install-contract.ts");
-const sourceHostedInstallContract = path.join(repoRoot, "scripts", "agent-buccet-hosted-install-contract.ts");
-const sourceReleaseWitnessContract = path.join(repoRoot, "scripts", "agent-buccet-release-witness-contract.ts");
+const sourceGravityContract = path.join(repoRoot, "contracts", "engines", "agent-buccet-gravity-contract.ts");
+const sourceLedgerContract = path.join(repoRoot, "contracts", "proof", "agent-buccet-ledger-contract.ts");
+const sourceLedgerRollupContract = path.join(repoRoot, "contracts", "proof", "agent-buccet-ledger-rollup-contract.ts");
+const sourceLedgerWriterContract = path.join(repoRoot, "contracts", "proof", "agent-buccet-ledger-writer-contract.ts");
+const sourceLedgerWitnessContract = path.join(repoRoot, "contracts", "proof", "agent-buccet-ledger-witness-contract.ts");
+const sourceGravitySupervisorContract = path.join(repoRoot, "contracts", "engines", "agent-buccet-gravity-supervisor-contract.ts");
+const sourceActionClassesContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-action-classes-contract.ts");
+const sourceInterceptDaemonContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-intercept-daemon-contract.ts");
+const sourceInterceptServerContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-intercept-server-contract.ts");
+const sourceSystemInterceptContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-system-intercept-contract.ts");
+const sourceGravityBridgeContract = path.join(repoRoot, "contracts", "engines", "agent-buccet-gravity-bridge-contract.ts");
+const sourceSwarmContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-swarm-contract.ts");
+const sourceHookRuntimeContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-hook-runtime-contract.ts");
+const sourceWrapperContract = path.join(repoRoot, "contracts", "runtime", "agent-buccet-wrapper-contract.ts");
+const sourceCliContract = path.join(repoRoot, "contracts", "cli", "agent-buccet-cli-contract.ts");
+const sourceInstallContract = path.join(repoRoot, "contracts", "cli", "agent-buccet-install-contract.ts");
+const sourceHostedInstallContract = path.join(repoRoot, "contracts", "cli", "agent-buccet-hosted-install-contract.ts");
+const sourceReleaseWitnessContract = path.join(repoRoot, "contracts", "proof", "agent-buccet-release-witness-contract.ts");
 const sourceWrapperScript = path.join(repoRoot, "scripts", "agent-buccet-run.ts");
 const sourceCliScript = path.join(repoRoot, "cli", "buccet.ts");
 const sourceGravityDaemonScript = path.join(repoRoot, "scripts", "agent-buccet-gravity-daemon.ts");
@@ -588,91 +588,50 @@ async function writeSnapArtifacts() {
   );
 }
 
+function rewritePackagedSourceImports(raw: string): string {
+  return raw
+    .replaceAll("../lib/agent-buccet/", "../src/")
+    .replaceAll("./../../src/", "../src/")
+    .replaceAll("../../src/", "../src/");
+}
+
 async function writeStandaloneExample() {
   const raw = await fs.readFile(sourceExample, "utf8");
-  const rewritten = raw.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewritten = rewritePackagedSourceImports(raw);
   const rawGravity = await fs.readFile(sourceGravityExample, "utf8");
-  const rewrittenGravity = rawGravity.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenGravity = rewritePackagedSourceImports(rawGravity);
   const rawGravityContract = await fs.readFile(sourceGravityContract, "utf8");
-  const rewrittenGravityContract = rawGravityContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenGravityContract = rewritePackagedSourceImports(rawGravityContract);
   const rawLedgerContract = await fs.readFile(sourceLedgerContract, "utf8");
-  const rewrittenLedgerContract = rawLedgerContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenLedgerContract = rewritePackagedSourceImports(rawLedgerContract);
   const rawLedgerRollupContract = await fs.readFile(sourceLedgerRollupContract, "utf8");
-  const rewrittenLedgerRollupContract = rawLedgerRollupContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenLedgerRollupContract = rewritePackagedSourceImports(rawLedgerRollupContract);
   const rawLedgerWriterContract = await fs.readFile(sourceLedgerWriterContract, "utf8");
-  const rewrittenLedgerWriterContract = rawLedgerWriterContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenLedgerWriterContract = rewritePackagedSourceImports(rawLedgerWriterContract);
   const rawLedgerWitnessContract = await fs.readFile(sourceLedgerWitnessContract, "utf8");
-  const rewrittenLedgerWitnessContract = rawLedgerWitnessContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenLedgerWitnessContract = rewritePackagedSourceImports(rawLedgerWitnessContract);
   const rawGravitySupervisorContract = await fs.readFile(sourceGravitySupervisorContract, "utf8");
-  const rewrittenGravitySupervisorContract = rawGravitySupervisorContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenGravitySupervisorContract = rewritePackagedSourceImports(rawGravitySupervisorContract);
   const rawActionClassesContract = await fs.readFile(sourceActionClassesContract, "utf8");
-  const rewrittenActionClassesContract = rawActionClassesContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenActionClassesContract = rewritePackagedSourceImports(rawActionClassesContract);
   const rawInterceptDaemonContract = await fs.readFile(sourceInterceptDaemonContract, "utf8");
-  const rewrittenInterceptDaemonContract = rawInterceptDaemonContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenInterceptDaemonContract = rewritePackagedSourceImports(rawInterceptDaemonContract);
   const rawInterceptServerContract = await fs.readFile(sourceInterceptServerContract, "utf8");
-  const rewrittenInterceptServerContract = rawInterceptServerContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenInterceptServerContract = rewritePackagedSourceImports(rawInterceptServerContract);
   const rawSystemInterceptContract = await fs.readFile(sourceSystemInterceptContract, "utf8");
-  const rewrittenSystemInterceptContract = rawSystemInterceptContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenSystemInterceptContract = rewritePackagedSourceImports(rawSystemInterceptContract);
   const rawGravityBridgeContract = await fs.readFile(sourceGravityBridgeContract, "utf8");
-  const rewrittenGravityBridgeContract = rawGravityBridgeContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenGravityBridgeContract = rewritePackagedSourceImports(rawGravityBridgeContract);
   const rawSwarmContract = await fs.readFile(sourceSwarmContract, "utf8");
-  const rewrittenSwarmContract = rawSwarmContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
-  const rewrittenHookRuntimeContract = await fs.readFile(sourceHookRuntimeContract, "utf8");
+  const rewrittenSwarmContract = rewritePackagedSourceImports(rawSwarmContract);
+  const rewrittenHookRuntimeContract = rewritePackagedSourceImports(await fs.readFile(sourceHookRuntimeContract, "utf8"));
   const rawWrapperContract = await fs.readFile(sourceWrapperContract, "utf8");
-  const rewrittenWrapperContract = rawWrapperContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenWrapperContract = rewritePackagedSourceImports(rawWrapperContract);
   const rawCliContract = await fs.readFile(sourceCliContract, "utf8");
-  const rewrittenCliContract = rawCliContract.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
-  const rewrittenInstallContract = await fs.readFile(sourceInstallContract, "utf8");
-  const rewrittenHostedInstallContract = await fs.readFile(sourceHostedInstallContract, "utf8");
-  const rewrittenReleaseWitnessContract = await fs.readFile(sourceReleaseWitnessContract, "utf8");
+  const rewrittenCliContract = rewritePackagedSourceImports(rawCliContract);
+  const rewrittenInstallContract = rewritePackagedSourceImports(await fs.readFile(sourceInstallContract, "utf8"));
+  const rewrittenHostedInstallContract = rewritePackagedSourceImports(await fs.readFile(sourceHostedInstallContract, "utf8"));
+  const rewrittenReleaseWitnessContract = rewritePackagedSourceImports(await fs.readFile(sourceReleaseWitnessContract, "utf8"));
   const examplesDir = path.join(outDir, "examples");
   await mkdirp(examplesDir);
   await fs.writeFile(path.join(examplesDir, "agent-buccet-e2e.ts"), rewritten, "utf8");
@@ -699,78 +658,48 @@ async function writeStandaloneExample() {
 
 async function writeStandaloneWrapper() {
   const raw = await fs.readFile(sourceWrapperScript, "utf8");
-  const rewritten = raw.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewritten = rewritePackagedSourceImports(raw);
   const binDir = path.join(outDir, "bin");
   await mkdirp(binDir);
   await fs.writeFile(path.join(binDir, "agent-buccet-run.ts"), rewritten, "utf8");
 
   const rawGravityDaemon = await fs.readFile(sourceGravityDaemonScript, "utf8");
-  const rewrittenGravityDaemon = rawGravityDaemon.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenGravityDaemon = rewritePackagedSourceImports(rawGravityDaemon);
   await fs.writeFile(path.join(binDir, "agent-buccet-gravity-daemon.ts"), rewrittenGravityDaemon, "utf8");
 
   const rawInterceptDaemon = await fs.readFile(sourceInterceptDaemonScript, "utf8");
-  const rewrittenInterceptDaemon = rawInterceptDaemon.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenInterceptDaemon = rewritePackagedSourceImports(rawInterceptDaemon);
   await fs.writeFile(path.join(binDir, "agent-buccet-intercept-daemon.ts"), rewrittenInterceptDaemon, "utf8");
 
   const rawInterceptServer = await fs.readFile(sourceInterceptServerScript, "utf8");
-  const rewrittenInterceptServer = rawInterceptServer.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenInterceptServer = rewritePackagedSourceImports(rawInterceptServer);
   await fs.writeFile(path.join(binDir, "agent-buccet-intercept-server.ts"), rewrittenInterceptServer, "utf8");
 
   const rawGravityBridge = await fs.readFile(sourceGravityBridgeScript, "utf8");
-  const rewrittenGravityBridge = rawGravityBridge.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenGravityBridge = rewritePackagedSourceImports(rawGravityBridge);
   await fs.writeFile(path.join(binDir, "agent-buccet-gravity-bridge.ts"), rewrittenGravityBridge, "utf8");
 
   const rawHookDaemon = await fs.readFile(sourceHookDaemonScript, "utf8");
   await fs.writeFile(path.join(binDir, "agent-buccet-hook-daemon.ts"), rawHookDaemon, "utf8");
 
   const rawSystemInterceptBridge = await fs.readFile(sourceSystemInterceptBridgeScript, "utf8");
-  const rewrittenSystemInterceptBridge = rawSystemInterceptBridge.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenSystemInterceptBridge = rewritePackagedSourceImports(rawSystemInterceptBridge);
   await fs.writeFile(path.join(binDir, "agent-buccet-system-intercept-bridge.ts"), rewrittenSystemInterceptBridge, "utf8");
 
   const rawLedgerWriter = await fs.readFile(sourceLedgerWriterScript, "utf8");
-  const rewrittenLedgerWriter = rawLedgerWriter.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenLedgerWriter = rewritePackagedSourceImports(rawLedgerWriter);
   await fs.writeFile(path.join(binDir, "agent-buccet-ledger-writer.ts"), rewrittenLedgerWriter, "utf8");
 
   const rawLedgerCli = await fs.readFile(sourceLedgerCliScript, "utf8");
-  const rewrittenLedgerCli = rawLedgerCli.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenLedgerCli = rewritePackagedSourceImports(rawLedgerCli);
   await fs.writeFile(path.join(binDir, "agent-buccet-ledger-cli.ts"), rewrittenLedgerCli, "utf8");
 
   const rawCli = await fs.readFile(sourceCliScript, "utf8");
-  const rewrittenCli = rawCli.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenCli = rewritePackagedSourceImports(rawCli);
   await fs.writeFile(path.join(binDir, "buccet.ts"), rewrittenCli, "utf8");
 
   const rawMcpServer = await fs.readFile(sourceMcpServerScript, "utf8");
-  const rewrittenMcpServer = rawMcpServer.replaceAll(
-    "../lib/agent-buccet/",
-    "../src/",
-  );
+  const rewrittenMcpServer = rewritePackagedSourceImports(rawMcpServer);
   await fs.writeFile(path.join(binDir, "agent-buccet-mcp-server.ts"), rewrittenMcpServer, "utf8");
 
   const rawInstall = await fs.readFile(sourceInstallScript, "utf8");

@@ -116,7 +116,7 @@ Base Buccet law now ships as authored packs:
 They stay separate for human inspection and customization.
 Runtime compiles them into one live UPL field.
 
-See [UPL Base Packs](UPL_BASE_PACKS.md).
+See [UPL Base Packs](specs/UPL_BASE_PACKS.md).
 
 ## UPL Tracks — Authored Corridors
 

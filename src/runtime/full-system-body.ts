@@ -500,12 +500,12 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
         `repo snap stays deterministic across repeated runs: ${runtimeFacts.repoSnapDeterministic ? "yes" : "no"}`,
       ],
       proofSurface: [
-        { label: "substrate snap proof", path: "scripts/agent-buccet-system-substrate-contract.ts" },
-        { label: "system body proof", path: "scripts/agent-buccet-full-system-body-contract.ts" },
-        { label: "path/runtime proof", path: "scripts/agent-buccet-path-memory-contract.ts" },
-        { label: "CLI/runtime proof", path: "scripts/agent-buccet-cli-contract.ts" },
-        { label: "install proof", path: "scripts/agent-buccet-install-contract.ts" },
-        { label: "hosted install proof", path: "scripts/agent-buccet-hosted-install-contract.ts" },
+        { label: "substrate snap proof", path: "contracts/runtime/agent-buccet-system-substrate-contract.ts" },
+        { label: "system body proof", path: "contracts/runtime/agent-buccet-full-system-body-contract.ts" },
+        { label: "path/runtime proof", path: "contracts/context/agent-buccet-path-memory-contract.ts" },
+        { label: "CLI/runtime proof", path: "contracts/cli/agent-buccet-cli-contract.ts" },
+        { label: "install proof", path: "contracts/cli/agent-buccet-install-contract.ts" },
+        { label: "hosted install proof", path: "contracts/cli/agent-buccet-hosted-install-contract.ts" },
       ],
     },
   };

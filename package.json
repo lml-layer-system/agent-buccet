@@ -130,7 +130,7 @@
     "test:agent-buccet:shed-cli": "node contracts/cli/agent-buccet-shed-cli-contract.ts",
     "test:agent-buccet:quarantine-cli": "node contracts/cli/agent-buccet-quarantine-cli-contract.ts",
     "test:agent-buccet:install": "node contracts/cli/agent-buccet-install-contract.ts",
-    "test:agent-buccet:hosted-install": "npm run build && node scripts/agent-buccet-hosted-install-contract.ts",
+    "test:agent-buccet:hosted-install": "npm run build && node contracts/cli/agent-buccet-hosted-install-contract.ts",
     "test:agent-buccet:hosted-install:fast": "node contracts/cli/agent-buccet-hosted-install-contract.ts",
     "test:agent-buccet:release-witness": "node contracts/proof/agent-buccet-release-witness-contract.ts",
     "clean:agent-buccet:artifacts": "node scripts/agent-buccet-artifact-clean.ts",

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 
 const repoRoot = process.cwd();
-const scriptPath = path.join(repoRoot, "scripts", "buccet.ts");
+const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
 
 type CliResult = {
   stdout: string;

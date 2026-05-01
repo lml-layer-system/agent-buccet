@@ -54,7 +54,7 @@ npm run demo:agent-buccet
 ```
 
 That script lives at:
-- [scripts/agent-buccet-e2e.ts](../../../scripts/agent-buccet-e2e.ts)
+- [scripts/agent-buccet-e2e.ts](../../scripts/agent-buccet-e2e.ts)
 
 ## Gravity contract harness
 
@@ -65,7 +65,7 @@ npm run test:agent-buccet:gravity-contract
 ```
 
 That script lives at:
-- [scripts/agent-buccet-gravity-contract.ts](../../../scripts/agent-buccet-gravity-contract.ts)
+- [contracts/engines/agent-buccet-gravity-contract.ts](../../contracts/engines/agent-buccet-gravity-contract.ts)
 
 It proves:
 - out-of-scope -> `bodyguard_grant_offer`
@@ -134,7 +134,7 @@ npm run test:agent-buccet:wrapper-contract
 ```
 
 That script lives at:
-- [scripts/agent-buccet-wrapper-contract.ts](../../../scripts/agent-buccet-wrapper-contract.ts)
+- [contracts/runtime/agent-buccet-wrapper-contract.ts](../../contracts/runtime/agent-buccet-wrapper-contract.ts)
 
 It proves:
 - blocked command policy
@@ -151,7 +151,7 @@ npm run test:agent-buccet:action-classes
 ```
 
 That script lives at:
-- [scripts/agent-buccet-action-classes-contract.ts](../../../scripts/agent-buccet-action-classes-contract.ts)
+- [contracts/runtime/agent-buccet-action-classes-contract.ts](../../contracts/runtime/agent-buccet-action-classes-contract.ts)
 
 It proves:
 - database scope is first-class
@@ -168,7 +168,7 @@ npm run test:agent-buccet:gravity-supervisor
 ```
 
 That script lives at:
-- [scripts/agent-buccet-gravity-supervisor-contract.ts](../../../scripts/agent-buccet-gravity-supervisor-contract.ts)
+- [contracts/engines/agent-buccet-gravity-supervisor-contract.ts](../../contracts/engines/agent-buccet-gravity-supervisor-contract.ts)
 
 It proves:
 - public supervisor starts
@@ -184,7 +184,7 @@ npm run test:agent-buccet:hook-runtime
 ```
 
 That script lives at:
-- [scripts/agent-buccet-hook-runtime-contract.ts](../../../scripts/agent-buccet-hook-runtime-contract.ts)
+- [contracts/runtime/agent-buccet-hook-runtime-contract.ts](../../contracts/runtime/agent-buccet-hook-runtime-contract.ts)
 
 It proves:
 - native hook build path works from source and installed layouts
@@ -215,7 +215,7 @@ npm run demo:agent-buccet:gravity
 ```
 
 That script lives at:
-- [scripts/agent-buccet-gravity-e2e.ts](../../../scripts/agent-buccet-gravity-e2e.ts)
+- [scripts/agent-buccet-gravity-e2e.ts](../../scripts/agent-buccet-gravity-e2e.ts)
 
 ## Wrapper CLI
 

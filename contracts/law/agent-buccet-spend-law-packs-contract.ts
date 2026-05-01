@@ -5,7 +5,7 @@ import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
-const scriptPath = path.join(repoRoot, "scripts", "buccet.ts");
+const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
 
 function runCli(
   args: string[],

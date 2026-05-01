@@ -22,7 +22,7 @@ import {
   startPersistentBoundarySession,
   openBoundaryPath,
   evaluateBoundaryIntercept,
-} from "../../lib/agent-buccet/index.ts";
+} from "../../src/index.ts";
 
 async function main() {
   // ── 1. Create a temporary workspace ───────────────────────────────────────

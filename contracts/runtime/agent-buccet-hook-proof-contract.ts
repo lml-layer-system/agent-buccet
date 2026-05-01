@@ -24,7 +24,7 @@ type ProofEnvSet = {
 };
 
 const repoRoot = process.cwd();
-const cliPath = path.join(repoRoot, "scripts", "buccet.ts");
+const cliPath = path.join(repoRoot, "cli", "buccet.ts");
 
 function runCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env): Promise<CliResult> {
   return new Promise((resolve, reject) => {

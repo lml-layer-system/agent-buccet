@@ -31,6 +31,8 @@ import {
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
 } from "./../../src/context/path-memory.ts";
 
+const cliPath = path.join(process.cwd(), "cli", "buccet.ts");
+
 async function runBuccet(
   args: string[],
   env: Record<string, string>,
@@ -38,7 +40,7 @@ async function runBuccet(
   return new Promise((resolve) => {
     const child = spawn(
       process.execPath,
-      [path.resolve(import.meta.dirname, "buccet.ts"), ...args],
+      [cliPath, ...args],
       {
         env: { ...process.env, ...env },
         stdio: ["ignore", "pipe", "pipe"],

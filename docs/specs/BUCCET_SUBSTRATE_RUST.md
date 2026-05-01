@@ -54,7 +54,7 @@ native/buccet-substrate-rust/pkg
 Buccet-owned TypeScript adapter:
 
 ```text
-lib/agent-buccet/substrate-rust.ts
+src/runtime/substrate/substrate-rust.ts
 ```
 
 The adapter wraps the generated exports and exposes a `BuccetSubstrate` class plus the shared `substrate` singleton.

@@ -6,7 +6,7 @@ Minimal attach pattern:
 import {
   createPersistentBoundaryRuntimeStore,
   createBoundaryBodyguard,
-} from "@/lib/agent-buccet";
+} from "agent-buccet";
 
 const store = await createPersistentBoundaryRuntimeStore({
   sessionId: "telegram-session-1",

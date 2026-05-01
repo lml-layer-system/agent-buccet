@@ -22,7 +22,7 @@ import type { BoundaryLedgerRecord, BoundaryUserPathLedger } from "./../../src/i
 const repoRoot = process.cwd();
 const scriptPath = await (async () => {
   const candidates = [
-    path.join(repoRoot, "scripts", "buccet.ts"),
+    path.join(repoRoot, "cli", "buccet.ts"),
     path.join(repoRoot, "bin", "buccet.ts"),
   ];
   for (const candidate of candidates) {

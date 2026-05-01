@@ -10,7 +10,7 @@ That means an action or session trace must be complete enough to trust.
 Use:
 
 ```ts
-import { auditBoundaryRequestLedger } from "@/lib/agent-buccet";
+import { auditBoundaryRequestLedger } from "agent-buccet";
 
 const audit = await auditBoundaryRequestLedger(requestId);
 ```
@@ -50,7 +50,7 @@ Trust:
 Use:
 
 ```ts
-import { auditBoundarySessionLedger } from "@/lib/agent-buccet";
+import { auditBoundarySessionLedger } from "agent-buccet";
 
 const audit = await auditBoundarySessionLedger(sessionId);
 ```
@@ -69,7 +69,7 @@ Meaning:
 Use:
 
 ```ts
-import { formatBoundaryLedgerRecords } from "@/lib/agent-buccet";
+import { formatBoundaryLedgerRecords } from "agent-buccet";
 
 const lines = formatBoundaryLedgerRecords(audit.trace);
 ```

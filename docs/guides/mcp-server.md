@@ -171,8 +171,8 @@ buccet logs
 
 ## Next
 
-- [Quickstart](QUICKSTART.md)
+- [Quickstart](../quickstart.md)
 - [Where To Add What](WHERE_TO_ADD_WHAT.md)
-- [UPL Base Packs](UPL_BASE_PACKS.md)
-- [Law Catalog](LAW_CATALOG.md)
-- [Security Model](SECURITY_MODEL.md)
+- [UPL Base Packs](../specs/UPL_BASE_PACKS.md)
+- [Law Catalog](../specs/LAW_CATALOG.md)
+- [Security Model](../security-model.md)

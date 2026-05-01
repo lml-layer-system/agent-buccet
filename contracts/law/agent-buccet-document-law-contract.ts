@@ -12,7 +12,7 @@ import {
 } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
-const scriptPath = path.join(repoRoot, "scripts", "buccet.ts");
+const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
 
 function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {

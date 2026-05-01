@@ -42,7 +42,7 @@ fi
 echo ""
 echo "  Scene 2 (protected — checking ledger for denial evidence):"
 
-LEDGER_OUTPUT=$(cd "$REPO_DIR" && node scripts/buccet.ts logs --json 2>/dev/null || echo "[]")
+LEDGER_OUTPUT=$(cd "$REPO_DIR" && node cli/buccet.ts logs --json 2>/dev/null || echo "[]")
 DENIAL_COUNT=$(echo "$LEDGER_OUTPUT" | python3 -c "
 import sys, json
 try:
