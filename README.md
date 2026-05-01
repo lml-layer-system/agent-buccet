@@ -217,6 +217,16 @@ Creative Buccets carry the workshop/comprehension side:
 - continuity history
 - rollback and cherry-pick
 
+Today, `buccet create` is the general workshop/comprehension lane.
+Future first-class modality lanes like visual and voice should fit this same Buccet shape instead of becoming separate ad hoc systems:
+
+- same UPL and boundary body
+- same path-source and proof-of-work model
+- same continuity and ledger surface
+- same operator review and human authority split
+
+That means contributors who want to add visual or voice Buccets later have a clear target: extend the existing create-side body, not bypass it.
+
 ### 5. Build spend-bounded financial Buccets
 
 ```bash
