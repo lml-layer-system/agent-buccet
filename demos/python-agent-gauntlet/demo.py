@@ -1,374 +1,294 @@
 #!/usr/bin/env python3
 """
-Agent Buccet Python Proof Harness
-==================================
-Demonstrates that the same raw agent action packet produces two outcomes:
+Agent Buccet Bootcamp — 14-Case Proof Harness
+===============================================
+Runs all 14 user-command-fidelity failure modes as deterministic proof cases.
 
-  python demo.py                    # Buccet mode  → DENY, tool never called
-  python demo.py --unsafe-no-buccet # Unsafe mode  → BYPASSED, tool executes
+Usage:
+  python demo.py                            # Buccet mode, all 14 cases
+  python demo.py --case 3                   # Buccet mode, single case
+  python demo.py --unsafe-no-buccet         # Unsafe mode, all 14 cases
+  python demo.py --unsafe-no-buccet --case 3
+  python verify_ledger.py                   # Verify hash chain
 
 No external dependencies — pure Python stdlib.
 """
 
 import argparse
-import hashlib
 import json
 import sys
-import uuid
-from copy import deepcopy
-from datetime import datetime, timezone
 from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Paths
-# ---------------------------------------------------------------------------
-
 ROOT = Path(__file__).parent
-OUTPUT_DIR = ROOT / "output"
-UPL_RULES_PATH = ROOT / "upl_rules.json"
-LEDGER_PATH = OUTPUT_DIR / "ledger.jsonl"
+sys.path.insert(0, str(ROOT))
 
+OUTPUT_DIR = ROOT / "output"
 OUTPUT_DIR.mkdir(exist_ok=True)
 
-# ---------------------------------------------------------------------------
-# Tools (imported here so the import itself is visible in both modes)
-# ---------------------------------------------------------------------------
+LEDGER_PATH = OUTPUT_DIR / "ledger.jsonl"
+UPL_RULES_PATH = ROOT / "upl_rules.json"
 
-sys.path.insert(0, str(ROOT))
+from buccet.ledger import append_entry  # noqa: E402
+from tools.fake_fs import FakeFsTool  # noqa: E402
+from tools.fake_comm import FakeCommTool  # noqa: E402
+from tools.fake_network import FakeNetworkTool  # noqa: E402
+from tools.fake_deploy import FakeDeployTool  # noqa: E402
 from tools.fake_github import FakeGitHubTool  # noqa: E402
-from tools.fake_spend import FakeSpendTool    # noqa: E402
+from tools.fake_spend import FakeSpendTool  # noqa: E402
 
+import cases.case_01_ignore_instructions as c01
+import cases.case_02_stale_instructions as c02
+import cases.case_03_prompt_injection as c03
+import cases.case_04_assumptions as c04
+import cases.case_05_no_approval as c05
+import cases.case_06_unnecessary_refusal as c06
+import cases.case_07_wrong_task as c07
+import cases.case_08_lost_context as c08
+import cases.case_09_objective_drift as c09
+import cases.case_10_format_violation as c10
+import cases.case_11_scope_change as c11
+import cases.case_12_hallucinated_completion as c12
+import cases.case_13_constraint_violation as c13
+import cases.case_14_data_leak as c14
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
+ALL_CASES = [c01, c02, c03, c04, c05, c06, c07, c08, c09, c10, c11, c12, c13, c14]
 
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+TOOLS = {
+    "fs":      FakeFsTool(),
+    "comm":    FakeCommTool(),
+    "network": FakeNetworkTool(),
+    "deploy":  FakeDeployTool(),
+    "github":  FakeGitHubTool(),
+    "spend":   FakeSpendTool(),
+}
 
 
 def _write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2))
 
 
-def _separator(title: str = "") -> None:
-    width = 60
+def _sep(title: str = "", width: int = 68) -> None:
     if title:
         pad = max(0, width - len(title) - 4)
-        print(f"\n{'=' * 2} {title} {'=' * pad}")
+        print(f"\n== {title} {'=' * pad}")
     else:
         print("=" * width)
 
 
-# ---------------------------------------------------------------------------
-# Step 1: Build the raw agent action packet (identical in both modes)
-# ---------------------------------------------------------------------------
-
-def build_agent_packet() -> dict:
-    return {
-        "request_id": str(uuid.uuid4()),
-        "session_id": "demo-session-001",
-        "action_kind": "tool.exec",
-        "target": "github.pr.create",
-        "payload_summary": (
-            "Create PR 'Add demo feature' from branch feature/demo → main. "
-            "Merges 3 commits. Auto-assigns review to @team-lead."
-        ),
-        "provenance": "agent_inference",
-        "requested_at": _now_iso(),
-        "flags": {
-            "authority_claimed": False,
-            "requests_scope_expansion": False,
-            "claims_complete_coverage": False,
-        },
-    }
-
-
-# ---------------------------------------------------------------------------
-# Step 2: Load active UPL snapshot
-# ---------------------------------------------------------------------------
-
-def load_upl_snapshot() -> dict:
+def _load_upl() -> dict:
     with open(UPL_RULES_PATH) as f:
         return json.load(f)
 
 
-# ---------------------------------------------------------------------------
-# Step 3: Buccet evaluation engine (the law)
-# ---------------------------------------------------------------------------
-
-def _target_matches(rule_target: str, packet_target: str) -> bool:
-    """Exact match or wildcard (*) match."""
-    if rule_target == "*":
-        return True
-    return rule_target == packet_target
+def _expected_buccet_decision(case_mod) -> str:
+    return getattr(case_mod, "EXPECTED_BUCCET_DECISION", "deny")
 
 
-def evaluate_buccet(packet: dict, upl_rules: dict) -> dict:
-    """
-    Scan active DENIED tracks. First matching denial wins.
-    Returns a verdict packet.
-    """
-    for rule in upl_rules.get("tracks", []):
-        if rule.get("status") != "ACTIVE":
-            continue
-        if rule.get("type") != "DENIED":
-            continue
-        if rule.get("action_kind") != packet["action_kind"]:
-            continue
-        if not _target_matches(rule["target"], packet["target"]):
-            continue
-
-        # Match found — deny immediately.
-        return {
-            "verdict_id": str(uuid.uuid4()),
-            "request_id": packet["request_id"],
-            "session_id": packet["session_id"],
-            "evaluated_at": _now_iso(),
-            "decision": "deny",
-            "reason": f"Denied by UPL rule {rule['id']}: {rule['reason']}",
-            "triggered_law_ids": [rule["id"]],
-            "requires_approval": False,
-            "denial_class": rule.get("denial_class"),
-            "tool_reached": False,
-        }
-
-    # No denial matched → allow.
-    return {
-        "verdict_id": str(uuid.uuid4()),
-        "request_id": packet["request_id"],
-        "session_id": packet["session_id"],
-        "evaluated_at": _now_iso(),
-        "decision": "allow",
-        "reason": "No active denial rules matched this action.",
-        "triggered_law_ids": [],
-        "requires_approval": False,
-        "denial_class": None,
-        "tool_reached": None,  # will be set after execution
-    }
+def _expected_unsafe_tool_called(case_mod) -> bool:
+    return getattr(case_mod, "EXPECTED_UNSAFE_TOOL_CALLED", True)
 
 
-# ---------------------------------------------------------------------------
-# Step 4: Ledger — SHA-256 hash chain
-# ---------------------------------------------------------------------------
-
-def _read_prev_hash() -> str:
-    """Return the hash of the last ledger entry, or 64 zeros if ledger is empty."""
-    zeros = "0" * 64
-    if not LEDGER_PATH.exists():
-        return zeros
-    lines = [l for l in LEDGER_PATH.read_text().splitlines() if l.strip()]
-    if not lines:
-        return zeros
-    last = json.loads(lines[-1])
-    return last["META"].get("hash", zeros)
-
-
-def _entry_index() -> int:
-    if not LEDGER_PATH.exists():
-        return 0
-    lines = [l for l in LEDGER_PATH.read_text().splitlines() if l.strip()]
-    return len(lines)
-
-
-def append_ledger_entry(
-    packet: dict,
-    verdict: dict,
-    mode: str,
-    tool_result: dict | None,
-) -> tuple[dict, str]:
-    """
-    Build and append a ledger entry. Returns (entry, hash).
-    The hash covers the entire entry except META.hash itself.
-    """
-    prev_hash = _read_prev_hash()
-    index = _entry_index()
-
-    outcome = "EXECUTED" if (tool_result is not None) else "BLOCKED"
-    decision_verdict = verdict["decision"].upper()  # DENY / ALLOW / BYPASSED
-
-    entry: dict = {
-        "META": {
-            "index": index,
-            "id": str(uuid.uuid4()),
-            "timestamp": _now_iso(),
-            "session_id": packet["session_id"],
-            "mode": mode,
-            "prev_hash": prev_hash,
-            # hash added below
-        },
-        "INPUT": {
-            "source": packet["provenance"],
-            "action": packet["action_kind"],
-            "target": packet["target"],
-            "payload_summary": packet["payload_summary"],
-            "request_id": packet["request_id"],
-        },
-        "DECISION": {
-            "verdict": decision_verdict,
-            "reason": verdict["reason"],
-            "law_triggered": (
-                verdict["triggered_law_ids"][0]
-                if verdict.get("triggered_law_ids")
-                else None
-            ),
-            "denial_class": verdict.get("denial_class"),
-        },
-        "NEXT": {
-            "outcome": outcome,
-            "tool_reached": tool_result is not None,
-            "tool_result": tool_result,
-        },
-    }
-
-    # Compute hash over the entry WITHOUT the hash field present.
-    canonical = json.dumps(entry, sort_keys=True, separators=(",", ":"))
-    record_hash = hashlib.sha256(canonical.encode()).hexdigest()
-    entry["META"]["hash"] = record_hash
-
-    with open(LEDGER_PATH, "a") as f:
-        f.write(json.dumps(entry) + "\n")
-
-    return entry, record_hash
-
-
-# ---------------------------------------------------------------------------
-# Main demo runner
-# ---------------------------------------------------------------------------
-
-def run(unsafe: bool) -> None:
+def run_one(case_mod, unsafe: bool, upl_rules: dict) -> dict:
+    """Run a single case, return a result summary dict."""
     mode = "unsafe" if unsafe else "buccet"
-    github_tool = FakeGitHubTool()
-    spend_tool = FakeSpendTool()  # loaded but not used in this packet
+    cid  = case_mod.CASE_ID
+    name = case_mod.CASE_NAME
+    desc = case_mod.DESCRIPTION
 
-    # ── Step 1: Build packet ────────────────────────────────────────────────
-    packet = build_agent_packet()
-    _separator("RAW AGENT ACTION PACKET")
-    print(json.dumps(packet, indent=2))
+    out_dir = OUTPUT_DIR / f"case-{cid:02d}"
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── Step 2: UPL snapshot ────────────────────────────────────────────────
-    upl_rules = load_upl_snapshot()
-    _separator("ACTIVE UPL SNAPSHOT")
-    print(json.dumps(upl_rules, indent=2))
-
-    # ── Step 3: Mode branch ─────────────────────────────────────────────────
-    tool_result: dict | None = None
+    packet = case_mod.build_packet()
 
     if unsafe:
-        _separator("MODE: UNSAFE  (--unsafe-no-buccet)")
-        print("Buccet evaluation SKIPPED. Sending packet directly to tool.")
-        print()
-        tool_result = github_tool.execute(packet)
-
-        verdict: dict = {
-            "verdict_id": str(uuid.uuid4()),
-            "request_id": packet["request_id"],
-            "session_id": packet["session_id"],
-            "evaluated_at": _now_iso(),
-            "decision": "bypassed",
-            "reason": "Buccet bypassed — --unsafe-no-buccet flag set. No law evaluated.",
-            "triggered_law_ids": [],
-            "requires_approval": False,
-            "denial_class": None,
-            "tool_reached": True,
-        }
-
+        verdict, tool_result = case_mod.run_unsafe(packet, TOOLS)
     else:
-        _separator("MODE: BUCCET  (protected)")
-        print("Evaluating packet against active UPL rules...")
-        print()
-        verdict = evaluate_buccet(packet, upl_rules)
+        verdict, tool_result = case_mod.run_buccet(packet, upl_rules, TOOLS)
 
-        _separator("BUCCET VERDICT PACKET")
-        print(json.dumps(verdict, indent=2))
+    verdict.update({"request_id": packet["request_id"], "session_id": packet["session_id"]})
 
-        if verdict["decision"] == "deny":
-            print()
-            print("[BUCCET] Action DENIED.")
-            print("[BUCCET] Tool was NOT called. Execution stopped at law boundary.")
-            tool_result = None
-            verdict["tool_reached"] = False
-        else:
-            print()
-            print("[BUCCET] Action ALLOWED. Executing tool.")
-            tool_result = github_tool.execute(packet)
-            verdict["tool_reached"] = True
+    _write_json(out_dir / "agent_packet.json",      packet)
+    _write_json(out_dir / "upl_snapshot.json",       upl_rules)
+    _write_json(out_dir / "verdict_packet.json",     verdict)
+    _write_json(out_dir / "tool_execution_log.json", {
+        "case_id":     cid,
+        "mode":        mode,
+        "tool_called": tool_result is not None,
+        "tool_result": tool_result,
+    })
 
-    # ── Step 4: Write output artifacts ─────────────────────────────────────
-    _write_json(OUTPUT_DIR / "agent_packet.json", packet)
-    _write_json(OUTPUT_DIR / "upl_snapshot.json", upl_rules)
-    _write_json(OUTPUT_DIR / "verdict_packet.json", verdict)
-    _write_json(
-        OUTPUT_DIR / "tool_execution_log.json",
-        {
-            "mode": mode,
-            "tool_called": tool_result is not None,
-            "tool": "github.pr.create",
-            "result": tool_result,
-        },
+    ledger_entry, record_hash = append_entry(
+        LEDGER_PATH, cid, name, mode, packet, verdict, tool_result
     )
 
-    # ── Step 5: Append ledger entry ─────────────────────────────────────────
-    ledger_entry, record_hash = append_ledger_entry(packet, verdict, mode, tool_result)
-
-    # ── Step 6: Proof summary ───────────────────────────────────────────────
-    _separator("PROOF SUMMARY")
+    decision = verdict["decision"]
+    tool_reached = tool_result is not None
 
     if unsafe:
-        print(f"  Mode:          unsafe (--unsafe-no-buccet)")
-        print(f"  Action:        {packet['target']}")
-        print(f"  Verdict:       BYPASSED")
-        print(f"  Law triggered: none (Buccet not evaluated)")
-        print(f"  Tool reached:  TRUE  ← github tool WAS called")
-        if tool_result:
-            print(f"  PR URL:        {tool_result['pr_url']}")
+        expected_ok = (tool_reached == _expected_unsafe_tool_called(case_mod))
     else:
-        law_id = verdict["triggered_law_ids"][0] if verdict["triggered_law_ids"] else "none"
-        print(f"  Mode:          buccet")
-        print(f"  Action:        {packet['target']}")
-        print(f"  Verdict:       {verdict['decision'].upper()}")
-        print(f"  Law triggered: {law_id}")
-        print(f"  Denial class:  {verdict.get('denial_class', 'n/a')}")
-        print(f"  Tool reached:  {'TRUE' if verdict['tool_reached'] else 'FALSE'}  "
-              f"{'← github tool was NEVER called' if not verdict['tool_reached'] else ''}")
+        expected_ok = (decision == _expected_buccet_decision(case_mod))
 
-    print(f"  Ledger entry:  output/ledger.jsonl (entry #{ledger_entry['META']['index']})")
-    print(f"  Record hash:   {record_hash[:16]}...")
-    _separator()
+    return {
+        "case_id":       cid,
+        "case_name":     name,
+        "description":   desc,
+        "mode":          mode,
+        "decision":      decision,
+        "tool_reached":  tool_reached,
+        "law_triggered": (verdict.get("triggered_law_ids") or [None])[0],
+        "denial_class":  verdict.get("denial_class"),
+        "ledger_index":  ledger_entry["META"]["index"],
+        "record_hash":   record_hash[:16] + "...",
+        "pass":          expected_ok,
+    }
 
-    if not unsafe:
-        print()
-        print("Run with --unsafe-no-buccet to see the same packet execute without Buccet.")
-    else:
-        print()
-        print("Run without --unsafe-no-buccet to see Buccet block the same packet.")
 
-    print()
-    print("Verify ledger integrity:")
-    print("  python verify_ledger.py")
+def print_case_header(case_mod, unsafe: bool) -> None:
+    mode_label = "UNSAFE (no Buccet)" if unsafe else "BUCCET (protected)"
+    _sep(f"Case {case_mod.CASE_ID:02d}: {case_mod.CASE_NAME}  [{mode_label}]")
+    print(f"  {case_mod.DESCRIPTION}")
     print()
 
 
-# ---------------------------------------------------------------------------
-# Entry point
-# ---------------------------------------------------------------------------
+def print_case_result(r: dict) -> None:
+    tool_label = "TRUE" if r["tool_reached"] else "FALSE"
+    pass_label  = "PASS" if r["pass"] else "FAIL"
+    print()
+    print(f"  Decision:     {r['decision'].upper()}")
+    print(f"  Tool reached: {tool_label}")
+    if r["law_triggered"]:
+        print(f"  Law:          {r['law_triggered']}")
+    if r["denial_class"]:
+        print(f"  Class:        {r['denial_class']}")
+    print(f"  Ledger:       entry #{r['ledger_index']}  hash={r['record_hash']}")
+    print(f"  Result:       [{pass_label}]")
+
+
+def run_all(unsafe: bool, case_filter: int | None) -> None:
+    upl_rules = _load_upl()
+    mode_label = "UNSAFE  (--unsafe-no-buccet)" if unsafe else "BUCCET  (protected)"
+
+    _sep(f"AGENT BUCCET BOOTCAMP  —  {mode_label}")
+    print(f"  14-case proof harness | mode={('unsafe' if unsafe else 'buccet')}")
+    print()
+
+    results = []
+    for case_mod in ALL_CASES:
+        if case_filter is not None and case_mod.CASE_ID != case_filter:
+            continue
+        print_case_header(case_mod, unsafe)
+        r = run_one(case_mod, unsafe, upl_rules)
+        print_case_result(r)
+        results.append(r)
+
+    if not results:
+        print(f"No case with id={case_filter}")
+        sys.exit(1)
+
+    if case_filter is not None:
+        return
+
+    _sep("FINAL PROOF SUMMARY")
+    passing = sum(1 for r in results if r["pass"])
+    failing = sum(1 for r in results if not r["pass"])
+
+    denied_but_tool_reached = [
+        r for r in results
+        if not unsafe
+        and r["decision"] not in ("allow", "bypassed", "self_refused")
+        and r["tool_reached"]
+    ]
+
+    print()
+    print(f"  Mode:                    {'unsafe' if unsafe else 'buccet'}")
+    print(f"  Cases run:               {len(results)}")
+    print(f"  Passing:                 {passing}")
+    print(f"  Failing:                 {failing}")
+    print()
+
+    if unsafe:
+        tool_called_count = sum(1 for r in results if r["tool_reached"])
+        print(f"  Tool executions:         {tool_called_count} / {len(results)}")
+        print(f"  (Unsafe shows bad consequences that Buccet prevents)")
+    else:
+        denied_count = sum(
+            1 for r in results
+            if r["decision"] not in ("allow",)
+        )
+        allowed_count = sum(1 for r in results if r["decision"] == "allow")
+        print(f"  Actions blocked/asked:   {denied_count}")
+        print(f"  Actions allowed:         {allowed_count}  (case 6: overbroad refusal overridden)")
+        print(f"  Denied actions that reached tool: {len(denied_but_tool_reached)}")
+
+    print()
+    print(f"  Ledger:  output/ledger.jsonl  ({len(results)} entries)")
+    print(f"  Verify:  python verify_ledger.py")
+    print()
+
+    for r in results:
+        icon = "✓" if r["pass"] else "✗"
+        tool_str = "tool=YES" if r["tool_reached"] else "tool=NO "
+        print(f"  {icon} Case {r['case_id']:02d}  {tool_str}  {r['decision']:<22}  {r['case_name']}")
+
+    print()
+
+    all_pass = (failing == 0 and len(denied_but_tool_reached) == 0)
+
+    if all_pass:
+        _sep()
+        print()
+        print("  RESULT: PASS")
+        if not unsafe:
+            print("  All 14 Buccet decisions correct.")
+            print("  0 denied actions reached tools.")
+        else:
+            print("  All 14 unsafe consequences demonstrated.")
+        print()
+        _sep()
+    else:
+        _sep()
+        print()
+        print("  RESULT: FAIL")
+        if denied_but_tool_reached:
+            print(f"  {len(denied_but_tool_reached)} denied action(s) incorrectly reached tool.")
+        if failing:
+            print(f"  {failing} case(s) produced unexpected decision.")
+        print()
+        _sep()
+        sys.exit(1)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Agent Buccet Python Proof Harness",
+        description="Agent Buccet Bootcamp — 14-Case Proof Harness",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python demo.py                     # Buccet mode (default) — action denied
-  python demo.py --unsafe-no-buccet  # Unsafe mode — action executes
-  python verify_ledger.py            # Verify the hash chain
+  python demo.py                            # Buccet mode, all 14 cases
+  python demo.py --case 3                   # Buccet mode, single case
+  python demo.py --unsafe-no-buccet         # Unsafe mode, all 14 cases
+  python demo.py --unsafe-no-buccet --case 5
+  python verify_ledger.py                   # Verify hash chain
 """,
     )
     parser.add_argument(
         "--unsafe-no-buccet",
         action="store_true",
         default=False,
-        help="Skip Buccet law evaluation and execute the tool directly.",
+        help="Bypass Buccet law — demonstrate bad consequences.",
+    )
+    parser.add_argument(
+        "--case",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Run a single case by number (1–14). Omit for all 14.",
     )
     args = parser.parse_args()
-    run(unsafe=args.unsafe_no_buccet)
+
+    if LEDGER_PATH.exists() and args.case is None:
+        LEDGER_PATH.unlink()
+
+    run_all(unsafe=args.unsafe_no_buccet, case_filter=args.case)
