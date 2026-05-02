@@ -210,8 +210,11 @@ def run_all(unsafe: bool, case_filter: int | None) -> None:
 
     if unsafe:
         tool_called_count = sum(1 for r in results if r["tool_reached"])
+        # Case 6 is the inversion: its bad consequence is a self-refusal (tool NOT called).
+        # All 14 cases demonstrate a bad outcome; only 13 involve a tool execution.
+        print(f"  Bad consequences shown:  {len(results)} / {len(results)}")
         print(f"  Tool executions:         {tool_called_count} / {len(results)}")
-        print(f"  (Unsafe shows bad consequences that Buccet prevents)")
+        print(f"  Note: case 06 bad consequence = agent self-refuses an allowed request (tool=NO is the bad outcome)")
     else:
         denied_count = sum(
             1 for r in results
