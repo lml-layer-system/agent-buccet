@@ -6,6 +6,11 @@ standing law before consequence lands.
 
 **Agents can propose. They cannot authorize.**
 
+Every boundary crossing is written to a signed, hash-chained 
+witness ledger so approval, denial, release, and execution 
+decisions can be replayed and verified later.
+
+
 Buccet decides:
 
 - what is allowed
@@ -32,7 +37,11 @@ The code already ships a layered control body:
 - per-team proof-of-work traces, continuity snapshots, rollback, and cherry-pick
 - MCP server and host attachment for Claude Desktop, Cursor, VS Code, and Claude Code
 - bounded transport packaging and import/run flows
-- ledger, witness, release-witness, runtime snap, and contract surfaces to prove the system is standing where it claims
+- signed witness ledger: hash-chained records, Ed25519 signatures, 
+  WAL recovery, query indexes, rollups, checkpoint publishing, 
+  LIOPE storm-load protection, and release-witness surfaces — 
+  every boundary decision replayable and verifiable
+
 
 It also ships the deeper boundary body that the old README undersold:
 
@@ -62,7 +71,45 @@ Buccet is not one vague safety layer. It is a set of named boundaries and enforc
 - **motion governor**: velocity, density, mass, and weighted outbound force
 - **payload physics**: process envelope and live I/O/object ceilings
 - **kernel boundary laws**: lower-level unsafe classes denied as named walls
-- **witness / ledger boundary**: consequence proof, approval proof, release proof
+- **witness / ledger boundary**: signed, hash-chained proof of 
+  proposal, decision, approval, denial, release, execution, 
+  and storm-pressure summaries — indexes, rollups, and checkpoint 
+  publishing for audit and compliance surfaces
+
+## The Witness Ledger
+
+The Buccet ledger is not a log file.
+
+It is a signed, hash-chained witness trail — every boundary 
+crossing recorded from first proposal to final consequence, 
+replayable and verifiable after the fact.
+
+What makes it battle-ready:
+
+- **Hash-chained records**: tamper-evident chain; change one 
+  record and the chain breaks
+- **Ed25519 signatures**: every record signed, signer verified
+- **WAL recovery**: writes to WAL first, replays on startup — 
+  boundary truth survives crashes
+- **LIOPE storm protection**: bounded queue, O(1) hot path, 
+  max-IOPS flush, shed overflow — material boundary events 
+  bypass the queue and write immediately; storm pressure 
+  produces signed LEDGER_STORM_SUMMARY, not silence
+- **Indexes + rollups**: queryable by time, source, action, 
+  decision, law — the compliance and fleet dashboard path
+- **Checkpoint publishing**: signed witness checkpoints published 
+  to file or HTTP targets without corrupting the core ledger
+- **Structured decision blocks**: every record answers what was 
+  proposed, who proposed it, what law evaluated it, what decision 
+  came back, what path it took, what happened next
+
+The ledger is the receipts.  
+Everything else in Buccet points here.
+
+```bash
+buccet ledger --follow
+buccet logs
+
 
 These are not just docs. They are represented in runtime code, contracts, and ledgers.
 
