@@ -10,10 +10,10 @@
     "types": ["node"]
   },
   "include": [
-    "lib/agent-buccet/**/*.ts",
-    "scripts/agent-buccet-*.ts",
-    "scripts/buccet.ts",
-    "scripts/prepare-agent-buccet-package.ts"
+    "src/**/*.ts",
+    "cli/**/*.ts",
+    "contracts/**/*.ts",
+    "scripts/**/*.ts"
   ],
   "exclude": [
     "node_modules",

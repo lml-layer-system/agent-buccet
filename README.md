@@ -462,6 +462,7 @@ The repo is intentionally split by role:
 - `data/` = law foundation payloads and working runtime artifacts
 - `scripts/` = build, package, daemon, render, install, and support scripts
 - `native/` = lower-level substrate and interception surfaces
+- `server/` = Go witness server for external checkpoint publishing
 - `demo/` = demo scenarios and operator walkthrough scripts
 
 The repo surface is now organized for inspection and publication, not just internal development.

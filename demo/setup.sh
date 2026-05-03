@@ -60,7 +60,7 @@ echo "  [OK]  C compiler: $(cc --version 2>&1 | head -1)"
 # ── 5. Build the Buccet hook native library ─────────────────────────────────
 echo "  [..] Building buccet hook (gravity.c → dylib)..."
 cd "$REPO_DIR"
-if node scripts/buccet.ts hook build 2>&1; then
+if node cli/buccet.ts hook build 2>&1; then
   echo "  [OK]  Hook built"
 else
   echo "  [FAIL] Hook build failed. Check that cc/clang is available."
@@ -71,7 +71,7 @@ fi
 BUCCET_HOME="$HOME/.agent-buccet"
 if [[ ! -f "$BUCCET_HOME/config.json" ]]; then
   echo "  [..] Initializing Buccet session..."
-  node scripts/buccet.ts init
+  node cli/buccet.ts init
   echo "  [OK]  Session initialized"
 else
   echo "  [OK]  Buccet session already initialized"
@@ -91,7 +91,7 @@ echo ""
 echo "  Save that string — paste it when the agent asks for input."
 echo ""
 echo "  Next steps:"
-echo "    1. Start buccet daemons:  node scripts/buccet.ts hook start"
+echo "    1. Start buccet daemons:  node cli/buccet.ts hook start"
 echo "    2. Open 3 terminal windows"
 echo "    3. Run scenes in order:   ./scene1_unprotected.sh"
 echo "                              ./scene2_protected.sh"

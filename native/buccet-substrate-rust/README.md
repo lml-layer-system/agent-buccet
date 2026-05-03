@@ -2,7 +2,11 @@
 
 Vendored fused substrate crate for Agent Buccet.
 
-This is the Rust-native Buccet substrate surface.
+This is the Rust-native D/K/Q surface:
+
+- `D` = Docker lineage → containment, resource limits, lifecycle, network, contract
+- `K` = Kubernetes lineage → scheduling, reconciliation, validation, routing, enforcement
+- `Q` = Qubes lineage → trust domains, policy gates, interception, isolation
 
 It is carried in this repo as a first-class native surface.
 
@@ -11,8 +15,8 @@ What it is for:
 - native Rust build for substrate verification and future low-level integration
 - WASM build for TypeScript-side consumers that want the fused substrate functions without a second repo
 - vendored `pkg/` bundle already built for the current repo
-- Buccet-owned adapter at `lib/agent-buccet/substrate-rust.ts`
-- a portable bounded substrate surface for moving working demos and runtime behavior between machines without dragging full container-runtime bloat into Buccet
+- Buccet-owned adapter at `src/runtime/substrate/substrate-rust.ts`
+- a portable bounded substrate surface for moving working demos and runtime behavior between machines without dragging Docker-scale runtime bloat into Buccet
 
 Portable runtime chain:
 

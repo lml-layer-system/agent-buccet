@@ -140,7 +140,7 @@
     "DOMAIN": "Entry persists and applies to all paths matching the defined domain category. Reloaded at session start."
   },
   "upstreamAttachPoints": {
-    "ledgerModule": "lib/agent-buccet/user-path-ledger.ts",
+    "ledgerModule": "src/proof/user-path-ledger.ts",
     "persistentStore": "data/agent-buccet-law-foundation/user-path-ledger.json"
   }
 }

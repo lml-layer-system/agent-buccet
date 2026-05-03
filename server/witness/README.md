@@ -164,4 +164,4 @@ buccet status
 # witness.status: published
 ```
 
-For the full setup guide, see [`docs/agent-boundary/enterprise-witness.md`](../../docs/agent-boundary/enterprise-witness.md).
+For the full setup guide, see [`docs/enterprise/enterprise-witness.md`](../../docs/enterprise/enterprise-witness.md).

@@ -4,7 +4,7 @@ import path from "node:path";
 import type {
   BoundaryRuntimeMuscle,
   BoundaryRuntimeMuscleManifest,
-} from "../lib/agent-buccet/types.ts";
+} from "./../src/runtime/types.ts";
 
 export const ACTIVE_LAW_BODY_MANIFEST_RELATIVE_PATH = path.join(
   "data",

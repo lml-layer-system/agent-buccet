@@ -53,13 +53,13 @@ pip3 install google-generativeai
 
 # 5. Build the Buccet hook
 #    Run from the repo root:
-node scripts/buccet.ts hook build
+node cli/buccet.ts hook build
 
 # 6. Initialize Buccet (if not already done)
-node scripts/buccet.ts init
+node cli/buccet.ts init
 
 # 7. Start the intercept daemon
-node scripts/buccet.ts hook start
+node cli/buccet.ts hook start
 ```
 
 Or run `./setup.sh` which handles steps 4–6 and validates your environment.
@@ -232,15 +232,15 @@ Rebuilds `workspace/` from scratch. Safe to run between any scenes.
 
 **Agent is not intercepted (scene 2 runs like scene 1)**
 - Verify Python is Homebrew: `which python3` should show `/opt/homebrew/bin/python3` or `/usr/local/bin/python3`, not `/usr/bin/python3`
-- Check hook status: `node scripts/buccet.ts hook status`
-- Restart daemon: `node scripts/buccet.ts hook stop && node scripts/buccet.ts hook start`
+- Check hook status: `node cli/buccet.ts hook status`
+- Restart daemon: `node cli/buccet.ts hook stop && node cli/buccet.ts hook start`
 
 **Swarm shows 3 separate prompts instead of 1**
 - Workers need to arrive within the same decision window. The 0.0 / 0.15 / 0.30 second stagger is tuned for this. If your machine is under heavy load, they may arrive separately. Re-run `scene3_swarm.sh`.
 
 **`buccet console` shows nothing**
-- The daemon must be running: `node scripts/buccet.ts hook start`
-- The session must match: `node scripts/buccet.ts status`
+- The daemon must be running: `node cli/buccet.ts hook start`
+- The session must match: `node cli/buccet.ts status`
 
 ---
 

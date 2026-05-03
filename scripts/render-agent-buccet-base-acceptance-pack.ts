@@ -1,27 +1,27 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { createBaseAcceptanceLaws } from "../lib/agent-buccet/base-upl-acceptance.ts";
+import { createBaseAcceptanceLaws } from "./../src/law/base-upl-acceptance.ts";
 import {
   BASE_EXTENDED_SKILL_ACCEPTANCE_LANES,
-} from "../lib/agent-buccet/extended-skill-acceptance.ts";
+} from "./../src/teams/extended-skill-acceptance.ts";
 import {
   BASE_LIST_V_ACCEPTANCE_LANES,
   createListVWorkflowAcceptanceLanes,
   type ListVAcceptanceLane,
-} from "../lib/agent-buccet/list-v-acceptance.ts";
+} from "./../src/law/list-v-acceptance.ts";
 import {
   AGENTSKILLS_ACCEPTANCE_LANES,
   AITMPL_ACCEPTANCE_LANES,
   SKILLHUB_ACCEPTANCE_LANES,
   SKILLSMP_ACCEPTANCE_LANES,
   type MarketplaceAcceptanceLane,
-} from "../lib/agent-buccet/marketplace-acceptance.ts";
+} from "./../src/teams/marketplace-acceptance.ts";
 import {
   BASE_CORE_SKILL_ACCEPTANCE_LANES,
   type BuccetSkillAcceptanceLane,
-} from "../lib/agent-buccet/core-skill-acceptance.ts";
-import type { BoundaryActionKind, CompiledDocumentLaw } from "../lib/agent-buccet/types.ts";
+} from "./../src/teams/core-skill-acceptance.ts";
+import type { BoundaryActionKind, CompiledDocumentLaw } from "./../src/runtime/types.ts";
 
 type BaseEntry = {
   id: string;
@@ -132,10 +132,10 @@ function describeRegexPattern(pattern: string): string {
 
 function describeConnectsToFromLane(lane: LaneLike): string {
   if (lane.targetPatterns?.length) {
-    if (lane.targetMatchMode === "exact") {
-      return `exact Buccet target \`${normalizeDisplay(lane.targetPatterns[0]!)}\``;
-    }
     const described = lane.targetPatterns.map((pattern) => {
+      if (lane.targetMatchMode === "exact") {
+        return `exact Buccet target \`${normalizeDisplay(pattern)}\``;
+      }
       if (lane.targetMatchMode === "prefix") {
         return `prefix corridor \`${normalizeDisplay(pattern)}\``;
       }
@@ -174,7 +174,7 @@ function compiledLawToEntry(law: CompiledDocumentLaw): BaseEntry {
     whatItIs: extractReason(law),
     connectsTo: describeConnectsToFromLane({
       id: law.trackConstraint?.description ?? law.requestBasis.target,
-      summary: law.notes,
+      summary: law.notes ?? "",
       actionKinds: law.trackConstraint?.allowedActionKinds ?? [law.requestBasis.actionKind],
       targetPattern: law.trackConstraint?.targetPattern,
       targetPatterns: law.trackConstraint?.targetPatterns,
@@ -183,7 +183,7 @@ function compiledLawToEntry(law: CompiledDocumentLaw): BaseEntry {
     actionKinds: law.trackConstraint?.allowedActionKinds ?? [law.requestBasis.actionKind],
     bounds: describeBoundsFromLane({
       id: law.trackConstraint?.description ?? law.requestBasis.target,
-      summary: law.notes,
+      summary: law.notes ?? "",
       actionKinds: law.trackConstraint?.allowedActionKinds ?? [law.requestBasis.actionKind],
       targetPattern: law.trackConstraint?.targetPattern,
       targetPatterns: law.trackConstraint?.targetPatterns,
@@ -220,7 +220,7 @@ function entryMap(laws: readonly CompiledDocumentLaw[]) {
 
 async function main() {
   const repoRoot = repoRootFromHere();
-  const outputPath = path.join(repoRoot, "docs/agent-boundary/BASE_ACCEPTANCE_PACK.md");
+  const outputPath = path.join(repoRoot, "docs/specs/BASE_ACCEPTANCE_PACK.md");
   const compiledLaws = createBaseAcceptanceLaws({
     rootPath: WORKSPACE_ROOT,
     grantedActions: ALL_WORKSPACE_ACTIONS,
@@ -231,10 +231,10 @@ async function main() {
   const safeExecEntries = SAFE_EXEC_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const webResearchEntries = WEB_RESEARCH_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
   const agentSpendEntries = AGENT_SPEND_ENTRY_IDS.map((id) => compiledLawToEntry(byId.get(id)!));
-  const bundledBuccetEntries = BASE_CORE_SKILL_ACCEPTANCE_LANES.map((lane) =>
+  const bundledBuccetSkillEntries = BASE_CORE_SKILL_ACCEPTANCE_LANES.map((lane) =>
     laneToEntry((lane as BuccetSkillAcceptanceLane).skill, lane),
   );
-  const extendedBuccetEntries = BASE_EXTENDED_SKILL_ACCEPTANCE_LANES.map((lane) =>
+  const extendedBuccetSkillEntries = BASE_EXTENDED_SKILL_ACCEPTANCE_LANES.map((lane) =>
     laneToEntry((lane as BuccetSkillAcceptanceLane).skill, lane),
   );
   const curatedCapabilityEntries = BASE_LIST_V_ACCEPTANCE_LANES.map((lane) =>
@@ -261,8 +261,8 @@ async function main() {
     safeExecEntries.length +
     webResearchEntries.length +
     agentSpendEntries.length +
-    bundledBuccetEntries.length +
-    extendedBuccetEntries.length +
+    bundledBuccetSkillEntries.length +
+    extendedBuccetSkillEntries.length +
     curatedCapabilityEntries.length +
     curatedWorkflowEntries.length +
     skillsmpEntries.length +
@@ -286,9 +286,9 @@ async function main() {
     `- Safe local exec entries: ${safeExecEntries.length}`,
     `- Bounded web research entries: ${webResearchEntries.length}`,
     `- Agent spend entries: ${agentSpendEntries.length}`,
-    `- Buccet skill entries: ${bundledBuccetEntries.length + extendedBuccetEntries.length}`,
-    `  Bundled Buccet entries: ${bundledBuccetEntries.length}`,
-    `  Extended Buccet entries: ${extendedBuccetEntries.length}`,
+    `- Buccet skill entries: ${bundledBuccetSkillEntries.length + extendedBuccetSkillEntries.length}`,
+    `  Bundled skill entries: ${bundledBuccetSkillEntries.length}`,
+    `  Extended skill entries: ${extendedBuccetSkillEntries.length}`,
     `- Curated capability entries: ${curatedCapabilityEntries.length}`,
     `- Curated workflow entries: ${curatedWorkflowEntries.length}`,
     `- Marketplace-derived entries: ${skillsmpEntries.length + skillhubEntries.length + aitmplEntries.length + agentSkillsEntries.length}`,
@@ -303,7 +303,7 @@ async function main() {
     "- `ACCEPT.SAFE.LOCAL.EXEC.*`: built-in Buccet bounded local command entries.",
     "- `ACCEPT.BOUNDED.WEB.RESEARCH.*`: built-in Buccet bounded retrieval and research entries.",
     "- `ACCEPT.AGENT.SPEND.*`: built-in Buccet protocol-agnostic spend rails inside the same acceptance pack.",
-    "- `ACCEPT.BUCCET.SKILL.*`: Buccet bundled yes-side entries carried inside the same Buccet acceptance pack.",
+    "- `ACCEPT.BUCCET.SKILL.*`: Buccet-skill-derived yes-side entries carried inside the same Buccet acceptance pack.",
     "- `ACCEPT.CURATED.CAPABILITY.*`: curated named yes-side entries from the broader public capability scan.",
     "- `ACCEPT.CURATED.WORKFLOW.*`: workflow-shaped yes-side entries that make the pack read like real work instead of tool names.",
     "- `ACCEPT.MARKETPLACE.SKILL.*`: marketplace-derived yes-side entries pulled from broader public skill catalogs.",
@@ -331,14 +331,14 @@ async function main() {
     `## Agent Spend Entries (${agentSpendEntries.length})`,
     "",
     ...agentSpendEntries.map((entry) => renderEntry(entry)),
-    `## Bundled Buccet Skill Entries (${bundledBuccetEntries.length})`,
+    `## Bundled Buccet Skill Entries (${bundledBuccetSkillEntries.length})`,
     "",
-    ...bundledBuccetEntries.map((entry, index) =>
+    ...bundledBuccetSkillEntries.map((entry, index) =>
       renderEntry(entry, BASE_CORE_SKILL_ACCEPTANCE_LANES[index]!.skill),
     ),
-    `## Extended Buccet Skill Entries (${extendedBuccetEntries.length})`,
+    `## Extended Buccet Skill Entries (${extendedBuccetSkillEntries.length})`,
     "",
-    ...extendedBuccetEntries.map((entry, index) =>
+    ...extendedBuccetSkillEntries.map((entry, index) =>
       renderEntry(entry, BASE_EXTENDED_SKILL_ACCEPTANCE_LANES[index]!.skill),
     ),
     `## Curated Capability Entries (${curatedCapabilityEntries.length})`,

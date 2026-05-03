@@ -17,7 +17,7 @@ Agent Buccet does **not** claim:
 - Impossible bypass on all platforms — determined local processes with root can circumvent user-space hooks
 - Independent external attestation by default — the ledger is locally signed; external witness publishing is opt-in
 
-See [`docs/agent-boundary/CURRENT_LIMITS.md`](docs/agent-boundary/CURRENT_LIMITS.md) for the full, plain-language limits statement.
+See [`docs/current-limits.md`](docs/current-limits.md) for the full, plain-language limits statement.
 
 ## Supported Versions
 
@@ -46,4 +46,4 @@ We will coordinate disclosure timing with you. We follow responsible disclosure 
 
 ## Threat Model
 
-The current security and boundary model is documented in [`docs/agent-boundary/SECURITY_MODEL.md`](docs/agent-boundary/SECURITY_MODEL.md).
+The current security and boundary model is documented in [`docs/security-model.md`](docs/security-model.md).

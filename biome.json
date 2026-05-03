@@ -6,7 +6,7 @@
     "useIgnoreFile": true
   },
   "files": {
-    "include": ["lib/agent-buccet/**/*.ts", "scripts/agent-buccet-*.ts"],
+    "include": ["src/**/*.ts", "cli/**/*.ts", "contracts/**/*.ts", "scripts/**/*.ts"],
     "ignore": ["node_modules", "dist"]
   },
   "formatter": {

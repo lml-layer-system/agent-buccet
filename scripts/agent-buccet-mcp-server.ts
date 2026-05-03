@@ -366,8 +366,8 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
     // Load the boundary library and intercept module at startup.
     // Use static-looking relative specifiers so the module resolver works
     // identically on all platforms (absolute paths break on Linux).
-    const boundary = await import("../lib/agent-buccet/index.ts");
-    const intercept = await import("../lib/agent-buccet/intercept.ts");
+    const boundary = await import("./../src/index.ts");
+    const intercept = await import("./../src/runtime/intercept.ts");
     const {
       createBoundaryFunnelInterceptRequest,
       evaluateBoundaryIntercept,

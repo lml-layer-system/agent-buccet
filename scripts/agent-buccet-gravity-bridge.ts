@@ -7,7 +7,7 @@ import {
   sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
   type BoundaryGravityFunnelPayload,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 
 type ParsedArgs = {
   listenSocketPath?: string;

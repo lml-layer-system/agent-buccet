@@ -1,0 +1,5 @@
+# Ignore generated runtime output but keep the directory
+*.json
+*.jsonl
+!.gitkeep
+!.gitignore

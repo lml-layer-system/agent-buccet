@@ -8,7 +8,7 @@ import {
   formatBoundaryLedgerRecords,
   readBoundarySessionTimeline,
   restoreBoundaryRuntimeStore,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -7,10 +7,10 @@
     "declarationMap": true,
     "outDir": "./dist",
     "sourceMap": true,
-    "rootDir": "./lib/agent-buccet"
+    "rootDir": "./src"
   },
   "include": [
-    "lib/agent-buccet/**/*.ts"
+    "src/**/*.ts"
   ],
   "exclude": [
     "node_modules",

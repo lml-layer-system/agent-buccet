@@ -30,12 +30,12 @@
     "repo": "agent-buccet",
     "dataDirectory": "data/agent-buccet-law-foundation",
     "attachPoints": {
-      "foundationLoader": "lib/agent-buccet/foundation.ts",
+      "foundationLoader": "src/runtime/foundation.ts",
       "sessionContinuity": [
-        "lib/agent-buccet/state.ts",
-        "lib/agent-buccet/policy.ts"
+        "src/runtime/state.ts",
+        "src/boundaries/policy.ts"
       ],
-      "userPathLedger": "lib/agent-buccet/user-path-ledger.ts",
+      "userPathLedger": "src/proof/user-path-ledger.ts",
       "userPathLedgerStore": "data/agent-buccet-law-foundation/user-path-ledger.json"
     },
     "runtimeInvariant": [

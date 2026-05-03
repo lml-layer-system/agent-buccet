@@ -24,7 +24,7 @@ import {
   openBoundaryPath,
   readBoundaryLedgerBySession,
   saveUserPathLedger,
-} from "../lib/agent-buccet/index.ts";
+} from "./../src/index.ts";
 
 // ── Terminal colours ──────────────────────────────────────────────────────────
 const C = {
@@ -146,7 +146,7 @@ async function main() {
     // Switch to queue adapter for this step (simulates human in Terminal 2)
     const {
       createApprovalQueueAdapter,
-    } = await import("../lib/agent-buccet/approval.ts");
+    } = await import("./../src/boundaries/approval.ts");
     const queue = createApprovalQueueAdapter();
     store.replaceConfig({ ...store.getConfig(), approvalHandler: queue.handler });
 
