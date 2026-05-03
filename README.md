@@ -6,6 +6,15 @@ standing law before consequence lands.
 
 **Agents can propose. They cannot authorize.**
 
+A boundary is not a metaphor. It is the space between 
+an agent's intent and the world's response — the exact 
+point where digital motion becomes real consequence.
+
+Every tool call, every network send, every output emission, 
+every spend commitment passes through one of these spaces. 
+Most agent systems have no control body at that point. 
+Buccet lives there.
+
 Every boundary crossing is written to a signed, hash-chained 
 witness ledger so approval, denial, release, and execution 
 decisions can be replayed and verified later.
@@ -65,6 +74,10 @@ Buccet is not one vague safety layer. It is a set of named boundaries and enforc
 - **UPL / standing law**: the active user-authored law body
 - **tracks + traffic**: post-law rails and walls that keep motion finite after approval
 - **spend / value boundary**: financial commitment and obligation creation
+- **cost / budget boundary**: cost-bearing motion inherits the 
+  same boundary model; explicit financial commitment routes through 
+  the spend/value boundary, while ingress mass, fanout, network, 
+  and tool motion are governed as runtime pressure
 - **telemetry / disclosure boundary**: outbound chat, output, and user-telemetry exposure
 - **secrets boundary**: credentials, internal secret surfaces, sensitive payload classes
 - **input admission boundary**: inbound hostile force denied before the brain wakes
@@ -75,6 +88,8 @@ Buccet is not one vague safety layer. It is a set of named boundaries and enforc
   proposal, decision, approval, denial, release, execution, 
   and storm-pressure summaries — indexes, rollups, and checkpoint 
   publishing for audit and compliance surfaces
+
+These are not just docs. They are represented in runtime code, contracts, and ledgers.
 
 ## The Witness Ledger
 
@@ -111,7 +126,60 @@ buccet ledger --follow
 buccet logs
 ```
 
-These are not just docs. They are represented in runtime code, contracts, and ledgers.
+## Ingress, Egress, And Cost
+
+Buccet governs both sides of agent motion.
+
+**Ingress** decides what can wake the agent.  
+**Egress** decides what can leave the system.  
+**Cost** decides what burn or financial consequence can occur.  
+The witness ledger proves all three.
+
+### Ingress
+
+The input admission boundary protects the agent before the brain 
+wakes. The doctrine: the brain must never be the thing that filters 
+attacks whose purpose is to wake the brain.
+
+- admission evaluates provenance, velocity, density, mass, and canyon state
+- weak provenance has a hard safety ceiling — it cannot be loosened by config
+- hostile sources are canyon-held and tarpitted, not given fast oracle responses
+- input classes are weighted: standard, large_prompt, attachment, 
+  retrieval_request, fanout_request
+- operator paths: allow once, deny once, allow as law, deny as law
+- canyon promotions are ledgered
+
+### Egress
+
+Egress governs outbound network and data motion before release.
+
+The egress detector structurally flags:
+
+- PII: email, phone, SSN
+- credentials: API keys, private keys, GitHub PATs, JWTs
+- financial  valid credit cards (Luhn), valid IBAN (MOD-97), 
+  valid ABA routing numbers, valid IPv4 addresses
+
+False positives are avoided by design — invalid structures 
+(failed Luhn, impossible IPs, invalid IBANs) do not trigger. 
+Sensitive network sends with flagged content are denied before 
+execution. Clean sends still require the correct authority path.
+
+### Cost
+
+Cost is consequence.
+
+Buccet treats cost-bearing motion as boundary pressure and explicit 
+financial commitment as spend/value consequence:
+
+- **explicit spend**: payments, subscriptions, SaaS seats, 
+  procurement, transfers, contracts, cloud/API credits
+- **metered burn**: large prompts, attachments, retrieval triggers, 
+  fanout requests, network sends, tool execution, compute usage
+
+Cost-bearing motion does not bypass the boundary model. 
+It inherits it.
+
 
 ## Why This Is Different
 
