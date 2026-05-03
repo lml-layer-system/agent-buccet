@@ -195,6 +195,25 @@ Buccet lives below that layer, at the point where an agent tries to touch the wo
 
 That means the model can change, the framework can change, and the workflow can change without changing the control body that governs consequence.
 
+## For Teams And Organizations
+
+Agent Buccet Enterprise is the organizational operating layer being built above the open-source core.
+
+The open-source core is the live consequence boundary: standing UPL, approval and denial, spend/value controls, ingress and egress boundaries, witness ledger, headless operation, transport, and proof.
+
+The enterprise layer is the control plane for running that boundary at organizational scale:
+
+- dashboards and operator visibility across every Buccet running in an organization
+- organization-wide policy, default packs, and deployment controls
+- multi-agent and multi-swarm governance under one policy surface
+- resource governance for spend, cost, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
+- compliance-oriented evidence handling through witness ledgers, rollups, checkpoints, audit trails, and replay
+- integrations with internal systems, enterprise workflows, and environment-specific rollout support
+
+The open-source core is live now. The security is free. What organizations pay for is the scale layer: dashboards, organizational policy control, compliance evidence, and fleet governance for teams running Buccet across many agents, machines, and workflows.
+
+Early teams, commercial partners, and design partners can reach out at [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com).
+
 ## Intercept Depth And Kernel Truth
 
 Buccet’s public intercept seam is the action boundary:
