@@ -61,7 +61,7 @@ Buccet is not one vague safety layer. It is a set of named boundaries and enforc
 - **kernel boundary laws**: lower-level unsafe classes denied as named walls
 - **witness / ledger boundary**: consequence proof, approval proof, release proof
 
-The important point is that these are not just docs. They are represented in runtime code, contracts, and ledgers.
+These are not just docs. They are represented in runtime code, contracts, and ledgers.
 
 ## Why This Is Different
 
@@ -122,10 +122,9 @@ That is why the repo includes:
 
 The important architectural split is:
 
-- Pi can draft
-- Pi can explain
-- Pi can review
-- Pi cannot activate live law
+Pi is the Buccet AI assistant surface — it can draft, explain, 
+and review proposed law, but it cannot activate it.
+
 - only human-approved law becomes active UPL
 
 That is now real in code, not just a motto.
