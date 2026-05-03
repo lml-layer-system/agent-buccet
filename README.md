@@ -1,17 +1,10 @@
 # Agent Buccet
 
-Full-boundary enforcement for AI agents.
+Full-boundary enforcement for AI agents — action, spend, output, 
+inbound, telemetry, kernel — governed at runtime against your 
+standing law before consequence lands.
 
-Agent Buccet is a law-bound control body that sits at the action boundary where agent behavior becomes real:
-
-- tool execution
-- network motion
-- chat/output emission
-- spend and value commitment
-- inbound admission
-- path/workflow execution
-
-Agents can propose. They cannot authorize.
+**Agents can propose. They cannot authorize.**
 
 Buccet decides:
 
@@ -23,7 +16,7 @@ Buccet decides:
 
 ![Agent Buccet](docs/assets/agent-buccet-hero.jpg)
 
-## What Ships Today
+## Whats Live
 
 This repo is beyond the old “wrapper + prompt strategy” pitch. The code already ships a layered control body:
 
