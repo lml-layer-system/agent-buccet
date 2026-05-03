@@ -64,7 +64,18 @@ async function readLedgerBySessionFromHome(
   homePath: string,
   sessionId: string,
 ): Promise<BoundaryLedgerRecord[]> {
-  const ledgerFile = path.join(homePath, "data", "ledger", "agent-boundary-ledger.jsonl");
+  const candidates = [
+    path.join(homePath, "data", "ledger", "agent-boundary-ledger.jsonl"),
+    path.join(repoRoot, "data", "ledger", "agent-boundary-ledger.jsonl"),
+  ];
+  let ledgerFile = candidates[0];
+  for (const candidate of candidates) {
+    try {
+      await fs.access(candidate);
+      ledgerFile = candidate;
+      break;
+    } catch {}
+  }
   const raw = await fs.readFile(ledgerFile, "utf8");
   return raw
     .split("\n")

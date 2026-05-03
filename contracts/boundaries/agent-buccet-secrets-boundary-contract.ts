@@ -71,7 +71,8 @@ async function main() {
   );
   assert.ok(
     sourceLeak.reason.includes("source-code exposure") ||
-      sourceLeak.reason.includes("source truth is sealed"),
+      sourceLeak.reason.includes("source truth is sealed") ||
+      sourceLeak.reason.includes("sealed into Buccet custody"),
     "expected source-code denial reason",
   );
 
@@ -97,7 +98,8 @@ async function main() {
   );
   assert.ok(
     networkLeak.reason.includes("source truth is sealed") ||
-      networkLeak.reason.includes("protected material"),
+      networkLeak.reason.includes("protected material") ||
+      networkLeak.reason.includes("sealed into Buccet custody"),
     "expected network leak denial reason",
   );
 

@@ -185,7 +185,26 @@ async function proveAiFailurePeriodicTableLane() {
 async function main() {
   await proveFreshHomeMcpAutoInit();
 
-  const mcp = await runNodeScript("agent-buccet-mcp-contract.ts");
+  const mcp = await new Promise<CliResult>((resolve, reject) => {
+    const child = spawn("node", ["contracts/engines/agent-buccet-mcp-contract.ts"], {
+      cwd: repoRoot,
+      env: process.env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let stdout = "";
+    let stderr = "";
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      resolve({ code, stdout, stderr });
+    });
+  });
   assert.equal(mcp.code, 0, mcp.stderr || mcp.stdout);
   assert.match(mcp.stdout, /ledger provenance: mcp_host/);
   assert.match(mcp.stdout, /unknown tool deny: BOUNDARY\.TOOL\.UNMAPPED/);

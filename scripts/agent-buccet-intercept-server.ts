@@ -183,14 +183,7 @@ async function evaluateRequestWithMode(args: {
     return args.swarm.evaluateOrWait(preparedRequest, preparedRequest.swarm);
   }
 
-  // Normalize reviewContext to match what evaluateBoundaryIntercept applies internally
-  // (it always defaults surface to "action" when missing). Both the standing-law UPL
-  // pre-check and the bodyguard's own UPL lookup must hash the same request, otherwise
-  // the bodyguard misses an entry that the pre-check found and denies a lawful request.
-  const normalizedRequest = {
-    ...preparedRequest,
-    reviewContext: preparedRequest.reviewContext ?? ({ surface: "action" } as const),
-  };
+  const normalizedRequest = preparedRequest;
 
   const config = await args.store.hydrate();
   const boundaryRequest = createBoundaryActionRequest({

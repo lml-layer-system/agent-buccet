@@ -2282,6 +2282,7 @@ function attachUplDocumentLineage(args: {
     compiledLaws: args.compiledLaws.map((compiledLaw) => ({
       ...compiledLaw,
       lineage,
+      sourceTrack: lineage,
     })),
   };
 }
