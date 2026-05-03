@@ -39,7 +39,7 @@ Most agent systems live above the consequence boundary:
 - frameworks coordinate tools
 - wrappers change ergonomics
 
-Buccet lives below that layer, the action boudary where after input from outside the machine or system and before the agent is able to act on that input or system change. That exact gap is where Buccet is at the point where an agent tries to touch the world.
+Buccet lives below that layer, at the action boundary, the exact gap between input arriving from outside the machine or from another system and before the agent being able to act on the world.
 
 That means the model can change, the framework can change, and the workflow can change without changing the control body that governs consequence.
 
@@ -113,7 +113,7 @@ If you want the machine posture check too:
 
 ```bash
 buccet doctor --strict
-
+```
 ## Boundary Set
 
 Buccet is not one vague safety layer. It is a set of named boundaries and enforcers:
@@ -294,7 +294,7 @@ If you are new to the repo, use this order:
 - repo/public surface: [public/private boundary](docs/public-private-boundary.md) and [repo boundary](docs/REPO_BOUNDARY.md)
 
 
-```
+
 
 ## What You Can Do As An Operator
 
