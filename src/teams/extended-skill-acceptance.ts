@@ -1,10 +1,5 @@
-<<<<<<<< HEAD:src/runtime/extended-skill-acceptance.ts
-import type { BoundaryActionKind } from "./types.ts";
-import type { BuccetSkillAcceptanceLane } from "./core-skill-acceptance.ts";
-========
 import type { BoundaryActionKind } from "./../runtime/types.ts";
-import type { OpenClawSkillAcceptanceLane } from "./openclaw-skill-acceptance.ts";
->>>>>>>> origin/claude-buccet-branch:src/teams/awesome-openclaw-skill-acceptance.ts
+import type { BuccetSkillAcceptanceLane } from "./core-skill-acceptance.ts";
 
 type TargetMatchMode = "prefix" | "exact" | "regex";
 

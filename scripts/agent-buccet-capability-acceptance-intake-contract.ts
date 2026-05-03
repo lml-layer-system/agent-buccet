@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES,
   CAPABILITY_INTAKE_SNAPSHOT,
-} from "../lib/agent-buccet/capability-acceptance-intake.ts";
+} from "../src/teams/capability-acceptance-intake.ts";
 
 async function main() {
   assert.equal(CAPABILITY_INTAKE_SNAPSHOT.snapshotId, "BUCCET.CAPABILITY.SNAPSHOT.01");

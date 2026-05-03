@@ -3,23 +3,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createBaseAcceptanceLaws,
-} from "./base-upl-acceptance.ts";
+} from "../law/base-upl-acceptance.ts";
 import {
   createBaseHeadlessDenialEntries,
-} from "./headless-base-denials.ts";
+} from "../law/headless-base-denials.ts";
 import {
   benchmarkBuccetSystemSnap,
   BUCCET_CONSEQUENCE_BOUNDARIES,
   BUCCET_SUBSTRATE_PLANES,
   BUCCET_SYSTEM_NODES,
   BUCCET_TERMINALS,
-} from "./system-substrate.ts";
+} from "./substrate/system-substrate.ts";
 import {
   createDefaultBuccetPathLibrary,
-} from "./path-memory.ts";
+} from "../context/path-memory.ts";
 import {
   snapBuccetSystem,
-} from "./system-substrate.ts";
+} from "./substrate/system-substrate.ts";
 import type { BoundaryActionKind } from "./types.ts";
 
 const WORKSPACE_ROOT = "/<workspace-root>";

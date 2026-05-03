@@ -877,6 +877,7 @@ export type BoundaryUplEntry = {
    * source document and compiled batch that activated it.
    */
   lineage?: BoundaryUplLineage;
+  sourceTrack?: BoundaryUplLineage;
 };
 
 export type BoundaryUserPathLedger = {
@@ -892,6 +893,7 @@ export type CompiledDocumentLaw = {
   requestBasis: BoundaryUplRequestBasis;
   trackConstraint?: BoundaryUplTrackConstraint;
   lineage?: BoundaryUplLineage;
+  sourceTrack?: BoundaryUplLineage;
 };
 
 export type BoundaryPolicySourceKind =
