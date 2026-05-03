@@ -29,7 +29,7 @@ async function main() {
   process.env.AGENT_BUCCET_UPL_LEDGER_PATH = ledgerPath;
   process.chdir(tempRoot);
   await fs.cp(
-    path.join(import.meta.dirname, "..", "data", "agent-buccet-law-foundation"),
+    path.join(import.meta.dirname, "..", "..", "data", "agent-buccet-law-foundation"),
     path.join(tempRoot, "data", "agent-buccet-law-foundation"),
     { recursive: true },
   );

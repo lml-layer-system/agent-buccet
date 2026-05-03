@@ -12,7 +12,7 @@ async function main() {
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-foundation-"));
   process.chdir(tempRoot);
   await fs.cp(
-    path.join(import.meta.dirname, "..", "data", "agent-buccet-law-foundation"),
+    path.join(import.meta.dirname, "..", "..", "data", "agent-buccet-law-foundation"),
     path.join(tempRoot, "data", "agent-buccet-law-foundation"),
     { recursive: true },
   );

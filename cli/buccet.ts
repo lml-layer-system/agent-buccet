@@ -6356,7 +6356,7 @@ async function handlePath(rest: string[]) {
         paths: templates.map((template) => ({
           pathName: template.pathName,
           domain: template.domain,
-          sourceCount: template.pathSources.length,
+          sourceCount: template.pathSources.filter((s) => !boundary.isBuiltinTeamBrainSourceId(s.id)).length,
           agentCount: template.agentRoster.length,
           stageCount: template.stages.length,
         })),
@@ -6660,7 +6660,7 @@ async function handlePath(rest: string[]) {
           currentStageId: formation.stages[formation.currentStageIndex]?.id ?? null,
           updatedAt: formation.updatedAt,
           agentCount: formation.agentRoster.length,
-          sourceCount: formation.pathSources.length,
+          sourceCount: formation.pathSources.filter((s) => !boundary.isBuiltinTeamBrainSourceId(s.id)).length,
         })),
       });
       return;

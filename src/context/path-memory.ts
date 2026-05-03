@@ -572,10 +572,7 @@ function clonePathTemplate(template: BuccetPathTemplate): BuccetPathTemplate {
     ...template,
     laws: [...template.laws],
     tools: [...template.tools],
-    pathSources: [
-      UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
-      ...template.pathSources.map((source) => clonePathSource(source)),
-    ],
+    pathSources: template.pathSources.map((source) => clonePathSource(source)),
     uplBindings: template.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -1420,10 +1417,7 @@ export function instantiateBuccetFormation(args: {
     modelHint: template.modelHint,
     laws: [...template.laws],
     tools: [...template.tools],
-    pathSources: [
-      UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
-      ...template.pathSources.map((source) => clonePathSource(source)),
-    ],
+    pathSources: template.pathSources.map((source) => clonePathSource(source)),
     uplBindings: template.uplBindings.map((binding) => ({
       ...binding,
       actionKinds: [...binding.actionKinds],
@@ -1549,7 +1543,7 @@ export function describeBuccetFormationLiveView(state: BuccetPathFormationState)
     activeAgentIds: activeAgents.map((agent) => agent.id),
     activeAgentTitles: activeAgents.map((agent) => agent.title),
     pathAgentCount: state.agentRoster.length,
-    pathSourceCount: state.pathSources.length,
+    pathSourceCount: state.pathSources.filter((s) => !isBuiltinTeamBrainSourceId(s.id)).length,
     pathSourceTitles: state.pathSources.map((source) => source.title),
     pathLawfulActionKinds: pathBinding.actionKinds,
     pathLawfulTargets: pathBinding.targets,
