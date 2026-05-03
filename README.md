@@ -30,6 +30,19 @@ Buccet decides:
 
 ![Agent Buccet](docs/assets/agent-buccet-hero.jpg)
 
+
+## Why This Is Different
+
+Most agent systems live above the consequence boundary:
+
+- prompts try to steer the model
+- frameworks coordinate tools
+- wrappers change ergonomics
+
+Buccet lives below that layer, the action boudary where after input from outside the machine or system and before the agent is able to act on that input or system change. That exact gap is where Buccet is at the point where an agent tries to touch the world.
+
+That means the model can change, the framework can change, and the workflow can change without changing the control body that governs consequence.
+
 ## What's Live
 
 The code already ships a layered control body:
@@ -66,6 +79,40 @@ It also ships the deeper boundary body that the old README undersold:
 
 Stress-tested under adversarial swarm load. 
 denied_actions_reaching_tools: 0.
+
+## For Teams And Organizations
+
+Agent Buccet Enterprise is the organizational operating layer being built above the open-source core.
+
+The open-source core is the live consequence boundary: standing UPL, approval and denial, spend/value controls, ingress and egress boundaries, witness ledger, headless operation, transport, and proof.
+
+The enterprise layer is the control plane for running that boundary at organizational scale:
+
+- dashboards and operator visibility across every Buccet running in an organization
+- organization-wide policy, default packs, and deployment controls
+- multi-agent and multi-swarm governance under one policy surface
+- resource governance for spend, cost, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
+- compliance-oriented evidence handling through witness ledgers, rollups, checkpoints, audit trails, and replay
+- integrations with internal systems, enterprise workflows, and environment-specific rollout support
+
+The open-source core is live now. The security is free. What organizations pay for is the scale layer: dashboards, organizational policy control, compliance evidence, and fleet governance for teams running Buccet across thousands or millions of agents, machines, and workflows.
+
+Early teams, commercial partners, and design partners can reach out at [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com).
+
+## Install
+
+```bash
+git clone https://github.com/lml-layer-system/agent-buccet
+cd agent-buccet
+sh scripts/install-agent-buccet.sh
+buccet init
+buccet console
+```
+
+If you want the machine posture check too:
+
+```bash
+buccet doctor --strict
 
 ## Boundary Set
 
@@ -182,38 +229,6 @@ Cost-bearing motion does not bypass the boundary model.
 It inherits it.
 
 
-## Why This Is Different
-
-Most agent systems live above the consequence boundary:
-
-- prompts try to steer the model
-- frameworks coordinate tools
-- providers regress or improve
-- wrappers change ergonomics
-
-Buccet lives below that layer, at the point where an agent tries to touch the world.
-
-That means the model can change, the framework can change, and the workflow can change without changing the control body that governs consequence.
-
-## For Teams And Organizations
-
-Agent Buccet Enterprise is the organizational operating layer being built above the open-source core.
-
-The open-source core is the live consequence boundary: standing UPL, approval and denial, spend/value controls, ingress and egress boundaries, witness ledger, headless operation, transport, and proof.
-
-The enterprise layer is the control plane for running that boundary at organizational scale:
-
-- dashboards and operator visibility across every Buccet running in an organization
-- organization-wide policy, default packs, and deployment controls
-- multi-agent and multi-swarm governance under one policy surface
-- resource governance for spend, cost, token burn, reasoning depth, path-source scale, and job-specific swarm allocation
-- compliance-oriented evidence handling through witness ledgers, rollups, checkpoints, audit trails, and replay
-- integrations with internal systems, enterprise workflows, and environment-specific rollout support
-
-The open-source core is live now. The security is free. What organizations pay for is the scale layer: dashboards, organizational policy control, compliance evidence, and fleet governance for teams running Buccet across thousands or millions of agents, machines, and workflows.
-
-Early teams, commercial partners, and design partners can reach out at [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com).
-
 ## Intercept Depth And Kernel Truth
 
 Buccet’s public intercept seam is the action boundary:
@@ -278,20 +293,7 @@ If you are new to the repo, use this order:
 - contributor map: [docs index](docs/README.md) and [where to add what](docs/guides/WHERE_TO_ADD_WHAT.md)
 - repo/public surface: [public/private boundary](docs/public-private-boundary.md) and [repo boundary](docs/REPO_BOUNDARY.md)
 
-## Install
 
-```bash
-git clone https://github.com/lml-layer-system/agent-buccet
-cd agent-buccet
-sh scripts/install-agent-buccet.sh
-buccet init
-buccet console
-```
-
-If you want the machine posture check too:
-
-```bash
-buccet doctor --strict
 ```
 
 ## What You Can Do As An Operator
