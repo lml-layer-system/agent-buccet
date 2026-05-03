@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createSocket } from "node:dgram";
+import { promises as fs } from "node:fs";
 import net from "node:net";
 import type { AddressInfo } from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 type CliResult = {
   code: number;
@@ -26,7 +26,11 @@ type ProofEnvSet = {
 const repoRoot = process.cwd();
 const cliPath = path.join(repoRoot, "cli", "buccet.ts");
 
-function runCommand(command: string, args: string[], env: NodeJS.ProcessEnv = process.env): Promise<CliResult> {
+function runCommand(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: repoRoot,
@@ -131,14 +135,16 @@ async function waitFor<T>(
   throw new Error(`timed out waiting for ${label}`);
 }
 
-async function activeSwarmGroups(env: NodeJS.ProcessEnv): Promise<Array<{
-  groupId: string;
-  actionClass: string;
-  operation: string;
-  target: string;
-  waitingCount: number;
-  memberCount: number;
-}>> {
+async function activeSwarmGroups(env: NodeJS.ProcessEnv): Promise<
+  Array<{
+    groupId: string;
+    actionClass: string;
+    operation: string;
+    target: string;
+    waitingCount: number;
+    memberCount: number;
+  }>
+> {
   const result = await runCli(["swarm", "list", "--json"], env);
   assert.equal(result.code, 0, result.stderr);
   const payload = JSON.parse(result.stdout) as {
@@ -201,17 +207,29 @@ async function waitForSwarmGroupWithRuntimeSupportApprovals(args: {
   }, args.label);
 }
 
-async function denySwarmGroup(env: NodeJS.ProcessEnv, groupId: string, reason: string): Promise<void> {
+async function denySwarmGroup(
+  env: NodeJS.ProcessEnv,
+  groupId: string,
+  reason: string,
+): Promise<void> {
   const result = await runCli(["swarm", "deny", groupId, "--reason", reason], env);
   assert.equal(result.code, 0, result.stderr);
 }
 
 async function assertNoPendingSwarm(env: NodeJS.ProcessEnv): Promise<void> {
   const groups = await activeSwarmGroups(env);
-  assert.equal(groups.length, 0, `expected no pending swarm groups, found ${JSON.stringify(groups)}`);
+  assert.equal(
+    groups.length,
+    0,
+    `expected no pending swarm groups, found ${JSON.stringify(groups)}`,
+  );
 }
 
-async function approveSwarmGroup(env: NodeJS.ProcessEnv, groupId: string, reason: string): Promise<void> {
+async function approveSwarmGroup(
+  env: NodeJS.ProcessEnv,
+  groupId: string,
+  reason: string,
+): Promise<void> {
   const result = await runCli(["swarm", "approve", groupId, "--reason", reason], env);
   assert.equal(result.code, 0, result.stderr);
 }
@@ -294,9 +312,7 @@ async function waitForCliWithRuntimeSupportApprovals(args: {
       continue;
     }
 
-    const releasableGroup = args.alsoApprove
-      ? groups.find(args.alsoApprove.predicate)
-      : undefined;
+    const releasableGroup = args.alsoApprove ? groups.find(args.alsoApprove.predicate) : undefined;
     if (releasableGroup) {
       await approveSwarmGroup(
         args.env,
@@ -332,23 +348,23 @@ async function compileOpenAtHelper(tempRoot: string): Promise<string> {
     "",
     "int main(int argc, char** argv) {",
     "  if (argc != 3) {",
-    "    fprintf(stderr, \"usage: %s <dir> <leaf>\\n\", argv[0]);",
+    '    fprintf(stderr, "usage: %s <dir> <leaf>\\n", argv[0]);',
     "    return 64;",
     "  }",
     "  int dirfd = open(argv[1], O_RDONLY | O_DIRECTORY);",
     "  if (dirfd < 0) {",
-    "    perror(\"open-dir\");",
+    '    perror("open-dir");',
     "    return 2;",
     "  }",
     "  int fd = openat(dirfd, argv[2], O_WRONLY | O_CREAT | O_TRUNC, 0644);",
     "  if (fd < 0) {",
-    "    perror(\"openat\");",
+    '    perror("openat");',
     "    close(dirfd);",
     "    return 1;",
     "  }",
-    "  const char* payload = \"dirfd-write\\n\";",
+    '  const char* payload = "dirfd-write\\n";',
     "  if (write(fd, payload, strlen(payload)) < 0) {",
-    "    perror(\"write\");",
+    '    perror("write");',
     "    close(fd);",
     "    close(dirfd);",
     "    return 3;",
@@ -360,11 +376,7 @@ async function compileOpenAtHelper(tempRoot: string): Promise<string> {
     "",
   ].join("\n");
   await fs.writeFile(helperSourcePath, helperSource, "utf8");
-  const compileResult = await runCommand("cc", [
-    helperSourcePath,
-    "-o",
-    helperBinaryPath,
-  ]);
+  const compileResult = await runCommand("cc", [helperSourcePath, "-o", helperBinaryPath]);
   assert.equal(compileResult.code, 0, compileResult.stderr);
   return helperBinaryPath;
 }
@@ -382,12 +394,12 @@ async function compileUdpSendHelper(tempRoot: string): Promise<string> {
     "",
     "int main(int argc, char** argv) {",
     "  if (argc != 3) {",
-    "    fprintf(stderr, \"usage: %s <host> <port>\\n\", argv[0]);",
+    '    fprintf(stderr, "usage: %s <host> <port>\\n", argv[0]);',
     "    return 64;",
     "  }",
     "  int sock = socket(AF_INET, SOCK_DGRAM, 0);",
     "  if (sock < 0) {",
-    "    perror(\"socket\");",
+    '    perror("socket");',
     "    return 2;",
     "  }",
     "  struct sockaddr_in addr;",
@@ -395,13 +407,13 @@ async function compileUdpSendHelper(tempRoot: string): Promise<string> {
     "  addr.sin_family = AF_INET;",
     "  addr.sin_port = htons((unsigned short)atoi(argv[2]));",
     "  if (inet_pton(AF_INET, argv[1], &addr.sin_addr) != 1) {",
-    "    fprintf(stderr, \"bad host\\n\");",
+    '    fprintf(stderr, "bad host\\n");',
     "    close(sock);",
     "    return 3;",
     "  }",
-    "  const char* payload = \"udp-blocked\";",
+    '  const char* payload = "udp-blocked";',
     "  if (sendto(sock, payload, strlen(payload), 0, (struct sockaddr*)&addr, sizeof(addr)) < 0) {",
-    "    perror(\"sendto\");",
+    '    perror("sendto");',
     "    close(sock);",
     "    return 1;",
     "  }",
@@ -411,11 +423,7 @@ async function compileUdpSendHelper(tempRoot: string): Promise<string> {
     "",
   ].join("\n");
   await fs.writeFile(helperSourcePath, helperSource, "utf8");
-  const compileResult = await runCommand("cc", [
-    helperSourcePath,
-    "-o",
-    helperBinaryPath,
-  ]);
+  const compileResult = await runCommand("cc", [helperSourcePath, "-o", helperBinaryPath]);
   assert.equal(compileResult.code, 0, compileResult.stderr);
   return helperBinaryPath;
 }
@@ -429,7 +437,7 @@ async function compileSystemPipeHelper(tempRoot: string): Promise<string> {
     "",
     "int main(int argc, char** argv) {",
     "  if (argc != 2) {",
-    "    fprintf(stderr, \"usage: %s <command>\\n\", argv[0]);",
+    '    fprintf(stderr, "usage: %s <command>\\n", argv[0]);',
     "    return 64;",
     "  }",
     "  return system(argv[1]);",
@@ -437,11 +445,7 @@ async function compileSystemPipeHelper(tempRoot: string): Promise<string> {
     "",
   ].join("\n");
   await fs.writeFile(helperSourcePath, helperSource, "utf8");
-  const compileResult = await runCommand("cc", [
-    helperSourcePath,
-    "-o",
-    helperBinaryPath,
-  ]);
+  const compileResult = await runCommand("cc", [helperSourcePath, "-o", helperBinaryPath]);
   assert.equal(compileResult.code, 0, compileResult.stderr);
   return helperBinaryPath;
 }
@@ -455,21 +459,17 @@ async function compileExecvpHelper(tempRoot: string): Promise<string> {
     "",
     "int main(int argc, char** argv) {",
     "  if (argc < 2) {",
-    "    fprintf(stderr, \"usage: %s <tool> [args...]\\n\", argv[0]);",
+    '    fprintf(stderr, "usage: %s <tool> [args...]\\n", argv[0]);',
     "    return 64;",
     "  }",
     "  execvp(argv[1], &argv[1]);",
-    "  perror(\"execvp\");",
+    '  perror("execvp");',
     "  return 127;",
     "}",
     "",
   ].join("\n");
   await fs.writeFile(helperSourcePath, helperSource, "utf8");
-  const compileResult = await runCommand("cc", [
-    helperSourcePath,
-    "-o",
-    helperBinaryPath,
-  ]);
+  const compileResult = await runCommand("cc", [helperSourcePath, "-o", helperBinaryPath]);
   assert.equal(compileResult.code, 0, compileResult.stderr);
   return helperBinaryPath;
 }
@@ -494,36 +494,40 @@ async function main() {
     AGENT_BUCCET_LAUNCHER_PATH: path.join(tempRoot, "bin", "buccet"),
   };
   const controlEnv: NodeJS.ProcessEnv = { ...runtimeEnv };
-  delete controlEnv.DYLD_INSERT_LIBRARIES;
-  delete controlEnv.DYLD_FORCE_FLAT_NAMESPACE;
-  delete controlEnv.LD_PRELOAD;
-  delete controlEnv.BUCCET_SOCKET_PATH;
-  delete controlEnv.BUCCET_BRAIN_STATUS_PATH;
+  controlEnv.DYLD_INSERT_LIBRARIES = undefined;
+  controlEnv.DYLD_FORCE_FLAT_NAMESPACE = undefined;
+  controlEnv.LD_PRELOAD = undefined;
+  controlEnv.BUCCET_SOCKET_PATH = undefined;
+  controlEnv.BUCCET_BRAIN_STATUS_PATH = undefined;
   const envs: ProofEnvSet = {
     runtimeEnv,
     controlEnv,
   };
 
-  const initResult = await runCli(["init", "--no-default-scope", "--scope", workspacePath], envs.controlEnv);
+  const initResult = await runCli(
+    ["init", "--no-default-scope", "--scope", workspacePath],
+    envs.controlEnv,
+  );
   assert.equal(initResult.code, 0, initResult.stderr);
 
   const autoRunFile = path.join(workspacePath, "auto-run-ok.txt");
-  const autoRun = startCli([
-    "run",
-    "--",
-    process.execPath,
-    "-e",
-    `require('node:fs').writeFileSync(${JSON.stringify(autoRunFile)}, 'auto-run-ok\\n')`,
-  ], envs.runtimeEnv);
+  const autoRun = startCli(
+    [
+      "run",
+      "--",
+      process.execPath,
+      "-e",
+      `require('node:fs').writeFileSync(${JSON.stringify(autoRunFile)}, 'auto-run-ok\\n')`,
+    ],
+    envs.runtimeEnv,
+  );
   const autoRunResult = await waitForCliWithRuntimeSupportApprovals({
     running: autoRun,
     env: envs.controlEnv,
     label: "auto-wired buccet run in-scope write",
     alsoApprove: {
       predicate: (group) =>
-        group.actionClass === "file"
-        && group.operation === "write"
-        && group.target === autoRunFile,
+        group.actionClass === "file" && group.operation === "write" && group.target === autoRunFile,
       reason: () => "release caught in-scope write after front hold",
     },
   });
@@ -544,22 +548,25 @@ async function main() {
   assert.equal(hookPayload.bridgeReady, true);
 
   const deniedWriteTarget = path.join(tempRoot, "outside-write.txt");
-  const deniedWrite = startCli([
-    "hook",
-    "run",
-    "--",
-    process.execPath,
-    "-e",
-    `require('node:fs').writeFileSync(${JSON.stringify(deniedWriteTarget)}, 'blocked\\n')`,
-  ], envs.runtimeEnv);
+  const deniedWrite = startCli(
+    [
+      "hook",
+      "run",
+      "--",
+      process.execPath,
+      "-e",
+      `require('node:fs').writeFileSync(${JSON.stringify(deniedWriteTarget)}, 'blocked\\n')`,
+    ],
+    envs.runtimeEnv,
+  );
 
   const deniedWriteGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "out-of-scope file write freeze",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "write"
-      && group.target === deniedWriteTarget,
+      group.actionClass === "file" &&
+      group.operation === "write" &&
+      group.target === deniedWriteTarget,
   });
   await denySwarmGroup(envs.controlEnv, deniedWriteGroup.groupId, "deny out-of-scope file write");
   const deniedWriteResult = await waitForCliWithRuntimeSupportApprovals({
@@ -568,7 +575,10 @@ async function main() {
     label: "out-of-scope file write denial completion",
   });
   assert.notEqual(deniedWriteResult.code, 0, "expected denied out-of-scope write to fail");
-  const deniedWriteExists = await fs.access(deniedWriteTarget).then(() => true).catch(() => false);
+  const deniedWriteExists = await fs
+    .access(deniedWriteTarget)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(deniedWriteExists, false, "denied out-of-scope file write should not create a file");
 
   const dirfdOutsideDir = path.join(tempRoot, "dirfd-outside");
@@ -576,30 +586,28 @@ async function main() {
   const dirfdLeaf = "dirfd-target.txt";
   const dirfdRealOutsideDir = await fs.realpath(dirfdOutsideDir);
   const dirfdTarget = path.join(dirfdRealOutsideDir, dirfdLeaf);
-  const dirfdWrite = startCli([
-    "hook",
-    "run",
-    "--",
-    openAtHelperPath,
-    dirfdOutsideDir,
-    dirfdLeaf,
-  ], envs.runtimeEnv);
+  const dirfdWrite = startCli(
+    ["hook", "run", "--", openAtHelperPath, dirfdOutsideDir, dirfdLeaf],
+    envs.runtimeEnv,
+  );
   const dirfdReadGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "openat dirfd read freeze",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "read"
-      && group.target === dirfdOutsideDir,
+      group.actionClass === "file" &&
+      group.operation === "read" &&
+      group.target === dirfdOutsideDir,
   });
-  await approveSwarmGroup(envs.controlEnv, dirfdReadGroup.groupId, "release openat dirfd directory read");
+  await approveSwarmGroup(
+    envs.controlEnv,
+    dirfdReadGroup.groupId,
+    "release openat dirfd directory read",
+  );
   const dirfdWriteGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "openat dirfd freeze",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "write"
-      && group.target === dirfdTarget,
+      group.actionClass === "file" && group.operation === "write" && group.target === dirfdTarget,
   });
   await denySwarmGroup(envs.controlEnv, dirfdWriteGroup.groupId, "deny openat dirfd write");
   const dirfdWriteResult = await waitForCliWithRuntimeSupportApprovals({
@@ -608,24 +616,28 @@ async function main() {
     label: "openat dirfd denial completion",
   });
   assert.notEqual(dirfdWriteResult.code, 0, "expected denied openat dirfd write to fail");
-  const dirfdTargetExists = await fs.access(dirfdTarget).then(() => true).catch(() => false);
+  const dirfdTargetExists = await fs
+    .access(dirfdTarget)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(dirfdTargetExists, false, "denied openat dirfd write should not create a file");
 
-  const deniedExec = startCli([
-    "hook",
-    "run",
-    "--",
-    process.execPath,
-    "-e",
-    `require('node:child_process').execFileSync(${JSON.stringify(process.execPath)}, ['-e', 'console.log("nested")'], { stdio: 'inherit' })`,
-  ], envs.runtimeEnv);
+  const deniedExec = startCli(
+    [
+      "hook",
+      "run",
+      "--",
+      process.execPath,
+      "-e",
+      `require('node:child_process').execFileSync(${JSON.stringify(process.execPath)}, ['-e', 'console.log("nested")'], { stdio: 'inherit' })`,
+    ],
+    envs.runtimeEnv,
+  );
 
   const deniedExecGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "child exec freeze",
-    predicate: (group) =>
-      group.actionClass === "shell"
-      && group.operation === "exec",
+    predicate: (group) => group.actionClass === "shell" && group.operation === "exec",
   });
   await denySwarmGroup(envs.controlEnv, deniedExecGroup.groupId, "deny nested exec");
   const deniedExecResult = await waitForCliWithRuntimeSupportApprovals({
@@ -636,20 +648,17 @@ async function main() {
   assert.notEqual(deniedExecResult.code, 0, "expected denied child exec to fail");
 
   const pipedSystemCommand = "printf buccet-pipe | cat >/dev/null";
-  const deniedSystemPipe = startCli([
-    "hook",
-    "run",
-    "--",
-    systemPipeHelperPath,
-    pipedSystemCommand,
-  ], envs.runtimeEnv);
+  const deniedSystemPipe = startCli(
+    ["hook", "run", "--", systemPipeHelperPath, pipedSystemCommand],
+    envs.runtimeEnv,
+  );
   const deniedSystemGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "system pipe freeze",
     predicate: (group) =>
-      group.actionClass === "shell"
-      && group.operation === "exec"
-      && group.target === pipedSystemCommand,
+      group.actionClass === "shell" &&
+      group.operation === "exec" &&
+      group.target === pipedSystemCommand,
   });
   await denySwarmGroup(envs.controlEnv, deniedSystemGroup.groupId, "deny piped system command");
   const deniedSystemResult = await waitForCliWithRuntimeSupportApprovals({
@@ -659,22 +668,15 @@ async function main() {
   });
   assert.notEqual(deniedSystemResult.code, 0, "expected denied piped system command to fail");
 
-  const deniedExecvp = startCli([
-    "hook",
-    "run",
-    "--",
-    execvpHelperPath,
-    "sh",
-    "-c",
-    "echo execvp-path >/dev/null",
-  ], envs.runtimeEnv);
+  const deniedExecvp = startCli(
+    ["hook", "run", "--", execvpHelperPath, "sh", "-c", "echo execvp-path >/dev/null"],
+    envs.runtimeEnv,
+  );
   const deniedExecvpGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "execvp path freeze",
     predicate: (group) =>
-      group.actionClass === "shell"
-      && group.operation === "exec"
-      && group.target === shellPath,
+      group.actionClass === "shell" && group.operation === "exec" && group.target === shellPath,
   });
   await denySwarmGroup(envs.controlEnv, deniedExecvpGroup.groupId, "deny execvp resolved shell");
   const deniedExecvpResult = await waitForCliWithRuntimeSupportApprovals({
@@ -697,22 +699,25 @@ async function main() {
   const networkAddress = address as AddressInfo;
   const networkTarget = `127.0.0.1:${networkAddress.port}`;
 
-  const deniedConnect = startCli([
-    "hook",
-    "run",
-    "--",
-    process.execPath,
-    "-e",
-    `const net = require('node:net'); const socket = net.createConnection({host:'127.0.0.1', port:${networkAddress.port}}); socket.on('connect', () => process.exit(0)); socket.on('error', (error) => { console.error(String(error && error.message || error)); process.exit(1); });`,
-  ], envs.runtimeEnv);
+  const deniedConnect = startCli(
+    [
+      "hook",
+      "run",
+      "--",
+      process.execPath,
+      "-e",
+      `const net = require('node:net'); const socket = net.createConnection({host:'127.0.0.1', port:${networkAddress.port}}); socket.on('connect', () => process.exit(0)); socket.on('error', (error) => { console.error(String(error && error.message || error)); process.exit(1); });`,
+    ],
+    envs.runtimeEnv,
+  );
 
   const deniedConnectGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "network connect freeze",
     predicate: (group) =>
-      group.actionClass === "network"
-      && group.operation === "send"
-      && group.target === networkTarget,
+      group.actionClass === "network" &&
+      group.operation === "send" &&
+      group.target === networkTarget,
   });
   await denySwarmGroup(envs.controlEnv, deniedConnectGroup.groupId, "deny network connect");
   const deniedConnectResult = await waitForCliWithRuntimeSupportApprovals({
@@ -733,22 +738,16 @@ async function main() {
   }
   const udpTarget = `127.0.0.1:${udpAddress.port}`;
 
-  const deniedUdpSend = startCli([
-    "hook",
-    "run",
-    "--",
-    udpSendHelperPath,
-    "127.0.0.1",
-    String(udpAddress.port),
-  ], envs.runtimeEnv);
+  const deniedUdpSend = startCli(
+    ["hook", "run", "--", udpSendHelperPath, "127.0.0.1", String(udpAddress.port)],
+    envs.runtimeEnv,
+  );
 
   const deniedUdpGroup = await waitForSwarmGroupWithRuntimeSupportApprovals({
     env: envs.controlEnv,
     label: "udp send freeze",
     predicate: (group) =>
-      group.actionClass === "network"
-      && group.operation === "send"
-      && group.target === udpTarget,
+      group.actionClass === "network" && group.operation === "send" && group.target === udpTarget,
   });
   await denySwarmGroup(envs.controlEnv, deniedUdpGroup.groupId, "deny udp send");
   const deniedUdpResult = await waitForCliWithRuntimeSupportApprovals({
@@ -760,23 +759,26 @@ async function main() {
   await new Promise<void>((resolve) => udpServer.close(() => resolve()));
 
   const allowedWriteTarget = path.join(workspacePath, "hook-allowed.txt");
-  const allowedWrite = startCli([
-    "hook",
-    "run",
-    "--",
-    process.execPath,
-    "-e",
-    `require('node:fs').writeFileSync(${JSON.stringify(allowedWriteTarget)}, 'hook-allowed\\n')`,
-  ], envs.runtimeEnv);
+  const allowedWrite = startCli(
+    [
+      "hook",
+      "run",
+      "--",
+      process.execPath,
+      "-e",
+      `require('node:fs').writeFileSync(${JSON.stringify(allowedWriteTarget)}, 'hook-allowed\\n')`,
+    ],
+    envs.runtimeEnv,
+  );
   const allowedWriteResult = await waitForCliWithRuntimeSupportApprovals({
     running: allowedWrite,
     env: envs.controlEnv,
     label: "hook in-scope write",
     alsoApprove: {
       predicate: (group) =>
-        group.actionClass === "file"
-        && group.operation === "write"
-        && group.target === allowedWriteTarget,
+        group.actionClass === "file" &&
+        group.operation === "write" &&
+        group.target === allowedWriteTarget,
       reason: () => "release caught hook write after front hold",
     },
   });

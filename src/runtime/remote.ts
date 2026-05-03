@@ -1,9 +1,6 @@
-import type {
-  BoundaryActionKind,
-  BoundaryRequestProvenance,
-} from "./types.ts";
 import type { BoundaryToolProposal } from "./../boundaries/bodyguard.ts";
 import { inferBoundaryMetaFlagsFromText } from "./../law/meta-flags.ts";
+import type { BoundaryActionKind, BoundaryRequestProvenance } from "./types.ts";
 
 export function buildRemoteBoundaryProposal<T>(args: {
   actionKind: BoundaryActionKind;

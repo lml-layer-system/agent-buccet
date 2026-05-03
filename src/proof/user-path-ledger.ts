@@ -748,6 +748,14 @@ export function lookupUserPathTrackDecision(args: {
   const bestDeny = denyMatches[0];
   const bestAllow = allowMatches[0];
 
+  if (bestDeny && bestAllow) {
+    const denySpecificity = trackConstraintSpecificity(bestDeny.entry);
+    const allowSpecificity = trackConstraintSpecificity(bestAllow.entry);
+    if (allowSpecificity > denySpecificity) {
+      return { entry: bestAllow.entry, decision: "allow" };
+    }
+    return { entry: bestDeny.entry, decision: "deny" };
+  }
   if (bestDeny) {
     return { entry: bestDeny.entry, decision: "deny" };
   }

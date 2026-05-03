@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
 
-function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string; code: number | null }> {
+function runCli(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], {
       cwd: repoRoot,
@@ -46,7 +49,10 @@ async function main() {
   };
 
   try {
-    const initResult = await runCli(["init", "--session-id", "shed-cli-session", "--actor-id", "user:shed-cli"], env);
+    const initResult = await runCli(
+      ["init", "--session-id", "shed-cli-session", "--actor-id", "user:shed-cli"],
+      env,
+    );
     assert.equal(initResult.code, 0, initResult.stderr);
 
     const shedResult = await runCli(["shed", "--json"], env);
@@ -76,8 +82,14 @@ async function main() {
     assert.equal(status.sessionId, "shed-cli-session");
     assert.equal(status.shedCount >= 1, true);
     assert.equal(status.respawnCount >= 1, true);
-    assert.equal(status.entries.some((entry) => entry.eventType === "DISPOSABLE_SHED_TRIGGERED"), true);
-    assert.equal(status.entries.some((entry) => entry.eventType === "DISPOSABLE_RESPAWNED"), true);
+    assert.equal(
+      status.entries.some((entry) => entry.eventType === "DISPOSABLE_SHED_TRIGGERED"),
+      true,
+    );
+    assert.equal(
+      status.entries.some((entry) => entry.eventType === "DISPOSABLE_RESPAWNED"),
+      true,
+    );
 
     console.log("Agent Buccet shed CLI contract");
     console.log(`unit: ${shed.unitId}`);

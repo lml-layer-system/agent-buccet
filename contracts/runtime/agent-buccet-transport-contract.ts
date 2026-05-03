@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
 
-function run(command: string, args: string[], cwd: string): Promise<{ code: number; stdout: string; stderr: string }> {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -54,18 +58,21 @@ async function main() {
     await fs.writeFile(path.join(appDir, "runtime.log"), "should not ship\n", "utf8");
     await fs.writeFile(path.join(appDir, "ignored.txt"), "ignored by buccetignore\n", "utf8");
     await fs.writeFile(path.join(ignoredDir, "nested.txt"), "ignored directory\n", "utf8");
-    await fs.writeFile(path.join(gitDir, "config"), "[core]\nrepositoryformatversion = 0\n", "utf8");
+    await fs.writeFile(
+      path.join(gitDir, "config"),
+      "[core]\nrepositoryformatversion = 0\n",
+      "utf8",
+    );
     await fs.writeFile(path.join(nodeModulesDir, "index.js"), "module.exports = 1;\n", "utf8");
     await fs.writeFile(path.join(distDir, "bundle.js"), "console.log('dist');\n", "utf8");
-    await fs.writeFile(path.join(vscodeDir, "settings.json"), "{\n  \"editor.tabSize\": 2\n}\n", "utf8");
+    await fs.writeFile(
+      path.join(vscodeDir, "settings.json"),
+      '{\n  "editor.tabSize": 2\n}\n',
+      "utf8",
+    );
     await fs.writeFile(
       path.join(appDir, ".buccetignore"),
-      [
-        "# user-defined transport exclusions",
-        "ignored.txt",
-        "ignored-dir/",
-        "",
-      ].join("\n"),
+      ["# user-defined transport exclusions", "ignored.txt", "ignored-dir/", ""].join("\n"),
       "utf8",
     );
     const sourcePath = path.join(tempRoot, "portable-app.c");
@@ -128,15 +135,7 @@ async function main() {
     const importedDir = path.join(tempRoot, "imported-app");
     const importResult = await run(
       "node",
-      [
-        "cli/buccet.ts",
-        "transport",
-        "import",
-        artifactPath,
-        "--into",
-        importedDir,
-        "--json",
-      ],
+      ["cli/buccet.ts", "transport", "import", artifactPath, "--into", importedDir, "--json"],
       repoRoot,
     );
     assert.equal(importResult.code, 0, importResult.stderr);
@@ -148,31 +147,98 @@ async function main() {
     assert.equal(imported.destinationDir, importedDir);
     assert.equal(imported.rootfsPath, path.join(importedDir, "rootfs"));
     assert.deepEqual(imported.manifest.entrypoint, ["/bin/portable-app"]);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "payload.txt")).then(() => true, () => false), true);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "bin", "portable-app")).then(() => true, () => false), true);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, ".env")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, ".git")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "node_modules")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "dist")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, ".vscode")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "runtime.log")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "ignored.txt")).then(() => true, () => false), false);
-    assert.equal(await fs.stat(path.join(imported.rootfsPath, "ignored-dir")).then(() => true, () => false), false);
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "payload.txt")).then(
+        () => true,
+        () => false,
+      ),
+      true,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "bin", "portable-app")).then(
+        () => true,
+        () => false,
+      ),
+      true,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, ".env")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, ".git")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "node_modules")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "dist")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, ".vscode")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "runtime.log")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "ignored.txt")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
+    assert.equal(
+      await fs.stat(path.join(imported.rootfsPath, "ignored-dir")).then(
+        () => true,
+        () => false,
+      ),
+      false,
+    );
 
     const runResult = await run(
       "node",
-      [
-        "cli/buccet.ts",
-        "transport",
-        "run",
-        artifactPath,
-      ],
+      ["cli/buccet.ts", "transport", "run", artifactPath],
       repoRoot,
     );
     assert.equal(runResult.code, 0, runResult.stderr);
-    assert.equal(runResult.stdout.includes("TRANSPORT_PAYLOAD=portable-hello"), true, "expected packaged payload to execute");
-    assert.equal(runResult.stdout.includes("TRANSPORT_EXEC=packaged-binary"), true, "expected transport run to use packaged binary");
-    assert.equal(runResult.stdout.includes("entered environment: yes"), true, "expected transport run to stage environment");
+    assert.equal(
+      runResult.stdout.includes("TRANSPORT_PAYLOAD=portable-hello"),
+      true,
+      "expected packaged payload to execute",
+    );
+    assert.equal(
+      runResult.stdout.includes("TRANSPORT_EXEC=packaged-binary"),
+      true,
+      "expected transport run to use packaged binary",
+    );
+    assert.equal(
+      runResult.stdout.includes("entered environment: yes"),
+      true,
+      "expected transport run to stage environment",
+    );
 
     // Isolation state is reported but not asserted — Linux namespace isolation
     // requires kernel support (user namespaces enabled, no CAP restrictions) that

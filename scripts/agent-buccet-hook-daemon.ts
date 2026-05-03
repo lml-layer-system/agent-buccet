@@ -1,8 +1,8 @@
 #!/usr/bin/env node
+import { type ChildProcess, spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
-import path from "node:path";
-import { spawn, type ChildProcess } from "node:child_process";
 import net from "node:net";
+import path from "node:path";
 
 type ParsedArgs = {
   sessionId: string;
@@ -98,7 +98,15 @@ function parseArgs(argv: string[]): ParsedArgs {
     usage();
   }
 
-  if (!sessionId || !actorId || !sessionsDir || !interceptSocketPath || !gravityBridgeSocketPath || !brainStatusPath || !pidFilePath) {
+  if (
+    !sessionId ||
+    !actorId ||
+    !sessionsDir ||
+    !interceptSocketPath ||
+    !gravityBridgeSocketPath ||
+    !brainStatusPath ||
+    !pidFilePath
+  ) {
     usage();
   }
 
@@ -173,12 +181,17 @@ function waitForReady(child: ChildProcess, readyText: string, childName: ChildNa
     });
     child.once("error", reject);
     child.once("exit", (code) => {
-      reject(new Error(`${childName} exited before ready with code ${code ?? "unknown"}\n${stderr}`));
+      reject(
+        new Error(`${childName} exited before ready with code ${code ?? "unknown"}\n${stderr}`),
+      );
     });
   });
 }
 
-function waitForChildExit(child: ChildProcess | null | undefined, timeoutMs = 5_000): Promise<void> {
+function waitForChildExit(
+  child: ChildProcess | null | undefined,
+  timeoutMs = 5_000,
+): Promise<void> {
   return new Promise((resolve) => {
     if (!child || child.exitCode !== null || child.signalCode !== null) {
       resolve();
@@ -255,30 +268,26 @@ async function main() {
     if (!tcp) {
       await fs.rm(args.interceptSocketPath, { force: true }).catch(() => undefined);
     }
-    const child = spawn(process.execPath, [
-      path.join(scriptDir, "agent-buccet-intercept-server.ts"),
-      "--session-id",
-      args.sessionId,
-      "--actor-id",
-      args.actorId,
-      "--sessions-dir",
-      args.sessionsDir,
-      ...(tcp
-        ? [
-            "--host",
-            tcp.interceptHost,
-            "--port",
-            String(tcp.interceptPort),
-          ]
-        : [
-            "--socket",
-            args.interceptSocketPath,
-          ]),
-    ], {
-      cwd: process.cwd(),
-      stdio: ["ignore", "ignore", "pipe"],
-      env: process.env,
-    });
+    const child = spawn(
+      process.execPath,
+      [
+        path.join(scriptDir, "agent-buccet-intercept-server.ts"),
+        "--session-id",
+        args.sessionId,
+        "--actor-id",
+        args.actorId,
+        "--sessions-dir",
+        args.sessionsDir,
+        ...(tcp
+          ? ["--host", tcp.interceptHost, "--port", String(tcp.interceptPort)]
+          : ["--socket", args.interceptSocketPath]),
+      ],
+      {
+        cwd: process.cwd(),
+        stdio: ["ignore", "ignore", "pipe"],
+        env: process.env,
+      },
+    );
     await waitForReady(child, "intercept server running", "intercept");
     interceptChild = child;
     return child;
@@ -289,30 +298,34 @@ async function main() {
     if (!tcp) {
       await fs.rm(args.gravityBridgeSocketPath, { force: true }).catch(() => undefined);
     }
-    const child = spawn(process.execPath, [
-      path.join(scriptDir, "agent-buccet-gravity-bridge.ts"),
-      ...(tcp
-        ? [
-            "--listen-host",
-            tcp.gravityBridgeHost,
-            "--listen-port",
-            String(tcp.gravityBridgePort),
-            "--upstream-host",
-            tcp.interceptHost,
-            "--upstream-port",
-            String(tcp.interceptPort),
-          ]
-        : [
-            "--listen-socket",
-            args.gravityBridgeSocketPath,
-            "--upstream-socket",
-            args.interceptSocketPath,
-          ]),
-    ], {
-      cwd: process.cwd(),
-      stdio: ["ignore", "ignore", "pipe"],
-      env: process.env,
-    });
+    const child = spawn(
+      process.execPath,
+      [
+        path.join(scriptDir, "agent-buccet-gravity-bridge.ts"),
+        ...(tcp
+          ? [
+              "--listen-host",
+              tcp.gravityBridgeHost,
+              "--listen-port",
+              String(tcp.gravityBridgePort),
+              "--upstream-host",
+              tcp.interceptHost,
+              "--upstream-port",
+              String(tcp.interceptPort),
+            ]
+          : [
+              "--listen-socket",
+              args.gravityBridgeSocketPath,
+              "--upstream-socket",
+              args.interceptSocketPath,
+            ]),
+      ],
+      {
+        cwd: process.cwd(),
+        stdio: ["ignore", "ignore", "pipe"],
+        env: process.env,
+      },
+    );
     await waitForReady(child, "gravity bridge running", "gravity_bridge");
     gravityBridgeChild = child;
     return child;
@@ -341,10 +354,7 @@ async function main() {
   async function restartWithTcpFallback(reason: string) {
     stopChild(interceptChild);
     stopChild(gravityBridgeChild);
-    await Promise.all([
-      waitForChildExit(interceptChild),
-      waitForChildExit(gravityBridgeChild),
-    ]);
+    await Promise.all([waitForChildExit(interceptChild), waitForChildExit(gravityBridgeChild)]);
     interceptChild = null;
     gravityBridgeChild = null;
     transportMode = "tcp";
@@ -388,11 +398,15 @@ async function main() {
     } catch (error) {
       if (transportMode === "socket" && isSocketListenPermissionError(error)) {
         try {
-          await restartWithTcpFallback(error instanceof Error ? error.message : `${name} restart required tcp fallback`);
+          await restartWithTcpFallback(
+            error instanceof Error ? error.message : `${name} restart required tcp fallback`,
+          );
           return;
         } catch (fallbackError) {
           stopping = true;
-          await markDead(fallbackError instanceof Error ? fallbackError.message : `${name} tcp fallback failed`);
+          await markDead(
+            fallbackError instanceof Error ? fallbackError.message : `${name} tcp fallback failed`,
+          );
           process.exitCode = 1;
           return;
         }
@@ -414,12 +428,16 @@ async function main() {
   } catch (error) {
     if (transportMode === "socket" && isSocketListenPermissionError(error)) {
       try {
-        await restartWithTcpFallback(error instanceof Error ? error.message : "tcp fallback required");
+        await restartWithTcpFallback(
+          error instanceof Error ? error.message : "tcp fallback required",
+        );
       } catch (fallbackError) {
         stopping = true;
         stopChild(interceptChild);
         stopChild(gravityBridgeChild);
-        await markDead(fallbackError instanceof Error ? fallbackError.message : "hook daemon failed to start");
+        await markDead(
+          fallbackError instanceof Error ? fallbackError.message : "hook daemon failed to start",
+        );
         process.exit(1);
       }
       return;
@@ -440,10 +458,7 @@ async function main() {
     const gravityBridgeToStop = gravityBridgeChild;
     interceptToStop?.kill("SIGTERM");
     gravityBridgeToStop?.kill("SIGTERM");
-    await Promise.all([
-      waitForChildExit(interceptToStop),
-      waitForChildExit(gravityBridgeToStop),
-    ]);
+    await Promise.all([waitForChildExit(interceptToStop), waitForChildExit(gravityBridgeToStop)]);
     await fs.rm(args.interceptSocketPath, { force: true }).catch(() => undefined);
     await fs.rm(args.gravityBridgeSocketPath, { force: true }).catch(() => undefined);
     await markDead(reason);

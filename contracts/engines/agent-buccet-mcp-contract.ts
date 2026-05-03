@@ -3,14 +3,8 @@ import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  describeUserPath,
-  hashUserPath,
-} from "./../../src/index.ts";
-import type {
-  BoundaryLedgerRecord,
-  BoundaryUplEntry,
-} from "./../../src/index.ts";
+import { describeUserPath, hashUserPath } from "./../../src/index.ts";
+import type { BoundaryLedgerRecord, BoundaryUplEntry } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
@@ -42,11 +36,7 @@ async function writeLauncher(binDir: string) {
   await fs.mkdir(binDir, { recursive: true });
   await fs.writeFile(
     launcherPath,
-    [
-      "#!/bin/sh",
-      `exec node "${scriptPath}" "$@"`,
-      "",
-    ].join("\n"),
+    ["#!/bin/sh", `exec node "${scriptPath}" "$@"`, ""].join("\n"),
     "utf8",
   );
   await fs.chmod(launcherPath, 0o755);
@@ -106,9 +96,10 @@ function eventTypesForTarget(args: {
   actionKind?: string;
 }) {
   return args.records
-    .filter((record) =>
-      record.payload.target === args.target
-      && (!args.actionKind || record.payload.actionKind === args.actionKind)
+    .filter(
+      (record) =>
+        record.payload.target === args.target &&
+        (!args.actionKind || record.payload.actionKind === args.actionKind),
     )
     .map((record) => record.META.event_type);
 }
@@ -146,11 +137,15 @@ async function writeStandingLawLedger(args: {
 
   await fs.writeFile(
     args.uplLedgerPath,
-    `${JSON.stringify({
-      specVersion: 1,
-      userApprovedLawPaths: approvedEntries,
-      userDeniedLawPaths: [],
-    }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        specVersion: 1,
+        userApprovedLawPaths: approvedEntries,
+        userDeniedLawPaths: [],
+      },
+      null,
+      2,
+    )}\n`,
     "utf8",
   );
 }
@@ -158,10 +153,13 @@ async function writeStandingLawLedger(args: {
 class McpClient {
   private nextId = 1;
   private buffer = "";
-  private pending = new Map<string, {
-    resolve: (value: JsonRpcResponse) => void;
-    reject: (error: unknown) => void;
-  }>();
+  private pending = new Map<
+    string,
+    {
+      resolve: (value: JsonRpcResponse) => void;
+      reject: (error: unknown) => void;
+    }
+  >();
   private exitPromise: Promise<number | null>;
   private unexpectedStdout: string[] = [];
   private stderrWaiters: Array<{
@@ -193,7 +191,9 @@ class McpClient {
         this.pending.clear();
         for (const waiter of this.stderrWaiters) {
           clearTimeout(waiter.timeout);
-          waiter.reject(new Error(`MCP process exited before stderr matched pattern\n${this.stderr}`));
+          waiter.reject(
+            new Error(`MCP process exited before stderr matched pattern\n${this.stderr}`),
+          );
         }
         this.stderrWaiters = [];
         resolve(code);
@@ -267,16 +267,20 @@ class McpClient {
       return Promise.resolve();
     }
     if (this.exitCode !== undefined) {
-      return Promise.reject(new Error(
-        `MCP process already exited before stderr matched pattern ${pattern}\n${JSON.stringify(this.debugState(), null, 2)}`,
-      ));
+      return Promise.reject(
+        new Error(
+          `MCP process already exited before stderr matched pattern ${pattern}\n${JSON.stringify(this.debugState(), null, 2)}`,
+        ),
+      );
     }
     return new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.stderrWaiters = this.stderrWaiters.filter((entry) => entry.timeout !== timeout);
-        reject(new Error(
-          `timed out waiting for stderr pattern ${pattern}\n${JSON.stringify(this.debugState(), null, 2)}`,
-        ));
+        reject(
+          new Error(
+            `timed out waiting for stderr pattern ${pattern}\n${JSON.stringify(this.debugState(), null, 2)}`,
+          ),
+        );
       }, timeoutMs);
       this.stderrWaiters.push({ pattern, resolve, reject, timeout });
     });
@@ -293,9 +297,11 @@ class McpClient {
     return new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.pending.delete(id);
-        reject(new Error(
-          `timed out waiting for MCP response to ${method}\n${JSON.stringify(this.debugState(), null, 2)}`,
-        ));
+        reject(
+          new Error(
+            `timed out waiting for MCP response to ${method}\n${JSON.stringify(this.debugState(), null, 2)}`,
+          ),
+        );
       }, timeoutMs);
       this.pending.set(id, { resolve, reject });
       this.child.stdin?.write(`${payload}\n`, (error) => {
@@ -361,7 +367,7 @@ async function clearSessionStandingLaw(args: {
   for (const statePath of paths) {
     const raw = await fs.readFile(statePath, "utf8");
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    delete parsed.sessionUpl;
+    parsed.sessionUpl = undefined;
     await fs.writeFile(statePath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
   }
 }
@@ -387,7 +393,10 @@ async function startMcp(args: {
       version: "0.1.0",
     },
   });
-  assert.ok(!initialize.error, `initialize failed: ${JSON.stringify(initialize.error)}\n${client.stderr}`);
+  assert.ok(
+    !initialize.error,
+    `initialize failed: ${JSON.stringify(initialize.error)}\n${client.stderr}`,
+  );
   const initResult = initialize.result as {
     protocolVersion: string;
     capabilities: { tools: object };
@@ -462,38 +471,49 @@ async function main() {
   assert.ok(tools.some((tool) => tool.name === "read_file"));
   assert.ok(tools.some((tool) => tool.name === "run_command"));
 
-  const allowedRead = assertMcpSuccess(await client.request("tools/call", {
-    name: "read_file",
-    arguments: { path: allowedReadPath },
-  }));
+  const allowedRead = assertMcpSuccess(
+    await client.request("tools/call", {
+      name: "read_file",
+      arguments: { path: allowedReadPath },
+    }),
+  );
   assert.equal(allowedRead.isError, undefined);
   assert.match(extractText(allowedRead), /allowed through standing law/);
 
-  const outOfScope = assertMcpSuccess(await client.request("tools/call", {
-    name: "read_file",
-    arguments: { path: "/etc/passwd" },
-  }));
+  const outOfScope = assertMcpSuccess(
+    await client.request("tools/call", {
+      name: "read_file",
+      arguments: { path: "/etc/passwd" },
+    }),
+  );
   assert.equal(outOfScope.isError, true);
   assert.match(extractText(outOfScope), /Boundary denied:/);
   assert.match(extractText(outOfScope), /BOUNDARY\.DEFAULT_SCOPE\.01/);
 
-  const unknownTool = assertMcpSuccess(await client.request("tools/call", {
-    name: "drop_database",
-    arguments: { target: "prod" },
-  }));
+  const unknownTool = assertMcpSuccess(
+    await client.request("tools/call", {
+      name: "drop_database",
+      arguments: { target: "prod" },
+    }),
+  );
   assert.equal(unknownTool.isError, true);
   assert.match(extractText(unknownTool), /BOUNDARY\.TOOL\.UNMAPPED/);
 
-  const approvalRequired = assertMcpSuccess(await client.request("tools/call", {
-    name: "write_file",
-    arguments: {
-      path: approvalWritePath,
-      content: "needs approval\n",
-    },
-  }));
+  const approvalRequired = assertMcpSuccess(
+    await client.request("tools/call", {
+      name: "write_file",
+      arguments: {
+        path: approvalWritePath,
+        content: "needs approval\n",
+      },
+    }),
+  );
   assert.equal(approvalRequired.isError, true, JSON.stringify(approvalRequired, null, 2));
   assert.match(extractText(approvalRequired), /Boundary requires approval:/);
-  assert.match(extractText(approvalRequired), /self-originated Buccet motion re-enters through novelty before consequence/);
+  assert.match(
+    extractText(approvalRequired),
+    /self-originated Buccet motion re-enters through novelty before consequence/,
+  );
   assert.match(extractText(approvalRequired), /META\.NOVELTY\.01/);
   assert.match(extractText(approvalRequired), /Approve via: buccet console/);
 

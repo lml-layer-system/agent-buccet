@@ -1,5 +1,5 @@
-import net from "node:net";
 import { once } from "node:events";
+import net from "node:net";
 import type {
   BoundaryInterceptDaemonInput,
   BoundaryInterceptDaemonOutput,
@@ -40,9 +40,7 @@ export type BoundarySystemInterceptEvent = {
   flags?: BoundaryInterceptRequest["flags"];
 };
 
-export type BoundaryInterceptServerTarget =
-  | { socketPath: string }
-  | { host: string; port: number };
+export type BoundaryInterceptServerTarget = { socketPath: string } | { host: string; port: number };
 
 function fileOperationForKind(kind: BoundarySystemInterceptEventKind): string {
   switch (kind) {
@@ -124,7 +122,9 @@ export function mapSystemInterceptEventToRequest(
         extra: [
           event.executablePath ? `exe=${event.executablePath}` : "",
           event.cwd ? `cwd=${event.cwd}` : "",
-        ].filter(Boolean).join(" "),
+        ]
+          .filter(Boolean)
+          .join(" "),
       }),
     };
   }
@@ -145,7 +145,9 @@ export function mapSystemInterceptEventToRequest(
         extra: [
           event.executablePath ? `exe=${event.executablePath}` : "",
           event.cwd ? `cwd=${event.cwd}` : "",
-        ].filter(Boolean).join(" "),
+        ]
+          .filter(Boolean)
+          .join(" "),
       }),
     };
   }
@@ -166,7 +168,9 @@ export function mapSystemInterceptEventToRequest(
         extra: [
           event.executablePath ? `exe=${event.executablePath}` : "",
           event.cwd ? `cwd=${event.cwd}` : "",
-        ].filter(Boolean).join(" "),
+        ]
+          .filter(Boolean)
+          .join(" "),
       }),
     };
   }
@@ -187,7 +191,9 @@ export function mapSystemInterceptEventToRequest(
         extra: [
           event.executablePath ? `exe=${event.executablePath}` : "",
           event.cwd ? `cwd=${event.cwd}` : "",
-        ].filter(Boolean).join(" "),
+        ]
+          .filter(Boolean)
+          .join(" "),
       }),
     };
   }
@@ -208,7 +214,9 @@ export function mapSystemInterceptEventToRequest(
         extra: [
           event.executablePath ? `exe=${event.executablePath}` : "",
           event.cwd ? `cwd=${event.cwd}` : "",
-        ].filter(Boolean).join(" "),
+        ]
+          .filter(Boolean)
+          .join(" "),
       }),
     };
   }
@@ -228,7 +236,9 @@ export function mapSystemInterceptEventToRequest(
       extra: [
         event.executablePath ? `exe=${event.executablePath}` : "",
         event.cwd ? `cwd=${event.cwd}` : "",
-      ].filter(Boolean).join(" "),
+      ]
+        .filter(Boolean)
+        .join(" "),
     }),
   };
 }
@@ -236,9 +246,10 @@ export function mapSystemInterceptEventToRequest(
 async function connectToInterceptServer(
   target: BoundaryInterceptServerTarget,
 ): Promise<net.Socket> {
-  const socket = "socketPath" in target
-    ? net.createConnection(target.socketPath)
-    : net.createConnection({ host: target.host, port: target.port });
+  const socket =
+    "socketPath" in target
+      ? net.createConnection(target.socketPath)
+      : net.createConnection({ host: target.host, port: target.port });
   await once(socket, "connect");
   return socket;
 }

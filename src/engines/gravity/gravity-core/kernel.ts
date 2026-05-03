@@ -42,11 +42,13 @@ export function evaluateGravityEvent(args: {
         lawId: skill.id,
         error,
       });
-      violations = violations.concat(buildSkillErrorViolation({
-        lawId: skill.id,
-        phase: "validate",
-        error,
-      }));
+      violations = violations.concat(
+        buildSkillErrorViolation({
+          lawId: skill.id,
+          phase: "validate",
+          error,
+        }),
+      );
       continue;
     }
     if (next.length > 0) {
@@ -79,11 +81,13 @@ export function evaluateGravityEvent(args: {
         lawId: skill.id,
         error,
       });
-      violations = violations.concat(buildSkillErrorViolation({
-        lawId: skill.id,
-        phase: "normalize",
-        error,
-      }));
+      violations = violations.concat(
+        buildSkillErrorViolation({
+          lawId: skill.id,
+          phase: "normalize",
+          error,
+        }),
+      );
     }
   }
 

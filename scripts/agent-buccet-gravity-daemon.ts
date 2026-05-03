@@ -72,17 +72,21 @@ async function main() {
   const restored = await restoreBoundaryRuntimeStore({
     sessionId: args.sessionId,
   });
-  const store = restored ?? await createPersistentBoundaryRuntimeStore({
-    sessionId: args.sessionId,
-    actorId: args.actorId,
-  });
+  const store =
+    restored ??
+    (await createPersistentBoundaryRuntimeStore({
+      sessionId: args.sessionId,
+      actorId: args.actorId,
+    }));
 
   const supervisor = createBoundaryGravitySupervisor({
     store,
     heartbeatIntervalMs: args.heartbeatIntervalMs,
     heartbeatTimeoutMs: args.heartbeatTimeoutMs,
     onHeartbeat: (heartbeat) => {
-      console.log(`[gravity-heartbeat] session=${heartbeat.sessionId} decision=${heartbeat.lastDecision} at=${heartbeat.emittedAt}`);
+      console.log(
+        `[gravity-heartbeat] session=${heartbeat.sessionId} decision=${heartbeat.lastDecision} at=${heartbeat.emittedAt}`,
+      );
     },
     onPanic: (error) => {
       console.error("[gravity-panic]", error);

@@ -1,14 +1,14 @@
 import { spawn } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import readline from "node:readline";
 import {
-  daemonRequestId,
-  sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
+  daemonRequestId,
+  sendBoundaryInterceptServerInput,
 } from "./../src/index.ts";
 
 type ParsedArgs = {
@@ -153,7 +153,7 @@ async function main() {
   const active = new Set<Promise<void>>();
   const rl = readline.createInterface({
     input: process.stdin,
-    crlfDelay: Infinity,
+    crlfDelay: Number.POSITIVE_INFINITY,
   });
 
   const forwardInput = async (parsed: BoundaryInterceptDaemonInput, requestId: string) => {
@@ -161,10 +161,12 @@ async function main() {
       if ("command" in parsed && parsed.command === "shutdown") {
         shutdownRequested = true;
       }
-      writeOutput(await sendBoundaryInterceptServerInput({
-        target,
-        input: parsed,
-      }));
+      writeOutput(
+        await sendBoundaryInterceptServerInput({
+          target,
+          input: parsed,
+        }),
+      );
     } catch (error) {
       writeOutput({
         type: "error",

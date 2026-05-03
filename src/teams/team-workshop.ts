@@ -1,29 +1,26 @@
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { createHash } from "node:crypto";
 
 import {
-  UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
+  type BuccetPathSource,
   SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
+  UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
   isBuiltinTeamBrainSourceId,
   resolveTeamBrainPathSource,
-  type BuccetPathSource,
 } from "./../context/path-memory.ts";
 import {
-  buildTeamWholeView,
+  type TeamSourceCheckpointBody,
+  type TeamSourceCheckpointRef,
+  type TeamWholeView,
   buildTeamSourceCheckpoint,
+  buildTeamWholeView,
   deleteTeamSourceCheckpoint,
   loadTeamSourceCheckpoint,
   persistTeamSourceCheckpoint,
   teamCheckpointRoot,
-  type TeamSourceCheckpointBody,
-  type TeamSourceCheckpointRef,
-  type TeamWholeView,
 } from "./../context/path-source-checkpoints.ts";
-import {
-  AGENT_TEAM_STAGE_IDS,
-  type AgentTeamStageId,
-} from "./agent-comprehension-engine.ts";
+import { AGENT_TEAM_STAGE_IDS, type AgentTeamStageId } from "./agent-comprehension-engine.ts";
 
 /**
  * Team Workshop — the operator-facing surface for creating hyper-specialized
@@ -95,7 +92,14 @@ export type TeamInternalSourceRole = "brain" | "work_memory";
  */
 export type SourceTransport = "file" | "remote-llm" | "local-llm" | "http-api" | "engine";
 
-export type RemoteLlmProvider = "openai" | "anthropic" | "gemini" | "mistral" | "groq" | "deepseek" | "custom";
+export type RemoteLlmProvider =
+  | "openai"
+  | "anthropic"
+  | "gemini"
+  | "mistral"
+  | "groq"
+  | "deepseek"
+  | "custom";
 
 export type RemoteLlmSourceConfig = {
   provider: RemoteLlmProvider;
@@ -244,7 +248,10 @@ export type TeamPathSourceMemoryRecord = {
  * override every field at registration time. Keys are never read or stored
  * here; we only carry the env-var name.
  */
-export const REMOTE_LLM_PROVIDER_DEFAULTS: Record<RemoteLlmProvider, Partial<RemoteLlmSourceConfig>> = {
+export const REMOTE_LLM_PROVIDER_DEFAULTS: Record<
+  RemoteLlmProvider,
+  Partial<RemoteLlmSourceConfig>
+> = {
   openai: {
     endpoint: "https://api.openai.com/v1/chat/completions",
     model: "gpt-4o-mini",
@@ -278,7 +285,10 @@ export const REMOTE_LLM_PROVIDER_DEFAULTS: Record<RemoteLlmProvider, Partial<Rem
   custom: {},
 };
 
-export const LOCAL_LLM_PROVIDER_DEFAULTS: Record<LocalLlmProvider, Partial<LocalLlmSourceConfig>> = {
+export const LOCAL_LLM_PROVIDER_DEFAULTS: Record<
+  LocalLlmProvider,
+  Partial<LocalLlmSourceConfig>
+> = {
   ollama: {
     binary: "ollama",
     endpoint: "http://127.0.0.1:11434",
@@ -694,8 +704,16 @@ async function captureTeamContinuitySnapshot(args: {
 
   const root = teamContinuityRoot(args.homePath, args.manifest.slug);
   await ensureDir(root);
-  await fs.writeFile(teamContinuitySnapshotPath(args.homePath, args.manifest.slug, snapshotId), `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
-  await fs.appendFile(teamContinuityIndexPath(args.homePath, args.manifest.slug), `${JSON.stringify(meta)}\n`, "utf8");
+  await fs.writeFile(
+    teamContinuitySnapshotPath(args.homePath, args.manifest.slug, snapshotId),
+    `${JSON.stringify(snapshot, null, 2)}\n`,
+    "utf8",
+  );
+  await fs.appendFile(
+    teamContinuityIndexPath(args.homePath, args.manifest.slug),
+    `${JSON.stringify(meta)}\n`,
+    "utf8",
+  );
   return meta;
 }
 
@@ -808,7 +826,10 @@ export async function loadTeamContinuitySnapshot(args: {
   snapshotId: string;
 }): Promise<TeamContinuitySnapshot | null> {
   try {
-    const raw = await fs.readFile(teamContinuitySnapshotPath(args.homePath, args.slug, args.snapshotId), "utf8");
+    const raw = await fs.readFile(
+      teamContinuitySnapshotPath(args.homePath, args.slug, args.snapshotId),
+      "utf8",
+    );
     return JSON.parse(raw) as TeamContinuitySnapshot;
   } catch {
     return null;
@@ -825,7 +846,9 @@ export async function rollbackTeamToContinuitySnapshot(args: {
     throw new Error(`Continuity snapshot "${args.snapshotId}" not found for team "${args.slug}".`);
   }
   if (snapshot.teamId !== args.slug) {
-    throw new Error(`Continuity snapshot "${args.snapshotId}" belongs to "${snapshot.teamId}", not "${args.slug}".`);
+    throw new Error(
+      `Continuity snapshot "${args.snapshotId}" belongs to "${snapshot.teamId}", not "${args.slug}".`,
+    );
   }
   await ensureDir(teamDir(args.homePath, args.slug));
   await fs.writeFile(teamWorkMemoryPath(args.homePath, args.slug), snapshot.workMemoryBody, "utf8");
@@ -881,9 +904,13 @@ export async function cherryPickTeamSnapshotSources(args: {
       throw new Error(`Source "${sourceId}" is internal to Buccet and cannot be cherry-picked.`);
     }
     if (source.checkpoint) {
-      const checkpointEntry = snapshot.sourceCheckpoints.find((entry) => entry.sourceId === sourceId);
+      const checkpointEntry = snapshot.sourceCheckpoints.find(
+        (entry) => entry.sourceId === sourceId,
+      );
       if (!checkpointEntry) {
-        throw new Error(`Snapshot "${args.snapshotId}" is missing checkpoint body for "${sourceId}".`);
+        throw new Error(
+          `Snapshot "${args.snapshotId}" is missing checkpoint body for "${sourceId}".`,
+        );
       }
       await persistTeamSourceCheckpoint({
         homePath: args.homePath,
@@ -957,15 +984,21 @@ export async function prepareTeamRuntime(args: {
   homePath: string;
   slug: TeamSlug;
   markReady?: boolean;
-}): Promise<{ manifest: TeamManifest; preparation: TeamRuntimePreparation; wholeView: TeamWholeView }> {
+}): Promise<{
+  manifest: TeamManifest;
+  preparation: TeamRuntimePreparation;
+  wholeView: TeamWholeView;
+}> {
   let manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
     throw new Error(`Team "${args.slug}" not found`);
   }
-  manifest = (await ensureTeamWorkMemorySource({
-    homePath: args.homePath,
-    manifest,
-  })).manifest;
+  manifest = (
+    await ensureTeamWorkMemorySource({
+      homePath: args.homePath,
+      manifest,
+    })
+  ).manifest;
   const wholeView = await buildTeamWholeView({
     homePath: args.homePath,
     manifest,
@@ -994,7 +1027,11 @@ export async function prepareTeamRuntime(args: {
       regionCount: source.regionCount,
     })),
   };
-  await fs.writeFile(teamRuntimePath(args.homePath, args.slug), `${JSON.stringify(preparation, null, 2)}\n`, "utf8");
+  await fs.writeFile(
+    teamRuntimePath(args.homePath, args.slug),
+    `${JSON.stringify(preparation, null, 2)}\n`,
+    "utf8",
+  );
   manifest = await commitTeamStructuralMemory({
     homePath: args.homePath,
     slug: args.slug,
@@ -1065,8 +1102,9 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
       : UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE;
   const brain = teamBrainSourceRef(brainPath);
   const mergedNotes =
-    [args.notes?.trim(), args.buccetClass === "spend" ? SPEND_BUCCET_NOTES_STAMP : ""].filter(Boolean).join("\n\n") ||
-    undefined;
+    [args.notes?.trim(), args.buccetClass === "spend" ? SPEND_BUCCET_NOTES_STAMP : ""]
+      .filter(Boolean)
+      .join("\n\n") || undefined;
   const manifest: TeamManifest = {
     manifestVersion: TEAM_MANIFEST_VERSION,
     slug,
@@ -1133,16 +1171,20 @@ export async function addTeamAgent(args: AddAgentArgs): Promise<TeamManifest> {
   if (!manifest) {
     throw new Error(`Team "${args.slug}" not found`);
   }
-  manifest = (await ensureTeamWorkMemorySource({
-    homePath: args.homePath,
-    manifest,
-  })).manifest;
+  manifest = (
+    await ensureTeamWorkMemorySource({
+      homePath: args.homePath,
+      manifest,
+    })
+  ).manifest;
   if (manifest.agents.some((a) => a.id === args.agentId)) {
     throw new Error(`Team "${args.slug}" already has agent "${args.agentId}"`);
   }
   const ownsStep: ComprehensionStageId = args.ownsStep ?? "all";
   if (!COMPREHENSION_STAGE_IDS.includes(ownsStep)) {
-    throw new Error(`Unknown comprehension stage "${ownsStep}". Allowed: ${COMPREHENSION_STAGE_IDS.join(", ")}`);
+    throw new Error(
+      `Unknown comprehension stage "${ownsStep}". Allowed: ${COMPREHENSION_STAGE_IDS.join(", ")}`,
+    );
   }
 
   const requestedSources = args.sourceIds ?? [];
@@ -1244,7 +1286,9 @@ export async function addTeamSource(args: AddSourceArgs): Promise<TeamManifest> 
   try {
     content = await fs.readFile(resolved, "utf8");
   } catch (error) {
-    throw new Error(`Cannot read source "${resolved}": ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(
+      `Cannot read source "${resolved}": ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
   const sourceId = synthesizeSourceId(resolved, content);
   if (manifest.pathSourceCorpus.some((s) => s.id === sourceId)) {
@@ -1482,7 +1526,9 @@ export async function addTeamLocalLlmSource(args: AddLocalLlmSourceArgs): Promis
     id: sourceId,
     title: args.title ?? `${args.provider}:${args.model}`,
     kind: `local-llm:${args.provider}`,
-    summary: args.summary ?? `Local LLM via ${args.provider}${binary ? ` (${binary})` : ""}${endpoint ? ` at ${endpoint}` : ""}, model ${args.model}.`,
+    summary:
+      args.summary ??
+      `Local LLM via ${args.provider}${binary ? ` (${binary})` : ""}${endpoint ? ` at ${endpoint}` : ""}, model ${args.model}.`,
     sourceUri: endpoint ?? `local://${args.provider}/${args.model}`,
     transport: "local-llm",
     local,
@@ -1529,10 +1575,10 @@ export async function addTeamEngineSource(args: AddEngineSourceArgs): Promise<Te
   const defaults = ENGINE_PROVIDER_DEFAULTS[args.provider] ?? ENGINE_PROVIDER_DEFAULTS.custom;
   const engine: EngineSourceConfig = {
     provider: args.provider,
-    ...(args.agentCorePackage ?? defaults.agentCorePackage
+    ...((args.agentCorePackage ?? defaults.agentCorePackage)
       ? { agentCorePackage: args.agentCorePackage ?? defaults.agentCorePackage }
       : {}),
-    ...(args.aiPackage ?? defaults.aiPackage
+    ...((args.aiPackage ?? defaults.aiPackage)
       ? { aiPackage: args.aiPackage ?? defaults.aiPackage }
       : {}),
     toolExecution: args.toolExecution ?? defaults.toolExecution ?? "parallel",
@@ -1559,7 +1605,9 @@ export async function addTeamEngineSource(args: AddEngineSourceArgs): Promise<Te
       `Execution engine via ${args.provider}. Hands of the brain — every tool call routed through Buccet's boundary before execution.${
         engine.agentCorePackage ? ` Peer dep: ${engine.agentCorePackage}.` : ""
       }`,
-    sourceUri: engine.agentCorePackage ? `npm:${engine.agentCorePackage}` : `engine:${args.provider}`,
+    sourceUri: engine.agentCorePackage
+      ? `npm:${engine.agentCorePackage}`
+      : `engine:${args.provider}`,
     transport: "engine",
     engine,
   };
@@ -1594,7 +1642,9 @@ export async function removeTeamSource(args: {
     throw new Error("The brain source is auto-injected and cannot be removed from a team.");
   }
   if (args.sourceId === teamWorkMemorySourceId(args.slug)) {
-    throw new Error("The Buccet path-source memory is auto-injected and cannot be removed from a team.");
+    throw new Error(
+      "The Buccet path-source memory is auto-injected and cannot be removed from a team.",
+    );
   }
   const manifest = await loadTeam(args.homePath, args.slug);
   if (!manifest) {
@@ -1620,8 +1670,7 @@ export async function removeTeamSource(args: {
     slug: args.slug,
     kind: "source_removed",
     title: `source_removed:${args.sourceId}`,
-    text:
-      `Removed source ${removed?.title ?? args.sourceId} from ${args.slug}. The Batcave wall has been narrowed, but the structural history remains committed.`,
+    text: `Removed source ${removed?.title ?? args.sourceId} from ${args.slug}. The Batcave wall has been narrowed, but the structural history remains committed.`,
     meta: {
       sourceId: args.sourceId,
       title: removed?.title ?? null,
@@ -1656,7 +1705,11 @@ function uniqueIds(values: string[]): string[] {
 }
 
 function synthesizeSourceId(filePath: string, content: string): string {
-  const digest = createHash("sha256").update(`${filePath}::${content.length}`).update(content).digest("hex").slice(0, 16);
+  const digest = createHash("sha256")
+    .update(`${filePath}::${content.length}`)
+    .update(content)
+    .digest("hex")
+    .slice(0, 16);
   return `team-source-${digest}`;
 }
 
@@ -1670,7 +1723,9 @@ function synthesizeRemoteSourceId(remote: RemoteLlmSourceConfig): string {
 
 function synthesizeLocalSourceId(local: LocalLlmSourceConfig): string {
   const digest = createHash("sha256")
-    .update(`local-llm::${local.provider}::${local.binary ?? ""}::${local.endpoint ?? ""}::${local.model}`)
+    .update(
+      `local-llm::${local.provider}::${local.binary ?? ""}::${local.endpoint ?? ""}::${local.model}`,
+    )
     .digest("hex")
     .slice(0, 16);
   return `team-source-local-${digest}`;

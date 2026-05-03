@@ -1,40 +1,26 @@
 import { randomUUID } from "node:crypto";
-import { createApprovalQueueAdapter } from "./approval.ts";
+import { createBoundaryGravityService } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
+import { createBoundaryGravityAttachment } from "./../engines/gravity/gravity.ts";
+import { buildTelegramBoundaryProposal } from "./../integrations/telegram.ts";
+import { inferBoundaryMetaFlagsFromText } from "./../law/meta-flags.ts";
+import { inferBoundaryTimeConstraintSignals } from "./../law/time-constraint-flags.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import {
   evaluateBoundaryGovernor,
   initialGovernorState,
   recordGovernorCrossing,
 } from "./../runtime/governor.ts";
 import {
-  adjudicateBodyguardRequest,
-  applyBodyguardUserLawDecision,
-  attachBodyguardControl,
-  evaluateBodyguardAction,
-  resolveBodyguardHeldRequest,
-} from "./bodyguard-core.ts";
-import { createBoundaryGravityService } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
-import { appendBoundaryLedger } from "./../proof/ledger.ts";
-import { createBoundaryGravityAttachment } from "./../engines/gravity/gravity.ts";
-import { inferBoundaryMetaFlagsFromText } from "./../law/meta-flags.ts";
-import {
   normalizeBoundaryNoveltyState,
   noveltyFlagsForBoundaryRequest,
 } from "./../runtime/novelty.ts";
-import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 import { maybeShedCompromisedBoundaryUnit } from "./../runtime/shed.ts";
-import {
-  evaluateSpendBoundaryAction,
-  spendIntentLedgerMetadata,
-  summarizeBoundarySpendIntent,
-} from "./spend-boundary.ts";
-import { assessBoundarySubstrateApprovalRequest } from "./../runtime/substrate/substrate-live.ts";
 import type { BoundaryRuntimeStore } from "./../runtime/store.ts";
-import { inferBoundaryTimeConstraintSignals } from "./../law/time-constraint-flags.ts";
-import { buildTelegramBoundaryProposal } from "./../integrations/telegram.ts";
+import { assessBoundarySubstrateApprovalRequest } from "./../runtime/substrate/substrate-live.ts";
 import type {
+  BodyguardMove,
   BoundaryActionKind,
   BoundaryActionRequest,
-  BoundaryApprovalChoice,
   BoundaryApprovalDecision,
   BoundaryApprovalOption,
   BoundaryApprovalPrompt,
@@ -46,13 +32,26 @@ import type {
   BoundaryReviewContext,
   BoundaryRuntimeConfig,
   BoundarySpendIntent,
-  BodyguardMove,
 } from "./../runtime/types.ts";
+import { createApprovalQueueAdapter } from "./approval.ts";
+import {
+  adjudicateBodyguardRequest,
+  applyBodyguardUserLawDecision,
+  attachBodyguardControl,
+  evaluateBodyguardAction,
+  resolveBodyguardHeldRequest,
+} from "./bodyguard-core.ts";
+import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
+import {
+  evaluateSpendBoundaryAction,
+  spendIntentLedgerMetadata,
+  summarizeBoundarySpendIntent,
+} from "./spend-boundary.ts";
 
-export {
-  type BodyguardAdjudication,
-  type BodyguardHeldDecision,
-  type BodyguardRequestAdjudication,
+export type {
+  BodyguardAdjudication,
+  BodyguardHeldDecision,
+  BodyguardRequestAdjudication,
 } from "./bodyguard-core.ts";
 
 export function enableBodyguardControl(
@@ -150,7 +149,10 @@ export function createBoundaryActionRequest(args: {
   const novelty = normalizeBoundaryNoveltyState(args.novelty);
   let mergedFlags = mergeRequestFlags(args.flags, inferredTimeConstraints.flags);
   mergedFlags = mergeRequestFlags(mergedFlags, noveltyFlagsForBoundaryRequest(novelty));
-  const mergedReviewContext = mergeBoundaryReviewContext(args.reviewContext, inferredTimeConstraints.reviewContext);
+  const mergedReviewContext = mergeBoundaryReviewContext(
+    args.reviewContext,
+    inferredTimeConstraints.reviewContext,
+  );
 
   return {
     requestId: args.requestId ?? randomUUID(),
@@ -199,34 +201,52 @@ function mergeBoundaryReviewContext(
   }
 
   const mergedEvidence = [...new Set([...(base?.evidence ?? []), ...(patch?.evidence ?? [])])];
-  const mergedViolations = [...new Set([...(base?.violations ?? []), ...(patch?.violations ?? [])])];
-  const mergedProtectedSubjectIds = [...new Set([...(base?.protectedSubjectIds ?? []), ...(patch?.protectedSubjectIds ?? [])])];
-  const mergedProtectedSubjectKinds = [...new Set([...(base?.protectedSubjectKinds ?? []), ...(patch?.protectedSubjectKinds ?? [])])];
+  const mergedViolations = [
+    ...new Set([...(base?.violations ?? []), ...(patch?.violations ?? [])]),
+  ];
+  const mergedProtectedSubjectIds = [
+    ...new Set([...(base?.protectedSubjectIds ?? []), ...(patch?.protectedSubjectIds ?? [])]),
+  ];
+  const mergedProtectedSubjectKinds = [
+    ...new Set([...(base?.protectedSubjectKinds ?? []), ...(patch?.protectedSubjectKinds ?? [])]),
+  ];
 
   return {
     surface: base?.surface ?? patch?.surface ?? "action",
-    ...(base?.title ?? patch?.title ? { title: base?.title ?? patch?.title } : {}),
-    ...(base?.question ?? patch?.question ? { question: base?.question ?? patch?.question } : {}),
-    ...(base?.actorLabel ?? patch?.actorLabel ? { actorLabel: base?.actorLabel ?? patch?.actorLabel } : {}),
-    ...(base?.invariantLawId ?? patch?.invariantLawId
+    ...((base?.title ?? patch?.title) ? { title: base?.title ?? patch?.title } : {}),
+    ...((base?.question ?? patch?.question) ? { question: base?.question ?? patch?.question } : {}),
+    ...((base?.actorLabel ?? patch?.actorLabel)
+      ? { actorLabel: base?.actorLabel ?? patch?.actorLabel }
+      : {}),
+    ...((base?.invariantLawId ?? patch?.invariantLawId)
       ? { invariantLawId: base?.invariantLawId ?? patch?.invariantLawId }
       : {}),
-    ...(base?.invariantLabel ?? patch?.invariantLabel
+    ...((base?.invariantLabel ?? patch?.invariantLabel)
       ? { invariantLabel: base?.invariantLabel ?? patch?.invariantLabel }
       : {}),
-    ...(base?.userInput ?? patch?.userInput ? { userInput: base?.userInput ?? patch?.userInput } : {}),
-    ...(base?.attemptedOutput ?? patch?.attemptedOutput
+    ...((base?.userInput ?? patch?.userInput)
+      ? { userInput: base?.userInput ?? patch?.userInput }
+      : {}),
+    ...((base?.attemptedOutput ?? patch?.attemptedOutput)
       ? { attemptedOutput: base?.attemptedOutput ?? patch?.attemptedOutput }
       : {}),
-    ...(base?.attemptLines ?? patch?.attemptLines ? { attemptLines: base?.attemptLines ?? patch?.attemptLines } : {}),
+    ...((base?.attemptLines ?? patch?.attemptLines)
+      ? { attemptLines: base?.attemptLines ?? patch?.attemptLines }
+      : {}),
     ...(mergedEvidence.length > 0 ? { evidence: mergedEvidence } : {}),
     ...(mergedViolations.length > 0 ? { violations: mergedViolations } : {}),
-    ...(mergedProtectedSubjectIds.length > 0 ? { protectedSubjectIds: mergedProtectedSubjectIds } : {}),
-    ...(mergedProtectedSubjectKinds.length > 0 ? { protectedSubjectKinds: mergedProtectedSubjectKinds } : {}),
+    ...(mergedProtectedSubjectIds.length > 0
+      ? { protectedSubjectIds: mergedProtectedSubjectIds }
+      : {}),
+    ...(mergedProtectedSubjectKinds.length > 0
+      ? { protectedSubjectKinds: mergedProtectedSubjectKinds }
+      : {}),
   };
 }
 
-function noveltyLedgerMetadata(request: BoundaryActionRequest): Record<string, string | number | boolean> {
+function noveltyLedgerMetadata(
+  request: BoundaryActionRequest,
+): Record<string, string | number | boolean> {
   const novelty = normalizeBoundaryNoveltyState(request.novelty);
   if (!novelty?.detected) {
     return {};
@@ -236,11 +256,15 @@ function noveltyLedgerMetadata(request: BoundaryActionRequest): Record<string, s
     novelty_detected: true,
     ...(novelty.selfOriginated ? { novelty_self_originated: true } : {}),
     ...(novelty.classes?.length ? { novelty_classes: novelty.classes.join(",") } : {}),
-    ...(novelty.boundaryHits?.length ? { novelty_boundary_hits: novelty.boundaryHits.join(",") } : {}),
+    ...(novelty.boundaryHits?.length
+      ? { novelty_boundary_hits: novelty.boundaryHits.join(",") }
+      : {}),
   };
 }
 
-function spendLedgerMetadata(request: BoundaryActionRequest): Record<string, string | number | boolean> {
+function spendLedgerMetadata(
+  request: BoundaryActionRequest,
+): Record<string, string | number | boolean> {
   return request.spendIntent ? spendIntentLedgerMetadata(request.spendIntent) : {};
 }
 
@@ -299,12 +323,7 @@ async function applyDeniedBoundaryConsequences(args: {
   lawIds: string[];
   bodyguardMoves: BodyguardMove[];
 }): Promise<void> {
-  await recordBoundaryBlockedAction(
-    args.config,
-    args.request,
-    args.reason,
-    args.lawIds,
-  );
+  await recordBoundaryBlockedAction(args.config, args.request, args.reason, args.lawIds);
 
   for (const move of args.bodyguardMoves) {
     await appendBoundaryLedger("BODYGUARD_MOVE_SUGGESTED", {
@@ -327,7 +346,7 @@ async function applyDeniedBoundaryConsequences(args: {
     reason: args.reason,
     lawIds: args.lawIds,
     trigger: "deny",
-}).catch(() => null);
+  }).catch(() => null);
 }
 export async function recordBoundaryProposedAction(
   config: BoundaryRuntimeConfig,
@@ -436,7 +455,11 @@ async function requestApproval(
   config: BoundaryRuntimeConfig,
   approval: BoundaryApprovalRequest,
   lawIds: string[],
-): Promise<{ approved: boolean; decision: BoundaryApprovalDecision; witnessRecord: Awaited<ReturnType<typeof appendBoundaryLedger>> }> {
+): Promise<{
+  approved: boolean;
+  decision: BoundaryApprovalDecision;
+  witnessRecord: Awaited<ReturnType<typeof appendBoundaryLedger>>;
+}> {
   const substrateApproval = await assessBoundarySubstrateApprovalRequest({
     config,
     request: approval.request,
@@ -487,21 +510,24 @@ async function requestApproval(
   const approved = isApprovalAllowed(decision);
   const deniedReason = approved
     ? "approval granted by user"
-    : (decision.notes?.trim() || "approval denied or unavailable");
-  const witnessRecord = await appendBoundaryLedger(approved ? "APPROVAL_GRANTED" : "APPROVAL_DENIED", {
-    sessionId: config.session.sessionId,
-    actorId: config.session.actorId,
-    requestId: approval.request.requestId,
-    actionKind: approval.request.actionKind,
-    target: approval.request.target,
-    decision: approved ? "allow" : "deny",
-    reason: deniedReason,
-    lawIds,
-    metadata: {
-      approval_choice: decision.choice,
+    : decision.notes?.trim() || "approval denied or unavailable";
+  const witnessRecord = await appendBoundaryLedger(
+    approved ? "APPROVAL_GRANTED" : "APPROVAL_DENIED",
+    {
+      sessionId: config.session.sessionId,
+      actorId: config.session.actorId,
+      requestId: approval.request.requestId,
+      actionKind: approval.request.actionKind,
+      target: approval.request.target,
+      decision: approved ? "allow" : "deny",
+      reason: deniedReason,
+      lawIds,
+      metadata: {
+        approval_choice: decision.choice,
+      },
+      createdAt: new Date().toISOString(),
     },
-    createdAt: new Date().toISOString(),
-  });
+  );
 
   return { approved, decision, witnessRecord };
 }
@@ -620,16 +646,16 @@ function buildDefaultActionAttemptLines(request: BoundaryActionRequest): string[
         `$ agent.spend ${request.target}`,
         ...(spendIntent
           ? [
-            `  amount: ${spendIntent.amountRaw}${spendIntent.currencyHint ? ` ${spendIntent.currencyHint}` : ""}`,
-            `  principal: ${spendIntent.principal}`,
-            `  purpose: ${spendIntent.purpose}`,
-            `  bucket: ${spendIntent.bucketId}`,
-            `  destination_kind: ${spendIntent.destinationKind}`,
-            `  source_authority: ${spendIntent.sourceAuthorityKind}`,
-            `  commit_intent: ${spendIntent.commitIntent}`,
-            `  recurring: ${spendIntent.recurring ? "yes" : "no"}`,
-            `  risk: ${spendIntent.riskClass}`,
-          ]
+              `  amount: ${spendIntent.amountRaw}${spendIntent.currencyHint ? ` ${spendIntent.currencyHint}` : ""}`,
+              `  principal: ${spendIntent.principal}`,
+              `  purpose: ${spendIntent.purpose}`,
+              `  bucket: ${spendIntent.bucketId}`,
+              `  destination_kind: ${spendIntent.destinationKind}`,
+              `  source_authority: ${spendIntent.sourceAuthorityKind}`,
+              `  commit_intent: ${spendIntent.commitIntent}`,
+              `  recurring: ${spendIntent.recurring ? "yes" : "no"}`,
+              `  risk: ${spendIntent.riskClass}`,
+            ]
           : []),
         ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
       ];
@@ -637,28 +663,52 @@ function buildDefaultActionAttemptLines(request: BoundaryActionRequest): string[
     case "fs.delete":
       return [`$ delete ${request.target}`];
     case "fs.write":
-      return [`$ write ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ write ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
     case "fs.append":
-      return [`$ append ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ append ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
     case "fs.mkdir":
       return [`$ mkdir ${request.target}`];
     case "fs.move":
-      return [`$ move ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ move ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
     case "network.send":
-      return [`$ network.send ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ network.send ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
     case "comm.send":
-      return [`$ comm.send ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ comm.send ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
     case "db.query":
     case "db.insert":
     case "db.update":
     case "db.delete":
-      return [`$ ${request.actionKind} ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ ${request.actionKind} ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
     default:
-      return [`$ ${request.actionKind} ${request.target}`, ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : [])];
+      return [
+        `$ ${request.actionKind} ${request.target}`,
+        ...(request.payloadSummary ? [`  ${request.payloadSummary}`] : []),
+      ];
   }
 }
 
-function actionPromptTitle(request: BoundaryActionRequest, context?: BoundaryReviewContext): string {
+function actionPromptTitle(
+  request: BoundaryActionRequest,
+  context?: BoundaryReviewContext,
+): string {
   if (context?.title) {
     return context.title;
   }
@@ -768,7 +818,9 @@ export async function enforceBoundaryProposal<T>(args: {
       provenance: args.proposal.provenance,
       flags: mergeBoundaryFlags(args.proposal.flags, inferredProtectedSignals.flags),
       reviewContext: mergeBoundaryReviewContext(args.proposal.reviewContext, {
-        ...(inferredProtectedSignals.evidence.length > 0 ? { evidence: inferredProtectedSignals.evidence } : {}),
+        ...(inferredProtectedSignals.evidence.length > 0
+          ? { evidence: inferredProtectedSignals.evidence }
+          : {}),
         ...(inferredProtectedSignals.protectedSubjectIds.length > 0
           ? { protectedSubjectIds: inferredProtectedSignals.protectedSubjectIds }
           : {}),
@@ -805,7 +857,7 @@ export function wrapBoundaryTool<TInput, TOutput>(
         successReason:
           typeof envelope.successReason === "function"
             ? envelope.successReason(input)
-            : envelope.successReason ?? `${envelope.toolName} executed inside boundary runtime`,
+            : (envelope.successReason ?? `${envelope.toolName} executed inside boundary runtime`),
         dryRunPreviewReason:
           typeof envelope.dryRunPreviewReason === "function"
             ? envelope.dryRunPreviewReason(input)
@@ -837,7 +889,8 @@ export function inferBoundaryChatFlagsFromOutput(text: string): BoundaryActionRe
   return {
     ...metaFlags,
     claimsUserApproval: USER_APPROVAL_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
-    claimsActionCompletionWithoutWitness: ACTION_COMPLETION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+    claimsActionCompletionWithoutWitness:
+      ACTION_COMPLETION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
   };
 }
 
@@ -886,7 +939,9 @@ function isHighEntropyToken(str: string): boolean {
 function abaRoutingCheck(routing: string): boolean {
   if (!/^\d{9}$/.test(routing)) return false;
   const d = routing.split("").map(Number);
-  return (3 * (d[0]! + d[3]! + d[6]!) + 7 * (d[1]! + d[4]! + d[7]!) + (d[2]! + d[5]! + d[8]!)) % 10 === 0;
+  return (
+    (3 * (d[0]! + d[3]! + d[6]!) + 7 * (d[1]! + d[4]! + d[7]!) + (d[2]! + d[5]! + d[8]!)) % 10 === 0
+  );
 }
 
 // ─── PII Patterns (direct: no additional structural validation) ───────────────
@@ -965,15 +1020,20 @@ function luhnCheck(value: string): boolean {
   let sum = 0;
   let isEven = false;
   for (let i = digits.length - 1; i >= 0; i--) {
-    let d = parseInt(digits[i]!, 10);
-    if (isEven) { d *= 2; if (d > 9) d -= 9; }
+    let d = Number.parseInt(digits[i]!, 10);
+    if (isEven) {
+      d *= 2;
+      if (d > 9) d -= 9;
+    }
     sum += d;
     isEven = !isEven;
   }
   return sum % 10 === 0 && digits.length >= 13;
 }
 
-export function inferBoundaryEgressFlagsFromPayload(payload: string): BoundaryActionRequest["flags"] {
+export function inferBoundaryEgressFlagsFromPayload(
+  payload: string,
+): BoundaryActionRequest["flags"] {
   // Lane A — structural generators: regex catches candidates, generator confirms validity
   let hasPii = EGRESS_PII_PATTERNS.some((p) => p.test(payload));
   if (!hasPii) {
@@ -1067,7 +1127,9 @@ function inferBoundaryChatConstraintSignals(args: {
     evidence.push(`User constrained the answer to ${userYears.join(", ")}.`);
   }
   if (blockedDecades.length > 0) {
-    evidence.push(`User excluded material from the ${blockedDecades.map((decade) => `${decade}s`).join(", ")}.`);
+    evidence.push(
+      `User excluded material from the ${blockedDecades.map((decade) => `${decade}s`).join(", ")}.`,
+    );
   }
   if (outputYears.length > 0) {
     evidence.push(`Attempted output references ${outputYears.join(", ")}.`);
@@ -1303,13 +1365,11 @@ export async function runBoundaryControlledAction<T>(args: {
 }): Promise<BoundaryExecutionResult<T>> {
   let activeConfig = args.config;
   let activeRequest = args.request;
-  let governorHold:
-    | {
-      lawId: string;
-      reason: string;
-      bodyguardMoves: BodyguardMove[];
-    }
-    | null = null;
+  let governorHold: {
+    lawId: string;
+    reason: string;
+    bodyguardMoves: BodyguardMove[];
+  } | null = null;
 
   // Governor pre-check — kinetic reflex only. It can freeze and hold the
   // action before law evaluation, but Terminal 2 still owns the decision.
@@ -1341,22 +1401,23 @@ export async function runBoundaryControlledAction<T>(args: {
           surface: "action",
           ...activeRequest.reviewContext,
           title: activeRequest.reviewContext?.title ?? "Boundary governor held the action",
-          question: activeRequest.reviewContext?.question ?? "Does this held boundary event match your intent?",
-          violations: [
-            ...existingViolations,
-            `kinetic ceiling tripped: ${govResult.dimension}`,
-          ],
+          question:
+            activeRequest.reviewContext?.question ??
+            "Does this held boundary event match your intent?",
+          violations: [...existingViolations, `kinetic ceiling tripped: ${govResult.dimension}`],
         },
       };
       governorHold = {
         lawId: govResult.lawId,
         reason: govResult.reason,
-        bodyguardMoves: [{
-          moveId: randomUUID(),
-          kind: "deny_and_explain",
-          title: "Boundary governor tripped",
-          description: govResult.reason,
-        }],
+        bodyguardMoves: [
+          {
+            moveId: randomUUID(),
+            kind: "deny_and_explain",
+            title: "Boundary governor tripped",
+            description: govResult.reason,
+          },
+        ],
       };
     }
   }
@@ -1364,20 +1425,20 @@ export async function runBoundaryControlledAction<T>(args: {
   await recordBoundaryProposedAction(activeConfig, activeRequest);
   let adjudication = governorHold
     ? {
-      config: activeConfig,
-      request: activeRequest,
-      result: {
-        decision: "require_approval" as const,
-        reason: governorHold.reason,
-        triggeredLawIds: [governorHold.lawId],
-        requiresApproval: true,
-      },
-      bodyguardMoves: governorHold.bodyguardMoves,
-    }
+        config: activeConfig,
+        request: activeRequest,
+        result: {
+          decision: "require_approval" as const,
+          reason: governorHold.reason,
+          triggeredLawIds: [governorHold.lawId],
+          requiresApproval: true,
+        },
+        bodyguardMoves: governorHold.bodyguardMoves,
+      }
     : await adjudicateBoundaryRequest({
-      config: activeConfig,
-      request: activeRequest,
-    });
+        config: activeConfig,
+        request: activeRequest,
+      });
   activeConfig = adjudication.config;
   activeRequest = adjudication.request;
 
@@ -1620,7 +1681,12 @@ export async function runBoundaryControlledAction<T>(args: {
   }
 
   const value = await args.execute();
-  await recordBoundaryExecutedAction(activeConfig, activeRequest, args.successReason, args.successMetadata);
+  await recordBoundaryExecutedAction(
+    activeConfig,
+    activeRequest,
+    args.successReason,
+    args.successMetadata,
+  );
 
   return {
     config: activeConfig,
@@ -1672,15 +1738,17 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     const guarded = enableBodyguardControl(config, {
       approvalHandler: config.approvalHandler ?? approvals.handler,
       gravityService: config.gravityService ?? gravityService,
-      drainPendingApprovals: config.drainPendingApprovals ?? ((reason?: string) => {
-        let drained = 0;
-        for (const pending of approvals.listPending()) {
-          if (approvals.denyOnce(pending.approvalId, { notes: reason ?? "session ended" })) {
-            drained += 1;
+      drainPendingApprovals:
+        config.drainPendingApprovals ??
+        ((reason?: string) => {
+          let drained = 0;
+          for (const pending of approvals.listPending()) {
+            if (approvals.denyOnce(pending.approvalId, { notes: reason ?? "session ended" })) {
+              drained += 1;
+            }
           }
-        }
-        return drained;
-      }),
+          return drained;
+        }),
     });
     store.replaceConfig(guarded);
     return guarded;
@@ -1691,7 +1759,9 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     return getGuardedConfig();
   }
 
-  async function enforceProposal<T>(proposal: BoundaryToolProposal<T>): Promise<BoundaryExecutionResult<T>> {
+  async function enforceProposal<T>(
+    proposal: BoundaryToolProposal<T>,
+  ): Promise<BoundaryExecutionResult<T>> {
     const result = await enforceBoundaryProposal({
       config: await getHydratedGuardedConfig(),
       proposal,
@@ -1700,7 +1770,9 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     return result;
   }
 
-  async function emitChat<T = string>(proposal: BoundaryChatEmissionProposal<T>): Promise<BoundaryExecutionResult<T>> {
+  async function emitChat<T = string>(
+    proposal: BoundaryChatEmissionProposal<T>,
+  ): Promise<BoundaryExecutionResult<T>> {
     const result = await guardBoundaryChatEmission({
       config: await getHydratedGuardedConfig(),
       proposal,
@@ -1709,7 +1781,9 @@ export function createBoundaryBodyguard(store: BoundaryRuntimeStore) {
     return result;
   }
 
-  async function spendIntent<T = unknown>(proposal: BoundarySpendProposal<T>): Promise<BoundaryExecutionResult<T>> {
+  async function spendIntent<T = unknown>(
+    proposal: BoundarySpendProposal<T>,
+  ): Promise<BoundaryExecutionResult<T>> {
     const result = await guardBoundarySpendIntent({
       config: await getHydratedGuardedConfig(),
       proposal,

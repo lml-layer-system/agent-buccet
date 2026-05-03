@@ -1,30 +1,17 @@
 import { randomUUID } from "node:crypto";
-import { adjudicateBoundaryRequest, createBoundaryActionRequest } from "./../boundaries/bodyguard.ts";
 import {
-  evaluateAdmission,
-  initialAdmissionState,
-  markCanyonLedgered,
-} from "./admission.ts";
-import { appendBoundaryLedger } from "./../proof/ledger.ts";
-import { admitBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
+  adjudicateBoundaryRequest,
+  createBoundaryActionRequest,
+} from "./../boundaries/bodyguard.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./../boundaries/secrets-boundary.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
+import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
+import { admitBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
 import { assessBoundarySubstrateIntercept } from "./substrate/substrate-live.ts";
 import type {
-  BoundaryActionRequest,
-  BoundaryActionKind,
-  BoundaryAdmissionState,
-  BoundaryInputWeightClass,
-  BoundaryNoveltyState,
-  BoundaryProvenanceStrength,
-  BoundaryRequestProvenance,
-  BoundaryReviewContext,
-  BoundaryRuntimeConfig,
-  BodyguardMove,
-} from "./types.ts";
-import type {
   BoundarySwarmComposition,
-  BoundarySwarmCost,
   BoundarySwarmCoordinationState,
+  BoundarySwarmCost,
   BoundarySwarmDefinitionRequest,
   BoundarySwarmDomainStatus,
   BoundarySwarmFreshness,
@@ -33,12 +20,24 @@ import type {
   BoundarySwarmIntentLedger,
   BoundarySwarmOwnership,
   BoundarySwarmPath,
+  BoundarySwarmProvenance,
   BoundarySwarmPurpleAction,
   BoundarySwarmReadiness,
   BoundarySwarmRequestMeta,
-  BoundarySwarmProvenance,
   BoundarySwarmYellowReason,
 } from "./swarm.ts";
+import type {
+  BodyguardMove,
+  BoundaryActionKind,
+  BoundaryActionRequest,
+  BoundaryAdmissionState,
+  BoundaryInputWeightClass,
+  BoundaryNoveltyState,
+  BoundaryProvenanceStrength,
+  BoundaryRequestProvenance,
+  BoundaryReviewContext,
+  BoundaryRuntimeConfig,
+} from "./types.ts";
 
 export type BoundaryInterceptActionClass =
   | "file"
@@ -48,10 +47,7 @@ export type BoundaryInterceptActionClass =
   | "database"
   | "system";
 
-export type BoundaryInterceptFunnelSource =
-  | "gravity"
-  | "system"
-  | "framework";
+export type BoundaryInterceptFunnelSource = "gravity" | "system" | "framework";
 
 export type BoundaryInterceptRequest = {
   actionClass: BoundaryInterceptActionClass;
@@ -147,7 +143,9 @@ type BoundaryGravityPayloadHints = {
   flags?: BoundaryInterceptRequest["flags"];
 };
 
-function inferInterceptNoveltyBoundary(request: BoundaryInterceptRequest): BoundaryNoveltyState | undefined {
+function inferInterceptNoveltyBoundary(
+  request: BoundaryInterceptRequest,
+): BoundaryNoveltyState | undefined {
   const base = normalizeBoundaryNoveltyState(request.novelty);
   const classes = [...(base?.classes ?? [])];
   const boundaryHits = [...(base?.boundaryHits ?? [])];
@@ -206,7 +204,9 @@ export function withBoundaryNovelty(request: BoundaryInterceptRequest): Boundary
   };
 }
 
-export function withAdmittedBoundaryNovelty(request: BoundaryInterceptRequest): BoundaryInterceptRequest {
+export function withAdmittedBoundaryNovelty(
+  request: BoundaryInterceptRequest,
+): BoundaryInterceptRequest {
   const novelty = admitBoundaryNoveltyState(inferInterceptNoveltyBoundary(request));
   if (!novelty) {
     return request;
@@ -255,7 +255,9 @@ export function parseBoundaryGravityFunnelPayload(line: string): BoundaryGravity
   };
 }
 
-function parseBoundaryGravityPayloadHints(payload: BoundaryGravityFunnelPayload): BoundaryGravityPayloadHints {
+function parseBoundaryGravityPayloadHints(
+  payload: BoundaryGravityFunnelPayload,
+): BoundaryGravityPayloadHints {
   const flags: NonNullable<BoundaryInterceptRequest["flags"]> = {};
   const extraTokens = (payload.extra ?? "")
     .split(/\s+/)
@@ -286,10 +288,9 @@ function parseBoundaryGravityPayloadHints(payload: BoundaryGravityFunnelPayload)
   }
 
   return {
-    payloadSummary: [
-      payload.pid ? `pid=${payload.pid}` : "",
-      payloadSummaryTokens.join(" "),
-    ].filter(Boolean).join(" "),
+    payloadSummary: [payload.pid ? `pid=${payload.pid}` : "", payloadSummaryTokens.join(" ")]
+      .filter(Boolean)
+      .join(" "),
     provenance,
     flags: Object.keys(flags).length > 0 ? flags : undefined,
   };
@@ -350,218 +351,250 @@ export function mapBoundaryGravityFunnelPayloadToInterceptRequests(
   const hints = parseBoundaryGravityPayloadHints(payload);
   switch (payload.action) {
     case "read":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "file",
-        operation: "read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "file",
+          operation: "read",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "write":
     case "create":
     case "chmod":
     case "chown":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "file",
-        operation: "write",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "file",
+          operation: "write",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "delete":
     case "rmdir":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "file",
-        operation: "delete",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "file",
+          operation: "delete",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "mkdir":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "file",
-        operation: "mkdir",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "file",
+          operation: "mkdir",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "exec":
     case "system":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "shell",
-        operation: "exec",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "shell",
+          operation: "exec",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "database.query":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "database",
-        operation: "query",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "database",
+          operation: "query",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "database.insert":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "database",
-        operation: "insert",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "database",
+          operation: "insert",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "database.update":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "database",
-        operation: "update",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "database",
+          operation: "update",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "database.delete":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "database",
-        operation: "delete",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "database",
+          operation: "delete",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "system.env.read":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "system",
-        operation: "env.read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "system",
+          operation: "env.read",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "system.env.write":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "system",
-        operation: "env.write",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "system",
+          operation: "env.write",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "system.config.read":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "system",
-        operation: "config.read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "system",
+          operation: "config.read",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "system.config.write":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "system",
-        operation: "config.write",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "system",
+          operation: "config.write",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "system.credential.read":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "system",
-        operation: "credential.read",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "system",
+          operation: "credential.read",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "system.credential.use":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "system",
-        operation: "credential.use",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "system",
+          operation: "credential.use",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     case "connect":
-      return [createBoundaryFunnelInterceptRequest({
-        source: "gravity",
-        rawAction: payload.action,
-        actionClass: "network",
-        operation: "send",
-        target: payload.target,
-        payloadSummary: hints.payloadSummary,
-        provenance: hints.provenance,
-        flags: hints.flags,
-        pid: payload.pid,
-        extra: payload.extra,
-      })];
+      return [
+        createBoundaryFunnelInterceptRequest({
+          source: "gravity",
+          rawAction: payload.action,
+          actionClass: "network",
+          operation: "send",
+          target: payload.target,
+          payloadSummary: hints.payloadSummary,
+          provenance: hints.provenance,
+          flags: hints.flags,
+          pid: payload.pid,
+          extra: payload.extra,
+        }),
+      ];
     default:
       throw new Error(`unsupported gravity action: ${payload.action}`);
   }
@@ -621,7 +654,9 @@ function mapSystemOperation(operation: string): BoundaryActionKind {
   }
 }
 
-export function mapInterceptToBoundaryAction(request: BoundaryInterceptRequest): BoundaryActionKind {
+export function mapInterceptToBoundaryAction(
+  request: BoundaryInterceptRequest,
+): BoundaryActionKind {
   switch (request.actionClass) {
     case "file":
       return mapFileOperation(request.operation);
@@ -841,12 +876,50 @@ export type BoundaryInterceptDaemonCommand =
   | { command: "swarm_status"; requestId?: string }
   | { command: "swarm_mode"; requestId?: string; mode?: BoundaryInterceptApprovalMode }
   | { command: "ingress_status"; requestId?: string }
-  | { command: "swarm_approve"; requestId?: string; groupId: string; issuedBy?: string; reason?: string; asLaw?: boolean }
-  | { command: "swarm_deny"; requestId?: string; groupId: string; deniedBy?: string; reason?: string; asLaw?: boolean }
-  | { command: "ingress_allow_once"; requestId?: string; provenance: string; issuedBy?: string; reason?: string }
-  | { command: "ingress_allow_as_law"; requestId?: string; provenance: string; issuedBy?: string; reason?: string }
-  | { command: "ingress_deny_once"; requestId?: string; provenance: string; deniedBy?: string; reason?: string }
-  | { command: "ingress_deny_as_law"; requestId?: string; provenance: string; deniedBy?: string; reason?: string };
+  | {
+      command: "swarm_approve";
+      requestId?: string;
+      groupId: string;
+      issuedBy?: string;
+      reason?: string;
+      asLaw?: boolean;
+    }
+  | {
+      command: "swarm_deny";
+      requestId?: string;
+      groupId: string;
+      deniedBy?: string;
+      reason?: string;
+      asLaw?: boolean;
+    }
+  | {
+      command: "ingress_allow_once";
+      requestId?: string;
+      provenance: string;
+      issuedBy?: string;
+      reason?: string;
+    }
+  | {
+      command: "ingress_allow_as_law";
+      requestId?: string;
+      provenance: string;
+      issuedBy?: string;
+      reason?: string;
+    }
+  | {
+      command: "ingress_deny_once";
+      requestId?: string;
+      provenance: string;
+      deniedBy?: string;
+      reason?: string;
+    }
+  | {
+      command: "ingress_deny_as_law";
+      requestId?: string;
+      provenance: string;
+      deniedBy?: string;
+      reason?: string;
+    };
 
 export type BoundaryInterceptDaemonInput =
   | ({ requestId?: string } & BoundaryInterceptRequest)
@@ -874,7 +947,7 @@ export type BoundaryInterceptDaemonOutput =
         tracked: number;
       };
     }
-    | {
+  | {
       type: "swarm_status";
       requestId: string;
       mode: BoundaryInterceptApprovalMode;
@@ -890,7 +963,7 @@ export type BoundaryInterceptDaemonOutput =
       requestId: string;
       mode: BoundaryInterceptApprovalMode;
     }
-    | {
+  | {
       type: "ingress_status";
       requestId: string;
       provenances: Array<{

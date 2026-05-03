@@ -232,18 +232,8 @@ export function resolveTeamBrainPathSource(brainSourceId: string): BuccetPathSou
 
 export type BuccetPathName = string;
 export type BuccetPathDomain = string;
-export type BuccetPathStageStatus =
-  | "PENDING"
-  | "ACTIVE"
-  | "COMPLETED"
-  | "BLOCKED"
-  | "FAILED";
-export type BuccetPathAgentStatus =
-  | "IDLE"
-  | "ACTIVE"
-  | "COMPLETED"
-  | "BLOCKED"
-  | "FAILED";
+export type BuccetPathStageStatus = "PENDING" | "ACTIVE" | "COMPLETED" | "BLOCKED" | "FAILED";
+export type BuccetPathAgentStatus = "IDLE" | "ACTIVE" | "COMPLETED" | "BLOCKED" | "FAILED";
 export type BuccetPathAgentControlState =
   | "CLEAR"
   | "FROZEN"
@@ -251,12 +241,7 @@ export type BuccetPathAgentControlState =
   | "QUARANTINED"
   | "REPLACED"
   | "ABORTED";
-export type BuccetPathFormationStatus =
-  | "READY"
-  | "RUNNING"
-  | "BLOCKED"
-  | "FAILED"
-  | "COMPLETED";
+export type BuccetPathFormationStatus = "READY" | "RUNNING" | "BLOCKED" | "FAILED" | "COMPLETED";
 export type BuccetPathAdvanceResult = "success" | "complete" | "blocked" | "failed";
 export type BuccetPathFormationFreezeScope = "whole_swarm";
 export type BuccetPathAgentAction = "inspect" | "resume" | "quarantine" | "replace" | "abort";
@@ -472,7 +457,11 @@ export type BuccetPathLiveView = {
   events: string[];
 };
 
-function upl(actionKinds: BoundaryActionKind[], targets: string[] = [], notes?: string): BuccetPathUplBinding {
+function upl(
+  actionKinds: BoundaryActionKind[],
+  targets: string[] = [],
+  notes?: string,
+): BuccetPathUplBinding {
   return { actionKinds, targets, notes };
 }
 
@@ -514,7 +503,13 @@ function toTitleCase(value: string): string {
 }
 
 function normalizeBuccetDomain(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "") || "general";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "general"
+  );
 }
 
 function clonePathSource(source: BuccetPathSource): BuccetPathSource {
@@ -558,7 +553,10 @@ function recomputeBuccetFormationControl(
     .map((agent) => agent.id);
   return {
     massFrozen: pendingInspectionAgentIds.length > 0,
-    freezeScope: pendingInspectionAgentIds.length > 0 ? (control?.freezeScope ?? "whole_swarm") : control?.freezeScope,
+    freezeScope:
+      pendingInspectionAgentIds.length > 0
+        ? (control?.freezeScope ?? "whole_swarm")
+        : control?.freezeScope,
     frozenAt: control?.frozenAt,
     frozenBy: control?.frozenBy,
     freezeReason: control?.freezeReason,
@@ -607,9 +605,10 @@ function buildAgentMemoryBank(
   sourceIds?: string[],
   notes?: string,
 ): BuccetPathAgentMemoryBank {
-  const selected = sourceIds && sourceIds.length > 0
-    ? pathSources.filter((source) => sourceIds.includes(source.id))
-    : pathSources;
+  const selected =
+    sourceIds && sourceIds.length > 0
+      ? pathSources.filter((source) => sourceIds.includes(source.id))
+      : pathSources;
   return {
     sourceIds: selected.map((source) => source.id),
     sourceTitles: selected.map((source) => source.title),
@@ -664,7 +663,8 @@ function createDefaultAutoStages(
 ): BuccetPathStageTemplate[] {
   const intakeAgentId = agentRoster[0]?.id ?? `${normalizeBuccetDomain(pathName)}-intake`;
   const specialistAgentIds = agentRoster.slice(1, -1).map((agent) => agent.id);
-  const witnessAgentId = agentRoster[agentRoster.length - 1]?.id ?? `${normalizeBuccetDomain(pathName)}-witness`;
+  const witnessAgentId =
+    agentRoster[agentRoster.length - 1]?.id ?? `${normalizeBuccetDomain(pathName)}-witness`;
   return [
     {
       id: "intake",
@@ -698,26 +698,32 @@ export function createBuccetPathTemplate(args: {
 }): BuccetPathTemplate {
   const domain = normalizeBuccetDomain(args.draft?.domain ?? args.pathName);
   const title = args.draft?.title ?? `${toTitleCase(args.pathName)} Path`;
-  const summary = args.draft?.summary
-    ?? `Finite ${domain} path for ${args.userRequest ?? args.pathName}.`;
+  const summary =
+    args.draft?.summary ?? `Finite ${domain} path for ${args.userRequest ?? args.pathName}.`;
   const modelHint = args.draft?.modelHint ?? "gpt-4.1";
-  const laws = args.draft?.laws ? [...args.draft.laws] : [normalizeBuccetDomain(args.pathName), domain, "upl"];
+  const laws = args.draft?.laws
+    ? [...args.draft.laws]
+    : [normalizeBuccetDomain(args.pathName), domain, "upl"];
   const tools = args.draft?.tools ? [...args.draft.tools] : [];
   const pathSources = args.draft?.pathSources?.map((source) => clonePathSource(source)) ?? [];
-  const uplBindings = args.draft?.uplBindings?.map((binding) => cloneUplBinding(binding)) ?? [DEFAULT_AUTO_PATH_BINDING];
-  const agentRoster = args.draft?.agentRoster?.map((agent) => ({
-    ...agent,
-    tools: [...(agent.tools ?? [])],
-    sourceIds: [...(agent.sourceIds ?? [])],
-    uplBindings: agent.uplBindings.map((binding) => cloneUplBinding(binding)),
-  })) ?? createDefaultAutoAgentRoster(args.pathName, domain, uplBindings);
-  const stages = args.draft?.stages?.map((stage) => ({
-    ...stage,
-    agentIds: [...stage.agentIds],
-    tools: [...(stage.tools ?? [])],
-    sourceIds: [...(stage.sourceIds ?? [])],
-    uplBindings: stage.uplBindings?.map((binding) => cloneUplBinding(binding)),
-  })) ?? createDefaultAutoStages(args.pathName, agentRoster, uplBindings);
+  const uplBindings = args.draft?.uplBindings?.map((binding) => cloneUplBinding(binding)) ?? [
+    DEFAULT_AUTO_PATH_BINDING,
+  ];
+  const agentRoster =
+    args.draft?.agentRoster?.map((agent) => ({
+      ...agent,
+      tools: [...(agent.tools ?? [])],
+      sourceIds: [...(agent.sourceIds ?? [])],
+      uplBindings: agent.uplBindings.map((binding) => cloneUplBinding(binding)),
+    })) ?? createDefaultAutoAgentRoster(args.pathName, domain, uplBindings);
+  const stages =
+    args.draft?.stages?.map((stage) => ({
+      ...stage,
+      agentIds: [...stage.agentIds],
+      tools: [...(stage.tools ?? [])],
+      sourceIds: [...(stage.sourceIds ?? [])],
+      uplBindings: stage.uplBindings?.map((binding) => cloneUplBinding(binding)),
+    })) ?? createDefaultAutoStages(args.pathName, agentRoster, uplBindings);
   const template = {
     pathName: args.pathName,
     domain,
@@ -746,22 +752,91 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       laws: ["messaging", "privacy", "cost"],
       tools: ["telegram_api", "slack_api", "email_api", "whatsapp_api"],
       pathSources: [],
-      uplBindings: [
-        upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"]),
-      ],
+      uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])],
       agentRoster: [
-        { id: "intent-analyst", title: "Intent Analyst", specialty: "message intent parsing", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])] },
-        { id: "channel-safety", title: "Channel Safety", specialty: "recipient and policy screening", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"], "policy screening before delivery")] },
-        { id: "message-composer", title: "Message Composer", specialty: "outbound drafting", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])] },
-        { id: "delivery-operator", title: "Delivery Operator", specialty: "channel delivery", tools: ["comm.send", "chat.emit"], uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"])] },
-        { id: "delivery-witness", title: "Delivery Witness", specialty: "delivery confirmation", uplBindings: [upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"], "delivery witness only")] },
+        {
+          id: "intent-analyst",
+          title: "Intent Analyst",
+          specialty: "message intent parsing",
+          uplBindings: [
+            upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"]),
+          ],
+        },
+        {
+          id: "channel-safety",
+          title: "Channel Safety",
+          specialty: "recipient and policy screening",
+          uplBindings: [
+            upl(
+              ["chat.emit", "comm.send"],
+              ["telegram", "slack", "whatsapp", "email"],
+              "policy screening before delivery",
+            ),
+          ],
+        },
+        {
+          id: "message-composer",
+          title: "Message Composer",
+          specialty: "outbound drafting",
+          uplBindings: [
+            upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"]),
+          ],
+        },
+        {
+          id: "delivery-operator",
+          title: "Delivery Operator",
+          specialty: "channel delivery",
+          tools: ["comm.send", "chat.emit"],
+          uplBindings: [
+            upl(["chat.emit", "comm.send"], ["telegram", "slack", "whatsapp", "email"]),
+          ],
+        },
+        {
+          id: "delivery-witness",
+          title: "Delivery Witness",
+          specialty: "delivery confirmation",
+          uplBindings: [
+            upl(
+              ["chat.emit", "comm.send"],
+              ["telegram", "slack", "whatsapp", "email"],
+              "delivery witness only",
+            ),
+          ],
+        },
       ],
       stages: [
-        { id: "intent", title: "Intent", purpose: "Determine the message intent.", agentIds: ["intent-analyst"] },
-        { id: "safety", title: "Safety", purpose: "Check the request and recipient shape.", agentIds: ["channel-safety"] },
-        { id: "compose", title: "Compose", purpose: "Draft the outbound message.", agentIds: ["message-composer"] },
-        { id: "deliver", title: "Deliver", purpose: "Send through the selected channel.", agentIds: ["delivery-operator", "channel-safety"], tools: ["comm.send", "chat.emit"] },
-        { id: "confirm", title: "Confirm", purpose: "Return a delivery result.", agentIds: ["delivery-witness"], terminal: true },
+        {
+          id: "intent",
+          title: "Intent",
+          purpose: "Determine the message intent.",
+          agentIds: ["intent-analyst"],
+        },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check the request and recipient shape.",
+          agentIds: ["channel-safety"],
+        },
+        {
+          id: "compose",
+          title: "Compose",
+          purpose: "Draft the outbound message.",
+          agentIds: ["message-composer"],
+        },
+        {
+          id: "deliver",
+          title: "Deliver",
+          purpose: "Send through the selected channel.",
+          agentIds: ["delivery-operator", "channel-safety"],
+          tools: ["comm.send", "chat.emit"],
+        },
+        {
+          id: "confirm",
+          title: "Confirm",
+          purpose: "Return a delivery result.",
+          agentIds: ["delivery-witness"],
+          terminal: true,
+        },
       ],
     },
     search: {
@@ -778,18 +853,75 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
         upl(["fs.write"], ["report-output"], "optional summary output"),
       ],
       agentRoster: [
-        { id: "query-framer", title: "Query Framer", specialty: "query shaping", uplBindings: [upl(["network.send"], ["web_search"])] },
-        { id: "search-safety", title: "Search Safety", specialty: "query and domain safety", uplBindings: [upl(["network.send"], ["web_search", "web_fetch"], "safety pass on retrieval")] },
-        { id: "search-runner", title: "Search Runner", specialty: "web search execution", tools: ["web_search"], uplBindings: [upl(["network.send"], ["web_search"])] },
-        { id: "fact-extractor", title: "Fact Extractor", specialty: "web extraction", tools: ["web_fetch"], uplBindings: [upl(["network.send"], ["web_fetch"])] },
-        { id: "result-synthesizer", title: "Result Synthesizer", specialty: "bounded summarization", uplBindings: [upl(["network.send"], ["web_fetch"]), upl(["fs.write"], ["report-output"])] },
+        {
+          id: "query-framer",
+          title: "Query Framer",
+          specialty: "query shaping",
+          uplBindings: [upl(["network.send"], ["web_search"])],
+        },
+        {
+          id: "search-safety",
+          title: "Search Safety",
+          specialty: "query and domain safety",
+          uplBindings: [
+            upl(["network.send"], ["web_search", "web_fetch"], "safety pass on retrieval"),
+          ],
+        },
+        {
+          id: "search-runner",
+          title: "Search Runner",
+          specialty: "web search execution",
+          tools: ["web_search"],
+          uplBindings: [upl(["network.send"], ["web_search"])],
+        },
+        {
+          id: "fact-extractor",
+          title: "Fact Extractor",
+          specialty: "web extraction",
+          tools: ["web_fetch"],
+          uplBindings: [upl(["network.send"], ["web_fetch"])],
+        },
+        {
+          id: "result-synthesizer",
+          title: "Result Synthesizer",
+          specialty: "bounded summarization",
+          uplBindings: [upl(["network.send"], ["web_fetch"]), upl(["fs.write"], ["report-output"])],
+        },
       ],
       stages: [
-        { id: "query", title: "Query", purpose: "Shape the search query.", agentIds: ["query-framer"] },
-        { id: "safety", title: "Safety", purpose: "Check query and domain safety.", agentIds: ["search-safety"] },
-        { id: "search", title: "Search", purpose: "Run the search.", agentIds: ["search-runner"], tools: ["web_search"] },
-        { id: "extract", title: "Extract", purpose: "Pull relevant facts from results.", agentIds: ["fact-extractor"], tools: ["web_fetch"] },
-        { id: "summarize", title: "Summarize", purpose: "Produce a bounded summary.", agentIds: ["result-synthesizer", "search-safety"], terminal: true },
+        {
+          id: "query",
+          title: "Query",
+          purpose: "Shape the search query.",
+          agentIds: ["query-framer"],
+        },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check query and domain safety.",
+          agentIds: ["search-safety"],
+        },
+        {
+          id: "search",
+          title: "Search",
+          purpose: "Run the search.",
+          agentIds: ["search-runner"],
+          tools: ["web_search"],
+        },
+        {
+          id: "extract",
+          title: "Extract",
+          purpose: "Pull relevant facts from results.",
+          agentIds: ["fact-extractor"],
+          tools: ["web_fetch"],
+        },
+        {
+          id: "summarize",
+          title: "Summarize",
+          purpose: "Produce a bounded summary.",
+          agentIds: ["result-synthesizer", "search-safety"],
+          terminal: true,
+        },
       ],
     },
     coding: {
@@ -806,22 +938,108 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
         upl(["fs.read", "fs.write"], ["workspace"]),
       ],
       agentRoster: [
-        { id: "requirements-analyst", title: "Requirements Analyst", specialty: "build requirements reduction", uplBindings: [upl(["fs.read"], ["workspace"])] },
-        { id: "build-planner", title: "Build Planner", specialty: "implementation planning", uplBindings: [upl(["fs.read"], ["workspace"])] },
-        { id: "code-safety", title: "Code Safety", specialty: "plan and output safety review", uplBindings: [upl(["fs.read"], ["workspace"]), upl(["tool.exec"], ["test", "lint", "typecheck"])] },
-        { id: "implementation-engineer", title: "Implementation Engineer", specialty: "code authoring", tools: ["tool.exec", "fs.write"], uplBindings: [upl(["tool.exec"], ["git", "build"]), upl(["fs.read", "fs.write"], ["workspace"])] },
-        { id: "test-operator", title: "Test Operator", specialty: "bounded validation", tools: ["tool.exec", "fs.read"], uplBindings: [upl(["tool.exec"], ["test", "typecheck"]), upl(["fs.read"], ["workspace"])] },
-        { id: "repair-engineer", title: "Repair Engineer", specialty: "single-pass code repair", tools: ["tool.exec", "fs.write"], uplBindings: [upl(["tool.exec"], ["test", "lint"]), upl(["fs.read", "fs.write"], ["workspace"])] },
-        { id: "result-finisher", title: "Result Finisher", specialty: "final result packaging", uplBindings: [upl(["fs.read"], ["workspace"])] },
+        {
+          id: "requirements-analyst",
+          title: "Requirements Analyst",
+          specialty: "build requirements reduction",
+          uplBindings: [upl(["fs.read"], ["workspace"])],
+        },
+        {
+          id: "build-planner",
+          title: "Build Planner",
+          specialty: "implementation planning",
+          uplBindings: [upl(["fs.read"], ["workspace"])],
+        },
+        {
+          id: "code-safety",
+          title: "Code Safety",
+          specialty: "plan and output safety review",
+          uplBindings: [
+            upl(["fs.read"], ["workspace"]),
+            upl(["tool.exec"], ["test", "lint", "typecheck"]),
+          ],
+        },
+        {
+          id: "implementation-engineer",
+          title: "Implementation Engineer",
+          specialty: "code authoring",
+          tools: ["tool.exec", "fs.write"],
+          uplBindings: [
+            upl(["tool.exec"], ["git", "build"]),
+            upl(["fs.read", "fs.write"], ["workspace"]),
+          ],
+        },
+        {
+          id: "test-operator",
+          title: "Test Operator",
+          specialty: "bounded validation",
+          tools: ["tool.exec", "fs.read"],
+          uplBindings: [upl(["tool.exec"], ["test", "typecheck"]), upl(["fs.read"], ["workspace"])],
+        },
+        {
+          id: "repair-engineer",
+          title: "Repair Engineer",
+          specialty: "single-pass code repair",
+          tools: ["tool.exec", "fs.write"],
+          uplBindings: [
+            upl(["tool.exec"], ["test", "lint"]),
+            upl(["fs.read", "fs.write"], ["workspace"]),
+          ],
+        },
+        {
+          id: "result-finisher",
+          title: "Result Finisher",
+          specialty: "final result packaging",
+          uplBindings: [upl(["fs.read"], ["workspace"])],
+        },
       ],
       stages: [
-        { id: "requirements", title: "Requirements", purpose: "Reduce the request to concrete build requirements.", agentIds: ["requirements-analyst"] },
-        { id: "plan", title: "Plan", purpose: "Create a finite build plan.", agentIds: ["build-planner"] },
-        { id: "safety", title: "Safety", purpose: "Check the plan before execution.", agentIds: ["code-safety"] },
-        { id: "build", title: "Build", purpose: "Implement the change.", agentIds: ["implementation-engineer"], tools: ["tool.exec", "fs.write"] },
-        { id: "test", title: "Test", purpose: "Run bounded validation.", agentIds: ["test-operator"], tools: ["tool.exec", "fs.read"] },
-        { id: "fix", title: "Fix", purpose: "Apply a single repair pass if needed.", agentIds: ["repair-engineer"], tools: ["tool.exec", "fs.write"] },
-        { id: "finalize", title: "Finalize", purpose: "Return the final result.", agentIds: ["result-finisher", "code-safety"], terminal: true },
+        {
+          id: "requirements",
+          title: "Requirements",
+          purpose: "Reduce the request to concrete build requirements.",
+          agentIds: ["requirements-analyst"],
+        },
+        {
+          id: "plan",
+          title: "Plan",
+          purpose: "Create a finite build plan.",
+          agentIds: ["build-planner"],
+        },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check the plan before execution.",
+          agentIds: ["code-safety"],
+        },
+        {
+          id: "build",
+          title: "Build",
+          purpose: "Implement the change.",
+          agentIds: ["implementation-engineer"],
+          tools: ["tool.exec", "fs.write"],
+        },
+        {
+          id: "test",
+          title: "Test",
+          purpose: "Run bounded validation.",
+          agentIds: ["test-operator"],
+          tools: ["tool.exec", "fs.read"],
+        },
+        {
+          id: "fix",
+          title: "Fix",
+          purpose: "Apply a single repair pass if needed.",
+          agentIds: ["repair-engineer"],
+          tools: ["tool.exec", "fs.write"],
+        },
+        {
+          id: "finalize",
+          title: "Finalize",
+          purpose: "Return the final result.",
+          agentIds: ["result-finisher", "code-safety"],
+          terminal: true,
+        },
       ],
     },
     research: {
@@ -838,20 +1056,90 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
         upl(["fs.write"], ["report-output"]),
       ],
       agentRoster: [
-        { id: "scope-analyst", title: "Scope Analyst", specialty: "research scoping", uplBindings: [upl(["network.send"], ["web_search"])] },
-        { id: "source-finder", title: "Source Finder", specialty: "source discovery", tools: ["web_search"], uplBindings: [upl(["network.send"], ["web_search"])] },
-        { id: "research-safety", title: "Research Safety", specialty: "source and output safety", uplBindings: [upl(["network.send"], ["web_search", "web_fetch"]), upl(["fs.write"], ["report-output"])] },
-        { id: "reader", title: "Reader", specialty: "source extraction", tools: ["web_fetch"], uplBindings: [upl(["network.send"], ["web_fetch"])] },
-        { id: "analyst", title: "Analyst", specialty: "finding analysis", uplBindings: [upl(["network.send"], ["web_fetch"])] },
-        { id: "report-writer", title: "Report Writer", specialty: "report generation", tools: ["fs.write"], uplBindings: [upl(["fs.write"], ["report-output"])] },
+        {
+          id: "scope-analyst",
+          title: "Scope Analyst",
+          specialty: "research scoping",
+          uplBindings: [upl(["network.send"], ["web_search"])],
+        },
+        {
+          id: "source-finder",
+          title: "Source Finder",
+          specialty: "source discovery",
+          tools: ["web_search"],
+          uplBindings: [upl(["network.send"], ["web_search"])],
+        },
+        {
+          id: "research-safety",
+          title: "Research Safety",
+          specialty: "source and output safety",
+          uplBindings: [
+            upl(["network.send"], ["web_search", "web_fetch"]),
+            upl(["fs.write"], ["report-output"]),
+          ],
+        },
+        {
+          id: "reader",
+          title: "Reader",
+          specialty: "source extraction",
+          tools: ["web_fetch"],
+          uplBindings: [upl(["network.send"], ["web_fetch"])],
+        },
+        {
+          id: "analyst",
+          title: "Analyst",
+          specialty: "finding analysis",
+          uplBindings: [upl(["network.send"], ["web_fetch"])],
+        },
+        {
+          id: "report-writer",
+          title: "Report Writer",
+          specialty: "report generation",
+          tools: ["fs.write"],
+          uplBindings: [upl(["fs.write"], ["report-output"])],
+        },
       ],
       stages: [
-        { id: "scope", title: "Scope", purpose: "Define the research scope.", agentIds: ["scope-analyst"] },
-        { id: "sources", title: "Sources", purpose: "Find candidate sources.", agentIds: ["source-finder"], tools: ["web_search"] },
-        { id: "safety", title: "Safety", purpose: "Check sources and output bounds.", agentIds: ["research-safety"] },
-        { id: "read", title: "Read", purpose: "Extract source facts.", agentIds: ["reader"], tools: ["web_fetch"] },
-        { id: "analyze", title: "Analyze", purpose: "Analyze the findings.", agentIds: ["analyst"] },
-        { id: "report", title: "Report", purpose: "Produce the report.", agentIds: ["report-writer", "research-safety"], terminal: true, tools: ["fs.write"] },
+        {
+          id: "scope",
+          title: "Scope",
+          purpose: "Define the research scope.",
+          agentIds: ["scope-analyst"],
+        },
+        {
+          id: "sources",
+          title: "Sources",
+          purpose: "Find candidate sources.",
+          agentIds: ["source-finder"],
+          tools: ["web_search"],
+        },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check sources and output bounds.",
+          agentIds: ["research-safety"],
+        },
+        {
+          id: "read",
+          title: "Read",
+          purpose: "Extract source facts.",
+          agentIds: ["reader"],
+          tools: ["web_fetch"],
+        },
+        {
+          id: "analyze",
+          title: "Analyze",
+          purpose: "Analyze the findings.",
+          agentIds: ["analyst"],
+        },
+        {
+          id: "report",
+          title: "Report",
+          purpose: "Produce the report.",
+          agentIds: ["report-writer", "research-safety"],
+          terminal: true,
+          tools: ["fs.write"],
+        },
       ],
     },
     automation: {
@@ -863,24 +1151,85 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       laws: ["automation", "safety", "cost"],
       tools: ["tool.exec", "network.send", "comm.send"],
       pathSources: [],
-      uplBindings: [
-        upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"]),
-      ],
+      uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])],
       agentRoster: [
-        { id: "trigger-designer", title: "Trigger Designer", specialty: "trigger shaping", uplBindings: [upl(["tool.exec"], ["automation-targets"])] },
-        { id: "condition-checker", title: "Condition Checker", specialty: "condition evaluation", uplBindings: [upl(["tool.exec"], ["automation-targets"])] },
-        { id: "automation-safety", title: "Automation Safety", specialty: "automation safety review", uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])] },
-        { id: "action-runner", title: "Action Runner", specialty: "bounded automation execution", tools: ["tool.exec", "network.send", "comm.send"], uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])] },
-        { id: "verification-agent", title: "Verification Agent", specialty: "result verification", uplBindings: [upl(["tool.exec"], ["automation-targets"])] },
-        { id: "audit-logger", title: "Audit Logger", specialty: "audit and log output", uplBindings: [upl(["fs.write"], ["automation-log"])] },
+        {
+          id: "trigger-designer",
+          title: "Trigger Designer",
+          specialty: "trigger shaping",
+          uplBindings: [upl(["tool.exec"], ["automation-targets"])],
+        },
+        {
+          id: "condition-checker",
+          title: "Condition Checker",
+          specialty: "condition evaluation",
+          uplBindings: [upl(["tool.exec"], ["automation-targets"])],
+        },
+        {
+          id: "automation-safety",
+          title: "Automation Safety",
+          specialty: "automation safety review",
+          uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])],
+        },
+        {
+          id: "action-runner",
+          title: "Action Runner",
+          specialty: "bounded automation execution",
+          tools: ["tool.exec", "network.send", "comm.send"],
+          uplBindings: [upl(["tool.exec", "network.send", "comm.send"], ["automation-targets"])],
+        },
+        {
+          id: "verification-agent",
+          title: "Verification Agent",
+          specialty: "result verification",
+          uplBindings: [upl(["tool.exec"], ["automation-targets"])],
+        },
+        {
+          id: "audit-logger",
+          title: "Audit Logger",
+          specialty: "audit and log output",
+          uplBindings: [upl(["fs.write"], ["automation-log"])],
+        },
       ],
       stages: [
-        { id: "trigger", title: "Trigger", purpose: "Identify the trigger and goal.", agentIds: ["trigger-designer"] },
-        { id: "conditions", title: "Conditions", purpose: "Check run conditions.", agentIds: ["condition-checker"] },
-        { id: "safety", title: "Safety", purpose: "Check automation safety.", agentIds: ["automation-safety"] },
-        { id: "act", title: "Act", purpose: "Execute the bounded automation action.", agentIds: ["action-runner"], tools: ["tool.exec", "network.send", "comm.send"] },
-        { id: "verify", title: "Verify", purpose: "Verify the outcome.", agentIds: ["verification-agent"] },
-        { id: "log", title: "Log", purpose: "Record the outcome.", agentIds: ["audit-logger"], terminal: true },
+        {
+          id: "trigger",
+          title: "Trigger",
+          purpose: "Identify the trigger and goal.",
+          agentIds: ["trigger-designer"],
+        },
+        {
+          id: "conditions",
+          title: "Conditions",
+          purpose: "Check run conditions.",
+          agentIds: ["condition-checker"],
+        },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check automation safety.",
+          agentIds: ["automation-safety"],
+        },
+        {
+          id: "act",
+          title: "Act",
+          purpose: "Execute the bounded automation action.",
+          agentIds: ["action-runner"],
+          tools: ["tool.exec", "network.send", "comm.send"],
+        },
+        {
+          id: "verify",
+          title: "Verify",
+          purpose: "Verify the outcome.",
+          agentIds: ["verification-agent"],
+        },
+        {
+          id: "log",
+          title: "Log",
+          purpose: "Record the outcome.",
+          agentIds: ["audit-logger"],
+          terminal: true,
+        },
       ],
     },
     files: {
@@ -892,22 +1241,73 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       laws: ["files", "privacy", "security"],
       tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"],
       pathSources: [],
-      uplBindings: [
-        upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"]),
-      ],
+      uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])],
       agentRoster: [
-        { id: "navigator", title: "Navigator", specialty: "file discovery", uplBindings: [upl(["fs.read"], ["workspace"])] },
-        { id: "path-safety", title: "Path Safety", specialty: "path and permission review", uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])] },
-        { id: "file-operator", title: "File Operator", specialty: "file mutation", tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"], uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])] },
-        { id: "file-verifier", title: "File Verifier", specialty: "result verification", uplBindings: [upl(["fs.read"], ["workspace"])] },
-        { id: "temp-cleaner", title: "Temp Cleaner", specialty: "temporary state cleanup", uplBindings: [upl(["fs.write", "fs.move"], ["workspace"])] },
+        {
+          id: "navigator",
+          title: "Navigator",
+          specialty: "file discovery",
+          uplBindings: [upl(["fs.read"], ["workspace"])],
+        },
+        {
+          id: "path-safety",
+          title: "Path Safety",
+          specialty: "path and permission review",
+          uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])],
+        },
+        {
+          id: "file-operator",
+          title: "File Operator",
+          specialty: "file mutation",
+          tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"],
+          uplBindings: [upl(["fs.read", "fs.write", "fs.move", "fs.mkdir"], ["workspace"])],
+        },
+        {
+          id: "file-verifier",
+          title: "File Verifier",
+          specialty: "result verification",
+          uplBindings: [upl(["fs.read"], ["workspace"])],
+        },
+        {
+          id: "temp-cleaner",
+          title: "Temp Cleaner",
+          specialty: "temporary state cleanup",
+          uplBindings: [upl(["fs.write", "fs.move"], ["workspace"])],
+        },
       ],
       stages: [
-        { id: "navigate", title: "Navigate", purpose: "Locate the target files.", agentIds: ["navigator"] },
-        { id: "safety", title: "Safety", purpose: "Check permissions and destination bounds.", agentIds: ["path-safety"] },
-        { id: "operate", title: "Operate", purpose: "Perform the requested file action.", agentIds: ["file-operator"], tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"] },
-        { id: "verify", title: "Verify", purpose: "Verify the file state.", agentIds: ["file-verifier"] },
-        { id: "cleanup", title: "Cleanup", purpose: "Clean temporary file state.", agentIds: ["temp-cleaner"], terminal: true },
+        {
+          id: "navigate",
+          title: "Navigate",
+          purpose: "Locate the target files.",
+          agentIds: ["navigator"],
+        },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check permissions and destination bounds.",
+          agentIds: ["path-safety"],
+        },
+        {
+          id: "operate",
+          title: "Operate",
+          purpose: "Perform the requested file action.",
+          agentIds: ["file-operator"],
+          tools: ["fs.read", "fs.write", "fs.move", "fs.mkdir"],
+        },
+        {
+          id: "verify",
+          title: "Verify",
+          purpose: "Verify the file state.",
+          agentIds: ["file-verifier"],
+        },
+        {
+          id: "cleanup",
+          title: "Cleanup",
+          purpose: "Clean temporary file state.",
+          agentIds: ["temp-cleaner"],
+          terminal: true,
+        },
       ],
     },
     analysis: {
@@ -923,20 +1323,82 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
         upl(["fs.read", "db.query", "fs.write"], ["workspace", "analysis-db", "report-output"]),
       ],
       agentRoster: [
-        { id: "data-loader", title: "Data Loader", specialty: "dataset loading", tools: ["fs.read", "db.query"], uplBindings: [upl(["fs.read", "db.query"], ["workspace", "analysis-db"])] },
-        { id: "data-cleaner", title: "Data Cleaner", specialty: "data normalization", uplBindings: [upl(["fs.read"], ["workspace"])] },
-        { id: "analysis-safety", title: "Analysis Safety", specialty: "PII and scope review", uplBindings: [upl(["fs.read", "db.query", "fs.write"], ["workspace", "analysis-db", "report-output"])] },
-        { id: "analysis-engine", title: "Analysis Engine", specialty: "data analysis", uplBindings: [upl(["db.query"], ["analysis-db"])] },
-        { id: "visual-designer", title: "Visual Designer", specialty: "charts and artifacts", tools: ["fs.write"], uplBindings: [upl(["fs.write"], ["report-output"])] },
-        { id: "report-finisher", title: "Report Finisher", specialty: "report synthesis", uplBindings: [upl(["fs.write"], ["report-output"])] },
+        {
+          id: "data-loader",
+          title: "Data Loader",
+          specialty: "dataset loading",
+          tools: ["fs.read", "db.query"],
+          uplBindings: [upl(["fs.read", "db.query"], ["workspace", "analysis-db"])],
+        },
+        {
+          id: "data-cleaner",
+          title: "Data Cleaner",
+          specialty: "data normalization",
+          uplBindings: [upl(["fs.read"], ["workspace"])],
+        },
+        {
+          id: "analysis-safety",
+          title: "Analysis Safety",
+          specialty: "PII and scope review",
+          uplBindings: [
+            upl(["fs.read", "db.query", "fs.write"], ["workspace", "analysis-db", "report-output"]),
+          ],
+        },
+        {
+          id: "analysis-engine",
+          title: "Analysis Engine",
+          specialty: "data analysis",
+          uplBindings: [upl(["db.query"], ["analysis-db"])],
+        },
+        {
+          id: "visual-designer",
+          title: "Visual Designer",
+          specialty: "charts and artifacts",
+          tools: ["fs.write"],
+          uplBindings: [upl(["fs.write"], ["report-output"])],
+        },
+        {
+          id: "report-finisher",
+          title: "Report Finisher",
+          specialty: "report synthesis",
+          uplBindings: [upl(["fs.write"], ["report-output"])],
+        },
       ],
       stages: [
-        { id: "load", title: "Load", purpose: "Load the data source.", agentIds: ["data-loader"], tools: ["fs.read", "db.query"] },
+        {
+          id: "load",
+          title: "Load",
+          purpose: "Load the data source.",
+          agentIds: ["data-loader"],
+          tools: ["fs.read", "db.query"],
+        },
         { id: "clean", title: "Clean", purpose: "Normalize the data.", agentIds: ["data-cleaner"] },
-        { id: "safety", title: "Safety", purpose: "Check for PII and scope issues.", agentIds: ["analysis-safety"] },
-        { id: "analyze", title: "Analyze", purpose: "Run the analysis.", agentIds: ["analysis-engine"] },
-        { id: "visualize", title: "Visualize", purpose: "Create charts or artifacts.", agentIds: ["visual-designer"], tools: ["fs.write"] },
-        { id: "report", title: "Report", purpose: "Return the findings.", agentIds: ["report-finisher"], terminal: true },
+        {
+          id: "safety",
+          title: "Safety",
+          purpose: "Check for PII and scope issues.",
+          agentIds: ["analysis-safety"],
+        },
+        {
+          id: "analyze",
+          title: "Analyze",
+          purpose: "Run the analysis.",
+          agentIds: ["analysis-engine"],
+        },
+        {
+          id: "visualize",
+          title: "Visualize",
+          purpose: "Create charts or artifacts.",
+          agentIds: ["visual-designer"],
+          tools: ["fs.write"],
+        },
+        {
+          id: "report",
+          title: "Report",
+          purpose: "Return the findings.",
+          agentIds: ["report-finisher"],
+          terminal: true,
+        },
       ],
     },
     general: {
@@ -948,20 +1410,49 @@ export function createDefaultBuccetPathLibrary(): Record<BuccetPathName, BuccetP
       laws: ["general", "safety", "cost"],
       tools: [],
       pathSources: [],
-      uplBindings: [
-        upl(["chat.emit"], ["chat:primary"], "general bounded response path"),
-      ],
+      uplBindings: [upl(["chat.emit"], ["chat:primary"], "general bounded response path")],
       agentRoster: [
-        { id: "clarifier", title: "Clarifier", specialty: "request clarification", uplBindings: [upl(["chat.emit"], ["chat:primary"])] },
-        { id: "planner", title: "Planner", specialty: "finite planning", uplBindings: [upl(["chat.emit"], ["chat:primary"])] },
-        { id: "general-safety", title: "General Safety", specialty: "bounded safety review", uplBindings: [upl(["chat.emit"], ["chat:primary"], "safety review only")] },
-        { id: "responder", title: "Responder", specialty: "final response shaping", uplBindings: [upl(["chat.emit"], ["chat:primary"])] },
+        {
+          id: "clarifier",
+          title: "Clarifier",
+          specialty: "request clarification",
+          uplBindings: [upl(["chat.emit"], ["chat:primary"])],
+        },
+        {
+          id: "planner",
+          title: "Planner",
+          specialty: "finite planning",
+          uplBindings: [upl(["chat.emit"], ["chat:primary"])],
+        },
+        {
+          id: "general-safety",
+          title: "General Safety",
+          specialty: "bounded safety review",
+          uplBindings: [upl(["chat.emit"], ["chat:primary"], "safety review only")],
+        },
+        {
+          id: "responder",
+          title: "Responder",
+          specialty: "final response shaping",
+          uplBindings: [upl(["chat.emit"], ["chat:primary"])],
+        },
       ],
       stages: [
-        { id: "clarify", title: "Clarify", purpose: "Clarify the request.", agentIds: ["clarifier"] },
+        {
+          id: "clarify",
+          title: "Clarify",
+          purpose: "Clarify the request.",
+          agentIds: ["clarifier"],
+        },
         { id: "plan", title: "Plan", purpose: "Build a finite plan.", agentIds: ["planner"] },
         { id: "safety", title: "Safety", purpose: "Check the plan.", agentIds: ["general-safety"] },
-        { id: "respond", title: "Respond", purpose: "Return the result.", agentIds: ["responder"], terminal: true },
+        {
+          id: "respond",
+          title: "Respond",
+          purpose: "Return the result.",
+          agentIds: ["responder"],
+          terminal: true,
+        },
       ],
     },
   };
@@ -1040,7 +1531,9 @@ function validatePathTemplate(template: BuccetPathTemplate): void {
   }
   for (const agent of template.agentRoster) {
     if (agent.uplBindings.length === 0) {
-      throw new Error(`Buccet agent ${agent.id} in ${template.pathName} must define at least one UPL binding`);
+      throw new Error(
+        `Buccet agent ${agent.id} in ${template.pathName} must define at least one UPL binding`,
+      );
     }
   }
   for (const stage of template.stages) {
@@ -1049,7 +1542,9 @@ function validatePathTemplate(template: BuccetPathTemplate): void {
     }
     stageIds.add(stage.id);
     if (stage.agentIds.length === 0) {
-      throw new Error(`Buccet stage ${stage.id} in ${template.pathName} must own at least one agent`);
+      throw new Error(
+        `Buccet stage ${stage.id} in ${template.pathName} must own at least one agent`,
+      );
     }
     for (const agentId of stage.agentIds) {
       if (!agentIds.has(agentId)) {
@@ -1065,7 +1560,9 @@ function validatePathTemplate(template: BuccetPathTemplate): void {
   for (const agent of template.agentRoster) {
     for (const sourceId of agent.sourceIds ?? []) {
       if (!template.pathSources.some((source) => source.id === sourceId)) {
-        throw new Error(`Buccet agent ${agent.id} in ${template.pathName} references unknown path source ${sourceId}`);
+        throw new Error(
+          `Buccet agent ${agent.id} in ${template.pathName} references unknown path source ${sourceId}`,
+        );
       }
     }
   }
@@ -1075,9 +1572,8 @@ export function createBuccetPathLibrary(args?: {
   includeDefaults?: boolean;
   templates?: BuccetPathTemplate[];
 }): Record<BuccetPathName, BuccetPathTemplate> {
-  const library: Record<BuccetPathName, BuccetPathTemplate> = args?.includeDefaults === false
-    ? {}
-    : createDefaultBuccetPathLibrary();
+  const library: Record<BuccetPathName, BuccetPathTemplate> =
+    args?.includeDefaults === false ? {} : createDefaultBuccetPathLibrary();
   for (const template of args?.templates ?? []) {
     validatePathTemplate(template);
     library[template.pathName] = template;
@@ -1096,9 +1592,13 @@ export function buccetPathTemplateNeedsLawfulSurfaceMaterialization(
   template: BuccetPathTemplate,
 ): boolean {
   return (
-    template.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding))
-    || template.agentRoster.some((agent) => agent.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)))
-    || template.stages.some((stage) => (stage.uplBindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding)))
+    template.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)) ||
+    template.agentRoster.some((agent) =>
+      agent.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)),
+    ) ||
+    template.stages.some((stage) =>
+      (stage.uplBindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding)),
+    )
   );
 }
 
@@ -1112,14 +1612,14 @@ export function materializeBuccetPathTemplateLawfulSurface(args: {
     ...agent,
     uplBindings: replaceRuntimeResolvedBindings(agent.uplBindings, args.uplBindings),
   }));
-  template.stages = template.stages.map((stage) => (
+  template.stages = template.stages.map((stage) =>
     stage.uplBindings
       ? {
-        ...stage,
-        uplBindings: replaceRuntimeResolvedBindings(stage.uplBindings, args.uplBindings),
-      }
-      : stage
-  ));
+          ...stage,
+          uplBindings: replaceRuntimeResolvedBindings(stage.uplBindings, args.uplBindings),
+        }
+      : stage,
+  );
   validatePathTemplate(template);
   return template;
 }
@@ -1128,9 +1628,13 @@ export function buccetFormationNeedsLawfulSurfaceMaterialization(
   state: BuccetPathFormationState,
 ): boolean {
   return (
-    state.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding))
-    || state.agentRoster.some((agent) => agent.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)))
-    || state.stages.some((stage) => (stage.uplBindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding)))
+    state.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)) ||
+    state.agentRoster.some((agent) =>
+      agent.uplBindings.some((binding) => isRuntimeResolvedUplBinding(binding)),
+    ) ||
+    state.stages.some((stage) =>
+      (stage.uplBindings ?? []).some((binding) => isRuntimeResolvedUplBinding(binding)),
+    )
   );
 }
 
@@ -1144,14 +1648,14 @@ export function materializeBuccetFormationLawfulSurface(args: {
     ...agent,
     uplBindings: replaceRuntimeResolvedBindings(agent.uplBindings, args.uplBindings),
   }));
-  state.stages = state.stages.map((stage) => (
+  state.stages = state.stages.map((stage) =>
     stage.uplBindings
       ? {
-        ...stage,
-        uplBindings: replaceRuntimeResolvedBindings(stage.uplBindings, args.uplBindings),
-      }
-      : stage
-  ));
+          ...stage,
+          uplBindings: replaceRuntimeResolvedBindings(stage.uplBindings, args.uplBindings),
+        }
+      : stage,
+  );
   return state;
 }
 
@@ -1201,15 +1705,24 @@ export function restoreBuccetPathLibrary(
   });
 }
 
-export async function saveBuccetPathLibrary(filePath: string, library: Record<BuccetPathName, BuccetPathTemplate>): Promise<void> {
+export async function saveBuccetPathLibrary(
+  filePath: string,
+  library: Record<BuccetPathName, BuccetPathTemplate>,
+): Promise<void> {
   const resolved = path.resolve(filePath);
   await fs.mkdir(path.dirname(resolved), { recursive: true });
   const tempPath = `${resolved}.tmp-${process.pid}-${Date.now()}`;
-  await fs.writeFile(tempPath, `${JSON.stringify(snapshotBuccetPathLibrary(library), null, 2)}\n`, "utf8");
+  await fs.writeFile(
+    tempPath,
+    `${JSON.stringify(snapshotBuccetPathLibrary(library), null, 2)}\n`,
+    "utf8",
+  );
   await fs.rename(tempPath, resolved);
 }
 
-export async function loadBuccetPathLibrary(filePath: string): Promise<Record<BuccetPathName, BuccetPathTemplate> | null> {
+export async function loadBuccetPathLibrary(
+  filePath: string,
+): Promise<Record<BuccetPathName, BuccetPathTemplate> | null> {
   try {
     const raw = await fs.readFile(path.resolve(filePath), "utf8");
     return restoreBuccetPathLibrary(JSON.parse(raw) as BuccetPathLibrarySnapshot);
@@ -1218,7 +1731,10 @@ export async function loadBuccetPathLibrary(filePath: string): Promise<Record<Bu
   }
 }
 
-function stageStatesForTemplate(template: BuccetPathTemplate, createdAt: string): BuccetPathStageState[] {
+function stageStatesForTemplate(
+  template: BuccetPathTemplate,
+  createdAt: string,
+): BuccetPathStageState[] {
   return template.stages.map((stage, position) => ({
     ...stage,
     agentIds: [...stage.agentIds],
@@ -1239,10 +1755,15 @@ function stageStatesForTemplate(template: BuccetPathTemplate, createdAt: string)
 }
 
 function stageIdsForAgent(template: BuccetPathTemplate, agentId: string): string[] {
-  return template.stages.filter((stage) => stage.agentIds.includes(agentId)).map((stage) => stage.id);
+  return template.stages
+    .filter((stage) => stage.agentIds.includes(agentId))
+    .map((stage) => stage.id);
 }
 
-function buildAgentRosterForTemplate(template: BuccetPathTemplate, createdAt: string): BuccetPathAgentState[] {
+function buildAgentRosterForTemplate(
+  template: BuccetPathTemplate,
+  createdAt: string,
+): BuccetPathAgentState[] {
   const firstStage = template.stages[0];
   return template.agentRoster.map((agent, position) => {
     const stageIds = stageIdsForAgent(template, agent.id);
@@ -1268,8 +1789,14 @@ function buildAgentRosterForTemplate(template: BuccetPathTemplate, createdAt: st
   });
 }
 
-function hasFutureStage(agent: BuccetPathAgentState, stages: BuccetPathStageState[], currentStageIndex: number): boolean {
-  return stages.some((stage) => stage.position > currentStageIndex && stage.agentIds.includes(agent.id));
+function hasFutureStage(
+  agent: BuccetPathAgentState,
+  stages: BuccetPathStageState[],
+  currentStageIndex: number,
+): boolean {
+  return stages.some(
+    (stage) => stage.position > currentStageIndex && stage.agentIds.includes(agent.id),
+  );
 }
 
 function activateAgentsForStage(
@@ -1435,12 +1962,14 @@ export function instantiateBuccetFormation(args: {
       ...(args.previousContext ? { previous_context: args.previousContext } : {}),
     },
     stages: stageStatesForTemplate(template, createdAt),
-    events: [{
-      kind: "created",
-      at: createdAt,
-      stageId: template.stages[0]?.id,
-      detail: `formation created for ${args.pathName}`,
-    }],
+    events: [
+      {
+        kind: "created",
+        at: createdAt,
+        stageId: template.stages[0]?.id,
+        detail: `formation created for ${args.pathName}`,
+      },
+    ],
     createdAt,
     updatedAt: createdAt,
     previousPathName: args.previousPathName,
@@ -1448,11 +1977,15 @@ export function instantiateBuccetFormation(args: {
   };
 }
 
-export function getCurrentBuccetStage(state: BuccetPathFormationState): BuccetPathStageState | null {
+export function getCurrentBuccetStage(
+  state: BuccetPathFormationState,
+): BuccetPathStageState | null {
   return state.stages[state.currentStageIndex] ?? null;
 }
 
-export function getCurrentBuccetStageAgents(state: BuccetPathFormationState): BuccetPathAgentState[] {
+export function getCurrentBuccetStageAgents(
+  state: BuccetPathFormationState,
+): BuccetPathAgentState[] {
   const stage = getCurrentBuccetStage(state);
   if (!stage) {
     return [];
@@ -1488,7 +2021,10 @@ function mergeUplBindings(bindings: BuccetPathUplBinding[] | undefined): {
   return { actionKinds, targets };
 }
 
-function renderResolvedSurface(values: string[], bindings: BuccetPathUplBinding[] | undefined): string {
+function renderResolvedSurface(
+  values: string[],
+  bindings: BuccetPathUplBinding[] | undefined,
+): string {
   if (values.length > 0) {
     return values.join(", ");
   }
@@ -1505,7 +2041,9 @@ function renderPathSourcesSummary(sources: BuccetPathSource[]): string {
   return sources.map((source) => source.title).join(", ");
 }
 
-export function describeBuccetFormationLiveView(state: BuccetPathFormationState): BuccetPathLiveView {
+export function describeBuccetFormationLiveView(
+  state: BuccetPathFormationState,
+): BuccetPathLiveView {
   const currentStage = getCurrentBuccetStage(state);
   const activeAgents = getCurrentBuccetStageAgents(state);
   const pathBinding = mergeUplBindings(state.uplBindings);
@@ -1592,17 +2130,15 @@ export function renderBuccetFormationLiveView(state: BuccetPathFormationState): 
       `  - ${agent.id} [${agent.status}/${agent.controlState}] stage=${agent.currentStageId ?? "none"} sources=${agent.sourceTitles.join(" + ") || "none"}${agent.replacementAgentId ? ` replacement=${agent.replacementAgentId}` : ""}`,
     );
   }
-  lines.push(
-    "steps:",
-  );
+  lines.push("steps:");
   for (const step of view.steps) {
     const stageBindings = state.stages[step.position]
       ? [
-        ...(state.stages[step.position]?.uplBindings ?? []),
-        ...state.agentRoster
-          .filter((agent) => state.stages[step.position]?.agentIds.includes(agent.id))
-          .flatMap((agent) => agent.uplBindings),
-      ]
+          ...(state.stages[step.position]?.uplBindings ?? []),
+          ...state.agentRoster
+            .filter((agent) => state.stages[step.position]?.agentIds.includes(agent.id))
+            .flatMap((agent) => agent.uplBindings),
+        ]
       : [];
     lines.push(
       `  ${step.position + 1}. ${step.stageId} [${step.status}] owners=${step.agentTitles.join(" + ") || "none"} sources=${step.sourceTitles.join(" + ") || "none"} lawful=${renderResolvedSurface(step.uplActionKinds, stageBindings)} targets=${renderResolvedSurface(step.uplTargets, stageBindings)}`,
@@ -1623,7 +2159,9 @@ function isTerminalFormationStatus(status: BuccetPathFormationStatus): boolean {
   return status === "COMPLETED" || status === "BLOCKED" || status === "FAILED";
 }
 
-export function getBuccetFormationAdvanceBlockReason(state: BuccetPathFormationState): string | null {
+export function getBuccetFormationAdvanceBlockReason(
+  state: BuccetPathFormationState,
+): string | null {
   const currentStage = getCurrentBuccetStage(state);
   if (state.control.massFrozen) {
     return `formation ${state.formationId} is mass-frozen — inspect each frozen agent before continuation`;
@@ -1683,7 +2221,13 @@ export function advanceBuccetFormation(args: {
   if (args.result === "blocked") {
     currentStage.status = "BLOCKED";
     currentStage.completedAt = occurredAt;
-    state.agentRoster = failAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, "BLOCKED", occurredAt);
+    state.agentRoster = failAgentsForStage(
+      state.agentRoster,
+      state.stages,
+      state.currentStageIndex,
+      "BLOCKED",
+      occurredAt,
+    );
     state.status = "BLOCKED";
     state.events.push({
       kind: "blocked",
@@ -1697,7 +2241,13 @@ export function advanceBuccetFormation(args: {
   if (args.result === "failed") {
     currentStage.status = "FAILED";
     currentStage.completedAt = occurredAt;
-    state.agentRoster = failAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, "FAILED", occurredAt);
+    state.agentRoster = failAgentsForStage(
+      state.agentRoster,
+      state.stages,
+      state.currentStageIndex,
+      "FAILED",
+      occurredAt,
+    );
     state.status = "FAILED";
     state.events.push({
       kind: "failed",
@@ -1710,9 +2260,17 @@ export function advanceBuccetFormation(args: {
 
   currentStage.status = "COMPLETED";
   currentStage.completedAt = occurredAt;
-  state.agentRoster = completeAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, occurredAt);
+  state.agentRoster = completeAgentsForStage(
+    state.agentRoster,
+    state.stages,
+    state.currentStageIndex,
+    occurredAt,
+  );
 
-  const shouldComplete = args.result === "complete" || currentStage.terminal === true || state.currentStageIndex === state.stages.length - 1;
+  const shouldComplete =
+    args.result === "complete" ||
+    currentStage.terminal === true ||
+    state.currentStageIndex === state.stages.length - 1;
   if (shouldComplete) {
     state.status = "COMPLETED";
     state.currentStageIndex = state.stages.length;
@@ -1735,7 +2293,12 @@ export function advanceBuccetFormation(args: {
   nextStage.status = "ACTIVE";
   nextStage.activatedAt = occurredAt;
   state.currentStageIndex += 1;
-  state.agentRoster = activateAgentsForStage(state.agentRoster, state.stages, state.currentStageIndex, occurredAt);
+  state.agentRoster = activateAgentsForStage(
+    state.agentRoster,
+    state.stages,
+    state.currentStageIndex,
+    occurredAt,
+  );
   state.status = "RUNNING";
   state.events.push({
     kind: "advanced",
@@ -1756,24 +2319,33 @@ export function freezeBuccetFormation(args: {
   const state = deepCloneFormationState(args.state);
   state.agentRoster = state.agentRoster.map((agent) => ({
     ...agent,
-    control: agent.control.state === "QUARANTINED" || agent.control.state === "REPLACED" || agent.control.state === "ABORTED"
-      ? agent.control
-      : {
-          state: "FROZEN",
-          updatedAt: occurredAt,
-          issuedBy: args.issuedBy,
-          ...(args.reason !== undefined ? { reason: args.reason } : {}),
-          ...(agent.control.replacementAgentId ? { replacementAgentId: agent.control.replacementAgentId } : {}),
-        },
+    control:
+      agent.control.state === "QUARANTINED" ||
+      agent.control.state === "REPLACED" ||
+      agent.control.state === "ABORTED"
+        ? agent.control
+        : {
+            state: "FROZEN",
+            updatedAt: occurredAt,
+            issuedBy: args.issuedBy,
+            ...(args.reason !== undefined ? { reason: args.reason } : {}),
+            ...(agent.control.replacementAgentId
+              ? { replacementAgentId: agent.control.replacementAgentId }
+              : {}),
+          },
   }));
-  state.control = recomputeBuccetFormationControl({
-    massFrozen: true,
-    freezeScope: "whole_swarm",
-    frozenAt: occurredAt,
-    frozenBy: args.issuedBy,
-    freezeReason: args.reason ?? "operator mass freeze",
-    updatedAt: occurredAt,
-  }, state.agentRoster, occurredAt);
+  state.control = recomputeBuccetFormationControl(
+    {
+      massFrozen: true,
+      freezeScope: "whole_swarm",
+      frozenAt: occurredAt,
+      frozenBy: args.issuedBy,
+      freezeReason: args.reason ?? "operator mass freeze",
+      updatedAt: occurredAt,
+    },
+    state.agentRoster,
+    occurredAt,
+  );
   state.updatedAt = occurredAt;
   state.events.push({
     kind: "frozen",
@@ -1784,7 +2356,9 @@ export function freezeBuccetFormation(args: {
   return state;
 }
 
-function resolveAgentControlActionState(action: BuccetPathAgentAction): BuccetPathAgentControlState {
+function resolveAgentControlActionState(
+  action: BuccetPathAgentAction,
+): BuccetPathAgentControlState {
   switch (action) {
     case "inspect":
       return "INSPECTING";
@@ -1842,17 +2416,25 @@ export function applyBuccetFormationAgentAction(args: {
     updatedAt: occurredAt,
     issuedBy: args.issuedBy,
     ...(args.reason !== undefined ? { reason: args.reason } : {}),
-    ...(args.action === "replace" && args.replacementAgentId ? { replacementAgentId: args.replacementAgentId } : {}),
+    ...(args.action === "replace" && args.replacementAgentId
+      ? { replacementAgentId: args.replacementAgentId }
+      : {}),
   };
-  state.control = recomputeBuccetFormationControl({
-    ...state.control,
-    updatedAt: occurredAt,
-  }, state.agentRoster, occurredAt);
+  state.control = recomputeBuccetFormationControl(
+    {
+      ...state.control,
+      updatedAt: occurredAt,
+    },
+    state.agentRoster,
+    occurredAt,
+  );
   state.updatedAt = occurredAt;
   const detailParts = [
     `${args.issuedBy} ${args.action} ${agent.id}`,
     args.reason ? `reason=${args.reason}` : null,
-    args.action === "replace" && args.replacementAgentId ? `replacement=${args.replacementAgentId}` : null,
+    args.action === "replace" && args.replacementAgentId
+      ? `replacement=${args.replacementAgentId}`
+      : null,
   ].filter(Boolean);
   state.events.push({
     kind: resolveAgentControlEvent(args.action),
@@ -1960,7 +2542,10 @@ export class BuccetPathMemoryStore {
     return this.list().filter((state) => state.sessionId === sessionId);
   }
 
-  findBySessionAndPath(sessionId: string, pathName: BuccetPathName): BuccetPathFormationState | null {
+  findBySessionAndPath(
+    sessionId: string,
+    pathName: BuccetPathName,
+  ): BuccetPathFormationState | null {
     const match = [...this.formations.values()]
       .filter((state) => state.sessionId === sessionId && state.pathName === pathName)
       .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
@@ -1986,7 +2571,10 @@ export class BuccetPathMemoryStore {
   }
 }
 
-export async function saveBuccetPathMemorySnapshot(filePath: string, snapshot: BuccetPathMemorySnapshot): Promise<void> {
+export async function saveBuccetPathMemorySnapshot(
+  filePath: string,
+  snapshot: BuccetPathMemorySnapshot,
+): Promise<void> {
   const resolved = path.resolve(filePath);
   await fs.mkdir(path.dirname(resolved), { recursive: true });
   const tempPath = `${resolved}.tmp-${process.pid}-${Date.now()}`;
@@ -1994,7 +2582,9 @@ export async function saveBuccetPathMemorySnapshot(filePath: string, snapshot: B
   await fs.rename(tempPath, resolved);
 }
 
-export async function loadBuccetPathMemorySnapshot(filePath: string): Promise<BuccetPathMemorySnapshot | null> {
+export async function loadBuccetPathMemorySnapshot(
+  filePath: string,
+): Promise<BuccetPathMemorySnapshot | null> {
   try {
     const raw = await fs.readFile(path.resolve(filePath), "utf8");
     return JSON.parse(raw) as BuccetPathMemorySnapshot;

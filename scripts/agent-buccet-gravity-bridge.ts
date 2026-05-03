@@ -2,11 +2,11 @@ import { promises as fs } from "node:fs";
 import net from "node:net";
 import readline from "node:readline";
 import {
+  type BoundaryGravityFunnelPayload,
+  type BoundaryInterceptDaemonOutput,
   mapBoundaryGravityFunnelPayloadToInterceptRequests,
   parseBoundaryGravityFunnelPayload,
   sendBoundaryInterceptServerInput,
-  type BoundaryInterceptDaemonOutput,
-  type BoundaryGravityFunnelPayload,
 } from "./../src/index.ts";
 
 type ParsedArgs = {
@@ -149,7 +149,7 @@ async function main() {
   const server = net.createServer((socket) => {
     const rl = readline.createInterface({
       input: socket,
-      crlfDelay: Infinity,
+      crlfDelay: Number.POSITIVE_INFINITY,
     });
 
     void (async () => {
@@ -172,13 +172,18 @@ async function main() {
           if (output.type === "error") {
             console.error(`[gravity-bridge-error] ${output.error}`);
           } else if (output.type === "decision" && output.decision !== "allow") {
-            console.error(`[gravity-bridge-blocked] ${payload.action} ${payload.target} reason=${output.reason}`);
+            console.error(
+              `[gravity-bridge-blocked] ${payload.action} ${payload.target} reason=${output.reason}`,
+            );
           }
 
           writeDecision(socket, output);
         } catch (error) {
           console.error("[gravity-bridge-deny]", error);
-          writeDecision(socket, error instanceof Error ? error : new Error("gravity bridge failed"));
+          writeDecision(
+            socket,
+            error instanceof Error ? error : new Error("gravity bridge failed"),
+          );
         }
       }
     })().catch((error) => {

@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 import {
+  type BoundaryInterceptDaemonOutput,
+  type BoundaryInterceptSwarmGroup,
   classifySwarmPath,
   createPersistentBoundaryRuntimeStore,
   readBoundaryLedgerBySession,
   sendBoundaryInterceptServerInput,
-  type BoundaryInterceptDaemonOutput,
-  type BoundaryInterceptSwarmGroup,
 } from "./../../src/index.ts";
 
 type SwarmStatusOutput = Extract<BoundaryInterceptDaemonOutput, { type: "swarm_status" }>;
@@ -209,18 +209,22 @@ async function main() {
   assert.equal(evidenceOnly.path, "red");
   assert.equal(evidenceOnly.code, "SWARM.PROVENANCE.EVIDENCE_ONLY");
 
-  const interceptServer = spawn(process.execPath, [
-    path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
-    "--session-id",
-    sessionId,
-    "--sessions-dir",
-    sessionsDir,
-    "--socket",
-    socketPath,
-  ], {
-    cwd: repoRoot,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  const interceptServer = spawn(
+    process.execPath,
+    [
+      path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
+      "--session-id",
+      sessionId,
+      "--sessions-dir",
+      sessionsDir,
+      "--socket",
+      socketPath,
+    ],
+    {
+      cwd: repoRoot,
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
 
   let ready = false;
   let stderr = "";
@@ -294,14 +298,16 @@ async function main() {
     target,
     label: "two waiting swarm members",
     predicate: (status) =>
-      status.totals.pending === 1
-      && status.totals.waitingMembers === 2
-      && status.groups.some((group) =>
-        group.target === sharedTarget
-        && group.waitingCount >= 2
-        && group.path === "green"
-        && group.swarmAction === "integrate"
-        && group.readiness === "dependency_ready"),
+      status.totals.pending === 1 &&
+      status.totals.waitingMembers === 2 &&
+      status.groups.some(
+        (group) =>
+          group.target === sharedTarget &&
+          group.waitingCount >= 2 &&
+          group.path === "green" &&
+          group.swarmAction === "integrate" &&
+          group.readiness === "dependency_ready",
+      ),
   });
   assert.equal(swarmStatus.totals.pending, 1, "expected one pending swarm group");
   assert.equal(swarmStatus.totals.waitingMembers, 2, "expected two waiting swarm members");
@@ -333,7 +339,7 @@ async function main() {
   assert.equal(approve.type, "ack");
   assert.equal(approve.command, "swarm_approve");
 
-  const [firstDecision, secondDecision] = await Promise.all([firstRequest, secondRequest]) as [
+  const [firstDecision, secondDecision] = (await Promise.all([firstRequest, secondRequest])) as [
     BoundaryInterceptDaemonOutput,
     BoundaryInterceptDaemonOutput,
   ];
@@ -344,11 +350,12 @@ async function main() {
   assert.equal(secondDecision.decision, "allow");
 
   const ledger = await readBoundaryLedgerBySession(sessionId);
-  const swarmApproval = ledger.find((record) =>
-    record.META.event_type === "APPROVAL_GRANTED"
-    && record.META.session_id === sessionId
-    && record.INPUT.target === sharedTarget
-    && String(record.INPUT.params.swarm_group_id ?? "").startsWith("swarm-")
+  const swarmApproval = ledger.find(
+    (record) =>
+      record.META.event_type === "APPROVAL_GRANTED" &&
+      record.META.session_id === sessionId &&
+      record.INPUT.target === sharedTarget &&
+      String(record.INPUT.params.swarm_group_id ?? "").startsWith("swarm-"),
   );
   assert.ok(swarmApproval, "expected swarm approval entry in ledger");
 
@@ -475,12 +482,14 @@ async function main() {
     target,
     label: "high-risk intent missing queue",
     predicate: (status) =>
-      status.groups.some((group) =>
-        group.target === highRiskPurpleTarget
-        && group.state === "waiting"
-        && group.path === "purple"
-        && group.pathCode === "SWARM.INTENT.MISSING.HIGH_RISK"
-        && group.definitionRequest?.action === "ask"),
+      status.groups.some(
+        (group) =>
+          group.target === highRiskPurpleTarget &&
+          group.state === "waiting" &&
+          group.path === "purple" &&
+          group.pathCode === "SWARM.INTENT.MISSING.HIGH_RISK" &&
+          group.definitionRequest?.action === "ask",
+      ),
   });
   const highRiskPurpleGroup = requireSwarmGroup(highRiskPurpleStatus, highRiskPurpleTarget);
   assert.equal(highRiskPurpleGroup.purpleAction, "ask");
@@ -525,11 +534,11 @@ async function main() {
     target,
     label: "purple intent clarification queue",
     predicate: (status) =>
-      status.totals.pending === 1
-      && status.groups.some((group) =>
-        group.target === purpleTarget
-        && group.state === "waiting"
-        && group.path === "purple"),
+      status.totals.pending === 1 &&
+      status.groups.some(
+        (group) =>
+          group.target === purpleTarget && group.state === "waiting" && group.path === "purple",
+      ),
   });
   const purpleGroup = requireSwarmGroup(purpleStatus, purpleTarget);
   assert.equal(purpleGroup.path, "purple");
@@ -559,14 +568,28 @@ async function main() {
   console.log("Agent Buccet swarm contract");
   console.log(`group: ${pendingGroup.groupId}`);
   console.log(`waiting members: ${pendingGroup.waitingCount}`);
-  console.log(`first decision: ${firstDecision.type === "decision" ? firstDecision.decision : "error"}`);
-  console.log(`second decision: ${secondDecision.type === "decision" ? secondDecision.decision : "error"}`);
-  console.log(`readiness denial: ${readinessDenied.type === "decision" ? readinessDenied.decision : "error"}`);
-  console.log(`handoff denial: ${handoffDenied.type === "decision" ? handoffDenied.decision : "error"}`);
+  console.log(
+    `first decision: ${firstDecision.type === "decision" ? firstDecision.decision : "error"}`,
+  );
+  console.log(
+    `second decision: ${secondDecision.type === "decision" ? secondDecision.decision : "error"}`,
+  );
+  console.log(
+    `readiness denial: ${readinessDenied.type === "decision" ? readinessDenied.decision : "error"}`,
+  );
+  console.log(
+    `handoff denial: ${handoffDenied.type === "decision" ? handoffDenied.decision : "error"}`,
+  );
   console.log(`cost denial: ${costDenied.type === "decision" ? costDenied.decision : "error"}`);
-  console.log(`aggregate cost denial: ${aggregateCostDenied.type === "decision" ? aggregateCostDenied.decision : "error"}`);
-  console.log(`high-risk purple decision: ${highRiskPurpleDecision.type === "decision" ? highRiskPurpleDecision.decision : "error"}`);
-  console.log(`purple decision: ${purpleDecision.type === "decision" ? purpleDecision.decision : "error"}`);
+  console.log(
+    `aggregate cost denial: ${aggregateCostDenied.type === "decision" ? aggregateCostDenied.decision : "error"}`,
+  );
+  console.log(
+    `high-risk purple decision: ${highRiskPurpleDecision.type === "decision" ? highRiskPurpleDecision.decision : "error"}`,
+  );
+  console.log(
+    `purple decision: ${purpleDecision.type === "decision" ? purpleDecision.decision : "error"}`,
+  );
 }
 
 main().catch((error) => {

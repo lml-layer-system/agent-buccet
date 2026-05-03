@@ -1,8 +1,7 @@
-import { checkTrackConstraint } from "./upl-tracks.ts";
 import {
-  makeBoundaryUplTrafficTag,
   lookupUserPathDecision,
   lookupUserPathTrackDecision,
+  makeBoundaryUplTrafficTag,
   uplTrafficClassForPolarity,
 } from "./../proof/user-path-ledger.ts";
 import type {
@@ -26,10 +25,7 @@ export type BoundaryUplTrafficResult = {
 };
 
 function trafficLawIds(config: BoundaryRuntimeConfig, entry: BoundaryUplEntry): string[] {
-  return [
-    entry.id,
-    ...(config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
-  ];
+  return [entry.id, ...(config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? [])];
 }
 
 function describeTrafficEntry(entry: BoundaryUplEntry): string {
@@ -71,7 +67,10 @@ export function evaluateBoundaryUplTraffic(args: {
       return {
         decision: "allow",
         entry: exactMatch.entry,
-        reason: standingLawReason(exactMatch.entry, "standing-law: existing UPL law allowed this request"),
+        reason: standingLawReason(
+          exactMatch.entry,
+          "standing-law: existing UPL law allowed this request",
+        ),
         triggeredLawIds,
         trafficClass: uplTrafficClassForPolarity("allow"),
         trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "allow" }),
@@ -82,7 +81,10 @@ export function evaluateBoundaryUplTraffic(args: {
     return {
       decision: "deny",
       entry: exactMatch.entry,
-      reason: standingLawReason(exactMatch.entry, "standing-law: existing UPL law denied this request"),
+      reason: standingLawReason(
+        exactMatch.entry,
+        "standing-law: existing UPL law denied this request",
+      ),
       triggeredLawIds,
       trafficClass: uplTrafficClassForPolarity("deny"),
       trafficTag: makeBoundaryUplTrafficTag({ entry: exactMatch.entry, polarity: "deny" }),

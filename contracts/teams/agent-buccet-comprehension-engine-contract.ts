@@ -33,21 +33,39 @@ async function main(): Promise<void> {
     ],
   });
 
-  assert.deepEqual(pass.stages.map((stage) => stage.id), AGENT_COMPREHENSION_STAGE_SEQUENCE);
+  assert.deepEqual(
+    pass.stages.map((stage) => stage.id),
+    AGENT_COMPREHENSION_STAGE_SEQUENCE,
+  );
   assert.equal(pass.method, "whole-view-fracture-specialist-team");
   assert.equal(pass.stages[5]?.id, "acquire_knowledge");
-  assert.equal(pass.stages[5]?.status, "completed", "prepared whole-view completes knowledge acquisition stage");
+  assert.equal(
+    pass.stages[5]?.status,
+    "completed",
+    "prepared whole-view completes knowledge acquisition stage",
+  );
   assert.ok(pass.stages[5]?.outputs.some((line) => line.includes("12 projection handles")));
-  console.log("SUCCESS: initial pass builds the canonical engine and completes map preparation before peer work.");
+  console.log(
+    "SUCCESS: initial pass builds the canonical engine and completes map preparation before peer work.",
+  );
 
   const afterTransform = recordComprehensionTransform(pass, {
     peerSummaries: [
-      { peerId: "research", ownsStep: "acquire_knowledge", resultKind: "analysis", status: "completed" },
+      {
+        peerId: "research",
+        ownsStep: "acquire_knowledge",
+        resultKind: "analysis",
+        status: "completed",
+      },
       { peerId: "builder", ownsStep: "transform", resultKind: "analysis", status: "completed" },
     ],
   });
   assert.equal(afterTransform.stages[6]?.status, "completed");
-  assert.ok(afterTransform.stages[6]?.outputs.some((line) => line.includes("builder:transform:analysis:completed")));
+  assert.ok(
+    afterTransform.stages[6]?.outputs.some((line) =>
+      line.includes("builder:transform:analysis:completed"),
+    ),
+  );
 
   const afterValidation = recordComprehensionValidation(afterTransform, {
     disposition: "Accept",
@@ -73,8 +91,16 @@ async function main(): Promise<void> {
   assert.equal(finalPass.stages[9]?.status, "completed");
   console.log("SUCCESS: transform, validate, render, and return stage records advance explicitly.");
 
-  assert.deepEqual(allowedOutputsForComprehensionStage("render"), ["render-fragment", "answer-fragment", "blocked"]);
-  assert.deepEqual(allowedActionKindsForComprehensionStage("transform"), ["fs.read", "fs.write", "tool.exec"]);
+  assert.deepEqual(allowedOutputsForComprehensionStage("render"), [
+    "render-fragment",
+    "answer-fragment",
+    "blocked",
+  ]);
+  assert.deepEqual(allowedActionKindsForComprehensionStage("transform"), [
+    "fs.read",
+    "fs.write",
+    "tool.exec",
+  ]);
   assert.ok(allowedActionKindsForComprehensionStage("all").includes("chat.emit"));
   console.log("SUCCESS: shared stage contracts drive outputs and action permissions.");
 
@@ -112,7 +138,10 @@ async function main(): Promise<void> {
     ],
     "spend teams insert the hardcoded value boundary before render/return",
   );
-  assert.deepEqual(allowedActionKindsForComprehensionStage("value_boundary"), ["fs.read", "agent.spend"]);
+  assert.deepEqual(allowedActionKindsForComprehensionStage("value_boundary"), [
+    "fs.read",
+    "agent.spend",
+  ]);
   console.log("SUCCESS: spend teams expose the hardcoded value-boundary stage in the engine.");
 
   console.log("\n--- Comprehension Engine Contract Verified ---");

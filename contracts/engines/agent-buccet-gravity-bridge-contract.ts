@@ -1,20 +1,22 @@
 import assert from "node:assert/strict";
-import net from "node:net";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import { promises as fs } from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import {
-  sendBoundaryInterceptServerInput,
-} from "./../../src/index.ts";
+import { sendBoundaryInterceptServerInput } from "./../../src/index.ts";
 
 async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
+async function waitFor<T>(
+  fn: () => Promise<T | null>,
+  timeoutMs: number,
+  stepMs: number,
+): Promise<T> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const result = await fn();
@@ -26,7 +28,10 @@ async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs
   throw new Error(`timed out after ${timeoutMs}ms`);
 }
 
-async function sendGravityPayload(target: { host: string; port: number }, payload: string): Promise<string> {
+async function sendGravityPayload(
+  target: { host: string; port: number },
+  payload: string,
+): Promise<string> {
   const socket = net.createConnection(target.port, target.host);
   await once(socket, "connect");
   socket.write(`${payload}\n`);
@@ -55,16 +60,23 @@ async function waitForPendingGroup(args: {
   }) => boolean;
   label: string;
 }) {
-  return await waitFor(async () => {
-    const swarmStatus = await sendBoundaryInterceptServerInput({
-      target: { host: "127.0.0.1", port: args.interceptPort },
-      input: {
-        command: "swarm_status",
-      },
-    });
-    assert.equal(swarmStatus.type, "swarm_status");
-    return swarmStatus.groups.find((group) => group.state === "waiting" && args.predicate(group)) ?? null;
-  }, 10_000, 100);
+  return await waitFor(
+    async () => {
+      const swarmStatus = await sendBoundaryInterceptServerInput({
+        target: { host: "127.0.0.1", port: args.interceptPort },
+        input: {
+          command: "swarm_status",
+        },
+      });
+      assert.equal(swarmStatus.type, "swarm_status");
+      return (
+        swarmStatus.groups.find((group) => group.state === "waiting" && args.predicate(group)) ??
+        null
+      );
+    },
+    10_000,
+    100,
+  );
 }
 
 async function main() {
@@ -77,18 +89,22 @@ async function main() {
   const interceptServerPath = path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts");
   const gravityBridgePath = path.join(repoRoot, "scripts", "agent-buccet-gravity-bridge.ts");
 
-  const interceptServer = spawn(process.execPath, [
-    interceptServerPath,
-    "--session-id",
-    sessionId,
-    "--host",
-    "127.0.0.1",
-    "--port",
-    String(interceptPort),
-  ], {
-    cwd: repoRoot,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  const interceptServer = spawn(
+    process.execPath,
+    [
+      interceptServerPath,
+      "--session-id",
+      sessionId,
+      "--host",
+      "127.0.0.1",
+      "--port",
+      String(interceptPort),
+    ],
+    {
+      cwd: repoRoot,
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
 
   let interceptReady = false;
   let interceptStderr = "";
@@ -105,20 +121,24 @@ async function main() {
   }
   assert.equal(interceptReady, true, `intercept server should be ready\n${interceptStderr}`);
 
-  const gravityBridge = spawn(process.execPath, [
-    gravityBridgePath,
-    "--listen-host",
-    "127.0.0.1",
-    "--listen-port",
-    String(gravityPort),
-    "--upstream-host",
-    "127.0.0.1",
-    "--upstream-port",
-    String(interceptPort),
-  ], {
-    cwd: repoRoot,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  const gravityBridge = spawn(
+    process.execPath,
+    [
+      gravityBridgePath,
+      "--listen-host",
+      "127.0.0.1",
+      "--listen-port",
+      String(gravityPort),
+      "--upstream-host",
+      "127.0.0.1",
+      "--upstream-port",
+      String(interceptPort),
+    ],
+    {
+      cwd: repoRoot,
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
 
   let bridgeReady = false;
   let bridgeStderr = "";
@@ -224,9 +244,7 @@ async function main() {
     interceptPort,
     label: "rename source group",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "move"
-      && group.target === renameSource,
+      group.actionClass === "file" && group.operation === "move" && group.target === renameSource,
   });
   assert.equal(renameSettled, false, "rename payload should remain frozen on the source-side hold");
   const renameSourceAck = await sendBoundaryInterceptServerInput({
@@ -244,9 +262,9 @@ async function main() {
     interceptPort,
     label: "rename destination group",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "move"
-      && group.target === renameDestination,
+      group.actionClass === "file" &&
+      group.operation === "move" &&
+      group.target === renameDestination,
   });
   const renameDestinationAck = await sendBoundaryInterceptServerInput({
     target: { host: "127.0.0.1", port: interceptPort },
@@ -281,9 +299,7 @@ async function main() {
     interceptPort,
     label: "symlink path group",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "move"
-      && group.target === symlinkPath,
+      group.actionClass === "file" && group.operation === "move" && group.target === symlinkPath,
   });
   assert.equal(symlinkSettled, false, "symlink payload should remain frozen on the link-path hold");
   const symlinkPathAck = await sendBoundaryInterceptServerInput({
@@ -301,9 +317,7 @@ async function main() {
     interceptPort,
     label: "symlink target group",
     predicate: (group) =>
-      group.actionClass === "file"
-      && group.operation === "move"
-      && group.target === symlinkTarget,
+      group.actionClass === "file" && group.operation === "move" && group.target === symlinkTarget,
   });
   const symlinkTargetAck = await sendBoundaryInterceptServerInput({
     target: { host: "127.0.0.1", port: interceptPort },

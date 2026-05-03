@@ -23,9 +23,7 @@ const ignoredExtensions = new Set([
 ]);
 
 const proprietaryCollapseToken = String.fromCharCode(69, 70, 85, 69);
-const blockedPatterns = [
-  new RegExp(`\\b${proprietaryCollapseToken}\\b`, "i"),
-];
+const blockedPatterns = [new RegExp(`\\b${proprietaryCollapseToken}\\b`, "i")];
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -79,7 +77,9 @@ async function main() {
     matches.length === 0,
     `OSS surface contract failed; proprietary internal-engine references must not appear in the public repo:\n- ${matches.join("\n- ")}`,
   );
-  console.log("OSS surface contract passed (no proprietary internal-engine references in public repo)");
+  console.log(
+    "OSS surface contract passed (no proprietary internal-engine references in public repo)",
+  );
 }
 
 main().catch((error) => {

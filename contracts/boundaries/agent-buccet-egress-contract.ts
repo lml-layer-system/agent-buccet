@@ -1,6 +1,6 @@
 import {
-  createPersistentBoundaryRuntimeStore,
   createBoundaryBodyguard,
+  createPersistentBoundaryRuntimeStore,
   inferBoundaryEgressFlagsFromPayload,
 } from "./../../src/index.ts";
 
@@ -35,14 +35,18 @@ async function main() {
   const apiKeyFlags = inferBoundaryEgressFlagsFromPayload(apiKeyPayload);
   assert(apiKeyFlags?.payloadContainsCredential === true, "API key should flag credential");
 
-  const privateKeyPayload = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQ...\n-----END RSA PRIVATE KEY-----";
+  const privateKeyPayload =
+    "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQ...\n-----END RSA PRIVATE KEY-----";
   const privateKeyFlags = inferBoundaryEgressFlagsFromPayload(privateKeyPayload);
   assert(privateKeyFlags?.payloadContainsCredential === true, "private key should flag credential");
 
   // Visa test card 4111111111111111 — known valid Luhn
   const cardPayload = "Card: 4111111111111111";
   const cardFlags = inferBoundaryEgressFlagsFromPayload(cardPayload);
-  assert(cardFlags?.payloadContainsFinancialData === true, "valid card number should flag financial");
+  assert(
+    cardFlags?.payloadContainsFinancialData === true,
+    "valid card number should flag financial",
+  );
 
   // Invalid Luhn (4111111111111112) — should not flag
   const badCardPayload = "Card: 4111111111111112";
@@ -75,12 +79,18 @@ async function main() {
   // 021000021 is JPMorgan Chase's ABA routing — checksum valid
   const abaPayload = "Routing: 021000021, Account: 123456789";
   const abaFlags = inferBoundaryEgressFlagsFromPayload(abaPayload);
-  assert(abaFlags?.payloadContainsFinancialData === true, "valid ABA routing number should flag financial");
+  assert(
+    abaFlags?.payloadContainsFinancialData === true,
+    "valid ABA routing number should flag financial",
+  );
 
   // 021000022 — off by one, checksum fails
   const fakeAbaPayload = "Routing: 021000022, Account: 123456789";
   const fakeAbaFlags = inferBoundaryEgressFlagsFromPayload(fakeAbaPayload);
-  assert(!fakeAbaFlags?.payloadContainsFinancialData, "invalid ABA checksum should NOT flag financial");
+  assert(
+    !fakeAbaFlags?.payloadContainsFinancialData,
+    "invalid ABA checksum should NOT flag financial",
+  );
 
   // ─── GitHub PAT vendor namespace ─────────────────────────────────────────
   // ghp_ + exactly 36 alphanum chars
@@ -89,7 +99,8 @@ async function main() {
   assert(githubPatFlags?.payloadContainsCredential === true, "GitHub PAT should flag credential");
 
   // ─── JWT detection ────────────────────────────────────────────────────────
-  const jwtPayload = "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+  const jwtPayload =
+    "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
   const jwtFlags = inferBoundaryEgressFlagsFromPayload(jwtPayload);
   assert(jwtFlags?.payloadContainsCredential === true, "JWT should flag credential");
 
@@ -157,7 +168,6 @@ async function main() {
 
   // network.send requires approval by default even without egress flags, so it should reach approval queue
   assert(!cleanResult.executed, "clean network.send without approval handler should not execute");
-
 }
 
 main().catch((error) => {

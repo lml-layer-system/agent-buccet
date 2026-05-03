@@ -1,8 +1,8 @@
 import {
   boundaryDatabaseAction,
   boundarySystemAction,
-  createBoundaryGravityService,
   createBoundaryActionRequest,
+  createBoundaryGravityService,
   issueBoundaryGrant,
   startPersistentBoundarySession,
 } from "./../../src/index.ts";
@@ -34,7 +34,10 @@ async function main() {
     config,
     request: dbRequest,
   });
-  assert(dbOutOfScope.outcome === "bodyguard_grant_offer", "expected out-of-scope database query to yield a Bodyguard grant offer");
+  assert(
+    dbOutOfScope.outcome === "bodyguard_grant_offer",
+    "expected out-of-scope database query to yield a Bodyguard grant offer",
+  );
 
   const sysCredentialRequest = createBoundaryActionRequest({
     config,
@@ -45,23 +48,30 @@ async function main() {
     config,
     request: sysCredentialRequest,
   });
-  assert(sysCredentialDeny.outcome === "bodyguard_grant_offer", "expected out-of-scope system read to yield a Bodyguard grant offer before boundary deny");
+  assert(
+    sysCredentialDeny.outcome === "bodyguard_grant_offer",
+    "expected out-of-scope system read to yield a Bodyguard grant offer before boundary deny",
+  );
 
-  config = (await issueBoundaryGrant({
-    config,
-    resourceKind: "database",
-    resourceValue: "analytics",
-    grantedActions: ["db.query", "db.insert", "db.update", "db.delete"],
-    issuedBy: actorId,
-  })).config;
+  config = (
+    await issueBoundaryGrant({
+      config,
+      resourceKind: "database",
+      resourceValue: "analytics",
+      grantedActions: ["db.query", "db.insert", "db.update", "db.delete"],
+      issuedBy: actorId,
+    })
+  ).config;
 
-  config = (await issueBoundaryGrant({
-    config,
-    resourceKind: "system",
-    resourceValue: "APP_MODE",
-    grantedActions: ["sys.env.read", "sys.env.write"],
-    issuedBy: actorId,
-  })).config;
+  config = (
+    await issueBoundaryGrant({
+      config,
+      resourceKind: "system",
+      resourceValue: "APP_MODE",
+      grantedActions: ["sys.env.read", "sys.env.write"],
+      issuedBy: actorId,
+    })
+  ).config;
 
   const dbApproved = await boundaryDatabaseAction({
     config,
@@ -69,7 +79,10 @@ async function main() {
     actionKind: "db.query",
     execute: async () => "rows-ok",
   });
-  assert(dbApproved.requiresApproval, "expected database query to require approval after scope grant");
+  assert(
+    dbApproved.requiresApproval,
+    "expected database query to require approval after scope grant",
+  );
 
   const sysWriteDenied = await boundarySystemAction({
     config,

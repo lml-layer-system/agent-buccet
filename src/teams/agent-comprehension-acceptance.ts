@@ -83,163 +83,164 @@ function lane(args: {
   };
 }
 
-export const BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES: readonly AgentComprehensionAcceptanceLane[] = [
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0001",
-    invariant: "agent-comprehension-pass-required",
-    summary:
-      "lawful agent action proposals arrive at the boundary having completed a Universal Agent Comprehension Process pass (Receive → Represent → Infer Intent → Bind Constraints → Select Method → Acquire/Use Knowledge → Transform → Validate → Render → Return)",
-    stage: "pipeline",
-    requestTextPatterns: [
-      "agent-comprehension-pass",
-      "comprehension pass",
-      "comprehension pipeline",
-      "engine pass",
-      "ten-stage pass",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0002",
-    invariant: "agent-stage-order",
-    summary:
-      "the ten comprehension stages must run in the canonical order; no stage may be skipped, reordered, or owned by anything inside the engine",
-    stage: "pipeline",
-    requestTextPatterns: [
-      "agent-stage-order",
-      "stage order",
-      "canonical stage order",
-      "no stage skipped",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0003",
-    invariant: "agent-intent-bound",
-    summary:
-      "high-risk agent actions are lawful only when intent is bound: a declared goal, must-have constraints, and a success condition carried in the swarm intent payload",
-    stage: "infer_intent",
-    requestTextPatterns: [
-      "agent-intent-bound",
-      "intent bound",
-      "declared intent",
-      "swarm intent goal",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0004",
-    invariant: "agent-constraints-bound",
-    summary:
-      "the constraints stage must bind UPL acceptance, denial, safety, format, and authority before method selection occurs",
-    stage: "bind_constraints",
-    requestTextPatterns: [
-      "agent-constraints-bound",
-      "constraints bound",
-      "upl bound",
-      "constraint binding",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0005",
-    invariant: "agent-method-sufficient-not-maximal",
-    summary:
-      "method selection must be sufficient for the task and the constraints, not maximal; an arithmetic question selects arithmetic, not a heavy pipeline",
-    stage: "select_method",
-    requestTextPatterns: [
-      "agent-method-sufficient-not-maximal",
-      "sufficient method",
-      "method selection",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0006",
-    invariant: "agent-knowledge-acquired-or-bounded",
-    summary:
-      "the knowledge stage acquires from path sources, tools, web, files, or LLM-as-library; when knowledge is unavailable, lawful output is a bounded answer, declared uncertainty, or refusal — never confident invention",
-    stage: "acquire_knowledge",
-    requestTextPatterns: [
-      "agent-knowledge-acquired-or-bounded",
-      "knowledge acquired",
-      "knowledge bounded",
-      "no fabrication",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0007",
-    invariant: "agent-validation-provenance",
-    summary:
-      "high-risk agent actions are lawful only when validation provenance is carried — composition completed history, freshness, premise check, and required validation against intent and constraints",
-    stage: "validate",
-    requestTextPatterns: [
-      "agent-validation-provenance",
-      "validation provenance",
-      "completed validation",
-      "premise checked",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0008",
-    invariant: "agent-render-usable-by-receiver",
-    summary:
-      "the render stage shapes the validated result into a form usable by the intended receiver — human or next peer; correct internal answer rendered as unreadable jargon does not satisfy the contract",
-    stage: "render",
-    requestTextPatterns: [
-      "agent-render-usable-by-receiver",
-      "render usable",
-      "human-usable rendering",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0009",
-    invariant: "agent-mouth-contract",
-    summary:
-      "an LLM module may serve specific stages — represent, infer intent, transform, render — but never owns the sequence; the engine decides stage, input, validation, and continuation",
-    stage: "pipeline",
-    requestTextPatterns: [
-      "agent-mouth-contract",
-      "llm contract",
-      "mouth contract",
-      "engine owns sequence",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0010",
-    invariant: "agent-bounded-by-upl-track",
-    summary:
-      "all agent motion stays inside the UPL track; standing law follows across every team, every peer, every swarm; there is no exception lane and no infinite recursion",
-    stage: "pipeline",
-    requestTextPatterns: [
-      "agent-bounded-by-upl-track",
-      "bounded by track",
-      "no infinite recursion",
-      "standing law follows",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0011",
-    invariant: "agent-ambiguity-disposition",
-    summary:
-      "when intent cannot be bound, the lawful output is a clarification request or a best-effort answer with the assumption declared; silent guessing is not a lawful continuation",
-    stage: "infer_intent",
-    requestTextPatterns: [
-      "agent-ambiguity-disposition",
-      "ambiguity disposition",
-      "clarification request",
-      "declared assumption",
-    ],
-  }),
-  lane({
-    id: "ACCEPT.AGENT.COMPREHENSION.0012",
-    invariant: "agent-tool-failure-disposition",
-    summary:
-      "when a tool or knowledge operation fails, the lawful output names the limitation and returns a bounded answer; fabrication is not a lawful continuation",
-    stage: "acquire_knowledge",
-    requestTextPatterns: [
-      "agent-tool-failure-disposition",
-      "tool failure",
-      "bounded answer",
-      "stated limitation",
-    ],
-  }),
-];
+export const BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES: readonly AgentComprehensionAcceptanceLane[] =
+  [
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0001",
+      invariant: "agent-comprehension-pass-required",
+      summary:
+        "lawful agent action proposals arrive at the boundary having completed a Universal Agent Comprehension Process pass (Receive → Represent → Infer Intent → Bind Constraints → Select Method → Acquire/Use Knowledge → Transform → Validate → Render → Return)",
+      stage: "pipeline",
+      requestTextPatterns: [
+        "agent-comprehension-pass",
+        "comprehension pass",
+        "comprehension pipeline",
+        "engine pass",
+        "ten-stage pass",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0002",
+      invariant: "agent-stage-order",
+      summary:
+        "the ten comprehension stages must run in the canonical order; no stage may be skipped, reordered, or owned by anything inside the engine",
+      stage: "pipeline",
+      requestTextPatterns: [
+        "agent-stage-order",
+        "stage order",
+        "canonical stage order",
+        "no stage skipped",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0003",
+      invariant: "agent-intent-bound",
+      summary:
+        "high-risk agent actions are lawful only when intent is bound: a declared goal, must-have constraints, and a success condition carried in the swarm intent payload",
+      stage: "infer_intent",
+      requestTextPatterns: [
+        "agent-intent-bound",
+        "intent bound",
+        "declared intent",
+        "swarm intent goal",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0004",
+      invariant: "agent-constraints-bound",
+      summary:
+        "the constraints stage must bind UPL acceptance, denial, safety, format, and authority before method selection occurs",
+      stage: "bind_constraints",
+      requestTextPatterns: [
+        "agent-constraints-bound",
+        "constraints bound",
+        "upl bound",
+        "constraint binding",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0005",
+      invariant: "agent-method-sufficient-not-maximal",
+      summary:
+        "method selection must be sufficient for the task and the constraints, not maximal; an arithmetic question selects arithmetic, not a heavy pipeline",
+      stage: "select_method",
+      requestTextPatterns: [
+        "agent-method-sufficient-not-maximal",
+        "sufficient method",
+        "method selection",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0006",
+      invariant: "agent-knowledge-acquired-or-bounded",
+      summary:
+        "the knowledge stage acquires from path sources, tools, web, files, or LLM-as-library; when knowledge is unavailable, lawful output is a bounded answer, declared uncertainty, or refusal — never confident invention",
+      stage: "acquire_knowledge",
+      requestTextPatterns: [
+        "agent-knowledge-acquired-or-bounded",
+        "knowledge acquired",
+        "knowledge bounded",
+        "no fabrication",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0007",
+      invariant: "agent-validation-provenance",
+      summary:
+        "high-risk agent actions are lawful only when validation provenance is carried — composition completed history, freshness, premise check, and required validation against intent and constraints",
+      stage: "validate",
+      requestTextPatterns: [
+        "agent-validation-provenance",
+        "validation provenance",
+        "completed validation",
+        "premise checked",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0008",
+      invariant: "agent-render-usable-by-receiver",
+      summary:
+        "the render stage shapes the validated result into a form usable by the intended receiver — human or next peer; correct internal answer rendered as unreadable jargon does not satisfy the contract",
+      stage: "render",
+      requestTextPatterns: [
+        "agent-render-usable-by-receiver",
+        "render usable",
+        "human-usable rendering",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0009",
+      invariant: "agent-mouth-contract",
+      summary:
+        "an LLM module may serve specific stages — represent, infer intent, transform, render — but never owns the sequence; the engine decides stage, input, validation, and continuation",
+      stage: "pipeline",
+      requestTextPatterns: [
+        "agent-mouth-contract",
+        "llm contract",
+        "mouth contract",
+        "engine owns sequence",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0010",
+      invariant: "agent-bounded-by-upl-track",
+      summary:
+        "all agent motion stays inside the UPL track; standing law follows across every team, every peer, every swarm; there is no exception lane and no infinite recursion",
+      stage: "pipeline",
+      requestTextPatterns: [
+        "agent-bounded-by-upl-track",
+        "bounded by track",
+        "no infinite recursion",
+        "standing law follows",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0011",
+      invariant: "agent-ambiguity-disposition",
+      summary:
+        "when intent cannot be bound, the lawful output is a clarification request or a best-effort answer with the assumption declared; silent guessing is not a lawful continuation",
+      stage: "infer_intent",
+      requestTextPatterns: [
+        "agent-ambiguity-disposition",
+        "ambiguity disposition",
+        "clarification request",
+        "declared assumption",
+      ],
+    }),
+    lane({
+      id: "ACCEPT.AGENT.COMPREHENSION.0012",
+      invariant: "agent-tool-failure-disposition",
+      summary:
+        "when a tool or knowledge operation fails, the lawful output names the limitation and returns a bounded answer; fabrication is not a lawful continuation",
+      stage: "acquire_knowledge",
+      requestTextPatterns: [
+        "agent-tool-failure-disposition",
+        "tool failure",
+        "bounded answer",
+        "stated limitation",
+      ],
+    }),
+  ];
 
 /**
  * Per-provider acceptance corridors for path-source transports.
@@ -266,20 +267,75 @@ type LocalLlmCorridor = {
 };
 
 export const REMOTE_LLM_ACCEPTANCE_CORRIDORS: readonly RemoteLlmCorridor[] = [
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.OPENAI",    provider: "openai",    hostPattern: "/api\\.openai\\.com/i",                                     defaultModel: "gpt-4o-mini" },
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.ANTHROPIC", provider: "anthropic", hostPattern: "/api\\.anthropic\\.com/i",                                  defaultModel: "claude-3-5-sonnet-latest" },
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.GEMINI",    provider: "gemini",    hostPattern: "/generativelanguage\\.googleapis\\.com/i",                  defaultModel: "gemini-1.5-flash" },
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.MISTRAL",   provider: "mistral",   hostPattern: "/api\\.mistral\\.ai/i",                                     defaultModel: "mistral-small-latest" },
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.GROQ",      provider: "groq",      hostPattern: "/api\\.groq\\.com/i",                                       defaultModel: "llama-3.1-8b-instant" },
-  { id: "ACCEPT.AGENT.SOURCE.PROVIDER.DEEPSEEK", provider: "deepseek",   hostPattern: "/api\\.deepseek\\.com/i",                                   defaultModel: "deepseek-chat" },
+  {
+    id: "ACCEPT.AGENT.SOURCE.PROVIDER.OPENAI",
+    provider: "openai",
+    hostPattern: "/api\\.openai\\.com/i",
+    defaultModel: "gpt-4o-mini",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.PROVIDER.ANTHROPIC",
+    provider: "anthropic",
+    hostPattern: "/api\\.anthropic\\.com/i",
+    defaultModel: "claude-3-5-sonnet-latest",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.PROVIDER.GEMINI",
+    provider: "gemini",
+    hostPattern: "/generativelanguage\\.googleapis\\.com/i",
+    defaultModel: "gemini-1.5-flash",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.PROVIDER.MISTRAL",
+    provider: "mistral",
+    hostPattern: "/api\\.mistral\\.ai/i",
+    defaultModel: "mistral-small-latest",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.PROVIDER.GROQ",
+    provider: "groq",
+    hostPattern: "/api\\.groq\\.com/i",
+    defaultModel: "llama-3.1-8b-instant",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.PROVIDER.DEEPSEEK",
+    provider: "deepseek",
+    hostPattern: "/api\\.deepseek\\.com/i",
+    defaultModel: "deepseek-chat",
+  },
 ];
 
 export const LOCAL_LLM_ACCEPTANCE_CORRIDORS: readonly LocalLlmCorridor[] = [
-  { id: "ACCEPT.AGENT.SOURCE.LOCAL.OLLAMA",    provider: "ollama",    binary: "ollama",        defaultEndpoint: "http://127.0.0.1:11434" },
-  { id: "ACCEPT.AGENT.SOURCE.LOCAL.LLAMA_CPP", provider: "llama-cpp", binary: "llama-cli",     defaultEndpoint: "http://127.0.0.1:8080" },
-  { id: "ACCEPT.AGENT.SOURCE.LOCAL.LM_STUDIO", provider: "lm-studio", binary: "lms",           defaultEndpoint: "http://127.0.0.1:1234" },
-  { id: "ACCEPT.AGENT.SOURCE.LOCAL.MLX",       provider: "mlx",       binary: "mlx_lm.server", defaultEndpoint: "http://127.0.0.1:8080" },
-  { id: "ACCEPT.AGENT.SOURCE.LOCAL.VLLM",      provider: "vllm",      binary: "vllm",          defaultEndpoint: "http://127.0.0.1:8000" },
+  {
+    id: "ACCEPT.AGENT.SOURCE.LOCAL.OLLAMA",
+    provider: "ollama",
+    binary: "ollama",
+    defaultEndpoint: "http://127.0.0.1:11434",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.LOCAL.LLAMA_CPP",
+    provider: "llama-cpp",
+    binary: "llama-cli",
+    defaultEndpoint: "http://127.0.0.1:8080",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.LOCAL.LM_STUDIO",
+    provider: "lm-studio",
+    binary: "lms",
+    defaultEndpoint: "http://127.0.0.1:1234",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.LOCAL.MLX",
+    provider: "mlx",
+    binary: "mlx_lm.server",
+    defaultEndpoint: "http://127.0.0.1:8080",
+  },
+  {
+    id: "ACCEPT.AGENT.SOURCE.LOCAL.VLLM",
+    provider: "vllm",
+    binary: "vllm",
+    defaultEndpoint: "http://127.0.0.1:8000",
+  },
 ];
 
 export type ProviderAcceptanceLane = {
@@ -295,39 +351,37 @@ export type ProviderAcceptanceLane = {
   transport: "remote-llm" | "local-llm";
 };
 
-export const REMOTE_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] = REMOTE_LLM_ACCEPTANCE_CORRIDORS.map((c) => ({
-  id: c.id,
-  invariant: `agent-source-remote-${c.provider}`,
-  summary: `Remote LLM path-source via ${c.provider} is a lawful agent knowledge corridor (network.send to ${c.hostPattern}); UPL spend caps and rate caps apply per attached team.`,
-  actionKinds: ["network.send"],
-  targetPattern: c.hostPattern,
-  targetMatchMode: "regex" as const,
-  requestTextPatterns: [
-    `remote-llm:${c.provider}`,
-    `${c.provider}-source`,
-    `${c.provider} model ${c.defaultModel}`,
-  ],
-  brainSourceUri: BRAIN_SOURCE_URI,
-  provider: c.provider,
-  transport: "remote-llm" as const,
-}));
+export const REMOTE_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] =
+  REMOTE_LLM_ACCEPTANCE_CORRIDORS.map((c) => ({
+    id: c.id,
+    invariant: `agent-source-remote-${c.provider}`,
+    summary: `Remote LLM path-source via ${c.provider} is a lawful agent knowledge corridor (network.send to ${c.hostPattern}); UPL spend caps and rate caps apply per attached team.`,
+    actionKinds: ["network.send"],
+    targetPattern: c.hostPattern,
+    targetMatchMode: "regex" as const,
+    requestTextPatterns: [
+      `remote-llm:${c.provider}`,
+      `${c.provider}-source`,
+      `${c.provider} model ${c.defaultModel}`,
+    ],
+    brainSourceUri: BRAIN_SOURCE_URI,
+    provider: c.provider,
+    transport: "remote-llm" as const,
+  }));
 
-export const LOCAL_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] = LOCAL_LLM_ACCEPTANCE_CORRIDORS.map((c) => ({
-  id: c.id,
-  invariant: `agent-source-local-${c.provider}`,
-  summary: `Local LLM path-source via ${c.provider} (${c.binary}${c.defaultEndpoint ? ` at ${c.defaultEndpoint}` : ""}) is a lawful agent knowledge corridor (tool.exec); per-team UPL spend caps and rate caps apply.`,
-  actionKinds: ["tool.exec"],
-  targetPattern: c.binary,
-  targetMatchMode: "exact" as const,
-  requestTextPatterns: [
-    `local-llm:${c.provider}`,
-    c.binary,
-    `${c.provider} local model`,
-  ],
-  brainSourceUri: BRAIN_SOURCE_URI,
-  provider: c.provider,
-  transport: "local-llm" as const,
-}));
+export const LOCAL_LLM_ACCEPTANCE_LANES: readonly ProviderAcceptanceLane[] =
+  LOCAL_LLM_ACCEPTANCE_CORRIDORS.map((c) => ({
+    id: c.id,
+    invariant: `agent-source-local-${c.provider}`,
+    summary: `Local LLM path-source via ${c.provider} (${c.binary}${c.defaultEndpoint ? ` at ${c.defaultEndpoint}` : ""}) is a lawful agent knowledge corridor (tool.exec); per-team UPL spend caps and rate caps apply.`,
+    actionKinds: ["tool.exec"],
+    targetPattern: c.binary,
+    targetMatchMode: "exact" as const,
+    requestTextPatterns: [`local-llm:${c.provider}`, c.binary, `${c.provider} local model`],
+    brainSourceUri: BRAIN_SOURCE_URI,
+    provider: c.provider,
+    transport: "local-llm" as const,
+  }));
 
 type HttpApiCorridor = {
   id: string;
@@ -360,7 +414,8 @@ export const HTTP_API_ACCEPTANCE_CORRIDORS: readonly HttpApiCorridor[] = [
   {
     id: "ACCEPT.AGENT.SOURCE.HTTP_API.CHROMADB",
     provider: "chromadb",
-    hostPattern: "/127\\.0\\.0\\.1:8000|localhost:8000|\\/(?:api\\/v2\\/|v1\\/)(?:collections|tenants)\\b|chromadb/i",
+    hostPattern:
+      "/127\\.0\\.0\\.1:8000|localhost:8000|\\/(?:api\\/v2\\/|v1\\/)(?:collections|tenants)\\b|chromadb/i",
   },
   {
     id: "ACCEPT.AGENT.SOURCE.HTTP_API.MEILISEARCH",
@@ -392,18 +447,19 @@ export type HttpApiAcceptanceLane = {
   transport: "http-api";
 };
 
-export const HTTP_API_ACCEPTANCE_LANES: readonly HttpApiAcceptanceLane[] = HTTP_API_ACCEPTANCE_CORRIDORS.map((c) => ({
-  id: c.id,
-  invariant: `agent-source-http-${c.provider}`,
-  summary: `HTTP knowledge connector via ${c.provider} is a lawful agent retrieval corridor (\`network.send\` matched to ${c.hostPattern}); bounded by rate caps per team.`,
-  actionKinds: ["network.send"],
-  targetPattern: c.hostPattern,
-  targetMatchMode: "regex" as const,
-  requestTextPatterns: [`http-api:${c.provider}`, `${c.provider} vector`, `${c.provider} search`],
-  brainSourceUri: BRAIN_SOURCE_URI,
-  provider: c.provider,
-  transport: "http-api" as const,
-}));
+export const HTTP_API_ACCEPTANCE_LANES: readonly HttpApiAcceptanceLane[] =
+  HTTP_API_ACCEPTANCE_CORRIDORS.map((c) => ({
+    id: c.id,
+    invariant: `agent-source-http-${c.provider}`,
+    summary: `HTTP knowledge connector via ${c.provider} is a lawful agent retrieval corridor (\`network.send\` matched to ${c.hostPattern}); bounded by rate caps per team.`,
+    actionKinds: ["network.send"],
+    targetPattern: c.hostPattern,
+    targetMatchMode: "regex" as const,
+    requestTextPatterns: [`http-api:${c.provider}`, `${c.provider} vector`, `${c.provider} search`],
+    brainSourceUri: BRAIN_SOURCE_URI,
+    provider: c.provider,
+    transport: "http-api" as const,
+  }));
 
 /**
  * Engine acceptance lanes — declaratory NAMING that the operator has chosen
@@ -447,18 +503,15 @@ export type EngineAcceptanceLane = {
   provider: string;
 };
 
-export const ENGINE_ACCEPTANCE_LANES: readonly EngineAcceptanceLane[] = ENGINE_ACCEPTANCE_CORRIDORS.map((c) => ({
-  id: c.id,
-  invariant: `agent-source-engine-${c.provider}`,
-  summary: c.summary,
-  actionKinds: ["chat.emit"],
-  targetPattern: `agent-source-engine-${c.provider}`,
-  targetMatchMode: "exact" as const,
-  requestTextPatterns: [
-    `engine:${c.provider}`,
-    `hands engine ${c.provider}`,
-    c.packageHint,
-  ],
-  brainSourceUri: BRAIN_SOURCE_URI,
-  provider: c.provider,
-}));
+export const ENGINE_ACCEPTANCE_LANES: readonly EngineAcceptanceLane[] =
+  ENGINE_ACCEPTANCE_CORRIDORS.map((c) => ({
+    id: c.id,
+    invariant: `agent-source-engine-${c.provider}`,
+    summary: c.summary,
+    actionKinds: ["chat.emit"],
+    targetPattern: `agent-source-engine-${c.provider}`,
+    targetMatchMode: "exact" as const,
+    requestTextPatterns: [`engine:${c.provider}`, `hands engine ${c.provider}`, c.packageHint],
+    brainSourceUri: BRAIN_SOURCE_URI,
+    provider: c.provider,
+  }));

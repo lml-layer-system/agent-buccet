@@ -1,9 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import {
-  createBoundaryBodyguard,
-  createPersistentBoundaryRuntimeStore,
-} from "./../src/index.ts";
+import { createBoundaryBodyguard, createPersistentBoundaryRuntimeStore } from "./../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -65,11 +62,23 @@ async function main() {
   await bodyguard.gravity.shutdown();
   await gravityLoop;
 
-  assert(allowed.decision === "allow" && allowed.executed, "expected gravity to admit in-scope write");
-  assert(nulled.decision === "null" && !nulled.executed, "expected gravity to null out-of-scope write");
+  assert(
+    allowed.decision === "allow" && allowed.executed,
+    "expected gravity to admit in-scope write",
+  );
+  assert(
+    nulled.decision === "null" && !nulled.executed,
+    "expected gravity to null out-of-scope write",
+  );
   assert(audit.decision === "allow", "expected gravity session audit to be complete");
-  assert((await fs.readFile(insideFile, "utf8")) === "gravity inside scope\n", "expected in-scope gravity write");
-  assert((await fs.readFile(outsideFile, "utf8")) === "protected\n", "expected out-of-scope file unchanged");
+  assert(
+    (await fs.readFile(insideFile, "utf8")) === "gravity inside scope\n",
+    "expected in-scope gravity write",
+  );
+  assert(
+    (await fs.readFile(outsideFile, "utf8")) === "protected\n",
+    "expected out-of-scope file unchanged",
+  );
 
   console.log("Agent Buccet gravity example");
   console.log(`session: ${sessionId}`);

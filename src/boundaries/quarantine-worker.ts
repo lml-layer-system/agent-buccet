@@ -51,7 +51,9 @@ type WorkerInput = {
   shardId: string;
 };
 
-function buildMissingBasisPitItem(item: BoundaryQuarantineSnapshotItem): BoundaryQuarantineReportItem {
+function buildMissingBasisPitItem(
+  item: BoundaryQuarantineSnapshotItem,
+): BoundaryQuarantineReportItem {
   return {
     itemId: item.itemId,
     entryId: item.entryId,
@@ -83,9 +85,7 @@ function prepareShard(input: WorkerInput): BoundaryQuarantinePreparedShard {
         hash: item.hash,
         path: item.entry.path,
         pathHash: item.entry.pathHash,
-        ...(request
-          ? { request }
-          : { preparationPit: buildMissingBasisPitItem(item) }),
+        ...(request ? { request } : { preparationPit: buildMissingBasisPitItem(item) }),
       };
     }),
   };

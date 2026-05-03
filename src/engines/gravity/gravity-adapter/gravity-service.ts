@@ -1,16 +1,25 @@
 import {
-  getDefaultLawSkills,
-  mapEnforcementResultToOutcome,
-  evaluateGravityEvent,
-  type EnforcementResult,
   type BodyguardOutcome,
+  type EnforcementResult,
   type GravityEvent,
   type GravityProposal,
   type GravityState,
   type LawSkill,
+  evaluateGravityEvent,
+  getDefaultLawSkills,
+  mapEnforcementResultToOutcome,
 } from "../gravity-core/index.ts";
-import { mapBoundaryRequestToGravityProposal } from "./boundary-to-gravity.ts";
-import { mapBoundaryLedgerToGravityView } from "./ledger-to-gravity.ts";
+import { appendBoundaryLedger } from "./../../../proof/ledger.ts";
+import { compileLiveUplField } from "./../../../proof/user-path-ledger.ts";
+import { assessBoundarySubstrateGravity } from "./../../../runtime/substrate/substrate-live.ts";
+import type {
+  BodyguardMove,
+  BoundaryActionRequest,
+  BoundaryApprovalRequest,
+  BoundaryGrant,
+  BoundaryRuntimeConfig,
+  BoundaryUplEntry,
+} from "./../../../runtime/types.ts";
 import {
   applyOpenAsLawBodyguardGrant,
   buildGravityBodyguardMoves,
@@ -18,17 +27,8 @@ import {
   ledgerBodyguardConfirmedDeny,
   ledgerBodyguardGrantOffer,
 } from "./bodyguard-open-as-law.ts";
-import { appendBoundaryLedger } from "./../../../proof/ledger.ts";
-import { assessBoundarySubstrateGravity } from "./../../../runtime/substrate/substrate-live.ts";
-import { compileLiveUplField } from "./../../../proof/user-path-ledger.ts";
-import type {
-  BoundaryActionRequest,
-  BoundaryApprovalRequest,
-  BoundaryGrant,
-  BoundaryRuntimeConfig,
-  BoundaryUplEntry,
-  BodyguardMove,
-} from "./../../../runtime/types.ts";
+import { mapBoundaryRequestToGravityProposal } from "./boundary-to-gravity.ts";
+import { mapBoundaryLedgerToGravityView } from "./ledger-to-gravity.ts";
 
 export type BoundaryGravityEnforcement =
   | {
@@ -48,11 +48,15 @@ export type BoundaryGravityEnforcement =
       bodyguardMoves: BodyguardMove[];
       request: BoundaryActionRequest;
       config: BoundaryRuntimeConfig;
-      applyGrant: (approval?: BoundaryApprovalRequest) => Promise<{ config: BoundaryRuntimeConfig; request: BoundaryActionRequest }>;
+      applyGrant: (
+        approval?: BoundaryApprovalRequest,
+      ) => Promise<{ config: BoundaryRuntimeConfig; request: BoundaryActionRequest }>;
       denyGrant: () => Promise<void>;
     };
 
-function buildUplPathGrantScopes(entry: BoundaryUplEntry): Array<{ scope: string; exactOnly: boolean }> {
+function buildUplPathGrantScopes(
+  entry: BoundaryUplEntry,
+): Array<{ scope: string; exactOnly: boolean }> {
   const requestActionKind = entry.requestBasis?.actionKind ?? "";
   if (!requestActionKind.startsWith("fs.")) {
     return [];
@@ -67,39 +71,42 @@ function buildUplPathGrantScopes(entry: BoundaryUplEntry): Array<{ scope: string
       }));
     }
     if (constraint.targetPattern) {
-      return [{
-        scope: constraint.targetPattern,
-        exactOnly: constraint.targetMatchMode === "exact",
-      }];
+      return [
+        {
+          scope: constraint.targetPattern,
+          exactOnly: constraint.targetMatchMode === "exact",
+        },
+      ];
     }
   }
 
-  return entry.requestBasis?.target
-    ? [{ scope: entry.requestBasis.target, exactOnly: true }]
-    : [];
+  return entry.requestBasis?.target ? [{ scope: entry.requestBasis.target, exactOnly: true }] : [];
 }
 
-function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessionTraceComplete: boolean; requestTraceComplete: boolean }): GravityState {
+function mapConfigToGravityState(
+  config: BoundaryRuntimeConfig,
+  ledger: { sessionTraceComplete: boolean; requestTraceComplete: boolean },
+): GravityState {
   const gravityEligibleGrants = config.grants.filter(
     (grant): grant is typeof grant & { resourceKind: Exclude<typeof grant.resourceKind, "chat"> } =>
       grant.resourceKind !== "chat",
   );
   const uplPathGrants = config.upl
     ? compileLiveUplField({
-      ledger: config.upl,
-      session: config.session,
-    }).flatMap((segment, index) => {
-      if (segment.polarity !== "allow") {
-        return [];
-      }
-      return buildUplPathGrantScopes(segment.entry).map((grantScope, scopeIndex) => ({
-        id: `upl:${segment.entry.id}:${scopeIndex + 1}`,
-        kind: "path" as const,
-        scope: grantScope.scope,
-        exactOnly: grantScope.exactOnly,
-        issuedAt: Date.parse(segment.entry.createdAt) || Date.now() + index,
-      }));
-    })
+        ledger: config.upl,
+        session: config.session,
+      }).flatMap((segment, index) => {
+        if (segment.polarity !== "allow") {
+          return [];
+        }
+        return buildUplPathGrantScopes(segment.entry).map((grantScope, scopeIndex) => ({
+          id: `upl:${segment.entry.id}:${scopeIndex + 1}`,
+          kind: "path" as const,
+          scope: grantScope.scope,
+          exactOnly: grantScope.exactOnly,
+          issuedAt: Date.parse(segment.entry.createdAt) || Date.now() + index,
+        }));
+      })
     : [];
   const dynamicGrants = [
     ...gravityEligibleGrants.map((grant) => ({
@@ -113,7 +120,14 @@ function mapConfigToGravityState(config: BoundaryRuntimeConfig, ledger: { sessio
     })),
     ...uplPathGrants,
   ];
-  const uniqueDynamicGrants = [...new Map(dynamicGrants.map((grant) => [`${grant.kind}:${grant.scope}:${grant.exactOnly === true}`, grant])).values()];
+  const uniqueDynamicGrants = [
+    ...new Map(
+      dynamicGrants.map((grant) => [
+        `${grant.kind}:${grant.scope}:${grant.exactOnly === true}`,
+        grant,
+      ]),
+    ).values(),
+  ];
 
   return {
     identity: {
@@ -159,10 +173,12 @@ export async function evaluateBoundaryGravityEvent(args: {
   lawIds: string[];
   reason: string;
 }> {
-  const ledger = args.ledgerOverride ?? await mapBoundaryLedgerToGravityView({
-    sessionId: args.config.session.sessionId,
-    requestId: args.request?.requestId,
-  });
+  const ledger =
+    args.ledgerOverride ??
+    (await mapBoundaryLedgerToGravityView({
+      sessionId: args.config.session.sessionId,
+      requestId: args.request?.requestId,
+    }));
   const baseState = mapConfigToGravityState(args.config, ledger);
   const evaluated = evaluateGravityEvent({
     state: baseState,
@@ -171,8 +187,9 @@ export async function evaluateBoundaryGravityEvent(args: {
   });
   const result = evaluated.result;
   const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
-  const reason = result.violations[0]?.message
-    ?? (result.decision === "allow" ? "gravity admitted event" : "gravity denied event");
+  const reason =
+    result.violations[0]?.message ??
+    (result.decision === "allow" ? "gravity admitted event" : "gravity denied event");
   return {
     result,
     state: evaluated.state,
@@ -357,11 +374,13 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
               sessionTraceComplete: false,
               requestTraceComplete: false,
             }),
-            violations: [{
-              lawId: "SUBSTRATE.K.VALIDATE.01",
-              message: substrate.validation.message || "substrate validation failed",
-              code: "substrate_validation_failed",
-            }],
+            violations: [
+              {
+                lawId: "SUBSTRATE.K.VALIDATE.01",
+                message: substrate.validation.message || "substrate validation failed",
+                code: "substrate_validation_failed",
+              },
+            ],
           },
           reason: substrate.validation.message || "substrate validation failed",
           lawIds: ["SUBSTRATE.K.VALIDATE.01"],
@@ -420,8 +439,15 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
       const lawIds = [...new Set(result.violations.map((violation) => violation.lawId))];
 
       if (outcome.outcome === "bodyguard_grant_offer") {
-        await ledgerBodyguardGrantOffer({ config: job.config, request: job.request, offer: outcome.grantOffer });
-        const step = buildOpenAsLawBodyguardStep({ offer: outcome.grantOffer, request: job.request });
+        await ledgerBodyguardGrantOffer({
+          config: job.config,
+          request: job.request,
+          offer: outcome.grantOffer,
+        });
+        const step = buildOpenAsLawBodyguardStep({
+          offer: outcome.grantOffer,
+          request: job.request,
+        });
         job.resolve({
           outcome: "bodyguard_grant_offer",
           result,
@@ -443,7 +469,11 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
             };
           },
           denyGrant: async () => {
-            await ledgerBodyguardConfirmedDeny({ config: job.config, request: job.request, offer: outcome.grantOffer });
+            await ledgerBodyguardConfirmedDeny({
+              config: job.config,
+              request: job.request,
+              offer: outcome.grantOffer,
+            });
           },
         });
         continue;
@@ -451,8 +481,8 @@ async function runRuntimeLoop(runtime: GravityKernelRuntime): Promise<void> {
 
       const reason =
         outcome.outcome === "deny"
-          ? result.violations[0]?.message ?? "gravity denied proposal"
-          : result.violations[0]?.message ?? "gravity admitted proposal";
+          ? (result.violations[0]?.message ?? "gravity denied proposal")
+          : (result.violations[0]?.message ?? "gravity admitted proposal");
 
       job.resolve({
         outcome: outcome.outcome,
@@ -481,7 +511,9 @@ export type BoundaryGravityService = {
   }) => Promise<BoundaryGravityEnforcement>;
 };
 
-export function createBoundaryGravityService(skills: readonly LawSkill[] = getDefaultLawSkills()): BoundaryGravityService {
+export function createBoundaryGravityService(
+  skills: readonly LawSkill[] = getDefaultLawSkills(),
+): BoundaryGravityService {
   const serviceId = nextGravityServiceId++;
   return {
     async enforceRequest({ config, request }) {

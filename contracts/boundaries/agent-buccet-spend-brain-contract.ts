@@ -18,18 +18,21 @@
  *      (team slug, kinds present, no crash).
  */
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
-import {
-  buildBuccetSystemContext,
-} from "./../../src/engines/pi/pi-adapter.ts";
 import {
   SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
 } from "./../../src/context/path-memory.ts";
+import { buildBuccetSystemContext } from "./../../src/engines/pi/pi-adapter.ts";
 import {
+  buildProofOfWorkTraceOutput,
+  renderProofOfWorkTraceText,
+} from "./../../src/proof/create-trace.ts";
+import {
+  type TeamAgent,
   addTeamAgent,
   addTeamEngineSource,
   addTeamRemoteLlmSource,
@@ -38,12 +41,7 @@ import {
   loadTeam,
   readTeamPathSourceMemoryEntries,
   teamSlug,
-  type TeamAgent,
 } from "./../../src/teams/team-workshop.ts";
-import {
-  buildProofOfWorkTraceOutput,
-  renderProofOfWorkTraceText,
-} from "./../../src/proof/create-trace.ts";
 
 const cliPath = path.join(process.cwd(), "cli", "buccet.ts");
 
@@ -52,18 +50,18 @@ async function runBuccet(
   env: Record<string, string>,
 ): Promise<{ stdout: string; stderr: string; code: number }> {
   return new Promise((resolve) => {
-    const child = spawn(
-      process.execPath,
-      [cliPath, ...args],
-      {
-        env: { ...process.env, ...env },
-        stdio: ["ignore", "pipe", "pipe"],
-      },
-    );
+    const child = spawn(process.execPath, [cliPath, ...args], {
+      env: { ...process.env, ...env },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     let stdout = "";
     let stderr = "";
-    child.stdout.on("data", (chunk: Buffer) => { stdout += chunk.toString(); });
-    child.stderr.on("data", (chunk: Buffer) => { stderr += chunk.toString(); });
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
     child.on("close", (code) => resolve({ stdout, stderr, code: code ?? 1 }));
   });
 }
@@ -93,7 +91,7 @@ async function main() {
     // ── Setup: SPEND team and workshop team ───────────────────────────────────────
 
     const spendSlug = teamSlug("spend-brain-team");
-    const spendManifest = await createTeam({
+    const _spendManifest = await createTeam({
       homePath: tempRoot,
       name: "spend-brain-team",
       domain: "shopping",
@@ -147,8 +145,8 @@ async function main() {
 
     assert.ok(
       spendCtx.includes(SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id) ||
-      spendCtx.includes("Spending Agents") ||
-      spendCtx.includes("Value Boundary"),
+        spendCtx.includes("Spending Agents") ||
+        spendCtx.includes("Value Boundary"),
       "SPEND system context must include value-boundary brain content",
     );
     // The value-boundary brain prose names "Universal Agent Comprehension Process" in its
@@ -162,11 +160,15 @@ async function main() {
     // ── 2. SPEND system context contains 'same Pi flow, different domain law' note ─
 
     assert.ok(
-      spendCtx.includes("same Pi flow") || spendCtx.includes("domain law") || spendCtx.includes("SPEND BUCCET"),
+      spendCtx.includes("same Pi flow") ||
+        spendCtx.includes("domain law") ||
+        spendCtx.includes("SPEND BUCCET"),
       "SPEND system context must contain same-Pi-flow / domain-law / SPEND BUCCET note",
     );
     assert.ok(
-      spendCtx.includes("spend packet") || spendCtx.includes("SpendPacket") || spendCtx.includes("Commit"),
+      spendCtx.includes("spend packet") ||
+        spendCtx.includes("SpendPacket") ||
+        spendCtx.includes("Commit"),
       "SPEND system context must reference spend packet or Commit",
     );
 
@@ -250,11 +252,11 @@ async function main() {
     const preflight = spendRecords.find((r) => r.kind === "brain_pass_preflight");
     assert.ok(preflight, "SPEND PoW must include brain_pass_preflight entry");
     assert.ok(
-      preflight!.meta?.["brainSourceId"] === SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+      preflight?.meta?.brainSourceId === SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
       "brain_pass_preflight meta must reference value-boundary brain id",
     );
     assert.ok(
-      preflight!.meta?.["buccetClass"] === "spend",
+      preflight?.meta?.buccetClass === "spend",
       "brain_pass_preflight meta must record buccetClass=spend",
     );
 
@@ -265,14 +267,14 @@ async function main() {
     assert.ok(traceText.includes(spendSlug), "trace must name the spend team slug");
     assert.ok(traceText.includes("brain_pass_preflight"), "trace must show brain_pass_preflight");
     assert.ok(traceText.includes("shard_dispatch"), "trace must show shard_dispatch");
-    assert.ok(!traceText.includes("No proof-of-work"), "SPEND team with entries must not show empty state");
+    assert.ok(
+      !traceText.includes("No proof-of-work"),
+      "SPEND team with entries must not show empty state",
+    );
 
     // ── 8. CLI create trace for SPEND team exits 0 and renders entries ───────────
 
-    const cliTraceResult = await runBuccet(
-      ["create", "trace", "spend-brain-team", "--json"],
-      env,
-    );
+    const cliTraceResult = await runBuccet(["create", "trace", "spend-brain-team", "--json"], env);
     assert.equal(
       cliTraceResult.code,
       0,
@@ -296,7 +298,9 @@ async function main() {
     console.log("VALUE BOUNDARY in context:       present");
     console.log("'subscribe' + 'exchange' vocab:  present in SPEND system context");
     console.log("workshop system context:         default brain, no SPEND note, no VALUE BOUNDARY");
-    console.log("SPEND PoW entries:               brain_pass_preflight has brainSourceId + buccetClass");
+    console.log(
+      "SPEND PoW entries:               brain_pass_preflight has brainSourceId + buccetClass",
+    );
     console.log("renderProofOfWorkTraceText:      renders slug, kinds, no empty state");
     console.log("CLI create trace (SPEND):        exits 0, JSON has preflight entry");
   } finally {

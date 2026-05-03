@@ -32,21 +32,21 @@
  */
 
 import { enforceBoundaryProposal } from "./../../boundaries/bodyguard.ts";
-import { appendBoundaryLedger } from "./../../proof/ledger.ts";
 import {
   isBuiltinTeamBrainSourceId,
   resolveTeamBrainPathSource,
 } from "./../../context/path-memory.ts";
+import { appendBoundaryLedger } from "./../../proof/ledger.ts";
+import type { BoundaryActionKind, BoundaryRuntimeConfig } from "./../../runtime/types.ts";
 import {
-  teamManifestBrainSourceId,
   type EngineSourceConfig,
-  type RemoteLlmSourceConfig,
   type LocalLlmSourceConfig,
+  type RemoteLlmSourceConfig,
   type TeamAgent,
   type TeamManifest,
   type TeamSourceRef,
+  teamManifestBrainSourceId,
 } from "./../../teams/team-workshop.ts";
-import type { BoundaryActionKind, BoundaryRuntimeConfig } from "./../../runtime/types.ts";
 
 const PI_AGENT_CORE_PKG = "@mariozechner/pi-agent-core";
 const PI_AI_PKG = "@mariozechner/pi-ai";
@@ -116,17 +116,37 @@ export async function requirePiBindings(): Promise<PiAgentBindings> {
 export function mapPiToolToBoundaryKind(toolName: string): BoundaryActionKind {
   const normalized = toolName.toLowerCase();
   if (normalized === "bash" || normalized === "shell" || normalized === "exec") return "tool.exec";
-  if (normalized === "read" || normalized === "grep" || normalized === "glob" || normalized === "ls") return "fs.read";
-  if (normalized === "write" || normalized === "edit" || normalized === "patch" || normalized === "create") return "fs.write";
+  if (
+    normalized === "read" ||
+    normalized === "grep" ||
+    normalized === "glob" ||
+    normalized === "ls"
+  )
+    return "fs.read";
+  if (
+    normalized === "write" ||
+    normalized === "edit" ||
+    normalized === "patch" ||
+    normalized === "create"
+  )
+    return "fs.write";
   if (normalized === "delete" || normalized === "rm") return "fs.delete";
-  if (normalized === "fetch" || normalized === "http" || normalized === "network" || normalized === "browser") return "network.send";
+  if (
+    normalized === "fetch" ||
+    normalized === "http" ||
+    normalized === "network" ||
+    normalized === "browser"
+  )
+    return "network.send";
   return "tool.exec";
 }
 
 export function summarizeToolCallForBoundary(call: PiToolCallLike): string {
   const argsRaw =
     call?.arguments !== undefined
-      ? (typeof call.arguments === "string" ? call.arguments : safeStringify(call.arguments))
+      ? typeof call.arguments === "string"
+        ? call.arguments
+        : safeStringify(call.arguments)
       : "";
   const trimmed = argsRaw.length > 240 ? `${argsRaw.slice(0, 237)}...` : argsRaw;
   return `pi-tool:${call.name}${trimmed ? ` ${trimmed}` : ""}`;
@@ -192,7 +212,8 @@ export function buildBuccetBeforeToolCall(ctx: BuccetPiHookContext) {
 
     if (!verdict.allowed) {
       const reason =
-        verdict.reason ?? "blocked by Buccet UPL boundary; propose a lawful alternative or escalate";
+        verdict.reason ??
+        "blocked by Buccet UPL boundary; propose a lawful alternative or escalate";
       return { block: true, reason };
     }
     return undefined;
@@ -218,7 +239,10 @@ function inferToolTarget(call: PiToolCallLike): string {
  * slug + agent id.
  */
 export function buildBuccetAfterToolCall(ctx: BuccetPiHookContext) {
-  return async function afterToolCall(call: PiToolCallLike, result: unknown): Promise<PiAfterToolCallResult> {
+  return async function afterToolCall(
+    call: PiToolCallLike,
+    result: unknown,
+  ): Promise<PiAfterToolCallResult> {
     const actionKind = mapPiToolToBoundaryKind(call.name);
     const target = inferToolTarget(call);
     try {
@@ -233,7 +257,8 @@ export function buildBuccetAfterToolCall(ctx: BuccetPiHookContext) {
           team: ctx.manifest.slug,
           agent: ctx.agent.id,
           tool: call.name,
-          engineProvider: (ctx.engineSource.engine as EngineSourceConfig | undefined)?.provider ?? "pi",
+          engineProvider:
+            (ctx.engineSource.engine as EngineSourceConfig | undefined)?.provider ?? "pi",
           aiProvider:
             (ctx.aiSource.remote as RemoteLlmSourceConfig | undefined)?.provider ??
             (ctx.aiSource.local as LocalLlmSourceConfig | undefined)?.provider ??
@@ -383,7 +408,10 @@ export async function buildBuccetGovernedPiAgent(
   // Pi's Agent expects on `initialState.model`. Surface is dynamic; we
   // try the documented call and fall back to a generic shape.
   const piAiModule = piAi as { getModel?: (provider: string, model: string) => unknown };
-  const modelHandle = piAiModule.getModel?.(aiProvider, aiModel) ?? { provider: aiProvider, model: aiModel };
+  const modelHandle = piAiModule.getModel?.(aiProvider, aiModel) ?? {
+    provider: aiProvider,
+    model: aiModel,
+  };
 
   const transformContext = (messages: unknown): unknown => {
     if (!Array.isArray(messages)) return messages;
@@ -403,8 +431,7 @@ export async function buildBuccetGovernedPiAgent(
   const AgentCtor = (agentCore as { Agent?: new (opts: unknown) => unknown }).Agent;
   if (typeof AgentCtor !== "function") {
     throw new Error(
-      `Loaded ${PI_AGENT_CORE_PKG} but it does not export an \`Agent\` class. ` +
-        `Pi's API may have changed; please pin a compatible version or open an issue.`,
+      `Loaded ${PI_AGENT_CORE_PKG} but it does not export an \`Agent\` class. Pi's API may have changed; please pin a compatible version or open an issue.`,
     );
   }
 
@@ -424,7 +451,7 @@ export async function buildBuccetGovernedPiAgent(
     if (typeof a.prompt !== "function") {
       throw new Error(
         `Pi Agent instance has no \`prompt\` method. Pi's API may have changed; ` +
-          `please pin a compatible version or update the adapter.`,
+          "please pin a compatible version or update the adapter.",
       );
     }
     return a.prompt(input);

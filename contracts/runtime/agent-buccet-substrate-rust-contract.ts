@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
-import path from "node:path";
-import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
+import path from "node:path";
 
 const repoRoot = process.cwd();
 const crateRoot = path.join(repoRoot, "native", "buccet-substrate-rust");
 
-function run(command: string, args: string[], cwd: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -44,7 +48,10 @@ async function main() {
 
   for (const relativePath of requiredFiles) {
     const absolutePath = path.join(crateRoot, relativePath);
-    const exists = await fs.access(absolutePath).then(() => true).catch(() => false);
+    const exists = await fs
+      .access(absolutePath)
+      .then(() => true)
+      .catch(() => false);
     assert.equal(exists, true, `missing vendored rust substrate file: ${relativePath}`);
   }
 
@@ -60,7 +67,10 @@ async function main() {
   assert.ok(builtEntries.length > 0, "expected cargo build to produce release artifacts");
 
   const adapterPath = path.join(repoRoot, "src", "runtime", "substrate", "substrate-rust.ts");
-  const adapterExists = await fs.access(adapterPath).then(() => true).catch(() => false);
+  const adapterExists = await fs
+    .access(adapterPath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(adapterExists, true, "expected Buccet TypeScript adapter for the Rust substrate");
   const dtsPath = path.join(crateRoot, "pkg", "buccet_substrate.d.ts");
   const dtsSource = await fs.readFile(dtsPath, "utf8");
@@ -181,11 +191,7 @@ async function main() {
       gravityOutcome: gravityResult.outcome,
     }));
   `;
-  const loaderResult = await run(
-    "node",
-    ["--input-type=module", "-e", loaderScript],
-    repoRoot,
-  );
+  const loaderResult = await run("node", ["--input-type=module", "-e", loaderScript], repoRoot);
   assert.equal(loaderResult.code, 0, loaderResult.stderr);
   const loaderPayload = JSON.parse(loaderResult.stdout.trim()) as {
     ready: boolean;

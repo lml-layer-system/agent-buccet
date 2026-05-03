@@ -1,16 +1,14 @@
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
-import {
-  inferBoundaryProtectedMaterialSignals,
-} from "./secrets-boundary.ts";
 import type {
   BoundaryActionRequest,
   BoundaryProtectedSubjectKind,
-  BoundaryRuntimeConfig,
   BoundaryReviewContext,
+  BoundaryRuntimeConfig,
 } from "./../runtime/types.ts";
+import { inferBoundaryProtectedMaterialSignals } from "./secrets-boundary.ts";
 
 export type BoundaryHostKind = "claude-code" | "claude-desktop" | "cursor" | "vscode";
 
@@ -41,7 +39,11 @@ function truncateDoorPayload(value: string): string {
   return `${value.slice(0, MAX_TOOL_DOOR_PAYLOAD_CHARS)}\n...[truncated]`;
 }
 
-function defaultHostConfigPath(host: BoundaryHostKind, projectPath: string | undefined, homeDir: string): string {
+function defaultHostConfigPath(
+  host: BoundaryHostKind,
+  projectPath: string | undefined,
+  homeDir: string,
+): string {
   if (host === "claude-code") {
     return projectPath
       ? path.join(projectPath, ".claude", "settings.json")
@@ -58,13 +60,22 @@ function defaultHostConfigPath(host: BoundaryHostKind, projectPath: string | und
       : process.platform === "darwin"
         ? path.join(homeDir, "Library", "Application Support", "Code", "User", "mcp.json")
         : process.platform === "win32"
-          ? path.join(process.env.APPDATA ?? path.join(homeDir, "AppData", "Roaming"), "Code", "User", "mcp.json")
+          ? path.join(
+              process.env.APPDATA ?? path.join(homeDir, "AppData", "Roaming"),
+              "Code",
+              "User",
+              "mcp.json",
+            )
           : path.join(homeDir, ".config", "Code", "User", "mcp.json");
   }
   return process.platform === "darwin"
     ? path.join(homeDir, "Library", "Application Support", "Claude", "claude_desktop_config.json")
     : process.platform === "win32"
-      ? path.join(process.env.APPDATA ?? path.join(homeDir, "AppData", "Roaming"), "Claude", "claude_desktop_config.json")
+      ? path.join(
+          process.env.APPDATA ?? path.join(homeDir, "AppData", "Roaming"),
+          "Claude",
+          "claude_desktop_config.json",
+        )
       : path.join(homeDir, ".config", "Claude", "claude_desktop_config.json");
 }
 
@@ -77,17 +88,20 @@ export function resolveBoundaryHostConfigPath(args: {
   const homeDir = args.homeDir ?? os.homedir();
   const projectPath = args.projectPath ? path.resolve(args.projectPath) : undefined;
   const env = args.env ?? process.env;
-  if (projectPath && (args.host === "claude-code" || args.host === "cursor" || args.host === "vscode")) {
+  if (
+    projectPath &&
+    (args.host === "claude-code" || args.host === "cursor" || args.host === "vscode")
+  ) {
     return defaultHostConfigPath(args.host, projectPath, homeDir);
   }
   const override =
     args.host === "claude-code"
       ? env.BUCCET_HOST_CLAUDE_CODE_CONFIG_PATH
       : args.host === "claude-desktop"
-      ? env.BUCCET_HOST_CLAUDE_CONFIG_PATH
-      : args.host === "cursor"
-        ? env.BUCCET_HOST_CURSOR_CONFIG_PATH
-        : env.BUCCET_HOST_VSCODE_CONFIG_PATH;
+        ? env.BUCCET_HOST_CLAUDE_CONFIG_PATH
+        : args.host === "cursor"
+          ? env.BUCCET_HOST_CURSOR_CONFIG_PATH
+          : env.BUCCET_HOST_VSCODE_CONFIG_PATH;
   return path.resolve(override ?? defaultHostConfigPath(args.host, projectPath, homeDir));
 }
 
@@ -146,7 +160,11 @@ export async function mergeBoundaryHostConfig(args: {
   };
 }
 
-async function runCaptured(command: string, commandArgs: string[], cwd: string): Promise<{
+async function runCaptured(
+  command: string,
+  commandArgs: string[],
+  cwd: string,
+): Promise<{
   code: number | null;
   stdout: string;
   stderr: string;
@@ -197,12 +215,16 @@ async function collectGhPayloadText(commandArgs: string[], cwd: string): Promise
     ...readOptionValue(commandArgs, ["--notes"]),
     ...readOptionValue(commandArgs, ["--subject"]),
   ];
-  for (const filePath of readOptionValue(commandArgs, ["--body-file", "-F", "--notes-file", "--template", "--input"])) {
+  for (const filePath of readOptionValue(commandArgs, [
+    "--body-file",
+    "-F",
+    "--notes-file",
+    "--template",
+    "--input",
+  ])) {
     try {
       payloads.push(await fs.readFile(path.resolve(cwd, filePath), "utf8"));
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return payloads;
 }
@@ -237,9 +259,7 @@ async function collectProtectedPathPayload(args: {
       }
       const content = await fs.readFile(filePath, "utf8");
       payloads.push(`file:${filePath}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   return payloads;
@@ -258,7 +278,10 @@ async function collectGitCandidateFiles(cwd: string): Promise<string[]> {
     if ((result.code ?? 1) !== 0) {
       continue;
     }
-    for (const line of result.stdout.split(/\r?\n/).map((entry) => entry.trim()).filter(Boolean)) {
+    for (const line of result.stdout
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)) {
       candidates.add(path.resolve(cwd, line));
     }
   }
@@ -329,14 +352,15 @@ function mergeDoorSignals(args: {
   return {
     payloadSummary,
     flags: inferred.flags,
-    reviewContext: inferred.evidence.length > 0
-      ? {
-          surface: "action",
-          evidence: inferred.evidence,
-          protectedSubjectIds: inferred.protectedSubjectIds,
-          protectedSubjectKinds: inferred.protectedSubjectKinds as BoundaryProtectedSubjectKind[],
-        }
-      : undefined,
+    reviewContext:
+      inferred.evidence.length > 0
+        ? {
+            surface: "action",
+            evidence: inferred.evidence,
+            protectedSubjectIds: inferred.protectedSubjectIds,
+            protectedSubjectKinds: inferred.protectedSubjectKinds as BoundaryProtectedSubjectKind[],
+          }
+        : undefined,
   };
 }
 
@@ -351,12 +375,12 @@ export async function inferBoundaryToolDoorSignals(args: {
     return mergeDoorSignals({
       basePayload,
       extraPayloads: [
-        ...await collectGhPayloadText(args.commandArgs, args.cwd),
-        ...await collectProtectedPathPayload({
+        ...(await collectGhPayloadText(args.commandArgs, args.cwd)),
+        ...(await collectProtectedPathPayload({
           config: args.config,
           cwd: args.cwd,
           tokens: args.commandArgs,
-        }),
+        })),
       ],
       config: args.config,
     });
@@ -364,20 +388,22 @@ export async function inferBoundaryToolDoorSignals(args: {
 
   const primary = args.commandArgs[0] ?? "";
   const extraPayloads: string[] = [];
-  if (["archive", "bundle", "format-patch", "push", "request-pull", "send-email"].includes(primary)) {
-    extraPayloads.push(...await collectProtectedGitPayload({
-      config: args.config,
-      cwd: args.cwd,
-    }));
+  if (
+    ["archive", "bundle", "format-patch", "push", "request-pull", "send-email"].includes(primary)
+  ) {
+    extraPayloads.push(
+      ...(await collectProtectedGitPayload({
+        config: args.config,
+        cwd: args.cwd,
+      })),
+    );
   }
   if (primary === "commit") {
     extraPayloads.push(...readOptionValue(args.commandArgs, ["-m", "--message"]));
     for (const filePath of readOptionValue(args.commandArgs, ["-F", "--file"])) {
       try {
         extraPayloads.push(await fs.readFile(path.resolve(args.cwd, filePath), "utf8"));
-      } catch {
-        continue;
-      }
+      } catch {}
     }
   }
 
@@ -438,7 +464,8 @@ export function evaluateControlledEntrySurface(args: {
       decision: "blocked",
       doorAttachment,
       doorSignals,
-      reason: "tool door cannot carry consequence — hook transport is unavailable and this door bypasses MCP intercept",
+      reason:
+        "tool door cannot carry consequence — hook transport is unavailable and this door bypasses MCP intercept",
     };
   }
   return {
@@ -469,7 +496,11 @@ export async function evaluateHookAvailability(args: {
   try {
     raw = await fs.readFile(args.brainStatusPath, "utf8");
   } catch {
-    return { available: false, checkedAt, reason: "brain status file not readable — hook daemon may not be running" };
+    return {
+      available: false,
+      checkedAt,
+      reason: "brain status file not readable — hook daemon may not be running",
+    };
   }
   let status: {
     state?: string;
@@ -484,13 +515,21 @@ export async function evaluateHookAvailability(args: {
     return { available: false, checkedAt, reason: "brain status file is not valid JSON" };
   }
   if (status.state !== "alive") {
-    return { available: false, checkedAt, reason: `hook daemon state is '${status.state ?? "unknown"}' — expected 'alive'` };
+    return {
+      available: false,
+      checkedAt,
+      reason: `hook daemon state is '${status.state ?? "unknown"}' — expected 'alive'`,
+    };
   }
   if (status.interceptSocketPath) {
     try {
       await fs.access(status.interceptSocketPath);
     } catch {
-      return { available: false, checkedAt, reason: "hook intercept socket path not accessible — daemon may have exited" };
+      return {
+        available: false,
+        checkedAt,
+        reason: "hook intercept socket path not accessible — daemon may have exited",
+      };
     }
   }
   return {
@@ -510,43 +549,50 @@ export async function evaluateHookAvailability(args: {
 // boundary signal before it can carry consequence.
 
 export type BoundaryCommandPayloadClass =
-  | "file_upload"     // curl, wget, scp, rsync, sftp
+  | "file_upload" // curl, wget, scp, rsync, sftp
   | "package_publish" // npm, pnpm, yarn, pip, docker, podman
-  | "archive"         // tar, zip, gzip, 7z
-  | "script_exec"     // python, node, bash — may execute file-backed code
-  | "git_export"      // git push/archive/bundle/format-patch
-  | "github_post";    // gh issue/pr/comment
+  | "archive" // tar, zip, gzip, 7z
+  | "script_exec" // python, node, bash — may execute file-backed code
+  | "git_export" // git push/archive/bundle/format-patch
+  | "github_post"; // gh issue/pr/comment
 
 const _COMMAND_PAYLOAD_CLASSES: Record<string, BoundaryCommandPayloadClass> = {
-  curl:    "file_upload",
-  wget:    "file_upload",
-  scp:     "file_upload",
-  rsync:   "file_upload",
-  sftp:    "file_upload",
-  npm:     "package_publish",
-  pnpm:    "package_publish",
-  yarn:    "package_publish",
-  pip:     "package_publish",
-  docker:  "package_publish",
-  podman:  "package_publish",
-  tar:     "archive",
-  zip:     "archive",
-  gzip:    "archive",
-  "7z":    "archive",
-  python:  "script_exec",
+  curl: "file_upload",
+  wget: "file_upload",
+  scp: "file_upload",
+  rsync: "file_upload",
+  sftp: "file_upload",
+  npm: "package_publish",
+  pnpm: "package_publish",
+  yarn: "package_publish",
+  pip: "package_publish",
+  docker: "package_publish",
+  podman: "package_publish",
+  tar: "archive",
+  zip: "archive",
+  gzip: "archive",
+  "7z": "archive",
+  python: "script_exec",
   python3: "script_exec",
-  node:    "script_exec",
-  bash:    "script_exec",
-  sh:      "script_exec",
-  zsh:     "script_exec",
-  git:     "git_export",
-  gh:      "github_post",
+  node: "script_exec",
+  bash: "script_exec",
+  sh: "script_exec",
+  zsh: "script_exec",
+  git: "git_export",
+  gh: "github_post",
 };
 
 const _NPM_CONSEQUENCE_SUBCOMMANDS = new Set(["publish", "deploy", "pack"]);
 const _DOCKER_CONSEQUENCE_SUBCOMMANDS = new Set(["push", "build", "save", "export"]);
 const _PIP_CONSEQUENCE_SUBCOMMANDS = new Set(["upload"]);
-const _GIT_EXPORT_SUBCOMMANDS = new Set(["push", "archive", "bundle", "format-patch", "request-pull", "send-email"]);
+const _GIT_EXPORT_SUBCOMMANDS = new Set([
+  "push",
+  "archive",
+  "bundle",
+  "format-patch",
+  "request-pull",
+  "send-email",
+]);
 
 export function classifyCommandPayloadClass(
   toolName: string,
@@ -555,10 +601,16 @@ export function classifyCommandPayloadClass(
   const cls = _COMMAND_PAYLOAD_CLASSES[toolName] ?? null;
   if (!cls) return null;
   const sub = commandArgs[0] ?? "";
-  if ((toolName === "npm" || toolName === "pnpm" || toolName === "yarn") && !_NPM_CONSEQUENCE_SUBCOMMANDS.has(sub)) {
+  if (
+    (toolName === "npm" || toolName === "pnpm" || toolName === "yarn") &&
+    !_NPM_CONSEQUENCE_SUBCOMMANDS.has(sub)
+  ) {
     return null;
   }
-  if ((toolName === "docker" || toolName === "podman") && !_DOCKER_CONSEQUENCE_SUBCOMMANDS.has(sub)) {
+  if (
+    (toolName === "docker" || toolName === "podman") &&
+    !_DOCKER_CONSEQUENCE_SUBCOMMANDS.has(sub)
+  ) {
     return null;
   }
   if (toolName === "pip" && !_PIP_CONSEQUENCE_SUBCOMMANDS.has(sub)) {
@@ -600,12 +652,19 @@ async function extractCommandFilePayloads(args: {
   const { toolName, commandArgs, cwd } = args;
 
   if (toolName === "curl" || toolName === "wget") {
-    for (const value of extractFlagValues(commandArgs, ["-d", "--data", "--data-binary", "--data-raw", "-T", "--upload-file"])) {
+    for (const value of extractFlagValues(commandArgs, [
+      "-d",
+      "--data",
+      "--data-binary",
+      "--data-raw",
+      "-T",
+      "--upload-file",
+    ])) {
       if (value.startsWith("@")) {
         try {
           const content = await fs.readFile(path.resolve(cwd, value.slice(1)), "utf8");
           payloads.push(`file:${value.slice(1)}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
-        } catch { continue; }
+        } catch {}
       } else {
         payloads.push(value.slice(0, MAX_TOOL_DOOR_FILE_BYTES));
       }
@@ -621,7 +680,7 @@ async function extractCommandFilePayloads(args: {
           const content = await fs.readFile(filePath, "utf8");
           payloads.push(`file:${token}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
         }
-      } catch { continue; }
+      } catch {}
     }
   }
 
@@ -634,7 +693,9 @@ async function extractCommandFilePayloads(args: {
       try {
         const content = await fs.readFile(path.resolve(cwd, scriptArg), "utf8");
         payloads.push(`file:${scriptArg}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
-      } catch { /* not a readable script file */ }
+      } catch {
+        /* not a readable script file */
+      }
     }
   }
 
@@ -647,7 +708,7 @@ async function extractCommandFilePayloads(args: {
           const content = await fs.readFile(filePath, "utf8");
           payloads.push(`file:${token}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
         }
-      } catch { continue; }
+      } catch {}
     }
   }
 
@@ -658,7 +719,7 @@ async function extractCommandFilePayloads(args: {
         try {
           const content = await fs.readFile(path.resolve(cwd, srcMatch[1]), "utf8");
           payloads.push(`file:${srcMatch[1]}\n${content.slice(0, MAX_TOOL_DOOR_FILE_BYTES)}`);
-        } catch { continue; }
+        } catch {}
       }
     }
   }

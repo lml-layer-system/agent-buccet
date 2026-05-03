@@ -1,20 +1,6 @@
-/**
- * Headless approval handler contract.
- *
- * Proves:
- * H1 — deny_all auto-denies every approval request (full enforcement stack)
- * H2 — allow_if_law_clear denies when a BOUNDARY.* safety law is in lawIds
- * H3 — allow_if_law_clear allows only pure scope expansion
- * H3b — allow_if_law_clear denies track-violation re-prompts
- * H4 — follow_upl applies existing UPL standing law; denies when no match
- * H5 — allow_all auto-allows every approval request (full enforcement stack)
- * H6 — headless denial is recorded in the ledger as APPROVAL_DENIED
- */
-
-import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   createBoundaryBodyguard,
   createBoundaryHeadlessApprovalHandler,
@@ -33,7 +19,10 @@ let allPassed = true;
 
 function check(label: string, condition: boolean) {
   console.log(`${condition ? PASS : FAIL} ${label}`);
-  if (!condition) { allPassed = false; process.exitCode = 1; }
+  if (!condition) {
+    allPassed = false;
+    process.exitCode = 1;
+  }
 }
 
 function sleep(ms: number) {
@@ -94,7 +83,7 @@ async function main() {
       const workspace = path.join(tempRoot, "h1");
       await fs.mkdir(workspace, { recursive: true });
 
-      let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
+      const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
@@ -117,7 +106,9 @@ async function main() {
         actionKind: "fs.write",
         target,
         successReason: "wrote file",
-        execute: async () => { await fs.writeFile(target, "updated"); },
+        execute: async () => {
+          await fs.writeFile(target, "updated");
+        },
       });
 
       check("H1: deny_all auto-denies fs.write approval request", !result.allowed);
@@ -134,11 +125,19 @@ async function main() {
       const handler = createBoundaryHeadlessApprovalHandler({ mode: "allow_if_law_clear" });
       const approval = makeMockApproval({
         session,
-        lawIds: ["BOUNDARY.FS.WRITE.01"],  // BOUNDARY.* — safety law
+        lawIds: ["BOUNDARY.FS.WRITE.01"], // BOUNDARY.* — safety law
       });
       const decision = await handler(approval);
-      const choice = typeof decision === "boolean" ? (decision ? "allow_once" : "deny_once") : (decision as { choice: string }).choice;
-      check("H2: allow_if_law_clear denies when BOUNDARY.FS.WRITE.01 in lawIds", choice === "deny_once");
+      const choice =
+        typeof decision === "boolean"
+          ? decision
+            ? "allow_once"
+            : "deny_once"
+          : (decision as { choice: string }).choice;
+      check(
+        "H2: allow_if_law_clear denies when BOUNDARY.FS.WRITE.01 in lawIds",
+        choice === "deny_once",
+      );
     }
 
     // ── H3: allow_if_law_clear — allows pure SCOPE.* expansion only ──────────
@@ -151,11 +150,19 @@ async function main() {
       const handler = createBoundaryHeadlessApprovalHandler({ mode: "allow_if_law_clear" });
       const approval = makeMockApproval({
         session,
-        lawIds: ["SCOPE.GRANT.CLOSED"],  // no BOUNDARY.* — scope expansion only
+        lawIds: ["SCOPE.GRANT.CLOSED"], // no BOUNDARY.* — scope expansion only
       });
       const decision = await handler(approval);
-      const choice = typeof decision === "boolean" ? (decision ? "allow_once" : "deny_once") : (decision as { choice: string }).choice;
-      check("H3: allow_if_law_clear allows when only SCOPE.GRANT.CLOSED in lawIds", choice === "allow_once");
+      const choice =
+        typeof decision === "boolean"
+          ? decision
+            ? "allow_once"
+            : "deny_once"
+          : (decision as { choice: string }).choice;
+      check(
+        "H3: allow_if_law_clear allows when only SCOPE.GRANT.CLOSED in lawIds",
+        choice === "allow_once",
+      );
     }
 
     {
@@ -169,7 +176,12 @@ async function main() {
         lawIds: ["UPL-000123"], // track-wall / standing corridor id, not pure scope
       });
       const decision = await handler(approval);
-      const choice = typeof decision === "boolean" ? (decision ? "allow_once" : "deny_once") : (decision as { choice: string }).choice;
+      const choice =
+        typeof decision === "boolean"
+          ? decision
+            ? "allow_once"
+            : "deny_once"
+          : (decision as { choice: string }).choice;
       check("H3b: allow_if_law_clear denies track-wall approval requests", choice === "deny_once");
     }
 
@@ -188,7 +200,7 @@ async function main() {
       await fs.mkdir(subdirB, { recursive: true });
 
       // Phase 1: write a standing allow law for targetA in subdir_a
-      let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
+      const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
@@ -248,7 +260,9 @@ async function main() {
         actionKind: "fs.write",
         target: targetA,
         successReason: "wrote a.txt again",
-        execute: async () => { await fs.writeFile(targetA, "updated"); },
+        execute: async () => {
+          await fs.writeFile(targetA, "updated");
+        },
       });
       check("H4a: follow_upl allows when standing UPL allow law matches", resultA.allowed);
 
@@ -259,9 +273,14 @@ async function main() {
         actionKind: "fs.write",
         target: targetB,
         successReason: "wrote b.txt",
-        execute: async () => { await fs.writeFile(targetB, "data"); },
+        execute: async () => {
+          await fs.writeFile(targetB, "data");
+        },
       });
-      check("H4b: follow_upl denies when request exits track corridor and no UPL law matches", !resultB.allowed);
+      check(
+        "H4b: follow_upl denies when request exits track corridor and no UPL law matches",
+        !resultB.allowed,
+      );
     }
 
     // ── H5: allow_all — full enforcement stack ────────────────────────────────
@@ -271,7 +290,7 @@ async function main() {
       const workspace = path.join(tempRoot, "h5");
       await fs.mkdir(workspace, { recursive: true });
 
-      let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
+      const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
@@ -292,7 +311,9 @@ async function main() {
         actionKind: "fs.write",
         target,
         successReason: "wrote file",
-        execute: async () => { await fs.writeFile(target, "changed"); },
+        execute: async () => {
+          await fs.writeFile(target, "changed");
+        },
       });
       check("H5: allow_all auto-allows fs.write approval request", result.allowed);
     }
@@ -304,7 +325,7 @@ async function main() {
       const workspace = path.join(tempRoot, "h6");
       await fs.mkdir(workspace, { recursive: true });
 
-      let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
+      const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId: "user:test" });
       const { config: scopedConfig } = await openBoundaryPath({
         config: store.getConfig(),
         rootPath: workspace,
@@ -324,7 +345,9 @@ async function main() {
         actionKind: "fs.write",
         target,
         successReason: "wrote",
-        execute: async () => { await fs.writeFile(target, "blocked"); },
+        execute: async () => {
+          await fs.writeFile(target, "blocked");
+        },
       });
 
       await sleep(200); // let ledger flush
@@ -332,20 +355,19 @@ async function main() {
       const denied = events.filter((e) => e.eventType === "APPROVAL_DENIED");
       check("H6: APPROVAL_DENIED recorded in ledger after headless deny_all", denied.length > 0);
     }
-
   } finally {
     await saveUserPathLedger(originalLedger);
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 
-  console.log(`\nAgent Buccet headless approval contract`);
+  console.log("\nAgent Buccet headless approval contract");
   console.log(`  H1 deny_all:           ${allPassed ? "auto-deny" : "FAILED"}`);
-  console.log(`  H2 allow_if_law_clear: deny on BOUNDARY.* law`);
-  console.log(`  H3 allow_if_law_clear: allow on pure scope-only law`);
-  console.log(`  H3b allow_if_law_clear: deny on track-wall approval`);
-  console.log(`  H4 follow_upl:         follow standing UPL law`);
-  console.log(`  H5 allow_all:          auto-allow`);
-  console.log(`  H6 ledger:             APPROVAL_DENIED recorded`);
+  console.log("  H2 allow_if_law_clear: deny on BOUNDARY.* law");
+  console.log("  H3 allow_if_law_clear: allow on pure scope-only law");
+  console.log("  H3b allow_if_law_clear: deny on track-wall approval");
+  console.log("  H4 follow_upl:         follow standing UPL law");
+  console.log("  H5 allow_all:          auto-allow");
+  console.log("  H6 ledger:             APPROVAL_DENIED recorded");
 }
 
 main().catch((err) => {

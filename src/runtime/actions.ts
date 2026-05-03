@@ -1,13 +1,13 @@
 import { enableBodyguardControl } from "./../boundaries/bodyguard.ts";
 import {
+  type BoundaryExecutionResult,
   createBoundaryActionRequest,
   createBoundarySpendRequest,
   runBoundaryControlledAction,
-  type BoundaryExecutionResult,
 } from "./../boundaries/bodyguard.ts";
 import type {
-  BoundaryReviewContext,
   BoundaryRequestProvenance,
+  BoundaryReviewContext,
   BoundaryRuntimeConfig,
   BoundarySpendIntent,
 } from "./types.ts";

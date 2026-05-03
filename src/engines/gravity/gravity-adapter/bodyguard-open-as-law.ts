@@ -1,18 +1,18 @@
 import {
-  buildGrantFromOffer,
-  buildOpenAsLawStep,
-  LEDGER_EVENTS,
   type BodyguardGrantOffer,
   type BodyguardOpenAsLawStep,
+  LEDGER_EVENTS,
+  buildGrantFromOffer,
+  buildOpenAsLawStep,
 } from "../gravity-core/index.ts";
 import { appendBoundaryLedger } from "./../../../proof/ledger.ts";
 import { issueBoundaryGrant, openBoundaryPath } from "./../../../runtime/runtime.ts";
 import type {
+  BodyguardMove,
   BoundaryActionKind,
   BoundaryActionRequest,
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
-  BodyguardMove,
 } from "./../../../runtime/types.ts";
 
 // Re-export LEDGER_EVENTS so callers that imported it from here still work
@@ -82,7 +82,9 @@ export async function applyOpenAsLawBodyguardGrant(args: {
       rootPath: args.offer.scopeIdentifier,
       grantedActions: actionForRequest(args.request),
       issuedBy: args.issuedBy,
-      expiresAt: issuance.grant.expiresAt ? new Date(issuance.grant.expiresAt).toISOString() : undefined,
+      expiresAt: issuance.grant.expiresAt
+        ? new Date(issuance.grant.expiresAt).toISOString()
+        : undefined,
     });
     await appendBoundaryLedger("PROPOSAL_REPLAYED", {
       sessionId: args.config.session.sessionId,
@@ -108,7 +110,9 @@ export async function applyOpenAsLawBodyguardGrant(args: {
     resourceValue: args.offer.scopeIdentifier,
     grantedActions: actionForRequest(args.request),
     issuedBy: args.issuedBy,
-    expiresAt: issuance.grant.expiresAt ? new Date(issuance.grant.expiresAt).toISOString() : undefined,
+    expiresAt: issuance.grant.expiresAt
+      ? new Date(issuance.grant.expiresAt).toISOString()
+      : undefined,
   });
 
   await appendBoundaryLedger(issuance.ledgerEventOpened as never, {
@@ -176,17 +180,17 @@ export function buildOpenAsLawBodyguardStep(args: {
       ? "filesystem"
       : args.request.actionKind === "agent.spend"
         ? "recipient_send"
-      : args.request.actionKind === "comm.send"
-        ? "recipient_send"
-        : args.request.actionKind === "network.send"
-          ? "network_send"
-          : args.request.actionKind === "tool.exec"
-            ? "tool_exec"
-            : args.request.actionKind.startsWith("db.")
-              ? "database"
-              : args.request.actionKind.startsWith("sys.")
-                ? "system"
-            : "other",
+        : args.request.actionKind === "comm.send"
+          ? "recipient_send"
+          : args.request.actionKind === "network.send"
+            ? "network_send"
+            : args.request.actionKind === "tool.exec"
+              ? "tool_exec"
+              : args.request.actionKind.startsWith("db.")
+                ? "database"
+                : args.request.actionKind.startsWith("sys.")
+                  ? "system"
+                  : "other",
     payload: {
       scopeIdentifier: args.offer.scopeIdentifier,
       scopeKind: args.offer.scopeKind,

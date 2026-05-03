@@ -10,10 +10,14 @@ function mapKind(actionKind: BoundaryActionRequest["actionKind"]): GravityPropos
     case "fs.mkdir":
     case "fs.move":
       return "filesystem";
-    case "agent.spend": return "recipient_send";
-    case "comm.send": return "recipient_send";
-    case "network.send": return "network_send";
-    case "tool.exec": return "tool_exec";
+    case "agent.spend":
+      return "recipient_send";
+    case "comm.send":
+      return "recipient_send";
+    case "network.send":
+      return "network_send";
+    case "tool.exec":
+      return "tool_exec";
     case "db.query":
     case "db.insert":
     case "db.update":
@@ -41,10 +45,14 @@ function mapScopeKind(actionKind: BoundaryActionRequest["actionKind"]): ScopePay
     case "fs.mkdir":
     case "fs.move":
       return "path";
-    case "agent.spend": return "recipient";
-    case "comm.send": return "recipient";
-    case "network.send": return "domain";
-    case "tool.exec": return "tool";
+    case "agent.spend":
+      return "recipient";
+    case "comm.send":
+      return "recipient";
+    case "network.send":
+      return "domain";
+    case "tool.exec":
+      return "tool";
     case "db.query":
     case "db.insert":
     case "db.update":
@@ -57,33 +65,55 @@ function mapScopeKind(actionKind: BoundaryActionRequest["actionKind"]): ScopePay
     case "sys.credential.read":
     case "sys.credential.use":
       return "system";
-    case "chat.emit": return "other";
+    case "chat.emit":
+      return "other";
   }
 }
 
 function actionLabel(actionKind: BoundaryActionRequest["actionKind"]): string {
   switch (actionKind) {
-    case "fs.read": return "read";
-    case "fs.write": return "write";
-    case "fs.append": return "append to";
-    case "fs.delete": return "delete";
-    case "fs.mkdir": return "create";
-    case "fs.move": return "move";
-    case "agent.spend": return "pay";
-    case "chat.emit": return "emit";
-    case "comm.send": return "send to";
-    case "network.send": return "call";
-    case "tool.exec": return "run";
-    case "db.query": return "query";
-    case "db.insert": return "insert into";
-    case "db.update": return "update";
-    case "db.delete": return "delete from";
-    case "sys.env.read": return "read env";
-    case "sys.env.write": return "write env";
-    case "sys.config.read": return "read config";
-    case "sys.config.write": return "write config";
-    case "sys.credential.read": return "read credential";
-    case "sys.credential.use": return "use credential";
+    case "fs.read":
+      return "read";
+    case "fs.write":
+      return "write";
+    case "fs.append":
+      return "append to";
+    case "fs.delete":
+      return "delete";
+    case "fs.mkdir":
+      return "create";
+    case "fs.move":
+      return "move";
+    case "agent.spend":
+      return "pay";
+    case "chat.emit":
+      return "emit";
+    case "comm.send":
+      return "send to";
+    case "network.send":
+      return "call";
+    case "tool.exec":
+      return "run";
+    case "db.query":
+      return "query";
+    case "db.insert":
+      return "insert into";
+    case "db.update":
+      return "update";
+    case "db.delete":
+      return "delete from";
+    case "sys.env.read":
+      return "read env";
+    case "sys.env.write":
+      return "write env";
+    case "sys.config.read":
+      return "read config";
+    case "sys.config.write":
+      return "write config";
+    case "sys.credential.read":
+      return "read credential";
+    case "sys.credential.use":
+      return "use credential";
   }
 }
 
@@ -91,7 +121,9 @@ function mapProvenance(source: BoundaryRequestProvenance): GravityProposal["prov
   return source;
 }
 
-export function mapBoundaryRequestToGravityProposal(request: BoundaryActionRequest): GravityProposal {
+export function mapBoundaryRequestToGravityProposal(
+  request: BoundaryActionRequest,
+): GravityProposal {
   const payload: ScopePayload & { requestId: string; payloadSummary?: string } = {
     scopeIdentifier: request.target,
     scopeKind: mapScopeKind(request.actionKind),

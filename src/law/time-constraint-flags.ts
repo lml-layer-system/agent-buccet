@@ -10,8 +10,10 @@ type BoundaryTimeConstraintSignals = {
   reviewContext?: Partial<BoundaryReviewContext>;
 };
 
-const DELETE_NEGATION_PREFIX = /\b(?:do not|don't|never|must not|should not|cannot|can't)\s+delete\b/i;
-const DELETE_GLOBAL_TAIL = /\b(?:anything|any(?:thing| files?)|files?|them|it|this|that|whatever)\b/i;
+const DELETE_NEGATION_PREFIX =
+  /\b(?:do not|don't|never|must not|should not|cannot|can't)\s+delete\b/i;
+const DELETE_GLOBAL_TAIL =
+  /\b(?:anything|any(?:thing| files?)|files?|them|it|this|that|whatever)\b/i;
 const DELETE_CONSTRAINT_LAW_ID = "TIME.CONSTRAINT.DELETE.01";
 const DELETE_CONSTRAINT_LABEL = "Action conflicts with the user time constraint.";
 
@@ -30,11 +32,16 @@ function normalizeConstraintLiteral(value: string): string {
     .trim();
 }
 
-function extractDeleteConstraintTargets(userInput: string): { matchAll: boolean; targets: string[] } {
+function extractDeleteConstraintTargets(userInput: string): {
+  matchAll: boolean;
+  targets: string[];
+} {
   const targets: string[] = [];
   let matchAll = false;
 
-  for (const match of userInput.matchAll(/\b(?:do not|don't|never|must not|should not|cannot|can't)\s+delete\s+([^.!?\n;]+)/gi)) {
+  for (const match of userInput.matchAll(
+    /\b(?:do not|don't|never|must not|should not|cannot|can't)\s+delete\s+([^.!?\n;]+)/gi,
+  )) {
     const clause = match[1]?.trim();
     if (!clause) {
       continue;
@@ -44,7 +51,9 @@ function extractDeleteConstraintTargets(userInput: string): { matchAll: boolean;
       continue;
     }
 
-    const quotedTargets = [...clause.matchAll(/["']([^"']+)["']/g)].map((item) => item[1]?.trim()).filter(Boolean) as string[];
+    const quotedTargets = [...clause.matchAll(/["']([^"']+)["']/g)]
+      .map((item) => item[1]?.trim())
+      .filter(Boolean) as string[];
     if (quotedTargets.length > 0) {
       for (const target of quotedTargets) {
         const normalized = normalizeConstraintLiteral(target);
@@ -76,10 +85,12 @@ function deleteConstraintMatchesTarget(target: string, constraintTarget: string)
 
   const targetBase = path.basename(normalizedTarget);
   const constraintBase = path.basename(normalizedConstraint);
-  return normalizedTarget.includes(normalizedConstraint)
-    || targetBase === normalizedConstraint
-    || targetBase === constraintBase
-    || normalizedTarget.endsWith(`/${constraintBase}`);
+  return (
+    normalizedTarget.includes(normalizedConstraint) ||
+    targetBase === normalizedConstraint ||
+    targetBase === constraintBase ||
+    normalizedTarget.endsWith(`/${constraintBase}`)
+  );
 }
 
 function inferDeleteConstraintSignals(args: {
@@ -93,16 +104,15 @@ function inferDeleteConstraintSignals(args: {
   }
 
   const extracted = extractDeleteConstraintTargets(userInput);
-  const matchingTarget = extracted.targets.find((target) => deleteConstraintMatchesTarget(args.target, target));
+  const matchingTarget = extracted.targets.find((target) =>
+    deleteConstraintMatchesTarget(args.target, target),
+  );
   if (!extracted.matchAll && !matchingTarget) {
     return { flags: {} };
   }
 
   const evidence = extracted.matchAll
-    ? [
-        "User explicitly prohibited deletion.",
-        `Attempted delete targeted ${args.target}.`,
-      ]
+    ? ["User explicitly prohibited deletion.", `Attempted delete targeted ${args.target}.`]
     : [
         `User explicitly prohibited deleting ${matchingTarget}.`,
         `Attempted delete targeted ${args.target}.`,

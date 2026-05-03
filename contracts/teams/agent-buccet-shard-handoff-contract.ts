@@ -44,7 +44,9 @@ async function main(): Promise<void> {
       kind: "file:md",
       title: "Runtime Map",
     });
-    const sourceId = manifestAfterSource.pathSourceCorpus.find((source) => source.title === "Runtime Map")?.id;
+    const sourceId = manifestAfterSource.pathSourceCorpus.find(
+      (source) => source.title === "Runtime Map",
+    )?.id;
     assert.ok(sourceId, "runtime source must exist");
 
     await addTeamAgent({
@@ -68,27 +70,27 @@ async function main(): Promise<void> {
       manifest: manifestA!,
       wholeView: wholeViewA,
       userRequest: "Refactor the runtime wall without losing continuity.",
-      agents: manifestA!.agents,
+      agents: manifestA?.agents,
       runId: "run-handoff-a",
     });
     const packetA = graphA.packets.find((packet) => packet.peerId === "architect");
     assert.ok(packetA, "architect packet must exist");
     assert.ok((packetA?.shards.length ?? 0) > 0, "architect packet must own at least one shard");
-    const shardA = packetA!.shards[0]!;
+    const shardA = packetA?.shards[0]!;
 
     await appendTeamPathSourceMemoryEntry({
       homePath: home,
       slug,
       kind: "shard_dispatch",
       title: "architect:transform",
-      text: packetA!.taskSlice,
+      text: packetA?.taskSlice,
       meta: {
-        peerId: packetA!.peerId,
-        packetId: packetA!.packetId,
-        ownsStep: packetA!.ownsStep,
-        sourceIds: packetA!.sourceIds,
-        shardIds: packetA!.shards.map((shard) => shard.shardId),
-        shards: packetA!.shards,
+        peerId: packetA?.peerId,
+        packetId: packetA?.packetId,
+        ownsStep: packetA?.ownsStep,
+        sourceIds: packetA?.sourceIds,
+        shardIds: packetA?.shards.map((shard) => shard.shardId),
+        shards: packetA?.shards,
       },
     });
     await appendTeamPathSourceMemoryEntry({
@@ -98,12 +100,12 @@ async function main(): Promise<void> {
       title: "architect:transform",
       text: "Architect completed the initial transform pass on the runtime shard.",
       meta: {
-        peerId: packetA!.peerId,
-        packetId: packetA!.packetId,
-        ownsStep: packetA!.ownsStep,
-        sourceIds: packetA!.sourceIds,
-        shardIds: packetA!.shards.map((shard) => shard.shardId),
-        shards: packetA!.shards,
+        peerId: packetA?.peerId,
+        packetId: packetA?.packetId,
+        ownsStep: packetA?.ownsStep,
+        sourceIds: packetA?.sourceIds,
+        shardIds: packetA?.shards.map((shard) => shard.shardId),
+        shards: packetA?.shards,
         status: "completed",
       },
     });
@@ -134,28 +136,32 @@ async function main(): Promise<void> {
       manifest: manifestB!,
       wholeView: wholeViewB,
       userRequest: "Refactor the runtime wall without losing continuity.",
-      agents: manifestB!.agents,
+      agents: manifestB?.agents,
       runId: "run-handoff-b",
     });
     const packetB = graphB.packets.find((packet) => packet.peerId === "surgeon");
     assert.ok(packetB, "surgeon packet must exist");
-    const shardB = packetB!.shards.find((shard) => shard.shardId === shardA.shardId);
+    const shardB = packetB?.shards.find((shard) => shard.shardId === shardA.shardId);
     assert.ok(shardB, "same source region + same stage + same request must keep the same shard id");
-    assert.equal(shardB?.assignedPeerId, "surgeon", "new packet must claim the same shard under the new worker");
+    assert.equal(
+      shardB?.assignedPeerId,
+      "surgeon",
+      "new packet must claim the same shard under the new worker",
+    );
 
     await appendTeamPathSourceMemoryEntry({
       homePath: home,
       slug,
       kind: "shard_dispatch",
       title: "surgeon:transform",
-      text: packetB!.taskSlice,
+      text: packetB?.taskSlice,
       meta: {
-        peerId: packetB!.peerId,
-        packetId: packetB!.packetId,
-        ownsStep: packetB!.ownsStep,
-        sourceIds: packetB!.sourceIds,
-        shardIds: packetB!.shards.map((shard) => shard.shardId),
-        shards: packetB!.shards,
+        peerId: packetB?.peerId,
+        packetId: packetB?.packetId,
+        ownsStep: packetB?.ownsStep,
+        sourceIds: packetB?.sourceIds,
+        shardIds: packetB?.shards.map((shard) => shard.shardId),
+        shards: packetB?.shards,
       },
     });
 
@@ -166,18 +172,26 @@ async function main(): Promise<void> {
     });
     const shardState = ledger.find((shard) => shard.shardId === shardA.shardId);
     assert.ok(shardState, "ledger must reconstruct the shard from canonical memory");
-    assert.equal(shardState?.currentPeerId, "surgeon", "latest dispatch must transfer current ownership");
-    assert.equal(shardState?.currentStatus, "assigned", "latest dispatch leaves the shard ready for the next worker");
+    assert.equal(
+      shardState?.currentPeerId,
+      "surgeon",
+      "latest dispatch must transfer current ownership",
+    );
+    assert.equal(
+      shardState?.currentStatus,
+      "assigned",
+      "latest dispatch leaves the shard ready for the next worker",
+    );
     assert.deepEqual(
-      shardState?.history.map((event) => `${event.eventKind}:${event.peerId ?? "unknown"}:${event.status}`),
-      [
-        "dispatch:architect:assigned",
-        "result:architect:completed",
-        "dispatch:surgeon:assigned",
-      ],
+      shardState?.history.map(
+        (event) => `${event.eventKind}:${event.peerId ?? "unknown"}:${event.status}`,
+      ),
+      ["dispatch:architect:assigned", "result:architect:completed", "dispatch:surgeon:assigned"],
       "canonical memory must preserve the full handoff history",
     );
-    console.log("SUCCESS: shard ids stay stable across worker swaps and canonical memory replays the handoff.");
+    console.log(
+      "SUCCESS: shard ids stay stable across worker swaps and canonical memory replays the handoff.",
+    );
 
     console.log("\n--- Shard Handoff Contract Verified ---");
   } finally {

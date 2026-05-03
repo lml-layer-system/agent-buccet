@@ -20,10 +20,7 @@ const MIN_PROTECTED_MATCH_LENGTH = 24;
 const MAX_PROTECTED_SNIPPETS = 128;
 
 function normalizeSecretsText(value: string): string {
-  return value
-    .replace(/\s+/g, " ")
-    .trim()
-    .toLowerCase();
+  return value.replace(/\s+/g, " ").trim().toLowerCase();
 }
 
 function pushUnique(values: string[], seen: Set<string>, candidate: string) {
@@ -49,7 +46,11 @@ function buildProtectedSnippetFingerprints(content: string): string[] {
 
   const normalized = normalizeSecretsText(content);
   const words = normalized.split(/\s+/).filter(Boolean);
-  for (let index = 0; index < words.length && snippets.length < MAX_PROTECTED_SNIPPETS; index += 6) {
+  for (
+    let index = 0;
+    index < words.length && snippets.length < MAX_PROTECTED_SNIPPETS;
+    index += 6
+  ) {
     const window = words.slice(index, index + 12).join(" ");
     pushUnique(snippets, seen, window);
   }
@@ -65,7 +66,9 @@ function dedupeProtectedSubjects(subjects: BoundaryProtectedSubject[]): Boundary
   return [...byId.values()];
 }
 
-function protectedKindFlag(kind: BoundaryProtectedSubjectKind): keyof NonNullable<BoundaryActionRequest["flags"]> {
+function protectedKindFlag(
+  kind: BoundaryProtectedSubjectKind,
+): keyof NonNullable<BoundaryActionRequest["flags"]> {
   switch (kind) {
     case "source_code":
       return "payloadContainsProtectedSourceCode";
@@ -79,8 +82,6 @@ function protectedKindFlag(kind: BoundaryProtectedSubjectKind): keyof NonNullabl
       return "payloadContainsProtectedCustomerData";
     case "model_weight":
       return "payloadContainsProtectedModelWeight";
-    case "credential":
-    case "other":
     default:
       return "payloadContainsProtectedMaterial";
   }
@@ -117,7 +118,9 @@ export function createBoundaryProtectedSubject(args: {
 }): BoundaryProtectedSubject {
   const normalizedContent = normalizeSecretsText(args.content);
   return {
-    subjectId: args.subjectId ?? `protected:${createHash("sha256").update(`${args.label}\n${normalizedContent}`).digest("hex").slice(0, 16)}`,
+    subjectId:
+      args.subjectId ??
+      `protected:${createHash("sha256").update(`${args.label}\n${normalizedContent}`).digest("hex").slice(0, 16)}`,
     label: args.label,
     kind: args.kind,
     ...(args.sourcePath ? { sourcePath: path.resolve(args.sourcePath) } : {}),
@@ -211,7 +214,8 @@ export function inferBoundaryProtectedMaterialSignals(args: {
     const normalizedSubject = subject.normalizedContent;
     const directMatch =
       normalizedPayload.includes(normalizedSubject) ||
-      (normalizedPayload.length >= MIN_PROTECTED_MATCH_LENGTH && normalizedSubject.includes(normalizedPayload));
+      (normalizedPayload.length >= MIN_PROTECTED_MATCH_LENGTH &&
+        normalizedSubject.includes(normalizedPayload));
     const snippetMatch = !directMatch
       ? subject.snippetFingerprints.find((snippet) => normalizedPayload.includes(snippet))
       : undefined;

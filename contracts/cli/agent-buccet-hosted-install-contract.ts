@@ -8,23 +8,23 @@ import { performance } from "node:perf_hooks";
 const repoRoot = process.cwd();
 
 async function resolveReleaseDir(): Promise<string> {
-  const candidates = [
-    path.join(repoRoot, "dist", "releases"),
-    path.join(repoRoot, "releases"),
-  ];
+  const candidates = [path.join(repoRoot, "dist", "releases"), path.join(repoRoot, "releases")];
   for (const candidate of candidates) {
     try {
       await fs.access(path.join(candidate, "install.sh"));
       await fs.access(path.join(candidate, "latest.json"));
       return candidate;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   throw new Error("unable to locate hosted release assets");
 }
 
-function run(command: string, args: string[], env: NodeJS.ProcessEnv, cwd: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
+function run(
+  command: string,
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  cwd: string,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -83,7 +83,10 @@ async function main() {
   const launcherPath = path.join(launcherDir, "buccet");
   await fs.access(launcherPath);
   const snapSummaryPath = path.join(homePath, "current", "INSTALL_SNAP.txt");
-  const snapSummaryExists = await fs.access(snapSummaryPath).then(() => true).catch(() => false);
+  const snapSummaryExists = await fs
+    .access(snapSummaryPath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(snapSummaryExists, true);
 
   const cliEnv = {
@@ -103,16 +106,21 @@ async function main() {
   const initMs = performance.now() - initStartedAt;
   assert.equal(initResult.code, 0, initResult.stderr);
 
-  const pathAddResult = await run(launcherPath, [
-    "path",
-    "sources",
-    "add",
-    customPathName,
-    "domain-playbook.md",
-    "--domain",
-    customDomain,
-    "--json",
-  ], cliEnv, workspacePath);
+  const pathAddResult = await run(
+    launcherPath,
+    [
+      "path",
+      "sources",
+      "add",
+      customPathName,
+      "domain-playbook.md",
+      "--domain",
+      customDomain,
+      "--json",
+    ],
+    cliEnv,
+    workspacePath,
+  );
   assert.equal(pathAddResult.code, 0, pathAddResult.stderr);
   const added = JSON.parse(pathAddResult.stdout) as {
     pathName: string;
@@ -123,15 +131,12 @@ async function main() {
   assert.equal(added.domain, customDomain);
   assert.equal(added.totalSources, 1);
 
-  const pathRunResult = await run(launcherPath, [
-    "path",
-    "run",
-    customPathName,
-    "--request",
-    "do the work for this domain",
-    "--all",
-    "--json",
-  ], cliEnv, workspacePath);
+  const pathRunResult = await run(
+    launcherPath,
+    ["path", "run", customPathName, "--request", "do the work for this domain", "--all", "--json"],
+    cliEnv,
+    workspacePath,
+  );
   assert.equal(pathRunResult.code, 0, pathRunResult.stderr);
   const pathRun = JSON.parse(pathRunResult.stdout) as {
     formation: {
@@ -145,7 +150,10 @@ async function main() {
   const uninstallResult = await run(launcherPath, ["uninstall"], cliEnv, workspacePath);
   assert.equal(uninstallResult.code, 0, uninstallResult.stderr);
 
-  const homeExists = await fs.access(homePath).then(() => true).catch(() => false);
+  const homeExists = await fs
+    .access(homePath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(homeExists, false);
 
   console.log(`hosted install launcher: ${launcherPath}`);

@@ -1,6 +1,4 @@
-export {
-  getDefaultLawSkills,
-} from "./default-skills.ts";
+export { getDefaultLawSkills } from "./default-skills.ts";
 export {
   mapEnforcementResultToOutcome,
   shouldOfferBodyguardGrant,

@@ -125,12 +125,7 @@ export function validateAdmissionConfig(config: BoundaryAdmissionConfig): Admiss
       warnings.push({
         severity: "warning",
         field: "density.windowSize",
-        message:
-          `density.windowSize=${windowSize} → signal threshold=${signalThreshold} decisions — ` +
-          `exceeds WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING}. ` +
-          `Weak provenances will hit the hard ceiling before density fires. ` +
-          `Density window is effectively inert for weak provenance. ` +
-          `Reduce windowSize to ≤${DENSITY_SAFE_MAX_WINDOW_SIZE} to keep density inside the safety envelope.`,
+        message: `density.windowSize=${windowSize} → signal threshold=${signalThreshold} decisions — exceeds WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING}. Weak provenances will hit the hard ceiling before density fires. Density window is effectively inert for weak provenance. Reduce windowSize to ≤${DENSITY_SAFE_MAX_WINDOW_SIZE} to keep density inside the safety envelope.`,
       });
     }
 
@@ -281,9 +276,12 @@ function evictHostileDeniedCounts(
 
 function scaleThreshold(base: number, strength: BoundaryProvenanceStrength): number {
   switch (strength) {
-    case "strong": return base * 2;     // pubkey / signed identity: double headroom
-    case "medium": return base;         // session identity: no scaling
-    case "weak":   return Math.max(1, Math.ceil(base * 0.5)); // IP: half threshold
+    case "strong":
+      return base * 2; // pubkey / signed identity: double headroom
+    case "medium":
+      return base; // session identity: no scaling
+    case "weak":
+      return Math.max(1, Math.ceil(base * 0.5)); // IP: half threshold
   }
 }
 
@@ -300,7 +298,7 @@ export function evaluateAdmission(args: {
 }): { result: BoundaryAdmissionResult; state: BoundaryAdmissionState } {
   const { config, request, nowMs } = args;
   const { provenance, provenanceStrength, weightClass } = request;
-  let state = normalizeAdmissionState(args.state);
+  const state = normalizeAdmissionState(args.state);
   const maxSize = config.provenanceMaxSize ?? 10_000;
 
   // ── Step 1: operator ingress overrides + O(1) canyon cache ───────────────
@@ -393,9 +391,9 @@ export function evaluateAdmission(args: {
   const rawExisting = records[provenance];
   const historicalCount = state.hostileDeniedCounts[provenance] ?? 0;
   const existing: BoundaryProvenanceRecord = rawExisting
-    ? (rawExisting.totalDeniedCount < historicalCount
-        ? { ...rawExisting, totalDeniedCount: historicalCount }
-        : rawExisting)
+    ? rawExisting.totalDeniedCount < historicalCount
+      ? { ...rawExisting, totalDeniedCount: historicalCount }
+      : rawExisting
     : { ...emptyProvenanceRecord(nowMs), totalDeniedCount: historicalCount };
   const weight = getInputWeight(weightClass, config.weight);
 
@@ -403,9 +401,22 @@ export function evaluateAdmission(args: {
   // Safety floor — fires before velocity/density/mass and cannot be disabled
   // or loosened by density config. Density can promote sooner; it cannot push
   // promotion past WEAK_PROVENANCE_HARD_BLOCK_CEILING for weak provenances.
-  if (provenanceStrength === "weak" && existing.totalDeniedCount >= WEAK_PROVENANCE_HARD_BLOCK_CEILING) {
+  if (
+    provenanceStrength === "weak" &&
+    existing.totalDeniedCount >= WEAK_PROVENANCE_HARD_BLOCK_CEILING
+  ) {
     const promoted = promoteIfNew(state, provenance, "hard_ceiling");
-    const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
+    const nextState = buildUpdatedState(
+      state,
+      records,
+      provenance,
+      existing,
+      weight,
+      nowMs,
+      false,
+      promoted,
+      maxSize,
+    );
     return {
       result: {
         decision: "tarpit",
@@ -430,7 +441,17 @@ export function evaluateAdmission(args: {
     if (inWindow >= maxPerWindow) {
       // Density check: has this provenance crossed the deny threshold?
       const promoted = promoteIfDensityTripped(state, config, existing, provenance);
-      const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
+      const nextState = buildUpdatedState(
+        state,
+        records,
+        provenance,
+        existing,
+        weight,
+        nowMs,
+        false,
+        promoted,
+        maxSize,
+      );
       return {
         result: {
           decision: "tarpit",
@@ -456,7 +477,17 @@ export function evaluateAdmission(args: {
 
     if (windowWeight + weight > maxMass) {
       const promoted = promoteIfDensityTripped(state, config, existing, provenance);
-      const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
+      const nextState = buildUpdatedState(
+        state,
+        records,
+        provenance,
+        existing,
+        weight,
+        nowMs,
+        false,
+        promoted,
+        maxSize,
+      );
       return {
         result: {
           decision: "tarpit",
@@ -478,11 +509,23 @@ export function evaluateAdmission(args: {
     if (recent.length >= Math.ceil(windowSize / 2)) {
       const deniedCount = recent.filter((admitted) => !admitted).length;
       const ratio = deniedCount / recent.length;
-      const maxRatio = config.density.maxDenyRatio / (provenanceStrength === "weak" ? 2 : provenanceStrength === "strong" ? 1 : 1);
+      const maxRatio =
+        config.density.maxDenyRatio /
+        (provenanceStrength === "weak" ? 2 : provenanceStrength === "strong" ? 1 : 1);
 
       if (ratio >= maxRatio) {
         const promoted = promoteIfNew(state, provenance, "density");
-        const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, false, promoted, maxSize);
+        const nextState = buildUpdatedState(
+          state,
+          records,
+          provenance,
+          existing,
+          weight,
+          nowMs,
+          false,
+          promoted,
+          maxSize,
+        );
         return {
           result: {
             decision: "tarpit",
@@ -499,7 +542,17 @@ export function evaluateAdmission(args: {
   }
 
   // ── Step 6: Admit ─────────────────────────────────────────────────────────
-  const nextState = buildUpdatedState(state, records, provenance, existing, weight, nowMs, true, { isNew: false, kind: "density" }, maxSize);
+  const nextState = buildUpdatedState(
+    state,
+    records,
+    provenance,
+    existing,
+    weight,
+    nowMs,
+    true,
+    { isNew: false, kind: "density" },
+    maxSize,
+  );
   return {
     result: {
       decision: "admit",
@@ -563,13 +616,21 @@ function buildUpdatedState(
   maxSize: number,
 ): BoundaryAdmissionState {
   const velocityWindowMs = 60_000; // default; caller's config not threaded here — trimmed conservatively
-  const newDeniedCount = wasAdmitted ? (existing.totalDeniedCount ?? 0) : (existing.totalDeniedCount ?? 0) + 1;
+  const newDeniedCount = wasAdmitted
+    ? (existing.totalDeniedCount ?? 0)
+    : (existing.totalDeniedCount ?? 0) + 1;
   const updatedRecord: BoundaryProvenanceRecord = {
-    requestTimestamps: [...existing.requestTimestamps.filter((t) => t >= nowMs - velocityWindowMs), nowMs],
+    requestTimestamps: [
+      ...existing.requestTimestamps.filter((t) => t >= nowMs - velocityWindowMs),
+      nowMs,
+    ],
     recentDecisions: [...existing.recentDecisions, wasAdmitted].slice(-40),
     totalDeniedCount: newDeniedCount,
     totalInboundWeight: existing.totalInboundWeight + weight,
-    windowWeightTimestamps: [...existing.windowWeightTimestamps.filter((e) => e.ts >= nowMs - velocityWindowMs), { ts: nowMs, weight }],
+    windowWeightTimestamps: [
+      ...existing.windowWeightTimestamps.filter((e) => e.ts >= nowMs - velocityWindowMs),
+      { ts: nowMs, weight },
+    ],
     lastSeenMs: nowMs,
   };
 
@@ -578,9 +639,10 @@ function buildUpdatedState(
         ...state.canyonProvenances,
         [provenance]: {
           canyonedAt: nowMs,
-          reason: promoted.kind === "hard_ceiling"
-            ? `hard block ceiling: accumulated ${newDeniedCount} tarpit decisions for weak provenance`
-            : "density threshold crossed",
+          reason:
+            promoted.kind === "hard_ceiling"
+              ? `hard block ceiling: accumulated ${newDeniedCount} tarpit decisions for weak provenance`
+              : "density threshold crossed",
           ledgered: false,
           promotionKind: promoted.kind ?? "density",
         },

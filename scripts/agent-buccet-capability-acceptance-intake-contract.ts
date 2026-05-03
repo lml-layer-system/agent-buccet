@@ -14,33 +14,40 @@ async function main() {
   assert.ok(CAPABILITY_INTAKE_SNAPSHOT.channels.includes("Telegram"));
   assert.ok(CAPABILITY_INTAKE_SNAPSHOT.skills.includes("coding-agent"));
   assert.ok(CAPABILITY_INTAKE_SNAPSHOT.skills.includes("taskflow"));
-  assert.ok(CAPABILITY_INTAKE_SNAPSHOT.extensionGroups.modelAndGatewayExtensions.includes("openai"));
-  assert.ok(CAPABILITY_INTAKE_SNAPSHOT.extensionGroups.searchAndFetchExtensions.includes("firecrawl"));
+  assert.ok(
+    CAPABILITY_INTAKE_SNAPSHOT.extensionGroups.modelAndGatewayExtensions.includes("openai"),
+  );
+  assert.ok(
+    CAPABILITY_INTAKE_SNAPSHOT.extensionGroups.searchAndFetchExtensions.includes("firecrawl"),
+  );
 
   assert.ok(
-    CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES.some((family) =>
-      family.id === "BUCCET.CAPABILITY.LOCAL.WORKSPACE" &&
-      family.disposition === "base_candidate" &&
-      family.normalizedActionKinds.includes("fs.read") &&
-      family.normalizedActionKinds.includes("fs.write"),
+    CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES.some(
+      (family) =>
+        family.id === "BUCCET.CAPABILITY.LOCAL.WORKSPACE" &&
+        family.disposition === "base_candidate" &&
+        family.normalizedActionKinds.includes("fs.read") &&
+        family.normalizedActionKinds.includes("fs.write"),
     ),
     "expected local workspace acceptance family",
   );
 
   assert.ok(
-    CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES.some((family) =>
-      family.id === "BUCCET.CAPABILITY.MESSAGE.CHANNELS" &&
-      family.sourceNames.includes("WhatsApp") &&
-      family.sourceNames.includes("Slack"),
+    CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES.some(
+      (family) =>
+        family.id === "BUCCET.CAPABILITY.MESSAGE.CHANNELS" &&
+        family.sourceNames.includes("WhatsApp") &&
+        family.sourceNames.includes("Slack"),
     ),
     "expected channel intake family",
   );
 
   assert.ok(
-    CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES.some((family) =>
-      family.id === "BUCCET.CAPABILITY.MODEL.PROVIDERS" &&
-      family.normalizedActionKinds.includes("sys.credential.use") &&
-      family.sourceNames.includes("OpenAI"),
+    CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES.some(
+      (family) =>
+        family.id === "BUCCET.CAPABILITY.MODEL.PROVIDERS" &&
+        family.normalizedActionKinds.includes("sys.credential.use") &&
+        family.sourceNames.includes("OpenAI"),
     ),
     "expected provider intake family",
   );

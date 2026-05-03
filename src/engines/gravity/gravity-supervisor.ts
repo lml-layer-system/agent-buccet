@@ -1,8 +1,8 @@
+import type { BoundaryToolProposal } from "./../../boundaries/bodyguard.ts";
+import type { BoundaryRuntimeStore } from "./../../runtime/store.ts";
+import type { BoundaryApprovalHandler } from "./../../runtime/types.ts";
 import { createBoundaryGravityAttachment } from "./gravity.ts";
 import type { BoundaryGravityResult } from "./gravity.ts";
-import type { BoundaryToolProposal } from "./../../boundaries/bodyguard.ts";
-import type { BoundaryApprovalHandler } from "./../../runtime/types.ts";
-import type { BoundaryRuntimeStore } from "./../../runtime/store.ts";
 
 export type BoundaryGravitySupervisorOptions = {
   store: BoundaryRuntimeStore;

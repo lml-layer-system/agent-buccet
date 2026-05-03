@@ -1,11 +1,5 @@
-import type {
-  EnforcementResult,
-  GravityKernelDeps,
-  GravityProposal,
-  GravityState,
-  LawSkill,
-} from "./types.ts";
 import { runGravityLoop } from "./kernel.ts";
+import type { EnforcementResult, GravityKernelDeps, GravityProposal, LawSkill } from "./types.ts";
 
 /**
  * Thin client that outer runtimes can use to feed proposals/events into gravity.
@@ -30,5 +24,3 @@ export function startGravityKernel(
 ): Promise<never> {
   return runGravityLoop(deps, skills);
 }
-
-

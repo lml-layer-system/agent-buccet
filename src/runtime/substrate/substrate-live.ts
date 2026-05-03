@@ -1,10 +1,8 @@
-import { grantsForAction, targetMatchesGrant } from "./../orchestrator.ts";
-import { substrate, PolicyDecision, type RouteResult, type ValidationResult } from "./substrate-rust.ts";
-import { checkTrackConstraint } from "./../../law/upl-tracks.ts";
 import {
   lookupUserPathDecision,
   lookupUserPathTrackDecision,
 } from "./../../proof/user-path-ledger.ts";
+import { grantsForAction, targetMatchesGrant } from "./../orchestrator.ts";
 import type {
   BoundaryActionRequest,
   BoundaryApprovalDecision,
@@ -13,6 +11,12 @@ import type {
   BoundaryRuntimeConfig,
   BoundaryUplEntry,
 } from "./../types.ts";
+import {
+  PolicyDecision,
+  type RouteResult,
+  type ValidationResult,
+  substrate,
+} from "./substrate-rust.ts";
 
 type SubstrateTrafficMatchDecision = "allow" | "deny" | "require_approval" | "no_match";
 
@@ -52,10 +56,7 @@ export type BoundarySubstrateApprovalMutationAssessment = {
 const routeCounters = new Map<string, number>();
 
 function trafficLawIds(config: BoundaryRuntimeConfig, entry: BoundaryUplEntry): string[] {
-  return [
-    entry.id,
-    ...(config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? []),
-  ];
+  return [entry.id, ...(config.runtimeMuscle?.timeLawIdsByCategory.user_path_ledger ?? [])];
 }
 
 function describeTrafficEntry(entry: BoundaryUplEntry): string {
@@ -87,7 +88,6 @@ function provenanceDomain(provenance: BoundaryRequestProvenance): string {
       return "disposable";
     case "tool_output":
       return "work";
-    case "agent_inference":
     default:
       return "work";
   }
@@ -117,8 +117,11 @@ function buildKRolesForRequest(args: {
   verbs: string[];
   resources: string[];
 }> {
-  const actionGrants = grantsForAction(args.config.session, args.request.actionKind, args.config.grants)
-    .filter((grant) => targetMatchesGrant(args.request, grant));
+  const actionGrants = grantsForAction(
+    args.config.session,
+    args.request.actionKind,
+    args.config.grants,
+  ).filter((grant) => targetMatchesGrant(args.request, grant));
 
   const roles = actionGrants.map((grant) => ({
     subjects: [args.config.session.actorId],
@@ -137,7 +140,9 @@ function buildKRolesForRequest(args: {
   return roles;
 }
 
-function buildRouteBackends(request: BoundaryActionRequest): Array<{ endpoint: string; weight: number }> {
+function buildRouteBackends(
+  request: BoundaryActionRequest,
+): Array<{ endpoint: string; weight: number }> {
   if (request.actionKind === "chat.emit") {
     return [
       { endpoint: "chat-boundary", weight: 3 },
@@ -188,7 +193,10 @@ function resolveRawTrafficMatch(args: {
       return {
         decision: "allow",
         entry: exactMatch.entry,
-        reason: standingLawReason(exactMatch.entry, "standing-law: existing UPL law allowed this request"),
+        reason: standingLawReason(
+          exactMatch.entry,
+          "standing-law: existing UPL law allowed this request",
+        ),
         triggeredLawIds,
         uplTrackId: exactMatch.entry.trackConstraint ? exactMatch.entry.id : undefined,
       };
@@ -196,7 +204,10 @@ function resolveRawTrafficMatch(args: {
     return {
       decision: "deny",
       entry: exactMatch.entry,
-      reason: standingLawReason(exactMatch.entry, "standing-law: existing UPL law denied this request"),
+      reason: standingLawReason(
+        exactMatch.entry,
+        "standing-law: existing UPL law denied this request",
+      ),
       triggeredLawIds,
       uplTrackId: exactMatch.entry.trackConstraint ? exactMatch.entry.id : undefined,
     };
@@ -254,11 +265,12 @@ export async function assessBoundarySubstrateIntercept(args: {
   });
   const sourceDomain = provenanceDomain(args.request.provenance);
   const service = substrateServiceForAction(args.request);
-  const policyTable = trafficMatch.decision === "deny"
-    ? {}
-    : {
-        [`${sourceDomain}@${trustDomain}@${service}`]: "ALLOW",
-      };
+  const policyTable =
+    trafficMatch.decision === "deny"
+      ? {}
+      : {
+          [`${sourceDomain}@${trustDomain}@${service}`]: "ALLOW",
+        };
   const decision = substrate.qInterceptCall(args.config.session.sessionId, {
     source_domain: sourceDomain,
     target_domain: trustDomain,
@@ -269,7 +281,8 @@ export async function assessBoundarySubstrateIntercept(args: {
   return {
     decision,
     trustDomain,
-    reason: decision === PolicyDecision.Deny && trafficMatch.reason ? trafficMatch.reason : undefined,
+    reason:
+      decision === PolicyDecision.Deny && trafficMatch.reason ? trafficMatch.reason : undefined,
     triggeredLawIds: decision === PolicyDecision.Deny ? trafficMatch.triggeredLawIds : [],
   };
 }
@@ -286,9 +299,10 @@ export async function resolveBoundarySubstrateTraffic(args: {
   await substrate.init();
   const subject = args.config.session.actorId;
   const resource = match.entry?.id ?? args.request.target;
-  const policyRules = match.decision === "allow"
-    ? [{ subject, action: args.request.actionKind, resource, effect: "ALLOW" }]
-    : [];
+  const policyRules =
+    match.decision === "allow"
+      ? [{ subject, action: args.request.actionKind, resource, effect: "ALLOW" }]
+      : [];
   const trustDecision = substrate.qEnforcePolicy(subject, resource, args.request.actionKind, {
     policy_rules: policyRules,
   });
@@ -414,14 +428,21 @@ export async function validateBoundarySubstrateApprovalMutation(args: {
   const trustDomain = substrate.qAssignTrustDomain(resolveTrustTarget(args.request), {
     domain_map: substrateDomainMap(args.config),
   });
-  const policy = substrate.qEnforcePolicy(args.config.session.actorId, trustDomain, args.decision.choice, {
-    policy_rules: [{
-      subject: args.config.session.actorId,
-      action: args.decision.choice,
-      resource: trustDomain,
-      effect: "ALLOW",
-    }],
-  });
+  const policy = substrate.qEnforcePolicy(
+    args.config.session.actorId,
+    trustDomain,
+    args.decision.choice,
+    {
+      policy_rules: [
+        {
+          subject: args.config.session.actorId,
+          action: args.decision.choice,
+          resource: trustDomain,
+          effect: "ALLOW",
+        },
+      ],
+    },
+  );
   const validation = substrate.kValidate(args.request.requestId, {
     manifest: {
       apiVersion: "buccet/v1",

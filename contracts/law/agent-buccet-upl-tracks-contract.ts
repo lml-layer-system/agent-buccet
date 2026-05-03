@@ -11,9 +11,9 @@
  */
 
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
@@ -52,7 +52,7 @@ async function main() {
     const sessionId = `agent-buccet-upl-tracks-${Date.now()}`;
     const actorId = "user:upl-tracks-contract";
 
-    let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
+    const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
 
     // Open the workspace as a scoped path law and require explicit approval for fs.write
     // so we can exercise standing UPL allow track binding.
@@ -98,7 +98,10 @@ async function main() {
     assert.ok(activeApproved.length > 0, "T1: expected at least one active approved UPL entry");
 
     const trackEntry = activeApproved[activeApproved.length - 1];
-    assert.ok(trackEntry.trackConstraint, "T1: expected trackConstraint to be set on allow_as_law entry");
+    assert.ok(
+      trackEntry.trackConstraint,
+      "T1: expected trackConstraint to be set on allow_as_law entry",
+    );
     assert.ok(
       trackEntry.trackConstraint.allowedActionKinds.includes("fs.write"),
       "T1: expected track to allow fs.write",
@@ -109,7 +112,9 @@ async function main() {
       "T1: expected track targetPattern to be the parent directory of the approved target",
     );
 
-    console.log(`T1 ok: trackConstraint bound — kinds: ${trackEntry.trackConstraint.allowedActionKinds.join(",")} | pattern: ${trackEntry.trackConstraint.targetPattern}`);
+    console.log(
+      `T1 ok: trackConstraint bound — kinds: ${trackEntry.trackConstraint.allowedActionKinds.join(",")} | pattern: ${trackEntry.trackConstraint.targetPattern}`,
+    );
 
     // ─── T2: identical request short-circuits via track (no re-prompt) ───────
 
@@ -122,8 +127,16 @@ async function main() {
       successReason: "wrote output.txt again",
     });
 
-    assert.equal(sameTargetResult.allowed, true, "T2: expected allow for identical target — track not violated");
-    assert.equal(sameTargetResult.requiresApproval, false, "T2: expected no re-prompt for track-compliant request");
+    assert.equal(
+      sameTargetResult.allowed,
+      true,
+      "T2: expected allow for identical target — track not violated",
+    );
+    assert.equal(
+      sameTargetResult.requiresApproval,
+      false,
+      "T2: expected no re-prompt for track-compliant request",
+    );
 
     // A sibling file in the same subdir must also pass the track (same parent dir).
     const siblingTarget = path.join(subdir, "other.txt");
@@ -135,7 +148,11 @@ async function main() {
       execute: async () => "sibling-value",
       successReason: "wrote sibling.txt",
     });
-    assert.equal(siblingResult.allowed, true, "T2: expected allow for sibling file in same directory");
+    assert.equal(
+      siblingResult.allowed,
+      true,
+      "T2: expected allow for sibling file in same directory",
+    );
 
     console.log("T2 ok: track-compliant requests pass without re-prompt");
 
@@ -158,7 +175,10 @@ async function main() {
     });
 
     const corridorPending = await waitForPending(() => bodyguard.approvals.listPending());
-    assert.ok(corridorPending.length > 0, "T3: expected corridor violation to surface as require_approval in Terminal 2");
+    assert.ok(
+      corridorPending.length > 0,
+      "T3: expected corridor violation to surface as require_approval in Terminal 2",
+    );
 
     const corridorApproval = corridorPending[0];
     assert.ok(
@@ -176,9 +196,7 @@ async function main() {
     // ─── T4: UPL_TRACK_VIOLATED event in ledger ──────────────────────────────
 
     const ledgerRecords = await readBoundaryLedgerBySession(sessionId);
-    const trackViolatedEvent = ledgerRecords.find(
-      (r) => r.eventType === "UPL_TRACK_VIOLATED",
-    );
+    const trackViolatedEvent = ledgerRecords.find((r) => r.eventType === "UPL_TRACK_VIOLATED");
     assert.ok(
       trackViolatedEvent,
       "T4: expected UPL_TRACK_VIOLATED ledger event after corridor exit",
@@ -189,10 +207,15 @@ async function main() {
     // ─── T5 / T6: standing deny also binds a track corridor ───────────────────
 
     const postDenyLedger = await loadUserPathLedger();
-    const activeDenied = postDenyLedger.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE");
+    const activeDenied = postDenyLedger.userDeniedLawPaths.filter(
+      (entry) => entry.status === "ACTIVE",
+    );
     assert.ok(activeDenied.length > 0, "T5: expected an active denied UPL entry after deny_as_law");
     const deniedTrackEntry = activeDenied[activeDenied.length - 1];
-    assert.ok(deniedTrackEntry.trackConstraint, "T5: expected denied UPL entry to carry a trackConstraint");
+    assert.ok(
+      deniedTrackEntry.trackConstraint,
+      "T5: expected denied UPL entry to carry a trackConstraint",
+    );
     assert.equal(
       deniedTrackEntry.trackConstraint.targetPattern,
       path.join(workspace, "other"),
@@ -208,8 +231,16 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "should not execute inside denied corridor",
     });
-    assert.equal(deniedSiblingResult.allowed, false, "T6: expected denied corridor request to be blocked");
-    assert.equal(deniedSiblingResult.requiresApproval, false, "T6: expected standing denied corridor to avoid re-prompt");
+    assert.equal(
+      deniedSiblingResult.allowed,
+      false,
+      "T6: expected denied corridor request to be blocked",
+    );
+    assert.equal(
+      deniedSiblingResult.requiresApproval,
+      false,
+      "T6: expected standing denied corridor to avoid re-prompt",
+    );
 
     console.log("T5 ok: standing deny bound a track corridor");
     console.log("T6 ok: denied corridor blocked repeat motion without re-prompt");
@@ -229,7 +260,11 @@ async function main() {
     });
 
     const deniedSecretResult = await denySecretProposal;
-    assert.equal(deniedSecretResult.allowed, false, "T7 setup: expected secret wall to be recorded");
+    assert.equal(
+      deniedSecretResult.allowed,
+      false,
+      "T7 setup: expected secret wall to be recorded",
+    );
     assert.equal(
       deniedSecretResult.requiresApproval,
       false,
@@ -247,7 +282,10 @@ async function main() {
     });
 
     const rootPendingApprovals = await waitForPending(() => bodyguard.approvals.listPending());
-    assert.ok(rootPendingApprovals.length > 0, "T7 setup: expected approval for broad root corridor");
+    assert.ok(
+      rootPendingApprovals.length > 0,
+      "T7 setup: expected approval for broad root corridor",
+    );
     bodyguard.approvals.allowAsLaw(rootPendingApprovals[0].approvalId);
     const rootResult = await rootProposal;
     assert.equal(rootResult.allowed, true, "T7 setup: expected broad root corridor to be approved");
@@ -272,7 +310,9 @@ async function main() {
       "T7: expected closed secret segment to deny without re-prompt",
     );
 
-    console.log("T7 ok: closed segment on the same road blocked motion inside broad approved corridor");
+    console.log(
+      "T7 ok: closed segment on the same road blocked motion inside broad approved corridor",
+    );
 
     // ─── Summary ─────────────────────────────────────────────────────────────
     console.log("");

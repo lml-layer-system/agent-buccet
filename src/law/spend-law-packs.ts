@@ -128,7 +128,8 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     title: "One-Time Merchant Purchase",
     category: "shopping",
     description: "Open a narrow one-time shopping corridor to one exact merchant/provider handle.",
-    lockedByDefault: "One-time merchant purchases stay denied until the exact merchant corridor is opened.",
+    lockedByDefault:
+      "One-time merchant purchases stay denied until the exact merchant corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
       "agent.spend only",
@@ -162,7 +163,8 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     title: "Provider Subscription",
     category: "recurring",
     description: "Open a recurring subscription corridor to one named provider handle.",
-    lockedByDefault: "Recurring provider subscriptions stay denied until the exact recurring corridor is opened.",
+    lockedByDefault:
+      "Recurring provider subscriptions stay denied until the exact recurring corridor is opened.",
     requires: ["handle", "principal", "bucket", "max monthly amount"],
     opensCorridor: [
       "agent.spend only",
@@ -195,8 +197,10 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "license.seat",
     title: "SaaS Seat / License Management",
     category: "license",
-    description: "Open a bounded seat, workspace, or license corridor to one named SaaS provider handle.",
-    lockedByDefault: "Seat, workspace, and license changes stay denied until the exact provider corridor is opened.",
+    description:
+      "Open a bounded seat, workspace, or license corridor to one named SaaS provider handle.",
+    lockedByDefault:
+      "Seat, workspace, and license changes stay denied until the exact provider corridor is opened.",
     requires: ["handle", "principal", "bucket", "max monthly amount"],
     opensCorridor: [
       "agent.spend only",
@@ -263,8 +267,10 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "bill.payment",
     title: "Bill / Invoice Payment",
     category: "billing",
-    description: "Open a bounded bill-payment corridor to one exact biller or invoice payee handle.",
-    lockedByDefault: "Bill and invoice payments stay denied until the exact payee corridor is opened.",
+    description:
+      "Open a bounded bill-payment corridor to one exact biller or invoice payee handle.",
+    lockedByDefault:
+      "Bill and invoice payments stay denied until the exact payee corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
       "agent.spend only",
@@ -297,7 +303,8 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "travel.booking",
     title: "Travel Booking",
     category: "travel",
-    description: "Open a bounded travel booking corridor to one exact airline, hotel, or travel provider handle.",
+    description:
+      "Open a bounded travel booking corridor to one exact airline, hotel, or travel provider handle.",
     lockedByDefault: "Travel bookings stay denied until the exact provider corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
@@ -365,8 +372,10 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "donation.gift",
     title: "Donation / Gift",
     category: "donation",
-    description: "Open a bounded donation corridor to one exact charity or gift destination handle.",
-    lockedByDefault: "Donations and gifts stay denied until the exact recipient corridor is opened.",
+    description:
+      "Open a bounded donation corridor to one exact charity or gift destination handle.",
+    lockedByDefault:
+      "Donations and gifts stay denied until the exact recipient corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
       "agent.spend only",
@@ -399,7 +408,8 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "procurement.order",
     title: "Procurement Order",
     category: "procurement",
-    description: "Open a bounded procurement corridor to one exact vendor handle for organizational buying.",
+    description:
+      "Open a bounded procurement corridor to one exact vendor handle for organizational buying.",
     lockedByDefault: "Procurement orders stay denied until the exact vendor corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
@@ -434,7 +444,8 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     title: "API / Cloud Credit Purchase",
     category: "signup",
     description: "Open a bounded paid API or cloud credit purchase corridor to one provider.",
-    lockedByDefault: "Paid API and cloud-credit top-ups stay denied until the exact provider rail is opened.",
+    lockedByDefault:
+      "Paid API and cloud-credit top-ups stay denied until the exact provider rail is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
       "agent.spend only",
@@ -467,8 +478,10 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "platform.signup",
     title: "Platform Signup With Billing",
     category: "signup",
-    description: "Open a signup corridor for a provider that can create billing authority, API credentials, or future charges.",
-    lockedByDefault: "Billing-capable platform signups stay denied until the exact provider corridor is opened.",
+    description:
+      "Open a signup corridor for a provider that can create billing authority, API credentials, or future charges.",
+    lockedByDefault:
+      "Billing-capable platform signups stay denied until the exact provider corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
       "agent.spend only",
@@ -495,7 +508,8 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     substitutionPolicy: "deny",
     humanConfirmationRule: "require_human_execution",
     proofRequirement: "artifact_required",
-    defaultTermsSummary: "billing-capable platform signup treated as future obligation from the start",
+    defaultTermsSummary:
+      "billing-capable platform signup treated as future obligation from the start",
   },
   {
     id: "account.transfer",
@@ -535,8 +549,10 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
     id: "contract.signature",
     title: "Contract / Binding Signature",
     category: "contract",
-    description: "Open a narrow contract-signature corridor for one exact counterparty handle and bounded obligation.",
-    lockedByDefault: "Binding signatures and legal obligations stay denied until one exact signature corridor is opened.",
+    description:
+      "Open a narrow contract-signature corridor for one exact counterparty handle and bounded obligation.",
+    lockedByDefault:
+      "Binding signatures and legal obligations stay denied until one exact signature corridor is opened.",
     requires: ["handle", "principal", "bucket", "max amount"],
     opensCorridor: [
       "agent.spend only",
@@ -568,7 +584,13 @@ const SPEND_LAW_PACKS: BoundarySpendLawPack[] = [
 ];
 
 function slugifyFragment(value: string): string {
-  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, ".").replace(/^\.+|\.+$/g, "") || "unnamed";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ".")
+      .replace(/^\.+|\.+$/g, "") || "unnamed"
+  );
 }
 
 type SpendProposalSignalRule = {
@@ -579,73 +601,257 @@ type SpendProposalSignalRule = {
 
 const SPEND_PROPOSAL_SIGNAL_RULES: Record<BoundarySpendLawPackId, SpendProposalSignalRule[]> = {
   "merchant.purchase": [
-    { terms: ["buy", "purchase", "order"], score: 5, reason: "request uses direct purchase language" },
-    { terms: ["checkout", "cart", "shopping"], score: 4, reason: "request describes a shopping / checkout flow" },
-    { terms: ["merchant", "product", "item"], score: 2, reason: "request names a merchant-style purchase target" },
+    {
+      terms: ["buy", "purchase", "order"],
+      score: 5,
+      reason: "request uses direct purchase language",
+    },
+    {
+      terms: ["checkout", "cart", "shopping"],
+      score: 4,
+      reason: "request describes a shopping / checkout flow",
+    },
+    {
+      terms: ["merchant", "product", "item"],
+      score: 2,
+      reason: "request names a merchant-style purchase target",
+    },
   ],
   "subscription.provider": [
-    { terms: ["subscription", "subscribe", "subscribed"], score: 6, reason: "request explicitly asks for a subscription" },
-    { terms: ["monthly", "annual", "yearly", "renew", "renewal"], score: 4, reason: "request names recurring billing terms" },
-    { terms: ["recurring", "plan"], score: 3, reason: "request describes an ongoing provider plan" },
-    { terms: ["slack", "notion", "github", "discord", "linear", "figma", "zoom"], score: 2, reason: "request names a common SaaS subscription provider" },
+    {
+      terms: ["subscription", "subscribe", "subscribed"],
+      score: 6,
+      reason: "request explicitly asks for a subscription",
+    },
+    {
+      terms: ["monthly", "annual", "yearly", "renew", "renewal"],
+      score: 4,
+      reason: "request names recurring billing terms",
+    },
+    {
+      terms: ["recurring", "plan"],
+      score: 3,
+      reason: "request describes an ongoing provider plan",
+    },
+    {
+      terms: ["slack", "notion", "github", "discord", "linear", "figma", "zoom"],
+      score: 2,
+      reason: "request names a common SaaS subscription provider",
+    },
   ],
   "license.seat": [
-    { terms: ["seat", "seats", "license", "licenses"], score: 6, reason: "request explicitly asks for seat or license changes" },
-    { terms: ["workspace", "member", "users", "team seats"], score: 4, reason: "request describes workspace membership or seat expansion" },
-    { terms: ["slack", "notion", "github", "linear", "figma", "zoom"], score: 5, reason: "request names a common seat-based SaaS provider" },
+    {
+      terms: ["seat", "seats", "license", "licenses"],
+      score: 6,
+      reason: "request explicitly asks for seat or license changes",
+    },
+    {
+      terms: ["workspace", "member", "users", "team seats"],
+      score: 4,
+      reason: "request describes workspace membership or seat expansion",
+    },
+    {
+      terms: ["slack", "notion", "github", "linear", "figma", "zoom"],
+      score: 5,
+      reason: "request names a common seat-based SaaS provider",
+    },
   ],
   "exchange.trade": [
-    { terms: ["trade", "trading", "exchange", "swap"], score: 6, reason: "request explicitly asks for trading or exchange motion" },
-    { terms: ["rebalance", "market order", "limit order", "portfolio", "brokerage", "broker"], score: 4, reason: "request names trading or brokerage order mechanics" },
-    { terms: ["coinbase", "binance", "kraken", "robinhood", "fidelity", "schwab", "ibkr", "interactive brokers", "alpaca"], score: 5, reason: "request names an exchange or brokerage handle directly" },
-    { terms: ["stocks", "equities", "etf", "shares"], score: 3, reason: "request targets market trading assets" },
+    {
+      terms: ["trade", "trading", "exchange", "swap"],
+      score: 6,
+      reason: "request explicitly asks for trading or exchange motion",
+    },
+    {
+      terms: ["rebalance", "market order", "limit order", "portfolio", "brokerage", "broker"],
+      score: 4,
+      reason: "request names trading or brokerage order mechanics",
+    },
+    {
+      terms: [
+        "coinbase",
+        "binance",
+        "kraken",
+        "robinhood",
+        "fidelity",
+        "schwab",
+        "ibkr",
+        "interactive brokers",
+        "alpaca",
+      ],
+      score: 5,
+      reason: "request names an exchange or brokerage handle directly",
+    },
+    {
+      terms: ["stocks", "equities", "etf", "shares"],
+      score: 3,
+      reason: "request targets market trading assets",
+    },
   ],
   "bill.payment": [
-    { terms: ["bill", "bills", "invoice", "invoices"], score: 6, reason: "request explicitly asks for bill or invoice payment" },
-    { terms: ["pay bill", "pay invoice", "utility", "rent", "vendor bill"], score: 5, reason: "request describes a payment obligation" },
-    { terms: ["due date", "biller", "statement"], score: 3, reason: "request names billing obligation details" },
+    {
+      terms: ["bill", "bills", "invoice", "invoices"],
+      score: 6,
+      reason: "request explicitly asks for bill or invoice payment",
+    },
+    {
+      terms: ["pay bill", "pay invoice", "utility", "rent", "vendor bill"],
+      score: 5,
+      reason: "request describes a payment obligation",
+    },
+    {
+      terms: ["due date", "biller", "statement"],
+      score: 3,
+      reason: "request names billing obligation details",
+    },
   ],
   "travel.booking": [
-    { terms: ["travel", "book flight", "flight", "hotel", "airbnb"], score: 6, reason: "request explicitly asks for travel booking" },
-    { terms: ["airline", "reservation", "trip", "fare"], score: 4, reason: "request names travel-booking details" },
-    { terms: ["booking", "non-refundable", "itinerary"], score: 4, reason: "request describes booking commitment terms" },
+    {
+      terms: ["travel", "book flight", "flight", "hotel", "airbnb"],
+      score: 6,
+      reason: "request explicitly asks for travel booking",
+    },
+    {
+      terms: ["airline", "reservation", "trip", "fare"],
+      score: 4,
+      reason: "request names travel-booking details",
+    },
+    {
+      terms: ["booking", "non-refundable", "itinerary"],
+      score: 4,
+      reason: "request describes booking commitment terms",
+    },
   ],
   "ad.spend": [
-    { terms: ["ads", "ad spend", "campaign", "campaigns"], score: 6, reason: "request explicitly asks for advertising spend" },
-    { terms: ["meta ads", "google ads", "linkedin ads", "tiktok ads"], score: 5, reason: "request names an ad platform directly" },
-    { terms: ["bid", "audience", "budget", "pacing"], score: 4, reason: "request describes campaign-spend mechanics" },
+    {
+      terms: ["ads", "ad spend", "campaign", "campaigns"],
+      score: 6,
+      reason: "request explicitly asks for advertising spend",
+    },
+    {
+      terms: ["meta ads", "google ads", "linkedin ads", "tiktok ads"],
+      score: 5,
+      reason: "request names an ad platform directly",
+    },
+    {
+      terms: ["bid", "audience", "budget", "pacing"],
+      score: 4,
+      reason: "request describes campaign-spend mechanics",
+    },
   ],
   "donation.gift": [
-    { terms: ["donate", "donation", "gift"], score: 6, reason: "request explicitly asks for a donation or gift" },
-    { terms: ["charity", "nonprofit", "cause"], score: 5, reason: "request names a donation-style recipient" },
-    { terms: ["tip", "microdonation", "support"], score: 3, reason: "request describes a small gift or support transfer" },
+    {
+      terms: ["donate", "donation", "gift"],
+      score: 6,
+      reason: "request explicitly asks for a donation or gift",
+    },
+    {
+      terms: ["charity", "nonprofit", "cause"],
+      score: 5,
+      reason: "request names a donation-style recipient",
+    },
+    {
+      terms: ["tip", "microdonation", "support"],
+      score: 3,
+      reason: "request describes a small gift or support transfer",
+    },
   ],
   "procurement.order": [
-    { terms: ["procurement", "purchase order", "po"], score: 6, reason: "request explicitly asks for procurement motion" },
-    { terms: ["vendor", "supplier", "quote", "quotes"], score: 5, reason: "request names procurement vendor workflow" },
-    { terms: ["requisition", "budget center", "approve vendor"], score: 4, reason: "request describes organizational buying flow" },
+    {
+      terms: ["procurement", "purchase order", "po"],
+      score: 6,
+      reason: "request explicitly asks for procurement motion",
+    },
+    {
+      terms: ["vendor", "supplier", "quote", "quotes"],
+      score: 5,
+      reason: "request names procurement vendor workflow",
+    },
+    {
+      terms: ["requisition", "budget center", "approve vendor"],
+      score: 4,
+      reason: "request describes organizational buying flow",
+    },
   ],
   "api.credit": [
-    { terms: ["api credit", "api credits", "cloud credit", "cloud credits"], score: 6, reason: "request explicitly asks for credit top-ups" },
-    { terms: ["top up", "top-up", "recharge", "prepay"], score: 4, reason: "request describes prepaid credit purchase" },
-    { terms: ["usage credits", "buy credits", "openai credits"], score: 5, reason: "request targets paid API / cloud usage credits" },
-    { terms: ["openai", "anthropic", "aws", "gcp", "azure", "vercel"], score: 2, reason: "request names a common paid API or cloud provider" },
+    {
+      terms: ["api credit", "api credits", "cloud credit", "cloud credits"],
+      score: 6,
+      reason: "request explicitly asks for credit top-ups",
+    },
+    {
+      terms: ["top up", "top-up", "recharge", "prepay"],
+      score: 4,
+      reason: "request describes prepaid credit purchase",
+    },
+    {
+      terms: ["usage credits", "buy credits", "openai credits"],
+      score: 5,
+      reason: "request targets paid API / cloud usage credits",
+    },
+    {
+      terms: ["openai", "anthropic", "aws", "gcp", "azure", "vercel"],
+      score: 2,
+      reason: "request names a common paid API or cloud provider",
+    },
   ],
   "platform.signup": [
-    { terms: ["sign up", "signup", "create account"], score: 6, reason: "request explicitly asks for account creation" },
-    { terms: ["free trial", "trial", "billing setup"], score: 5, reason: "request describes a signup with future billing risk" },
-    { terms: ["api key", "paid account", "paid plan"], score: 4, reason: "request combines provider signup with billing authority" },
-    { terms: ["slack workspace", "notion workspace", "github organization", "openai account", "anthropic account"], score: 5, reason: "request names a provider signup with billing authority" },
+    {
+      terms: ["sign up", "signup", "create account"],
+      score: 6,
+      reason: "request explicitly asks for account creation",
+    },
+    {
+      terms: ["free trial", "trial", "billing setup"],
+      score: 5,
+      reason: "request describes a signup with future billing risk",
+    },
+    {
+      terms: ["api key", "paid account", "paid plan"],
+      score: 4,
+      reason: "request combines provider signup with billing authority",
+    },
+    {
+      terms: [
+        "slack workspace",
+        "notion workspace",
+        "github organization",
+        "openai account",
+        "anthropic account",
+      ],
+      score: 5,
+      reason: "request names a provider signup with billing authority",
+    },
   ],
   "account.transfer": [
-    { terms: ["transfer", "send money", "wire", "ach"], score: 6, reason: "request explicitly asks for account transfer motion" },
-    { terms: ["withdraw", "payout", "bank transfer", "treasury"], score: 5, reason: "request describes fund movement to an account rail" },
+    {
+      terms: ["transfer", "send money", "wire", "ach"],
+      score: 6,
+      reason: "request explicitly asks for account transfer motion",
+    },
+    {
+      terms: ["withdraw", "payout", "bank transfer", "treasury"],
+      score: 5,
+      reason: "request describes fund movement to an account rail",
+    },
     { terms: ["bank", "account"], score: 2, reason: "request names an account-style destination" },
   ],
   "contract.signature": [
-    { terms: ["sign contract", "sign agreement", "contract"], score: 6, reason: "request explicitly asks for contract execution" },
-    { terms: ["agreement", "legal obligation", "terms"], score: 4, reason: "request names a binding legal commitment" },
-    { terms: ["loan", "debt", "borrow"], score: 5, reason: "request describes debt or obligation creation" },
+    {
+      terms: ["sign contract", "sign agreement", "contract"],
+      score: 6,
+      reason: "request explicitly asks for contract execution",
+    },
+    {
+      terms: ["agreement", "legal obligation", "terms"],
+      score: 4,
+      reason: "request names a binding legal commitment",
+    },
+    {
+      terms: ["loan", "debt", "borrow"],
+      score: 5,
+      reason: "request describes debt or obligation creation",
+    },
   ],
 };
 
@@ -665,7 +871,13 @@ function countMatchedTerms(normalizedRequest: string, terms: readonly string[]):
 }
 
 export function listBoundarySpendLawPacks(): BoundarySpendLawPack[] {
-  return SPEND_LAW_PACKS.map((pack) => ({ ...pack, requires: [...pack.requires], opensCorridor: [...pack.opensCorridor], keepsDenied: [...pack.keepsDenied], defaultSyncTargets: [...pack.defaultSyncTargets] }));
+  return SPEND_LAW_PACKS.map((pack) => ({
+    ...pack,
+    requires: [...pack.requires],
+    opensCorridor: [...pack.opensCorridor],
+    keepsDenied: [...pack.keepsDenied],
+    defaultSyncTargets: [...pack.defaultSyncTargets],
+  }));
 }
 
 export function findBoundarySpendLawPack(packId: string): BoundarySpendLawPack | null {
@@ -703,8 +915,7 @@ export function proposeBoundarySpendLawPacks(args: {
     };
   })
     .filter((candidate) => candidate.score > 0)
-    .sort((left, right) =>
-      right.score - left.score || left.pack.id.localeCompare(right.pack.id))
+    .sort((left, right) => right.score - left.score || left.pack.id.localeCompare(right.pack.id))
     .slice(0, limit);
 
   const multipleBoundaryClassesDetected = candidates.length > 1;
@@ -714,13 +925,19 @@ export function proposeBoundarySpendLawPacks(args: {
     "Suggested drafts default to `buccet` sync only. Future Buccets stay locked unless you widen the sync targets yourself.",
   ];
   if (multipleBoundaryClassesDetected) {
-    notes.push("Multiple financial boundary classes were detected. Pick one pack first, then stage separate drafts if you need more than one corridor.");
+    notes.push(
+      "Multiple financial boundary classes were detected. Pick one pack first, then stage separate drafts if you need more than one corridor.",
+    );
   }
   if (blendRequested) {
-    notes.push("A blended-draft request was detected, but no blended draft was created automatically.");
+    notes.push(
+      "A blended-draft request was detected, but no blended draft was created automatically.",
+    );
   }
   if (candidates.length === 0) {
-    notes.push("No safe pack match was found from this text. Inspect the spend pack catalog directly and choose the corridor by hand.");
+    notes.push(
+      "No safe pack match was found from this text. Inspect the spend pack catalog directly and choose the corridor by hand.",
+    );
   }
 
   return {
@@ -784,12 +1001,14 @@ export function buildBoundarySpendLawPackDraft(args: BoundarySpendLawPackDraftAr
     throw new Error(`spend law pack ${pack.id} requires periodLimitNormalized > 0`);
   }
   const sourceAuthorityKind = args.sourceAuthorityKind ?? pack.defaultSourceAuthorityKind;
-  const lawKey = args.lawKey?.trim() || [
-    "spend",
-    pack.id.replace(/\./g, "-"),
-    slugifyFragment(args.handle),
-    slugifyFragment(args.bucketId),
-  ].join(".");
+  const lawKey =
+    args.lawKey?.trim() ||
+    [
+      "spend",
+      pack.id.replace(/\./g, "-"),
+      slugifyFragment(args.handle),
+      slugifyFragment(args.bucketId),
+    ].join(".");
   const law: BoundaryStructuredUplLaw = {
     lawKey,
     domain: pack.domain,
@@ -842,9 +1061,7 @@ export function buildBoundarySpendLawPackDraft(args: BoundarySpendLawPackDraftAr
       allowed: [...pack.opensCorridor],
       denied: [...pack.keepsDenied],
       humanRequired: ["active law activation"],
-      headlessAllowed: [
-        `${pack.id} inside exact handle, principal, bucket, and cap`,
-      ],
+      headlessAllowed: [`${pack.id} inside exact handle, principal, bucket, and cap`],
     },
     draftedByKind: args.draftedByKind ?? "pi",
     draftedBy: args.draftedBy ?? "pi",
@@ -887,18 +1104,23 @@ export function buildBoundarySpendLawBlendDraft(args: BoundarySpendLawBlendDraft
   mutations: Array<Omit<BoundaryUplMutation, "mutationId"> & { mutationId?: string }>;
 } {
   if (!Array.isArray(args.components) || args.components.length < 2) {
-    throw new Error("spend blend requires at least 2 components; use spend draft for a single corridor");
+    throw new Error(
+      "spend blend requires at least 2 components; use spend draft for a single corridor",
+    );
   }
   const drafts = args.components.map((component) =>
     buildBoundarySpendLawPackDraft({
       ...component,
       draftedByKind: args.draftedByKind,
       draftedBy: args.draftedBy,
-    }));
+    }),
+  );
   const mutations = drafts.flatMap((draft) => draft.mutations);
   const lawKeys = mutations.map((mutation) => mutation.lawKey);
   if (new Set(lawKeys).size !== lawKeys.length) {
-    throw new Error("spend blend produced duplicate law keys; each blended corridor must remain exact and distinct");
+    throw new Error(
+      "spend blend produced duplicate law keys; each blended corridor must remain exact and distinct",
+    );
   }
   const componentPacks = args.components.map((component) => {
     const pack = findBoundarySpendLawPack(component.packId);
@@ -908,9 +1130,14 @@ export function buildBoundarySpendLawBlendDraft(args: BoundarySpendLawBlendDraft
     return pack;
   });
   const sourceLabel = `spend-blend:${componentPacks.map((pack) => pack.id).join("+")}`;
-  const title = args.title?.trim() || `Blended spend corridors · ${componentPacks.map((pack) => pack.id).join(" + ")}`;
-  const summary = args.summary?.trim() || `Open ${componentPacks.length} exact spend corridors in one reviewed draft without widening anything else.`;
-  const requestText = args.requestText?.trim() || drafts.map((draft) => draft.observation.sourceText).join(" ; ");
+  const title =
+    args.title?.trim() ||
+    `Blended spend corridors · ${componentPacks.map((pack) => pack.id).join(" + ")}`;
+  const summary =
+    args.summary?.trim() ||
+    `Open ${componentPacks.length} exact spend corridors in one reviewed draft without widening anything else.`;
+  const requestText =
+    args.requestText?.trim() || drafts.map((draft) => draft.observation.sourceText).join(" ; ");
   return {
     sourceLabel,
     syncTargets: args.syncTargets?.length ? [...args.syncTargets] : ["buccet"],
@@ -925,11 +1152,17 @@ export function buildBoundarySpendLawBlendDraft(args: BoundarySpendLawBlendDraft
     boundary: {
       title: "value boundary blend",
       crossing: `internal spend intent becomes external multi-corridor value movement across ${componentPacks.map((pack) => pack.capability).join(", ")}`,
-      consequence: "multiple exact spend corridors open together only because the human explicitly requested a blended draft",
+      consequence:
+        "multiple exact spend corridors open together only because the human explicitly requested a blended draft",
     },
     invariant: {
-      statement: "only the explicit blended corridors may open together; no other spend authority widens automatically",
-      allowed: drafts.flatMap((draft) => draft.invariant.allowed.map((entry) => `[${draft.sourceLabel.replace("spend-pack:", "")}] ${entry}`)),
+      statement:
+        "only the explicit blended corridors may open together; no other spend authority widens automatically",
+      allowed: drafts.flatMap((draft) =>
+        draft.invariant.allowed.map(
+          (entry) => `[${draft.sourceLabel.replace("spend-pack:", "")}] ${entry}`,
+        ),
+      ),
       denied: [
         "implicit widening outside the listed corridors",
         "silent blending of unlisted packs",

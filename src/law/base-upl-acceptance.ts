@@ -2,22 +2,11 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./../proof/ledger.ts";
 import {
-  BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES,
-  ENGINE_ACCEPTANCE_LANES,
-  HTTP_API_ACCEPTANCE_LANES,
-  LOCAL_LLM_ACCEPTANCE_LANES,
-  REMOTE_LLM_ACCEPTANCE_LANES,
-} from "./../teams/agent-comprehension-acceptance.ts";
-import { BASE_EXTENDED_SKILL_ACCEPTANCE_LANES } from "./../teams/extended-skill-acceptance.ts";
-import { BASE_LIST_V_ACCEPTANCE_LANES, createListVWorkflowAcceptanceLanes } from "./list-v-acceptance.ts";
-import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./../teams/marketplace-acceptance.ts";
-import { BASE_CORE_SKILL_ACCEPTANCE_LANES } from "./../teams/core-skill-acceptance.ts";
-import {
+  SESSION_UPL_ENTRY_ID_PREFIX,
   createEmptyUserPathLedger,
   getActiveUserLawIds,
   isSessionScopedUserPathLedger,
   loadUserPathLedger,
-  SESSION_UPL_ENTRY_ID_PREFIX,
   writeCompiledUserPathLaws,
 } from "./../proof/user-path-ledger.ts";
 import type {
@@ -29,6 +18,20 @@ import type {
   BoundaryUplScope,
   CompiledDocumentLaw,
 } from "./../runtime/types.ts";
+import {
+  BASE_AGENT_COMPREHENSION_ACCEPTANCE_LANES,
+  ENGINE_ACCEPTANCE_LANES,
+  HTTP_API_ACCEPTANCE_LANES,
+  LOCAL_LLM_ACCEPTANCE_LANES,
+  REMOTE_LLM_ACCEPTANCE_LANES,
+} from "./../teams/agent-comprehension-acceptance.ts";
+import { BASE_CORE_SKILL_ACCEPTANCE_LANES } from "./../teams/core-skill-acceptance.ts";
+import { BASE_EXTENDED_SKILL_ACCEPTANCE_LANES } from "./../teams/extended-skill-acceptance.ts";
+import { BASE_MARKETPLACE_ACCEPTANCE_LANES } from "./../teams/marketplace-acceptance.ts";
+import {
+  BASE_LIST_V_ACCEPTANCE_LANES,
+  createListVWorkflowAcceptanceLanes,
+} from "./list-v-acceptance.ts";
 
 export type BaseAcceptanceClass =
   | "workspace_read"
@@ -122,9 +125,7 @@ const SAFE_LOCAL_EXEC_SEEDS = [
   {
     id: "ACCEPT.SAFE.LOCAL.EXEC.005F",
     targetPatterns: ["bun"],
-    requestTextPatterns: [
-      "/\\bbun\\s+(?:test|run|build|install|add|x|pm)\\b/i",
-    ],
+    requestTextPatterns: ["/\\bbun\\s+(?:test|run|build|install|add|x|pm)\\b/i"],
     requestBasisTarget: "bun",
     requestBasisSummary: "bun test",
     reason: "Bounded Bun runtime quality and install commands are lawful.",
@@ -172,9 +173,7 @@ const BOUNDED_WEB_RESEARCH_SEEDS = [
       "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?exa\\.ai(?:\\/|$)/i",
       "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?firecrawl\\.dev(?:\\/|$)/i",
     ],
-    requestTextPatterns: [
-      "/\\b(?:search|query|lookup|research|retrieve|crawl|browse)\\b/i",
-    ],
+    requestTextPatterns: ["/\\b(?:search|query|lookup|research|retrieve|crawl|browse)\\b/i"],
     requestBasisTarget: "duckduckgo.com",
     requestBasisSummary: "search docs",
     reason: "Bounded search and retrieval provider use is lawful.",
@@ -200,12 +199,11 @@ const BOUNDED_WEB_RESEARCH_SEEDS = [
 const AGENT_SPEND_SEEDS = [
   {
     id: "ACCEPT.AGENT.SPEND.013A",
-    targetPatterns: [
-      "/^merchant:approved:[a-z0-9._-]+$/i",
-    ],
+    targetPatterns: ["/^merchant:approved:[a-z0-9._-]+$/i"],
     requestBasisTarget: "merchant:approved:example-vendor",
     requestBasisSummary: "base-acceptance:agent-spend-approved-merchant",
-    reason: "Approved merchant micro-purchases through canonical approved merchant handles are lawful under the micro limit.",
+    reason:
+      "Approved merchant micro-purchases through canonical approved merchant handles are lawful under the micro limit.",
     spendMaxAmountNormalized: 25,
     spendAllowedDestinationKinds: ["merchant"],
     spendAllowedSourceAuthorityKinds: ["linked_account", "merchant_balance", "treasury"],
@@ -213,12 +211,11 @@ const AGENT_SPEND_SEEDS = [
   },
   {
     id: "ACCEPT.AGENT.SPEND.013B",
-    targetPatterns: [
-      "/^(?:wallet|account):approved:[a-z0-9._:-]+$/i",
-    ],
+    targetPatterns: ["/^(?:wallet|account):approved:[a-z0-9._:-]+$/i"],
     requestBasisTarget: "wallet:approved:operations",
     requestBasisSummary: "base-acceptance:agent-spend-approved-wallet",
-    reason: "Approved wallet and account micro-transfers through canonical approved handles are lawful under the micro limit.",
+    reason:
+      "Approved wallet and account micro-transfers through canonical approved handles are lawful under the micro limit.",
     spendMaxAmountNormalized: 10,
     spendAllowedDestinationKinds: ["wallet", "account"],
     spendAllowedSourceAuthorityKinds: ["wallet", "treasury"],
@@ -230,7 +227,10 @@ const BASE_ACCEPTANCE_BUCCET_SKILL_LANES = [
   ...BASE_EXTENDED_SKILL_ACCEPTANCE_LANES,
 ] as const;
 
-function hashSeedWitnessId(rootPath: string, grantedActions: readonly BoundaryActionKind[]): string {
+function hashSeedWitnessId(
+  rootPath: string,
+  grantedActions: readonly BoundaryActionKind[],
+): string {
   return createHash("sha256")
     .update(`${rootPath}::${grantedActions.join(",")}`)
     .digest("hex")
@@ -271,7 +271,7 @@ export function buildBaseAcceptanceSeeds(args: {
   }
 
   const workspaceMutationKinds = ["fs.write", "fs.append"].filter((kind) =>
-    granted.has(kind as BoundaryActionKind)
+    granted.has(kind as BoundaryActionKind),
   ) as BoundaryActionKind[];
   if (workspaceMutationKinds.length > 0) {
     seeds.push({
@@ -298,7 +298,7 @@ export function buildBaseAcceptanceSeeds(args: {
   }
 
   const organizationKinds = ["fs.mkdir", "fs.move"].filter((kind) =>
-    granted.has(kind as BoundaryActionKind)
+    granted.has(kind as BoundaryActionKind),
   ) as BoundaryActionKind[];
   if (organizationKinds.length > 0) {
     seeds.push({
@@ -313,9 +313,13 @@ export function buildBaseAcceptanceSeeds(args: {
     });
   }
 
-  if (["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"].some((kind) => granted.has(kind as BoundaryActionKind))) {
-    const notesAndTaskKinds = ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"].filter((kind) =>
-      granted.has(kind as BoundaryActionKind)
+  if (
+    ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"].some((kind) =>
+      granted.has(kind as BoundaryActionKind),
+    )
+  ) {
+    const notesAndTaskKinds = ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"].filter(
+      (kind) => granted.has(kind as BoundaryActionKind),
     ) as BoundaryActionKind[];
     if (notesAndTaskKinds.length > 0) {
       seeds.push({
@@ -524,32 +528,30 @@ export function createBaseAcceptanceLaws(args: {
       target: seed.requestBasisTarget,
       payloadSummary: seed.requestBasisSummary,
       provenance: "trusted_system",
-      ...(
-        seed.actionKinds.includes("agent.spend") &&
-        seed.spendMaxAmountNormalized !== undefined &&
-        seed.spendAllowedDestinationKinds?.[0] &&
-        seed.spendAllowedSourceAuthorityKinds?.[0] &&
-        seed.spendAllowedCommitIntents?.[0]
-          ? {
-              spendIntent: {
-                amountRaw: String(seed.spendMaxAmountNormalized),
-                amountNormalized: seed.spendMaxAmountNormalized,
-                destination: seed.requestBasisTarget,
-                destinationKind: seed.spendAllowedDestinationKinds[0],
-                sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds[0],
-                commitIntent: seed.spendAllowedCommitIntents[0],
-                principal: "base-acceptance-system",
-                purpose: seed.requestBasisSummary,
-                bucketId: seed.id,
-                termsSummary: "base acceptance spend seed",
-                recurring: false,
-                riskClass: "low",
-                accountabilityRef: `seed:${seed.id}`,
-                instructionSource: "trusted_system",
-              },
-            }
-          : {}
-      ),
+      ...(seed.actionKinds.includes("agent.spend") &&
+      seed.spendMaxAmountNormalized !== undefined &&
+      seed.spendAllowedDestinationKinds?.[0] &&
+      seed.spendAllowedSourceAuthorityKinds?.[0] &&
+      seed.spendAllowedCommitIntents?.[0]
+        ? {
+            spendIntent: {
+              amountRaw: String(seed.spendMaxAmountNormalized),
+              amountNormalized: seed.spendMaxAmountNormalized,
+              destination: seed.requestBasisTarget,
+              destinationKind: seed.spendAllowedDestinationKinds[0],
+              sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds[0],
+              commitIntent: seed.spendAllowedCommitIntents[0],
+              principal: "base-acceptance-system",
+              purpose: seed.requestBasisSummary,
+              bucketId: seed.id,
+              termsSummary: "base acceptance spend seed",
+              recurring: false,
+              riskClass: "low",
+              accountabilityRef: `seed:${seed.id}`,
+              instructionSource: "trusted_system",
+            },
+          }
+        : {}),
     },
     trackConstraint: {
       allowedActionKinds: [...seed.actionKinds],
@@ -617,15 +619,16 @@ export async function seedBaseAcceptanceIntoConfig(args: {
     return args.config;
   }
 
-  const useSessionOverlayFastPath = (args.scope ?? "SESSION") === "SESSION" && (
-    !args.config.upl ||
-    isSessionScopedUserPathLedger({
-      ledger: args.config.upl,
-      sessionId: args.config.session.sessionId,
-    })
-  );
-  const ledger = args.config.upl
-    ?? (useSessionOverlayFastPath ? createEmptyUserPathLedger() : await loadUserPathLedger());
+  const useSessionOverlayFastPath =
+    (args.scope ?? "SESSION") === "SESSION" &&
+    (!args.config.upl ||
+      isSessionScopedUserPathLedger({
+        ledger: args.config.upl,
+        sessionId: args.config.session.sessionId,
+      }));
+  const ledger =
+    args.config.upl ??
+    (useSessionOverlayFastPath ? createEmptyUserPathLedger() : await loadUserPathLedger());
   profileMark("ledger ready");
   const approvedCountBefore = ledger.userApprovedLawPaths.length;
   const witness = await appendBoundaryLedger("UPL_ALLOW_RECORDED", {
@@ -670,30 +673,36 @@ export async function seedBaseAcceptanceIntoConfig(args: {
   profileMark("ledger updated");
 
   const newEntries = upl.userApprovedLawPaths.slice(approvedCountBefore);
-  await appendBoundaryLedgerDurableBatch(newEntries.map((entry, index) => {
-    const law = compiledLaws[index];
-    return {
-      eventType: "UPL_TRACK_ACTIVATED" as const,
-      payload: {
-        sessionId: args.config.session.sessionId,
-        actorId: args.issuedBy,
-        requestId: `upl-base-acceptance-track-${entry.id}`,
-        actionKind: law?.requestBasis.actionKind ?? entry.requestBasis?.actionKind,
-        target: law?.requestBasis.target ?? entry.requestBasis?.target ?? path.resolve(args.rootPath),
-        decision: "allow" as const,
-        reason: `Buccet base acceptance corridor activated: ${law?.trackConstraint?.description ?? entry.trackConstraint?.description ?? entry.id}`,
-        lawIds: [entry.id],
-        metadata: entryTrackMetadata(entry.id, law ?? {
-          type: "APPROVED",
-          requestBasis: entry.requestBasis ?? {
-            actionKind: "fs.read",
-            target: path.resolve(args.rootPath),
-          },
-        }),
-        createdAt: new Date().toISOString(),
-      },
-    };
-  }));
+  await appendBoundaryLedgerDurableBatch(
+    newEntries.map((entry, index) => {
+      const law = compiledLaws[index];
+      return {
+        eventType: "UPL_TRACK_ACTIVATED" as const,
+        payload: {
+          sessionId: args.config.session.sessionId,
+          actorId: args.issuedBy,
+          requestId: `upl-base-acceptance-track-${entry.id}`,
+          actionKind: law?.requestBasis.actionKind ?? entry.requestBasis?.actionKind,
+          target:
+            law?.requestBasis.target ?? entry.requestBasis?.target ?? path.resolve(args.rootPath),
+          decision: "allow" as const,
+          reason: `Buccet base acceptance corridor activated: ${law?.trackConstraint?.description ?? entry.trackConstraint?.description ?? entry.id}`,
+          lawIds: [entry.id],
+          metadata: entryTrackMetadata(
+            entry.id,
+            law ?? {
+              type: "APPROVED",
+              requestBasis: entry.requestBasis ?? {
+                actionKind: "fs.read",
+                target: path.resolve(args.rootPath),
+              },
+            },
+          ),
+          createdAt: new Date().toISOString(),
+        },
+      };
+    }),
+  );
   profileMark("track activations written");
 
   return {
@@ -714,5 +723,6 @@ export const BASE_UPL_ACCEPTANCE_PROFILE = {
   mode: "runtime",
   description: "Built-in standing acceptance law seeded when the user opens lawful scope.",
   runtimeTruth: "authored approved and denied laws compile into one live UPL field at runtime",
-  customizationSurface: "edit or import UPL law; runtime recomputes the live field from authored law",
+  customizationSurface:
+    "edit or import UPL law; runtime recomputes the live field from authored law",
 } as const;

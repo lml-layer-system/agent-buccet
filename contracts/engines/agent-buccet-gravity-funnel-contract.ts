@@ -36,7 +36,7 @@ function main() {
       extra: "prov=agent_inference flags=authorityClaimed,requestsScopeExpansion from-funnel",
     },
   });
-  console.log(`write funnel normalized: ${writeRequests[0]!.operation}`);
+  console.log(`write funnel normalized: ${writeRequests[0]?.operation}`);
 
   const networkRequests = mapBoundaryGravityFunnelPayloadToInterceptRequests(
     parseBoundaryGravityFunnelPayload(
@@ -44,16 +44,14 @@ function main() {
     ),
   );
   assert.equal(networkRequests.length, 1);
-  assert.equal(networkRequests[0]!.actionClass, "network");
-  assert.equal(networkRequests[0]!.operation, "send");
-  assert.equal(networkRequests[0]!.provenance, "tool_output");
-  assert.equal(networkRequests[0]!.funnel?.rawAction, "connect");
-  console.log(`network funnel normalized: ${networkRequests[0]!.operation}`);
+  assert.equal(networkRequests[0]?.actionClass, "network");
+  assert.equal(networkRequests[0]?.operation, "send");
+  assert.equal(networkRequests[0]?.provenance, "tool_output");
+  assert.equal(networkRequests[0]?.funnel?.rawAction, "connect");
+  console.log(`network funnel normalized: ${networkRequests[0]?.operation}`);
 
   const renameRequests = mapBoundaryGravityFunnelPayloadToInterceptRequests(
-    parseBoundaryGravityFunnelPayload(
-      "rename|/tmp/source.txt|88|/tmp/destination.txt",
-    ),
+    parseBoundaryGravityFunnelPayload("rename|/tmp/source.txt|88|/tmp/destination.txt"),
   );
   assert.equal(renameRequests.length, 2);
   assert.deepEqual(
@@ -83,10 +81,7 @@ function main() {
   );
   console.log(`rename funnel split count: ${renameRequests.length}`);
 
-  assert.throws(
-    () => parseBoundaryGravityFunnelPayload("broken"),
-    /malformed gravity payload/,
-  );
+  assert.throws(() => parseBoundaryGravityFunnelPayload("broken"), /malformed gravity payload/);
   assert.throws(
     () =>
       mapBoundaryGravityFunnelPayloadToInterceptRequests({

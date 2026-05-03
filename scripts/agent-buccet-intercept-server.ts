@@ -3,30 +3,29 @@ import { promises as fs } from "node:fs";
 import net from "node:net";
 import readline from "node:readline";
 import {
-  allowIngressAsLaw,
-  allowIngressOnce,
-  createBoundaryActionRequest,
-  createBoundaryGravitySupervisor,
-  createPersistentBoundaryRuntimeStore,
-  createBoundarySwarmCoordinator,
-  daemonRequestId,
-  denyIngressOnce,
-  denyIngressAsLaw,
-  lookupUserPathDecision,
-  mapInterceptToBoundaryAction,
-  restoreBoundaryRuntimeStore,
-  withAdmittedBoundaryNovelty,
-  withBoundaryNovelty,
-  type BoundaryRuntimeStore,
+  type BoundaryGravityFunnelPayload,
   type BoundaryInterceptApprovalMode,
   type BoundaryInterceptDaemonInput,
   type BoundaryInterceptDaemonOutput,
-  type BoundaryInterceptResult,
   type BoundaryInterceptRequest,
-  type BoundaryGravityFunnelPayload,
-  mapBoundaryGravityFunnelPayloadToInterceptRequests,
-  parseBoundaryGravityFunnelPayload,
+  type BoundaryInterceptResult,
+  type BoundaryRuntimeStore,
+  allowIngressAsLaw,
+  allowIngressOnce,
   appendBoundaryLedger,
+  createBoundaryActionRequest,
+  createBoundaryGravitySupervisor,
+  createBoundarySwarmCoordinator,
+  createPersistentBoundaryRuntimeStore,
+  daemonRequestId,
+  denyIngressAsLaw,
+  denyIngressOnce,
+  lookupUserPathDecision,
+  mapBoundaryGravityFunnelPayloadToInterceptRequests,
+  mapInterceptToBoundaryAction,
+  parseBoundaryGravityFunnelPayload,
+  restoreBoundaryRuntimeStore,
+  withBoundaryNovelty,
 } from "./../src/index.ts";
 
 type ParsedArgs = {
@@ -184,14 +183,7 @@ async function evaluateRequestWithMode(args: {
     return args.swarm.evaluateOrWait(preparedRequest, preparedRequest.swarm);
   }
 
-  // Normalize reviewContext to match what evaluateBoundaryIntercept applies internally
-  // (it always defaults surface to "action" when missing). Both the standing-law UPL
-  // pre-check and the bodyguard's own UPL lookup must hash the same request, otherwise
-  // the bodyguard misses an entry that the pre-check found and denies a lawful request.
-  const normalizedRequest = {
-    ...preparedRequest,
-    reviewContext: preparedRequest.reviewContext ?? ({ surface: "action" } as const),
-  };
+  const normalizedRequest = preparedRequest;
 
   const config = await args.store.hydrate();
   const boundaryRequest = createBoundaryActionRequest({
@@ -204,11 +196,13 @@ async function evaluateRequestWithMode(args: {
     flags: normalizedRequest.flags,
     reviewContext: normalizedRequest.reviewContext,
   });
-  const exactMatch = config.upl ? lookupUserPathDecision({
-    ledger: config.upl,
-    session: config.session,
-    request: boundaryRequest,
-  }) : null;
+  const exactMatch = config.upl
+    ? lookupUserPathDecision({
+        ledger: config.upl,
+        session: config.session,
+        request: boundaryRequest,
+      })
+    : null;
 
   if (exactMatch?.decision === "allow") {
     // UPL confirmed allow — route through evaluateOrWait so the full bodyguard
@@ -221,7 +215,10 @@ async function evaluateRequestWithMode(args: {
   const result: BoundaryInterceptResult = {
     decision: "deny",
     reason: exactMatch
-      ? standingLawReason(exactMatch.entry.notes, "standing-law: existing UPL law denied this request")
+      ? standingLawReason(
+          exactMatch.entry.notes,
+          "standing-law: existing UPL law denied this request",
+        )
       : "standing-law: no standing UPL law matched this request",
     lawIds: exactMatch ? [exactMatch.entry.id] : [],
     bodyguardMoves: [],
@@ -239,12 +236,14 @@ async function main() {
     sessionsDir: args.sessionsDir,
     hydrationMode: "light",
   });
-  const store = restored ?? await createPersistentBoundaryRuntimeStore({
-    sessionId: args.sessionId,
-    actorId: args.actorId,
-    sessionsDir: args.sessionsDir,
-    hydrationMode: "light",
-  });
+  const store =
+    restored ??
+    (await createPersistentBoundaryRuntimeStore({
+      sessionId: args.sessionId,
+      actorId: args.actorId,
+      sessionsDir: args.sessionsDir,
+      hydrationMode: "light",
+    }));
 
   const supervisor = createBoundaryGravitySupervisor({
     store,
@@ -291,7 +290,7 @@ async function main() {
   const server = net.createServer((socket) => {
     const rl = readline.createInterface({
       input: socket,
-      crlfDelay: Infinity,
+      crlfDelay: Number.POSITIVE_INFINITY,
     });
 
     void (async () => {
@@ -427,8 +426,12 @@ async function main() {
                   allowOnceRemaining: allowOnce[provenance]?.remaining ?? 0,
                   standingAllowed: Boolean(allowed[provenance]),
                 }));
-              const provenances = [...canyonEntries, ...allowOnceEntries, ...denyOnceEntries, ...allowLawEntries]
-                .sort((left, right) => right.seenAt - left.seenAt);
+              const provenances = [
+                ...canyonEntries,
+                ...allowOnceEntries,
+                ...denyOnceEntries,
+                ...allowLawEntries,
+              ].sort((left, right) => right.seenAt - left.seenAt);
               writeJsonOutput(socket, {
                 type: "ingress_status",
                 requestId,
@@ -521,7 +524,8 @@ async function main() {
                   actorId: parsed.issuedBy ?? current.session.actorId,
                   decision: "allow",
                   target: parsed.provenance,
-                  reason: parsed.reason ?? `Terminal 2 released ${parsed.provenance} from canyon once`,
+                  reason:
+                    parsed.reason ?? `Terminal 2 released ${parsed.provenance} from canyon once`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -532,7 +536,9 @@ async function main() {
                   actorId: parsed.issuedBy ?? current.session.actorId,
                   decision: "allow",
                   target: parsed.provenance,
-                  reason: parsed.reason ?? `Terminal 2 wrote standing ingress allow for ${parsed.provenance}`,
+                  reason:
+                    parsed.reason ??
+                    `Terminal 2 wrote standing ingress allow for ${parsed.provenance}`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -547,7 +553,8 @@ async function main() {
                   actorId: parsed.deniedBy ?? current.session.actorId,
                   decision: "deny",
                   target: parsed.provenance,
-                  reason: parsed.reason ?? `Terminal 2 kept ${parsed.provenance} in the canyon this time`,
+                  reason:
+                    parsed.reason ?? `Terminal 2 kept ${parsed.provenance} in the canyon this time`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -558,7 +565,9 @@ async function main() {
                   actorId: parsed.deniedBy ?? current.session.actorId,
                   decision: "deny",
                   target: parsed.provenance,
-                  reason: parsed.reason ?? `Terminal 2 wrote standing canyon hold for ${parsed.provenance}`,
+                  reason:
+                    parsed.reason ??
+                    `Terminal 2 wrote standing canyon hold for ${parsed.provenance}`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -592,20 +601,21 @@ async function main() {
 
           const result = rawGravityClient
             ? await evaluateGravityPayloadWithSwarm({
-              payload: gravityPayload ?? parseBoundaryGravityFunnelPayload(trimmed),
-              evaluateRequest: async (request) => evaluateRequestWithMode({
+                payload: gravityPayload ?? parseBoundaryGravityFunnelPayload(trimmed),
+                evaluateRequest: async (request) =>
+                  evaluateRequestWithMode({
+                    approvalMode,
+                    request,
+                    store,
+                    swarm,
+                  }),
+              })
+            : await evaluateRequestWithMode({
                 approvalMode,
-                request,
+                request: parsed,
                 store,
                 swarm,
-              }),
-            })
-            : await evaluateRequestWithMode({
-              approvalMode,
-              request: parsed,
-              store,
-              swarm,
-            });
+              });
 
           if (result.tarpitActive) {
             // Cheap canyon behavior for hostile ingress: drop the payload and
@@ -656,7 +666,9 @@ async function main() {
 
   const address = server.address();
   if (typeof address === "string") {
-    console.error(`Agent Buccet intercept server running. socket=${address} session=${args.sessionId}`);
+    console.error(
+      `Agent Buccet intercept server running. socket=${address} session=${args.sessionId}`,
+    );
   } else if (address) {
     console.error(
       `Agent Buccet intercept server running. host=${address.address} port=${address.port} session=${args.sessionId}`,

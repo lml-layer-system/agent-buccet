@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
+import { mapClaudeToolUseToInterceptRequest } from "./../../src/integrations/claude-sdk.ts";
 import {
   mapBoundaryGravityFunnelPayloadToInterceptRequests,
   parseBoundaryGravityFunnelPayload,
 } from "./../../src/runtime/intercept.ts";
 import { mapSystemInterceptEventToRequest } from "./../../src/runtime/system-intercept.ts";
-import { mapClaudeToolUseToInterceptRequest } from "./../../src/integrations/claude-sdk.ts";
 
 function main() {
   console.log("Agent Buccet feeder funnel contract");
@@ -38,7 +38,9 @@ function main() {
   assert.equal(systemRequest.funnel?.source, "system");
   assert.equal(systemRequest.funnel?.rawAction, "file.write");
   assert.match(systemRequest.payloadSummary ?? "", /pid=4242/);
-  console.log(`gravity and system feeders collapse to: ${gravityRequest.actionClass}.${gravityRequest.operation}`);
+  console.log(
+    `gravity and system feeders collapse to: ${gravityRequest.actionClass}.${gravityRequest.operation}`,
+  );
 
   const claudeRequest = mapClaudeToolUseToInterceptRequest({
     toolName: "write_file",
@@ -50,7 +52,8 @@ function main() {
       actionClass: "file",
       operation: "write",
       describeTarget: (input) => (input as { path: string }).path,
-      describePayload: (input) => `content-length=${String((input as { content: string }).content.length)}`,
+      describePayload: (input) =>
+        `content-length=${String((input as { content: string }).content.length)}`,
       provenance: "agent_inference",
     },
   });

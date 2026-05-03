@@ -13,9 +13,9 @@
  *  6. Ledger summary: signed events, chain hash, UPL laws
  */
 
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   createBoundaryBodyguard,
   createBoundaryHeadlessApprovalHandler,
@@ -39,7 +39,9 @@ const C = {
   white: "\x1b[37m",
 };
 
-function line(char = "─", n = 60) { return char.repeat(n); }
+function line(char = "─", n = 60) {
+  return char.repeat(n);
+}
 
 function badge(label: string, color: string) {
   return `${color}${C.bold}[${label}]${C.reset}`;
@@ -86,7 +88,7 @@ async function main() {
 
     // ── Setup: open a scoped workspace path ──────────────────────────────────
 
-    let store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
+    const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
     const { config: scopedConfig } = await openBoundaryPath({
       config: store.getConfig(),
       rootPath: workspace,
@@ -105,7 +107,9 @@ async function main() {
     // ── Step 1: Write outside opened scope ───────────────────────────────────
 
     logStep(1, "Agent tries to write OUTSIDE opened workspace scope");
-    console.log(`  ${C.dim}target: ${path.join(outsideDir, "escape.txt")} (outside workspace)${C.reset}`);
+    console.log(
+      `  ${C.dim}target: ${path.join(outsideDir, "escape.txt")} (outside workspace)${C.reset}`,
+    );
 
     const step1 = await bodyguard.enforceProposal({
       actionKind: "fs.write",
@@ -131,7 +135,9 @@ async function main() {
       actionKind: "fs.delete",
       target: targetForDeletion,
       successReason: "deleted temp file",
-      execute: async () => { await fs.unlink(targetForDeletion); },
+      execute: async () => {
+        await fs.unlink(targetForDeletion);
+      },
     });
 
     logResult(step2.allowed ? "ALLOW" : "DENY", step2.reason);
@@ -144,9 +150,7 @@ async function main() {
     console.log(`  ${C.dim}target: ${targetA}${C.reset}`);
 
     // Switch to queue adapter for this step (simulates human in Terminal 2)
-    const {
-      createApprovalQueueAdapter,
-    } = await import("./../src/boundaries/approval.ts");
+    const { createApprovalQueueAdapter } = await import("./../src/boundaries/approval.ts");
     const queue = createApprovalQueueAdapter();
     store.replaceConfig({ ...store.getConfig(), approvalHandler: queue.handler });
 
@@ -154,7 +158,9 @@ async function main() {
       actionKind: "fs.write",
       target: targetA,
       successReason: "wrote result.txt",
-      execute: async () => { await fs.writeFile(targetA, "output data\n"); },
+      execute: async () => {
+        await fs.writeFile(targetA, "output data\n");
+      },
     });
 
     // Simulate human approving as standing law (Terminal 2 interaction)
@@ -178,16 +184,21 @@ async function main() {
 
     // Check UPL state
     const upl = await loadUserPathLedger();
-    const trackEntry = upl.userApprovedLawPaths.find((e) => e.status === "ACTIVE" && e.trackConstraint);
+    const trackEntry = upl.userApprovedLawPaths.find(
+      (e) => e.status === "ACTIVE" && e.trackConstraint,
+    );
     if (trackEntry?.trackConstraint) {
       console.log(
         `  ${C.green}✓ UPL Track bound:${C.reset} ${C.dim}${trackEntry.trackConstraint.allowedActionKinds.join(",")}` +
-        ` within ${trackEntry.trackConstraint.targetPattern}${C.reset}`,
+          ` within ${trackEntry.trackConstraint.targetPattern}${C.reset}`,
       );
     }
 
     // Switch back to deny_all headless for subsequent steps
-    store.replaceConfig({ ...store.getConfig(), approvalHandler: createBoundaryHeadlessApprovalHandler({ mode: "deny_all" }) });
+    store.replaceConfig({
+      ...store.getConfig(),
+      approvalHandler: createBoundaryHeadlessApprovalHandler({ mode: "deny_all" }),
+    });
 
     // ── Step 4: UPL track auto-allows repeat in same corridor ────────────────
 
@@ -199,7 +210,9 @@ async function main() {
       actionKind: "fs.write",
       target: targetA2,
       successReason: "wrote result2.txt",
-      execute: async () => { await fs.writeFile(targetA2, "more output\n"); },
+      execute: async () => {
+        await fs.writeFile(targetA2, "more output\n");
+      },
     });
 
     logResult(step4.allowed ? "ALLOW" : "DENY", step4.reason);
@@ -219,7 +232,9 @@ async function main() {
       actionKind: "fs.write",
       target: targetB,
       successReason: "wrote to other dir",
-      execute: async () => { await fs.writeFile(targetB, "other data\n"); },
+      execute: async () => {
+        await fs.writeFile(targetB, "other data\n");
+      },
     });
 
     logResult(
@@ -227,8 +242,12 @@ async function main() {
       step5.reason,
     );
     if (step5.requiresApproval) {
-      console.log(`  ${C.dim}→ Motion exits approved corridor → require_approval surfaced${C.reset}`);
-      console.log(`  ${C.dim}→ Not a hard deny — user can consciously expand the corridor${C.reset}`);
+      console.log(
+        `  ${C.dim}→ Motion exits approved corridor → require_approval surfaced${C.reset}`,
+      );
+      console.log(
+        `  ${C.dim}→ Not a hard deny — user can consciously expand the corridor${C.reset}`,
+      );
     }
 
     // ── Ledger summary ────────────────────────────────────────────────────────
@@ -247,8 +266,12 @@ async function main() {
     const lastEvent = events[events.length - 1];
 
     console.log(`  ${C.dim}Total events:${C.reset}  ${events.length}`);
-    console.log(`  ${C.dim}Chain tail:${C.reset}    ${lastEvent?.META?.hash?.slice(0, 20) ?? "—"}...`);
-    console.log(`  ${C.dim}UPL laws:${C.reset}      ${upl.userApprovedLawPaths.filter((e) => e.status === "ACTIVE").length} active allow, ${upl.userDeniedLawPaths.filter((e) => e.status === "ACTIVE").length} active deny`);
+    console.log(
+      `  ${C.dim}Chain tail:${C.reset}    ${lastEvent?.META?.hash?.slice(0, 20) ?? "—"}...`,
+    );
+    console.log(
+      `  ${C.dim}UPL laws:${C.reset}      ${upl.userApprovedLawPaths.filter((e) => e.status === "ACTIVE").length} active allow, ${upl.userDeniedLawPaths.filter((e) => e.status === "ACTIVE").length} active deny`,
+    );
     console.log(`\n  ${C.bold}Event counts:${C.reset}`);
     for (const [type, count] of Object.entries(counts).sort()) {
       console.log(`    ${C.dim}${type.padEnd(30)}${C.reset} ${count}`);
@@ -282,10 +305,9 @@ async function main() {
     console.log();
 
     await fs.rm(tempRoot, { recursive: true, force: true });
-
   } finally {
     if (previousLedgerPath === undefined) {
-      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = undefined;
     } else {
       process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousLedgerPath;
     }

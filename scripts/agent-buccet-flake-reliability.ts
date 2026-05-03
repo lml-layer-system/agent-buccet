@@ -1,6 +1,6 @@
+import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
 
 type ObservedContractSpec = {
   id: string;
@@ -44,15 +44,22 @@ function envString(primary: string, legacy: string, fallback: string): string {
   return process.env[primary] ?? process.env[legacy] ?? fallback;
 }
 
-const attempts = Number(envString("AGENT_BUCCET_OBSERVED_ATTEMPTS", "AGENT_BUCCET_QUARANTINE_ATTEMPTS", "3"));
+const attempts = Number(
+  envString("AGENT_BUCCET_OBSERVED_ATTEMPTS", "AGENT_BUCCET_QUARANTINE_ATTEMPTS", "3"),
+);
 const promotionThreshold = Number(
-  envString("AGENT_BUCCET_OBSERVED_PROMOTION_THRESHOLD", "AGENT_BUCCET_QUARANTINE_PROMOTION_THRESHOLD", "0.99"),
+  envString(
+    "AGENT_BUCCET_OBSERVED_PROMOTION_THRESHOLD",
+    "AGENT_BUCCET_QUARANTINE_PROMOTION_THRESHOLD",
+    "0.99",
+  ),
 );
 const defaultTimeoutMs = Number(
   envString("AGENT_BUCCET_OBSERVED_TIMEOUT_MS", "AGENT_BUCCET_QUARANTINE_TIMEOUT_MS", "30000"),
 );
 const strictMode =
-  process.env.AGENT_BUCCET_OBSERVED_STRICT === "true" || process.env.AGENT_BUCCET_QUARANTINE_STRICT === "true";
+  process.env.AGENT_BUCCET_OBSERVED_STRICT === "true" ||
+  process.env.AGENT_BUCCET_QUARANTINE_STRICT === "true";
 
 const testSpecs: ObservedContractSpec[] = [
   {
@@ -105,7 +112,11 @@ async function cleanupResidualProcesses(patterns: string[]) {
   await fs.rm(boundaryLedgerLockPath, { force: true }).catch(() => undefined);
 }
 
-async function runOneAttempt(spec: ObservedContractSpec, attempt: number, logPath: string): Promise<AttemptResult> {
+async function runOneAttempt(
+  spec: ObservedContractSpec,
+  attempt: number,
+  logPath: string,
+): Promise<AttemptResult> {
   await cleanupResidualProcesses(spec.cleanupPatterns);
 
   const started = Date.now();

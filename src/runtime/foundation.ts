@@ -2,11 +2,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { AGENT_BUCCET_TIME_LAW_REFERENCES } from "./time.ts";
-import type {
-  BoundaryLaw,
-  BoundaryRuntimeMuscle,
-  BoundaryRuntimeMuscleManifest,
-} from "./types.ts";
+import type { BoundaryLaw, BoundaryRuntimeMuscle, BoundaryRuntimeMuscleManifest } from "./types.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const FOUNDATION_RUNTIME_MUSCLE_RELATIVE_PATH = path.join(
@@ -48,9 +44,7 @@ async function resolveFoundationPath(relativePath: string): Promise<string> {
     try {
       await fs.access(candidate);
       return candidate;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   throw new Error(`unable to locate Agent Buccet foundation artifact at ${relativePath}`);
@@ -61,9 +55,11 @@ export async function buildActiveAgentBuccetLawIds(args: {
   existingLawIds?: string[];
   runtimeMuscle?: BoundaryRuntimeMuscle;
 }): Promise<string[]> {
-  const runtimeMuscle = args.runtimeMuscle ?? await loadAgentBuccetRuntimeMuscle();
+  const runtimeMuscle = args.runtimeMuscle ?? (await loadAgentBuccetRuntimeMuscle());
   const executableLawIds = args.executableLaws.map((law) => law.lawId);
-  const timeReferenceLawIds = AGENT_BUCCET_TIME_LAW_REFERENCES.map((law) => normalizeTimeReferenceLawId(law.lawId));
+  const timeReferenceLawIds = AGENT_BUCCET_TIME_LAW_REFERENCES.map((law) =>
+    normalizeTimeReferenceLawId(law.lawId),
+  );
 
   const knownLawIdSet = new Set([
     ...AGENT_BUCCET_BASE_LAW_IDS,
@@ -71,17 +67,19 @@ export async function buildActiveAgentBuccetLawIds(args: {
     ...timeReferenceLawIds,
     ...executableLawIds,
   ]);
-  const validExistingLawIds = (args.existingLawIds ?? []).filter((id) =>
-    knownLawIdSet.has(id) || id.startsWith("UPL-")
+  const validExistingLawIds = (args.existingLawIds ?? []).filter(
+    (id) => knownLawIdSet.has(id) || id.startsWith("UPL-"),
   );
 
-  return [...new Set([
-    ...AGENT_BUCCET_BASE_LAW_IDS,
-    ...runtimeMuscle.activeLawIds,
-    ...timeReferenceLawIds,
-    ...validExistingLawIds,
-    ...executableLawIds,
-  ])];
+  return [
+    ...new Set([
+      ...AGENT_BUCCET_BASE_LAW_IDS,
+      ...runtimeMuscle.activeLawIds,
+      ...timeReferenceLawIds,
+      ...validExistingLawIds,
+      ...executableLawIds,
+    ]),
+  ];
 }
 
 export function getAgentBuccetBaseLawIds(): readonly string[] {
@@ -90,14 +88,16 @@ export function getAgentBuccetBaseLawIds(): readonly string[] {
 
 export async function loadAgentBuccetRuntimeMuscle(): Promise<BoundaryRuntimeMuscle> {
   if (!cachedRuntimeMuscle) {
-    cachedRuntimeMuscle = resolveFoundationPath(FOUNDATION_RUNTIME_MUSCLE_RELATIVE_PATH).then(async (runtimePath) => {
-      const runtimeRaw = await fs.readFile(runtimePath, "utf8");
-      const parsed = JSON.parse(runtimeRaw) as BoundaryRuntimeMuscle;
-      if (!parsed.manifest || !Array.isArray(parsed.activeLawIds)) {
-        throw new Error("runtime-muscle artifact is malformed");
-      }
-      return parsed;
-    });
+    cachedRuntimeMuscle = resolveFoundationPath(FOUNDATION_RUNTIME_MUSCLE_RELATIVE_PATH).then(
+      async (runtimePath) => {
+        const runtimeRaw = await fs.readFile(runtimePath, "utf8");
+        const parsed = JSON.parse(runtimeRaw) as BoundaryRuntimeMuscle;
+        if (!parsed.manifest || !Array.isArray(parsed.activeLawIds)) {
+          throw new Error("runtime-muscle artifact is malformed");
+        }
+        return parsed;
+      },
+    );
   }
   return cachedRuntimeMuscle;
 }

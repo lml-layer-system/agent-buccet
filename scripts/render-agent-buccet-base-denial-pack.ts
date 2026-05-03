@@ -1,9 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import {
-  createBaseHeadlessDenialEntries,
-} from "./../src/law/headless-base-denials.ts";
+import { createBaseHeadlessDenialEntries } from "./../src/law/headless-base-denials.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
@@ -59,7 +57,12 @@ function describeTargetPatterns(entry: BoundaryUplEntry): string[] {
   const patterns = entry.trackConstraint?.targetPatterns ?? [];
   return patterns.map((pattern) => {
     const pretty = regexLiteralToGlob(pattern);
-    if (pretty.includes("://") || pretty.includes(".com") || pretty.includes(".org") || pretty.includes(".net")) {
+    if (
+      pretty.includes("://") ||
+      pretty.includes(".com") ||
+      pretty.includes(".org") ||
+      pretty.includes(".net")
+    ) {
       return `bounded target corridor ${`\`${pretty}\``}`;
     }
     return `bounded target corridor ${`\`${pretty}\``}`;
@@ -115,7 +118,9 @@ function entryToDoc(entry: BoundaryUplEntry): DenialEntryDoc {
     id: entry.id,
     whatItIs: extractReason(entry),
     connectsTo: describeConnectsTo(entry),
-    actionKinds: entry.trackConstraint?.allowedActionKinds ?? [entry.requestBasis?.actionKind ?? "fs.read"],
+    actionKinds: entry.trackConstraint?.allowedActionKinds ?? [
+      entry.requestBasis?.actionKind ?? "fs.read",
+    ],
     bounds: describeBounds(entry),
   };
 }
@@ -132,21 +137,20 @@ function renderEntry(entry: DenialEntryDoc): string {
 }
 
 function splitDenialEntries(entries: readonly BoundaryUplEntry[]) {
-  const core = entries.filter((entry) =>
-    !entry.id.startsWith("DENY.BOUNDARY.") &&
-    !entry.id.startsWith("DENY.PERIODIC.") &&
-    !entry.id.startsWith("DENY.BUCCET.BASE.") &&
-    !entry.id.startsWith("DENY.BUCCET.") &&
-    !entry.id.startsWith("DENY.BASE.CATALOG.") &&
-    !entry.id.startsWith("DENY.BASE.ALIAS."),
+  const core = entries.filter(
+    (entry) =>
+      !entry.id.startsWith("DENY.BOUNDARY.") &&
+      !entry.id.startsWith("DENY.PERIODIC.") &&
+      !entry.id.startsWith("DENY.BUCCET.BASE.") &&
+      !entry.id.startsWith("DENY.BUCCET.") &&
+      !entry.id.startsWith("DENY.BASE.CATALOG.") &&
+      !entry.id.startsWith("DENY.BASE.ALIAS."),
   );
   const boundary = entries.filter((entry) => entry.id.startsWith("DENY.BOUNDARY."));
   const periodic = entries.filter((entry) => entry.id.startsWith("DENY.PERIODIC."));
   const buccetBase = entries.filter((entry) => entry.id.startsWith("DENY.BUCCET.BASE."));
   const buccetFailure = entries.filter(
-    (entry) =>
-      entry.id.startsWith("DENY.BUCCET.") &&
-      !entry.id.startsWith("DENY.BUCCET.BASE."),
+    (entry) => entry.id.startsWith("DENY.BUCCET.") && !entry.id.startsWith("DENY.BUCCET.BASE."),
   );
   const catalog = entries.filter((entry) => entry.id.startsWith("DENY.BASE.CATALOG."));
   const aliases = entries.filter((entry) => entry.id.startsWith("DENY.BASE.ALIAS."));

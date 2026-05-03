@@ -38,7 +38,10 @@ type RawBuccetSubstrateModule = {
   d_enter_environment_wasm(unit_id: string, config: unknown): boolean;
   d_manage_lifecycle_wasm(unit_id: string, config: unknown): number | null;
   d_persist_state_wasm(unit_id: string, config: unknown): boolean;
-  k_enforce_wasm(unit_id: string, config: unknown): PolicyDecision | keyof typeof PolicyDecision | string;
+  k_enforce_wasm(
+    unit_id: string,
+    config: unknown,
+  ): PolicyDecision | keyof typeof PolicyDecision | string;
   k_orchestrate_wasm(unit_id: string, config: unknown): boolean;
   k_reconcile_state_wasm(unit_id: string, config: unknown): BuccetAction[];
   k_route_wasm(unit_id: string, config: unknown): RouteResult;
@@ -46,13 +49,24 @@ type RawBuccetSubstrateModule = {
   k_validate_wasm(unit_id: string, config: unknown): ValidationResult;
   q_apply_isolation_wasm(unit_id: string, config: unknown): IsolationContext;
   q_assign_trust_domain_wasm(unit_id: string, config: unknown): string;
-  q_enforce_policy_wasm(subject: string, resource: string, action: string, config: unknown): PolicyDecision | keyof typeof PolicyDecision | string;
-  q_intercept_call_wasm(unit_id: string, config: unknown): PolicyDecision | keyof typeof PolicyDecision | string;
+  q_enforce_policy_wasm(
+    subject: string,
+    resource: string,
+    action: string,
+    config: unknown,
+  ): PolicyDecision | keyof typeof PolicyDecision | string;
+  q_intercept_call_wasm(
+    unit_id: string,
+    config: unknown,
+  ): PolicyDecision | keyof typeof PolicyDecision | string;
   q_manage_lifecycle_wasm(unit_id: string, config: unknown): boolean;
 };
 
 async function pathExists(target: URL): Promise<boolean> {
-  return await fs.access(target).then(() => true).catch(() => false);
+  return await fs
+    .access(target)
+    .then(() => true)
+    .catch(() => false);
 }
 
 type RawBuccetSubstrateBootstrapModule = RawBuccetSubstrateModule & {
@@ -62,17 +76,29 @@ type RawBuccetSubstrateBootstrapModule = RawBuccetSubstrateModule & {
 async function resolveSubstrateAssetUrls(): Promise<{ bgModuleUrl: URL; wasmUrl: URL }> {
   const candidates = [
     {
-      bgModuleUrl: new URL("../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
-      wasmUrl: new URL("../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
+      bgModuleUrl: new URL(
+        "../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js",
+        import.meta.url,
+      ),
+      wasmUrl: new URL(
+        "../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm",
+        import.meta.url,
+      ),
     },
     {
-      bgModuleUrl: new URL("../../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js", import.meta.url),
-      wasmUrl: new URL("../../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm", import.meta.url),
+      bgModuleUrl: new URL(
+        "../../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.js",
+        import.meta.url,
+      ),
+      wasmUrl: new URL(
+        "../../../../native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm",
+        import.meta.url,
+      ),
     },
   ];
 
   for (const candidate of candidates) {
-    if (await pathExists(candidate.bgModuleUrl) && await pathExists(candidate.wasmUrl)) {
+    if ((await pathExists(candidate.bgModuleUrl)) && (await pathExists(candidate.wasmUrl))) {
       return candidate;
     }
   }
@@ -80,7 +106,9 @@ async function resolveSubstrateAssetUrls(): Promise<{ bgModuleUrl: URL; wasmUrl:
   throw new Error("unable to locate vendored Buccet Rust substrate package");
 }
 
-function normalizePolicyDecision(raw: PolicyDecision | keyof typeof PolicyDecision | string): PolicyDecision {
+function normalizePolicyDecision(
+  raw: PolicyDecision | keyof typeof PolicyDecision | string,
+): PolicyDecision {
   if (raw === PolicyDecision.Allow || raw === "Allow") {
     return PolicyDecision.Allow;
   }
@@ -105,7 +133,7 @@ export class BuccetSubstrate {
 
     this.runtimePromise = (async () => {
       const { bgModuleUrl, wasmUrl } = await resolveSubstrateAssetUrls();
-      const bootstrap = await import(bgModuleUrl.href) as RawBuccetSubstrateBootstrapModule;
+      const bootstrap = (await import(bgModuleUrl.href)) as RawBuccetSubstrateBootstrapModule;
       const wasmBytes = await fs.readFile(wasmUrl);
       const compiled = await WebAssembly.compile(wasmBytes);
       const instance = await WebAssembly.instantiate(compiled, {
@@ -151,7 +179,11 @@ export class BuccetSubstrate {
     return this.requireRuntime().d_enforce_contract_wasm(unitId, config);
   }
 
-  dEnforceResourceLimit(unitId: string, config: Record<string, unknown>, limits: Record<string, unknown>): boolean {
+  dEnforceResourceLimit(
+    unitId: string,
+    config: Record<string, unknown>,
+    limits: Record<string, unknown>,
+  ): boolean {
     return this.requireRuntime().d_enforce_resource_limit_wasm(unitId, config, limits);
   }
 
@@ -195,7 +227,11 @@ export class BuccetSubstrate {
     return this.requireRuntime().k_route_wasm(unitId, config);
   }
 
-  kSchedule(candidates: unknown[], constraints: unknown[], config: Record<string, unknown>): string {
+  kSchedule(
+    candidates: unknown[],
+    constraints: unknown[],
+    config: Record<string, unknown>,
+  ): string {
     return this.requireRuntime().k_schedule_wasm(candidates, constraints, config);
   }
 
@@ -211,8 +247,15 @@ export class BuccetSubstrate {
     return this.requireRuntime().q_assign_trust_domain_wasm(unitId, config);
   }
 
-  qEnforcePolicy(subject: string, resource: string, action: string, config: Record<string, unknown>): PolicyDecision {
-    return normalizePolicyDecision(this.requireRuntime().q_enforce_policy_wasm(subject, resource, action, config));
+  qEnforcePolicy(
+    subject: string,
+    resource: string,
+    action: string,
+    config: Record<string, unknown>,
+  ): PolicyDecision {
+    return normalizePolicyDecision(
+      this.requireRuntime().q_enforce_policy_wasm(subject, resource, action, config),
+    );
   }
 
   qInterceptCall(unitId: string, config: Record<string, unknown>): PolicyDecision {

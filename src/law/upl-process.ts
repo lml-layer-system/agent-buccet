@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { writeCompiledUserPathLaws } from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryActionKind,
   BoundaryLedgerRecord,
@@ -16,7 +17,6 @@ import type {
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
 } from "./../runtime/types.ts";
-import { writeCompiledUserPathLaws } from "./../proof/user-path-ledger.ts";
 
 export type BoundaryUplProcessStage =
   | "observed"
@@ -30,7 +30,14 @@ export type BoundaryUplProcessStage =
   | "active";
 
 export type BoundaryUplCapabilityState = "deny" | "ask" | "allow";
-export type BoundaryUplMutationKind = "add" | "narrow" | "widen" | "replace" | "suspend" | "restore" | "delete";
+export type BoundaryUplMutationKind =
+  | "add"
+  | "narrow"
+  | "widen"
+  | "replace"
+  | "suspend"
+  | "restore"
+  | "delete";
 export type BoundaryUplDraftActorKind = "human" | "pi" | "agent" | "system";
 export type BoundaryUplApprovalActorKind = "human";
 export type BoundaryUplDomain =
@@ -54,7 +61,11 @@ export type BoundaryUplHumanConfirmationRule =
   | "notify_before_commit"
   | "require_human_execution";
 export type BoundaryUplReminderOffset = "14d" | "7d" | "3d" | "1d";
-export type BoundaryUplProofRequirement = "none" | "record_match" | "artifact_required" | "receipt_required";
+export type BoundaryUplProofRequirement =
+  | "none"
+  | "record_match"
+  | "artifact_required"
+  | "receipt_required";
 export type BoundaryUplSyncTarget = "session" | "team" | "buccet" | "future_buccets" | "global";
 
 export type BoundaryStructuredUplRuntimeCorridor = {
@@ -232,7 +243,9 @@ function validateLaw(law: BoundaryStructuredUplLaw): void {
     throw new Error(`UPL law ${law.lawKey} periodLimitNormalized must be >= 0`);
   }
   if (law.periodLimitNormalized !== undefined && !law.periodWindow) {
-    throw new Error(`UPL law ${law.lawKey} requires periodWindow when periodLimitNormalized is set`);
+    throw new Error(
+      `UPL law ${law.lawKey} requires periodWindow when periodLimitNormalized is set`,
+    );
   }
   if (law.runtime.actionKinds.length === 0) {
     throw new Error(`UPL law ${law.lawKey} requires at least one runtime action kind`);
@@ -288,7 +301,9 @@ function normalizeMutation(mutation: BoundaryUplMutation): BoundaryUplMutation {
     case "replace":
     case "restore":
       if (!normalized.nextLaw) {
-        throw new Error(`UPL mutation ${normalized.mutationId} requires nextLaw for ${normalized.kind}`);
+        throw new Error(
+          `UPL mutation ${normalized.mutationId} requires nextLaw for ${normalized.kind}`,
+        );
       }
       break;
     case "suspend":
@@ -301,7 +316,9 @@ function normalizeMutation(mutation: BoundaryUplMutation): BoundaryUplMutation {
   };
 }
 
-function asLawMap(laws: readonly BoundaryStructuredUplLaw[]): Map<string, BoundaryStructuredUplLaw> {
+function asLawMap(
+  laws: readonly BoundaryStructuredUplLaw[],
+): Map<string, BoundaryStructuredUplLaw> {
   const map = new Map<string, BoundaryStructuredUplLaw>();
   for (const law of laws) {
     const normalized = normalizeLaw(law);
@@ -311,7 +328,9 @@ function asLawMap(laws: readonly BoundaryStructuredUplLaw[]): Map<string, Bounda
 }
 
 function sortedLaws(map: Map<string, BoundaryStructuredUplLaw>): BoundaryStructuredUplLaw[] {
-  return [...map.values()].map(cloneLaw).sort((left, right) => left.lawKey.localeCompare(right.lawKey));
+  return [...map.values()]
+    .map(cloneLaw)
+    .sort((left, right) => left.lawKey.localeCompare(right.lawKey));
 }
 
 function applyMutationSet(args: {
@@ -356,14 +375,16 @@ export function createStructuredUplLaw(law: BoundaryStructuredUplLaw): BoundaryS
   return normalizeLaw(law);
 }
 
-function buildRequestBasisFromStructuredLaw(law: BoundaryStructuredUplLaw): BoundaryUplRequestBasis {
+function buildRequestBasisFromStructuredLaw(
+  law: BoundaryStructuredUplLaw,
+): BoundaryUplRequestBasis {
   const reviewContext = law.runtime.reviewSurface
     ? {
-      surface: law.runtime.reviewSurface,
-      invariantLawId: law.runtime.reviewInvariantLawId,
-      title: law.lawKey,
-      question: law.capability,
-    }
+        surface: law.runtime.reviewSurface,
+        invariantLawId: law.runtime.reviewInvariantLawId,
+        title: law.lawKey,
+        question: law.capability,
+      }
     : undefined;
   const actionKind = law.runtime.actionKinds[0];
   return {
@@ -374,47 +395,63 @@ function buildRequestBasisFromStructuredLaw(law: BoundaryStructuredUplLaw): Boun
     ...(reviewContext ? { reviewContext } : {}),
     ...(law.domain === "spend" || actionKind === "agent.spend"
       ? {
-        spendIntent: {
-          amountRaw: String(law.amountLimitNormalized ?? law.periodLimitNormalized ?? 0),
-          amountNormalized: law.amountLimitNormalized ?? law.periodLimitNormalized ?? 0,
-          destination: law.runtime.primaryTarget,
-          destinationKind: law.approvedDestinationKinds[0] ?? "other",
-          sourceAuthorityKind: law.approvedSourceAuthorityKinds[0] ?? "other",
-          commitIntent: law.approvedCommitIntents[0] ?? "purchase",
-          principal: law.principal ?? "unspecified_principal",
-          purpose: law.capability,
-          bucketId: law.bucketId ?? "default",
-          termsSummary: law.notes ?? `${law.capability} structured UPL law`,
-          recurring: law.recurringPolicy === "allow",
-          riskClass: law.riskClasses[0] ?? "medium",
-          accountabilityRef: `upl:${law.lawKey}`,
-          instructionSource: law.runtime.provenance,
-          periodCapNormalized: law.periodLimitNormalized,
-          periodWindow: law.periodWindow,
-          merchantHint: law.approvedHandles[0],
-        },
-      }
+          spendIntent: {
+            amountRaw: String(law.amountLimitNormalized ?? law.periodLimitNormalized ?? 0),
+            amountNormalized: law.amountLimitNormalized ?? law.periodLimitNormalized ?? 0,
+            destination: law.runtime.primaryTarget,
+            destinationKind: law.approvedDestinationKinds[0] ?? "other",
+            sourceAuthorityKind: law.approvedSourceAuthorityKinds[0] ?? "other",
+            commitIntent: law.approvedCommitIntents[0] ?? "purchase",
+            principal: law.principal ?? "unspecified_principal",
+            purpose: law.capability,
+            bucketId: law.bucketId ?? "default",
+            termsSummary: law.notes ?? `${law.capability} structured UPL law`,
+            recurring: law.recurringPolicy === "allow",
+            riskClass: law.riskClasses[0] ?? "medium",
+            accountabilityRef: `upl:${law.lawKey}`,
+            instructionSource: law.runtime.provenance,
+            periodCapNormalized: law.periodLimitNormalized,
+            periodWindow: law.periodWindow,
+            merchantHint: law.approvedHandles[0],
+          },
+        }
       : {}),
   };
 }
 
-function buildTrackConstraintFromStructuredLaw(law: BoundaryStructuredUplLaw): BoundaryUplTrackConstraint {
+function buildTrackConstraintFromStructuredLaw(
+  law: BoundaryStructuredUplLaw,
+): BoundaryUplTrackConstraint {
   return {
     allowedActionKinds: [...law.runtime.actionKinds],
     targetPattern: law.runtime.primaryTarget,
-    ...(law.runtime.targetPatterns?.length ? { targetPatterns: [...law.runtime.targetPatterns] } : {}),
+    ...(law.runtime.targetPatterns?.length
+      ? { targetPatterns: [...law.runtime.targetPatterns] }
+      : {}),
     targetMatchMode: law.runtime.targetMatchMode ?? "exact",
     ...(law.runtime.reviewSurface ? { reviewSurface: law.runtime.reviewSurface } : {}),
-    ...(law.runtime.reviewInvariantLawId ? { reviewInvariantLawId: law.runtime.reviewInvariantLawId } : {}),
-    ...(law.amountLimitNormalized !== undefined ? { spendMaxAmountNormalized: law.amountLimitNormalized } : {}),
-    ...(law.approvedDestinationKinds.length ? { spendAllowedDestinationKinds: [...law.approvedDestinationKinds] } : {}),
-    ...(law.approvedSourceAuthorityKinds.length ? { spendAllowedSourceAuthorityKinds: [...law.approvedSourceAuthorityKinds] } : {}),
-    ...(law.approvedCommitIntents.length ? { spendAllowedCommitIntents: [...law.approvedCommitIntents] } : {}),
+    ...(law.runtime.reviewInvariantLawId
+      ? { reviewInvariantLawId: law.runtime.reviewInvariantLawId }
+      : {}),
+    ...(law.amountLimitNormalized !== undefined
+      ? { spendMaxAmountNormalized: law.amountLimitNormalized }
+      : {}),
+    ...(law.approvedDestinationKinds.length
+      ? { spendAllowedDestinationKinds: [...law.approvedDestinationKinds] }
+      : {}),
+    ...(law.approvedSourceAuthorityKinds.length
+      ? { spendAllowedSourceAuthorityKinds: [...law.approvedSourceAuthorityKinds] }
+      : {}),
+    ...(law.approvedCommitIntents.length
+      ? { spendAllowedCommitIntents: [...law.approvedCommitIntents] }
+      : {}),
     ...(law.principal ? { spendAllowedPrincipals: [law.principal] } : {}),
     ...(law.capability ? { spendAllowedPurposes: [law.capability] } : {}),
     ...(law.bucketId ? { spendAllowedBucketIds: [law.bucketId] } : {}),
     ...(law.riskClasses.length ? { spendAllowedRiskClasses: [...law.riskClasses] } : {}),
-    ...(law.recurringPolicy !== "ask" ? { spendRecurringAllowed: law.recurringPolicy === "allow" } : {}),
+    ...(law.recurringPolicy !== "ask"
+      ? { spendRecurringAllowed: law.recurringPolicy === "allow" }
+      : {}),
     ...(law.periodLimitNormalized !== undefined
       ? { spendMaxPeriodAmountNormalized: law.periodLimitNormalized }
       : {}),
@@ -423,7 +460,9 @@ function buildTrackConstraintFromStructuredLaw(law: BoundaryStructuredUplLaw): B
   };
 }
 
-export function compileStructuredUplLawToDocumentLaw(law: BoundaryStructuredUplLaw): CompiledDocumentLaw {
+export function compileStructuredUplLawToDocumentLaw(
+  law: BoundaryStructuredUplLaw,
+): CompiledDocumentLaw {
   const normalized = normalizeLaw(law);
   if (normalized.state === "ask") {
     throw new Error(
@@ -439,7 +478,9 @@ export function compileStructuredUplLawToDocumentLaw(law: BoundaryStructuredUplL
   };
 }
 
-export function compileStructuredUplStateToDocumentLaws(state: BoundaryCompiledUplState): CompiledDocumentLaw[] {
+export function compileStructuredUplStateToDocumentLaws(
+  state: BoundaryCompiledUplState,
+): CompiledDocumentLaw[] {
   return state.activeLaws.map((law) => compileStructuredUplLawToDocumentLaw(law));
 }
 
@@ -469,10 +510,12 @@ export function draftBoundaryUplProcess(args: {
     draftedAt: new Date().toISOString(),
     draftedByKind: args.draftedByKind,
     draftedBy: args.draftedBy.trim(),
-    mutations: args.mutations.map((mutation) => normalizeMutation({
-      ...mutation,
-      mutationId: mutation.mutationId ?? randomUUID(),
-    })),
+    mutations: args.mutations.map((mutation) =>
+      normalizeMutation({
+        ...mutation,
+        mutationId: mutation.mutationId ?? randomUUID(),
+      }),
+    ),
   };
 }
 

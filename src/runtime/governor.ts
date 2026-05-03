@@ -56,26 +56,16 @@ export function initialGovernorState(): BoundaryGovernorState {
   };
 }
 
-function pruneVelocityWindow(
-  timestamps: number[],
-  windowMs: number,
-  nowMs: number,
-): number[] {
+function pruneVelocityWindow(timestamps: number[], windowMs: number, nowMs: number): number[] {
   const cutoff = nowMs - windowMs;
   return timestamps.filter((timestamp) => timestamp >= cutoff);
 }
 
-function decisionWindow(
-  decisions: boolean[],
-  windowSize: number,
-): boolean[] {
+function decisionWindow(decisions: boolean[], windowSize: number): boolean[] {
   return decisions.slice(-windowSize);
 }
 
-function actionWeight(
-  actionKind: BoundaryActionKind,
-  config: BoundaryGovernorConfig,
-): number {
+function actionWeight(actionKind: BoundaryActionKind, config: BoundaryGovernorConfig): number {
   return config.weight?.[actionKind] ?? DEFAULT_GOVERNOR_WEIGHT[actionKind];
 }
 

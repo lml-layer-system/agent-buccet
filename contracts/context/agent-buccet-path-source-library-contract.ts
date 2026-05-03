@@ -3,12 +3,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import {
-  REMOTE_LLM_ACCEPTANCE_CORRIDORS,
-  LOCAL_LLM_ACCEPTANCE_CORRIDORS,
-  HTTP_API_ACCEPTANCE_CORRIDORS,
-} from "./../../src/teams/agent-comprehension-acceptance.ts";
 import { buildBaseAcceptanceSeeds } from "./../../src/law/base-upl-acceptance.ts";
+import {
+  HTTP_API_ACCEPTANCE_CORRIDORS,
+  LOCAL_LLM_ACCEPTANCE_CORRIDORS,
+  REMOTE_LLM_ACCEPTANCE_CORRIDORS,
+} from "./../../src/teams/agent-comprehension-acceptance.ts";
 import {
   HTTP_API_PROVIDER_DEFAULTS,
   LOCAL_LLM_PROVIDER_DEFAULTS,
@@ -46,7 +46,12 @@ async function main(): Promise<void> {
   const home = await mkdtemp(path.join(tmpdir(), "buccet-library-contract-"));
   try {
     const slug = teamSlug("library-contract-team");
-    await createTeam({ homePath: home, name: "library-contract-team", domain: "contract", summary: "library contract" });
+    await createTeam({
+      homePath: home,
+      name: "library-contract-team",
+      domain: "contract",
+      summary: "library contract",
+    });
 
     // ----- 1. File transport (backward-compat) -----------------------------
     const fileSrc = path.join(home, "voice.md");
@@ -67,9 +72,15 @@ async function main(): Promise<void> {
 
     const corpus = manifest.pathSourceCorpus;
     const fileSource = corpus.find((s) => s.kind === "file:md");
-    const aiSource = corpus.find((s) => s.transport === "remote-llm" && s.remote?.provider === "anthropic");
-    const ollamaSource = corpus.find((s) => s.transport === "local-llm" && s.local?.provider === "ollama");
-    const pineconeSource = corpus.find((s) => s.transport === "http-api" && s.httpApi?.provider === "pinecone");
+    const aiSource = corpus.find(
+      (s) => s.transport === "remote-llm" && s.remote?.provider === "anthropic",
+    );
+    const ollamaSource = corpus.find(
+      (s) => s.transport === "local-llm" && s.local?.provider === "ollama",
+    );
+    const pineconeSource = corpus.find(
+      (s) => s.transport === "http-api" && s.httpApi?.provider === "pinecone",
+    );
 
     assert.ok(fileSource, "file transport source must persist");
     assert.ok(aiSource, "remote-llm:anthropic source must persist");
@@ -77,22 +88,47 @@ async function main(): Promise<void> {
     assert.ok(pineconeSource, "http-api:pinecone source must persist");
 
     // Auth key must NEVER be stored — only the env-var name.
-    assert.equal(aiSource!.remote!.authEnvVar, "ANTHROPIC_API_KEY", "Anthropic source must carry the env-var name only");
+    assert.equal(
+      aiSource?.remote?.authEnvVar,
+      "ANTHROPIC_API_KEY",
+      "Anthropic source must carry the env-var name only",
+    );
     const aiJson = JSON.stringify(aiSource);
-    assert.ok(!/sk-ant-/i.test(aiJson), "remote source manifest must not contain key-like material");
-    assert.ok(!/Bearer/i.test(aiJson), "remote source manifest must not contain bearer header material");
+    assert.ok(
+      !/sk-ant-/i.test(aiJson),
+      "remote source manifest must not contain key-like material",
+    );
+    assert.ok(
+      !/Bearer/i.test(aiJson),
+      "remote source manifest must not contain bearer header material",
+    );
 
     // Endpoint defaults populate when not overridden.
-    assert.equal(aiSource!.remote!.endpoint, REMOTE_LLM_PROVIDER_DEFAULTS.anthropic.endpoint, "Anthropic default endpoint must apply");
-    assert.equal(ollamaSource!.local!.endpoint, LOCAL_LLM_PROVIDER_DEFAULTS.ollama.endpoint, "Ollama default endpoint must apply");
+    assert.equal(
+      aiSource?.remote?.endpoint,
+      REMOTE_LLM_PROVIDER_DEFAULTS.anthropic.endpoint,
+      "Anthropic default endpoint must apply",
+    );
+    assert.equal(
+      ollamaSource?.local?.endpoint,
+      LOCAL_LLM_PROVIDER_DEFAULTS.ollama.endpoint,
+      "Ollama default endpoint must apply",
+    );
 
     assert.equal(
-      pineconeSource!.httpApi!.endpoint,
+      pineconeSource?.httpApi?.endpoint,
       HTTP_API_PROVIDER_DEFAULTS.pinecone.endpoint,
       "Pinecone default endpoint must apply",
     );
-    assert.equal(pineconeSource!.httpApi!.authEnvVar, "PINECONE_API_KEY", "pinecone auth env-var name stored, not secret");
-    assert.ok(!/pcsk_/i.test(JSON.stringify(pineconeSource)), "http-api manifest must not contain raw API key strings");
+    assert.equal(
+      pineconeSource?.httpApi?.authEnvVar,
+      "PINECONE_API_KEY",
+      "pinecone auth env-var name stored, not secret",
+    );
+    assert.ok(
+      !/pcsk_/i.test(JSON.stringify(pineconeSource)),
+      "http-api manifest must not contain raw API key strings",
+    );
 
     console.log(
       "SUCCESS: file, remote-llm, local-llm, and http-api transports persist with no key material.",
@@ -116,34 +152,46 @@ async function main(): Promise<void> {
       const lane = seeds.find((s) => s.id === corridor.id);
       assert.ok(lane, `expected base UPL seed for remote provider corridor ${corridor.id}`);
       assert.deepEqual(
-        lane!.actionKinds,
+        lane?.actionKinds,
         ["network.send"],
         `${corridor.id} must gate on network.send`,
       );
-      assert.equal(lane!.acceptanceClass, "agent_comprehension", `${corridor.id} must be in the agent_comprehension class`);
+      assert.equal(
+        lane?.acceptanceClass,
+        "agent_comprehension",
+        `${corridor.id} must be in the agent_comprehension class`,
+      );
     }
 
     for (const corridor of LOCAL_LLM_ACCEPTANCE_CORRIDORS) {
       const lane = seeds.find((s) => s.id === corridor.id);
       assert.ok(lane, `expected base UPL seed for local provider corridor ${corridor.id}`);
-      assert.deepEqual(
-        lane!.actionKinds,
-        ["tool.exec"],
-        `${corridor.id} must gate on tool.exec`,
+      assert.deepEqual(lane?.actionKinds, ["tool.exec"], `${corridor.id} must gate on tool.exec`);
+      assert.equal(
+        lane?.targetPattern,
+        corridor.binary,
+        `${corridor.id} must target binary "${corridor.binary}"`,
       );
-      assert.equal(lane!.targetPattern, corridor.binary, `${corridor.id} must target binary "${corridor.binary}"`);
-      assert.equal(lane!.acceptanceClass, "agent_comprehension", `${corridor.id} must be in the agent_comprehension class`);
+      assert.equal(
+        lane?.acceptanceClass,
+        "agent_comprehension",
+        `${corridor.id} must be in the agent_comprehension class`,
+      );
     }
 
     for (const corridor of HTTP_API_ACCEPTANCE_CORRIDORS) {
       const lane = seeds.find((s) => s.id === corridor.id);
       assert.ok(lane, `expected base UPL seed for HTTP corridor ${corridor.id}`);
       assert.deepEqual(
-        lane!.actionKinds,
+        lane?.actionKinds,
         ["network.send"],
         `${corridor.id} must gate on network.send`,
       );
-      assert.equal(lane!.acceptanceClass, "agent_comprehension", `${corridor.id} must sit in agent_comprehension`);
+      assert.equal(
+        lane?.acceptanceClass,
+        "agent_comprehension",
+        `${corridor.id} must sit in agent_comprehension`,
+      );
     }
 
     console.log(
@@ -151,11 +199,14 @@ async function main(): Promise<void> {
     );
 
     // ----- 6. Shipped corridors cover Pinecone canonical host --------------
-    const pineconeUrl = pineconeSource!.httpApi!.endpoint!;
+    const pineconeUrl = pineconeSource?.httpApi?.endpoint!;
     const pineconeLane = seeds.find((s) => s.id === "ACCEPT.AGENT.SOURCE.HTTP_API.PINECONE");
     assert.ok(pineconeLane, "pinecone corridor exists");
-    const pcInner = (pineconeLane!.targetPattern as string).replace(/^\/(.*)\/[a-z]*$/, "$1");
-    assert.ok(new RegExp(pcInner, "i").test(pineconeUrl), "pinecone corridor regex matches bundled default endpoint host");
+    const pcInner = (pineconeLane?.targetPattern as string).replace(/^\/(.*)\/[a-z]*$/, "$1");
+    assert.ok(
+      new RegExp(pcInner, "i").test(pineconeUrl),
+      "pinecone corridor regex matches bundled default endpoint host",
+    );
 
     // ----- 7. Unknown remote endpoints are NOT covered ---------------------
     const unknownHost = "https://api.unknown-llm.example.com/v1/chat";
@@ -168,7 +219,11 @@ async function main(): Promise<void> {
       const inner = pattern.replace(/^\/(.*)\/[a-z]*$/, "$1");
       return new RegExp(inner, "i").test(unknownHost);
     });
-    assert.equal(matches.length, 0, "an unknown remote endpoint must NOT match any shipped corridor — operator must add it explicitly");
+    assert.equal(
+      matches.length,
+      0,
+      "an unknown remote endpoint must NOT match any shipped corridor — operator must add it explicitly",
+    );
 
     const unknownKb = "https://kb.internal.example-company.invalid/v1/search";
     const kbMatches = seeds.filter((s) => {
@@ -185,7 +240,9 @@ async function main(): Promise<void> {
       0,
       "an unknown internal KB host must NOT match seeded corridors unless operator opts it in explicitly",
     );
-    console.log("SUCCESS: unknown remote / KB endpoints are not silently allowed; operator must opt them in.");
+    console.log(
+      "SUCCESS: unknown remote / KB endpoints are not silently allowed; operator must opt them in.",
+    );
 
     console.log("\n--- Path-Source Library Contract Verified ---");
   } finally {

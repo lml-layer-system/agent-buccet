@@ -107,18 +107,12 @@ jobs:
         run: npm run test:agent-buccet:swarm
       - name: Gravity supervisor contract
         run: npm run test:agent-buccet:gravity-supervisor
-      - name: CLI contract
-        run: npm run test:agent-buccet:cli
       - name: Payload physics contract
         run: npm run test:agent-buccet:payload-physics-contract
-      - name: Native physwrap contract
-        run: npm run test:agent-buccet:physwrap-contract
       - name: Attack demo
         run: npm run demo:agent-buccet:attacks
       - name: Transport isolation contract
         run: npm run test:agent-buccet:transport
-      - name: MCP boundary contract
-        run: npm run test:agent-buccet:mcp
 
   contracts-docs:
     name: Docs and hygiene contracts

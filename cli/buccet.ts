@@ -1,74 +1,23 @@
 #!/usr/bin/env node
+import { spawn } from "node:child_process";
+import { createHash } from "node:crypto";
+import { promises as fs } from "node:fs";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
-import net from "node:net";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
 import {
+  type BoundaryHostKind,
   createBoundaryHostAttachPlan,
   inferBoundaryToolDoorSignals,
   mergeBoundaryHostConfig,
-  type BoundaryHostKind,
 } from "./../src/boundaries/entry-doors.ts";
-import {
-  COMPREHENSION_STAGE_IDS,
-  ENGINE_PROVIDER_DEFAULTS,
-  HTTP_API_PROVIDER_DEFAULTS,
-  LOCAL_LLM_PROVIDER_DEFAULTS,
-  REMOTE_LLM_PROVIDER_DEFAULTS,
-  addTeamAgent,
-  addTeamEngineSource,
-  addTeamHttpApiSource,
-  addTeamLocalLlmSource,
-  addTeamRemoteLlmSource,
-  addTeamSource,
-  appendTeamPathSourceMemoryEntry,
-  cherryPickTeamSnapshotSources,
-  createTeam,
-  deleteTeam,
-  listTeams,
-  listTeamContinuitySnapshots,
-  loadTeam,
-  loadTeamRuntimePreparation,
-  prepareTeamRuntime,
-  readTeamPathSourceMemoryEntries,
-  removeTeamAgent,
-  removeTeamSource,
-  rollbackTeamToContinuitySnapshot,
-  saveTeam,
-  teamSlug,
-  teamsRoot,
-  type ComprehensionStageId,
-  type EngineProvider,
-  type HttpApiProvider,
-  type LocalLlmProvider,
-  type RemoteLlmProvider,
-  type TeamManifest,
-  type TeamRuntimePreparation,
-  type TeamSlug,
-} from "./../src/teams/team-workshop.ts";
-import {
-  BrainPassPreconditionError,
-  runBrainPass,
-  teamCanBrainPass,
-} from "./../src/teams/brain-pass.ts";
-import {
-  buildCreatePromptEvent,
-  renderCreatePromptEvent,
-  type BuccetPromptMode,
-} from "./../src/runtime/create-prompt.ts";
-import {
-  buildProofOfWorkTraceOutput,
-  renderProofOfWorkTraceText,
-} from "./../src/proof/create-trace.ts";
 import { PiNotInstalledError } from "./../src/engines/pi/pi-adapter.ts";
 import {
   activateCompiledBoundaryUplState,
-  buildBoundarySpendLawBlendDraft,
   approveBoundaryUplReview,
+  buildBoundarySpendLawBlendDraft,
   buildBoundarySpendLawPackDraft,
   compileApprovedBoundaryUplReview,
   draftBoundaryUplProcess,
@@ -81,39 +30,90 @@ import {
 import type {
   BoundaryActionKind,
   BoundaryApprovedUplReview,
-  BoundarySpendLawPack,
-  BoundarySpendLawBlendComponentArgs,
-  BoundarySpendLawPackId,
-  BoundarySpendProposalAnalysis,
-  BoundarySpendPeriodWindow,
-  BoundarySpendSourceAuthorityKind,
-  BoundaryUplLineage,
-  BoundaryUplLineageMode,
   BoundaryCompiledUplState,
+  BoundaryRuntimeConfig,
+  BoundarySession,
+  BoundarySpendLawBlendComponentArgs,
+  BoundarySpendLawPack,
+  BoundarySpendLawPackId,
+  BoundarySpendPeriodWindow,
+  BoundarySpendProposalAnalysis,
+  BoundarySpendSourceAuthorityKind,
   BoundaryStructuredUplLaw,
   BoundaryUplBoundaryDefinition,
   BoundaryUplDraft,
   BoundaryUplDraftActorKind,
+  BoundaryUplEntry,
+  BoundaryUplEntryType,
   BoundaryUplInvariantDefinition,
+  BoundaryUplLineage,
+  BoundaryUplLineageMode,
   BoundaryUplMutation,
   BoundaryUplObservation,
   BoundaryUplReviewPacket,
-  BoundaryRuntimeConfig,
+  BoundaryUplScope,
+  BoundaryUplStatus,
+  BoundaryUplSyncTarget,
+  BoundaryUserPathLedger,
   BuccetPathAgentAction,
   BuccetPathFormationState,
   BuccetPathMemorySnapshot,
   BuccetPathSource,
   BuccetPathTemplate,
-  DocumentLawDiagnosticEntry,
-  BoundarySession,
-  BoundaryUplSyncTarget,
-  BoundaryUplEntry,
-  BoundaryUplEntryType,
-  BoundaryUplScope,
-  BoundaryUplStatus,
-  BoundaryUserPathLedger,
   CompiledDocumentLaw,
+  DocumentLawDiagnosticEntry,
 } from "./../src/index.ts";
+import {
+  buildProofOfWorkTraceOutput,
+  renderProofOfWorkTraceText,
+} from "./../src/proof/create-trace.ts";
+import {
+  type BuccetPromptMode,
+  buildCreatePromptEvent,
+  renderCreatePromptEvent,
+} from "./../src/runtime/create-prompt.ts";
+import {
+  BrainPassPreconditionError,
+  runBrainPass,
+  teamCanBrainPass,
+} from "./../src/teams/brain-pass.ts";
+import {
+  COMPREHENSION_STAGE_IDS,
+  type ComprehensionStageId,
+  ENGINE_PROVIDER_DEFAULTS,
+  type EngineProvider,
+  HTTP_API_PROVIDER_DEFAULTS,
+  type HttpApiProvider,
+  LOCAL_LLM_PROVIDER_DEFAULTS,
+  type LocalLlmProvider,
+  REMOTE_LLM_PROVIDER_DEFAULTS,
+  type RemoteLlmProvider,
+  type TeamManifest,
+  type TeamRuntimePreparation,
+  type TeamSlug,
+  addTeamAgent,
+  addTeamEngineSource,
+  addTeamHttpApiSource,
+  addTeamLocalLlmSource,
+  addTeamRemoteLlmSource,
+  addTeamSource,
+  appendTeamPathSourceMemoryEntry,
+  cherryPickTeamSnapshotSources,
+  createTeam,
+  deleteTeam,
+  listTeamContinuitySnapshots,
+  listTeams,
+  loadTeam,
+  loadTeamRuntimePreparation,
+  prepareTeamRuntime,
+  readTeamPathSourceMemoryEntries,
+  removeTeamAgent,
+  removeTeamSource,
+  rollbackTeamToContinuitySnapshot,
+  saveTeam,
+  teamSlug,
+  teamsRoot,
+} from "./../src/teams/team-workshop.ts";
 
 type BuccetConfig = {
   schemaVersion: 1;
@@ -214,11 +214,11 @@ type UplAcceptanceSourceCatalog = {
   description: string;
 };
 
-function printTeamContinuityHistory(history: Awaited<ReturnType<typeof listTeamContinuitySnapshots>>): void {
+function printTeamContinuityHistory(
+  history: Awaited<ReturnType<typeof listTeamContinuitySnapshots>>,
+): void {
   if (history.length === 0) {
-    printCliSection("Continuity", [
-      formatCliKeyValue("status", "no snapshots yet"),
-    ]);
+    printCliSection("Continuity", [formatCliKeyValue("status", "no snapshots yet")]);
     return;
   }
   const rows: string[] = [];
@@ -295,7 +295,6 @@ type BuccetTransportPackResult = {
 };
 
 const TRANSPORT_LAW_FILE = "transport-law.json";
-
 
 type TransportLawEntry = {
   uplEntry: BoundaryUplEntry;
@@ -520,7 +519,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
         "  buccet team export <team-name> [--output <file.json>]            portable team manifest",
         "  buccet team import <file.json> [--rename <new-name>]             materialize a team from a manifest",
         "  buccet enter <team-name>                                         interactive chat box for a team",
-        "  buccet ask <team-name> \"<task>\"                                  one-shot task entry",
+        '  buccet ask <team-name> "<task>"                                  one-shot task entry',
         "  buccet mute creative                                             hide creative-side messages in `buccet console` (presentation only)",
         "  buccet unmute creative                                           re-show creative-side messages",
       ],
@@ -589,7 +588,9 @@ function printBuccetWelcome(): void {
   for (const line of inspectLines) console.log(line);
 
   console.log("");
-  console.log(`  ${clrDim("Run")} ${clrBold("buccet --help")} ${clrDim("for the full command map.")}`);
+  console.log(
+    `  ${clrDim("Run")} ${clrBold("buccet --help")} ${clrDim("for the full command map.")}`,
+  );
   console.log(`  ${clrDim("Run")} ${clrBold("buccet doctor")} ${clrDim("if anything looks off.")}`);
   console.log("");
 }
@@ -600,8 +601,8 @@ function currentScriptDir(): string {
 
 function shortSocketPath(homePath: string, label: string): string {
   const digest = createHash("sha256").update(`${homePath}:${label}`).digest("hex").slice(0, 12);
-  const socketRoot = process.env.BUCCET_SOCKET_ROOT
-    ?? (process.platform === "win32" ? os.tmpdir() : "/tmp");
+  const socketRoot =
+    process.env.BUCCET_SOCKET_ROOT ?? (process.platform === "win32" ? os.tmpdir() : "/tmp");
   return path.join(socketRoot, `buccet-${label}-${digest}.sock`);
 }
 
@@ -675,26 +676,36 @@ function uniquePaths(paths: string[]): string[] {
 
 const isTTY = process.stdout.isTTY === true && !process.env.NO_COLOR;
 const c = {
-  reset:  isTTY ? "\x1b[0m"  : "",
-  bold:   isTTY ? "\x1b[1m"  : "",
-  dim:    isTTY ? "\x1b[2m"  : "",
-  green:  isTTY ? "\x1b[32m" : "",
-  red:    isTTY ? "\x1b[31m" : "",
+  reset: isTTY ? "\x1b[0m" : "",
+  bold: isTTY ? "\x1b[1m" : "",
+  dim: isTTY ? "\x1b[2m" : "",
+  green: isTTY ? "\x1b[32m" : "",
+  red: isTTY ? "\x1b[31m" : "",
   yellow: isTTY ? "\x1b[33m" : "",
-  cyan:   isTTY ? "\x1b[36m" : "",
-  blue:   isTTY ? "\x1b[34m" : "",
+  cyan: isTTY ? "\x1b[36m" : "",
+  blue: isTTY ? "\x1b[34m" : "",
   blueBright: isTTY ? "\x1b[38;5;27m" : "",
 };
 
-function clrOk(text = ""): string   { return `${c.green}✓${c.reset}${text ? ` ${text}` : ""}`; }
-function clrFail(text = ""): string { return `${c.red}✗${c.reset}${text ? ` ${text}` : ""}`; }
-function clrWarn(text = ""): string { return `${c.yellow}⚠${c.reset}${text ? ` ${text}` : ""}`; }
-function clrBold(text: string): string { return `${c.bold}${text}${c.reset}`; }
-function clrDim(text: string): string  { return `${c.dim}${text}${c.reset}`; }
+function clrOk(text = ""): string {
+  return `${c.green}✓${c.reset}${text ? ` ${text}` : ""}`;
+}
+function clrFail(text = ""): string {
+  return `${c.red}✗${c.reset}${text ? ` ${text}` : ""}`;
+}
+function clrWarn(text = ""): string {
+  return `${c.yellow}⚠${c.reset}${text ? ` ${text}` : ""}`;
+}
+function clrBold(text: string): string {
+  return `${c.bold}${text}${c.reset}`;
+}
+function clrDim(text: string): string {
+  return `${c.dim}${text}${c.reset}`;
+}
 
 function printCliHeader(title: string, subtitle?: string): void {
   const bar = "━".repeat(Math.max(46, title.length + 6));
-  console.log(``);
+  console.log("");
   console.log(`${c.bold}${c.cyan}  ${bar}${c.reset}`);
   console.log(`${c.bold}    ${title}${c.reset}`);
   console.log(`${c.cyan}  ${bar}${c.reset}`);
@@ -704,7 +715,7 @@ function printCliHeader(title: string, subtitle?: string): void {
 }
 
 function printCliSection(title: string, rows: Array<string | null | undefined>): void {
-  console.log(``);
+  console.log("");
   console.log(`  ${clrBold(title)}`);
   console.log(`  ${c.dim}${"─".repeat(Math.max(24, title.length + 2))}${c.reset}`);
   for (const row of rows) {
@@ -715,7 +726,10 @@ function printCliSection(title: string, rows: Array<string | null | undefined>):
   }
 }
 
-function formatCliKeyValue(label: string, value: string | number | boolean | null | undefined): string {
+function formatCliKeyValue(
+  label: string,
+  value: string | number | boolean | null | undefined,
+): string {
   return `${clrDim(label.padEnd(18, " "))} ${String(value ?? "-")}`;
 }
 
@@ -725,7 +739,7 @@ function printBuccetWordmark(): void {
   const B = c.blueBright + c.bold;
   const D = c.dim;
   const R = c.reset;
-  console.log(``);
+  console.log("");
   console.log(`${B}  AGENT${R}`);
   console.log(`${B}  ██████╗ ██╗   ██╗ ██████╗ ██████╗███████╗████████╗${R}`);
   console.log(`${B}  ██╔══██╗██║   ██║██╔════╝██╔════╝██╔════╝╚══██╔══╝${R}`);
@@ -734,14 +748,17 @@ function printBuccetWordmark(): void {
   console.log(`${B}  ██████╔╝╚██████╔╝╚██████╗╚██████╗███████╗   ██║   ${R}`);
   console.log(`${B}  ╚═════╝  ╚═════╝  ╚═════╝ ╚═════╝╚══════╝   ╚═╝   ${R}`);
   console.log(`  ${D}Building Ultimate Containment Constraints Every Time${R}`);
-  console.log(``);
+  console.log("");
 }
 
 function parseCsvActions(raw: string | undefined): BoundaryActionKind[] {
   if (!raw) {
     return FULL_FS_SCOPE_ACTIONS;
   }
-  return raw.split(",").map((part) => part.trim()).filter(Boolean) as BoundaryActionKind[];
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean) as BoundaryActionKind[];
 }
 
 async function loadConfig(configPath: string): Promise<BuccetConfig | null> {
@@ -780,42 +797,71 @@ async function loadUplProcessWorkspace(workspacePath: string): Promise<UplProces
     return {
       schemaVersion: 1,
       updatedAt: parsed.updatedAt ?? new Date().toISOString(),
-      activeLaws: Array.isArray(parsed.activeLaws) ? parsed.activeLaws as BoundaryStructuredUplLaw[] : [],
-      records: Array.isArray(parsed.records) ? parsed.records as UplProcessWorkspaceRecord[] : [],
-      approvals: Array.isArray(parsed.approvals) ? parsed.approvals as BoundaryApprovedUplReview[] : [],
-      compiledVersions: Array.isArray(parsed.compiledVersions) ? parsed.compiledVersions as BoundaryCompiledUplState[] : [],
+      activeLaws: Array.isArray(parsed.activeLaws)
+        ? (parsed.activeLaws as BoundaryStructuredUplLaw[])
+        : [],
+      records: Array.isArray(parsed.records) ? (parsed.records as UplProcessWorkspaceRecord[]) : [],
+      approvals: Array.isArray(parsed.approvals)
+        ? (parsed.approvals as BoundaryApprovedUplReview[])
+        : [],
+      compiledVersions: Array.isArray(parsed.compiledVersions)
+        ? (parsed.compiledVersions as BoundaryCompiledUplState[])
+        : [],
     };
   } catch {
     return createEmptyUplProcessWorkspace();
   }
 }
 
-async function saveUplProcessWorkspace(workspacePath: string, workspace: UplProcessWorkspace): Promise<void> {
+async function saveUplProcessWorkspace(
+  workspacePath: string,
+  workspace: UplProcessWorkspace,
+): Promise<void> {
   await ensureDir(path.dirname(workspacePath));
   await fs.writeFile(
     workspacePath,
-    `${JSON.stringify({
-      ...workspace,
-      schemaVersion: 1,
-      updatedAt: new Date().toISOString(),
-    }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        ...workspace,
+        schemaVersion: 1,
+        updatedAt: new Date().toISOString(),
+      },
+      null,
+      2,
+    )}\n`,
     "utf8",
   );
 }
 
-function normalizeRequestedSyncTargets(rawTargets: readonly BoundaryUplSyncTarget[] | undefined): BoundaryUplSyncTarget[] {
-  const allowed = new Set<BoundaryUplSyncTarget>(["session", "team", "buccet", "future_buccets", "global"]);
-  const normalized = [...new Set((rawTargets ?? ["buccet"]).map((target) => String(target).trim() as BoundaryUplSyncTarget))]
-    .filter((target) => allowed.has(target));
+function normalizeRequestedSyncTargets(
+  rawTargets: readonly BoundaryUplSyncTarget[] | undefined,
+): BoundaryUplSyncTarget[] {
+  const allowed = new Set<BoundaryUplSyncTarget>([
+    "session",
+    "team",
+    "buccet",
+    "future_buccets",
+    "global",
+  ]);
+  const normalized = [
+    ...new Set(
+      (rawTargets ?? ["buccet"]).map((target) => String(target).trim() as BoundaryUplSyncTarget),
+    ),
+  ].filter((target) => allowed.has(target));
   return normalized.length > 0 ? normalized : ["buccet"];
 }
 
-function parseRequestedSyncTargetsCsv(rawValue: string | undefined): BoundaryUplSyncTarget[] | undefined {
+function parseRequestedSyncTargetsCsv(
+  rawValue: string | undefined,
+): BoundaryUplSyncTarget[] | undefined {
   if (!rawValue) {
     return undefined;
   }
   return normalizeRequestedSyncTargets(
-    rawValue.split(",").map((target) => target.trim()).filter(Boolean) as BoundaryUplSyncTarget[],
+    rawValue
+      .split(",")
+      .map((target) => target.trim())
+      .filter(Boolean) as BoundaryUplSyncTarget[],
   );
 }
 
@@ -830,7 +876,9 @@ function parseBoundaryUplScopeToken(rawScope: string | undefined): BoundaryUplSc
   throw new Error(`unsupported UPL scope: ${rawScope}`);
 }
 
-function parseSpendPeriodWindowToken(rawWindow: string | undefined): BoundarySpendPeriodWindow | undefined {
+function parseSpendPeriodWindowToken(
+  rawWindow: string | undefined,
+): BoundarySpendPeriodWindow | undefined {
   if (!rawWindow) {
     return undefined;
   }
@@ -841,12 +889,24 @@ function parseSpendPeriodWindowToken(rawWindow: string | undefined): BoundarySpe
   throw new Error(`unsupported spend period window: ${rawWindow}`);
 }
 
-function parseSpendSourceAuthorityKindToken(rawKind: string | undefined): BoundarySpendSourceAuthorityKind | undefined {
+function parseSpendSourceAuthorityKindToken(
+  rawKind: string | undefined,
+): BoundarySpendSourceAuthorityKind | undefined {
   if (!rawKind) {
     return undefined;
   }
   const normalized = rawKind.trim() as BoundarySpendSourceAuthorityKind;
-  if (["wallet", "linked_account", "card", "treasury", "merchant_balance", "api_credential", "other"].includes(normalized)) {
+  if (
+    [
+      "wallet",
+      "linked_account",
+      "card",
+      "treasury",
+      "merchant_balance",
+      "api_credential",
+      "other",
+    ].includes(normalized)
+  ) {
     return normalized;
   }
   throw new Error(`unsupported spend source authority kind: ${rawKind}`);
@@ -869,7 +929,7 @@ function printSpendLawPackSummary(pack: BoundarySpendLawPack): void {
 }
 
 function printSpendLawPackDetails(pack: BoundarySpendLawPack): void {
-  console.log(``);
+  console.log("");
   printCliHeader(`  Spend Pack  ${clrDim(pack.id)}`, pack.title);
   printCliSection("Identity", [
     formatCliKeyValue("category", pack.category),
@@ -882,14 +942,23 @@ function printSpendLawPackDetails(pack: BoundarySpendLawPack): void {
     formatCliKeyValue("recurring", pack.recurring ? "yes" : "no"),
     formatCliKeyValue("source auth", pack.defaultSourceAuthorityKind),
   ]);
-  printCliSection("What It Opens", pack.opensCorridor.map((line) => `  ${line}`));
-  printCliSection("Still Denied", pack.keepsDenied.map((line) => `  ${line}`));
-  printCliSection("Required Switches", pack.requires.map((line) => `  ${line}`));
-  console.log(``);
+  printCliSection(
+    "What It Opens",
+    pack.opensCorridor.map((line) => `  ${line}`),
+  );
+  printCliSection(
+    "Still Denied",
+    pack.keepsDenied.map((line) => `  ${line}`),
+  );
+  printCliSection(
+    "Required Switches",
+    pack.requires.map((line) => `  ${line}`),
+  );
+  console.log("");
 }
 
 function printSpendProposalAnalysis(analysis: BoundarySpendProposalAnalysis): void {
-  console.log(``);
+  console.log("");
   printCliHeader("  Spend Proposal");
   printCliSection("Request", [
     formatCliKeyValue("text", analysis.requestText),
@@ -904,12 +973,18 @@ function printSpendProposalAnalysis(analysis: BoundarySpendProposalAnalysis): vo
       `  ${clrDim("Inspect instead:")} ${clrBold("buccet upl spend list")}`,
     ]);
   } else {
-    printCliSection("Candidate Packs", analysis.candidates.map((candidate, index) => {
-      const matched = candidate.matchedSignals.length > 0 ? `signals=${candidate.matchedSignals.join(", ")}` : "signals=none";
-      const reason = candidate.reasons[0] ?? candidate.pack.description;
-      return `  ${index + 1}. ${clrBold(candidate.pack.id)}  ${clrDim(candidate.pack.title)}\n     ${clrDim(`score=${candidate.score} · ${matched}`)}\n     ${reason}`;
-    }));
-    const topPack = analysis.candidates[0]!.pack.id;
+    printCliSection(
+      "Candidate Packs",
+      analysis.candidates.map((candidate, index) => {
+        const matched =
+          candidate.matchedSignals.length > 0
+            ? `signals=${candidate.matchedSignals.join(", ")}`
+            : "signals=none";
+        const reason = candidate.reasons[0] ?? candidate.pack.description;
+        return `  ${index + 1}. ${clrBold(candidate.pack.id)}  ${clrDim(candidate.pack.title)}\n     ${clrDim(`score=${candidate.score} · ${matched}`)}\n     ${reason}`;
+      }),
+    );
+    const topPack = analysis.candidates[0]?.pack.id;
     printCliSection("Next", [
       `  ${clrDim("inspect:")} ${clrBold(`buccet upl spend show ${topPack}`)}`,
       `  ${clrDim("stage:")}   ${clrBold(`buccet upl spend setup ${topPack}`)}`,
@@ -917,8 +992,11 @@ function printSpendProposalAnalysis(analysis: BoundarySpendProposalAnalysis): vo
       `  ${clrDim("blend:")}   ${clrBold("buccet upl spend blend <spec.json>")} ${clrDim("(explicit only)")}`,
     ]);
   }
-  printCliSection("Policy Notes", analysis.notes.map((note) => `  ${note}`));
-  console.log(``);
+  printCliSection(
+    "Policy Notes",
+    analysis.notes.map((note) => `  ${note}`),
+  );
+  console.log("");
 }
 
 function printSpendBlendSummary(args: {
@@ -926,26 +1004,31 @@ function printSpendBlendSummary(args: {
   syncTargets: BoundaryUplSyncTarget[];
   components: BoundarySpendLawBlendComponentArgs[];
 }): void {
-  console.log(``);
+  console.log("");
   printCliHeader("  Spend Blend");
   printCliSection("Identity", [
     formatCliKeyValue("source", args.sourceLabel),
     formatCliKeyValue("sync", args.syncTargets.join(", ")),
     formatCliKeyValue("components", args.components.length),
   ]);
-  printCliSection("Exact Corridors", args.components.map((component, index) =>
-    `  ${index + 1}. ${clrBold(component.packId)}  ${clrDim(component.handle)}  ${clrDim(`bucket=${component.bucketId} · principal=${component.principal} · max=${component.amountLimitNormalized}`)}`
-  ));
-  console.log(``);
+  printCliSection(
+    "Exact Corridors",
+    args.components.map(
+      (component, index) =>
+        `  ${index + 1}. ${clrBold(component.packId)}  ${clrDim(component.handle)}  ${clrDim(`bucket=${component.bucketId} · principal=${component.principal} · max=${component.amountLimitNormalized}`)}`,
+    ),
+  );
+  console.log("");
 }
 
 async function promptSpendLawPackSelection(): Promise<BoundarySpendLawPack> {
   const packs = listBoundarySpendLawPacks();
-  console.log(``);
+  console.log("");
   printCliHeader("  Spend Pack Setup");
-  printCliSection("Choose One Locked Corridor", packs.map((pack, index) =>
-    `  ${index + 1}. ${clrBold(pack.id)}  ${clrDim(pack.title)}`
-  ));
+  printCliSection(
+    "Choose One Locked Corridor",
+    packs.map((pack, index) => `  ${index + 1}. ${clrBold(pack.id)}  ${clrDim(pack.title)}`),
+  );
   while (true) {
     const answer = await promptLine("Choose spend pack by number or id: ");
     const numeric = Number(answer);
@@ -1014,8 +1097,13 @@ function workspaceRecordApplied(record: UplProcessWorkspaceRecord): boolean {
   return Boolean(record.appliedAt && record.appliedApprovalId && record.appliedVersionId);
 }
 
-function workspaceRecordStale(workspace: UplProcessWorkspace, record: UplProcessWorkspaceRecord): boolean {
-  return stableUplProcessHash(record.review.beforeLaws) !== stableUplProcessHash(workspace.activeLaws);
+function workspaceRecordStale(
+  workspace: UplProcessWorkspace,
+  record: UplProcessWorkspaceRecord,
+): boolean {
+  return (
+    stableUplProcessHash(record.review.beforeLaws) !== stableUplProcessHash(workspace.activeLaws)
+  );
 }
 
 function workspaceRecordRef(record: UplProcessWorkspaceRecord): string {
@@ -1026,11 +1114,13 @@ function resolveUplProcessWorkspaceRecord(
   workspace: UplProcessWorkspace,
   ref: string,
 ): { record: UplProcessWorkspaceRecord; stale: boolean } {
-  const resolved = ref.trim().toLowerCase() === "latest"
-    ? workspace.records.at(-1) ?? null
-    : workspace.records.find((candidate) =>
-      candidate.review.reviewId === ref.trim() || candidate.draft.draftId === ref.trim(),
-    ) ?? null;
+  const resolved =
+    ref.trim().toLowerCase() === "latest"
+      ? (workspace.records.at(-1) ?? null)
+      : (workspace.records.find(
+          (candidate) =>
+            candidate.review.reviewId === ref.trim() || candidate.draft.draftId === ref.trim(),
+        ) ?? null);
   if (!resolved) {
     throw new Error(`unknown UPL process reference: ${ref}`);
   }
@@ -1045,14 +1135,23 @@ function parseUplDraftInputFile(raw: string, filePath: string): UplDraftInputFil
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`UPL draft input must be valid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+    throw new Error(
+      `UPL draft input must be valid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`,
+    );
   }
   if (!parsed || typeof parsed !== "object") {
     throw new Error(`UPL draft input must be a JSON object: ${filePath}`);
   }
   const candidate = parsed as Partial<UplDraftInputFile>;
-  if (!candidate.observation || !candidate.boundary || !candidate.invariant || !Array.isArray(candidate.mutations)) {
-    throw new Error(`UPL draft input must include observation, boundary, invariant, and mutations: ${filePath}`);
+  if (
+    !candidate.observation ||
+    !candidate.boundary ||
+    !candidate.invariant ||
+    !Array.isArray(candidate.mutations)
+  ) {
+    throw new Error(
+      `UPL draft input must include observation, boundary, invariant, and mutations: ${filePath}`,
+    );
   }
   return {
     observation: candidate.observation,
@@ -1062,7 +1161,9 @@ function parseUplDraftInputFile(raw: string, filePath: string): UplDraftInputFil
     draftedBy: candidate.draftedBy ?? "pi",
     mutations: candidate.mutations,
     syncTargets: normalizeRequestedSyncTargets(
-      Array.isArray(candidate.syncTargets) ? candidate.syncTargets as BoundaryUplSyncTarget[] : undefined,
+      Array.isArray(candidate.syncTargets)
+        ? (candidate.syncTargets as BoundaryUplSyncTarget[])
+        : undefined,
     ),
   };
 }
@@ -1072,7 +1173,9 @@ function parseSpendBlendInputFile(raw: string, filePath: string): SpendBlendInpu
   try {
     parsed = JSON.parse(raw);
   } catch (error) {
-    throw new Error(`spend blend input must be valid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`);
+    throw new Error(
+      `spend blend input must be valid JSON: ${filePath} (${error instanceof Error ? error.message : String(error)})`,
+    );
   }
   if (!parsed || typeof parsed !== "object") {
     throw new Error(`spend blend input must be a JSON object: ${filePath}`);
@@ -1088,7 +1191,9 @@ function parseSpendBlendInputFile(raw: string, filePath: string): SpendBlendInpu
     draftedByKind: candidate.draftedByKind ?? "pi",
     draftedBy: candidate.draftedBy ?? "pi",
     syncTargets: normalizeRequestedSyncTargets(
-      Array.isArray(candidate.syncTargets) ? candidate.syncTargets as BoundaryUplSyncTarget[] : undefined,
+      Array.isArray(candidate.syncTargets)
+        ? (candidate.syncTargets as BoundaryUplSyncTarget[])
+        : undefined,
     ),
     components: candidate.components as BoundarySpendLawBlendComponentArgs[],
   };
@@ -1109,7 +1214,9 @@ function summarizeStructuredLaw(law: BoundaryStructuredUplLaw | null): string {
   return `${law.domain}:${law.capability}:${law.state}  ${law.runtime.actionKinds.join(",")} -> ${law.runtime.primaryTarget}${bounds.length > 0 ? `  ${clrDim(bounds.join(" | "))}` : ""}`;
 }
 
-function structuredLawSideToken(law: BoundaryStructuredUplLaw | null): "yes_side" | "denial_side" | "runtime_ask" | "removed" {
+function structuredLawSideToken(
+  law: BoundaryStructuredUplLaw | null,
+): "yes_side" | "denial_side" | "runtime_ask" | "removed" {
   if (!law) {
     return "removed";
   }
@@ -1148,20 +1255,25 @@ function buildUplDeltaSideSummary(delta: UplProcessWorkspaceRecord["review"]["de
 }
 
 function summarizeReviewWriteSides(review: UplProcessWorkspaceRecord["review"]): string {
-  const sides = [...new Set(review.deltas.map((delta) => buildUplDeltaSideSummary(delta).writesToLabel))];
+  const sides = [
+    ...new Set(review.deltas.map((delta) => buildUplDeltaSideSummary(delta).writesToLabel)),
+  ];
   return sides.join(", ");
 }
 
 function printUplProcessReview(record: UplProcessWorkspaceRecord, stale: boolean): void {
   const { review } = record;
-  console.log(``);
+  console.log("");
   printCliHeader(`  UPL Review  ${clrDim(review.reviewId)}`);
   printCliSection("Identity", [
     formatCliKeyValue("draft", review.draft.draftId),
     formatCliKeyValue("source", record.sourcePath),
     formatCliKeyValue("sync", record.requestedSyncTargets.join(", ")),
     formatCliKeyValue("fingerprint", review.candidateFingerprint.slice(0, 16)),
-    formatCliKeyValue("status", workspaceRecordApplied(record) ? "applied" : stale ? "stale" : "pending"),
+    formatCliKeyValue(
+      "status",
+      workspaceRecordApplied(record) ? "applied" : stale ? "stale" : "pending",
+    ),
     formatCliKeyValue("writes to", summarizeReviewWriteSides(review)),
   ]);
   printCliSection("Observation", [
@@ -1177,7 +1289,7 @@ function printUplProcessReview(record: UplProcessWorkspaceRecord, stale: boolean
     console.log(`    ${clrDim("after:")}  ${summarizeStructuredLaw(delta.after)}`);
     console.log(`    ${clrDim("reason:")} ${delta.reason}`);
   }
-  console.log(``);
+  console.log("");
 }
 
 function buildUplProcessWorkspacePayload(workspacePath: string, workspace: UplProcessWorkspace) {
@@ -1197,7 +1309,9 @@ function buildUplProcessWorkspacePayload(workspacePath: string, workspace: UplPr
       stale: workspaceRecordStale(workspace, record),
       appliedAt: record.appliedAt ?? null,
       deltaCount: record.review.deltas.length,
-      writeSides: [...new Set(record.review.deltas.map((delta) => buildUplDeltaSideSummary(delta).writesTo))],
+      writeSides: [
+        ...new Set(record.review.deltas.map((delta) => buildUplDeltaSideSummary(delta).writesTo)),
+      ],
       mutationCount: record.draft.mutations.length,
       observationTitle: record.draft.observation.title,
     })),
@@ -1264,7 +1378,12 @@ async function loadActiveBoundarySessionState(
     loadBoundarySessionState: (args: { sessionId: string; sessionsDir?: string }) => Promise<{
       session: BoundarySession;
       sessionUpl?: BoundaryUserPathLedger;
-      quarantineState?: { required: boolean; status: string; triggeredAt?: string; reason?: string };
+      quarantineState?: {
+        required: boolean;
+        status: string;
+        triggeredAt?: string;
+        reason?: string;
+      };
     } | null>;
   },
   home: ReturnType<typeof resolveHomePaths>,
@@ -1292,9 +1411,9 @@ async function loadEffectiveUserPathLedger(
   ]);
   return sessionState?.sessionUpl
     ? boundary.mergeUserPathLedgers({
-      baseLedger: ledger,
-      overlayLedger: sessionState.sessionUpl,
-    })
+        baseLedger: ledger,
+        overlayLedger: sessionState.sessionUpl,
+      })
     : ledger;
 }
 
@@ -1324,7 +1443,8 @@ function resolveHomePaths(homePath: string) {
     homePath,
     configPath: path.join(homePath, "config.json"),
     sessionsDir: path.join(homePath, "data", "agent-boundary", "sessions"),
-    launcherPath: process.env.AGENT_BUCCET_LAUNCHER_PATH ?? path.join(os.homedir(), ".local", "bin", "buccet"),
+    launcherPath:
+      process.env.AGENT_BUCCET_LAUNCHER_PATH ?? path.join(os.homedir(), ".local", "bin", "buccet"),
     runDir,
     interceptSocketPath: shortSocketPath(homePath, "intercept"),
     gravityBridgeSocketPath: shortSocketPath(homePath, "gravity"),
@@ -1334,7 +1454,11 @@ function resolveHomePaths(homePath: string) {
     uplAcceptanceDocsDir: path.join(uplDocsDir, "acceptance"),
     uplDenialDocsDir: path.join(uplDocsDir, "denial"),
     uplAcceptancePipelinePath: path.join(uplDocsDir, "acceptance", "PIPELINE.txt"),
-    uplAcceptanceSkillTemplatePath: path.join(uplDocsDir, "acceptance", "SKILL_INTAKE_TEMPLATE.txt"),
+    uplAcceptanceSkillTemplatePath: path.join(
+      uplDocsDir,
+      "acceptance",
+      "SKILL_INTAKE_TEMPLATE.txt",
+    ),
     uplAutoSyncStatePath: path.join(uplDocsDir, ".autosync-state.json"),
     uplProcessWorkspacePath: path.join(uplDocsDir, ".process-workspace.json"),
     pathMemoryDir,
@@ -1413,7 +1537,10 @@ function acceptanceSourceCatalogs(): UplAcceptanceSourceCatalog[] {
 }
 
 function normalizeCatalogToken(token: string): string {
-  return token.trim().toLowerCase().replaceAll(/[^a-z0-9]+/g, "");
+  return token
+    .trim()
+    .toLowerCase()
+    .replaceAll(/[^a-z0-9]+/g, "");
 }
 
 function resolveSourceCatalogSelection(token: string): UplAcceptanceSourceCatalog[] {
@@ -1422,11 +1549,12 @@ function resolveSourceCatalogSelection(token: string): UplAcceptanceSourceCatalo
   if (normalized === "all") {
     return catalogs;
   }
-  const matched = catalogs.find((catalog) => (
-    normalized === catalog.id
-    || normalized === normalizeCatalogToken(catalog.name)
-    || normalized === normalizeCatalogToken(catalog.url)
-  ));
+  const matched = catalogs.find(
+    (catalog) =>
+      normalized === catalog.id ||
+      normalized === normalizeCatalogToken(catalog.name) ||
+      normalized === normalizeCatalogToken(catalog.url),
+  );
   if (!matched) {
     throw new Error(`unknown UPL source catalog: ${token}`);
   }
@@ -1438,7 +1566,9 @@ function assertCatalogOpenUrl(url: string): URL {
   if (parsed.protocol !== "https:") {
     throw new Error(`refusing to open non-https catalog url: ${url}`);
   }
-  const allowedHosts = new Set(acceptanceSourceCatalogs().map((catalog) => new URL(catalog.url).host));
+  const allowedHosts = new Set(
+    acceptanceSourceCatalogs().map((catalog) => new URL(catalog.url).host),
+  );
   if (!allowedHosts.has(parsed.host)) {
     throw new Error(`refusing to open unknown catalog host: ${parsed.host}`);
   }
@@ -1450,7 +1580,11 @@ async function openCatalogInBrowser(catalog: UplAcceptanceSourceCatalog): Promis
   const capturePath = process.env.BUCCET_BROWSER_OPEN_CAPTURE_PATH;
   if (capturePath) {
     await ensureDir(path.dirname(capturePath));
-    await fs.appendFile(capturePath, `${JSON.stringify({ id: catalog.id, url: safeUrl })}\n`, "utf8");
+    await fs.appendFile(
+      capturePath,
+      `${JSON.stringify({ id: catalog.id, url: safeUrl })}\n`,
+      "utf8",
+    );
     return;
   }
 
@@ -1564,10 +1698,13 @@ function acceptancePipelineGuideText(home: ReturnType<typeof resolveHomePaths>):
   return [
     "Agent Buccet acceptance source pipeline",
     "",
-      "Use this when you want to pull a skill or workflow from an external catalog into the UPL acceptance side.",
+    "Use this when you want to pull a skill or workflow from an external catalog into the UPL acceptance side.",
     "",
     "Source catalogs:",
-    ...catalogs.map((catalog) => `- ${catalog.name} — ${catalog.url} — ${catalog.description} — open: buccet upl sources --open ${catalog.id}`),
+    ...catalogs.map(
+      (catalog) =>
+        `- ${catalog.name} — ${catalog.url} — ${catalog.description} — open: buccet upl sources --open ${catalog.id}`,
+    ),
     "",
     "Steps:",
     "1. Open one of the source catalogs above and choose the skill or workflow you want.",
@@ -1586,8 +1723,8 @@ function acceptancePipelineGuideText(home: ReturnType<typeof resolveHomePaths>):
     "- Paste real source text, SKILL.md content, README content, or extracted package markdown.",
     "- Buccet parses raw source material into bounded yes-side UPL automatically.",
     "- If the file is already real authored UPL law, Buccet keeps using the strict authored-law parser first.",
-      "- Put the same raw source material in the denial lane and sync denial to compile it into denied UPL instead.",
-      "- Denial still overrides acceptance on overlap.",
+    "- Put the same raw source material in the denial lane and sync denial to compile it into denied UPL instead.",
+    "- Denial still overrides acceptance on overlap.",
     "- Repeat this process as long as you want. The source side stays open-ended; Buccet acceptance stays the finite compiled result.",
   ].join("\n");
 }
@@ -1649,9 +1786,9 @@ function inferSourceCatalog(text: string): string {
 
 function extractUrlsFromText(text: string): string[] {
   return uniqueOrderedStrings(
-    [...text.matchAll(/https?:\/\/[^\s)>"']+/gi)].map((match) => (
-      match[0]?.replace(/[.,;:]+$/, "") ?? ""
-    )),
+    [...text.matchAll(/https?:\/\/[^\s)>"']+/gi)].map(
+      (match) => match[0]?.replace(/[.,;:]+$/, "") ?? "",
+    ),
   );
 }
 
@@ -1664,7 +1801,7 @@ function inferSourceName(markdown: string, filePath?: string): string {
   if (headingMatch?.[1]?.trim()) {
     return headingMatch[1].trim();
   }
-  const namedField = markdown.match(/^(?:name|title):\s*(.+)$/mi);
+  const namedField = markdown.match(/^(?:name|title):\s*(.+)$/im);
   if (namedField?.[1]?.trim()) {
     return namedField[1].trim();
   }
@@ -1680,16 +1817,18 @@ function looksLikeSourceMaterial(markdown: string): boolean {
     return false;
   }
   if (
-    /^catalog:\s*.+$/mi.test(markdown)
-    || /^url:\s*.+$/mi.test(markdown)
-    || /^##\s+source material\s*$/mi.test(markdown)
+    /^catalog:\s*.+$/im.test(markdown) ||
+    /^url:\s*.+$/im.test(markdown) ||
+    /^##\s+source material\s*$/im.test(markdown)
   ) {
     return true;
   }
   if (
-    /^##\s+(?:description|overview|usage|examples|capabilities|features|tools|installation|when to use|how to use)\s*$/mi.test(markdown)
-    || /```[\s\S]*?```/.test(markdown)
-    || /https?:\/\//i.test(markdown)
+    /^##\s+(?:description|overview|usage|examples|capabilities|features|tools|installation|when to use|how to use)\s*$/im.test(
+      markdown,
+    ) ||
+    /```[\s\S]*?```/.test(markdown) ||
+    /https?:\/\//i.test(markdown)
   ) {
     return true;
   }
@@ -1844,28 +1983,30 @@ function extractNamedTargets(args: {
 }
 
 function slugifyAcceptanceSourceName(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    || "source-intake";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "source-intake"
+  );
 }
 
 function parseSourceIntakeDoc(markdown: string, filePath?: string): SourceIntakeDoc | null {
   const trimmed = markdown.trim();
   const titleMatch = trimmed.match(/^#\s+(.+)$/m);
-  const catalogMatch = trimmed.match(/^Catalog:\s*(.+)$/mi);
-  const urlMatch = trimmed.match(/^URL:\s*(.+)$/mi);
-  const sourceSectionMatch = trimmed.match(/(?:^##\s+Source material\s*$)([\s\S]+)$/mi);
+  const catalogMatch = trimmed.match(/^Catalog:\s*(.+)$/im);
+  const urlMatch = trimmed.match(/^URL:\s*(.+)$/im);
+  const sourceSectionMatch = trimmed.match(/(?:^##\s+Source material\s*$)([\s\S]+)$/im);
   if (titleMatch && catalogMatch && urlMatch && sourceSectionMatch) {
-    let sourceText = sourceSectionMatch[1]
-      .replace(/^Copied text:\s*/mi, "")
-      .trim();
+    let sourceText = sourceSectionMatch[1].replace(/^Copied text:\s*/im, "").trim();
     sourceText = sourceText
-      .replace(/^Paste the skill or workflow description here\.\s*$/mi, "")
-      .replace(/^Paste the raw source material only\.\s*$/mi, "")
-      .replace(/^Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`\.\s*$/mi, "")
+      .replace(/^Paste the skill or workflow description here\.\s*$/im, "")
+      .replace(/^Paste the raw source material only\.\s*$/im, "")
+      .replace(
+        /^Buccet acceptance intake will parse this into bounded yes-side UPL on `buccet upl sync --lane acceptance`\.\s*$/im,
+        "",
+      )
       .trim();
 
     if (!sourceText) {
@@ -1901,22 +2042,43 @@ function inferSourceIntakeActionKinds(text: string): BoundaryActionKind[] {
   const lower = text.toLowerCase();
   const kinds = new Set<BoundaryActionKind>();
 
-  if (/\b(pdf|docx|pptx|xlsx|word|excel|slide|document|docs|markdown|report|file|read|write|edit|merge|split|form)\b/.test(lower)) {
+  if (
+    /\b(pdf|docx|pptx|xlsx|word|excel|slide|document|docs|markdown|report|file|read|write|edit|merge|split|form)\b/.test(
+      lower,
+    )
+  ) {
     kinds.add("fs.read");
     kinds.add("fs.write");
     kinds.add("fs.append");
   }
-  if (/\b(notes|obsidian|notion|vault|memory|tasks|calendar|contact|knowledge|database|sql|query|sheet|spreadsheet|analytics)\b/.test(lower)) {
+  if (
+    /\b(notes|obsidian|notion|vault|memory|tasks|calendar|contact|knowledge|database|sql|query|sheet|spreadsheet|analytics)\b/.test(
+      lower,
+    )
+  ) {
     kinds.add("db.query");
     kinds.add("db.update");
   }
-  if (/\b(browser|playwright|crawl|search|research|fetch|extract|web|http|api|scrape|crawl|map)\b/.test(lower)) {
+  if (
+    /\b(browser|playwright|crawl|search|research|fetch|extract|web|http|api|scrape|crawl|map)\b/.test(
+      lower,
+    )
+  ) {
     kinds.add("network.send");
   }
-  if (/```[\s\S]*?```/.test(text) || /\b(debug|test|build|exec|run|tool|cli|automation|agent|workflow|pipeline|code|mcp|server|developer|design|artifact|generate|render|bash|shell|npm|pnpm|yarn|node|python|cargo|go|make|docker|playwright|firecrawl)\b/.test(lower)) {
+  if (
+    /```[\s\S]*?```/.test(text) ||
+    /\b(debug|test|build|exec|run|tool|cli|automation|agent|workflow|pipeline|code|mcp|server|developer|design|artifact|generate|render|bash|shell|npm|pnpm|yarn|node|python|cargo|go|make|docker|playwright|firecrawl)\b/.test(
+      lower,
+    )
+  ) {
     kinds.add("tool.exec");
   }
-  if (/\b(email|mail|slack|discord|telegram|whatsapp|message|chat|social|seo|marketing|brand|content)\b/.test(lower)) {
+  if (
+    /\b(email|mail|slack|discord|telegram|whatsapp|message|chat|social|seo|marketing|brand|content)\b/.test(
+      lower,
+    )
+  ) {
     kinds.add("chat.emit");
     kinds.add("comm.send");
   }
@@ -1939,22 +2101,20 @@ function compileSourceIntakeDoc(args: {
   scope: BoundaryUplScope;
 }): CompiledDocumentLaw[] {
   const slug = slugifyAcceptanceSourceName(args.doc.name);
-  const inferredKinds = inferSourceIntakeActionKinds([
-    args.doc.name,
-    args.doc.catalog,
-    args.doc.url,
-    args.doc.sourceText,
-  ].join("\n"));
-  const summary = args.doc.sourceText
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 220);
+  const inferredKinds = inferSourceIntakeActionKinds(
+    [args.doc.name, args.doc.catalog, args.doc.url, args.doc.sourceText].join("\n"),
+  );
+  const summary = args.doc.sourceText.replace(/\s+/g, " ").trim().slice(0, 220);
   const namePattern = escapeRegexLiteral(args.doc.name.trim()).replace(/\s+/g, "\\s+");
   const slugPattern = escapeRegexLiteral(slug).replace(/-/g, "[-\\s]?");
   const aliasPatterns = uniqueOrderedStrings([
     `/\\b(?:${slugPattern}|${namePattern})\\b/i`,
-    ...extractCommandTargets(args.doc.sourceText).map((value) => `/\\b${escapeRegexLiteral(value)}\\b/i`),
-    ...extractNamedTargets({ actionKind: "comm.send", text: args.doc.sourceText, slug }).map((value) => `/\\b${escapeRegexLiteral(value)}\\b/i`),
+    ...extractCommandTargets(args.doc.sourceText).map(
+      (value) => `/\\b${escapeRegexLiteral(value)}\\b/i`,
+    ),
+    ...extractNamedTargets({ actionKind: "comm.send", text: args.doc.sourceText, slug }).map(
+      (value) => `/\\b${escapeRegexLiteral(value)}\\b/i`,
+    ),
   ]);
   const notes = formatUplSourceNote({
     lane: args.lane,
@@ -1984,12 +2144,12 @@ function compileSourceIntakeDoc(args: {
         continue;
       }
       seen.add(signature);
-      const targetPatterns = actionKind === "network.send" && /^https?:\/\//i.test(target)
-        ? [`/^${escapeRegexLiteral(target)}(?:\\/.*)?$/i`]
-        : [target];
-      const targetMatchMode = actionKind === "network.send" && /^https?:\/\//i.test(target)
-        ? "regex"
-        : "exact";
+      const targetPatterns =
+        actionKind === "network.send" && /^https?:\/\//i.test(target)
+          ? [`/^${escapeRegexLiteral(target)}(?:\\/.*)?$/i`]
+          : [target];
+      const targetMatchMode =
+        actionKind === "network.send" && /^https?:\/\//i.test(target) ? "regex" : "exact";
       entries.push({
         type,
         scope: args.scope,
@@ -2100,13 +2260,15 @@ function attachUplDocumentLineage(args: {
   compiledLaws: CompiledDocumentLaw[];
 } {
   const compiledBatchHash = createHash("sha256")
-    .update(stableLineageStringify({
-      filePath: args.filePath,
-      sourceDocumentHash: args.sourceDocumentHash,
-      syncMode: args.syncMode,
-      lane: args.lane ?? null,
-      compiled: args.compiledLaws.map(compiledLawLineageShape),
-    }))
+    .update(
+      stableLineageStringify({
+        filePath: args.filePath,
+        sourceDocumentHash: args.sourceDocumentHash,
+        syncMode: args.syncMode,
+        lane: args.lane ?? null,
+        compiled: args.compiledLaws.map(compiledLawLineageShape),
+      }),
+    )
     .digest("hex");
   const lineage: BoundaryUplLineage = {
     sourceDocumentPath: args.filePath,
@@ -2120,6 +2282,7 @@ function attachUplDocumentLineage(args: {
     compiledLaws: args.compiledLaws.map((compiledLaw) => ({
       ...compiledLaw,
       lineage,
+      sourceTrack: lineage,
     })),
   };
 }
@@ -2138,16 +2301,17 @@ function validateExtractedDocumentLane(args: {
   compiled: CompiledDocumentLaw[];
   diagnostics: DocumentLawDiagnosticEntry[];
 }): void {
-  const fatalDiagnostics = args.diagnostics.filter((diagnostic) => (
-    !diagnostic.compiled && !isIgnorableDocumentDiagnostic(diagnostic)
-  ));
+  const fatalDiagnostics = args.diagnostics.filter(
+    (diagnostic) => !diagnostic.compiled && !isIgnorableDocumentDiagnostic(diagnostic),
+  );
   if (fatalDiagnostics.length > 0) {
     const detail = fatalDiagnostics
       .slice(0, 3)
       .map((diagnostic) => {
-        const location = diagnostic.startLine === diagnostic.endLine
-          ? `line ${diagnostic.startLine}`
-          : `lines ${diagnostic.startLine}-${diagnostic.endLine}`;
+        const location =
+          diagnostic.startLine === diagnostic.endLine
+            ? `line ${diagnostic.startLine}`
+            : `lines ${diagnostic.startLine}-${diagnostic.endLine}`;
         return `${location}: ${diagnostic.skipReason ?? "unsupported law block"}`;
       })
       .join("; ");
@@ -2176,75 +2340,88 @@ async function ensureUplSourceHomes(home: ReturnType<typeof resolveHomePaths>): 
   for (const spec of uplSourceSpecs(home)) {
     await ensureDir(spec.dir);
     if (!(await pathExists(spec.readmePath))) {
-      const content = spec.lane === "acceptance"
-        ? [
-            "Agent Buccet UPL document source — acceptance lane",
-            "",
-            "Put markdown law docs here when you want them to compile into approved UPL law.",
-            "These docs become open-road segments in the live UPL field.",
-            "",
-            "Rules:",
-            "- Supported files: .md and .markdown",
-            "- README.md and other markdown source files are allowed in this lane",
-            "- The parser is strict and fail-closed",
-            "- If a document compiles into denied law here, sync refuses it",
-            "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into approved UPL in this lane",
-            "- For external skill catalogs, use PIPELINE.txt and SKILL_INTAKE_TEMPLATE.txt in this lane",
-            "",
-            "Useful commands:",
-            "- buccet extract-laws <file.md> --lane acceptance",
-            "- buccet upl sync",
-            "- buccet upl sources --open <catalog>",
-            "",
-            "External intake catalogs:",
-            ...acceptanceSourceCatalogs().map((catalog) => `- ${catalog.name}: ${catalog.url}`),
-          ].join("\n")
-        : [
-            "Agent Buccet UPL document source — denial lane",
-            "",
-            "Put markdown law docs here when you want them to compile into denied UPL law.",
-            "These docs become wall segments in the live UPL field.",
-            "",
-            "Rules:",
-            "- Supported files: .md and .markdown",
-            "- README.md and other markdown source files are allowed in this lane",
-            "- The parser is strict and fail-closed",
-            "- If a document compiles into approved law here, sync refuses it",
-            "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into denied UPL in this lane",
-            "",
-            "Useful commands:",
-            "- buccet extract-laws <file.md> --lane denial",
-            "- buccet upl sync",
-            "- buccet upl sources --open <catalog>",
-          ].join("\n");
+      const content =
+        spec.lane === "acceptance"
+          ? [
+              "Agent Buccet UPL document source — acceptance lane",
+              "",
+              "Put markdown law docs here when you want them to compile into approved UPL law.",
+              "These docs become open-road segments in the live UPL field.",
+              "",
+              "Rules:",
+              "- Supported files: .md and .markdown",
+              "- README.md and other markdown source files are allowed in this lane",
+              "- The parser is strict and fail-closed",
+              "- If a document compiles into denied law here, sync refuses it",
+              "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into approved UPL in this lane",
+              "- For external skill catalogs, use PIPELINE.txt and SKILL_INTAKE_TEMPLATE.txt in this lane",
+              "",
+              "Useful commands:",
+              "- buccet extract-laws <file.md> --lane acceptance",
+              "- buccet upl sync",
+              "- buccet upl sources --open <catalog>",
+              "",
+              "External intake catalogs:",
+              ...acceptanceSourceCatalogs().map((catalog) => `- ${catalog.name}: ${catalog.url}`),
+            ].join("\n")
+          : [
+              "Agent Buccet UPL document source — denial lane",
+              "",
+              "Put markdown law docs here when you want them to compile into denied UPL law.",
+              "These docs become wall segments in the live UPL field.",
+              "",
+              "Rules:",
+              "- Supported files: .md and .markdown",
+              "- README.md and other markdown source files are allowed in this lane",
+              "- The parser is strict and fail-closed",
+              "- If a document compiles into approved law here, sync refuses it",
+              "- Raw source intake works here too: copied skill text, SKILL.md, README.md, or extracted package markdown will compile into denied UPL in this lane",
+              "",
+              "Useful commands:",
+              "- buccet extract-laws <file.md> --lane denial",
+              "- buccet upl sync",
+              "- buccet upl sources --open <catalog>",
+            ].join("\n");
       await fs.writeFile(spec.readmePath, `${content}\n`, "utf8");
     }
   }
   if (!(await pathExists(home.uplAcceptancePipelinePath))) {
-    await fs.writeFile(home.uplAcceptancePipelinePath, `${acceptancePipelineGuideText(home)}\n`, "utf8");
+    await fs.writeFile(
+      home.uplAcceptancePipelinePath,
+      `${acceptancePipelineGuideText(home)}\n`,
+      "utf8",
+    );
   }
   if (!(await pathExists(home.uplAcceptanceSkillTemplatePath))) {
-    await fs.writeFile(home.uplAcceptanceSkillTemplatePath, `${acceptanceSkillTemplateText()}\n`, "utf8");
+    await fs.writeFile(
+      home.uplAcceptanceSkillTemplatePath,
+      `${acceptanceSkillTemplateText()}\n`,
+      "utf8",
+    );
   }
   const rootReadmePath = path.join(home.uplDocsDir, "README.txt");
   if (!(await pathExists(rootReadmePath))) {
-    await fs.writeFile(rootReadmePath, [
-      "Agent Buccet UPL document sources",
-      "",
-      "Author law separately for humans:",
-      `- acceptance: ${home.uplAcceptanceDocsDir}`,
-      `- denial: ${home.uplDenialDocsDir}`,
-      "",
-      "At runtime Buccet compiles both sides into one live UPL field.",
-      "Acceptance creates road. Denial creates wall. Denial wins on overlap.",
-      "",
-      `Acceptance source pipeline: ${home.uplAcceptancePipelinePath}`,
-      `Acceptance intake template: ${home.uplAcceptanceSkillTemplatePath}`,
-      "",
-      "Run `buccet where` for the full add-map.",
-      "",
-      "Use `buccet upl sync` to compile both lanes into the active UPL.",
-    ].join("\n") + "\n", "utf8");
+    await fs.writeFile(
+      rootReadmePath,
+      `${[
+        "Agent Buccet UPL document sources",
+        "",
+        "Author law separately for humans:",
+        `- acceptance: ${home.uplAcceptanceDocsDir}`,
+        `- denial: ${home.uplDenialDocsDir}`,
+        "",
+        "At runtime Buccet compiles both sides into one live UPL field.",
+        "Acceptance creates road. Denial creates wall. Denial wins on overlap.",
+        "",
+        `Acceptance source pipeline: ${home.uplAcceptancePipelinePath}`,
+        `Acceptance intake template: ${home.uplAcceptanceSkillTemplatePath}`,
+        "",
+        "Run `buccet where` for the full add-map.",
+        "",
+        "Use `buccet upl sync` to compile both lanes into the active UPL.",
+      ].join("\n")}\n`,
+      "utf8",
+    );
   }
 }
 
@@ -2252,27 +2429,31 @@ async function ensurePathMemoryHome(home: ReturnType<typeof resolveHomePaths>): 
   await ensureDir(home.pathMemoryDir);
   const readmePath = path.join(home.pathMemoryDir, "README.txt");
   if (!(await pathExists(readmePath))) {
-    await fs.writeFile(readmePath, [
-      "Agent Buccet Path Memory",
-      "",
-      "This folder stores the persisted Buccet path library.",
-      "Path sources enrich a path with domain context.",
-      "They do not change UPL and they do not widen permissions.",
-      "Run `buccet where` for the full add-map.",
-      "",
-      "Useful commands:",
-      "- buccet path list",
-      "- buccet path show <path-name>",
-      "- buccet path run <path-name>",
-      "- buccet path watch <path-name|formation-id>",
-      "- buccet path formations list",
-      "- buccet path freeze <path-name|formation-id>",
-      "- buccet path agents <path-name|formation-id>",
-      "- buccet path agent <inspect|resume|quarantine|replace|abort> <path-name|formation-id> <agent-id>",
-      "- buccet path close <path-name|formation-id>",
-      "- buccet path sources add <path-name> <file...>",
-      "- buccet path sources list <path-name>",
-    ].join("\n") + "\n", "utf8");
+    await fs.writeFile(
+      readmePath,
+      `${[
+        "Agent Buccet Path Memory",
+        "",
+        "This folder stores the persisted Buccet path library.",
+        "Path sources enrich a path with domain context.",
+        "They do not change UPL and they do not widen permissions.",
+        "Run `buccet where` for the full add-map.",
+        "",
+        "Useful commands:",
+        "- buccet path list",
+        "- buccet path show <path-name>",
+        "- buccet path run <path-name>",
+        "- buccet path watch <path-name|formation-id>",
+        "- buccet path formations list",
+        "- buccet path freeze <path-name|formation-id>",
+        "- buccet path agents <path-name|formation-id>",
+        "- buccet path agent <inspect|resume|quarantine|replace|abort> <path-name|formation-id> <agent-id>",
+        "- buccet path close <path-name|formation-id>",
+        "- buccet path sources add <path-name> <file...>",
+        "- buccet path sources list <path-name>",
+      ].join("\n")}\n`,
+      "utf8",
+    );
   }
 }
 
@@ -2312,7 +2493,8 @@ async function handleWhere(rest: string[]) {
     formatCliKeyValue("template", payload.upl.intakeTemplatePath),
     formatCliKeyValue("copy template", payload.upl.templateCopyCommand),
     ...payload.upl.externalCatalogs.map((catalog) =>
-      formatCliKeyValue(catalog.name, `${catalog.url} | open: ${catalog.openCommand}`)),
+      formatCliKeyValue(catalog.name, `${catalog.url} | open: ${catalog.openCommand}`),
+    ),
   ]);
   printCliSection("Path Sources (domain context)", [
     formatCliKeyValue("add", payload.pathSources.addCommand),
@@ -2338,7 +2520,10 @@ async function loadPersistedBuccetPathLibrary(
   home: ReturnType<typeof resolveHomePaths>,
 ): Promise<Record<string, BuccetPathTemplate>> {
   await ensurePathMemoryHome(home);
-  return await boundary.loadBuccetPathLibrary(home.pathLibraryPath) ?? boundary.createDefaultBuccetPathLibrary();
+  return (
+    (await boundary.loadBuccetPathLibrary(home.pathLibraryPath)) ??
+    boundary.createDefaultBuccetPathLibrary()
+  );
 }
 
 async function savePersistedBuccetPathLibrary(
@@ -2398,21 +2583,33 @@ async function resolveRuntimeBuccetPathUplBindings(
   const allowTrackSegments = boundary
     .compileLiveUplTrackField({ ledger, session })
     .filter((segment) => segment.polarity === "allow");
-  const allowSegments = (allowTrackSegments.length > 0
-    ? allowTrackSegments
-    : boundary.compileLiveUplField({ ledger, session }).filter((segment) => segment.polarity === "allow"));
-  const actionKinds = [...new Set(allowSegments.flatMap((segment) => (
-    segment.entry.trackConstraint?.allowedActionKinds
-      ?? (segment.entry.requestBasis?.actionKind ? [segment.entry.requestBasis.actionKind] : [])
-  )))].sort();
-  const targets = [...new Set(allowSegments.flatMap((segment) => collectRuntimePathTargets(segment.entry)))].sort();
-  return [{
-    actionKinds,
-    ...(targets.length > 0 ? { targets } : {}),
-    ...(actionKinds.length === 0 && targets.length === 0
-      ? { notes: "no active approved UPL surface" }
-      : { notes: "resolved from live approved UPL" }),
-  }];
+  const allowSegments =
+    allowTrackSegments.length > 0
+      ? allowTrackSegments
+      : boundary
+          .compileLiveUplField({ ledger, session })
+          .filter((segment) => segment.polarity === "allow");
+  const actionKinds = [
+    ...new Set(
+      allowSegments.flatMap(
+        (segment) =>
+          segment.entry.trackConstraint?.allowedActionKinds ??
+          (segment.entry.requestBasis?.actionKind ? [segment.entry.requestBasis.actionKind] : []),
+      ),
+    ),
+  ].sort();
+  const targets = [
+    ...new Set(allowSegments.flatMap((segment) => collectRuntimePathTargets(segment.entry))),
+  ].sort();
+  return [
+    {
+      actionKinds,
+      ...(targets.length > 0 ? { targets } : {}),
+      ...(actionKinds.length === 0 && targets.length === 0
+        ? { notes: "no active approved UPL surface" }
+        : { notes: "resolved from live approved UPL" }),
+    },
+  ];
 }
 
 async function ensureConcreteBuccetPathTemplate(args: {
@@ -2425,7 +2622,11 @@ async function ensureConcreteBuccetPathTemplate(args: {
   domain?: string;
 }): Promise<BuccetPathTemplate> {
   const existing = args.boundary.getBuccetPathTemplate(args.library, args.pathName);
-  const resolvedBindings = await resolveRuntimeBuccetPathUplBindings(args.boundary, args.home, args.config);
+  const resolvedBindings = await resolveRuntimeBuccetPathUplBindings(
+    args.boundary,
+    args.home,
+    args.config,
+  );
   if (!existing) {
     const created = args.boundary.createBuccetPathTemplate({
       pathName: args.pathName,
@@ -2458,24 +2659,30 @@ function formatPathStageOutput(state: BuccetPathFormationState): string {
     .filter((agent) => stage.agentIds.includes(agent.id))
     .map((agent) => agent.title);
   const sources = state.pathSources
-    .filter((source) => (stage.sourceIds ?? []).length > 0
-      ? (stage.sourceIds ?? []).includes(source.id)
-      : state.agentRoster
-        .filter((agent) => stage.agentIds.includes(agent.id))
-        .some((agent) => (agent.memoryBank.sourceIds ?? []).includes(source.id)))
+    .filter((source) =>
+      (stage.sourceIds ?? []).length > 0
+        ? (stage.sourceIds ?? []).includes(source.id)
+        : state.agentRoster
+            .filter((agent) => stage.agentIds.includes(agent.id))
+            .some((agent) => (agent.memoryBank.sourceIds ?? []).includes(source.id)),
+    )
     .map((source) => source.title);
-  const lawfulActionKinds = [...new Set([
-    ...(stage.uplBindings ?? []).flatMap((binding) => binding.actionKinds),
-    ...state.agentRoster
-      .filter((agent) => stage.agentIds.includes(agent.id))
-      .flatMap((agent) => agent.uplBindings.flatMap((binding) => binding.actionKinds)),
-  ])];
-  const lawfulTargets = [...new Set([
-    ...(stage.uplBindings ?? []).flatMap((binding) => binding.targets ?? []),
-    ...state.agentRoster
-      .filter((agent) => stage.agentIds.includes(agent.id))
-      .flatMap((agent) => agent.uplBindings.flatMap((binding) => binding.targets ?? [])),
-  ])];
+  const lawfulActionKinds = [
+    ...new Set([
+      ...(stage.uplBindings ?? []).flatMap((binding) => binding.actionKinds),
+      ...state.agentRoster
+        .filter((agent) => stage.agentIds.includes(agent.id))
+        .flatMap((agent) => agent.uplBindings.flatMap((binding) => binding.actionKinds)),
+    ]),
+  ];
+  const lawfulTargets = [
+    ...new Set([
+      ...(stage.uplBindings ?? []).flatMap((binding) => binding.targets ?? []),
+      ...state.agentRoster
+        .filter((agent) => stage.agentIds.includes(agent.id))
+        .flatMap((agent) => agent.uplBindings.flatMap((binding) => binding.targets ?? [])),
+    ]),
+  ];
   return [
     `Stage ${stage.title} advanced.`,
     `Purpose: ${stage.purpose}`,
@@ -2490,11 +2697,15 @@ function advanceFormationStep(
   boundary: Awaited<ReturnType<typeof importBoundary>>,
   state: BuccetPathFormationState,
 ): BuccetPathFormationState {
-  const stage = boundary.getCurrentBuccetStage(state) as typeof state.stages[number] | null;
+  const stage = boundary.getCurrentBuccetStage(state) as (typeof state.stages)[number] | null;
   if (!stage) {
     return state;
   }
-  const activeAgents = boundary.getCurrentBuccetStageAgents(state) as Array<{ id: string; title: string; memoryBank: { sourceTitles: string[] } }>;
+  const activeAgents = boundary.getCurrentBuccetStageAgents(state) as Array<{
+    id: string;
+    title: string;
+    memoryBank: { sourceTitles: string[] };
+  }>;
   const sourceTitles = [...new Set(activeAgents.flatMap((agent) => agent.memoryBank.sourceTitles))];
   const output = {
     last_stage_id: stage.id,
@@ -2505,10 +2716,12 @@ function advanceFormationStep(
     last_stage_sources: sourceTitles,
     [`stage_${stage.id}_completed`]: true,
     [`stage_${stage.id}_summary`]: formatPathStageOutput(state),
-    ...(stage.terminal ? {
-      final_output: `${state.title} completed for request: ${state.userRequest}`,
-      final_stage_id: stage.id,
-    } : {}),
+    ...(stage.terminal
+      ? {
+          final_output: `${state.title} completed for request: ${state.userRequest}`,
+          final_stage_id: stage.id,
+        }
+      : {}),
   };
   return boundary.advanceBuccetFormation({
     state,
@@ -2538,13 +2751,34 @@ function resolveFormationSelector(args: {
 }
 
 const PATH_SOURCE_SUPPORTED_EXTENSIONS = new Set([
-  ".md", ".markdown", ".txt", ".json", ".yaml", ".yml",
-  ".csv", ".html", ".htm", ".ts", ".tsx", ".js", ".jsx", ".py",
+  ".md",
+  ".markdown",
+  ".txt",
+  ".json",
+  ".yaml",
+  ".yml",
+  ".csv",
+  ".html",
+  ".htm",
+  ".ts",
+  ".tsx",
+  ".js",
+  ".jsx",
+  ".py",
 ]);
 
 const PATH_SOURCE_SKIP_DIRS = new Set([
-  ".git", ".obsidian", ".trash", "node_modules", ".next",
-  ".cache", "dist", "build", "__pycache__", ".venv", "venv",
+  ".git",
+  ".obsidian",
+  ".trash",
+  "node_modules",
+  ".next",
+  ".cache",
+  "dist",
+  "build",
+  "__pycache__",
+  ".venv",
+  "venv",
 ]);
 
 async function collectPathSourceFiles(inputs: string[]): Promise<string[]> {
@@ -2581,12 +2815,13 @@ async function collectPathSourceFiles(inputs: string[]): Promise<string[]> {
 }
 
 function slugifyPathSourceId(value: string): string {
-  return value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    || "path-source";
+  return (
+    value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") || "path-source"
+  );
 }
 
 function inferPathSourceKind(filePath: string): string {
@@ -2676,16 +2911,18 @@ function normalizeTransportWorkdir(raw: string | undefined): string {
 }
 
 function defaultTransportArtifactPath(sourceDir: string): string {
-  const base = path.basename(path.resolve(sourceDir)).replace(/[^a-zA-Z0-9._-]+/g, "-") || "artifact";
+  const base =
+    path.basename(path.resolve(sourceDir)).replace(/[^a-zA-Z0-9._-]+/g, "-") || "artifact";
   return path.join(resolveCallerCwd(), `${base}.buccet.tgz`);
 }
 
 function defaultTransportImportDir(artifactPath: string): string {
-  const base = path.basename(path.resolve(artifactPath))
-    .replace(/\.buccet\.tgz$/i, "")
-    .replace(/\.tar\.gz$/i, "")
-    .replace(/\.tgz$/i, "")
-    || "artifact";
+  const base =
+    path
+      .basename(path.resolve(artifactPath))
+      .replace(/\.buccet\.tgz$/i, "")
+      .replace(/\.tar\.gz$/i, "")
+      .replace(/\.tgz$/i, "") || "artifact";
   return path.join(resolveCallerCwd(), base);
 }
 
@@ -2814,9 +3051,7 @@ function shouldIgnoreTransportEntry(args: {
     if (rule.dirOnly && !args.isDirectory) {
       return false;
     }
-    return rule.matchBasename
-      ? rule.regex.test(basename)
-      : rule.regex.test(relativePath);
+    return rule.matchBasename ? rule.regex.test(basename) : rule.regex.test(relativePath);
   });
 }
 
@@ -2992,17 +3227,20 @@ async function buildTransportLawManifest(
     boundary.loadUserPathLedger(),
   ]);
 
-  const witnessedByLaw = new Map<string, {
-    hashes: string[];
-    actionKinds: Set<string>;
-    targets: Set<string>;
-  }>();
+  const witnessedByLaw = new Map<
+    string,
+    {
+      hashes: string[];
+      actionKinds: Set<string>;
+      targets: Set<string>;
+    }
+  >();
 
   for (const record of records) {
     if (
-      record.META.event_type !== "ACTION_EXECUTED"
-      || record.DECISION.verdict !== "ALLOW"
-      || !record.DECISION.law_triggered
+      record.META.event_type !== "ACTION_EXECUTED" ||
+      record.DECISION.verdict !== "ALLOW" ||
+      !record.DECISION.law_triggered
     ) {
       continue;
     }
@@ -3045,7 +3283,10 @@ async function buildTransportLawManifest(
   };
 }
 
-function verifyTransportLawManifest(manifest: TransportLawManifest): { ok: boolean; reason?: string } {
+function verifyTransportLawManifest(manifest: TransportLawManifest): {
+  ok: boolean;
+  reason?: string;
+} {
   if (manifest.kind !== "buccet_transport_law" || manifest.schemaVersion !== 1) {
     return { ok: false, reason: "invalid transport law manifest schema" };
   }
@@ -3054,7 +3295,10 @@ function verifyTransportLawManifest(manifest: TransportLawManifest): { ok: boole
   }
   const expectedHash = computeTransportLawIntegrityHash(manifest.entries);
   if (expectedHash !== manifest.integrityHash) {
-    return { ok: false, reason: "transport law integrity check failed — manifest may have been tampered" };
+    return {
+      ok: false,
+      reason: "transport law integrity check failed — manifest may have been tampered",
+    };
   }
   return { ok: true };
 }
@@ -3071,12 +3315,24 @@ function scanTransportLawSecurity(manifest: TransportLawManifest): TransportLawS
     const { uplEntry, witnessCount } = manifest.entries[i];
     const p = uplEntry.path;
     if (p === "/**" || p === "**" || p === "*") {
-      warnings.push({ entryIndex: i, level: "critical", message: "global wildcard — covers entire filesystem" });
+      warnings.push({
+        entryIndex: i,
+        level: "critical",
+        message: "global wildcard — covers entire filesystem",
+      });
     } else if (p.includes("**")) {
-      warnings.push({ entryIndex: i, level: "warn", message: "broad wildcard (**) covers all descendants" });
+      warnings.push({
+        entryIndex: i,
+        level: "warn",
+        message: "broad wildcard (**) covers all descendants",
+      });
     }
     if (witnessCount === 0) {
-      warnings.push({ entryIndex: i, level: "critical", message: "no ledger witnesses — entry was never actually exercised on sender machine" });
+      warnings.push({
+        entryIndex: i,
+        level: "critical",
+        message: "no ledger witnesses — entry was never actually exercised on sender machine",
+      });
     }
   }
   return warnings;
@@ -3090,14 +3346,18 @@ async function promptTransportLawApproval(
   const criticals = warnings.filter((w) => w.level === "critical");
 
   process.stdout.write(`\nBuccet transport law — artifact: ${artifactName}\n`);
-  process.stdout.write(`${manifest.entryCount} law ${manifest.entryCount === 1 ? "entry" : "entries"} bundled by sender\n\n`);
+  process.stdout.write(
+    `${manifest.entryCount} law ${manifest.entryCount === 1 ? "entry" : "entries"} bundled by sender\n\n`,
+  );
 
   for (let i = 0; i < manifest.entries.length; i += 1) {
     const { uplEntry, actionKinds, witnessCount } = manifest.entries[i];
     const typeLabel = uplEntry.type === "APPROVED" ? "ALLOW" : "DENY ";
     const entryWarnings = warnings.filter((w) => w.entryIndex === i);
     process.stdout.write(`  [${i + 1}] ${typeLabel}  ${uplEntry.path}\n`);
-    process.stdout.write(`       witnessed: ${witnessCount}x | actions: ${actionKinds.join(", ") || "unknown"} | scope: ${uplEntry.scope}\n`);
+    process.stdout.write(
+      `       witnessed: ${witnessCount}x | actions: ${actionKinds.join(", ") || "unknown"} | scope: ${uplEntry.scope}\n`,
+    );
     if (uplEntry.notes) {
       process.stdout.write(`       notes: ${uplEntry.notes}\n`);
     }
@@ -3109,9 +3369,13 @@ async function promptTransportLawApproval(
   }
 
   if (criticals.length > 0) {
-    process.stdout.write(`  ${criticals.length} critical security issue${criticals.length === 1 ? "" : "s"} detected above.\n\n`);
+    process.stdout.write(
+      `  ${criticals.length} critical security issue${criticals.length === 1 ? "" : "s"} detected above.\n\n`,
+    );
   } else if (warnings.length > 0) {
-    process.stdout.write(`  ${warnings.length} security warning${warnings.length === 1 ? "" : "s"} flagged above.\n\n`);
+    process.stdout.write(
+      `  ${warnings.length} security warning${warnings.length === 1 ? "" : "s"} flagged above.\n\n`,
+    );
   }
 
   process.stdout.write("These entries will be written to your GLOBAL UPL before the agent runs.\n");
@@ -3152,7 +3416,10 @@ async function importTransportLawEntries(
     };
 
     if (uplEntry.type === "APPROVED") {
-      nextUpl = { ...nextUpl, userApprovedLawPaths: [...nextUpl.userApprovedLawPaths, importedEntry] };
+      nextUpl = {
+        ...nextUpl,
+        userApprovedLawPaths: [...nextUpl.userApprovedLawPaths, importedEntry],
+      };
     } else {
       nextUpl = { ...nextUpl, userDeniedLawPaths: [...nextUpl.userDeniedLawPaths, importedEntry] };
     }
@@ -3198,7 +3465,11 @@ async function packBuccetTransportArtifact(args: {
       fileCount: await countFilesRecursively(stagingRootfs),
       portabilityChain: ["applyIsolation", "persistState", "enterEnvironment"],
     };
-    await fs.writeFile(transportManifestPath(stagingDir), `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
+    await fs.writeFile(
+      transportManifestPath(stagingDir),
+      `${JSON.stringify(manifest, null, 2)}\n`,
+      "utf8",
+    );
 
     let lawEntryCount: number | undefined;
     if (args.withLaw && args.boundary) {
@@ -3269,12 +3540,9 @@ async function runBuccetTransport(args: {
   const artifactInput = path.resolve(args.artifactOrDir);
   const runtimeProvided = Boolean(args.runtimeDir);
   const runtimeDir = path.resolve(
-    args.runtimeDir
-      ?? await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-transport-run-")),
+    args.runtimeDir ?? (await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-transport-run-"))),
   );
-  const transportRoot = isTransportArchive(artifactInput)
-    ? runtimeDir
-    : artifactInput;
+  const transportRoot = isTransportArchive(artifactInput) ? runtimeDir : artifactInput;
 
   if (isTransportArchive(artifactInput)) {
     await ensureDirectoryMissingOrEmpty(runtimeDir);
@@ -3309,7 +3577,11 @@ async function runBuccetTransport(args: {
       config: transportConfig,
       sessionsDir: transportHome.sessionsDir,
     });
-    const lawReadResult = await boundary.boundaryReadFile(transportStore.getConfig(), lawFilePath, "utf8");
+    const lawReadResult = await boundary.boundaryReadFile(
+      transportStore.getConfig(),
+      lawFilePath,
+      "utf8",
+    );
     if (!lawReadResult.allowed) {
       throw new Error(`transport law file blocked by boundary: ${lawReadResult.reason}`);
     }
@@ -3328,7 +3600,10 @@ async function runBuccetTransport(args: {
           artifactInput,
           manifest,
           runtimeDir,
-          launchCwd: resolveTransportLaunchCwd(path.join(transportRoot, manifest.rootfsDir), manifest.workdir),
+          launchCwd: resolveTransportLaunchCwd(
+            path.join(transportRoot, manifest.rootfsDir),
+            manifest.workdir,
+          ),
           command: [],
           isolationActive: false,
           persistedState: false,
@@ -3338,7 +3613,9 @@ async function runBuccetTransport(args: {
         };
       }
       const importedCount = await importTransportLawEntries(boundary, lawManifest);
-      process.stdout.write(`transport law: imported ${importedCount} new ${importedCount === 1 ? "entry" : "entries"} into your GLOBAL UPL.\n`);
+      process.stdout.write(
+        `transport law: imported ${importedCount} new ${importedCount === 1 ? "entry" : "entries"} into your GLOBAL UPL.\n`,
+      );
     }
   }
 
@@ -3365,9 +3642,7 @@ async function runBuccetTransport(args: {
     merged_dir: mergedDir,
   });
 
-  const command = args.command && args.command.length > 0
-    ? args.command
-    : manifest.entrypoint;
+  const command = args.command && args.command.length > 0 ? args.command : manifest.entrypoint;
   if (command.length === 0) {
     throw new Error("transport artifact has no entrypoint. Pass an override command after `--`.");
   }
@@ -3420,7 +3695,7 @@ async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
   for (const entry of entries) {
     const absolutePath = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      results.push(...await listLaneMarkdownFiles(absolutePath));
+      results.push(...(await listLaneMarkdownFiles(absolutePath)));
       continue;
     }
     if (!entry.isFile()) {
@@ -3434,7 +3709,9 @@ async function listLaneMarkdownFiles(dir: string): Promise<string[]> {
   return results.sort((left, right) => left.localeCompare(right));
 }
 
-async function collectUplSyncLaneFiles(home: ReturnType<typeof resolveHomePaths>): Promise<UplSyncLaneFiles[]> {
+async function collectUplSyncLaneFiles(
+  home: ReturnType<typeof resolveHomePaths>,
+): Promise<UplSyncLaneFiles[]> {
   return await Promise.all(
     uplSourceSpecs(home).map(async (spec) => ({
       spec,
@@ -3553,10 +3830,13 @@ function parseUplStatusToken(token: string | undefined): BoundaryUplStatus | nul
   return null;
 }
 
-function parseUplSelection(args: string[], options?: {
-  allowIds?: boolean;
-  allowPositionalQuery?: boolean;
-}): ParsedUplSelection {
+function parseUplSelection(
+  args: string[],
+  options?: {
+    allowIds?: boolean;
+    allowPositionalQuery?: boolean;
+  },
+): ParsedUplSelection {
   const allowIds = options?.allowIds ?? true;
   const allowPositionalQuery = options?.allowPositionalQuery ?? false;
   const ids: string[] = [];
@@ -3644,10 +3924,15 @@ function normalizeUplSearchText(entry: BoundaryUplEntry): string {
     JSON.stringify(entry.requestBasis ?? {}),
     JSON.stringify(entry.trackConstraint ?? {}),
     JSON.stringify(entry.lineage ?? {}),
-  ].join("\n").toLowerCase();
+  ]
+    .join("\n")
+    .toLowerCase();
 }
 
-function selectUplEntries(entries: BoundaryUplEntry[], selection: ParsedUplSelection): BoundaryUplEntry[] {
+function selectUplEntries(
+  entries: BoundaryUplEntry[],
+  selection: ParsedUplSelection,
+): BoundaryUplEntry[] {
   const includeInactive = selection.includeAll || selection.statusFilter !== null;
   return entries.filter((entry) => {
     if (!includeInactive && entry.status !== "ACTIVE") {
@@ -3684,7 +3969,11 @@ function formatTargetMatcher(
 }
 
 function uniqueStrings(values: Array<string | null | undefined>): string[] {
-  return [...new Set(values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)))];
+  return [
+    ...new Set(
+      values.map((value) => value?.trim()).filter((value): value is string => Boolean(value)),
+    ),
+  ];
 }
 
 function buildUplEntryView(entry: BoundaryUplEntry): {
@@ -3701,26 +3990,23 @@ function buildUplEntryView(entry: BoundaryUplEntry): {
     ...(constraint?.allowedActionKinds ?? []),
     entry.requestBasis?.actionKind,
   ]);
-  const whatItIs = constraint?.description
-    ?? `${entry.type === "APPROVED" ? "Acceptance" : "Denial"} UPL entry for ${actionKinds.join(", ") || "recorded motion"}`;
+  const whatItIs =
+    constraint?.description ??
+    `${entry.type === "APPROVED" ? "Acceptance" : "Denial"} UPL entry for ${actionKinds.join(", ") || "recorded motion"}`;
 
   const connectTargets = uniqueStrings([
     entry.requestBasis?.target,
     constraint?.actionCorridor?.targetPattern
       ? formatTargetMatcher(
-        constraint.actionCorridor.targetPattern,
-        constraint.actionCorridor.targetMatchMode,
-      )
+          constraint.actionCorridor.targetPattern,
+          constraint.actionCorridor.targetMatchMode,
+        )
       : null,
     constraint?.targetPattern
       ? formatTargetMatcher(constraint.targetPattern, constraint.targetMatchMode)
       : null,
     constraint?.targetPatterns?.length
-      ? formatTargetMatcher(
-        constraint.targetPatterns.join(" ; "),
-        constraint.targetMatchMode,
-        true,
-      )
+      ? formatTargetMatcher(constraint.targetPatterns.join(" ; "), constraint.targetMatchMode, true)
       : null,
     entry.domain ? `domain = ${entry.domain}` : null,
   ]);
@@ -3731,10 +4017,10 @@ function buildUplEntryView(entry: BoundaryUplEntry): {
     entry.sessionId ? `session = ${entry.sessionId}` : null,
     entry.requestBasis?.flags
       ? uniqueStrings(
-        Object.entries(entry.requestBasis.flags)
-          .filter(([, enabled]) => Boolean(enabled))
-          .map(([flag]) => `flag = ${flag}`),
-      ).join(" | ")
+          Object.entries(entry.requestBasis.flags)
+            .filter(([, enabled]) => Boolean(enabled))
+            .map(([flag]) => `flag = ${flag}`),
+        ).join(" | ")
       : null,
     constraint?.requestTextPatterns?.length
       ? `request ~= ${constraint.requestTextPatterns.join(" ; ")}`
@@ -3806,7 +4092,9 @@ function printUplEntryDetails(args: {
   console.log(`  action kinds: ${view.actionKinds.join(", ") || "none recorded"}`);
   console.log(`  bounds: ${view.bounds.join(" | ") || "none recorded"}`);
   console.log(`  source: ${view.source}`);
-  console.log(`  live field: ${args.liveState.state}${args.liveState.trafficTag ? ` | ${args.liveState.trafficTag}` : ""}`);
+  console.log(
+    `  live field: ${args.liveState.state}${args.liveState.trafficTag ? ` | ${args.liveState.trafficTag}` : ""}`,
+  );
 }
 
 function summarizeDiffStates(rows: Array<{ liveState: "allow_rail" | "deny_wall" | "inactive" }>): {
@@ -3886,7 +4174,10 @@ async function pidAlive(pid: number): Promise<boolean> {
 }
 
 async function readHookPid(pidFilePath: string): Promise<number> {
-  return await fs.readFile(pidFilePath, "utf8").then((raw) => Number(raw.trim())).catch(() => 0);
+  return await fs
+    .readFile(pidFilePath, "utf8")
+    .then((raw) => Number(raw.trim()))
+    .catch(() => 0);
 }
 
 type HookRuntimeHealth = {
@@ -3903,48 +4194,51 @@ type HookRuntimeHealth = {
   gravityBridgePort?: number;
 };
 
-type HookBridgeTarget =
-  | { socketPath: string }
-  | { host: string; port: number };
+type HookBridgeTarget = { socketPath: string } | { host: string; port: number };
 
 async function probeGravityBridge(target: HookBridgeTarget, timeoutMs = 1_500): Promise<void> {
-  await withTimeout(new Promise<void>((resolve, reject) => {
-    const socket = "socketPath" in target
-      ? net.createConnection(target.socketPath)
-      : net.createConnection({ host: target.host, port: target.port });
-    let settled = false;
+  await withTimeout(
+    new Promise<void>((resolve, reject) => {
+      const socket =
+        "socketPath" in target
+          ? net.createConnection(target.socketPath)
+          : net.createConnection({ host: target.host, port: target.port });
+      let settled = false;
 
-    const finish = (error?: Error) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      socket.destroy();
-      if (error) {
-        reject(error);
-        return;
-      }
-      resolve();
-    };
+      const finish = (error?: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        socket.destroy();
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve();
+      };
 
-    socket.once("error", (error) => {
-      finish(error instanceof Error ? error : new Error(String(error)));
-    });
-    socket.once("connect", () => {
-      socket.write("__health__\n");
-    });
-    socket.on("data", (chunk) => {
-      const response = chunk.toString();
-      if (response.includes("1")) {
-        finish();
-        return;
-      }
-      finish(new Error(`unexpected gravity bridge health response: ${JSON.stringify(response)}`));
-    });
-    socket.once("end", () => {
-      finish(new Error("gravity bridge closed before health response"));
-    });
-  }), timeoutMs, "gravity bridge health check");
+      socket.once("error", (error) => {
+        finish(error instanceof Error ? error : new Error(String(error)));
+      });
+      socket.once("connect", () => {
+        socket.write("__health__\n");
+      });
+      socket.on("data", (chunk) => {
+        const response = chunk.toString();
+        if (response.includes("1")) {
+          finish();
+          return;
+        }
+        finish(new Error(`unexpected gravity bridge health response: ${JSON.stringify(response)}`));
+      });
+      socket.once("end", () => {
+        finish(new Error("gravity bridge closed before health response"));
+      });
+    }),
+    timeoutMs,
+    "gravity bridge health check",
+  );
 }
 
 async function getHookRuntimeHealth(
@@ -3961,12 +4255,14 @@ async function getHookRuntimeHealth(
     gravityBridgePort?: number;
   }>(home.brainStatusPath);
   const state = hookState?.state;
-  const interceptTarget = hookState?.interceptHost && hookState?.interceptPort
-    ? { host: hookState.interceptHost, port: hookState.interceptPort }
-    : { socketPath: home.interceptSocketPath };
-  const gravityTarget = hookState?.gravityBridgeHost && hookState?.gravityBridgePort
-    ? { host: hookState.gravityBridgeHost, port: hookState.gravityBridgePort }
-    : { socketPath: home.gravityBridgeSocketPath };
+  const interceptTarget =
+    hookState?.interceptHost && hookState?.interceptPort
+      ? { host: hookState.interceptHost, port: hookState.interceptPort }
+      : { socketPath: home.interceptSocketPath };
+  const gravityTarget =
+    hookState?.gravityBridgeHost && hookState?.gravityBridgePort
+      ? { host: hookState.gravityBridgeHost, port: hookState.gravityBridgePort }
+      : { socketPath: home.gravityBridgeSocketPath };
 
   if (!running) {
     return {
@@ -4033,12 +4329,16 @@ async function getHookRuntimeHealth(
   }
 
   try {
-    const interceptStatus = await withTimeout(boundary.sendBoundaryInterceptServerInput({
-      target: interceptTarget,
-      input: {
-        command: "status",
-      },
-    }), 1_500, "intercept server health check");
+    const interceptStatus = await withTimeout(
+      boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: {
+          command: "status",
+        },
+      }),
+      1_500,
+      "intercept server health check",
+    );
     if (interceptStatus.type !== "status" || interceptStatus.running !== true) {
       return {
         running,
@@ -4162,11 +4462,14 @@ async function importBaseAcceptance(homePath: string) {
   return import("./../src/law/base-upl-acceptance.ts");
 }
 
-async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
-  config: BuccetConfig;
-  sessionsDir: string;
-  hydrationMode?: "full" | "light";
-}) {
+async function ensureStore(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  args: {
+    config: BuccetConfig;
+    sessionsDir: string;
+    hydrationMode?: "full" | "light";
+  },
+) {
   const restored = await boundary.restoreBoundaryRuntimeStore({
     sessionId: args.config.sessionId,
     sessionsDir: args.sessionsDir,
@@ -4184,25 +4487,31 @@ async function ensureStore(boundary: Awaited<ReturnType<typeof importBoundary>>,
   });
 }
 
-async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
-  store: Awaited<ReturnType<typeof ensureStore>>;
-  scopePaths: string[];
-  actorId: string;
-  grantedActions?: BoundaryActionKind[];
-  seedBaseAcceptance?: boolean;
-}) {
+async function ensureScopes(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  args: {
+    store: Awaited<ReturnType<typeof ensureStore>>;
+    scopePaths: string[];
+    actorId: string;
+    grantedActions?: BoundaryActionKind[];
+    seedBaseAcceptance?: boolean;
+  },
+) {
   const profileInit = process.env.BUCCET_PROFILE_INIT === "1";
   const profileStartedAt = Date.now();
   const profileMark = (label: string) => {
     if (!profileInit) {
       return;
     }
-    console.error(`[buccet-init-profile] ensureScopes ${label}: ${Date.now() - profileStartedAt}ms`);
+    console.error(
+      `[buccet-init-profile] ensureScopes ${label}: ${Date.now() - profileStartedAt}ms`,
+    );
   };
   const grantedActions = args.grantedActions ?? FULL_FS_SCOPE_ACTIONS;
   const existing = new Set(
-    args.store.getConfig().pathLaws
-      .filter((law) => !law.revokedAt)
+    args.store
+      .getConfig()
+      .pathLaws.filter((law) => !law.revokedAt)
       .map((law) => path.resolve(law.rootPath)),
   );
 
@@ -4218,7 +4527,9 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
       seedBaseAcceptance: args.seedBaseAcceptance,
     });
     if (profileInit) {
-      console.error(`[buccet-init-profile] ensureScopes openPath ${scopePath}: ${Date.now() - scopeStartedAt}ms`);
+      console.error(
+        `[buccet-init-profile] ensureScopes openPath ${scopePath}: ${Date.now() - scopeStartedAt}ms`,
+      );
     }
   }
   profileMark("path openings complete");
@@ -4226,13 +4537,23 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
   if (process.platform === "darwin") {
     const runtimeSupportGrants = [
       { target: "/", actions: ["fs.read"] as BoundaryActionKind[] },
-      { target: "/dev/null", actions: ["fs.read", "fs.write", "fs.append"] as BoundaryActionKind[] },
-      { target: "/usr/local/etc/openssl@3/openssl.cnf", actions: ["fs.read"] as BoundaryActionKind[] },
-      { target: "/opt/homebrew/etc/openssl@3/openssl.cnf", actions: ["fs.read"] as BoundaryActionKind[] },
+      {
+        target: "/dev/null",
+        actions: ["fs.read", "fs.write", "fs.append"] as BoundaryActionKind[],
+      },
+      {
+        target: "/usr/local/etc/openssl@3/openssl.cnf",
+        actions: ["fs.read"] as BoundaryActionKind[],
+      },
+      {
+        target: "/opt/homebrew/etc/openssl@3/openssl.cnf",
+        actions: ["fs.read"] as BoundaryActionKind[],
+      },
     ];
     const existingExactGrantKeys = new Set(
-      args.store.getConfig().grants
-        .filter((grant) => !grant.revokedAt)
+      args.store
+        .getConfig()
+        .grants.filter((grant) => !grant.revokedAt)
         .filter((grant) => grant.resourceKind === "path")
         .filter((grant) => grant.metadata?.exact_only === true)
         .flatMap((grant) =>
@@ -4250,8 +4571,8 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
     const pendingGrantTargets: string[] = [];
 
     for (const grant of runtimeSupportGrants) {
-      const missingAction = grant.actions.find((action) =>
-        !existingExactGrantKeys.has(`${path.resolve(grant.target)}:${action}`)
+      const missingAction = grant.actions.find(
+        (action) => !existingExactGrantKeys.has(`${path.resolve(grant.target)}:${action}`),
       );
       if (!missingAction) {
         continue;
@@ -4283,7 +4604,9 @@ async function ensureScopes(boundary: Awaited<ReturnType<typeof importBoundary>>
         for (const target of pendingGrantTargets) {
           console.error(`[buccet-init-profile] ensureScopes runtime grant ${target}: batched`);
         }
-        console.error(`[buccet-init-profile] ensureScopes runtime grants batch: ${Date.now() - batchStartedAt}ms`);
+        console.error(
+          `[buccet-init-profile] ensureScopes runtime grants batch: ${Date.now() - batchStartedAt}ms`,
+        );
       }
     }
   }
@@ -4301,14 +4624,17 @@ function printLogRecord(record: {
 }) {
   const verdict = record.DECISION.verdict ?? "";
   const verdictColor =
-    verdict === "allow"            ? c.green  :
-    verdict === "deny"             ? c.red     :
-    verdict === "require_approval" ? c.yellow  :
-    c.dim;
-  const ts      = clrDim(record.META.timestamp.slice(0, 19).replace("T", " "));
-  const vt      = `${verdictColor}${verdict.toUpperCase().padEnd(16)}${c.reset}`;
-  const ev      = `${c.cyan}${record.META.event_type}${c.reset}`;
-  const target  = clrDim(record.INPUT.target || "-");
+    verdict === "allow"
+      ? c.green
+      : verdict === "deny"
+        ? c.red
+        : verdict === "require_approval"
+          ? c.yellow
+          : c.dim;
+  const ts = clrDim(record.META.timestamp.slice(0, 19).replace("T", " "));
+  const vt = `${verdictColor}${verdict.toUpperCase().padEnd(16)}${c.reset}`;
+  const ev = `${c.cyan}${record.META.event_type}${c.reset}`;
+  const target = clrDim(record.INPUT.target || "-");
   console.log(`  ${ts}  ${vt}  ${ev}  ${record.INPUT.action}  ${target}`);
   if (record.DECISION.reason) {
     console.log(`  ${" ".repeat(21)}${clrDim(record.DECISION.reason)}`);
@@ -4323,13 +4649,19 @@ function summarizeInterceptedAttempts(records: Array<{ META: { event_type: strin
     "INGRESS_PROVENANCE_BLOCKED",
     "INGRESS_CANYON_STATE_WRITTEN",
   ]);
-  return records.reduce((sum, record) => sum + (intercepted.has(record.META.event_type) ? 1 : 0), 0);
+  return records.reduce(
+    (sum, record) => sum + (intercepted.has(record.META.event_type) ? 1 : 0),
+    0,
+  );
 }
 
-async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof importBoundary>>, args: {
-  home: ReturnType<typeof resolveHomePaths>;
-  config: BuccetConfig | null;
-}): Promise<HookStatusPayload> {
+async function buildHookStatusPayload(
+  boundary: Awaited<ReturnType<typeof importBoundary>>,
+  args: {
+    home: ReturnType<typeof resolveHomePaths>;
+    config: BuccetConfig | null;
+  },
+): Promise<HookStatusPayload> {
   const hookState = await readJsonIfExists<{
     state?: string;
     sessionId?: string;
@@ -4357,9 +4689,10 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
   if (args.config && running) {
     try {
       const status = await boundary.sendBoundaryInterceptServerInput({
-        target: hookState?.interceptHost && hookState?.interceptPort
-          ? { host: hookState.interceptHost, port: hookState.interceptPort }
-          : { socketPath: args.home.interceptSocketPath },
+        target:
+          hookState?.interceptHost && hookState?.interceptPort
+            ? { host: hookState.interceptHost, port: hookState.interceptPort }
+            : { socketPath: args.home.interceptSocketPath },
         input: { command: "status" },
       });
       interceptReachable = status.type === "status";
@@ -4367,13 +4700,16 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
         pendingApprovals = status.swarm?.pending ?? 0;
       }
       const ingress = await boundary.sendBoundaryInterceptServerInput({
-        target: hookState?.interceptHost && hookState?.interceptPort
-          ? { host: hookState.interceptHost, port: hookState.interceptPort }
-          : { socketPath: args.home.interceptSocketPath },
+        target:
+          hookState?.interceptHost && hookState?.interceptPort
+            ? { host: hookState.interceptHost, port: hookState.interceptPort }
+            : { socketPath: args.home.interceptSocketPath },
         input: { command: "ingress_status" },
       });
       if (ingress.type === "ingress_status") {
-        canyonHeld = ingress.provenances.filter((entry: { state: string }) => entry.state === "canyon").length;
+        canyonHeld = ingress.provenances.filter(
+          (entry: { state: string }) => entry.state === "canyon",
+        ).length;
       }
     } catch {
       interceptReachable = false;
@@ -4398,7 +4734,8 @@ async function buildHookStatusPayload(boundary: Awaited<ReturnType<typeof import
     sessionId: hookState?.sessionId ?? args.config?.sessionId,
     actorId: hookState?.actorId ?? args.config?.actorId,
     interceptSocketPath: hookState?.interceptSocketPath ?? args.home.interceptSocketPath,
-    gravityBridgeSocketPath: hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
+    gravityBridgeSocketPath:
+      hookState?.gravityBridgeSocketPath ?? args.home.gravityBridgeSocketPath,
     interceptHost: health.interceptHost ?? hookState?.interceptHost,
     interceptPort: health.interceptPort ?? hookState?.interceptPort,
     gravityBridgeHost: health.gravityBridgeHost ?? hookState?.gravityBridgeHost,
@@ -4462,12 +4799,14 @@ async function handleInit(rest: string[]) {
     usage();
   }
 
-  const config = await loadConfig(home.configPath) ?? baseConfig({
-    sessionId,
-    actorId,
-    defaultScopes: [],
-    dryRun,
-  });
+  const config =
+    (await loadConfig(home.configPath)) ??
+    baseConfig({
+      sessionId,
+      actorId,
+      defaultScopes: [],
+      dryRun,
+    });
   const nextConfig: BuccetConfig = {
     ...config,
     sessionId,
@@ -4514,7 +4853,7 @@ async function handleInit(rest: string[]) {
   const backendLabel = detectBackendLabel();
   const nativeReady = await pathExists(home.nativeLibraryPath);
   const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
-  const shouldArmNow = armNow || nativeReady;
+  const _shouldArmNow = armNow || nativeReady;
 
   printBuccetWordmark();
   printCliSection("Initialized", [
@@ -4523,10 +4862,10 @@ async function handleInit(rest: string[]) {
     formatCliKeyValue("platform", platformLabel),
     formatCliKeyValue("backend", backendLabel),
   ]);
-  console.log(``);
+  console.log("");
   console.log(`  ${clrOk()}  ${clrBold("Agent Buccet is ready.")}`);
   console.log(`  Run ${c.bold}${c.blue}buccet console${c.reset} to open the operator cockpit.`);
-  console.log(``);
+  console.log("");
 }
 
 async function handleStatus(rest: string[]) {
@@ -4552,15 +4891,17 @@ async function handleStatus(rest: string[]) {
       printJson(payload);
       return;
     }
-    console.log(``);
+    console.log("");
     console.log(`  ${clrWarn()}  ${clrBold("Agent Buccet is not initialized.")}`);
     console.log(`  ${clrDim("home:")}  ${home.homePath}`);
     console.log(`  Run ${clrBold("buccet init")} to get started.`);
     if (teamsForUninit.length > 0) {
-      console.log(``);
-      console.log(`  ${clrDim("Workshop has")} ${clrBold(String(teamsForUninit.length))} ${clrDim("team(s); they will activate after init.")}`);
+      console.log("");
+      console.log(
+        `  ${clrDim("Workshop has")} ${clrBold(String(teamsForUninit.length))} ${clrDim("team(s); they will activate after init.")}`,
+      );
     }
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -4573,8 +4914,20 @@ async function handleStatus(rest: string[]) {
 
   // Read witness status from the installed release manifest (written at build time).
   const releaseManifestPath = path.join(home.homePath, "current", "releases", "latest.json");
-  const releaseManifest = await fs.readFile(releaseManifestPath, "utf8")
-    .then((raw) => JSON.parse(raw) as { witness?: { status?: string; mode?: string; target?: string; fallback?: boolean; generated_at?: string } })
+  const releaseManifest = await fs
+    .readFile(releaseManifestPath, "utf8")
+    .then(
+      (raw) =>
+        JSON.parse(raw) as {
+          witness?: {
+            status?: string;
+            mode?: string;
+            target?: string;
+            fallback?: boolean;
+            generated_at?: string;
+          };
+        },
+    )
     .catch(() => null);
   const witnessStatus = releaseManifest?.witness ?? null;
 
@@ -4591,7 +4944,9 @@ async function handleStatus(rest: string[]) {
     quarantineStatus: sessionState?.quarantineState?.required
       ? sessionState.quarantineState.status
       : null,
-    scopes: (sessionState?.pathLaws ?? []).filter((law) => !law.revokedAt).map((law) => law.rootPath),
+    scopes: (sessionState?.pathLaws ?? [])
+      .filter((law) => !law.revokedAt)
+      .map((law) => law.rootPath),
     grants: (sessionState?.grants ?? []).filter((grant) => !grant.revokedAt).length,
     ledger: {
       entries: ledgerEntries.length,
@@ -4631,7 +4986,9 @@ async function handleStatus(rest: string[]) {
     formatCliKeyValue("session", payload.sessionId),
     formatCliKeyValue("actor", payload.actorId),
     formatCliKeyValue("session status", payload.sessionStatus),
-    ...(payload.quarantineStatus ? [formatCliKeyValue("quarantine", payload.quarantineStatus)] : []),
+    ...(payload.quarantineStatus
+      ? [formatCliKeyValue("quarantine", payload.quarantineStatus)]
+      : []),
   ]);
   printCliSection("Authority", [
     formatCliKeyValue("scopes", payload.scopes.length),
@@ -4650,18 +5007,20 @@ async function handleStatus(rest: string[]) {
         "status",
         `${payload.witness.status}${payload.witness.fallback ? " (fallback: local file)" : ""}`,
       ),
-      payload.witness.published_at ? formatCliKeyValue("published", payload.witness.published_at) : null,
+      payload.witness.published_at
+        ? formatCliKeyValue("published", payload.witness.published_at)
+        : null,
     ]);
   } else {
-    printCliSection("Witness", [
-      "unavailable (run package build to generate)",
-    ]);
+    printCliSection("Witness", ["unavailable (run package build to generate)"]);
   }
 
   const workshopRows: string[] = [];
   workshopRows.push(formatCliKeyValue("teams total", payload.workshop.total));
   workshopRows.push(formatCliKeyValue("teams running", payload.workshop.running));
-  workshopRows.push(formatCliKeyValue("teams needing attention", payload.workshop.cockpit.teamsNeedingAttention));
+  workshopRows.push(
+    formatCliKeyValue("teams needing attention", payload.workshop.cockpit.teamsNeedingAttention),
+  );
   workshopRows.push(
     formatCliKeyValue(
       "peer field",
@@ -4672,16 +5031,20 @@ async function handleStatus(rest: string[]) {
     workshopRows.push("");
     for (const team of payload.workshop.teams) {
       const statusBadge =
-        team.status === "running" ? clrOk(team.status) :
-        team.status === "stopped" ? clrWarn(team.status) :
-        clrDim(team.status);
+        team.status === "running"
+          ? clrOk(team.status)
+          : team.status === "stopped"
+            ? clrWarn(team.status)
+            : clrDim(team.status);
       workshopRows.push(
         `  ${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(18))} ${team.peers} peer${team.peers === 1 ? "" : "s"}`,
       );
     }
   } else {
     workshopRows.push("");
-    workshopRows.push(`  ${clrDim("Use")} ${clrBold("buccet create <team-name> --domain <domain>")} ${clrDim("to spin up a team.")}`);
+    workshopRows.push(
+      `  ${clrDim("Use")} ${clrBold("buccet create <team-name> --domain <domain>")} ${clrDim("to spin up a team.")}`,
+    );
   }
   printCliSection("Workshop — creativity face", workshopRows);
   printWorkshopCockpitSnapshot(payload.workshop.cockpit);
@@ -4745,12 +5108,12 @@ async function handleLedger(rest: string[]) {
       return records.length;
     }
     if (!follow) {
-      console.log(``);
+      console.log("");
       console.log(`  ${clrBold("Agent Buccet — Witness Ledger")}`);
       console.log(`  ${c.dim}─────────────────────────────────────${c.reset}`);
       console.log(`  ${clrDim("session:")}  ${config.sessionId}`);
       console.log(`  ${clrDim("entries:")}  ${records.length}`);
-      console.log(``);
+      console.log("");
     }
     for (const record of slice) {
       printLogRecord(record);
@@ -4764,17 +5127,19 @@ async function handleLedger(rest: string[]) {
   }
 
   let lastSeen = 0;
-  console.log(``);
+  console.log("");
   console.log(`  ${clrBold("Agent Buccet — Witness Ledger")}`);
   console.log(`  ${c.dim}─────────────────────────────────────${c.reset}`);
   console.log(`  ${clrDim("session:")}  ${config.sessionId}`);
   console.log(`  ${clrDim("Following live ledger stream. Ctrl-C to exit.")}`);
-  console.log(``);
+  console.log("");
   lastSeen = await render(0);
   const interval = setInterval(() => {
-    void render(lastSeen).then((next) => {
-      lastSeen = next;
-    }).catch(() => undefined);
+    void render(lastSeen)
+      .then((next) => {
+        lastSeen = next;
+      })
+      .catch(() => undefined);
   }, 1_000);
   await new Promise<void>((resolve) => {
     const stop = () => {
@@ -4812,17 +5177,19 @@ async function handleScope(rest: string[]) {
       printJson(scopes);
       return;
     }
-    console.log(``);
+    console.log("");
     printCliHeader("  Active Scopes");
     if (scopes.length === 0) {
       console.log(`  ${clrDim("No scopes configured.")}`);
     } else {
       for (const scope of scopes) {
         const statusColor = scope.status === "active" ? c.green : c.dim;
-        console.log(`  ${statusColor}${scope.status}${c.reset}  ${scope.rootPath}  ${clrDim(scope.grantedActions.join(", "))}`);
+        console.log(
+          `  ${statusColor}${scope.status}${c.reset}  ${scope.rootPath}  ${clrDim(scope.grantedActions.join(", "))}`,
+        );
       }
     }
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -4950,13 +5317,21 @@ async function importCompiledDocumentLaws(args: {
     createdAt: new Date().toISOString(),
   });
   const entryIds: string[] = [];
-  const witnessByType = new Map<"APPROVED" | "DENIED", Awaited<ReturnType<typeof args.boundary.appendBoundaryLedger>>>();
+  const witnessByType = new Map<
+    "APPROVED" | "DENIED",
+    Awaited<ReturnType<typeof args.boundary.appendBoundaryLedger>>
+  >();
   for (const lawType of ["APPROVED", "DENIED"] as const) {
     const matching = scoped.filter((entry) => entry.type === lawType);
     if (matching.length === 0) {
       continue;
     }
-    const requestId = `upl-import-${createHash("sha256").update(`${args.filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`).digest("hex").slice(0, 12)}`;
+    const requestId = `upl-import-${createHash("sha256")
+      .update(
+        `${args.filePath}:${lawType}:${matching.map((entry) => entry.requestBasis.payloadSummary ?? entry.requestBasis.target).join("|")}`,
+      )
+      .digest("hex")
+      .slice(0, 12)}`;
     const representative = matching[0];
     const witness = await args.boundary.appendBoundaryLedger(
       lawType === "APPROVED" ? "UPL_ALLOW_RECORDED" : "UPL_DENY_RECORDED",
@@ -4973,9 +5348,16 @@ async function importCompiledDocumentLaws(args: {
           ...sharedMetadata,
           compiled_law_count: matching.length,
           imported_invariant_batch: createHash("sha256")
-            .update(matching
-              .map((entry) => entry.requestBasis.reviewContext?.invariantLawId ?? entry.requestBasis.payloadSummary ?? "unknown")
-              .join("|"))
+            .update(
+              matching
+                .map(
+                  (entry) =>
+                    entry.requestBasis.reviewContext?.invariantLawId ??
+                    entry.requestBasis.payloadSummary ??
+                    "unknown",
+                )
+                .join("|"),
+            )
             .digest("hex")
             .slice(0, 16),
           ...(args.metadata ?? {}),
@@ -5046,7 +5428,9 @@ async function syncUplDocumentSources(args: {
   await ensureUplSourceHomes(args.home);
   const allLaneFiles = await collectUplSyncLaneFiles(args.home);
   const fingerprint = await computeUplSyncFingerprint(allLaneFiles);
-  const laneFiles = allLaneFiles.filter((lane) => !args.laneSelection || lane.spec.lane === args.laneSelection);
+  const laneFiles = allLaneFiles.filter(
+    (lane) => !args.laneSelection || lane.spec.lane === args.laneSelection,
+  );
   const lanes = laneFiles.map((lane) => lane.spec);
   const store = await ensureStore(args.boundary, {
     config: args.config,
@@ -5067,7 +5451,11 @@ async function syncUplDocumentSources(args: {
   }> = [];
   for (const lane of laneFiles) {
     for (const filePath of lane.files) {
-      const markdownResult = await args.boundary.boundaryReadFile(store.getConfig(), filePath, "utf8");
+      const markdownResult = await args.boundary.boundaryReadFile(
+        store.getConfig(),
+        filePath,
+        "utf8",
+      );
       if (!markdownResult.allowed) {
         throw new Error(`UPL source file blocked: ${markdownResult.reason}`);
       }
@@ -5078,34 +5466,9 @@ async function syncUplDocumentSources(args: {
         markdown,
       });
       const hasCompiledLaw = extracted.laws.length > 0;
-      const intakeDoc = !hasCompiledLaw
-        ? parseSourceIntakeDoc(markdown, filePath)
-        : null;
+      const intakeDoc = !hasCompiledLaw ? parseSourceIntakeDoc(markdown, filePath) : null;
       const tagged = hasCompiledLaw
         ? (() => {
-          validateExtractedDocumentLane({
-            lane: lane.spec.lane,
-            filePath,
-            compiled: extracted.laws,
-            diagnostics: extracted.diagnostics,
-          });
-          return extracted.laws.map((entry) => ({
-            ...entry,
-            notes: formatUplSourceNote({
-              lane: lane.spec.lane,
-              filePath,
-              notes: entry.notes,
-            }),
-          }));
-        })()
-        : intakeDoc
-          ? compileSourceIntakeDoc({
-              filePath,
-              lane: lane.spec.lane,
-              doc: intakeDoc,
-              scope: args.scope,
-            })
-          : (() => {
             validateExtractedDocumentLane({
               lane: lane.spec.lane,
               filePath,
@@ -5120,7 +5483,30 @@ async function syncUplDocumentSources(args: {
                 notes: entry.notes,
               }),
             }));
-          })();
+          })()
+        : intakeDoc
+          ? compileSourceIntakeDoc({
+              filePath,
+              lane: lane.spec.lane,
+              doc: intakeDoc,
+              scope: args.scope,
+            })
+          : (() => {
+              validateExtractedDocumentLane({
+                lane: lane.spec.lane,
+                filePath,
+                compiled: extracted.laws,
+                diagnostics: extracted.diagnostics,
+              });
+              return extracted.laws.map((entry) => ({
+                ...entry,
+                notes: formatUplSourceNote({
+                  lane: lane.spec.lane,
+                  filePath,
+                  notes: entry.notes,
+                }),
+              }));
+            })();
       staged.push({
         lane: lane.spec.lane,
         filePath,
@@ -5146,24 +5532,29 @@ async function syncUplDocumentSources(args: {
     upl = await args.boundary.saveUserPathLedger(upl);
   }
 
-  const imported: Array<{ lane: UplSourceLane; file: string; imported: number; entries: string[] }> = [];
+  const imported: Array<{
+    lane: UplSourceLane;
+    file: string;
+    imported: number;
+    entries: string[];
+  }> = [];
   for (const item of staged) {
     const result = await importCompiledDocumentLaws({
       boundary: args.boundary,
       config: args.config,
-        store,
-        upl,
-        filePath: item.filePath,
-        sourceDocumentHash: item.sourceDocumentHash,
-        sourceDocumentBytes: item.sourceDocumentBytes,
-        compiled: item.compiled,
-        scope: args.scope,
-        syncMode: "upl_sync",
-        lane: item.lane,
-        importReason: `document law synced from ${item.lane} source`,
-        metadata: {
-          import_mode: "upl_sync",
-          document_lane: item.lane,
+      store,
+      upl,
+      filePath: item.filePath,
+      sourceDocumentHash: item.sourceDocumentHash,
+      sourceDocumentBytes: item.sourceDocumentBytes,
+      compiled: item.compiled,
+      scope: args.scope,
+      syncMode: "upl_sync",
+      lane: item.lane,
+      importReason: `document law synced from ${item.lane} source`,
+      metadata: {
+        import_mode: "upl_sync",
+        document_lane: item.lane,
       },
     });
     upl = result.upl;
@@ -5177,10 +5568,12 @@ async function syncUplDocumentSources(args: {
 
   const sessionOverlayUpl: BoundaryUserPathLedger = {
     specVersion: 1,
-    userApprovedLawPaths: (store.getConfig().upl?.userApprovedLawPaths ?? [])
-      .filter((entry) => args.boundary.isSessionOverlayEntryId(entry.id)),
-    userDeniedLawPaths: (store.getConfig().upl?.userDeniedLawPaths ?? [])
-      .filter((entry) => args.boundary.isSessionOverlayEntryId(entry.id)),
+    userApprovedLawPaths: (store.getConfig().upl?.userApprovedLawPaths ?? []).filter((entry) =>
+      args.boundary.isSessionOverlayEntryId(entry.id),
+    ),
+    userDeniedLawPaths: (store.getConfig().upl?.userDeniedLawPaths ?? []).filter((entry) =>
+      args.boundary.isSessionOverlayEntryId(entry.id),
+    ),
   };
   const effectiveUpl = args.boundary.hasUserPathEntries(sessionOverlayUpl)
     ? args.boundary.mergeUserPathLedgers({
@@ -5279,14 +5672,16 @@ async function handleUpl(rest: string[]) {
       })),
     );
     const opened = openSelection
-      ? await Promise.all(resolveSourceCatalogSelection(openSelection).map(async (catalog) => {
-        await openCatalogInBrowser(catalog);
-        return {
-          id: catalog.id,
-          name: catalog.name,
-          url: catalog.url,
-        };
-      }))
+      ? await Promise.all(
+          resolveSourceCatalogSelection(openSelection).map(async (catalog) => {
+            await openCatalogInBrowser(catalog);
+            return {
+              id: catalog.id,
+              name: catalog.name,
+              url: catalog.url,
+            };
+          }),
+        )
       : [];
     if (asJson) {
       printJson({
@@ -5302,46 +5697,57 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(``);
+    console.log("");
     printCliHeader("  UPL Document Sources");
     printCliSection("Lanes", [
       formatCliKeyValue("root", home.uplDocsDir),
       ...snapshot.map((lane) => {
         const laneColor = lane.lane === "acceptance" ? c.green : c.red;
-        return formatCliKeyValue(`${laneColor}${lane.lane}${c.reset}`, `${lane.files.length} file${lane.files.length === 1 ? "" : "s"}  ${clrDim(lane.dir)}`);
+        return formatCliKeyValue(
+          `${laneColor}${lane.lane}${c.reset}`,
+          `${lane.files.length} file${lane.files.length === 1 ? "" : "s"}  ${clrDim(lane.dir)}`,
+        );
       }),
     ]);
     for (const lane of snapshot) {
       if (lane.files.length > 0) {
-        console.log(``);
+        console.log("");
         const laneColor = lane.lane === "acceptance" ? c.green : c.red;
-        console.log(`  ${laneColor}${c.bold}${lane.lane}${c.reset}  ${clrDim(`(${lane.files.length} file${lane.files.length === 1 ? "" : "s"})`)}`);
+        console.log(
+          `  ${laneColor}${c.bold}${lane.lane}${c.reset}  ${clrDim(`(${lane.files.length} file${lane.files.length === 1 ? "" : "s"})`)}`,
+        );
         for (const filePath of lane.files) {
           console.log(`    ${clrDim("·")} ${filePath}`);
         }
       }
     }
     if (opened.length > 0) {
-      console.log(``);
+      console.log("");
       for (const catalog of opened) {
         console.log(`  ${clrOk()}  ${c.bold}${catalog.name}${c.reset}  ${clrDim(catalog.url)}`);
       }
     }
-    printCliSection("Intake Catalogs", catalogs.map((catalog) =>
-      `${c.bold}${catalog.name}${c.reset}  ${clrDim(catalog.description)}\n    ${clrDim(catalog.url)}  ${clrDim(`· open: buccet upl sources --open ${catalog.id}`)}`,
-    ));
+    printCliSection(
+      "Intake Catalogs",
+      catalogs.map(
+        (catalog) =>
+          `${c.bold}${catalog.name}${c.reset}  ${clrDim(catalog.description)}\n    ${clrDim(catalog.url)}  ${clrDim(`· open: buccet upl sources --open ${catalog.id}`)}`,
+      ),
+    );
     printCliSection("Acceptance Pipeline", [
       formatCliKeyValue("guide", home.uplAcceptancePipelinePath),
       formatCliKeyValue("template", home.uplAcceptanceSkillTemplatePath),
     ]);
-    console.log(``);
+    console.log("");
     console.log(`  ${clrDim("1.")} choose a skill/workflow from a catalog above`);
     console.log(`  ${clrDim("2.")} copy the source text you want`);
-    console.log(`  ${clrDim("3.")} paste into ${c.green}acceptance${c.reset} (allow) or ${c.red}denial${c.reset} (deny)`);
+    console.log(
+      `  ${clrDim("3.")} paste into ${c.green}acceptance${c.reset} (allow) or ${c.red}denial${c.reset} (deny)`,
+    );
     console.log(`  ${clrDim("4.")} scaffold a new doc:   ${clrBold(commands.copyTemplate)}`);
     console.log(`  ${clrDim("5.")} compile to live UPL:  ${clrBold(commands.sync)}`);
     console.log(`  ${clrDim("6.")} inspect what landed:  ${clrBold(commands.inspectDiff)}`);
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -5356,7 +5762,7 @@ async function handleUpl(rest: string[]) {
         printJson({ packs });
         return;
       }
-      console.log(``);
+      console.log("");
       printCliHeader("  Spend Law Packs");
       printCliSection("Locked By Default", [
         "  These are dormant spend corridors. Nothing here becomes active until a human reviews and applies the exact delta.",
@@ -5364,7 +5770,7 @@ async function handleUpl(rest: string[]) {
       for (const pack of packs) {
         printSpendLawPackSummary(pack);
       }
-      console.log(``);
+      console.log("");
       return;
     }
     if (spendSub === "show") {
@@ -5386,10 +5792,12 @@ async function handleUpl(rest: string[]) {
     if (spendSub === "propose") {
       const { positional, flags } = parseFlagPairs(rest.slice(2));
       const requestText = positional.join(" ").trim();
-      const limitRaw = flags["limit"];
-      const limit = limitRaw !== undefined ? Math.max(1, parseInt(limitRaw, 10) || 1) : 3;
+      const limitRaw = flags.limit;
+      const limit = limitRaw !== undefined ? Math.max(1, Number.parseInt(limitRaw, 10) || 1) : 3;
       if (!requestText) {
-        throw new Error("usage: buccet upl spend propose <plain-language request> [--limit <n>] [--json]");
+        throw new Error(
+          "usage: buccet upl spend propose <plain-language request> [--limit <n>] [--json]",
+        );
       }
       const analysis = proposeBoundarySpendLawPacks({ requestText, limit });
       if (asJson) {
@@ -5416,17 +5824,23 @@ async function handleUpl(rest: string[]) {
       }
       const proposal = buildBoundarySpendLawPackDraft({
         packId: pack.id as BoundarySpendLawPackId,
-        handle: (flags["handle"] ?? "").trim(),
-        principal: (flags["principal"] ?? "").trim(),
-        bucketId: (flags["bucket"] ?? "").trim(),
+        handle: (flags.handle ?? "").trim(),
+        principal: (flags.principal ?? "").trim(),
+        bucketId: (flags.bucket ?? "").trim(),
         amountLimitNormalized: parseNormalizedMoney(flags["max-amount"], "--max-amount"),
-        ...(flags["period-limit"] ? { periodLimitNormalized: parseNormalizedMoney(flags["period-limit"], "--period-limit") } : {}),
-        ...(flags["period-window"] ? { periodWindow: parseSpendPeriodWindowToken(flags["period-window"]) } : {}),
-        ...(flags["scope"] ? { scope: parseBoundaryUplScopeToken(flags["scope"]) } : {}),
-        ...(flags["source-authority"] ? { sourceAuthorityKind: parseSpendSourceAuthorityKindToken(flags["source-authority"]) } : {}),
-        ...(flags["sync"] ? { syncTargets: parseRequestedSyncTargetsCsv(flags["sync"]) } : {}),
+        ...(flags["period-limit"]
+          ? { periodLimitNormalized: parseNormalizedMoney(flags["period-limit"], "--period-limit") }
+          : {}),
+        ...(flags["period-window"]
+          ? { periodWindow: parseSpendPeriodWindowToken(flags["period-window"]) }
+          : {}),
+        ...(flags.scope ? { scope: parseBoundaryUplScopeToken(flags.scope) } : {}),
+        ...(flags["source-authority"]
+          ? { sourceAuthorityKind: parseSpendSourceAuthorityKindToken(flags["source-authority"]) }
+          : {}),
+        ...(flags.sync ? { syncTargets: parseRequestedSyncTargetsCsv(flags.sync) } : {}),
         ...(flags["law-key"] ? { lawKey: flags["law-key"] } : {}),
-        ...(flags["notes"] ? { notes: flags["notes"] } : {}),
+        ...(flags.notes ? { notes: flags.notes } : {}),
       });
       const { nextWorkspace, record } = await stageUplWorkspaceRecord({
         workspacePath: home.uplProcessWorkspacePath,
@@ -5507,15 +5921,23 @@ async function handleUpl(rest: string[]) {
       const parsed = parseFlagPairs(rest.slice(2));
       let pack = parsed.positional[0] ? findBoundarySpendLawPack(parsed.positional[0]) : null;
       if (parsed.positional.length > 1) {
-        throw new Error(`unexpected positional args for spend setup: ${parsed.positional.slice(1).join(" ")}`);
+        throw new Error(
+          `unexpected positional args for spend setup: ${parsed.positional.slice(1).join(" ")}`,
+        );
       }
       if (!pack) {
         pack = await promptSpendLawPackSelection();
       }
       printSpendLawPackDetails(pack);
-      const handle = parsed.flags["handle"] ? (parsed.flags["handle"] ?? "").trim() : await promptRequiredValue("Handle / provider", "");
-      const principal = parsed.flags["principal"] ? (parsed.flags["principal"] ?? "").trim() : await promptRequiredValue("Principal / owner", "");
-      const bucketId = parsed.flags["bucket"] ? (parsed.flags["bucket"] ?? "").trim() : await promptRequiredValue("Bucket / category", "");
+      const handle = parsed.flags.handle
+        ? (parsed.flags.handle ?? "").trim()
+        : await promptRequiredValue("Handle / provider", "");
+      const principal = parsed.flags.principal
+        ? (parsed.flags.principal ?? "").trim()
+        : await promptRequiredValue("Principal / owner", "");
+      const bucketId = parsed.flags.bucket
+        ? (parsed.flags.bucket ?? "").trim()
+        : await promptRequiredValue("Bucket / category", "");
       const amountLimitNormalized = parsed.flags["max-amount"]
         ? parseNormalizedMoney(parsed.flags["max-amount"], "--max-amount")
         : await promptNumericValue("Max amount", undefined);
@@ -5526,21 +5948,34 @@ async function handleUpl(rest: string[]) {
       const defaultPeriodWindow = pack.defaultPeriodWindow ?? "30d";
       const periodWindow = parsed.flags["period-window"]
         ? parseSpendPeriodWindowToken(parsed.flags["period-window"])
-        : parseSpendPeriodWindowToken(await promptOptionalValue("Period window (1h, 24h, 7d, 30d, month)", defaultPeriodWindow));
+        : parseSpendPeriodWindowToken(
+            await promptOptionalValue(
+              "Period window (1h, 24h, 7d, 30d, month)",
+              defaultPeriodWindow,
+            ),
+          );
       const sourceAuthorityKind = parsed.flags["source-authority"]
         ? parseSpendSourceAuthorityKindToken(parsed.flags["source-authority"])
-        : parseSpendSourceAuthorityKindToken(await promptOptionalValue(
-          "Source authority (wallet, linked_account, card, treasury, merchant_balance, api_credential, other)",
-          pack.defaultSourceAuthorityKind,
-        ));
-      const notes = parsed.flags["notes"] ?? await promptOptionalValue("Notes / terms summary", pack.defaultTermsSummary);
-      const syncTargets = parsed.flags["sync"]
-        ? parseRequestedSyncTargetsCsv(parsed.flags["sync"])
-        : parseRequestedSyncTargetsCsv(await promptOptionalValue("Sync targets (csv)", pack.defaultSyncTargets.join(",")));
-      const scope = parsed.flags["scope"]
-        ? parseBoundaryUplScopeToken(parsed.flags["scope"])
-        : parseBoundaryUplScopeToken(await promptOptionalValue("Scope (GLOBAL or SESSION)", pack.defaultScope));
-      console.log(``);
+        : parseSpendSourceAuthorityKindToken(
+            await promptOptionalValue(
+              "Source authority (wallet, linked_account, card, treasury, merchant_balance, api_credential, other)",
+              pack.defaultSourceAuthorityKind,
+            ),
+          );
+      const notes =
+        parsed.flags.notes ??
+        (await promptOptionalValue("Notes / terms summary", pack.defaultTermsSummary));
+      const syncTargets = parsed.flags.sync
+        ? parseRequestedSyncTargetsCsv(parsed.flags.sync)
+        : parseRequestedSyncTargetsCsv(
+            await promptOptionalValue("Sync targets (csv)", pack.defaultSyncTargets.join(",")),
+          );
+      const scope = parsed.flags.scope
+        ? parseBoundaryUplScopeToken(parsed.flags.scope)
+        : parseBoundaryUplScopeToken(
+            await promptOptionalValue("Scope (GLOBAL or SESSION)", pack.defaultScope),
+          );
+      console.log("");
       printCliSection("Draft Summary", [
         formatCliKeyValue("pack", pack.id),
         formatCliKeyValue("handle", handle),
@@ -5607,7 +6042,7 @@ async function handleUpl(rest: string[]) {
       printJson(payload);
       return;
     }
-    console.log(``);
+    console.log("");
     printCliHeader("  UPL Workspace");
     printCliSection("Summary", [
       formatCliKeyValue("workspace", home.uplProcessWorkspacePath),
@@ -5618,7 +6053,7 @@ async function handleUpl(rest: string[]) {
     ]);
     if (payload.records.length === 0) {
       console.log(`  ${clrDim("no typed UPL proposals staged yet")}`);
-      console.log(``);
+      console.log("");
       return;
     }
     for (const record of payload.records.slice(-10).reverse()) {
@@ -5628,7 +6063,7 @@ async function handleUpl(rest: string[]) {
       );
       console.log(`    ${clrDim("source:")} ${record.sourcePath}`);
     }
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -5721,7 +6156,9 @@ async function handleUpl(rest: string[]) {
       throw new Error(`UPL review already applied: ${workspaceRecordRef(record)}`);
     }
     if (stale) {
-      throw new Error(`UPL review is stale: ${workspaceRecordRef(record)}. Re-draft against the current active law field.`);
+      throw new Error(
+        `UPL review is stale: ${workspaceRecordRef(record)}. Re-draft against the current active law field.`,
+      );
     }
     const approved = approveBoundaryUplReview({
       review: record.review,
@@ -5776,12 +6213,13 @@ async function handleUpl(rest: string[]) {
       records: workspace.records.map((candidate) =>
         candidate.review.reviewId === record.review.reviewId
           ? {
-            ...candidate,
-            appliedApprovalId: approved.approval.approvalId,
-            appliedVersionId: active.versionId,
-            appliedAt: active.activatedAt ?? new Date().toISOString(),
-          }
-          : candidate),
+              ...candidate,
+              appliedApprovalId: approved.approval.approvalId,
+              appliedVersionId: active.versionId,
+              appliedAt: active.activatedAt ?? new Date().toISOString(),
+            }
+          : candidate,
+      ),
     };
     await saveUplProcessWorkspace(home.uplProcessWorkspacePath, nextWorkspace);
     const activatedEntryIds = [
@@ -5798,7 +6236,7 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(``);
+    console.log("");
     printCliHeader("  UPL Applied");
     printCliSection("Activation", [
       formatCliKeyValue("review", record.review.reviewId),
@@ -5807,9 +6245,12 @@ async function handleUpl(rest: string[]) {
       formatCliKeyValue("sync", active.syncTargets.join(", ")),
       formatCliKeyValue("active laws", active.activeLaws.length),
       formatCliKeyValue("entries", activatedEntryIds.length),
-      formatCliKeyValue("writes to", [...new Set(active.activeLaws.map((law) => structuredLawSideLabel(law)))].join(", ")),
+      formatCliKeyValue(
+        "writes to",
+        [...new Set(active.activeLaws.map((law) => structuredLawSideLabel(law)))].join(", "),
+      ),
     ]);
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -5825,7 +6266,9 @@ async function handleUpl(rest: string[]) {
     const upl = await loadEffectiveUserPathLedger(boundary, home, config);
     const session = await loadActiveBoundarySession(boundary, home, config);
     const entries = sortUplEntries(boundary.listUserPathEntries(upl));
-    const approved = entries.filter((entry) => entry.type === "APPROVED" && entry.status === "ACTIVE");
+    const approved = entries.filter(
+      (entry) => entry.type === "APPROVED" && entry.status === "ACTIVE",
+    );
     const denied = entries.filter((entry) => entry.type === "DENIED" && entry.status === "ACTIVE");
     const muted = entries.filter((entry) => entry.status === "MUTED");
     const deleted = entries.filter((entry) => entry.status === "DELETED");
@@ -5848,7 +6291,7 @@ async function handleUpl(rest: string[]) {
         });
         return;
       }
-      console.log(``);
+      console.log("");
       printCliHeader("  User Path Ledger");
       printCliSection("Summary", [
         formatCliKeyValue(`${c.green}approved${c.reset}`, approved.length),
@@ -5858,20 +6301,24 @@ async function handleUpl(rest: string[]) {
         formatCliKeyValue("runtime segments", runtimeTrackField.length),
       ]);
       if (!selection.includeAll && selection.statusFilter === null) {
-        console.log(`  ${clrDim("showing active laws only — use --all to include muted and deleted")}`);
-        console.log(``);
+        console.log(
+          `  ${clrDim("showing active laws only — use --all to include muted and deleted")}`,
+        );
+        console.log("");
       }
       if (selection.typeFilter || selection.statusFilter || selection.queryTerms.length > 0) {
         console.log(`  ${clrDim(`filtered matches: ${filteredEntries.length}`)}`);
-        console.log(``);
+        console.log("");
       }
       for (const entry of filteredEntries) {
         const view = buildUplEntryView(entry);
         const typeColor = entry.type === "APPROVED" ? c.green : c.red;
         const statusDim = entry.status !== "ACTIVE" ? clrDim : (s: string) => s;
-        console.log(`  ${typeColor}${entry.type === "APPROVED" ? "allow" : "deny "}${c.reset}  ${statusDim(entry.status.toLowerCase())}  ${clrDim(entry.id)}  ${clrDim(view.source)}  ${entry.path}`);
+        console.log(
+          `  ${typeColor}${entry.type === "APPROVED" ? "allow" : "deny "}${c.reset}  ${statusDim(entry.status.toLowerCase())}  ${clrDim(entry.id)}  ${clrDim(view.source)}  ${entry.path}`,
+        );
       }
-      console.log(``);
+      console.log("");
       return;
     }
 
@@ -5894,7 +6341,7 @@ async function handleUpl(rest: string[]) {
         });
         return;
       }
-      console.log(`UPL search`);
+      console.log("UPL search");
       console.log(`matches: ${rows.length}`);
       console.log(`query: ${selection.queryTerms.join(" ")}`);
       for (const row of rows) {
@@ -5915,7 +6362,7 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(``);
+    console.log("");
     printCliHeader("  UPL Diff");
     printCliSection("Summary", [
       formatCliKeyValue("matches", rows.length),
@@ -5925,11 +6372,16 @@ async function handleUpl(rest: string[]) {
     ]);
     for (const row of rows) {
       const typeColor = row.entry.type === "APPROVED" ? c.green : c.red;
-      const liveColor = row.liveState === "allow_rail" ? c.green : row.liveState === "deny_wall" ? c.red : "";
-      console.log(`  ${typeColor}${row.entry.type === "APPROVED" ? "allow" : "deny "}${c.reset}  ${clrBold(row.entry.id)}  ${clrDim(`authored=${row.entry.type}/${row.entry.status}`)}  ${liveColor}live=${row.liveState}${c.reset}`);
+      const liveColor =
+        row.liveState === "allow_rail" ? c.green : row.liveState === "deny_wall" ? c.red : "";
+      console.log(
+        `  ${typeColor}${row.entry.type === "APPROVED" ? "allow" : "deny "}${c.reset}  ${clrBold(row.entry.id)}  ${clrDim(`authored=${row.entry.type}/${row.entry.status}`)}  ${liveColor}live=${row.liveState}${c.reset}`,
+      );
       console.log(`    ${clrDim("what:")}    ${row.view.whatItIs}`);
       console.log(`    ${clrDim("connects:")} ${row.view.connectsTo}`);
-      console.log(`    ${clrDim("actions:")} ${row.view.actionKinds.join(", ") || clrDim("none recorded")}`);
+      console.log(
+        `    ${clrDim("actions:")} ${row.view.actionKinds.join(", ") || clrDim("none recorded")}`,
+      );
       if (row.view.bounds.length > 0) {
         console.log(`    ${clrDim("bounds:")}  ${row.view.bounds.join(" | ")}`);
       }
@@ -5937,7 +6389,7 @@ async function handleUpl(rest: string[]) {
         console.log(`    ${clrDim("tag:")}     ${row.liveTag}`);
       }
     }
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -5965,8 +6417,12 @@ async function handleUpl(rest: string[]) {
       return;
     }
     const typeColor = entry.type === "APPROVED" ? c.green : c.red;
-    const liveColor = liveSegment ? (liveSegment.trafficClass === "allow_rail" ? c.green : c.red) : "";
-    console.log(``);
+    const liveColor = liveSegment
+      ? liveSegment.trafficClass === "allow_rail"
+        ? c.green
+        : c.red
+      : "";
+    console.log("");
     printCliHeader(`  UPL Entry  ${clrDim(entry.id)}`);
     printCliSection("Identity", [
       formatCliKeyValue("id", entry.id),
@@ -6003,10 +6459,13 @@ async function handleUpl(rest: string[]) {
     }
     printCliSection("Live Field", [
       liveSegment
-        ? formatCliKeyValue("state", `${liveColor}${liveSegment.trafficClass}${c.reset}  ${clrDim(liveSegment.trafficTag ?? "")}`)
+        ? formatCliKeyValue(
+            "state",
+            `${liveColor}${liveSegment.trafficClass}${c.reset}  ${clrDim(liveSegment.trafficTag ?? "")}`,
+          )
         : formatCliKeyValue("state", clrDim("inactive")),
     ]);
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -6015,21 +6474,23 @@ async function handleUpl(rest: string[]) {
       allowIds: true,
       allowPositionalQuery: false,
     });
-    const selection = subcommand === "unmute" && parsed.statusFilter === null && !parsed.includeAll
-      ? {
-        ...parsed,
-        statusFilter: "MUTED" as BoundaryUplStatus,
-      }
-      : parsed;
-    if (selection.ids.length === 0 && selection.queryTerms.length === 0 && !selection.typeFilter && !selection.statusFilter) {
+    const selection =
+      subcommand === "unmute" && parsed.statusFilter === null && !parsed.includeAll
+        ? {
+            ...parsed,
+            statusFilter: "MUTED" as BoundaryUplStatus,
+          }
+        : parsed;
+    if (
+      selection.ids.length === 0 &&
+      selection.queryTerms.length === 0 &&
+      !selection.typeFilter &&
+      !selection.statusFilter
+    ) {
       usage();
     }
 
-    const status = subcommand === "mute"
-      ? "MUTED"
-      : subcommand === "unmute"
-        ? "ACTIVE"
-        : "DELETED";
+    const status = subcommand === "mute" ? "MUTED" : subcommand === "unmute" ? "ACTIVE" : "DELETED";
     const [globalUpl, sessionState] = await Promise.all([
       boundary.loadUserPathLedger(),
       loadActiveBoundarySessionState(boundary, home, config),
@@ -6037,17 +6498,23 @@ async function handleUpl(rest: string[]) {
     const session = sessionState?.session ?? fallbackBoundarySession(config);
     const upl = sessionState?.sessionUpl
       ? boundary.mergeUserPathLedgers({
-        baseLedger: globalUpl,
-        overlayLedger: sessionState.sessionUpl,
-      })
+          baseLedger: globalUpl,
+          overlayLedger: sessionState.sessionUpl,
+        })
       : globalUpl;
     const entries = sortUplEntries(boundary.listUserPathEntries(upl));
-    const hasSearchSelection = selection.queryTerms.length > 0 || Boolean(selection.typeFilter) || Boolean(selection.statusFilter) || selection.includeAll;
+    const hasSearchSelection =
+      selection.queryTerms.length > 0 ||
+      Boolean(selection.typeFilter) ||
+      Boolean(selection.statusFilter) ||
+      selection.includeAll;
     const matchedEntries = hasSearchSelection
-      ? sortUplEntries(selectUplEntries(entries, {
-        ...selection,
-        ids: [],
-      }))
+      ? sortUplEntries(
+          selectUplEntries(entries, {
+            ...selection,
+            ids: [],
+          }),
+        )
       : [];
     const targetIds = [...new Set([...selection.ids, ...matchedEntries.map((entry) => entry.id)])];
     if (targetIds.length === 0) {
@@ -6065,27 +6532,41 @@ async function handleUpl(rest: string[]) {
     }
     const nextSessionUpl: BoundaryUserPathLedger = {
       specVersion: 1,
-      userApprovedLawPaths: update.ledger.userApprovedLawPaths.filter((entry) => boundary.isSessionOverlayEntryId(entry.id)),
-      userDeniedLawPaths: update.ledger.userDeniedLawPaths.filter((entry) => boundary.isSessionOverlayEntryId(entry.id)),
+      userApprovedLawPaths: update.ledger.userApprovedLawPaths.filter((entry) =>
+        boundary.isSessionOverlayEntryId(entry.id),
+      ),
+      userDeniedLawPaths: update.ledger.userDeniedLawPaths.filter((entry) =>
+        boundary.isSessionOverlayEntryId(entry.id),
+      ),
     };
     const nextGlobalLedger: BoundaryUserPathLedger = {
       ...update.ledger,
-      userApprovedLawPaths: update.ledger.userApprovedLawPaths.filter((entry) => !boundary.isSessionOverlayEntryId(entry.id)),
-      userDeniedLawPaths: update.ledger.userDeniedLawPaths.filter((entry) => !boundary.isSessionOverlayEntryId(entry.id)),
+      userApprovedLawPaths: update.ledger.userApprovedLawPaths.filter(
+        (entry) => !boundary.isSessionOverlayEntryId(entry.id),
+      ),
+      userDeniedLawPaths: update.ledger.userDeniedLawPaths.filter(
+        (entry) => !boundary.isSessionOverlayEntryId(entry.id),
+      ),
     };
-    const changedGlobal = update.changed.some((entry) => !boundary.isSessionOverlayEntryId(entry.id));
-    const savedGlobal = changedGlobal ? await boundary.saveUserPathLedger(nextGlobalLedger) : globalUpl;
+    const changedGlobal = update.changed.some(
+      (entry) => !boundary.isSessionOverlayEntryId(entry.id),
+    );
+    const savedGlobal = changedGlobal
+      ? await boundary.saveUserPathLedger(nextGlobalLedger)
+      : globalUpl;
     const saved = boundary.hasUserPathEntries(nextSessionUpl)
       ? boundary.mergeUserPathLedgers({
-        baseLedger: savedGlobal,
-        overlayLedger: nextSessionUpl,
-      })
+          baseLedger: savedGlobal,
+          overlayLedger: nextSessionUpl,
+        })
       : savedGlobal;
     const store = await ensureStore(boundary, {
       config,
       sessionsDir: home.sessionsDir,
     });
-    const mutationScopes = [...new Set(update.changed.map((entry) => entry.scope.toLowerCase()))].sort();
+    const mutationScopes = [
+      ...new Set(update.changed.map((entry) => entry.scope.toLowerCase())),
+    ].sort();
     await boundary.assertBoundaryGravityLawUpdateAllowed({
       config: store.getConfig(),
       requestId: `upl-${subcommand}:${targetIds.join(",")}`,
@@ -6131,7 +6612,9 @@ async function handleUpl(rest: string[]) {
     console.log(`changed: ${update.changed.length}`);
     console.log(`unchanged: ${update.unchanged.length}`);
     for (const row of changedDiff) {
-      console.log(`${row.entry.id} | ${row.entry.type} | ${row.beforeStatus} -> ${row.afterStatus} | ${row.beforeLive} -> ${row.afterLive}`);
+      console.log(
+        `${row.entry.id} | ${row.entry.type} | ${row.beforeStatus} -> ${row.afterStatus} | ${row.beforeLive} -> ${row.afterLive}`,
+      );
       console.log(`  what it is: ${row.view.whatItIs}`);
       console.log(`  connects to: ${row.view.connectsTo}`);
     }
@@ -6197,28 +6680,34 @@ async function handleUpl(rest: string[]) {
       });
       return;
     }
-    console.log(``);
+    console.log("");
     printCliHeader("  UPL Sync");
     const laneRows = result.laneFiles.map((lane) =>
-      formatCliKeyValue(lane.spec.lane, `${lane.files.length} file${lane.files.length === 1 ? "" : "s"}  ${clrDim(lane.spec.dir)}`),
+      formatCliKeyValue(
+        lane.spec.lane,
+        `${lane.files.length} file${lane.files.length === 1 ? "" : "s"}  ${clrDim(lane.spec.dir)}`,
+      ),
     );
-    printCliSection("Lanes", [
-      formatCliKeyValue("scope", result.scope),
-      ...laneRows,
-    ]);
+    printCliSection("Lanes", [formatCliKeyValue("scope", result.scope), ...laneRows]);
     if (result.imported.length === 0) {
       console.log(`  ${clrWarn("⚠")}  No authored UPL markdown documents found.`);
-      console.log(`  ${clrDim("Add .md files under acceptance or denial, then run")} buccet upl sync ${clrDim("again.")}`);
-      console.log(``);
+      console.log(
+        `  ${clrDim("Add .md files under acceptance or denial, then run")} buccet upl sync ${clrDim("again.")}`,
+      );
+      console.log("");
       return;
     }
-    console.log(`  ${clrOk("✓")}  ${clrBold(`${result.imported.reduce((s, e) => s + e.imported, 0)} laws`)} imported across ${result.imported.length} file${result.imported.length === 1 ? "" : "s"}`);
-    console.log(``);
+    console.log(
+      `  ${clrOk("✓")}  ${clrBold(`${result.imported.reduce((s, e) => s + e.imported, 0)} laws`)} imported across ${result.imported.length} file${result.imported.length === 1 ? "" : "s"}`,
+    );
+    console.log("");
     for (const entry of result.imported) {
       const typeColor = entry.lane === "acceptance" ? c.green : c.red;
-      console.log(`  ${typeColor}${entry.lane}${c.reset}  ${entry.imported} laws  ${clrDim(entry.file)}${entry.entries.length ? `  ${clrDim(entry.entries.join(", "))}` : ""}`);
+      console.log(
+        `  ${typeColor}${entry.lane}${c.reset}  ${entry.imported} laws  ${clrDim(entry.file)}${entry.entries.length ? `  ${clrDim(entry.entries.join(", "))}` : ""}`,
+      );
     }
-    console.log(``);
+    console.log("");
     return;
   }
 
@@ -6313,10 +6802,12 @@ async function handleUpl(rest: string[]) {
       printJson({ scope, imported });
       return;
     }
-    console.log(`Imported document law into UPL`);
+    console.log("Imported document law into UPL");
     console.log(`scope: ${scope}`);
     for (const entry of imported) {
-      console.log(`${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`);
+      console.log(
+        `${entry.file} | laws=${entry.imported}${entry.entries.length ? ` | entries=${entry.entries.join(",")}` : ""}`,
+      );
     }
     return;
   }
@@ -6349,14 +6840,18 @@ async function handlePath(rest: string[]) {
 
   if (subcommand === "list") {
     const library = await loadPersistedBuccetPathLibrary(boundary, home);
-    const templates = Object.values(library).sort((left, right) => left.pathName.localeCompare(right.pathName));
+    const templates = Object.values(library).sort((left, right) =>
+      left.pathName.localeCompare(right.pathName),
+    );
     if (asJson) {
       printJson({
         libraryPath: home.pathLibraryPath,
         paths: templates.map((template) => ({
           pathName: template.pathName,
           domain: template.domain,
-          sourceCount: template.pathSources.filter((s) => !boundary.isBuiltinTeamBrainSourceId(s.id)).length,
+          sourceCount: template.pathSources.filter(
+            (s) => !boundary.isBuiltinTeamBrainSourceId(s.id),
+          ).length,
           agentCount: template.agentRoster.length,
           stageCount: template.stages.length,
         })),
@@ -6368,9 +6863,13 @@ async function handlePath(rest: string[]) {
       formatCliKeyValue("path", home.pathLibraryPath),
       formatCliKeyValue("templates", templates.length),
     ]);
-    printCliSection("Paths", templates.map((template) => (
-      `${template.pathName}  |  domain=${template.domain}  |  sources=${template.pathSources.length}  |  agents=${template.agentRoster.length}  |  stages=${template.stages.length}`
-    )));
+    printCliSection(
+      "Paths",
+      templates.map(
+        (template) =>
+          `${template.pathName}  |  domain=${template.domain}  |  sources=${template.pathSources.length}  |  agents=${template.agentRoster.length}  |  stages=${template.stages.length}`,
+      ),
+    );
     return;
   }
 
@@ -6386,13 +6885,13 @@ async function handlePath(rest: string[]) {
     }
     const template = boundary.buccetPathTemplateNeedsLawfulSurfaceMaterialization(existing)
       ? await ensureConcreteBuccetPathTemplate({
-        boundary,
-        home,
-        config,
-        library,
-        pathName,
-        userRequest: `inspect path ${pathName}`,
-      })
+          boundary,
+          home,
+          config,
+          library,
+          pathName,
+          userRequest: `inspect path ${pathName}`,
+        })
       : existing;
     if (!template) {
       throw new Error(`unknown Buccet path: ${pathName}`);
@@ -6413,21 +6912,33 @@ async function handlePath(rest: string[]) {
       formatCliKeyValue("agents", template.agentRoster.length),
       formatCliKeyValue("stages", template.stages.length),
     ]);
-    printCliSection("Sources", template.pathSources.length > 0
-      ? template.pathSources.map((source) => `${source.id}  |  ${source.title}  |  kind=${source.kind}${source.sourceUri ? `  |  ${source.sourceUri}` : ""}`)
-      : ["none"]);
-    printCliSection("Agents", template.agentRoster.map((agent) => {
-      const sourceTitles = template.pathSources
-        .filter((source) => (agent.sourceIds ?? []).includes(source.id))
-        .map((source) => source.title);
-      return `${agent.id}  |  ${agent.title}  |  sources=${sourceTitles.join(", ") || "all path sources"}`;
-    }));
-    printCliSection("Stages", template.stages.map((stage) => {
-      const sourceTitles = template.pathSources
-        .filter((source) => (stage.sourceIds ?? []).includes(source.id))
-        .map((source) => source.title);
-      return `${stage.id}  |  owners=${stage.agentIds.join(", ")}  |  sources=${sourceTitles.join(", ") || "agent memory banks"}`;
-    }));
+    printCliSection(
+      "Sources",
+      template.pathSources.length > 0
+        ? template.pathSources.map(
+            (source) =>
+              `${source.id}  |  ${source.title}  |  kind=${source.kind}${source.sourceUri ? `  |  ${source.sourceUri}` : ""}`,
+          )
+        : ["none"],
+    );
+    printCliSection(
+      "Agents",
+      template.agentRoster.map((agent) => {
+        const sourceTitles = template.pathSources
+          .filter((source) => (agent.sourceIds ?? []).includes(source.id))
+          .map((source) => source.title);
+        return `${agent.id}  |  ${agent.title}  |  sources=${sourceTitles.join(", ") || "all path sources"}`;
+      }),
+    );
+    printCliSection(
+      "Stages",
+      template.stages.map((stage) => {
+        const sourceTitles = template.pathSources
+          .filter((source) => (stage.sourceIds ?? []).includes(source.id))
+          .map((source) => source.title);
+        return `${stage.id}  |  owners=${stage.agentIds.join(", ")}  |  sources=${sourceTitles.join(", ") || "agent memory banks"}`;
+      }),
+    );
     return;
   }
 
@@ -6492,7 +7003,9 @@ async function handlePath(rest: string[]) {
       userRequest: requestText ?? `run ${pathName}`,
       ...(domain ? { domain } : {}),
     });
-    let formation = !fresh ? store.findBySessionAndPath(config.sessionId, pathName) as BuccetPathFormationState | null : null;
+    let formation = !fresh
+      ? (store.findBySessionAndPath(config.sessionId, pathName) as BuccetPathFormationState | null)
+      : null;
     let started = "resumed";
     if (!formation || isTerminalPathFormation(formation)) {
       formation = boundary.instantiateBuccetFormation({
@@ -6535,7 +7048,9 @@ async function handlePath(rest: string[]) {
         advancedSteps,
         formation,
         liveView,
-        terminalResult: isTerminalPathFormation(formation) ? boundary.getBuccetFormationTerminalResult(formation) : null,
+        terminalResult: isTerminalPathFormation(formation)
+          ? boundary.getBuccetFormationTerminalResult(formation)
+          : null,
       });
       return;
     }
@@ -6549,7 +7064,9 @@ async function handlePath(rest: string[]) {
     ]);
     process.stdout.write(boundary.renderBuccetFormationLiveView(formation));
     if (isTerminalPathFormation(formation)) {
-      console.log(`terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`);
+      console.log(
+        `terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`,
+      );
     }
     return;
   }
@@ -6604,7 +7121,9 @@ async function handlePath(rest: string[]) {
         formationsPath: home.pathFormationSnapshotPath,
         formation,
         liveView: boundary.describeBuccetFormationLiveView(formation),
-        terminalResult: isTerminalPathFormation(formation) ? boundary.getBuccetFormationTerminalResult(formation) : null,
+        terminalResult: isTerminalPathFormation(formation)
+          ? boundary.getBuccetFormationTerminalResult(formation)
+          : null,
       });
       return;
     }
@@ -6617,7 +7136,9 @@ async function handlePath(rest: string[]) {
         }
         process.stdout.write(rendered);
         if (isTerminalPathFormation(formation)) {
-          console.log(`terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`);
+          console.log(
+            `terminal_result: ${String(boundary.getBuccetFormationTerminalResult(formation) ?? "none")}`,
+          );
         }
         lastRendered = rendered;
       }
@@ -6646,8 +7167,9 @@ async function handlePath(rest: string[]) {
     const boundary = await importBoundary(homePath);
     const store = await loadPersistedBuccetPathMemoryStore(boundary, home);
     const includeAllSessions = rest.includes("--all-sessions");
-    const formations = (includeAllSessions ? store.list() : store.listBySession(config.sessionId))
-      .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+    const formations = (
+      includeAllSessions ? store.list() : store.listBySession(config.sessionId)
+    ).sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
     if (asJson) {
       printJson({
         formationsPath: home.pathFormationSnapshotPath,
@@ -6660,7 +7182,9 @@ async function handlePath(rest: string[]) {
           currentStageId: formation.stages[formation.currentStageIndex]?.id ?? null,
           updatedAt: formation.updatedAt,
           agentCount: formation.agentRoster.length,
-          sourceCount: formation.pathSources.filter((s) => !boundary.isBuiltinTeamBrainSourceId(s.id)).length,
+          sourceCount: formation.pathSources.filter(
+            (s) => !boundary.isBuiltinTeamBrainSourceId(s.id),
+          ).length,
         })),
       });
       return;
@@ -6670,16 +7194,22 @@ async function handlePath(rest: string[]) {
       formatCliKeyValue("path", home.pathFormationSnapshotPath),
       formatCliKeyValue("formations", formations.length),
     ]);
-    printCliSection("Formations", formations.length > 0
-      ? formations.map((formation) => (
-        `${formation.formationId}  |  path=${formation.pathName}  |  domain=${formation.domain}  |  status=${formation.status}  |  stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"}  |  agents=${formation.agentRoster.length}  |  sources=${formation.pathSources.length}`
-      ))
-      : ["none"]);
+    printCliSection(
+      "Formations",
+      formations.length > 0
+        ? formations.map(
+            (formation) =>
+              `${formation.formationId}  |  path=${formation.pathName}  |  domain=${formation.domain}  |  status=${formation.status}  |  stage=${formation.stages[formation.currentStageIndex]?.id ?? "none"}  |  agents=${formation.agentRoster.length}  |  sources=${formation.pathSources.length}`,
+          )
+        : ["none"],
+    );
     return;
   }
 
   if (subcommand === "freeze") {
-    const selector = rest.find((token, index) => index > 0 && token !== "--json" && !token.startsWith("--"));
+    const selector = rest.find(
+      (token, index) => index > 0 && token !== "--json" && !token.startsWith("--"),
+    );
     if (!selector) {
       usage();
     }
@@ -6734,10 +7264,12 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Mass-froze work swarm`);
+    console.log("Mass-froze work swarm");
     console.log(`formation: ${frozen.formationId}`);
     console.log(`path: ${frozen.pathName}`);
-    console.log(`pending inspection: ${frozen.control.pendingInspectionAgentIds.join(", ") || "none"}`);
+    console.log(
+      `pending inspection: ${frozen.control.pendingInspectionAgentIds.join(", ") || "none"}`,
+    );
     return;
   }
 
@@ -6772,12 +7304,21 @@ async function handlePath(rest: string[]) {
       formatCliKeyValue("formation", formation.formationId),
       formatCliKeyValue("path", formation.pathName),
       formatCliKeyValue("swarm frozen", formation.control.massFrozen ? "yes" : "no"),
-      formatCliKeyValue("pending inspection", formation.control.pendingInspectionAgentIds.join(", ") || "none"),
-      formation.control.freezeReason ? formatCliKeyValue("freeze reason", formation.control.freezeReason) : null,
+      formatCliKeyValue(
+        "pending inspection",
+        formation.control.pendingInspectionAgentIds.join(", ") || "none",
+      ),
+      formation.control.freezeReason
+        ? formatCliKeyValue("freeze reason", formation.control.freezeReason)
+        : null,
     ]);
-    printCliSection("Agents", liveView.agents.map((agent) => (
-      `${agent.id}  |  ${agent.title}  |  status=${agent.status}  |  control=${agent.controlState}  |  stage=${agent.currentStageId ?? "none"}${agent.replacementAgentId ? `  |  replacement=${agent.replacementAgentId}` : ""}`
-    )));
+    printCliSection(
+      "Agents",
+      liveView.agents.map(
+        (agent) =>
+          `${agent.id}  |  ${agent.title}  |  status=${agent.status}  |  control=${agent.controlState}  |  stage=${agent.currentStageId ?? "none"}${agent.replacementAgentId ? `  |  replacement=${agent.replacementAgentId}` : ""}`,
+      ),
+    );
     return;
   }
 
@@ -6785,8 +7326,19 @@ async function handlePath(rest: string[]) {
     const actionToken = rest[1];
     const selector = rest[2];
     const agentId = rest[3];
-    const allowedActions = new Set<BuccetPathAgentAction>(["inspect", "resume", "quarantine", "replace", "abort"]);
-    if (!actionToken || !allowedActions.has(actionToken as BuccetPathAgentAction) || !selector || !agentId) {
+    const allowedActions = new Set<BuccetPathAgentAction>([
+      "inspect",
+      "resume",
+      "quarantine",
+      "replace",
+      "abort",
+    ]);
+    if (
+      !actionToken ||
+      !allowedActions.has(actionToken as BuccetPathAgentAction) ||
+      !selector ||
+      !agentId
+    ) {
       usage();
     }
     const action = actionToken as BuccetPathAgentAction;
@@ -6855,12 +7407,14 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Applied agent action`);
+    console.log("Applied agent action");
     console.log(`formation: ${updated.formationId}`);
     console.log(`path: ${updated.pathName}`);
     console.log(`agent: ${agent.id}`);
     console.log(`control: ${agent.control.state}`);
-    console.log(`pending inspection: ${updated.control.pendingInspectionAgentIds.join(", ") || "none"}`);
+    console.log(
+      `pending inspection: ${updated.control.pendingInspectionAgentIds.join(", ") || "none"}`,
+    );
     return;
   }
 
@@ -6889,7 +7443,7 @@ async function handlePath(rest: string[]) {
       });
       return;
     }
-    console.log(`Closed Buccet formation`);
+    console.log("Closed Buccet formation");
     console.log(`formation: ${formation.formationId}`);
     console.log(`path: ${formation.pathName}`);
     return;
@@ -6966,19 +7520,19 @@ async function handlePath(rest: string[]) {
         printJson({
           libraryPath: home.pathLibraryPath,
           pathName,
-          domain: library[pathName]!.domain,
+          domain: library[pathName]?.domain,
           addedSources: newSources,
-          totalSources: library[pathName]!.pathSources.length,
+          totalSources: library[pathName]?.pathSources.length,
         });
         return;
       }
-      console.log(`Added path sources`);
+      console.log("Added path sources");
       console.log(`path: ${pathName}`);
-      console.log(`domain: ${library[pathName]!.domain}`);
+      console.log(`domain: ${library[pathName]?.domain}`);
       console.log(`scanned: ${filePaths.length} file${filePaths.length === 1 ? "" : "s"}`);
       console.log(`added: ${newSources.length}`);
       console.log(`skipped: ${filePaths.length - newSources.length}`);
-      console.log(`total sources: ${library[pathName]!.pathSources.length}`);
+      console.log(`total sources: ${library[pathName]?.pathSources.length}`);
       for (const source of newSources) {
         console.log(`- ${source.title} | ${source.sourceUri ?? source.id}`);
       }
@@ -7008,7 +7562,9 @@ async function handlePath(rest: string[]) {
       console.log(`domain: ${template.domain}`);
       console.log(`count: ${template.pathSources.length}`);
       for (const source of template.pathSources) {
-        console.log(`- ${source.id} | ${source.title} | ${source.kind}${source.sourceUri ? ` | ${source.sourceUri}` : ""}`);
+        console.log(
+          `- ${source.id} | ${source.title} | ${source.kind}${source.sourceUri ? ` | ${source.sourceUri}` : ""}`,
+        );
       }
       return;
     }
@@ -7070,12 +7626,14 @@ async function handleRun(rest: string[]) {
   }
 
   const existingConfig = await loadConfig(home.configPath);
-  const config = existingConfig ?? baseConfig({
-    sessionId: sessionId ?? "agent-buccet-default",
-    actorId: actorId ?? defaultActorId(),
-    defaultScopes: [callerCwd],
-    dryRun,
-  });
+  const config =
+    existingConfig ??
+    baseConfig({
+      sessionId: sessionId ?? "agent-buccet-default",
+      actorId: actorId ?? defaultActorId(),
+      defaultScopes: [callerCwd],
+      dryRun,
+    });
   const nextConfig: BuccetConfig = {
     ...config,
     sessionId: sessionId ?? config.sessionId,
@@ -7138,7 +7696,10 @@ async function handleRun(rest: string[]) {
     command,
     commandArgs: commandArgs.slice(1),
     scopePaths: uniquePaths(
-      store.getConfig().pathLaws.filter((law) => !law.revokedAt).map((law) => law.rootPath),
+      store
+        .getConfig()
+        .pathLaws.filter((law) => !law.revokedAt)
+        .map((law) => law.rootPath),
     ),
     sessionsDir: home.sessionsDir,
     keepSession: true,
@@ -7221,7 +7782,9 @@ async function handleTransport(rest: string[]) {
     console.log(`name: ${result.manifest.name}`);
     console.log(`workdir: ${result.manifest.workdir}`);
     console.log(`files: ${result.manifest.fileCount}`);
-    console.log(`entrypoint: ${result.manifest.entrypoint.length > 0 ? result.manifest.entrypoint.join(" ") : "(none)"}`);
+    console.log(
+      `entrypoint: ${result.manifest.entrypoint.length > 0 ? result.manifest.entrypoint.join(" ") : "(none)"}`,
+    );
     if (result.lawEntryCount !== undefined) {
       console.log(`law entries: ${result.lawEntryCount} (ledger-witnessed)`);
     }
@@ -7257,7 +7820,7 @@ async function handleTransport(rest: string[]) {
       return;
     }
 
-    console.log(`Buccet transport import`);
+    console.log("Buccet transport import");
     console.log(`artifact: ${artifactPath}`);
     console.log(`destination: ${result.destinationDir}`);
     console.log(`rootfs: ${result.rootfsPath}`);
@@ -7303,7 +7866,7 @@ async function handleTransport(rest: string[]) {
     if (asJson) {
       printJson(result);
     } else {
-      console.log(`Buccet transport run`);
+      console.log("Buccet transport run");
       console.log(`name: ${result.manifest.name}`);
       console.log(`runtime: ${result.runtimeDir}`);
       console.log(`cwd: ${result.launchCwd}`);
@@ -7335,7 +7898,10 @@ function toShedHistoryEntry(record: {
     metadata?: Record<string, unknown>;
   };
 }): BuccetShedHistoryEntry | null {
-  if (record.META.event_type !== "DISPOSABLE_SHED_TRIGGERED" && record.META.event_type !== "DISPOSABLE_RESPAWNED") {
+  if (
+    record.META.event_type !== "DISPOSABLE_SHED_TRIGGERED" &&
+    record.META.event_type !== "DISPOSABLE_RESPAWNED"
+  ) {
     return null;
   }
   return {
@@ -7417,11 +7983,15 @@ async function handleShed(rest: string[]) {
       formatCliKeyValue("respawns", payload.respawnCount),
       formatCliKeyValue("latest", payload.latest?.createdAt ?? "none"),
     ]);
-    printCliSection("Entries", payload.entries.length > 0
-      ? payload.entries.map((entry) => (
-        `${entry.createdAt} | ${entry.eventType} | ${entry.actionKind ?? "-"} | ${entry.reason ?? "-"}`
-      ))
-      : ["No shed events recorded for this session."]);
+    printCliSection(
+      "Entries",
+      payload.entries.length > 0
+        ? payload.entries.map(
+            (entry) =>
+              `${entry.createdAt} | ${entry.eventType} | ${entry.actionKind ?? "-"} | ${entry.reason ?? "-"}`,
+          )
+        : ["No shed events recorded for this session."],
+    );
     console.log("");
     return;
   }
@@ -7486,9 +8056,7 @@ async function buildQuarantineStatusPayload(args: {
   });
   const report = status.report;
   const tail = report
-    ? report.items
-      .filter((item) => item.verdict === "pit")
-      .slice(0, Math.max(1, args.limit))
+    ? report.items.filter((item) => item.verdict === "pit").slice(0, Math.max(1, args.limit))
     : [];
   const groups = report
     ? report.pitGroups.slice(0, Math.max(1, args.limit)).map((group) => ({
@@ -7515,7 +8083,9 @@ async function buildQuarantineStatusPayload(args: {
     complete: report?.complete ?? false,
     survivors: report?.survivorCount ?? 0,
     pitCount: report?.pitCount ?? 0,
-    pendingCount: report?.items.filter((item) => item.verdict === "pit" && item.resolution === "pending").length ?? 0,
+    pendingCount:
+      report?.items.filter((item) => item.verdict === "pit" && item.resolution === "pending")
+        .length ?? 0,
     totalShards: report?.totalShards ?? 0,
     completedShards: report?.completedShards ?? 0,
     shardSize: report?.shardSize ?? 0,
@@ -7578,9 +8148,9 @@ async function runInteractiveQuarantineReview(args: {
   const scriptedAnswers = interactive
     ? []
     : String(await streamToBuffer(args.input))
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter((line) => line.length > 0);
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0);
 
   const ask = async (prompt: string) => {
     if (rl) {
@@ -7608,7 +8178,9 @@ async function runInteractiveQuarantineReview(args: {
       };
     }
 
-    let pendingEntries = payload.entries.filter((entry) => entry.verdict === "pit" && entry.resolution === "pending");
+    let pendingEntries = payload.entries.filter(
+      (entry) => entry.verdict === "pit" && entry.resolution === "pending",
+    );
     let reviewIndex = 0;
 
     while (true) {
@@ -7647,9 +8219,12 @@ async function runInteractiveQuarantineReview(args: {
         formatCliKeyValue("top laws", formatSummaryCounts(payload.topLawIds)),
         formatCliKeyValue("top reasons", formatSummaryCounts(payload.topReasons)),
       ]);
-      printCliSection("Isolation Groups", payload.groups.length > 0
-        ? payload.groups.map((group, index) => formatQuarantineGroup(group, index))
-        : ["No reduced pit groups recorded for this session."]);
+      printCliSection(
+        "Isolation Groups",
+        payload.groups.length > 0
+          ? payload.groups.map((group, index) => formatQuarantineGroup(group, index))
+          : ["No reduced pit groups recorded for this session."],
+      );
 
       console.log("  Resolve:");
       console.log("  1. deny all as law");
@@ -7671,7 +8246,9 @@ async function runInteractiveQuarantineReview(args: {
           sessionsDir: args.sessionsDir,
         });
         payload = await loadPayload();
-        pendingEntries = payload.entries.filter((entry) => entry.verdict === "pit" && entry.resolution === "pending");
+        pendingEntries = payload.entries.filter(
+          (entry) => entry.verdict === "pit" && entry.resolution === "pending",
+        );
         console.log("");
         printCliHeader("  Quarantine Denials Recorded");
         printCliSection("Result", [
@@ -7742,7 +8319,9 @@ async function runInteractiveQuarantineReview(args: {
             itemIds: [entry.itemId],
           });
           payload = await loadPayload();
-          pendingEntries = payload.entries.filter((item) => item.verdict === "pit" && item.resolution === "pending");
+          pendingEntries = payload.entries.filter(
+            (item) => item.verdict === "pit" && item.resolution === "pending",
+          );
           continue;
         }
 
@@ -7798,34 +8377,40 @@ async function handleQuarantine(rest: string[]) {
     }
 
     printCliHeader("  Shed Reboot — Boundary on Self");
-      printCliSection("Quarantine", [
-        formatCliKeyValue("session", payload.sessionId),
-        formatCliKeyValue("required", payload.required ? "yes" : "no"),
-        formatCliKeyValue("status", payload.status),
-        formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
+    printCliSection("Quarantine", [
+      formatCliKeyValue("session", payload.sessionId),
+      formatCliKeyValue("required", payload.required ? "yes" : "no"),
+      formatCliKeyValue("status", payload.status),
+      formatCliKeyValue("triggered", payload.triggeredAt ?? "-"),
       formatCliKeyValue("reason", payload.reason ?? "-"),
       formatCliKeyValue("processed", `${payload.processedItems}/${payload.total}`),
       formatCliKeyValue("survivors", payload.survivors),
       formatCliKeyValue("pit", payload.pitCount),
-        formatCliKeyValue("pending", payload.pendingCount),
-        formatCliKeyValue("resolved", payload.resolvedCount),
-        formatCliKeyValue("approved pit", payload.approvedPitCount),
-        formatCliKeyValue("denied pit", payload.deniedPitCount),
-        formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
-        formatCliKeyValue("shard size", payload.shardSize || "-"),
-        formatCliKeyValue("workers", payload.workerCount || "-"),
-      ]);
+      formatCliKeyValue("pending", payload.pendingCount),
+      formatCliKeyValue("resolved", payload.resolvedCount),
+      formatCliKeyValue("approved pit", payload.approvedPitCount),
+      formatCliKeyValue("denied pit", payload.deniedPitCount),
+      formatCliKeyValue("shards", `${payload.completedShards}/${payload.totalShards}`),
+      formatCliKeyValue("shard size", payload.shardSize || "-"),
+      formatCliKeyValue("workers", payload.workerCount || "-"),
+    ]);
     printCliSection("Pit Summary", [
       formatCliKeyValue("top laws", formatSummaryCounts(payload.topLawIds)),
       formatCliKeyValue("top reasons", formatSummaryCounts(payload.topReasons)),
       formatCliKeyValue("top actions", formatSummaryCounts(payload.topActionKinds)),
     ]);
-    printCliSection("Isolation Groups", payload.groups.length > 0
-      ? payload.groups.map((group, index) => formatQuarantineGroup(group, index))
-      : ["No reduced pit groups recorded for this session."]);
-    printCliSection("Caught Set", payload.entries.length > 0
-      ? payload.entries.map((entry, index) => formatQuarantineEntry(entry, index))
-      : ["No quarantine items recorded for this session."]);
+    printCliSection(
+      "Isolation Groups",
+      payload.groups.length > 0
+        ? payload.groups.map((group, index) => formatQuarantineGroup(group, index))
+        : ["No reduced pit groups recorded for this session."],
+    );
+    printCliSection(
+      "Caught Set",
+      payload.entries.length > 0
+        ? payload.entries.map((entry, index) => formatQuarantineEntry(entry, index))
+        : ["No quarantine items recorded for this session."],
+    );
     console.log("");
     return;
   }
@@ -7845,9 +8430,8 @@ async function handleQuarantine(rest: string[]) {
   }
 
   if (subcommand === "deny-all" || subcommand === "deny") {
-    const itemIds = subcommand === "deny"
-      ? rest.slice(1).filter((token) => token !== "--json")
-      : [];
+    const itemIds =
+      subcommand === "deny" ? rest.slice(1).filter((token) => token !== "--json") : [];
     if (subcommand === "deny" && itemIds.length === 0) {
       usage();
     }
@@ -7872,7 +8456,9 @@ async function handleQuarantine(rest: string[]) {
     }
 
     const applied = report.items.filter((item) => item.resolution === "denied_as_law").length;
-    const remaining = report.items.filter((item) => item.verdict === "pit" && item.resolution === "pending").length;
+    const remaining = report.items.filter(
+      (item) => item.verdict === "pit" && item.resolution === "pending",
+    ).length;
     const payload = {
       sessionId: config.sessionId,
       applied,
@@ -7909,7 +8495,7 @@ async function assertNoActiveQuarantine(args: {
   if (sessionState?.quarantineState?.required) {
     throw new Error(
       "quarantine is active; normal runtime remains asleep until caught items are resolved. " +
-      "Run `buccet quarantine status` first.",
+        "Run `buccet quarantine status` first.",
     );
   }
 }
@@ -8005,56 +8591,62 @@ function createUsage(): never {
   const localProviders = Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ");
   const engineProviders = Object.keys(ENGINE_PROVIDER_DEFAULTS).join(", ");
   const httpProviders = Object.keys(HTTP_API_PROVIDER_DEFAULTS).join(", ");
-  console.error([
-    "Usage:",
-    "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
-    "  buccet create spend <team-name> --domain <domain> [--summary <text>] [--notes <text>] [--confirm-spend]",
-    "                                   SPEND Buccet only — prints a warning; non-interactive shells need --confirm-spend",
-    "  buccet create trace <team-name> [--tail <n>] [--json]           proof-of-work trace from path-source memory",
-    "  buccet create show <team-name> [--json]",
-    "  buccet create list [--json]",
-    "  buccet create cockpit [--json]",
-    "  buccet create remove <team-name> [--force]",
-    "  buccet create history <team-name> [--json]",
-    "  buccet create rollback <team-name> --snapshot <snapshot-id> [--json]",
-    "  buccet create cherry-pick <team-name> --snapshot <snapshot-id> --sources <csv> [--json]",
-    "  buccet create add-agent <team-name> --name <agent-id> --specialty <text> [--title <text>]",
-    "                                       [--model <hint>] [--owns-step <stage>] [--tools <csv>]",
-    "                                       [--sources <csv>] [--cap <number>] [--notes <text>]",
-    "  buccet create remove-agent <team-name> --name <agent-id>",
-    "",
-    "  buccet create add-source <team-name> <file> [--title <t>] [--kind <k>] [--summary <s>]",
-    "                                              ; on-disk markdown / code / json (file transport)",
-    "  buccet create add-source <team-name> --remote <provider> [--model <m>] [--endpoint <url>]",
-    "                                              [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
-    "                                              [--title <t>] [--summary <s>]",
-    "                                              ; AI/LLM transport (network.send, gated by UPL)",
-    "  buccet create add-source <team-name> --local <provider> --model <m> [--binary <bin>]",
-    "                                              [--endpoint <url>] [--title <t>] [--summary <s>]",
-    "                                              ; local-LLM transport (tool.exec, gated by UPL)",
-    "  buccet create add-source <team-name> --http <preset> [--endpoint <url>] [--method GET|POST]",
-    "                                             [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
-    "                                             [--title <t>] [--summary <s>]",
-    "                                             ; http-api transport — vectors / hybrid search / RAG (network.send)",
-    "  buccet create add-source <team-name> --engine <provider> [--package <pkg>]",
-    "                                              [--ai-package <pkg>] [--allow-tools <csv>]",
-    "                                              [--tool-execution parallel|sequential]",
-    "                                              [--title <t>] [--summary <s>]",
-    "                                              ; HANDS — Pi (or other) execution engine; one per team.",
-    "                                              ; tools dispatch through fs.* / tool.exec / network.send,",
-    "                                              ; each gated by UPL via Pi's beforeToolCall hook.",
-    "  buccet create remove-source <team-name> --id <source-id>",
-    "",
-    `  Stages for --owns-step:    ${COMPREHENSION_STAGE_IDS.join(", ")}`,
-    `  Remote providers (--remote): ${remoteProviders}`,
-    `  Local providers (--local):   ${localProviders}`,
-    `  HTTP presets (--http):      ${httpProviders}`,
-    `  Engine providers (--engine): ${engineProviders}`,
-  ].join("\n"));
+  console.error(
+    [
+      "Usage:",
+      "  buccet create <team-name> [--domain <domain>] [--summary <text>] [--notes <text>]",
+      "  buccet create spend <team-name> --domain <domain> [--summary <text>] [--notes <text>] [--confirm-spend]",
+      "                                   SPEND Buccet only — prints a warning; non-interactive shells need --confirm-spend",
+      "  buccet create trace <team-name> [--tail <n>] [--json]           proof-of-work trace from path-source memory",
+      "  buccet create show <team-name> [--json]",
+      "  buccet create list [--json]",
+      "  buccet create cockpit [--json]",
+      "  buccet create remove <team-name> [--force]",
+      "  buccet create history <team-name> [--json]",
+      "  buccet create rollback <team-name> --snapshot <snapshot-id> [--json]",
+      "  buccet create cherry-pick <team-name> --snapshot <snapshot-id> --sources <csv> [--json]",
+      "  buccet create add-agent <team-name> --name <agent-id> --specialty <text> [--title <text>]",
+      "                                       [--model <hint>] [--owns-step <stage>] [--tools <csv>]",
+      "                                       [--sources <csv>] [--cap <number>] [--notes <text>]",
+      "  buccet create remove-agent <team-name> --name <agent-id>",
+      "",
+      "  buccet create add-source <team-name> <file> [--title <t>] [--kind <k>] [--summary <s>]",
+      "                                              ; on-disk markdown / code / json (file transport)",
+      "  buccet create add-source <team-name> --remote <provider> [--model <m>] [--endpoint <url>]",
+      "                                              [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
+      "                                              [--title <t>] [--summary <s>]",
+      "                                              ; AI/LLM transport (network.send, gated by UPL)",
+      "  buccet create add-source <team-name> --local <provider> --model <m> [--binary <bin>]",
+      "                                              [--endpoint <url>] [--title <t>] [--summary <s>]",
+      "                                              ; local-LLM transport (tool.exec, gated by UPL)",
+      "  buccet create add-source <team-name> --http <preset> [--endpoint <url>] [--method GET|POST]",
+      "                                             [--key-env <ENV_VAR>] [--rate-cap-per-minute <n>]",
+      "                                             [--title <t>] [--summary <s>]",
+      "                                             ; http-api transport — vectors / hybrid search / RAG (network.send)",
+      "  buccet create add-source <team-name> --engine <provider> [--package <pkg>]",
+      "                                              [--ai-package <pkg>] [--allow-tools <csv>]",
+      "                                              [--tool-execution parallel|sequential]",
+      "                                              [--title <t>] [--summary <s>]",
+      "                                              ; HANDS — Pi (or other) execution engine; one per team.",
+      "                                              ; tools dispatch through fs.* / tool.exec / network.send,",
+      "                                              ; each gated by UPL via Pi's beforeToolCall hook.",
+      "  buccet create remove-source <team-name> --id <source-id>",
+      "",
+      `  Stages for --owns-step:    ${COMPREHENSION_STAGE_IDS.join(", ")}`,
+      `  Remote providers (--remote): ${remoteProviders}`,
+      `  Local providers (--local):   ${localProviders}`,
+      `  HTTP presets (--http):      ${httpProviders}`,
+      `  Engine providers (--engine): ${engineProviders}`,
+    ].join("\n"),
+  );
   process.exit(1);
 }
 
-function parseFlagPairs(rest: string[]): { positional: string[]; flags: Record<string, string>; bools: Set<string> } {
+function parseFlagPairs(rest: string[]): {
+  positional: string[];
+  flags: Record<string, string>;
+  bools: Set<string>;
+} {
   const positional: string[] = [];
   const flags: Record<string, string> = {};
   const bools = new Set<string>();
@@ -8079,7 +8671,10 @@ function parseFlagPairs(rest: string[]): { positional: string[]; flags: Record<s
 
 function csvList(value: string | undefined): string[] {
   if (!value) return [];
-  return value.split(",").map((s) => s.trim()).filter(Boolean);
+  return value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 function promptLine(question: string): Promise<string> {
@@ -8151,7 +8746,10 @@ function printTeamHeader(manifest: TeamManifest): void {
   const identity: string[] = [
     formatCliKeyValue("slug", manifest.slug),
     formatCliKeyValue("domain", manifest.domain),
-    formatCliKeyValue("class", manifest.buccetClass === "spend" ? "SPEND (financial agents)" : "workshop (default)"),
+    formatCliKeyValue(
+      "class",
+      manifest.buccetClass === "spend" ? "SPEND (financial agents)" : "workshop (default)",
+    ),
     formatCliKeyValue("status", manifest.status),
     formatCliKeyValue("created", manifest.createdAt),
     formatCliKeyValue("updated", manifest.updatedAt),
@@ -8168,7 +8766,9 @@ function printTeamHeader(manifest: TeamManifest): void {
 
 function printTeamRoster(manifest: TeamManifest): void {
   if (manifest.agents.length === 0) {
-    printCliSection("Roster", [`  ${clrDim("(no agents yet — `buccet create add-agent " + manifest.slug + " --name <id> --specialty <text>` to add one)")}`]);
+    printCliSection("Roster", [
+      `  ${clrDim(`(no agents yet — \`buccet create add-agent ${manifest.slug} --name <id> --specialty <text>\` to add one)`)}`,
+    ]);
     return;
   }
   const rows: string[] = [];
@@ -8176,9 +8776,7 @@ function printTeamRoster(manifest: TeamManifest): void {
     const cap = agent.spend.capNormalized === null ? "no cap" : `cap ${agent.spend.capNormalized}`;
     const sources = agent.sourceIds.length;
     const tools = agent.tools.length;
-    rows.push(
-      `  ${clrBold(agent.id)}  ${clrDim(agent.specialty)}`,
-    );
+    rows.push(`  ${clrBold(agent.id)}  ${clrDim(agent.specialty)}`);
     rows.push(
       `    ${clrDim("model:")} ${agent.modelHint ?? "-"}    ${clrDim("owns-step:")} ${agent.ownsStep}    ${clrDim("sources:")} ${sources}    ${clrDim("tools:")} ${tools}    ${clrDim("spend:")} ${agent.spend.spentNormalized}/${cap}`,
     );
@@ -8190,7 +8788,9 @@ function printTeamCorpus(manifest: TeamManifest): void {
   const rows: string[] = [];
   for (const source of manifest.pathSourceCorpus) {
     rows.push(`  ${clrBold(source.id)}  ${clrDim(source.title)}`);
-    rows.push(`    ${clrDim("kind:")} ${source.kind}${source.sourceUri ? `    ${clrDim("uri:")} ${source.sourceUri}` : ""}`);
+    rows.push(
+      `    ${clrDim("kind:")} ${source.kind}${source.sourceUri ? `    ${clrDim("uri:")} ${source.sourceUri}` : ""}`,
+    );
   }
   printCliSection("Path-source corpus", rows);
 }
@@ -8209,7 +8809,10 @@ function printTeamPreparation(preparation: TeamRuntimePreparation | null): void 
   if (!preparation) {
     printCliSection("Prepared map", [
       formatCliKeyValue("status", "not prepared yet"),
-      formatCliKeyValue("note", "run `buccet team start <team>` to prepare the whole-view before first input"),
+      formatCliKeyValue(
+        "note",
+        "run `buccet team start <team>` to prepare the whole-view before first input",
+      ),
     ]);
     return;
   }
@@ -8218,8 +8821,14 @@ function printTeamPreparation(preparation: TeamRuntimePreparation | null): void 
     formatCliKeyValue("team status", preparation.teamStatus),
     formatCliKeyValue("brain-pass ready", preparation.canBrainPass ? "yes" : "no"),
     formatCliKeyValue("spokesperson", preparation.spokespersonAgentId ?? "-"),
-    formatCliKeyValue("path sources", `${preparation.pathSourceCount} (${preparation.checkpointedSourceCount} checkpointed)`),
-    formatCliKeyValue("whole-view size", `${preparation.totalLineCount} lines · ${preparation.totalCharCount} chars`),
+    formatCliKeyValue(
+      "path sources",
+      `${preparation.pathSourceCount} (${preparation.checkpointedSourceCount} checkpointed)`,
+    ),
+    formatCliKeyValue(
+      "whole-view size",
+      `${preparation.totalLineCount} lines · ${preparation.totalCharCount} chars`,
+    ),
   ]);
 }
 
@@ -8240,8 +8849,12 @@ async function handleCreate(rest: string[]) {
     }
     if (teams.length === 0) {
       console.log("");
-      console.log(`  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`);
-      console.log(`  ${clrDim("Financial agents:")}  ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")}`);
+      console.log(
+        `  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`,
+      );
+      console.log(
+        `  ${clrDim("Financial agents:")}  ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")}`,
+      );
       console.log("");
       return;
     }
@@ -8249,7 +8862,9 @@ async function handleCreate(rest: string[]) {
     const rows: string[] = [];
     for (const team of teams) {
       const spendTag = team.buccetClass === "spend" ? `${clrWarn("SPEND")} ` : "";
-      rows.push(`  ${spendTag}${clrBold(team.slug.padEnd(20))} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}    ${clrDim(team.summary)}`);
+      rows.push(
+        `  ${spendTag}${clrBold(team.slug.padEnd(20))} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}    ${clrDim(team.summary)}`,
+      );
     }
     printCliSection("Standing teams", rows);
     return;
@@ -8312,7 +8927,7 @@ async function handleCreate(rest: string[]) {
     const teamName = rest[1];
     if (!teamName) createUsage();
     const { flags, bools } = parseFlagPairs(rest.slice(2));
-    const snapshotId = flags["snapshot"];
+    const snapshotId = flags.snapshot;
     if (!snapshotId) {
       console.error("buccet create rollback requires --snapshot <snapshot-id>.");
       createUsage();
@@ -8324,18 +8939,26 @@ async function handleCreate(rest: string[]) {
       snapshotId,
     });
     if (bools.has("json")) {
-      console.log(JSON.stringify({
-        team: slug,
-        snapshotId: result.snapshot.snapshotId,
-        at: result.snapshot.at,
-        trigger: result.snapshot.trigger,
-        manifest: result.manifest,
-      }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            team: slug,
+            snapshotId: result.snapshot.snapshotId,
+            at: result.snapshot.at,
+            trigger: result.snapshot.trigger,
+            manifest: result.manifest,
+          },
+          null,
+          2,
+        ),
+      );
       return;
     }
     console.log(`${clrOk(`team ${slug} restored`)}    ${clrDim(result.snapshot.snapshotId)}`);
-    console.log(`  ${clrDim(`Exact-time continuity restore from ${result.snapshot.at} via ${result.snapshot.trigger.kind}.`)}`);
-    console.log(`  ${clrDim(`Trigger:`)} ${result.snapshot.trigger.title}`);
+    console.log(
+      `  ${clrDim(`Exact-time continuity restore from ${result.snapshot.at} via ${result.snapshot.trigger.kind}.`)}`,
+    );
+    console.log(`  ${clrDim("Trigger:")} ${result.snapshot.trigger.title}`);
     return;
   }
 
@@ -8343,8 +8966,8 @@ async function handleCreate(rest: string[]) {
     const teamName = rest[1];
     if (!teamName) createUsage();
     const { flags, bools } = parseFlagPairs(rest.slice(2));
-    const snapshotId = flags["snapshot"];
-    const sourceIds = csvList(flags["sources"]);
+    const snapshotId = flags.snapshot;
+    const sourceIds = csvList(flags.sources);
     if (!snapshotId || sourceIds.length === 0) {
       console.error("buccet create cherry-pick requires --snapshot <snapshot-id> --sources <csv>.");
       createUsage();
@@ -8357,15 +8980,23 @@ async function handleCreate(rest: string[]) {
       sourceIds,
     });
     if (bools.has("json")) {
-      console.log(JSON.stringify({
-        team: slug,
-        snapshotId: result.snapshot.snapshotId,
-        sources: result.sources,
-        manifest: result.manifest,
-      }, null, 2));
+      console.log(
+        JSON.stringify(
+          {
+            team: slug,
+            snapshotId: result.snapshot.snapshotId,
+            sources: result.sources,
+            manifest: result.manifest,
+          },
+          null,
+          2,
+        ),
+      );
       return;
     }
-    console.log(`${clrOk(`sources cherry-picked into ${slug}`)}    ${clrDim(result.snapshot.snapshotId)}`);
+    console.log(
+      `${clrOk(`sources cherry-picked into ${slug}`)}    ${clrDim(result.snapshot.snapshotId)}`,
+    );
     for (const source of result.sources) {
       console.log(`  ${clrDim(`${source.id}`)} ${source.title} ${clrDim(`(${source.kind})`)}`);
     }
@@ -8383,7 +9014,9 @@ async function handleCreate(rest: string[]) {
       process.exit(1);
     }
     if (!bools.has("force")) {
-      console.error(`Refusing to remove team "${slug}" without --force. Use \`buccet create remove ${slug} --force\`.`);
+      console.error(
+        `Refusing to remove team "${slug}" without --force. Use \`buccet create remove ${slug} --force\`.`,
+      );
       process.exit(1);
     }
     const ok = await deleteTeam(homePath, slug);
@@ -8400,14 +9033,14 @@ async function handleCreate(rest: string[]) {
     if (!teamName) createUsage();
     const { flags } = parseFlagPairs(rest.slice(2));
     const slug = teamSlug(teamName);
-    const agentId = flags["name"];
-    const specialty = flags["specialty"];
+    const agentId = flags.name;
+    const specialty = flags.specialty;
     if (!agentId || !specialty) {
       console.error("buccet create add-agent requires --name and --specialty.");
       createUsage();
     }
     const ownsStep = (flags["owns-step"] as ComprehensionStageId | undefined) ?? "all";
-    const cap = flags["cap"] !== undefined ? Number(flags["cap"]) : null;
+    const cap = flags.cap !== undefined ? Number(flags.cap) : null;
     if (cap !== null && Number.isNaN(cap)) {
       console.error("--cap must be a number.");
       process.exit(1);
@@ -8416,13 +9049,13 @@ async function handleCreate(rest: string[]) {
       homePath,
       slug,
       agentId: agentId,
-      title: flags["title"] ?? agentId,
+      title: flags.title ?? agentId,
       specialty: specialty,
-      modelHint: flags["model"],
+      modelHint: flags.model,
       ownsStep,
-      tools: csvList(flags["tools"]),
-      sourceIds: csvList(flags["sources"]),
-      memoryNotes: flags["notes"],
+      tools: csvList(flags.tools),
+      sourceIds: csvList(flags.sources),
+      memoryNotes: flags.notes,
       spendCapNormalized: cap,
     });
     console.log(`${clrOk(`peer ${agentId} added to ${manifest.slug}`)}`);
@@ -8435,7 +9068,7 @@ async function handleCreate(rest: string[]) {
     if (!teamName) createUsage();
     const { flags } = parseFlagPairs(rest.slice(2));
     const slug = teamSlug(teamName);
-    const agentId = flags["name"];
+    const agentId = flags.name;
     if (!agentId) {
       console.error("buccet create remove-agent requires --name.");
       createUsage();
@@ -8452,12 +9085,14 @@ async function handleCreate(rest: string[]) {
 
     const afterTeam = rest.slice(2);
     const { positional, flags } = parseFlagPairs(afterTeam);
-    const remoteFlag = flags["remote"];
-    const localFlag = flags["local"];
+    const remoteFlag = flags.remote;
+    const localFlag = flags.local;
 
     if (remoteFlag !== undefined) {
       if (!(remoteFlag in REMOTE_LLM_PROVIDER_DEFAULTS)) {
-        console.error(`Unknown remote provider "${remoteFlag}". Allowed: ${Object.keys(REMOTE_LLM_PROVIDER_DEFAULTS).join(", ")}`);
+        console.error(
+          `Unknown remote provider "${remoteFlag}". Allowed: ${Object.keys(REMOTE_LLM_PROVIDER_DEFAULTS).join(", ")}`,
+        );
         process.exit(1);
       }
       const rateCap = flags["rate-cap-per-minute"];
@@ -8465,25 +9100,29 @@ async function handleCreate(rest: string[]) {
         homePath,
         slug,
         provider: remoteFlag as RemoteLlmProvider,
-        endpoint: flags["endpoint"],
-        model: flags["model"],
+        endpoint: flags.endpoint,
+        model: flags.model,
         authEnvVar: flags["key-env"],
         rateCapPerMinute: rateCap !== undefined ? Number(rateCap) : undefined,
-        title: flags["title"],
-        summary: flags["summary"],
+        title: flags.title,
+        summary: flags.summary,
       });
       console.log(`${clrOk(`remote source ${remoteFlag} added to ${manifest.slug}`)}`);
-      console.log(`${clrDim("  Calls flow as network.send through the boundary; UPL acceptance is required.")}`);
+      console.log(
+        `${clrDim("  Calls flow as network.send through the boundary; UPL acceptance is required.")}`,
+      );
       printTeamCorpus(manifest);
       return;
     }
 
     if (localFlag !== undefined) {
       if (!(localFlag in LOCAL_LLM_PROVIDER_DEFAULTS)) {
-        console.error(`Unknown local provider "${localFlag}". Allowed: ${Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ")}`);
+        console.error(
+          `Unknown local provider "${localFlag}". Allowed: ${Object.keys(LOCAL_LLM_PROVIDER_DEFAULTS).join(", ")}`,
+        );
         process.exit(1);
       }
-      const model = flags["model"];
+      const model = flags.model;
       if (!model) {
         console.error(`Local provider "${localFlag}" requires --model.`);
         process.exit(1);
@@ -8493,78 +9132,91 @@ async function handleCreate(rest: string[]) {
         slug,
         provider: localFlag as LocalLlmProvider,
         model,
-        binary: flags["binary"],
-        endpoint: flags["endpoint"],
-        title: flags["title"],
-        summary: flags["summary"],
+        binary: flags.binary,
+        endpoint: flags.endpoint,
+        title: flags.title,
+        summary: flags.summary,
       });
       console.log(`${clrOk(`local source ${localFlag}:${model} added to ${manifest.slug}`)}`);
-      console.log(`${clrDim("  Calls flow as tool.exec through the boundary; UPL acceptance is required.")}`);
+      console.log(
+        `${clrDim("  Calls flow as tool.exec through the boundary; UPL acceptance is required.")}`,
+      );
       printTeamCorpus(manifest);
       return;
     }
 
-    const httpFlag = flags["http"];
+    const httpFlag = flags.http;
     if (httpFlag !== undefined) {
       if (!(httpFlag in HTTP_API_PROVIDER_DEFAULTS)) {
-        console.error(`Unknown HTTP preset "${httpFlag}". Allowed: ${Object.keys(HTTP_API_PROVIDER_DEFAULTS).join(", ")}`);
+        console.error(
+          `Unknown HTTP preset "${httpFlag}". Allowed: ${Object.keys(HTTP_API_PROVIDER_DEFAULTS).join(", ")}`,
+        );
         process.exit(1);
       }
-      const methodRaw = (flags["method"] ?? "").toUpperCase();
+      const methodRaw = (flags.method ?? "").toUpperCase();
       const rateRaw = flags["rate-cap-per-minute"];
       const manifest = await addTeamHttpApiSource({
         homePath,
         slug,
         provider: httpFlag as HttpApiProvider,
-        endpoint: flags["endpoint"],
+        endpoint: flags.endpoint,
         method:
-          methodRaw === "GET" || methodRaw === "POST"
-            ? (methodRaw as "GET" | "POST")
-            : undefined,
+          methodRaw === "GET" || methodRaw === "POST" ? (methodRaw as "GET" | "POST") : undefined,
         authEnvVar: flags["key-env"],
         rateCapPerMinute:
-          rateRaw !== undefined && rateRaw.trim() !== ""
-            ? Number(rateRaw)
-            : undefined,
-        title: flags["title"],
-        summary: flags["summary"],
+          rateRaw !== undefined && rateRaw.trim() !== "" ? Number(rateRaw) : undefined,
+        title: flags.title,
+        summary: flags.summary,
       });
       console.log(`${clrOk(`http-api source (${httpFlag}) added to ${manifest.slug}`)}`);
-      console.log(`${clrDim("  Calls flow as network.send; UPL acceptance corridors match the host pattern.")}`);
-      console.log(`${clrDim("  `--http custom` requires --endpoint — add acceptance for that host explicitly if not covered.")}`);
+      console.log(
+        `${clrDim("  Calls flow as network.send; UPL acceptance corridors match the host pattern.")}`,
+      );
+      console.log(
+        `${clrDim("  `--http custom` requires --endpoint — add acceptance for that host explicitly if not covered.")}`,
+      );
       printTeamCorpus(manifest);
       return;
     }
 
-    const engineFlag = flags["engine"];
+    const engineFlag = flags.engine;
     if (engineFlag !== undefined) {
       if (!(engineFlag in ENGINE_PROVIDER_DEFAULTS)) {
-        console.error(`Unknown engine provider "${engineFlag}". Allowed: ${Object.keys(ENGINE_PROVIDER_DEFAULTS).join(", ")}`);
+        console.error(
+          `Unknown engine provider "${engineFlag}". Allowed: ${Object.keys(ENGINE_PROVIDER_DEFAULTS).join(", ")}`,
+        );
         process.exit(1);
       }
       const allowedToolsRaw = flags["allow-tools"];
       const allowedTools = allowedToolsRaw
-        ? allowedToolsRaw.split(",").map((s) => s.trim()).filter(Boolean)
+        ? allowedToolsRaw
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
         : undefined;
       const toolExecutionRaw = flags["tool-execution"];
       const toolExecution =
-        toolExecutionRaw === "parallel" || toolExecutionRaw === "sequential" ? toolExecutionRaw : undefined;
+        toolExecutionRaw === "parallel" || toolExecutionRaw === "sequential"
+          ? toolExecutionRaw
+          : undefined;
       const manifest = await addTeamEngineSource({
         homePath,
         slug,
         provider: engineFlag as EngineProvider,
-        agentCorePackage: flags["package"],
+        agentCorePackage: flags.package,
         aiPackage: flags["ai-package"],
         toolExecution,
         allowedTools,
         installPath: flags["install-path"],
-        title: flags["title"],
-        summary: flags["summary"],
+        title: flags.title,
+        summary: flags.summary,
       });
       console.log(`${clrOk(`engine ${engineFlag} bound to ${manifest.slug}`)}`);
       console.log(`${clrDim("  Hands of the team. Pi imports as a peer dep; install with:")}`);
       console.log(`${clrDim("    npm i @mariozechner/pi-agent-core @mariozechner/pi-ai")}`);
-      console.log(`${clrDim("  Every tool dispatch flows through Buccet's boundary via beforeToolCall.")}`);
+      console.log(
+        `${clrDim("  Every tool dispatch flows through Buccet's boundary via beforeToolCall.")}`,
+      );
       printTeamCorpus(manifest);
       return;
     }
@@ -8575,9 +9227,9 @@ async function handleCreate(rest: string[]) {
       homePath,
       slug,
       filePath,
-      title: flags["title"],
-      kind: flags["kind"],
-      summary: flags["summary"],
+      title: flags.title,
+      kind: flags.kind,
+      summary: flags.summary,
     });
     console.log(`${clrOk(`source ${filePath} added to ${manifest.slug}`)}`);
     printTeamCorpus(manifest);
@@ -8589,7 +9241,7 @@ async function handleCreate(rest: string[]) {
     if (!teamName) createUsage();
     const { flags } = parseFlagPairs(rest.slice(2));
     const slug = teamSlug(teamName);
-    const sourceId = flags["id"];
+    const sourceId = flags.id;
     if (!sourceId) {
       console.error("buccet create remove-source requires --id.");
       createUsage();
@@ -8607,8 +9259,8 @@ async function handleCreate(rest: string[]) {
     }
     const slug = teamSlug(teamName);
     const { flags, bools } = parseFlagPairs(rest.slice(2));
-    const tailRaw = flags["tail"];
-    const tail = tailRaw !== undefined ? Math.max(1, parseInt(tailRaw, 10) || 1) : undefined;
+    const tailRaw = flags.tail;
+    const tail = tailRaw !== undefined ? Math.max(1, Number.parseInt(tailRaw, 10) || 1) : undefined;
     const records = await readTeamPathSourceMemoryEntries(homePath, slug);
     const output = buildProofOfWorkTraceOutput(slug, records, { tail });
     if (bools.has("json")) {
@@ -8625,7 +9277,7 @@ async function handleCreate(rest: string[]) {
     const spendTeamName = rest[1];
     if (!spendTeamName) createUsage();
     const { flags, bools } = parseFlagPairs(rest.slice(2));
-    const spendDomain = flags["domain"];
+    const spendDomain = flags.domain;
     if (!spendDomain) {
       console.error("buccet create spend requires --domain <domain>.");
       process.exit(1);
@@ -8633,7 +9285,9 @@ async function handleCreate(rest: string[]) {
     printSpendBuccetCautionBanner();
     if (!bools.has("confirm-spend")) {
       if (process.stdin.isTTY === true && process.stdout.isTTY === true) {
-        const ok = await promptYesNo("Create this SPEND BUCCET now? Financial agents only. Type yes: ");
+        const ok = await promptYesNo(
+          "Create this SPEND BUCCET now? Financial agents only. Type yes: ",
+        );
         if (!ok) {
           console.log(`  ${clrDim("Aborted — no team created.")}`);
           return;
@@ -8647,25 +9301,37 @@ async function handleCreate(rest: string[]) {
       homePath,
       name: spendTeamName,
       domain: spendDomain,
-      summary: flags["summary"],
-      notes: flags["notes"],
+      summary: flags.summary,
+      notes: flags.notes,
       createdBy: defaultActorId(),
       buccetClass: "spend",
     });
     console.log("");
-    console.log(`${clrOk(`SPEND BUCCET created`)}    ${clrBold(spendManifest.slug)}`);
+    console.log(`${clrOk("SPEND BUCCET created")}    ${clrBold(spendManifest.slug)}`);
     console.log(`${clrDim("home:        ")}${homePath}`);
-    console.log(`${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), spendManifest.slug, "manifest.json")}`);
-    console.log(`${clrDim("class:       ")}${clrWarn("SPEND")} — UPL + agent.spend bound real-money agents.`);
-    console.log(`${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(UBIE value-boundary · auto-injected)")}`);
+    console.log(
+      `${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), spendManifest.slug, "manifest.json")}`,
+    );
+    console.log(
+      `${clrDim("class:       ")}${clrWarn("SPEND")} — UPL + agent.spend bound real-money agents.`,
+    );
+    console.log(
+      `${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(UBIE value-boundary · auto-injected)")}`,
+    );
     console.log(`${clrDim("upl-track:   ")}snapped at ${spendManifest.uplTrackSnap.takenAt}`);
     console.log("");
     console.log(`  ${clrDim("Next:")}`);
-    console.log(`    ${clrBold(`buccet upl spend propose "describe the money move you want"`)} ${clrDim("(Pi suggests packs; you still pick the corridor)")}`);
-    console.log(`    ${clrBold(`buccet upl spend list`)}`);
-    console.log(`    ${clrBold(`buccet upl spend setup subscription.provider`)} ${clrDim("(stage one exact corridor into review)")}`);
-    console.log(`    ${clrBold(`buccet upl workspace`)}`);
-    console.log(`    ${clrBold(`buccet create add-agent ${spendManifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`);
+    console.log(
+      `    ${clrBold(`buccet upl spend propose "describe the money move you want"`)} ${clrDim("(Pi suggests packs; you still pick the corridor)")}`,
+    );
+    console.log(`    ${clrBold("buccet upl spend list")}`);
+    console.log(
+      `    ${clrBold("buccet upl spend setup subscription.provider")} ${clrDim("(stage one exact corridor into review)")}`,
+    );
+    console.log(`    ${clrBold("buccet upl workspace")}`);
+    console.log(
+      `    ${clrBold(`buccet create add-agent ${spendManifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`,
+    );
     console.log(`    ${clrBold(`buccet create add-source ${spendManifest.slug} <file>`)}`);
     console.log(`    ${clrBold(`buccet create show ${spendManifest.slug}`)}`);
     console.log("");
@@ -8677,7 +9343,7 @@ async function handleCreate(rest: string[]) {
   // its proof-of-work trace. `create <team>` and `create <team> <n>` both work.
   const teamName = sub;
   const { flags, positional: defaultPositional } = parseFlagPairs(rest.slice(1));
-  const domain = flags["domain"];
+  const domain = flags.domain;
   if (!domain) {
     const slug = teamSlug(teamName);
     const records = await readTeamPathSourceMemoryEntries(homePath, slug);
@@ -8687,7 +9353,8 @@ async function handleCreate(rest: string[]) {
     const existingManifest = await loadTeam(homePath, slug);
     if (existingManifest !== null) {
       const tailArg = defaultPositional[0];
-      const tail = tailArg !== undefined ? Math.max(1, parseInt(tailArg, 10) || 1) : undefined;
+      const tail =
+        tailArg !== undefined ? Math.max(1, Number.parseInt(tailArg, 10) || 1) : undefined;
       const output = buildProofOfWorkTraceOutput(slug, records, { tail });
       printCliHeader(`Proof-of-Work · ${slug}`, `creation trace · ${teamsRoot(homePath)}`);
       console.log(renderProofOfWorkTraceText(output));
@@ -8701,19 +9368,25 @@ async function handleCreate(rest: string[]) {
     homePath,
     name: teamName,
     domain,
-    summary: flags["summary"],
-    notes: flags["notes"],
+    summary: flags.summary,
+    notes: flags.notes,
     createdBy: defaultActorId(),
   });
   console.log("");
-  console.log(`${clrOk(`team created`)}    ${clrBold(manifest.slug)}`);
+  console.log(`${clrOk("team created")}    ${clrBold(manifest.slug)}`);
   console.log(`${clrDim("home:        ")}${homePath}`);
-  console.log(`${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), manifest.slug, "manifest.json")}`);
-  console.log(`${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(Universal comprehension · auto-injected)")}`);
+  console.log(
+    `${clrDim("manifest:    ")}${path.join(teamsRoot(homePath), manifest.slug, "manifest.json")}`,
+  );
+  console.log(
+    `${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(Universal comprehension · auto-injected)")}`,
+  );
   console.log(`${clrDim("upl-track:   ")}snapped at ${manifest.uplTrackSnap.takenAt}`);
   console.log("");
   console.log(`  ${clrDim("Next:")}`);
-  console.log(`    ${clrBold(`buccet create add-agent ${manifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`);
+  console.log(
+    `    ${clrBold(`buccet create add-agent ${manifest.slug} --name <id> --specialty "<text>" [--model <hint>] [--owns-step <stage>] [--cap <amount>]`)}`,
+  );
   console.log(`    ${clrBold(`buccet create add-source ${manifest.slug} <file>`)}`);
   console.log(`    ${clrBold(`buccet create show ${manifest.slug}`)}`);
   console.log("");
@@ -8722,15 +9395,17 @@ async function handleCreate(rest: string[]) {
 // ─── workshop · buccet team ────────────────────────────────────────────────
 
 function teamUsage(): never {
-  console.error([
-    "Usage:",
-    "  buccet team list [--json]",
-    "  buccet team status <team-name> [--json]",
-    "  buccet team start <team-name> [--json]",
-    "  buccet team stop <team-name> [--json]",
-    "  buccet team export <team-name> [--output <file.json>] [--json]",
-    "  buccet team import <file.json> [--rename <new-name>] [--json]",
-  ].join("\n"));
+  console.error(
+    [
+      "Usage:",
+      "  buccet team list [--json]",
+      "  buccet team status <team-name> [--json]",
+      "  buccet team start <team-name> [--json]",
+      "  buccet team stop <team-name> [--json]",
+      "  buccet team export <team-name> [--output <file.json>] [--json]",
+      "  buccet team import <file.json> [--rename <new-name>] [--json]",
+    ].join("\n"),
+  );
   process.exit(1);
 }
 
@@ -8750,8 +9425,12 @@ async function handleTeam(rest: string[]) {
     }
     if (teams.length === 0) {
       console.log("");
-      console.log(`  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`);
-      console.log(`  ${clrDim("Financial agents:")}  ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")}`);
+      console.log(
+        `  ${clrDim("No teams yet. Use:")}  ${clrBold("buccet create <team-name> --domain <domain>")}`,
+      );
+      console.log(
+        `  ${clrDim("Financial agents:")}  ${clrBold("buccet create spend <team-name> --domain <domain> --confirm-spend")}`,
+      );
       console.log("");
       return;
     }
@@ -8759,11 +9438,15 @@ async function handleTeam(rest: string[]) {
     const rows: string[] = [];
     for (const team of teams) {
       const statusBadge =
-        team.status === "running" ? clrOk(team.status) :
-        team.status === "stopped" ? clrWarn(team.status) :
-        clrDim(team.status);
+        team.status === "running"
+          ? clrOk(team.status)
+          : team.status === "stopped"
+            ? clrWarn(team.status)
+            : clrDim(team.status);
       const spendTag = team.buccetClass === "spend" ? `${clrWarn("SPEND")} ` : "";
-      rows.push(`  ${spendTag}${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}`);
+      rows.push(
+        `  ${spendTag}${clrBold(team.slug.padEnd(20))} ${statusBadge.padEnd(20)} ${clrDim(team.domain.padEnd(20))} ${team.agents.length} peer${team.agents.length === 1 ? "" : "s"}`,
+      );
     }
     printCliSection("Standing teams", rows);
     return;
@@ -8802,7 +9485,9 @@ async function handleTeam(rest: string[]) {
       process.exit(1);
     }
     if (sub === "start" && manifest.agents.length === 0) {
-      console.error(`Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`);
+      console.error(
+        `Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`,
+      );
       process.exit(1);
     }
     let preparation: TeamRuntimePreparation | null = null;
@@ -8819,16 +9504,20 @@ async function handleTeam(rest: string[]) {
       await saveTeam(homePath, manifest);
     }
     if (parseFlagPairs(rest.slice(2)).bools.has("json")) {
-      console.log(JSON.stringify({ slug, status: manifest.status, runtimePreparation: preparation }, null, 2));
+      console.log(
+        JSON.stringify({ slug, status: manifest.status, runtimePreparation: preparation }, null, 2),
+      );
       return;
     }
     const note =
       sub === "start"
-        ? `Whole-view prepared. Creative messages from this team will surface in \`buccet console\`. Defense face still decides every action.`
-        : `Team marked stopped. Existing manifest preserved.`;
+        ? "Whole-view prepared. Creative messages from this team will surface in `buccet console`. Defense face still decides every action."
+        : "Team marked stopped. Existing manifest preserved.";
     console.log(`${clrOk(`team ${slug} ${manifest.status}`)}    ${clrDim(note)}`);
     if (preparation) {
-      console.log(`  ${clrDim(`Prepared ${preparation.pathSourceCount} path sources · ${preparation.checkpointedSourceCount} checkpointed · ${preparation.totalLineCount} lines visible in whole-view`)}`);
+      console.log(
+        `  ${clrDim(`Prepared ${preparation.pathSourceCount} path sources · ${preparation.checkpointedSourceCount} checkpointed · ${preparation.totalLineCount} lines visible in whole-view`)}`,
+      );
     }
     return;
   }
@@ -8843,7 +9532,7 @@ async function handleTeam(rest: string[]) {
       console.error(`No team named "${teamName}".`);
       process.exit(1);
     }
-    const outputPath = flags["output"] ?? path.resolve(`${slug}.team.json`);
+    const outputPath = flags.output ?? path.resolve(`${slug}.team.json`);
     const payload = `${JSON.stringify(manifest, null, 2)}\n`;
     await fs.writeFile(outputPath, payload, "utf8");
     if (bools.has("json")) {
@@ -8863,23 +9552,27 @@ async function handleTeam(rest: string[]) {
     try {
       raw = await fs.readFile(resolved, "utf8");
     } catch (error) {
-      console.error(`Cannot read ${resolved}: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `Cannot read ${resolved}: ${error instanceof Error ? error.message : String(error)}`,
+      );
       process.exit(1);
     }
     let manifest: TeamManifest;
     try {
       manifest = JSON.parse(raw) as TeamManifest;
     } catch (error) {
-      console.error(`Cannot parse ${resolved} as JSON: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `Cannot parse ${resolved} as JSON: ${error instanceof Error ? error.message : String(error)}`,
+      );
       process.exit(1);
     }
     if (manifest.manifestVersion !== "1") {
       console.error(`Unsupported manifest version "${manifest.manifestVersion}".`);
       process.exit(1);
     }
-    if (flags["rename"]) {
-      manifest.name = flags["rename"];
-      manifest.slug = teamSlug(flags["rename"]);
+    if (flags.rename) {
+      manifest.name = flags.rename;
+      manifest.slug = teamSlug(flags.rename);
     }
     const existing = await loadTeam(homePath, manifest.slug);
     if (existing) {
@@ -8924,7 +9617,10 @@ async function loadConsolePresentation(homePath: string): Promise<ConsolePresent
   }
 }
 
-async function saveConsolePresentation(homePath: string, state: ConsolePresentationState): Promise<void> {
+async function saveConsolePresentation(
+  homePath: string,
+  state: ConsolePresentationState,
+): Promise<void> {
   const targetPath = consoleStatePath(homePath);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.writeFile(targetPath, `${JSON.stringify(state, null, 2)}\n`, "utf8");
@@ -8933,7 +9629,9 @@ async function saveConsolePresentation(homePath: string, state: ConsolePresentat
 async function handleMute(rest: string[]) {
   const lane = rest[0];
   if (lane !== "creative") {
-    console.error("Usage: buccet mute creative   (only the creative lane is mute-able; defense never mutes)");
+    console.error(
+      "Usage: buccet mute creative   (only the creative lane is mute-able; defense never mutes)",
+    );
     process.exit(1);
   }
   const homePath = resolveHome();
@@ -8942,7 +9640,9 @@ async function handleMute(rest: string[]) {
   state.updatedAt = new Date().toISOString();
   await saveConsolePresentation(homePath, state);
   console.log(`${clrOk("creative messages muted in buccet console")}`);
-  console.log(`${clrDim("Defense face still decides every action; the mute is presentation-only.")}`);
+  console.log(
+    `${clrDim("Defense face still decides every action; the mute is presentation-only.")}`,
+  );
 }
 
 async function handleUnmute(rest: string[]) {
@@ -8975,14 +9675,21 @@ function teamSessionLogPath(homePath: string, slug: string): string {
 }
 
 async function readTeamSessionLog(homePath: string, slug: string): Promise<TeamAskRecord[]> {
-  return fs.readFile(teamSessionLogPath(homePath, slug), "utf8")
-    .then((raw) => raw.split("\n").filter(Boolean).map((line) => {
-      try {
-        return JSON.parse(line) as TeamAskRecord;
-      } catch {
-        return null;
-      }
-    }).filter((value): value is TeamAskRecord => value !== null))
+  return fs
+    .readFile(teamSessionLogPath(homePath, slug), "utf8")
+    .then((raw) =>
+      raw
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          try {
+            return JSON.parse(line) as TeamAskRecord;
+          } catch {
+            return null;
+          }
+        })
+        .filter((value): value is TeamAskRecord => value !== null),
+    )
     .catch(() => [] as TeamAskRecord[]);
 }
 
@@ -8995,45 +9702,46 @@ function summarizeWorkshopTeamState(args: {
   const latestTeamStatus = [...args.sessionLog]
     .reverse()
     .find((record) => record.type === "team_status");
-  const latestStatus = typeof latestTeamStatus?.meta?.status === "string"
-    ? latestTeamStatus.meta.status
-    : args.manifest.status;
+  const latestStatus =
+    typeof latestTeamStatus?.meta?.status === "string"
+      ? latestTeamStatus.meta.status
+      : args.manifest.status;
 
-  const fallbackReason = typeof latestTeamStatus?.meta?.reason === "string"
-    ? latestTeamStatus.meta.reason
-    : undefined;
+  const fallbackReason =
+    typeof latestTeamStatus?.meta?.reason === "string" ? latestTeamStatus.meta.reason : undefined;
   const latestStatusSupportsPrompt =
     latestStatus === "completed" ||
     latestStatus === "blocked" ||
     latestStatus === "waiting" ||
     latestStatus === "queued" ||
     latestStatus === "failed";
-  const promptEvent = latestTeamStatus && latestStatusSupportsPrompt
-    ? buildCreatePromptEvent({
-        teamSlug: args.manifest.slug,
-        runId:
-          typeof latestTeamStatus.meta?.comprehensionPass === "string"
-            ? latestTeamStatus.meta.comprehensionPass
-            : `${args.manifest.slug}:pending`,
-        agentId:
-          typeof latestTeamStatus.meta?.spokesperson === "string"
-            ? latestTeamStatus.meta.spokesperson
-            : "pi",
-        disposition:
-          typeof latestTeamStatus.meta?.coherenceDisposition === "string"
-            ? latestTeamStatus.meta.coherenceDisposition
-            : latestStatus === "blocked"
-              ? "BlockFinalization"
-              : "AwaitingPi",
-        finalizationBlocked:
-          typeof latestTeamStatus.meta?.finalizationBlocked === "boolean"
-            ? latestTeamStatus.meta.finalizationBlocked
-            : latestStatus === "blocked",
-        status: latestStatus,
-        ...(fallbackReason ? { waitingReason: fallbackReason } : {}),
-        at: latestTeamStatus.at,
-      })
-    : null;
+  const promptEvent =
+    latestTeamStatus && latestStatusSupportsPrompt
+      ? buildCreatePromptEvent({
+          teamSlug: args.manifest.slug,
+          runId:
+            typeof latestTeamStatus.meta?.comprehensionPass === "string"
+              ? latestTeamStatus.meta.comprehensionPass
+              : `${args.manifest.slug}:pending`,
+          agentId:
+            typeof latestTeamStatus.meta?.spokesperson === "string"
+              ? latestTeamStatus.meta.spokesperson
+              : "pi",
+          disposition:
+            typeof latestTeamStatus.meta?.coherenceDisposition === "string"
+              ? latestTeamStatus.meta.coherenceDisposition
+              : latestStatus === "blocked"
+                ? "BlockFinalization"
+                : "AwaitingPi",
+          finalizationBlocked:
+            typeof latestTeamStatus.meta?.finalizationBlocked === "boolean"
+              ? latestTeamStatus.meta.finalizationBlocked
+              : latestStatus === "blocked",
+          status: latestStatus,
+          ...(fallbackReason ? { waitingReason: fallbackReason } : {}),
+          at: latestTeamStatus.at,
+        })
+      : null;
 
   let runState: WorkshopCockpitRunState;
   if (latestStatus === "running" || args.manifest.status === "running") {
@@ -9087,7 +9795,8 @@ async function buildWorkshopCockpitSnapshot(homePath: string): Promise<WorkshopC
   );
   teams.sort((left, right) => left.slug.localeCompare(right.slug));
 
-  const countTeams = (state: WorkshopCockpitRunState) => teams.filter((team) => team.runState === state).length;
+  const countTeams = (state: WorkshopCockpitRunState) =>
+    teams.filter((team) => team.runState === state).length;
   const countPeers = (state: WorkshopCockpitRunState) =>
     teams.filter((team) => team.runState === state).reduce((sum, team) => sum + team.peerCount, 0);
 
@@ -9103,7 +9812,9 @@ async function buildWorkshopCockpitSnapshot(homePath: string): Promise<WorkshopC
     waitingPeers: countPeers("waiting"),
     blockedPeers: countPeers("blocked"),
     completedPeers: countPeers("completed"),
-    teamsNeedingAttention: teams.filter((team) => team.runState === "waiting" || team.runState === "blocked").length,
+    teamsNeedingAttention: teams.filter(
+      (team) => team.runState === "waiting" || team.runState === "blocked",
+    ).length,
     teams,
   };
 }
@@ -9134,11 +9845,15 @@ function printWorkshopCockpitSnapshot(snapshot: WorkshopCockpitSnapshot): void {
   const rows: string[] = [];
   for (const team of snapshot.teams) {
     const stateLabel =
-      team.runState === "active" ? clrOk(team.runState) :
-      team.runState === "blocked" ? clrFail(team.runState) :
-      team.runState === "waiting" ? clrWarn(team.runState) :
-      team.runState === "completed" ? clrOk(team.runState) :
-      clrDim(team.runState);
+      team.runState === "active"
+        ? clrOk(team.runState)
+        : team.runState === "blocked"
+          ? clrFail(team.runState)
+          : team.runState === "waiting"
+            ? clrWarn(team.runState)
+            : team.runState === "completed"
+              ? clrOk(team.runState)
+              : clrDim(team.runState);
     rows.push(
       `  ${team.buccetClass === "spend" ? `${clrWarn("SPEND")} ` : ""}${clrBold(team.slug.padEnd(18))} ${stateLabel.padEnd(20)} ${clrDim(team.domain.padEnd(16))} ${team.peerCount} peer${team.peerCount === 1 ? "" : "s"}`,
     );
@@ -9158,7 +9873,11 @@ function printWorkshopCockpitSnapshot(snapshot: WorkshopCockpitSnapshot): void {
   printCliSection("Creation Runs", rows);
 }
 
-async function appendTeamSessionRecord(homePath: string, slug: string, record: TeamAskRecord): Promise<void> {
+async function appendTeamSessionRecord(
+  homePath: string,
+  slug: string,
+  record: TeamAskRecord,
+): Promise<void> {
   const targetPath = teamSessionLogPath(homePath, slug);
   await fs.mkdir(path.dirname(targetPath), { recursive: true });
   await fs.appendFile(targetPath, `${JSON.stringify(record)}\n`, "utf8");
@@ -9200,7 +9919,11 @@ async function recordTeamAsk(args: {
     meta: {
       lane: formatTeamLane(args.manifest),
       domain: args.manifest.domain,
-      peers: args.manifest.agents.map((a) => ({ id: a.id, ownsStep: a.ownsStep, modelHint: a.modelHint ?? null })),
+      peers: args.manifest.agents.map((a) => ({
+        id: a.id,
+        ownsStep: a.ownsStep,
+        modelHint: a.modelHint ?? null,
+      })),
       brain: args.manifest.brainSourceId,
     },
   };
@@ -9210,9 +9933,11 @@ async function recordTeamAsk(args: {
 
 function printAskAcknowledgement(manifest: TeamManifest, record: TeamAskRecord): void {
   const lane = formatTeamLane(manifest);
-  console.log(`  ${clrDim("[" + lane + "]")} ${clrOk("ask queued")} ${clrDim(record.askId ?? "")}`);
+  console.log(`  ${clrDim(`[${lane}]`)} ${clrOk("ask queued")} ${clrDim(record.askId ?? "")}`);
   console.log(`  ${clrDim("Defense face decides every action this team proposes.")}`);
-  console.log(`  ${clrDim("Watch:")} ${clrBold(`buccet console`)} ${clrDim("· peers will surface for review here.")}`);
+  console.log(
+    `  ${clrDim("Watch:")} ${clrBold("buccet console")} ${clrDim("· peers will surface for review here.")}`,
+  );
 }
 
 async function handleAsk(rest: string[]) {
@@ -9221,7 +9946,7 @@ async function handleAsk(rest: string[]) {
   const text = positional.slice(1).join(" ").trim();
   const mode: BuccetPromptMode = bools.has("headless") ? "standing_law" : "interactive";
   if (!teamName || !text) {
-    console.error("Usage: buccet ask <team-name> \"<your task>\" [--headless]");
+    console.error('Usage: buccet ask <team-name> "<your task>" [--headless]');
     process.exit(1);
   }
   const homePath = resolveHome();
@@ -9256,7 +9981,7 @@ async function tryBrainPass(args: {
   });
   args.manifest = prepared.manifest;
   const lane = formatTeamLane(args.manifest);
-  console.log(`  ${clrDim("[" + lane + "]")} ${clrDim("running brain pass via Pi (engine) ↔ AI...")}`);
+  console.log(`  ${clrDim(`[${lane}]`)} ${clrDim("running brain pass via Pi (engine) ↔ AI...")}`);
   await appendTeamSessionRecord(args.homePath, args.slug, {
     type: "team_status",
     at: new Date().toISOString(),
@@ -9278,7 +10003,7 @@ async function tryBrainPass(args: {
       onEvent: (e) => {
         if (e.type === "session_started") {
           console.log(
-            `  ${clrDim("[" + lane + "]")} ${clrDim("session " + e.sessionId.slice(-12) + " started · ai=" + e.aiProvider + " · engine=" + e.engineProvider)}`,
+            `  ${clrDim(`[${lane}]`)} ${clrDim(`session ${e.sessionId.slice(-12)} started · ai=${e.aiProvider} · engine=${e.engineProvider}`)}`,
           );
         }
       },
@@ -9334,18 +10059,18 @@ async function tryBrainPass(args: {
     }
 
     console.log("");
-    console.log(`  ${clrOk("[" + lane + " · " + result.agent.id + "]:")}`);
+    console.log(`  ${clrOk(`[${lane} · ${result.agent.id}]:`)}`);
     for (const line of result.output.split("\n")) {
       console.log(`  ${line}`);
     }
     console.log("");
     console.log(
-      `  ${clrDim("Witnessed in ledger; session " + result.sessionId.slice(-12) + " ended.")}`,
+      `  ${clrDim(`Witnessed in ledger; session ${result.sessionId.slice(-12)} ended.`)}`,
     );
     return true;
   } catch (err) {
     if (err instanceof PiNotInstalledError) {
-      console.error(`  ${clrWarn("Pi engine bound to " + args.slug + " but not installed.")}`);
+      console.error(`  ${clrWarn(`Pi engine bound to ${args.slug} but not installed.`)}`);
       for (const line of (err.message ?? "").split("\n").slice(1)) {
         console.error(`  ${clrDim(line)}`);
       }
@@ -9408,7 +10133,7 @@ async function tryBrainPass(args: {
       return false;
     }
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`  ${clrWarn("brain pass failed: " + message)}`);
+    console.error(`  ${clrWarn(`brain pass failed: ${message}`)}`);
     const failedAt = new Date().toISOString();
     await appendTeamSessionRecord(args.homePath, args.slug, {
       type: "team_status",
@@ -9454,17 +10179,27 @@ async function handleEnter(rest: string[]) {
     process.exit(1);
   }
   if (manifest.agents.length === 0) {
-    console.error(`Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`);
+    console.error(
+      `Team "${slug}" has no peers yet. Use \`buccet create add-agent ${slug} --name <id> --specialty <text>\` first.`,
+    );
     process.exit(1);
   }
 
   printCliHeader(`Team · ${manifest.name}`, formatTeamLane(manifest));
-  printCliSection("Peers", manifest.agents.map((a) =>
-    `  ${clrBold(a.id.padEnd(20))} ${clrDim(("owns " + a.ownsStep).padEnd(22))} ${clrDim((a.modelHint ?? "no model hint").padEnd(20))} ${clrDim(a.specialty)}`
-  ));
+  printCliSection(
+    "Peers",
+    manifest.agents.map(
+      (a) =>
+        `  ${clrBold(a.id.padEnd(20))} ${clrDim(`owns ${a.ownsStep}`.padEnd(22))} ${clrDim((a.modelHint ?? "no model hint").padEnd(20))} ${clrDim(a.specialty)}`,
+    ),
+  );
   console.log("");
-  console.log(`  ${clrDim("Type a task and press enter. Lines flow through the boundary; defense face decides every action.")}`);
-  console.log(`  ${clrDim("Press")} ${clrBold("Ctrl+D")} ${clrDim("or type")} ${clrBold("/quit")} ${clrDim("to leave.")}`);
+  console.log(
+    `  ${clrDim("Type a task and press enter. Lines flow through the boundary; defense face decides every action.")}`,
+  );
+  console.log(
+    `  ${clrDim("Press")} ${clrBold("Ctrl+D")} ${clrDim("or type")} ${clrBold("/quit")} ${clrDim("to leave.")}`,
+  );
   console.log("");
 
   const rl = readline.createInterface({
@@ -9495,7 +10230,9 @@ async function handleEnter(rest: string[]) {
     }
     if (line === "/peers") {
       for (const a of manifest.agents) {
-        console.log(`  ${clrBold(a.id)} ${clrDim("· owns " + a.ownsStep)} ${clrDim("· " + (a.modelHint ?? "no model hint"))}`);
+        console.log(
+          `  ${clrBold(a.id)} ${clrDim(`· owns ${a.ownsStep}`)} ${clrDim(`· ${a.modelHint ?? "no model hint"}`)}`,
+        );
       }
       prompt();
       continue;
@@ -9535,10 +10272,21 @@ async function handleSwarmView(rest: string[]): Promise<void> {
   }
   const asJson = rest.includes("--json");
 
-  const sessionLog = await fs.readFile(teamSessionLogPath(homePath, slug), "utf8")
-    .then((raw) => raw.split("\n").filter(Boolean).map((line) => {
-      try { return JSON.parse(line) as TeamAskRecord; } catch { return null; }
-    }).filter((value): value is TeamAskRecord => value !== null))
+  const sessionLog = await fs
+    .readFile(teamSessionLogPath(homePath, slug), "utf8")
+    .then((raw) =>
+      raw
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => {
+          try {
+            return JSON.parse(line) as TeamAskRecord;
+          } catch {
+            return null;
+          }
+        })
+        .filter((value): value is TeamAskRecord => value !== null),
+    )
     .catch(() => [] as TeamAskRecord[]);
 
   type PeerRow = {
@@ -9557,24 +10305,32 @@ async function handleSwarmView(rest: string[]): Promise<void> {
   const latestTeamStatus = [...sessionLog]
     .reverse()
     .find((record) => record.type === "team_status");
-  const latestStatusToken = typeof latestTeamStatus?.meta?.status === "string"
-    ? latestTeamStatus.meta.status
-    : manifest.status;
+  const latestStatusToken =
+    typeof latestTeamStatus?.meta?.status === "string"
+      ? latestTeamStatus.meta.status
+      : manifest.status;
   const teamActive = latestStatusToken === "running";
   const peers: PeerRow[] = manifest.agents.map((agent) => {
     let approvals = 0;
     let denials = 0;
     for (const record of sessionLog) {
-      if (record.type === "team_response" && (record.meta?.approved as boolean | undefined) === true && (record.meta?.peer as string | undefined) === agent.id) {
+      if (
+        record.type === "team_response" &&
+        (record.meta?.approved as boolean | undefined) === true &&
+        (record.meta?.peer as string | undefined) === agent.id
+      ) {
         approvals += 1;
-      } else if (record.type === "team_response" && (record.meta?.approved as boolean | undefined) === false && (record.meta?.peer as string | undefined) === agent.id) {
+      } else if (
+        record.type === "team_response" &&
+        (record.meta?.approved as boolean | undefined) === false &&
+        (record.meta?.peer as string | undefined) === agent.id
+      ) {
         denials += 1;
       }
     }
-    const overspent = agent.spend.capNormalized !== null && agent.spend.spentNormalized > agent.spend.capNormalized;
-    const status: PeerRow["status"] =
-      overspent ? "blocked" :
-      teamActive ? "active" : "idle";
+    const overspent =
+      agent.spend.capNormalized !== null && agent.spend.spentNormalized > agent.spend.capNormalized;
+    const status: PeerRow["status"] = overspent ? "blocked" : teamActive ? "active" : "idle";
     return {
       id: agent.id,
       title: agent.title,
@@ -9602,11 +10358,15 @@ async function handleSwarmView(rest: string[]): Promise<void> {
   console.log("");
   console.log(`  ${clrBold("SWARM GOVERNANCE")}`);
   console.log(`  ${clrDim("Many agents. One law body.")}`);
-  console.log(`  ${clrDim(`team: ${manifest.slug}    domain: ${manifest.domain}    status: ${latestStatusToken}`)}`);
+  console.log(
+    `  ${clrDim(`team: ${manifest.slug}    domain: ${manifest.domain}    status: ${latestStatusToken}`)}`,
+  );
   console.log("");
 
   if (peers.length === 0) {
-    console.log(`  ${clrDim("(no peers yet — `buccet create add-agent " + manifest.slug + "` to add one)")}`);
+    console.log(
+      `  ${clrDim(`(no peers yet — \`buccet create add-agent ${manifest.slug}\` to add one)`)}`,
+    );
     console.log("");
     return;
   }
@@ -9614,14 +10374,22 @@ async function handleSwarmView(rest: string[]): Promise<void> {
   const idCol = Math.max(20, ...peers.map((p) => p.id.length + 2));
   for (const peer of peers) {
     const statusLabel =
-      peer.status === "active"  ? `${c.green}active${c.reset}` :
-      peer.status === "blocked" ? `${c.red}blocked${c.reset}` :
-      peer.status === "shed"    ? `${c.yellow}SHED${c.reset} ${clrDim("· instance discarded")}` :
-      `${c.dim}idle${c.reset}`;
-    const tally = peer.status === "shed" ? "" : `${c.green}✓${peer.approvals}${c.reset} ${c.red}✗${peer.denials}${c.reset}`;
+      peer.status === "active"
+        ? `${c.green}active${c.reset}`
+        : peer.status === "blocked"
+          ? `${c.red}blocked${c.reset}`
+          : peer.status === "shed"
+            ? `${c.yellow}SHED${c.reset} ${clrDim("· instance discarded")}`
+            : `${c.dim}idle${c.reset}`;
+    const tally =
+      peer.status === "shed"
+        ? ""
+        : `${c.green}✓${peer.approvals}${c.reset} ${c.red}✗${peer.denials}${c.reset}`;
     const ownsLabel = clrDim(`owns ${peer.ownsStep}`);
     const modelLabel = clrDim(`· ${peer.modelHint ?? "no model hint"}`);
-    console.log(`  ${clrBold(peer.id.padEnd(idCol))} ${statusLabel.padEnd(28)} ${tally.padEnd(18)} ${ownsLabel} ${modelLabel}`);
+    console.log(
+      `  ${clrBold(peer.id.padEnd(idCol))} ${statusLabel.padEnd(28)} ${tally.padEnd(18)} ${ownsLabel} ${modelLabel}`,
+    );
   }
   console.log("");
   console.log(`  ${clrDim("Hooks freeze and hold at swarm scale.")}`);
@@ -9666,7 +10434,7 @@ async function handleSwarm(rest: string[]) {
       printJson(output);
       return;
     }
-    console.log(`Agent Buccet swarm groups`);
+    console.log("Agent Buccet swarm groups");
     console.log(`mode: ${formatConsoleApprovalMode(output.mode)}`);
     console.log(`pending: ${output.totals.pending}`);
     console.log(`waiting members: ${output.totals.waitingMembers}`);
@@ -9833,9 +10601,17 @@ async function handleMcp(rest: string[]) {
   let dryRun = config.dryRun;
   for (let i = 0; i < rest.length; i++) {
     const t = rest[i];
-    if (t === "--session-id") { sessionId = rest[++i] ?? sessionId; continue; }
-    if (t === "--actor-id")   { actorId   = rest[++i] ?? actorId;   continue; }
-    if (t === "--dry-run")    { dryRun = true; continue; }
+    if (t === "--session-id") {
+      sessionId = rest[++i] ?? sessionId;
+      continue;
+    }
+    if (t === "--actor-id") {
+      actorId = rest[++i] ?? actorId;
+      continue;
+    }
+    if (t === "--dry-run") {
+      dryRun = true;
+    }
   }
 
   // Load the boundary and ensure the session + scopes are in place — same as
@@ -9856,9 +10632,7 @@ async function handleMcp(rest: string[]) {
   // If no default scopes are configured, fall back to the user's home directory
   // so the base acceptance pack is always seeded and protection is live from
   // the first MCP connection — no console interaction required.
-  const mcpScopePaths = config.defaultScopes.length > 0
-    ? config.defaultScopes
-    : [os.homedir()];
+  const mcpScopePaths = config.defaultScopes.length > 0 ? config.defaultScopes : [os.homedir()];
   await ensureScopes(boundary, {
     store,
     scopePaths: mcpScopePaths,
@@ -9877,7 +10651,9 @@ async function handleMcp(rest: string[]) {
   process.stderr.write("[buccet-mcp] waiting for boundary runtime...\n");
   await waitForHookRuntimeHealthy(boundary, home);
 
-  const { runBuccetMcpServer } = await import(path.join(currentScriptDir(), "agent-buccet-mcp-server.ts"));
+  const { runBuccetMcpServer } = await import(
+    path.join(currentScriptDir(), "agent-buccet-mcp-server.ts")
+  );
 
   // Hook socket env so the MCP server can reach the bodyguard/intercept IPC.
   const hookEnv = {
@@ -9916,7 +10692,12 @@ async function handleMcp(rest: string[]) {
 }
 
 function isBoundaryHostKind(value: string | undefined): value is BoundaryHostKind {
-  return value === "claude-code" || value === "claude-desktop" || value === "cursor" || value === "vscode";
+  return (
+    value === "claude-code" ||
+    value === "claude-desktop" ||
+    value === "cursor" ||
+    value === "vscode"
+  );
 }
 
 async function handleHost(rest: string[]) {
@@ -9999,11 +10780,11 @@ async function handleHost(rest: string[]) {
     return;
   }
 
-  console.log(`Buccet host attach`);
+  console.log("Buccet host attach");
   console.log(`host: ${plan.host}`);
   console.log(`config: ${plan.configPath}`);
   console.log(`command: ${plan.command} ${plan.args.join(" ")}`);
-  console.log(write ? `status: wrote config` : `status: preview only (use --write to install)`);
+  console.log(write ? "status: wrote config" : "status: preview only (use --write to install)");
 }
 
 async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
@@ -10055,12 +10836,14 @@ async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
   }
 
   const existingConfig = await loadConfig(home.configPath);
-  const config = existingConfig ?? baseConfig({
-    sessionId: sessionId ?? "agent-buccet-default",
-    actorId: actorId ?? defaultActorId(),
-    defaultScopes: [callerCwd],
-    dryRun,
-  });
+  const config =
+    existingConfig ??
+    baseConfig({
+      sessionId: sessionId ?? "agent-buccet-default",
+      actorId: actorId ?? defaultActorId(),
+      defaultScopes: [callerCwd],
+      dryRun,
+    });
   const nextConfig: BuccetConfig = {
     ...config,
     sessionId: sessionId ?? config.sessionId,
@@ -10106,7 +10889,10 @@ async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
     command: toolName,
     commandArgs,
     scopePaths: uniquePaths(
-      store.getConfig().pathLaws.filter((law) => !law.revokedAt).map((law) => law.rootPath),
+      store
+        .getConfig()
+        .pathLaws.filter((law) => !law.revokedAt)
+        .map((law) => law.rootPath),
     ),
     sessionsDir: home.sessionsDir,
     keepSession: true,
@@ -10141,9 +10927,10 @@ async function handleToolDoor(toolName: "git" | "gh", rest: string[]) {
     flags: doorSignals.flags,
     reviewContext: {
       surface: "action",
-      title: toolName === "git"
-        ? "Would you like to run the following git command?"
-        : "Would you like to run the following GitHub command?",
+      title:
+        toolName === "git"
+          ? "Would you like to run the following git command?"
+          : "Would you like to run the following GitHub command?",
       question: "Does this command match your intent?",
       attemptLines: [
         `$ ${toolName}${commandArgs.length > 0 ? ` ${commandArgs[0]}` : ""}`,
@@ -10184,23 +10971,24 @@ async function handleHook(rest: string[]) {
     await ensureDir(home.nativeBuildDir);
     await ensureDir(home.runDir);
     const nativeSourceDir = await resolveNativeSourceDir(home);
-    const compileArgs = process.platform === "darwin"
-      ? [
-          "-dynamiclib",
-          "-fPIC",
-          "-o",
-          home.nativeLibraryPath,
-          path.join(nativeSourceDir, "gravity.c"),
-          "-ldl",
-        ]
-      : [
-          "-shared",
-          "-fPIC",
-          "-o",
-          home.nativeLibraryPath,
-          path.join(nativeSourceDir, "gravity.c"),
-          "-ldl",
-        ];
+    const compileArgs =
+      process.platform === "darwin"
+        ? [
+            "-dynamiclib",
+            "-fPIC",
+            "-o",
+            home.nativeLibraryPath,
+            path.join(nativeSourceDir, "gravity.c"),
+            "-ldl",
+          ]
+        : [
+            "-shared",
+            "-fPIC",
+            "-o",
+            home.nativeLibraryPath,
+            path.join(nativeSourceDir, "gravity.c"),
+            "-ldl",
+          ];
     const result = await runSubprocess({
       command: process.env.CC ?? "cc",
       args: compileArgs,
@@ -10220,7 +11008,7 @@ async function handleHook(rest: string[]) {
     await ensureDir(home.runDir);
     const boundary = await importBoundary(homePath);
     const existingPid = await readHookPid(home.hookPidPath);
-    if (existingPid && await pidAlive(existingPid)) {
+    if (existingPid && (await pidAlive(existingPid))) {
       const health = await getHookRuntimeHealth(boundary, home);
       if (health.healthy) {
         emitHookStatus(`hook daemon already running: ${existingPid}`);
@@ -10229,31 +11017,35 @@ async function handleHook(rest: string[]) {
       await stopHookDaemonPid(existingPid);
     }
     const daemonExec = process.env.BUCCET_DAEMON_EXEC ?? process.execPath;
-    const child = spawn(daemonExec, [
-      daemonScriptPath,
-      "--session-id",
-      config.sessionId,
-      "--actor-id",
-      config.actorId,
-      "--sessions-dir",
-      home.sessionsDir,
-      "--intercept-socket",
-      home.interceptSocketPath,
-      "--gravity-bridge-socket",
-      home.gravityBridgeSocketPath,
-      "--brain-status-file",
-      home.brainStatusPath,
-      "--pid-file",
-      home.hookPidPath,
-    ], {
-      cwd: home.homePath,
-      detached: true,
-      stdio: "ignore",
-      env: {
-        ...process.env,
-        AGENT_BUCCET_HOME: home.homePath,
+    const child = spawn(
+      daemonExec,
+      [
+        daemonScriptPath,
+        "--session-id",
+        config.sessionId,
+        "--actor-id",
+        config.actorId,
+        "--sessions-dir",
+        home.sessionsDir,
+        "--intercept-socket",
+        home.interceptSocketPath,
+        "--gravity-bridge-socket",
+        home.gravityBridgeSocketPath,
+        "--brain-status-file",
+        home.brainStatusPath,
+        "--pid-file",
+        home.hookPidPath,
+      ],
+      {
+        cwd: home.homePath,
+        detached: true,
+        stdio: "ignore",
+        env: {
+          ...process.env,
+          AGENT_BUCCET_HOME: home.homePath,
+        },
       },
-    });
+    );
     child.unref();
     await waitForHookRuntimeHealthy(boundary, home);
     emitHookStatus("hook daemon started");
@@ -10273,13 +11065,13 @@ async function handleHook(rest: string[]) {
       if (watch) {
         process.stdout.write("\x1Bc");
         console.log(`Buccet live | ${formatHookOperatorSummary(payload)}`);
-        console.log(``);
+        console.log("");
       } else {
-        console.log(`Agent Buccet hook status — split shield view`);
+        console.log("Agent Buccet hook status — split shield view");
       }
       printHookStatusDetails(payload);
       if (!watch && !payload.running) {
-        console.log(`re-arm: buccet hook start`);
+        console.log("re-arm: buccet hook start");
       }
       return payload;
     };
@@ -10407,10 +11199,14 @@ async function handleHook(rest: string[]) {
 
 function detectPlatformLabel(): string {
   const arch = process.arch === "arm64" ? "arm64" : process.arch === "x64" ? "x64" : process.arch;
-  const platform = process.platform === "darwin" ? "macOS"
-    : process.platform === "linux" ? "Linux"
-    : process.platform === "win32" ? "Windows"
-    : process.platform;
+  const platform =
+    process.platform === "darwin"
+      ? "macOS"
+      : process.platform === "linux"
+        ? "Linux"
+        : process.platform === "win32"
+          ? "Windows"
+          : process.platform;
   return `${platform} ${arch}`;
 }
 
@@ -10466,23 +11262,60 @@ async function handleDoctor(rest: string[] = []) {
   const failIcon = clrFail();
   const warnIcon = clrWarn();
 
-  const kv = (label: string, value: string) =>
-    `  ${clrDim(label.padEnd(18))} ${value}`;
+  const kv = (label: string, value: string) => `  ${clrDim(label.padEnd(18))} ${value}`;
 
   const lines: string[] = [
-    ``,
+    "",
     `  ${clrBold("Agent Buccet — Doctor")}`,
     `  ${c.dim}─────────────────────────────────────${c.reset}`,
-    kv("Platform:",        platformLabel),
-    kv("Backend:",         backendLabel),
-    kv("Native library:",  nativeReady ? `${passIcon} ${clrDim(`(${protectionMode})`)}` : `${warnIcon} ${clrDim(`(${protectionMode} — run 'buccet hook build')`)}`),
-    kv("Hook daemon:",     hookAlive ? `${passIcon} ${clrDim(`(pid ${hookPid})`)}` : `${failIcon} ${clrDim("(not running — run 'buccet hook start')")}`),
-    kv("Hook state:",      hookAlive ? (hookState === "alive" ? passIcon : `${failIcon} ${clrDim(`(${hookState})`)}`) : `${warnIcon} ${clrDim("(not running)")}`),
-    kv("Intercept socket:", interceptReachable ? passIcon : hookAlive ? `${failIcon} ${clrDim(`(${hookHealth.reason ?? "unreachable"})`)}` : `${warnIcon} ${clrDim("(daemon not running)")}`),
-    kv("Gravity bridge:",  bridgeReachable ? passIcon : hookAlive ? `${failIcon} ${clrDim(`(${hookHealth.reason ?? "unreachable"})`)}` : `${warnIcon} ${clrDim("(daemon not running)")}`),
-    kv("Ledger chain:",    ledgerChainOk === null ? `${warnIcon} ${clrDim("(not checked)")}` : ledgerChainOk ? `${passIcon} ${clrDim(`(${ledgerEntries} entries)`)}` : `${failIcon} ${clrDim("(chain broken — run 'buccet ledger repair')")}`),
-    kv("Session:",         sessionStatus),
-    ``,
+    kv("Platform:", platformLabel),
+    kv("Backend:", backendLabel),
+    kv(
+      "Native library:",
+      nativeReady
+        ? `${passIcon} ${clrDim(`(${protectionMode})`)}`
+        : `${warnIcon} ${clrDim(`(${protectionMode} — run 'buccet hook build')`)}`,
+    ),
+    kv(
+      "Hook daemon:",
+      hookAlive
+        ? `${passIcon} ${clrDim(`(pid ${hookPid})`)}`
+        : `${failIcon} ${clrDim("(not running — run 'buccet hook start')")}`,
+    ),
+    kv(
+      "Hook state:",
+      hookAlive
+        ? hookState === "alive"
+          ? passIcon
+          : `${failIcon} ${clrDim(`(${hookState})`)}`
+        : `${warnIcon} ${clrDim("(not running)")}`,
+    ),
+    kv(
+      "Intercept socket:",
+      interceptReachable
+        ? passIcon
+        : hookAlive
+          ? `${failIcon} ${clrDim(`(${hookHealth.reason ?? "unreachable"})`)}`
+          : `${warnIcon} ${clrDim("(daemon not running)")}`,
+    ),
+    kv(
+      "Gravity bridge:",
+      bridgeReachable
+        ? passIcon
+        : hookAlive
+          ? `${failIcon} ${clrDim(`(${hookHealth.reason ?? "unreachable"})`)}`
+          : `${warnIcon} ${clrDim("(daemon not running)")}`,
+    ),
+    kv(
+      "Ledger chain:",
+      ledgerChainOk === null
+        ? `${warnIcon} ${clrDim("(not checked)")}`
+        : ledgerChainOk
+          ? `${passIcon} ${clrDim(`(${ledgerEntries} entries)`)}`
+          : `${failIcon} ${clrDim("(chain broken — run 'buccet ledger repair')")}`,
+    ),
+    kv("Session:", sessionStatus),
+    "",
   ];
 
   for (const line of lines) {
@@ -10490,25 +11323,21 @@ async function handleDoctor(rest: string[] = []) {
   }
 
   const critical = !hookHealth.healthy || ledgerChainOk === false;
-  const strictFailure =
-    !config
-    || !nativeReady
-    || !hookHealth.healthy
-    || ledgerChainOk !== true;
+  const strictFailure = !config || !nativeReady || !hookHealth.healthy || ledgerChainOk !== true;
   if (critical) {
-    console.log(`  One or more checks require attention.`);
+    console.log("  One or more checks require attention.");
     console.log(`  Run 'buccet hook start' to re-arm the protected execution lane.`);
-    console.log(``);
+    console.log("");
   } else {
-    console.log(`  All systems active. This machine is guarded.`);
-    console.log(``);
+    console.log("  All systems active. This machine is guarded.");
+    console.log("");
   }
   if (strict) {
     const strictLabel = strictFailure
       ? `${clrFail(clrBold("FAIL"))}  ${clrDim("one or more checks not passing")}`
       : `${clrOk(clrBold("PASS"))}  ${clrDim("all strict checks clear")}`;
     console.log(`  ${clrDim("strict posture:")}  ${strictLabel}`);
-    console.log(``);
+    console.log("");
     if (strictFailure) {
       process.exitCode = 1;
     }
@@ -10523,7 +11352,7 @@ async function handleConsole() {
   let config = await loadConfig(home.configPath);
 
   if (!config) {
-    console.log(`Agent Buccet is not initialized. Bringing the machine up now...`);
+    console.log("Agent Buccet is not initialized. Bringing the machine up now...");
     await handleInit(["--arm-now"]);
     config = await loadConfig(home.configPath);
     if (!config) {
@@ -10543,7 +11372,7 @@ async function handleConsole() {
   const platformLabel = detectPlatformLabel();
   const backendLabel = detectBackendLabel();
   const nativeReady = await pathExists(home.nativeLibraryPath);
-  const protectionMode = nativeReady ? "strong_path" : "compatibility_path";
+  const _protectionMode = nativeReady ? "strong_path" : "compatibility_path";
 
   // Fetch initial status for the dashboard
   const initialHookPayload = await buildHookStatusPayload(boundary, { home, config });
@@ -10581,8 +11410,7 @@ async function handleConsole() {
 
   printBuccetWordmark();
   const bar = "─".repeat(46);
-  const kv = (label: string, value: string) =>
-    `  ${clrDim(label.padEnd(12))} ${value}`;
+  const kv = (label: string, value: string) => `  ${clrDim(label.padEnd(12))} ${value}`;
   console.log(`  ${c.blue}${bar}${c.reset}`);
   console.log(kv("platform", platformLabel));
   console.log(kv("backend", backendLabel));
@@ -10599,19 +11427,33 @@ async function handleConsole() {
   );
   console.log(`  ${c.blue}${bar}${c.reset}`);
   if (!hintsMuted) {
-    console.log(``);
-    console.log(`  ${c.bold}What is this?${c.reset}  ${clrDim("Every action your AI agent tries to take — files, APIs, commands —")}`);
-    console.log(`  ${clrDim("is intercepted here before it lands. You allow or deny it. Decisions become law.")}`);
-    console.log(``);
-    console.log(`  ${clrDim("→ Connect your agent:")}  add ${c.bold}buccet mcp${c.reset} to your MCP host ${clrDim("(Claude Desktop, Cursor, etc.)")}`);
-    console.log(`    ${clrDim(`{ "mcpServers": { "buccet": { "command": "buccet", "args": ["mcp"] } } }`)}`);
-    console.log(`  ${clrDim("→ When an action hits:")}  ${c.green}${c.bold}1${c.reset} allow once  ${c.green}${c.bold}2${c.reset} allow as law  ${c.red}${c.bold}3${c.reset} deny once  ${c.red}${c.bold}4${c.reset} deny as law`);
-    console.log(``);
-    console.log(`  ${clrDim("Type")} ${c.bold}where${c.reset} ${clrDim("for the full operator map  ·  type")} ${c.bold}mute hints${c.reset} ${clrDim("to hide this.")}`);
-    console.log(``);
+    console.log("");
+    console.log(
+      `  ${c.bold}What is this?${c.reset}  ${clrDim("Every action your AI agent tries to take — files, APIs, commands —")}`,
+    );
+    console.log(
+      `  ${clrDim("is intercepted here before it lands. You allow or deny it. Decisions become law.")}`,
+    );
+    console.log("");
+    console.log(
+      `  ${clrDim("→ Connect your agent:")}  add ${c.bold}buccet mcp${c.reset} to your MCP host ${clrDim("(Claude Desktop, Cursor, etc.)")}`,
+    );
+    console.log(
+      `    ${clrDim(`{ "mcpServers": { "buccet": { "command": "buccet", "args": ["mcp"] } } }`)}`,
+    );
+    console.log(
+      `  ${clrDim("→ When an action hits:")}  ${c.green}${c.bold}1${c.reset} allow once  ${c.green}${c.bold}2${c.reset} allow as law  ${c.red}${c.bold}3${c.reset} deny once  ${c.red}${c.bold}4${c.reset} deny as law`,
+    );
+    console.log("");
+    console.log(
+      `  ${clrDim("Type")} ${c.bold}where${c.reset} ${clrDim("for the full operator map  ·  type")} ${c.bold}mute hints${c.reset} ${clrDim("to hide this.")}`,
+    );
+    console.log("");
   } else {
-    console.log(`  ${clrDim("type")} ${c.bold}help${c.reset} ${clrDim("for commands  ·  type")} ${c.bold}quit${c.reset} ${clrDim("to exit")}`);
-    console.log(``);
+    console.log(
+      `  ${clrDim("type")} ${c.bold}help${c.reset} ${clrDim("for commands  ·  type")} ${c.bold}quit${c.reset} ${clrDim("to exit")}`,
+    );
+    console.log("");
   }
 
   // Track which groups have already been reported.
@@ -10640,7 +11482,13 @@ async function handleConsole() {
       violations?: string[];
     };
     lawIds: string[];
-    bodyguardMoves: Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+    bodyguardMoves: Array<{
+      moveId: string;
+      kind: string;
+      title: string;
+      description: string;
+      target?: string;
+    }>;
     memberCount: number;
     waitingCount: number;
   }> = [];
@@ -10675,7 +11523,7 @@ async function handleConsole() {
   let currentHookPayload: HookStatusPayload | null = null;
   let lastHookSummary: string | null = null;
 
-  function ingressStateLabel(entry: typeof currentIngressEntries[number]): string {
+  function ingressStateLabel(entry: (typeof currentIngressEntries)[number]): string {
     if (entry.state === "canyon") {
       return `canyon-held${entry.promotionKind ? ` [${entry.promotionKind}]` : ""}`;
     }
@@ -10688,19 +11536,19 @@ async function handleConsole() {
     return "allow-as-law";
   }
 
-  function renderBoundaryEventDetails(group: typeof currentWaitingGroups[number]) {
+  function renderBoundaryEventDetails(group: (typeof currentWaitingGroups)[number]) {
     const context = group.reviewContext;
     if (context?.surface === "chat") {
       if (context.userInput) console.log(`  ║  User input: ${context.userInput}`);
       if (context.attemptedOutput) console.log(`  ║  Attempted:  ${context.attemptedOutput}`);
       if (context.evidence?.length) {
-        console.log(`  ║  Evidence:`);
+        console.log("  ║  Evidence:");
         for (const line of context.evidence) {
           console.log(`  ║    - ${line}`);
         }
       }
       if (context.violations?.length) {
-        console.log(`  ║  Violations:`);
+        console.log("  ║  Violations:");
         for (const line of context.violations) {
           console.log(`  ║    - ${line}`);
         }
@@ -10708,15 +11556,16 @@ async function handleConsole() {
       return;
     }
 
-    const attemptLines = context?.attemptLines ?? (group.payloadSummary ? [group.payloadSummary] : []);
+    const attemptLines =
+      context?.attemptLines ?? (group.payloadSummary ? [group.payloadSummary] : []);
     if (attemptLines.length) {
-      console.log(`  ║  Attempt:`);
+      console.log("  ║  Attempt:");
       for (const line of attemptLines) {
         console.log(`  ║    ${line}`);
       }
     }
     if (context?.violations?.length) {
-      console.log(`  ║  Violations:`);
+      console.log("  ║  Violations:");
       for (const line of context.violations) {
         console.log(`  ║    - ${line}`);
       }
@@ -10760,9 +11609,11 @@ async function handleConsole() {
       reportedGroupIds.clear();
       if (!options?.silent) {
         if (out.mode === "standing_law") {
-          console.log(`  24/7 no-questions mode active — UPL is now resolving pending action groups. Press Esc to return to interactive mode.`);
+          console.log(
+            "  24/7 no-questions mode active — UPL is now resolving pending action groups. Press Esc to return to interactive mode.",
+          );
         } else {
-          console.log(`  Interactive mode restored — Terminal 2 will ask the 4 choices again.`);
+          console.log("  Interactive mode restored — Terminal 2 will ask the 4 choices again.");
         }
         console.log(`  reason: ${reason}`);
       }
@@ -10787,18 +11638,35 @@ async function handleConsole() {
 
     // Infrastructure / noisy events — skip entirely.
     const skip = new Set([
-      "ACTION_PROPOSED", "DECISION_RETURNED",
-      "SESSION_STARTED", "SESSION_RESTORED", "SESSION_PERSISTED", "SESSION_ENDED",
-      "PATH_OPENED", "PATH_LAW_INSTANTIATED",
-      "RECIPIENT_OPENED", "RECIPIENT_LAW_INSTANTIATED",
-      "DOMAIN_OPENED", "DOMAIN_LAW_INSTANTIATED",
-      "TOOL_OPENED", "TOOL_LAW_INSTANTIATED",
-      "DATABASE_OPENED", "DATABASE_LAW_INSTANTIATED",
-      "SYSTEM_OPENED", "SYSTEM_LAW_INSTANTIATED",
-      "GRANT_ISSUED", "GRANT_REVOKED", "GRANT_EXPIRED",
-      "PROPOSAL_REPLAYED", "APPROVAL_REQUESTED",
-      "PROCESS_LAUNCH_REQUESTED", "PROCESS_SPAWNED", "PROCESS_EXITED",
-      "PROCESS_ENV_FILTERED", "PROCESS_PHYSWRAP_ACTIVE", "PROCESS_PHYSWRAP_FALLBACK",
+      "ACTION_PROPOSED",
+      "DECISION_RETURNED",
+      "SESSION_STARTED",
+      "SESSION_RESTORED",
+      "SESSION_PERSISTED",
+      "SESSION_ENDED",
+      "PATH_OPENED",
+      "PATH_LAW_INSTANTIATED",
+      "RECIPIENT_OPENED",
+      "RECIPIENT_LAW_INSTANTIATED",
+      "DOMAIN_OPENED",
+      "DOMAIN_LAW_INSTANTIATED",
+      "TOOL_OPENED",
+      "TOOL_LAW_INSTANTIATED",
+      "DATABASE_OPENED",
+      "DATABASE_LAW_INSTANTIATED",
+      "SYSTEM_OPENED",
+      "SYSTEM_LAW_INSTANTIATED",
+      "GRANT_ISSUED",
+      "GRANT_REVOKED",
+      "GRANT_EXPIRED",
+      "PROPOSAL_REPLAYED",
+      "APPROVAL_REQUESTED",
+      "PROCESS_LAUNCH_REQUESTED",
+      "PROCESS_SPAWNED",
+      "PROCESS_EXITED",
+      "PROCESS_ENV_FILTERED",
+      "PROCESS_PHYSWRAP_ACTIVE",
+      "PROCESS_PHYSWRAP_FALLBACK",
     ]);
     if (skip.has(et)) return null;
 
@@ -10807,38 +11675,42 @@ async function handleConsole() {
         ? `  ✗ CHAT BLOCKED     ${reason}`
         : `  ✗ BLOCKED          ${action} → ${target}  [${reason}]`;
     }
-    if (et === "ACTION_EXECUTED")          return `  ✓ ALLOWED          ${action} → ${target}`;
-    if (et === "APPROVAL_GRANTED")         return `  ✓ APPROVED         ${action} → ${target}`;
-    if (et === "APPROVAL_DENIED")          return `  ✗ DENIED           ${action} → ${target}`;
-    if (et === "PROCESS_WALL_CLOCK_KILL")  return `  ⚡ WALL-CLOCK KILL  ${target}`;
-    if (et === "GOVERNOR_TRIP")            return `  ⚡ GOVERNOR TRIP    ${reason}`;
+    if (et === "ACTION_EXECUTED") return `  ✓ ALLOWED          ${action} → ${target}`;
+    if (et === "APPROVAL_GRANTED") return `  ✓ APPROVED         ${action} → ${target}`;
+    if (et === "APPROVAL_DENIED") return `  ✗ DENIED           ${action} → ${target}`;
+    if (et === "PROCESS_WALL_CLOCK_KILL") return `  ⚡ WALL-CLOCK KILL  ${target}`;
+    if (et === "GOVERNOR_TRIP") return `  ⚡ GOVERNOR TRIP    ${reason}`;
     if (et === "PROCESS_PHYSWRAP_CAP_WARNING") return `  ⚠  PHYSWRAP WARN    ${reason}`;
     if (et === "INGRESS_PROVENANCE_BLOCKED") {
-      return `  ✗ INGRESS BLOCKED  ${String(meta["provenance"] ?? target)}`;
+      return `  ✗ INGRESS BLOCKED  ${String(meta.provenance ?? target)}`;
     }
     if (et === "INGRESS_CANYON_STATE_WRITTEN") {
-      const prov = String(meta["provenance"] ?? target);
-      const kind = meta["promotion_kind"] ? `  [${String(meta["promotion_kind"])}]` : "";
+      const prov = String(meta.provenance ?? target);
+      const kind = meta.promotion_kind ? `  [${String(meta.promotion_kind)}]` : "";
       return `  ⚑ CANYON HOLD      ${prov}${kind}`;
     }
-    if (et === "INGRESS_ALLOW_ONCE")       return `  ✓ CANYON RELEASE    ${target}  [once]`;
-    if (et === "INGRESS_ALLOW_AS_LAW")     return `  ✓ CANYON RELEASE    ${target}  [standing]`;
-    if (et === "INGRESS_DENY_ONCE")        return `  ✗ CANYON KEEP       ${target}  [once]`;
-    if (et === "INGRESS_DENY_AS_LAW")      return `  ✗ CANYON KEEP       ${target}  [standing]`;
-    if (et === "INGRESS_VELOCITY_TRIP")    return `  ✗ VELOCITY TRIP    ${String(meta["provenance"] ?? target)}`;
-    if (et === "INGRESS_DENSITY_TRIP")     return `  ✗ DENSITY TRIP     ${String(meta["provenance"] ?? target)}`;
-    if (et === "INGRESS_MASS_TRIP")        return `  ✗ MASS TRIP        ${String(meta["provenance"] ?? target)}`;
-    if (et === "INGRESS_DENIED")           return `  ✗ INGRESS DENIED   ${target}`;
-    if (et === "BODYGUARD_GRANT_OFFERED")        return `  → BODYGUARD OFFER        ${action} → ${target}`;
-    if (et === "BODYGUARD_MOVE_SUGGESTED")       return `  → BODYGUARD MOVE         ${reason}`;
-    if (et === "BODYGUARD_MOVE_CHOSEN")          return `  ✓ BODYGUARD CHOSEN       ${reason}`;
-    if (et === "DISPOSABLE_SHED_TRIGGERED")      return `  ✗ SHED TRIGGERED        ${reason}`;
-    if (et === "DISPOSABLE_RESPAWNED")           return `  ✓ SHED RESPAWNED        ${String(meta["unit_id"] ?? target)}`;
-    if (et === "UPL_ALLOW_RECORDED")       return `  ⚑ UPL ALLOW LAW    ${target}`;
-    if (et === "UPL_DENY_RECORDED")        return `  ⚑ UPL DENY LAW     ${target}`;
-    if (et === "USER_CONFIRMED_DENY")      return `  ✗ USER DENY        ${target}`;
+    if (et === "INGRESS_ALLOW_ONCE") return `  ✓ CANYON RELEASE    ${target}  [once]`;
+    if (et === "INGRESS_ALLOW_AS_LAW") return `  ✓ CANYON RELEASE    ${target}  [standing]`;
+    if (et === "INGRESS_DENY_ONCE") return `  ✗ CANYON KEEP       ${target}  [once]`;
+    if (et === "INGRESS_DENY_AS_LAW") return `  ✗ CANYON KEEP       ${target}  [standing]`;
+    if (et === "INGRESS_VELOCITY_TRIP")
+      return `  ✗ VELOCITY TRIP    ${String(meta.provenance ?? target)}`;
+    if (et === "INGRESS_DENSITY_TRIP")
+      return `  ✗ DENSITY TRIP     ${String(meta.provenance ?? target)}`;
+    if (et === "INGRESS_MASS_TRIP")
+      return `  ✗ MASS TRIP        ${String(meta.provenance ?? target)}`;
+    if (et === "INGRESS_DENIED") return `  ✗ INGRESS DENIED   ${target}`;
+    if (et === "BODYGUARD_GRANT_OFFERED") return `  → BODYGUARD OFFER        ${action} → ${target}`;
+    if (et === "BODYGUARD_MOVE_SUGGESTED") return `  → BODYGUARD MOVE         ${reason}`;
+    if (et === "BODYGUARD_MOVE_CHOSEN") return `  ✓ BODYGUARD CHOSEN       ${reason}`;
+    if (et === "DISPOSABLE_SHED_TRIGGERED") return `  ✗ SHED TRIGGERED        ${reason}`;
+    if (et === "DISPOSABLE_RESPAWNED")
+      return `  ✓ SHED RESPAWNED        ${String(meta.unit_id ?? target)}`;
+    if (et === "UPL_ALLOW_RECORDED") return `  ⚑ UPL ALLOW LAW    ${target}`;
+    if (et === "UPL_DENY_RECORDED") return `  ⚑ UPL DENY LAW     ${target}`;
+    if (et === "USER_CONFIRMED_DENY") return `  ✗ USER DENY        ${target}`;
     if (et === "LEDGER_STORM_SUMMARY") {
-      return `  ⚡ STORM SUMMARY    shed ${String(meta["shed_count"] ?? "?")} events`;
+      return `  ⚡ STORM SUMMARY    shed ${String(meta.shed_count ?? "?")} events`;
     }
     return null; // unknown — skip
   }
@@ -10855,11 +11727,11 @@ async function handleConsole() {
         const et = record.META.event_type;
         const meta = record.META.metadata ?? {};
         if (et === "INGRESS_PROVENANCE_BLOCKED" || et === "INGRESS_CANYON_STATE_WRITTEN") {
-          const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
+          const prov = String(meta.provenance ?? record.INPUT.target ?? "");
           if (prov && prov !== "-") canyonProvenances.add(prov);
         }
         if (et === "INGRESS_ALLOW_ONCE" || et === "INGRESS_ALLOW_AS_LAW") {
-          const prov = String(meta["provenance"] ?? record.INPUT.target ?? "");
+          const prov = String(meta.provenance ?? record.INPUT.target ?? "");
           if (prov && prov !== "-") {
             canyonProvenances.delete(prov);
             reportedCanyonProvenances.delete(prov);
@@ -10870,7 +11742,9 @@ async function handleConsole() {
           if (line) console.log(line);
         }
       }
-    } catch { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   async function pollIngress() {
@@ -10881,7 +11755,9 @@ async function handleConsole() {
       });
       if (out.type !== "ingress_status") return;
       currentIngressEntries = out.provenances;
-      const currentCanyonEntries = currentIngressEntries.filter((entry) => entry.state === "canyon");
+      const currentCanyonEntries = currentIngressEntries.filter(
+        (entry) => entry.state === "canyon",
+      );
 
       for (const entry of currentCanyonEntries) {
         canyonProvenances.add(entry.provenance);
@@ -10889,24 +11765,42 @@ async function handleConsole() {
           continue;
         }
         reportedCanyonProvenances.add(entry.provenance);
-        console.log(``);
+        console.log("");
         const _W = 72;
         console.log(`  ${c.cyan}╔═ INGRESS CANYON HOLD ${"═".repeat(_W - 19)}╗${c.reset}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("provenance:")} ${c.bold}${entry.provenance}${c.reset}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("state:")}      canyon-held  ${clrDim(`[${entry.promotionKind}]`)}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${clrDim("pressure:")}   ${entry.deniedCount} tarpit decision(s) recorded`);
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${clrDim("provenance:")} ${c.bold}${entry.provenance}${c.reset}`,
+        );
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${clrDim("state:")}      canyon-held  ${clrDim(`[${entry.promotionKind}]`)}`,
+        );
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${clrDim("pressure:")}   ${entry.deniedCount} tarpit decision(s) recorded`,
+        );
         console.log(`  ${c.cyan}║${c.reset}`);
         console.log(`  ${c.cyan}║${c.reset}  ${clrDim("reason:")}     ${entry.reason}`);
         console.log(`  ${c.cyan}║${c.reset}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — release this provenance once`);
-        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}allow as law${c.reset}  — standing ingress allow`);
-        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — keep this provenance in the canyon`);
-        console.log(`  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — standing canyon hold`);
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — release this provenance once`,
+        );
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}allow as law${c.reset}  — standing ingress allow`,
+        );
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — keep this provenance in the canyon`,
+        );
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — standing canyon hold`,
+        );
         console.log(`  ${c.cyan}║${c.reset}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${clrDim(`> canyon 1 ${entry.provenance}   /   canyon 2 ${entry.provenance}`)}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${clrDim(`> canyon 3 ${entry.provenance}   /   canyon 4 ${entry.provenance}`)}`);
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${clrDim(`> canyon 1 ${entry.provenance}   /   canyon 2 ${entry.provenance}`)}`,
+        );
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${clrDim(`> canyon 3 ${entry.provenance}   /   canyon 4 ${entry.provenance}`)}`,
+        );
         console.log(`  ${c.cyan}╚${"═".repeat(_W)}╝${c.reset}`);
-        console.log(``);
+        console.log("");
       }
 
       const live = new Set(currentCanyonEntries.map((entry) => entry.provenance));
@@ -10948,8 +11842,14 @@ async function handleConsole() {
       for (const group of waitingGroups) {
         if (reportedGroupIds.has(group.groupId)) continue;
         reportedGroupIds.add(group.groupId);
-        console.log(``);
-        const bodyguardMoves = (group.bodyguardMoves ?? []) as Array<{ moveId: string; kind: string; title: string; description: string; target?: string }>;
+        console.log("");
+        const bodyguardMoves = (group.bodyguardMoves ?? []) as Array<{
+          moveId: string;
+          kind: string;
+          title: string;
+          description: string;
+          target?: string;
+        }>;
         const isBodyguardGrantOffer = bodyguardMoves.some((m) => m.kind === "open_as_law");
         const openAsLawMove = bodyguardMoves.find((m) => m.kind === "open_as_law");
 
@@ -10960,45 +11860,79 @@ async function handleConsole() {
           console.log(`  ${c.cyan}║${c.reset}  ${c.bold}${openAsLawMove.title}${c.reset}`);
           console.log(`  ${c.cyan}║${c.reset}  ${clrDim(openAsLawMove.description)}`);
           console.log(`  ${c.cyan}║${c.reset}`);
-          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("action:")}   ${c.bold}${group.actionClass}.${group.operation}${c.reset}`);
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${clrDim("action:")}   ${c.bold}${group.actionClass}.${group.operation}${c.reset}`,
+          );
           if (openAsLawMove.target ?? group.target) {
-            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("scope:")}    ${c.bold}${openAsLawMove.target ?? group.target}${c.reset}`);
+            console.log(
+              `  ${c.cyan}║${c.reset}  ${clrDim("scope:")}    ${c.bold}${openAsLawMove.target ?? group.target}${c.reset}`,
+            );
           }
-          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("waiting:")}  ${group.waitingCount} request(s)`);
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${clrDim("waiting:")}  ${group.waitingCount} request(s)`,
+          );
           if (group.lawIds?.length > 0) {
-            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("laws:")}     ${clrDim((group.lawIds as string[]).join(", "))}`);
+            console.log(
+              `  ${c.cyan}║${c.reset}  ${clrDim("laws:")}     ${clrDim((group.lawIds as string[]).join(", "))}`,
+            );
           }
           renderBoundaryEventDetails(group);
           console.log(`  ${c.cyan}║${c.reset}`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — proceed this time; no law written`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}open as law${c.reset}   — open scope as ${c.bold}standing law${c.reset}; always allowed`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — block this request; no law written`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — ${c.bold}standing deny law${c.reset}; always blocked`);
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — proceed this time; no law written`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}open as law${c.reset}   — open scope as ${c.bold}standing law${c.reset}; always allowed`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — block this request; no law written`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — ${c.bold}standing deny law${c.reset}; always blocked`,
+          );
         } else {
           const W = 62;
           const bar = "═".repeat(W);
           console.log(`  ${c.cyan}╔═ BOUNDARY INTERCEPTION ${bar.slice(0, W - 21)}╗${c.reset}`);
-          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("action:")}   ${c.bold}${group.actionClass}.${group.operation}${c.reset}`);
-          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("target:")}   ${c.bold}${group.target}${c.reset}`);
-          console.log(`  ${c.cyan}║${c.reset}  ${clrDim("waiting:")}  ${group.waitingCount} request(s)`);
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${clrDim("action:")}   ${c.bold}${group.actionClass}.${group.operation}${c.reset}`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${clrDim("target:")}   ${c.bold}${group.target}${c.reset}`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${clrDim("waiting:")}  ${group.waitingCount} request(s)`,
+          );
           if (group.reason) {
             console.log(`  ${c.cyan}║${c.reset}`);
             console.log(`  ${c.cyan}║${c.reset}  ${clrDim("reason:")}   ${group.reason}`);
           }
           renderBoundaryEventDetails(group);
           if (group.lawIds?.length > 0) {
-            console.log(`  ${c.cyan}║${c.reset}  ${clrDim("laws:")}     ${clrDim((group.lawIds as string[]).join(", "))}`);
+            console.log(
+              `  ${c.cyan}║${c.reset}  ${clrDim("laws:")}     ${clrDim((group.lawIds as string[]).join(", "))}`,
+            );
           }
           console.log(`  ${c.cyan}║${c.reset}`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — proceeds; no law written`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}allow as law${c.reset}  — proceeds; ${c.bold}standing allow law${c.reset} written`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — blocked; no law written`);
-          console.log(`  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — blocked; ${c.bold}standing deny law${c.reset} written`);
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}1.${c.reset} ${c.green}allow once${c.reset}    — proceeds; no law written`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}2.${c.reset} ${c.bold}${c.green}allow as law${c.reset}  — proceeds; ${c.bold}standing allow law${c.reset} written`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}3.${c.reset} ${c.red}deny once${c.reset}     — blocked; no law written`,
+          );
+          console.log(
+            `  ${c.cyan}║${c.reset}  ${c.dim}4.${c.reset} ${c.bold}${c.red}deny as law${c.reset}   — blocked; ${c.bold}standing deny law${c.reset} written`,
+          );
         }
         console.log(`  ${c.cyan}║${c.reset}`);
-        console.log(`  ${c.cyan}║${c.reset}  ${clrDim(`> 1 / 2 / 3 / 4   or   allow / deny / law / deny-law`)}`);
+        console.log(
+          `  ${c.cyan}║${c.reset}  ${clrDim("> 1 / 2 / 3 / 4   or   allow / deny / law / deny-law")}`,
+        );
         console.log(`  ${c.cyan}╚${"═".repeat(62)}╝${c.reset}`);
-        console.log(``);
+        console.log("");
       }
 
       // Clear resolved groups from reported set.
@@ -11031,7 +11965,9 @@ async function handleConsole() {
   try {
     const existing = await boundary.readBoundaryLedgerBySession(config.sessionId);
     lastSeenCount = existing.length;
-  } catch { /* silent */ }
+  } catch {
+    /* silent */
+  }
 
   const pollHandle = setInterval(() => {
     void pollApprovals();
@@ -11063,12 +11999,18 @@ async function handleConsole() {
       return;
     }
     if (key.name === "right" && currentApprovalMode !== "standing_law") {
-      void setConsoleApprovalMode("standing_law", "console: right-arrow enabled 24/7 no-questions mode");
+      void setConsoleApprovalMode(
+        "standing_law",
+        "console: right-arrow enabled 24/7 no-questions mode",
+      );
       rl.prompt();
       return;
     }
     if (key.name === "escape" && currentApprovalMode === "standing_law") {
-      void setConsoleApprovalMode("interactive", "console: Esc returned Terminal 2 to interactive mode");
+      void setConsoleApprovalMode(
+        "interactive",
+        "console: Esc returned Terminal 2 to interactive mode",
+      );
       rl.prompt();
     }
   };
@@ -11096,7 +12038,7 @@ async function handleConsole() {
         }
 
         if (cmd === "help") {
-          console.log(``);
+          console.log("");
           printCliHeader("  Buccet Console  —  command reference");
           printCliSection("Approvals", [
             formatCliKeyValue("1 / 2 / 3 / 4", "decide pending approval (single group)"),
@@ -11126,8 +12068,14 @@ async function handleConsole() {
             formatCliKeyValue("where", "full operator map — every surface and command"),
             formatCliKeyValue("status", "unified operator snapshot"),
             formatCliKeyValue("create", "multi-Buccet creation cockpit"),
-            formatCliKeyValue("create spend <team> --domain <d> [--confirm-spend]", "SPEND Buccet — financial agents; shell also: buccet create spend …"),
-            formatCliKeyValue("create <team> [n]", "per-Buccet proof-of-work trace (latest n entries)"),
+            formatCliKeyValue(
+              "create spend <team> --domain <d> [--confirm-spend]",
+              "SPEND Buccet — financial agents; shell also: buccet create spend …",
+            ),
+            formatCliKeyValue(
+              "create <team> [n]",
+              "per-Buccet proof-of-work trace (latest n entries)",
+            ),
             formatCliKeyValue("shield", "protected execution lane heartbeat"),
             formatCliKeyValue("logs [n]", "last n witness ledger entries (default 10)"),
             formatCliKeyValue("feed", "toggle live shield + witness feed"),
@@ -11136,10 +12084,16 @@ async function handleConsole() {
           printCliSection("Recovery", [
             formatCliKeyValue("shed", "force denial-side shed and clean disposable respawn"),
             formatCliKeyValue("shed status [n]", "recent shed / respawn witness history"),
-            formatCliKeyValue("quarantine status [n]", "caught set from shed reboot boundary-on-self"),
+            formatCliKeyValue(
+              "quarantine status [n]",
+              "caught set from shed reboot boundary-on-self",
+            ),
             formatCliKeyValue("quarantine review", "interactive one-by-one quarantine denial flow"),
             formatCliKeyValue("quarantine deny-all", "write all caught items into deny law"),
-            formatCliKeyValue("quarantine deny <item-id...>", "write selected caught items into deny law"),
+            formatCliKeyValue(
+              "quarantine deny <item-id...>",
+              "write selected caught items into deny law",
+            ),
           ]);
           printCliSection("Other", [
             formatCliKeyValue("mute hints", "hide the onboarding message on open"),
@@ -11148,19 +12102,26 @@ async function handleConsole() {
             formatCliKeyValue("ledger --follow", "optional split witness view"),
             formatCliKeyValue("quit / q / exit", "exit"),
           ]);
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
 
-        if (cmd === "mode" || cmd === "no-questions" || cmd === "standing-law" || cmd === "interactive" || cmd === "24/7") {
-          const requestedMode = cmd === "mode"
-            ? parseConsoleApprovalModeToken(arg1)
-            : cmd === "interactive"
-              ? "interactive"
-              : "standing_law";
+        if (
+          cmd === "mode" ||
+          cmd === "no-questions" ||
+          cmd === "standing-law" ||
+          cmd === "interactive" ||
+          cmd === "24/7"
+        ) {
+          const requestedMode =
+            cmd === "mode"
+              ? parseConsoleApprovalModeToken(arg1)
+              : cmd === "interactive"
+                ? "interactive"
+                : "standing_law";
           if (cmd === "mode" && arg1 && !requestedMode) {
-            console.log(`  Usage: mode [interactive|standing-law|no-questions|24/7]`);
+            console.log("  Usage: mode [interactive|standing-law|no-questions|24/7]");
             rl.prompt();
             return;
           }
@@ -11182,38 +12143,71 @@ async function handleConsole() {
         // Numbered shorthand: 1/2/3/4 when exactly one group is waiting.
         if (cmd === "1" || cmd === "2" || cmd === "3" || cmd === "4") {
           if (currentWaitingGroups.length === 0) {
-            console.log(`  No pending approvals.`);
+            console.log("  No pending approvals.");
             rl.prompt();
             return;
           }
           if (currentWaitingGroups.length > 1) {
-            console.log(`  ${currentWaitingGroups.length} groups pending — use allow/deny/law/deny-law <id>`);
+            console.log(
+              `  ${currentWaitingGroups.length} groups pending — use allow/deny/law/deny-law <id>`,
+            );
             rl.prompt();
             return;
           }
           const groupId = currentWaitingGroups[0].groupId;
-          const choiceCmd = cmd === "1" ? "allow" : cmd === "2" ? "law" : cmd === "3" ? "deny" : "deny-law";
+          const choiceCmd =
+            cmd === "1" ? "allow" : cmd === "2" ? "law" : cmd === "3" ? "deny" : "deny-law";
           let input: Record<string, unknown>;
           if (choiceCmd === "allow") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once", asLaw: false };
+            input = {
+              command: "swarm_approve",
+              groupId,
+              issuedBy: config.actorId,
+              reason: "console: allow once",
+              asLaw: false,
+            };
           } else if (choiceCmd === "law") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law", asLaw: true };
+            input = {
+              command: "swarm_approve",
+              groupId,
+              issuedBy: config.actorId,
+              reason: "console: allow as law",
+              asLaw: true,
+            };
           } else if (choiceCmd === "deny-law") {
-            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
+            input = {
+              command: "swarm_deny",
+              groupId,
+              deniedBy: config.actorId,
+              reason: "console: deny as law",
+              asLaw: true,
+            };
           } else {
-            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once", asLaw: false };
+            input = {
+              command: "swarm_deny",
+              groupId,
+              deniedBy: config.actorId,
+              reason: "console: deny once",
+              asLaw: false,
+            };
           }
           const out = await boundary.sendBoundaryInterceptServerInput({
             target: interceptTarget,
-            input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+            input: input as Parameters<
+              typeof boundary.sendBoundaryInterceptServerInput
+            >[0]["input"],
           });
           if (out.type === "error") {
             console.log(`  ${clrFail("✗")}  ${out.error}`);
           } else {
-            const label = choiceCmd === "allow" ? `${clrOk("✓")}  ${c.green}allowed once${c.reset}` :
-                          choiceCmd === "law"   ? `${clrOk("✓")}  ${c.bold}${c.green}allowed as law${c.reset}` :
-                          choiceCmd === "deny"  ? `${clrFail("✗")}  ${c.red}denied once${c.reset}` :
-                                                  `${clrFail("✗")}  ${c.bold}${c.red}denied as law${c.reset}`;
+            const label =
+              choiceCmd === "allow"
+                ? `${clrOk("✓")}  ${c.green}allowed once${c.reset}`
+                : choiceCmd === "law"
+                  ? `${clrOk("✓")}  ${c.bold}${c.green}allowed as law${c.reset}`
+                  : choiceCmd === "deny"
+                    ? `${clrFail("✗")}  ${c.red}denied once${c.reset}`
+                    : `${clrFail("✗")}  ${c.bold}${c.red}denied as law${c.reset}`;
             console.log(`  ${label}  ${clrDim(groupId)}`);
             reportedGroupIds.delete(groupId);
           }
@@ -11230,21 +12224,26 @@ async function handleConsole() {
 
         if (cmd === "mute" && arg1 === "hints") {
           await fs.writeFile(home.consoleHintsMutedPath, new Date().toISOString(), "utf8");
-          console.log(`  ${clrOk()}  ${clrBold("Hints muted.")}  ${clrDim("They won't show on next open. Type 'unmute hints' to bring them back.")}`);
+          console.log(
+            `  ${clrOk()}  ${clrBold("Hints muted.")}  ${clrDim("They won't show on next open. Type 'unmute hints' to bring them back.")}`,
+          );
           rl.prompt();
           return;
         }
 
         if (cmd === "unmute" && arg1 === "hints") {
           await fs.unlink(home.consoleHintsMutedPath).catch(() => undefined);
-          console.log(`  ${clrOk()}  ${clrBold("Hints restored.")}  ${clrDim("They'll show again on next open.")}`);
+          console.log(
+            `  ${clrOk()}  ${clrBold("Hints restored.")}  ${clrDim("They'll show again on next open.")}`,
+          );
           rl.prompt();
           return;
         }
 
         if (cmd === "shield") {
-          const payload = currentHookPayload ?? await buildHookStatusPayload(boundary, { home, config });
-          console.log(``);
+          const payload =
+            currentHookPayload ?? (await buildHookStatusPayload(boundary, { home, config }));
+          console.log("");
           printCliHeader("  Protected Execution Lane");
           printCliSection("Shield", [
             formatCliKeyValue("summary", formatHookOperatorSummary(payload)),
@@ -11253,7 +12252,10 @@ async function handleConsole() {
             formatCliKeyValue("healthy", payload.healthy ? "yes" : "no"),
             formatCliKeyValue("state", payload.state ?? "missing"),
             formatCliKeyValue("pid", payload.pid ?? "-"),
-            formatCliKeyValue("intercept", payload.interceptReachable ? "reachable" : "unreachable"),
+            formatCliKeyValue(
+              "intercept",
+              payload.interceptReachable ? "reachable" : "unreachable",
+            ),
             formatCliKeyValue("bridge", payload.bridgeReady ? "ready" : "missing"),
             formatCliKeyValue("intercepted", payload.interceptedAttempts ?? 0),
             formatCliKeyValue("canyon held", payload.canyonHeld ?? 0),
@@ -11265,9 +12267,9 @@ async function handleConsole() {
             payload.lastError ? formatCliKeyValue("last error", payload.lastError) : null,
           ]);
           if (!payload.running) {
-            console.log(`re-arm: buccet hook start`);
+            console.log("re-arm: buccet hook start");
           }
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
@@ -11277,10 +12279,15 @@ async function handleConsole() {
             sessionId: config.sessionId,
             sessionsDir: home.sessionsDir,
           });
-          const scopes = (sessionState?.pathLaws ?? []).filter((l: { revokedAt?: string }) => !l.revokedAt);
-          const grants = (sessionState?.grants ?? []).filter((g: { revokedAt?: string }) => !g.revokedAt);
-          const payload = currentHookPayload ?? await buildHookStatusPayload(boundary, { home, config });
-          console.log(``);
+          const scopes = (sessionState?.pathLaws ?? []).filter(
+            (l: { revokedAt?: string }) => !l.revokedAt,
+          );
+          const grants = (sessionState?.grants ?? []).filter(
+            (g: { revokedAt?: string }) => !g.revokedAt,
+          );
+          const payload =
+            currentHookPayload ?? (await buildHookStatusPayload(boundary, { home, config }));
+          console.log("");
           printCliHeader("  Unified Operator Snapshot");
           printCliSection("Session", [
             formatCliKeyValue("session", config.sessionId),
@@ -11300,7 +12307,7 @@ async function handleConsole() {
           ]);
           const workshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
           printWorkshopCockpitSnapshot(workshopCockpit);
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
@@ -11308,7 +12315,7 @@ async function handleConsole() {
         if (cmd === "create") {
           if (arg1 === "spend") {
             await handleCreate(["spend", ...parts.slice(2)]);
-            console.log(``);
+            console.log("");
             rl.prompt();
             return;
           }
@@ -11316,20 +12323,21 @@ async function handleConsole() {
             // create <team> [n] — per-Buccet proof-of-work trace
             const traceSlug = teamSlug(arg1);
             const tailArg = parts[2];
-            const tail = tailArg !== undefined ? Math.max(1, parseInt(tailArg, 10) || 1) : undefined;
+            const tail =
+              tailArg !== undefined ? Math.max(1, Number.parseInt(tailArg, 10) || 1) : undefined;
             const traceRecords = await readTeamPathSourceMemoryEntries(homePath, traceSlug);
             const traceOutput = buildProofOfWorkTraceOutput(traceSlug, traceRecords, { tail });
-            console.log(``);
+            console.log("");
             printCliHeader(`  Proof-of-Work · ${traceSlug}`);
             console.log(renderProofOfWorkTraceText(traceOutput));
-            console.log(``);
+            console.log("");
           } else {
             // create — multi-Buccet creation cockpit
             const workshopCockpit = await buildWorkshopCockpitSnapshot(homePath);
-            console.log(``);
+            console.log("");
             printCliHeader("  Creation Cockpit");
             printWorkshopCockpitSnapshot(workshopCockpit);
-            console.log(``);
+            console.log("");
           }
           rl.prompt();
           return;
@@ -11343,7 +12351,7 @@ async function handleConsole() {
               sessionId: config.sessionId,
               limit: Number.isFinite(limit) && limit > 0 ? limit : 10,
             });
-            console.log(``);
+            console.log("");
             printCliHeader("  Disposable Shed History");
             printCliSection("Summary", [
               formatCliKeyValue("session", payload.sessionId),
@@ -11351,12 +12359,16 @@ async function handleConsole() {
               formatCliKeyValue("respawns", payload.respawnCount),
               formatCliKeyValue("latest", payload.latest?.createdAt ?? "none"),
             ]);
-            printCliSection("Entries", payload.entries.length > 0
-              ? payload.entries.map((entry) => (
-                `${entry.createdAt} | ${entry.eventType} | ${entry.actionKind ?? "-"} | ${entry.reason ?? "-"}`
-              ))
-              : ["No shed events recorded for this session."]);
-            console.log(``);
+            printCliSection(
+              "Entries",
+              payload.entries.length > 0
+                ? payload.entries.map(
+                    (entry) =>
+                      `${entry.createdAt} | ${entry.eventType} | ${entry.actionKind ?? "-"} | ${entry.reason ?? "-"}`,
+                  )
+                : ["No shed events recorded for this session."],
+            );
+            console.log("");
             rl.prompt();
             return;
           }
@@ -11370,7 +12382,7 @@ async function handleConsole() {
             reason: "console: operator forced denial-side shed and clean disposable respawn",
             issuedBy: config.actorId,
           });
-          console.log(``);
+          console.log("");
           printCliHeader("  Shed Complete");
           printCliSection("Respawn", [
             formatCliKeyValue("unit", result.unitId),
@@ -11379,7 +12391,7 @@ async function handleConsole() {
             formatCliKeyValue("runtime", result.runtimeDir),
             formatCliKeyValue("snapshot", result.snapshotPath),
           ]);
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
@@ -11388,11 +12400,11 @@ async function handleConsole() {
           const limit = arg1 ? Number(arg1) : 10;
           const records = await boundary.readBoundaryLedgerBySession(config.sessionId);
           const tail = records.slice(-limit);
-          console.log(``);
+          console.log("");
           for (const record of tail) {
             printLogRecord(record);
           }
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
@@ -11403,7 +12415,7 @@ async function handleConsole() {
           const approved = (upl.userApprovedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
           const denied = (upl.userDeniedLawPaths ?? []).filter((l) => l.status === "ACTIVE");
           const runtimeTrackField = boundary.compileLiveUplTrackField({ ledger: upl, session });
-          console.log(``);
+          console.log("");
           printCliHeader("  User Path Ledger");
           printCliSection("Summary", [
             formatCliKeyValue("approved laws", approved.length),
@@ -11411,22 +12423,30 @@ async function handleConsole() {
             formatCliKeyValue("runtime segments", runtimeTrackField.length),
           ]);
           if (approved.length > 0) {
-            console.log(`  ${clrOk("●")} ${clrBold("Allow laws")}  ${clrDim(`(showing last ${Math.min(8, approved.length)})`)}`)
+            console.log(
+              `  ${clrOk("●")} ${clrBold("Allow laws")}  ${clrDim(`(showing last ${Math.min(8, approved.length)})`)}`,
+            );
             for (const law of approved.slice(-8)) {
-              console.log(`    ${c.green}allow${c.reset}  ${clrDim(law.id)}  ${law.domain ? clrDim(law.domain) + "  " : ""}${law.path}`);
+              console.log(
+                `    ${c.green}allow${c.reset}  ${clrDim(law.id)}  ${law.domain ? `${clrDim(law.domain)}  ` : ""}${law.path}`,
+              );
             }
-            console.log(``);
+            console.log("");
           }
           if (denied.length > 0) {
-            console.log(`  ${clrFail("●")} ${clrBold("Deny laws")}  ${clrDim(`(showing last ${Math.min(5, denied.length)})`)}`)
+            console.log(
+              `  ${clrFail("●")} ${clrBold("Deny laws")}  ${clrDim(`(showing last ${Math.min(5, denied.length)})`)}`,
+            );
             for (const law of denied.slice(-5)) {
-              console.log(`    ${c.red}deny${c.reset}   ${clrDim(law.id)}  ${law.domain ? clrDim(law.domain) + "  " : ""}${law.path}`);
+              console.log(
+                `    ${c.red}deny${c.reset}   ${clrDim(law.id)}  ${law.domain ? `${clrDim(law.domain)}  ` : ""}${law.path}`,
+              );
             }
-            console.log(``);
+            console.log("");
           }
           if (approved.length === 0 && denied.length === 0) {
             console.log(`  ${clrDim("No active UPL laws.")}`);
-            console.log(``);
+            console.log("");
           }
           rl.prompt();
           return;
@@ -11452,27 +12472,33 @@ async function handleConsole() {
           const pathLaws = (sessionState?.pathLaws ?? []).filter(
             (l: { revokedAt?: string }) => !l.revokedAt,
           );
-          console.log(``);
+          console.log("");
           printCliHeader("  Active Scope Laws");
           if (pathLaws.length === 0) {
             console.log(`  ${clrDim("No active path laws.")}`);
           } else {
             console.log(`  ${clrDim(`session  ${config.sessionId}`)}`);
-            console.log(``);
+            console.log("");
             for (const law of pathLaws) {
-              const l = law as { lawId: string; rootPath: string; grantedActions: string[]; issuedBy: string };
+              const l = law as {
+                lawId: string;
+                rootPath: string;
+                grantedActions: string[];
+                issuedBy: string;
+              };
               console.log(`  ${clrOk("●")} ${c.bold}${l.lawId}${c.reset}`);
               console.log(`    ${clrDim("path:")}    ${l.rootPath}`);
-              console.log(`    ${clrDim("actions:")} ${c.green}${l.grantedActions.join(", ")}${c.reset}`);
+              console.log(
+                `    ${clrDim("actions:")} ${c.green}${l.grantedActions.join(", ")}${c.reset}`,
+              );
               console.log(`    ${clrDim("issued:")}  ${l.issuedBy}`);
             }
           }
-          console.log(``);
+          console.log("");
 
           // Base acceptance pack summary
-          const rootPath = pathLaws.length > 0
-            ? (pathLaws[0] as { rootPath: string }).rootPath
-            : os.homedir();
+          const rootPath =
+            pathLaws.length > 0 ? (pathLaws[0] as { rootPath: string }).rootPath : os.homedir();
           const { createBaseAcceptanceLaws } = await importBaseAcceptance(homePath);
           const baseLaws = createBaseAcceptanceLaws({
             rootPath,
@@ -11485,29 +12511,60 @@ async function handleConsole() {
             classCounts[cls] = (classCounts[cls] ?? 0) + 1;
           }
           printCliHeader("  Base Acceptance Pack");
-          console.log(`  ${clrDim("Seeded automatically when you open a workspace. Deny still wins on overlap.")}`);
-          console.log(``);
-          console.log(formatCliKeyValue("  total", `${c.green}${baseLaws.length} pre-seeded corridors${c.reset}`));
-          console.log(formatCliKeyValue("  workspace", `${classCounts["workspace_read"] ?? 0} read  ${classCounts["workspace_mutation"] ?? 0} write  ${classCounts["local_organization"] ?? 0} org  ${classCounts["internal_artifacts"] ?? 0} artifacts  ${classCounts["notes_and_tasks"] ?? 0} notes`));
-          console.log(formatCliKeyValue("  exec", `${classCounts["safe_local_exec"] ?? 0} bounded commands  ${clrDim("(git full cycle · gh CLI · npm/bun/npx · cargo/go/make · pytest/eslint/tsc)")}`));
-          console.log(formatCliKeyValue("  web", `${classCounts["bounded_web_research"] ?? 0} research corridors  ${clrDim("(MDN · GitHub · Stack Overflow · Anthropic/OpenAI docs · search providers)")}`));
-          console.log(formatCliKeyValue("  skills", `${(classCounts["openclaw_skill"] ?? 0) + (classCounts["curated_capability"] ?? 0) + (classCounts["marketplace_skill"] ?? 0)} lanes  ${clrDim("(OpenClaw · curated capabilities · marketplace)")}`));
-          console.log(``);
+          console.log(
+            `  ${clrDim("Seeded automatically when you open a workspace. Deny still wins on overlap.")}`,
+          );
+          console.log("");
+          console.log(
+            formatCliKeyValue(
+              "  total",
+              `${c.green}${baseLaws.length} pre-seeded corridors${c.reset}`,
+            ),
+          );
+          console.log(
+            formatCliKeyValue(
+              "  workspace",
+              `${classCounts.workspace_read ?? 0} read  ${classCounts.workspace_mutation ?? 0} write  ${classCounts.local_organization ?? 0} org  ${classCounts.internal_artifacts ?? 0} artifacts  ${classCounts.notes_and_tasks ?? 0} notes`,
+            ),
+          );
+          console.log(
+            formatCliKeyValue(
+              "  exec",
+              `${classCounts.safe_local_exec ?? 0} bounded commands  ${clrDim("(git full cycle · gh CLI · npm/bun/npx · cargo/go/make · pytest/eslint/tsc)")}`,
+            ),
+          );
+          console.log(
+            formatCliKeyValue(
+              "  web",
+              `${classCounts.bounded_web_research ?? 0} research corridors  ${clrDim("(MDN · GitHub · Stack Overflow · Anthropic/OpenAI docs · search providers)")}`,
+            ),
+          );
+          console.log(
+            formatCliKeyValue(
+              "  skills",
+              `${(classCounts.openclaw_skill ?? 0) + (classCounts.curated_capability ?? 0) + (classCounts.marketplace_skill ?? 0)} lanes  ${clrDim("(OpenClaw · curated capabilities · marketplace)")}`,
+            ),
+          );
+          console.log("");
           printCliSection("Customizing the Yes Side", [
-            `${clrDim("The base pack is the floor. You build on top of it.")}`
+            `${clrDim("The base pack is the floor. You build on top of it.")}`,
           ]);
           console.log(`  ${clrDim("Import a law directly from any markdown file:")}`);
           console.log(`    ${c.bold}buccet upl import <file.md>${c.reset}`);
-          console.log(``);
-          console.log(`  ${clrDim("Drop files into your acceptance docs dir, then sync all at once:")}`);
+          console.log("");
+          console.log(
+            `  ${clrDim("Drop files into your acceptance docs dir, then sync all at once:")}`,
+          );
           console.log(`    ${c.bold}buccet upl sync --lane acceptance${c.reset}`);
-          console.log(``);
+          console.log("");
           console.log(`  ${clrDim("Preview what a file compiles into before importing:")}`);
           console.log(`    ${c.bold}buccet extract-laws <file.md> --lane acceptance${c.reset}`);
-          console.log(``);
+          console.log("");
           console.log(`  ${clrDim("See the full operator map:")}`);
-          console.log(`    ${c.bold}where${c.reset}  ${clrDim("·  inspect every live corridor:")}  ${c.bold}tracks${c.reset}`);
-          console.log(``);
+          console.log(
+            `    ${c.bold}where${c.reset}  ${clrDim("·  inspect every live corridor:")}  ${c.bold}tracks${c.reset}`,
+          );
+          console.log("");
           rl.prompt();
           return;
         }
@@ -11515,10 +12572,14 @@ async function handleConsole() {
         if (cmd === "tracks") {
           const upl = await loadEffectiveUserPathLedger(boundary, home, config);
           const session = await loadActiveBoundarySession(boundary, home, config);
-          const approved = (upl.userApprovedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
-          const denied = (upl.userDeniedLawPaths ?? []).filter((entry) => entry.status === "ACTIVE");
+          const approved = (upl.userApprovedLawPaths ?? []).filter(
+            (entry) => entry.status === "ACTIVE",
+          );
+          const denied = (upl.userDeniedLawPaths ?? []).filter(
+            (entry) => entry.status === "ACTIVE",
+          );
           const tracked = boundary.compileLiveUplTrackField({ ledger: upl, session });
-          console.log(``);
+          console.log("");
           printCliHeader("  UPL Runtime Track Field");
           printCliSection("Summary", [
             formatCliKeyValue("authored", `${approved.length} approved / ${denied.length} denied`),
@@ -11531,8 +12592,12 @@ async function handleConsole() {
               const entry = segment.entry;
               const tc = entry.trackConstraint!;
               const polarityColor = segment.polarity === "allow" ? c.green : c.red;
-              console.log(`  ${polarityColor}${segment.polarity === "allow" ? "open " : "wall "}${c.reset} ${clrBold(entry.id)}  ${clrDim(tc.description)}`);
-              console.log(`    ${clrDim("kinds:")}   ${polarityColor}${tc.allowedActionKinds.join(", ")}${c.reset}`);
+              console.log(
+                `  ${polarityColor}${segment.polarity === "allow" ? "open " : "wall "}${c.reset} ${clrBold(entry.id)}  ${clrDim(tc.description)}`,
+              );
+              console.log(
+                `    ${clrDim("kinds:")}   ${polarityColor}${tc.allowedActionKinds.join(", ")}${c.reset}`,
+              );
               if (tc.targetPattern) {
                 console.log(`    ${clrDim("target:")}  ${tc.targetPattern}`);
               }
@@ -11545,24 +12610,30 @@ async function handleConsole() {
               console.log(`    ${clrDim("scope:")}   ${entry.scope}`);
             }
           }
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
 
         if (cmd === "canyon" || cmd === "unblock") {
-          const canyonChoice = (cmd === "unblock") ? "1" : arg1;
-          const provenanceArg = (cmd === "unblock") ? arg1 : parts[2];
-          if (!canyonChoice || (canyonChoice !== "1" && canyonChoice !== "2" && canyonChoice !== "3" && canyonChoice !== "4")) {
+          const canyonChoice = cmd === "unblock" ? "1" : arg1;
+          const provenanceArg = cmd === "unblock" ? arg1 : parts[2];
+          if (
+            !canyonChoice ||
+            (canyonChoice !== "1" &&
+              canyonChoice !== "2" &&
+              canyonChoice !== "3" &&
+              canyonChoice !== "4")
+          ) {
             const targetProv = cmd === "canyon" ? arg1 : undefined;
             const entries = targetProv
               ? currentIngressEntries.filter((entry) => entry.provenance === targetProv)
               : currentIngressEntries;
-            console.log(``);
+            console.log("");
             if (entries.length === 0) {
-              console.log(`  No ingress control entries.`);
+              console.log("  No ingress control entries.");
             } else {
-              console.log(`  Ingress control entries:`);
+              console.log("  Ingress control entries:");
               for (const entry of entries) {
                 console.log(`  ${entry.provenance}`);
                 console.log(`    state:    ${ingressStateLabel(entry)}`);
@@ -11572,14 +12643,14 @@ async function handleConsole() {
                   console.log(`    operator: ${entry.operatorDisposition}`);
                 }
               }
-              console.log(`  Use: canyon <1-4> <provenance>`);
+              console.log("  Use: canyon <1-4> <provenance>");
             }
-            console.log(``);
+            console.log("");
             rl.prompt();
             return;
           }
           if (!provenanceArg) {
-            console.log(`  Usage: canyon <1-4> <provenance>`);
+            console.log("  Usage: canyon <1-4> <provenance>");
             rl.prompt();
             return;
           }
@@ -11590,15 +12661,21 @@ async function handleConsole() {
             return;
           }
           const ingressCommand =
-            canyonChoice === "1" ? "ingress_allow_once" :
-            canyonChoice === "2" ? "ingress_allow_as_law" :
-            canyonChoice === "3" ? "ingress_deny_once" :
-            "ingress_deny_as_law";
+            canyonChoice === "1"
+              ? "ingress_allow_once"
+              : canyonChoice === "2"
+                ? "ingress_allow_as_law"
+                : canyonChoice === "3"
+                  ? "ingress_deny_once"
+                  : "ingress_deny_as_law";
           const reason =
-            canyonChoice === "1" ? `console: release ${provenanceArg} from canyon once` :
-            canyonChoice === "2" ? `console: standing ingress allow for ${provenanceArg}` :
-            canyonChoice === "3" ? `console: keep ${provenanceArg} in canyon once` :
-            `console: standing canyon hold for ${provenanceArg}`;
+            canyonChoice === "1"
+              ? `console: release ${provenanceArg} from canyon once`
+              : canyonChoice === "2"
+                ? `console: standing ingress allow for ${provenanceArg}`
+                : canyonChoice === "3"
+                  ? `console: keep ${provenanceArg} in canyon once`
+                  : `console: standing canyon hold for ${provenanceArg}`;
           const out = await boundary.sendBoundaryInterceptServerInput({
             target: interceptTarget,
             input: {
@@ -11617,10 +12694,14 @@ async function handleConsole() {
               reportedCanyonProvenances.delete(provenanceArg);
             }
             await pollIngress();
-            const canyonLabel = canyonChoice === "1" ? `${clrOk("✓")}  ${c.green}released once${c.reset}` :
-                                canyonChoice === "2" ? `${clrOk("✓")}  ${c.bold}${c.green}standing ingress allow${c.reset}` :
-                                canyonChoice === "3" ? `${clrFail("✗")}  ${c.red}kept in canyon${c.reset}` :
-                                                      `${clrFail("✗")}  ${c.bold}${c.red}standing canyon hold${c.reset}`;
+            const canyonLabel =
+              canyonChoice === "1"
+                ? `${clrOk("✓")}  ${c.green}released once${c.reset}`
+                : canyonChoice === "2"
+                  ? `${clrOk("✓")}  ${c.bold}${c.green}standing ingress allow${c.reset}`
+                  : canyonChoice === "3"
+                    ? `${clrFail("✗")}  ${c.red}kept in canyon${c.reset}`
+                    : `${clrFail("✗")}  ${c.bold}${c.red}standing canyon hold${c.reset}`;
             console.log(`  ${canyonLabel}  ${clrDim(provenanceArg)}`);
           }
           rl.prompt();
@@ -11628,26 +12709,48 @@ async function handleConsole() {
         }
 
         if (cmd === "nsl") {
-          const indexArg = arg1 ? Number(arg1) : NaN;
-          if (!isNaN(indexArg) && nslSuggestions.length > 0) {
+          const indexArg = arg1 ? Number(arg1) : Number.NaN;
+          if (!Number.isNaN(indexArg) && nslSuggestions.length > 0) {
             const pick = nslSuggestions[indexArg - 1];
             if (!pick) {
-              console.log(`  No bodyguard move suggestion at index ${indexArg}. Use 'nsl' to list.`);
+              console.log(
+                `  No bodyguard move suggestion at index ${indexArg}. Use 'nsl' to list.`,
+              );
               rl.prompt();
               return;
             }
-            let input: Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"] | null = null;
+            let input:
+              | Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"]
+              | null = null;
             if (pick.kind === "open_as_law" || pick.kind === "open_path") {
-              input = { command: "swarm_approve", groupId: pick.groupId, issuedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: true };
+              input = {
+                command: "swarm_approve",
+                groupId: pick.groupId,
+                issuedBy: config.actorId,
+                reason: `console: bodyguard move ${indexArg}`,
+                asLaw: true,
+              };
             } else if (pick.kind.startsWith("grant_")) {
-              input = { command: "swarm_approve", groupId: pick.groupId, issuedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: false };
+              input = {
+                command: "swarm_approve",
+                groupId: pick.groupId,
+                issuedBy: config.actorId,
+                reason: `console: bodyguard move ${indexArg}`,
+                asLaw: false,
+              };
             } else if (pick.kind === "deny_and_explain") {
-              input = { command: "swarm_deny", groupId: pick.groupId, deniedBy: config.actorId, reason: `console: bodyguard move ${indexArg}`, asLaw: false };
+              input = {
+                command: "swarm_deny",
+                groupId: pick.groupId,
+                deniedBy: config.actorId,
+                reason: `console: bodyguard move ${indexArg}`,
+                asLaw: false,
+              };
             }
 
             if (!input) {
               console.log(`  Bodyguard move ${indexArg} is advisory only: ${pick.title}`);
-              console.log(`  Use explicit allow/deny/law/deny-law commands for this group.`);
+              console.log("  Use explicit allow/deny/law/deny-law commands for this group.");
               rl.prompt();
               return;
             }
@@ -11665,19 +12768,19 @@ async function handleConsole() {
             return;
           }
           // Show pending bodyguard suggestions.
-          console.log(``);
+          console.log("");
           if (nslSuggestions.length === 0) {
-            console.log(`  No pending bodyguard move suggestions.`);
+            console.log("  No pending bodyguard move suggestions.");
           } else {
-            console.log(`  Pending bodyguard move suggestions:`);
+            console.log("  Pending bodyguard move suggestions:");
             for (let i = 0; i < nslSuggestions.length; i++) {
               const s = nslSuggestions[i];
               console.log(`  [${i + 1}] ${s.title}  [${s.kind}]  group=${s.groupId}`);
               console.log(`      ${s.description}`);
             }
-            console.log(`  Use: nsl <n>  to select a bodyguard move`);
+            console.log("  Use: nsl <n>  to select a bodyguard move");
           }
-          console.log(``);
+          console.log("");
           rl.prompt();
           return;
         }
@@ -11691,25 +12794,55 @@ async function handleConsole() {
           const groupId = arg1;
           let input: Record<string, unknown>;
           if (cmd === "allow") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow once", asLaw: false };
+            input = {
+              command: "swarm_approve",
+              groupId,
+              issuedBy: config.actorId,
+              reason: "console: allow once",
+              asLaw: false,
+            };
           } else if (cmd === "law") {
-            input = { command: "swarm_approve", groupId, issuedBy: config.actorId, reason: "console: allow as law", asLaw: true };
+            input = {
+              command: "swarm_approve",
+              groupId,
+              issuedBy: config.actorId,
+              reason: "console: allow as law",
+              asLaw: true,
+            };
           } else if (cmd === "deny-law") {
-            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny as law", asLaw: true };
+            input = {
+              command: "swarm_deny",
+              groupId,
+              deniedBy: config.actorId,
+              reason: "console: deny as law",
+              asLaw: true,
+            };
           } else {
-            input = { command: "swarm_deny", groupId, deniedBy: config.actorId, reason: "console: deny once", asLaw: false };
+            input = {
+              command: "swarm_deny",
+              groupId,
+              deniedBy: config.actorId,
+              reason: "console: deny once",
+              asLaw: false,
+            };
           }
           const out = await boundary.sendBoundaryInterceptServerInput({
             target: interceptTarget,
-            input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+            input: input as Parameters<
+              typeof boundary.sendBoundaryInterceptServerInput
+            >[0]["input"],
           });
           if (out.type === "error") {
             console.log(`  ${clrFail("✗")}  ${out.error}`);
           } else {
-            const label = cmd === "allow"    ? `${clrOk("✓")}  ${c.green}allowed once${c.reset}` :
-                          cmd === "law"      ? `${clrOk("✓")}  ${c.bold}${c.green}allowed as law${c.reset}` :
-                          cmd === "deny"     ? `${clrFail("✗")}  ${c.red}denied once${c.reset}` :
-                                              `${clrFail("✗")}  ${c.bold}${c.red}denied as law${c.reset}`;
+            const label =
+              cmd === "allow"
+                ? `${clrOk("✓")}  ${c.green}allowed once${c.reset}`
+                : cmd === "law"
+                  ? `${clrOk("✓")}  ${c.bold}${c.green}allowed as law${c.reset}`
+                  : cmd === "deny"
+                    ? `${clrFail("✗")}  ${c.red}denied once${c.reset}`
+                    : `${clrFail("✗")}  ${c.bold}${c.red}denied as law${c.reset}`;
             console.log(`  ${label}  ${clrDim(groupId)}`);
             reportedGroupIds.delete(groupId);
           }
@@ -11744,9 +12877,7 @@ async function handleConsole() {
 
 async function handleExtractLaws(rest: string[]) {
   const { promises: fsp } = await import("node:fs");
-  const { extractDocumentLawsWithDiagnostics } = await import(
-    "../src/index.ts"
-  );
+  const { extractDocumentLawsWithDiagnostics } = await import("../src/index.ts");
 
   const jsonFlag = rest.includes("--json");
   let lane: UplSourceLane | null = null;
@@ -11791,12 +12922,12 @@ async function handleExtractLaws(rest: string[]) {
   if (jsonFlag) {
     const laneMismatches = lane
       ? laws
-        .filter((law) => !laneMatchesType(lane as UplSourceLane, law.type))
-        .map((law) => ({
-          type: law.type,
-          summary: law.requestBasis.payloadSummary ?? law.requestBasis.target,
-          invariantLawId: law.requestBasis.reviewContext?.invariantLawId ?? null,
-        }))
+          .filter((law) => !laneMatchesType(lane as UplSourceLane, law.type))
+          .map((law) => ({
+            type: law.type,
+            summary: law.requestBasis.payloadSummary ?? law.requestBasis.target,
+            invariantLawId: law.requestBasis.reviewContext?.invariantLawId ?? null,
+          }))
       : [];
     console.log(JSON.stringify({ laws, diagnostics, lane, laneMismatches }, null, 2));
     return;
@@ -11815,7 +12946,8 @@ async function handleExtractLaws(rest: string[]) {
     const d = compiled[i]!;
     const source = d.source === "structured" ? "structured" : "prose";
     const corridorLabel = d.corridorType ? `${d.corridorType}Corridor` : "track";
-    const location = d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
+    const location =
+      d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
     console.log(`  [${i + 1}] ${corridorLabel}  ${d.description ?? d.invariantLawId ?? "—"}`);
     const law = laws[i];
     if (law) {
@@ -11834,10 +12966,13 @@ async function handleExtractLaws(rest: string[]) {
   }
 
   if (skipped.length > 0) {
-    console.log(`  [!] ${skipped.length} block${skipped.length === 1 ? "" : "s"} below threshold or failed snap-integrity (skipped):`);
+    console.log(
+      `  [!] ${skipped.length} block${skipped.length === 1 ? "" : "s"} below threshold or failed snap-integrity (skipped):`,
+    );
     for (const d of skipped) {
-      const location = d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
-      const label = d.heading ? `"${d.heading}"` : `(no heading)`;
+      const location =
+        d.startLine === d.endLine ? `line ${d.startLine}` : `lines ${d.startLine}-${d.endLine}`;
+      const label = d.heading ? `"${d.heading}"` : "(no heading)";
       console.log(`      ${location}: ${label} — ${d.skipReason ?? "skipped"}`);
     }
     console.log();

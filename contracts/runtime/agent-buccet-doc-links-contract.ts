@@ -84,11 +84,12 @@ async function main() {
 
       const resolved = path.resolve(path.dirname(filePath), target);
 
-      const exists = await fs.access(resolved).then(() => true).catch(() => false);
+      const exists = await fs
+        .access(resolved)
+        .then(() => true)
+        .catch(() => false);
       if (!exists) {
-        errors.push(
-          `${path.relative(repoRoot, filePath)} has broken local link target: ${target}`,
-        );
+        errors.push(`${path.relative(repoRoot, filePath)} has broken local link target: ${target}`);
       }
     }
   }

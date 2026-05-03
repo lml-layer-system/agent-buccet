@@ -1,8 +1,8 @@
 import { createApprovalQueueAdapter } from "./../boundaries/approval.ts";
 import {
-  enforceBoundaryProposal,
   type BoundaryExecutionResult,
   type BoundaryToolProposal,
+  enforceBoundaryProposal,
 } from "./../boundaries/bodyguard.ts";
 import { buildRemoteBoundaryProposal } from "./../runtime/remote.ts";
 import type {

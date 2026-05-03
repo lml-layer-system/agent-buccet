@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 import {
   appendBoundaryLedger,
@@ -19,7 +19,11 @@ type CliResult = {
   stderr: string;
 };
 
-async function runCli(args: string[], env: NodeJS.ProcessEnv, stdinText?: string): Promise<CliResult> {
+async function runCli(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  stdinText?: string,
+): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, ["cli/buccet.ts", ...args], {
       cwd: process.cwd(),
@@ -62,7 +66,10 @@ async function main() {
   };
 
   try {
-    const initResult = await runCli(["init", "--session-id", "quarantine-cli-session", "--actor-id", "user:quarantine-cli"], env);
+    const initResult = await runCli(
+      ["init", "--session-id", "quarantine-cli-session", "--actor-id", "user:quarantine-cli"],
+      env,
+    );
     assert.equal(initResult.code, 0, initResult.stderr);
 
     const configPath = path.join(homePath, "config.json");
@@ -189,7 +196,10 @@ async function main() {
     assert.equal(status.deniedPitCount > 0, true);
     assert.equal(status.topLawIds.length > 0, true);
     assert.equal(status.groups.length > 0, true);
-    assert.equal(status.entries.every((entry) => entry.verdict === "pit"), true);
+    assert.equal(
+      status.entries.every((entry) => entry.verdict === "pit"),
+      true,
+    );
 
     const consoleResult = await runCli(["console"], env, "quit\n");
     assert.equal(consoleResult.code, 0, consoleResult.stderr);

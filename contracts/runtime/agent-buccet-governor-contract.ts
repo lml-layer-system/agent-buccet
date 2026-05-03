@@ -1,13 +1,16 @@
 import {
-  createPersistentBoundaryRuntimeStore,
-  createBoundaryBodyguard,
   DEFAULT_GOVERNOR_WEIGHT,
+  createBoundaryBodyguard,
+  createPersistentBoundaryRuntimeStore,
   evaluateBoundaryGovernor,
   initialGovernorState,
   recordGovernorCrossing,
-  inferBoundaryEgressFlagsFromPayload,
 } from "./../../src/index.ts";
-import type { BoundaryGovernorConfig, BoundaryGovernorState, BoundaryActionKind } from "./../../src/index.ts";
+import type {
+  BoundaryActionKind,
+  BoundaryGovernorConfig,
+  BoundaryGovernorState,
+} from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -17,7 +20,7 @@ function assert(condition: unknown, message: string): asserts condition {
 
 // ─── Unit: evaluateBoundaryGovernor ──────────────────────────────────────────
 
-function makeSession(overrides?: object) {
+function makeSession(_overrides?: object) {
   return {
     sessionId: `gov-test-${Date.now()}`,
     actorId: "user:governor-contract",
@@ -56,8 +59,20 @@ assert(!result1.tripped, "first crossing should not trip velocity");
 
 // Fill window with maxRpm crossings
 let velState: BoundaryGovernorState = initialGovernorState();
-velState = recordGovernorCrossing({ state: velState, config: velocityConfig, actionKind: "network.send", wasLawful: true, nowMs: 1000 });
-velState = recordGovernorCrossing({ state: velState, config: velocityConfig, actionKind: "network.send", wasLawful: true, nowMs: 2000 });
+velState = recordGovernorCrossing({
+  state: velState,
+  config: velocityConfig,
+  actionKind: "network.send",
+  wasLawful: true,
+  nowMs: 1000,
+});
+velState = recordGovernorCrossing({
+  state: velState,
+  config: velocityConfig,
+  actionKind: "network.send",
+  wasLawful: true,
+  nowMs: 2000,
+});
 
 // Third crossing in same window should trip
 const velTrip = evaluateBoundaryGovernor({
@@ -87,11 +102,41 @@ const densityConfig: BoundaryGovernorConfig = {
 
 let densState: BoundaryGovernorState = initialGovernorState();
 // 3 denied + 2 allowed in window = 60% denied = exactly at threshold = should trip
-densState = recordGovernorCrossing({ state: densState, config: densityConfig, actionKind: "fs.read", wasLawful: false, nowMs: 1 });
-densState = recordGovernorCrossing({ state: densState, config: densityConfig, actionKind: "fs.read", wasLawful: false, nowMs: 2 });
-densState = recordGovernorCrossing({ state: densState, config: densityConfig, actionKind: "fs.read", wasLawful: false, nowMs: 3 });
-densState = recordGovernorCrossing({ state: densState, config: densityConfig, actionKind: "fs.read", wasLawful: true, nowMs: 4 });
-densState = recordGovernorCrossing({ state: densState, config: densityConfig, actionKind: "fs.read", wasLawful: true, nowMs: 5 });
+densState = recordGovernorCrossing({
+  state: densState,
+  config: densityConfig,
+  actionKind: "fs.read",
+  wasLawful: false,
+  nowMs: 1,
+});
+densState = recordGovernorCrossing({
+  state: densState,
+  config: densityConfig,
+  actionKind: "fs.read",
+  wasLawful: false,
+  nowMs: 2,
+});
+densState = recordGovernorCrossing({
+  state: densState,
+  config: densityConfig,
+  actionKind: "fs.read",
+  wasLawful: false,
+  nowMs: 3,
+});
+densState = recordGovernorCrossing({
+  state: densState,
+  config: densityConfig,
+  actionKind: "fs.read",
+  wasLawful: true,
+  nowMs: 4,
+});
+densState = recordGovernorCrossing({
+  state: densState,
+  config: densityConfig,
+  actionKind: "fs.read",
+  wasLawful: true,
+  nowMs: 5,
+});
 
 const densTrip = evaluateBoundaryGovernor({
   config: densityConfig,
@@ -106,7 +151,13 @@ assert(densTrip.tripped && densTrip.lawId === "BOUNDARY.GOVERNOR.DENSITY.01", "d
 // All lawful — no trip
 let cleanDensState: BoundaryGovernorState = initialGovernorState();
 for (let i = 0; i < 10; i++) {
-  cleanDensState = recordGovernorCrossing({ state: cleanDensState, config: densityConfig, actionKind: "fs.read", wasLawful: true, nowMs: i });
+  cleanDensState = recordGovernorCrossing({
+    state: cleanDensState,
+    config: densityConfig,
+    actionKind: "fs.read",
+    wasLawful: true,
+    nowMs: i,
+  });
 }
 const densNoTrip = evaluateBoundaryGovernor({
   config: densityConfig,
@@ -133,7 +184,13 @@ assert(!massResult1.tripped, "first tool.exec should not trip mass (weight 10 �
 
 // After recording first tool.exec (weight=10), second tool.exec (weight=10) would push to 20 > 15
 let massState = initialGovernorState();
-massState = recordGovernorCrossing({ state: massState, config: massConfig, actionKind: "tool.exec", wasLawful: true, nowMs: 1 });
+massState = recordGovernorCrossing({
+  state: massState,
+  config: massConfig,
+  actionKind: "tool.exec",
+  wasLawful: true,
+  nowMs: 1,
+});
 
 const massTrip = evaluateBoundaryGovernor({
   config: massConfig,
@@ -148,7 +205,13 @@ assert(massTrip.tripped && massTrip.lawId === "BOUNDARY.GOVERNOR.MASS.01", "mass
 // fs.read has weight 1 — many reads stay under ceiling
 let massReadState = initialGovernorState();
 for (let i = 0; i < 14; i++) {
-  massReadState = recordGovernorCrossing({ state: massReadState, config: massConfig, actionKind: "fs.read", wasLawful: true, nowMs: i });
+  massReadState = recordGovernorCrossing({
+    state: massReadState,
+    config: massConfig,
+    actionKind: "fs.read",
+    wasLawful: true,
+    nowMs: i,
+  });
 }
 const massReadResult = evaluateBoundaryGovernor({
   config: massConfig,
@@ -156,7 +219,10 @@ const massReadResult = evaluateBoundaryGovernor({
   request: makeRequest("fs.read"),
   nowMs: 15,
 });
-assert(!massReadResult.tripped, "14 fs.read crossings + one more (weight 1 each, 14 + 1 = 15 = max) should not trip");
+assert(
+  !massReadResult.tripped,
+  "14 fs.read crossings + one more (weight 1 each, 14 + 1 = 15 = max) should not trip",
+);
 
 // ─── Weight table ─────────────────────────────────────────────────────────────
 
@@ -197,8 +263,8 @@ async function runIntegration() {
   const nowMs = Date.now();
   const seededState: BoundaryGovernorState = {
     crossingTimestamps: [nowMs - 1000], // 1s ago, well within 60s window
-    totalWeightedCrossings: 5,          // network.send weight=5 from the seeded crossing
-    recentDecisions: [false],           // the seeded crossing was denied
+    totalWeightedCrossings: 5, // network.send weight=5 from the seeded crossing
+    recentDecisions: [false], // the seeded crossing was denied
   };
   store.replaceConfig({
     ...store.getConfig(),
@@ -245,5 +311,9 @@ console.log(`velocity trip at crossing 3: ${velTrip.tripped}`);
 console.log(`density trip at 60% failure: ${densTrip.tripped}`);
 console.log(`mass trip at second tool.exec (weight 10): ${massTrip.tripped}`);
 console.log(`empty config no trip: ${!noConfigResult.tripped}`);
-console.log(`integration: governor velocity trip held for approval: ${!integration.result.allowed && integration.result.requiresApproval}`);
-console.log(`integration: governor state preserved after trip: ${integration.govStateAfterTrip?.totalWeightedCrossings === 5}`);
+console.log(
+  `integration: governor velocity trip held for approval: ${!integration.result.allowed && integration.result.requiresApproval}`,
+);
+console.log(
+  `integration: governor state preserved after trip: ${integration.govStateAfterTrip?.totalWeightedCrossings === 5}`,
+);

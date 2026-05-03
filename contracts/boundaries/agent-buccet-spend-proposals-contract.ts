@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
@@ -19,8 +19,12 @@ function runCli(
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
     child.on("error", reject);
     child.on("close", (code) => resolve({ stdout, stderr, code }));
   });
@@ -51,13 +55,16 @@ async function main() {
     activeLawCount: number;
   };
 
-  const subscriptionProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "set up a recurring Vercel subscription under twenty dollars per month",
-    "--json",
-  ], env);
+  const subscriptionProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "set up a recurring Vercel subscription under twenty dollars per month",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(subscriptionProposal.code, 0, subscriptionProposal.stderr);
   const subscription = JSON.parse(subscriptionProposal.stdout) as {
     requiresHumanPick: boolean;
@@ -77,16 +84,22 @@ async function main() {
   assert.deepEqual(subscription.suggestedSyncTargets, ["buccet"]);
   assert.equal(subscription.candidates[0]?.pack.id, "subscription.provider");
   assert.ok(subscription.candidates.length <= 3);
-  assert.ok(subscription.candidates[0]?.matchedSignals.includes("subscription") || subscription.candidates[0]?.matchedSignals.includes("recurring"));
+  assert.ok(
+    subscription.candidates[0]?.matchedSignals.includes("subscription") ||
+      subscription.candidates[0]?.matchedSignals.includes("recurring"),
+  );
   assert.ok(subscription.notes.some((note) => note.includes("No spend pack is auto-selected")));
 
-  const multiProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "trade on coinbase and transfer profits back to my bank account",
-    "--json",
-  ], env);
+  const multiProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "trade on coinbase and transfer profits back to my bank account",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(multiProposal.code, 0, multiProposal.stderr);
   const multi = JSON.parse(multiProposal.stdout) as {
     multipleBoundaryClassesDetected: boolean;
@@ -99,13 +112,16 @@ async function main() {
   assert.ok(multiIds.includes("account.transfer"));
   assert.ok(multi.notes.some((note) => note.includes("Pick one pack first")));
 
-  const blendProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "blend exchange trading with account transfer into one draft",
-    "--json",
-  ], env);
+  const blendProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "blend exchange trading with account transfer into one draft",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(blendProposal.code, 0, blendProposal.stderr);
   const blend = JSON.parse(blendProposal.stdout) as {
     blendRequested: boolean;
@@ -116,13 +132,16 @@ async function main() {
   assert.equal(blend.singlePackOnlyByDefault, true);
   assert.ok(blend.notes.some((note) => note.includes("no blended draft")));
 
-  const slackProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "add five slack seats for the team workspace under our monthly software budget",
-    "--json",
-  ], env);
+  const slackProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "add five slack seats for the team workspace under our monthly software budget",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(slackProposal.code, 0, slackProposal.stderr);
   const slack = JSON.parse(slackProposal.stdout) as {
     candidates: Array<{
@@ -132,15 +151,21 @@ async function main() {
   };
   assert.equal(slack.candidates[0]?.pack.id, "license.seat");
   assert.ok(slack.candidates[0]?.matchedSignals.includes("slack"));
-  assert.ok(slack.candidates[0]?.matchedSignals.includes("seats") || slack.candidates[0]?.matchedSignals.includes("seat"));
+  assert.ok(
+    slack.candidates[0]?.matchedSignals.includes("seats") ||
+      slack.candidates[0]?.matchedSignals.includes("seat"),
+  );
 
-  const brokerageProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "rebalance my robinhood portfolio and place the trade inside my investing bucket",
-    "--json",
-  ], env);
+  const brokerageProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "rebalance my robinhood portfolio and place the trade inside my investing bucket",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(brokerageProposal.code, 0, brokerageProposal.stderr);
   const brokerage = JSON.parse(brokerageProposal.stdout) as {
     candidates: Array<{
@@ -150,28 +175,37 @@ async function main() {
   };
   assert.equal(brokerage.candidates[0]?.pack.id, "exchange.trade");
   assert.ok(brokerage.candidates[0]?.matchedSignals.includes("robinhood"));
-  assert.ok(brokerage.candidates[0]?.matchedSignals.includes("rebalance") || brokerage.candidates[0]?.matchedSignals.includes("portfolio"));
+  assert.ok(
+    brokerage.candidates[0]?.matchedSignals.includes("rebalance") ||
+      brokerage.candidates[0]?.matchedSignals.includes("portfolio"),
+  );
 
-  const travelProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "book a hotel for the trip and keep the booking under our travel cap",
-    "--json",
-  ], env);
+  const travelProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "book a hotel for the trip and keep the booking under our travel cap",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(travelProposal.code, 0, travelProposal.stderr);
   const travel = JSON.parse(travelProposal.stdout) as {
     candidates: Array<{ pack: { id: string } }>;
   };
   assert.equal(travel.candidates[0]?.pack.id, "travel.booking");
 
-  const billProposal = await runCli([
-    "upl",
-    "spend",
-    "propose",
-    "pay the utility bill before the due date from the operations account",
-    "--json",
-  ], env);
+  const billProposal = await runCli(
+    [
+      "upl",
+      "spend",
+      "propose",
+      "pay the utility bill before the due date from the operations account",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(billProposal.code, 0, billProposal.stderr);
   const bill = JSON.parse(billProposal.stdout) as {
     candidates: Array<{ pack: { id: string } }>;
@@ -195,7 +229,9 @@ async function main() {
   console.log(`brokerage trade top pack: ${brokerage.candidates[0]?.pack.id}`);
   console.log(`travel booking top pack: ${travel.candidates[0]?.pack.id}`);
   console.log(`bill payment top pack: ${bill.candidates[0]?.pack.id}`);
-  console.log(`workspace unchanged: ${after.pendingCount === before.pendingCount && after.activeLawCount === before.activeLawCount}`);
+  console.log(
+    `workspace unchanged: ${after.pendingCount === before.pendingCount && after.activeLawCount === before.activeLawCount}`,
+  );
 }
 
 main().catch((error) => {

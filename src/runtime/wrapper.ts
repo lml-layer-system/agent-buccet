@@ -1,12 +1,12 @@
 import path from "node:path";
-import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import { enableBodyguardControl, enforceBoundaryProposal } from "./../boundaries/bodyguard.ts";
+import { applyBoundaryPolicyConfig, loadBoundaryPolicyConfig } from "./../boundaries/policy.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./../law/laws.ts";
-import { loadBoundaryPolicyConfig, applyBoundaryPolicyConfig } from "./../boundaries/policy.ts";
+import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import { prepareBoundaryProcess, runBoundaryProcess } from "./process.ts";
-import { sendBoundaryInterceptServerInput } from "./system-intercept.ts";
 import { createPersistentBoundaryRuntimeStore, restoreBoundaryRuntimeStore } from "./store.ts";
 import type { BoundaryRuntimeStore } from "./store.ts";
+import { sendBoundaryInterceptServerInput } from "./system-intercept.ts";
 import type {
   BoundaryActionRequest,
   BoundaryLaw,
@@ -22,10 +22,7 @@ function buildCommandAttemptLines(command: string, commandArgs: string[]): strin
   if (commandArgs.length === 0) {
     return [`$ ${command}`];
   }
-  return [
-    `$ ${command} ${commandArgs[0]}`,
-    ...commandArgs.slice(1).map((arg) => `  ${arg}`),
-  ];
+  return [`$ ${command} ${commandArgs[0]}`, ...commandArgs.slice(1).map((arg) => `  ${arg}`)];
 }
 
 function createWrapperExecLaws(allowedCommandTarget: string): BoundaryLaw[] {
@@ -107,7 +104,10 @@ export async function runBoundaryWrappedCommand(args: {
   policyPath?: string;
   sessionsDir?: string;
   env?: Record<string, string>;
-  prepareExecutionEnv?: () => Promise<Record<string, string> | undefined> | Record<string, string> | undefined;
+  prepareExecutionEnv?: () =>
+    | Promise<Record<string, string> | undefined>
+    | Record<string, string>
+    | undefined;
   cwd?: string;
   dryRun?: boolean;
   keepSession?: boolean;
@@ -167,7 +167,8 @@ export async function runBoundaryWrappedCommand(args: {
     proposal: {
       actionKind: "tool.exec",
       target,
-      payloadSummary: args.payloadSummary ?? `spawn:${[args.command, ...args.commandArgs].join(" ")}`,
+      payloadSummary:
+        args.payloadSummary ?? `spawn:${[args.command, ...args.commandArgs].join(" ")}`,
       provenance: args.provenance ?? "trusted_user",
       flags: args.flags,
       reviewContext: args.reviewContext ?? {
@@ -203,9 +204,12 @@ export async function runBoundaryWrappedCommand(args: {
             requestedCwd: args.cwd,
           });
         } catch (error) {
-          const message = error instanceof Error ? error.message : "wrapped process blocked by process policy";
+          const message =
+            error instanceof Error ? error.message : "wrapped process blocked by process policy";
           if (
-            message.includes("process command requires explicit standing law, allowlist, or current approval") ||
+            message.includes(
+              "process command requires explicit standing law, allowlist, or current approval",
+            ) ||
             message.includes("requested working directory is outside user-opened scope")
           ) {
             await appendBoundaryLedger("PROCESS_BLOCKED", {
@@ -218,7 +222,7 @@ export async function runBoundaryWrappedCommand(args: {
               metadata: {
                 command: args.command,
                 argv: JSON.stringify(args.commandArgs),
-                cwd: args.cwd ?? (args.scopePaths?.[0] ?? process.cwd()),
+                cwd: args.cwd ?? args.scopePaths?.[0] ?? process.cwd(),
               },
               createdAt: new Date().toISOString(),
             });

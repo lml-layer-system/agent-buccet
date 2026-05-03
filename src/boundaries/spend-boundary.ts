@@ -22,12 +22,7 @@ const HIGH_RISK_SPEND_COMMIT_INTENTS = new Set([
   "sign",
 ]);
 
-const HIGH_RISK_SPEND_DESTINATION_KINDS = new Set([
-  "exchange",
-  "wallet",
-  "contract",
-  "account",
-]);
+const HIGH_RISK_SPEND_DESTINATION_KINDS = new Set(["exchange", "wallet", "contract", "account"]);
 
 const HIGH_RISK_SPEND_RISK_CLASSES = new Set([
   "high",
@@ -140,14 +135,21 @@ function isSpendExecutionRecord(record: BoundaryLedgerRecord): boolean {
   );
 }
 
-function isSameAggregateBucket(record: BoundaryLedgerRecord, spendIntent: BoundarySpendIntent): boolean {
+function isSameAggregateBucket(
+  record: BoundaryLedgerRecord,
+  spendIntent: BoundarySpendIntent,
+): boolean {
   return (
     parseStringMetadata(record, "spend_principal") === spendIntent.principal &&
     parseStringMetadata(record, "spend_bucket_id") === spendIntent.bucketId
   );
 }
 
-function isRecentProposalForIdentity(record: BoundaryLedgerRecord, request: BoundaryActionRequest, cutoffMs: number): boolean {
+function isRecentProposalForIdentity(
+  record: BoundaryLedgerRecord,
+  request: BoundaryActionRequest,
+  cutoffMs: number,
+): boolean {
   if (!["ACTION_PROPOSED", "APPROVAL_REQUESTED", "ACTION_EXECUTED"].includes(record.eventType)) {
     return false;
   }
@@ -178,13 +180,18 @@ async function sumAggregateSpend(args: {
     .filter(isSpendExecutionRecord)
     .filter((record) => Date.parse(record.payload.createdAt) >= cutoffMs)
     .filter((record) => isSameAggregateBucket(record, args.spendIntent))
-    .reduce((sum, record) => sum + (parseNumberMetadata(record, "spend_amount_normalized") ?? 0), 0);
+    .reduce(
+      (sum, record) => sum + (parseNumberMetadata(record, "spend_amount_normalized") ?? 0),
+      0,
+    );
 }
 
 async function isRecursiveSpendAttempt(request: BoundaryActionRequest): Promise<boolean> {
   const cutoffMs = Date.now() - RECURSIVE_SPEND_WINDOW_MS;
   const records = await readAllBoundaryLedgerRecords();
-  const collisions = records.filter((record) => isRecentProposalForIdentity(record, request, cutoffMs));
+  const collisions = records.filter((record) =>
+    isRecentProposalForIdentity(record, request, cutoffMs),
+  );
   return collisions.length >= RECURSIVE_SPEND_MAX_EVENTS;
 }
 
@@ -246,7 +253,9 @@ function evaluateSpendBoundaryCommon(request: BoundaryActionRequest): BoundaryLa
   return null;
 }
 
-export function spendIntentLedgerMetadata(spendIntent: BoundarySpendIntent): Record<string, string | number | boolean> {
+export function spendIntentLedgerMetadata(
+  spendIntent: BoundarySpendIntent,
+): Record<string, string | number | boolean> {
   return {
     spend_amount_raw: spendIntent.amountRaw,
     spend_amount_normalized: spendIntent.amountNormalized,
@@ -286,7 +295,9 @@ export function summarizeBoundarySpendIntent(spendIntent: BoundarySpendIntent): 
   return `${spendIntent.commitIntent} ${spendIntent.amountRaw}${currency} -> ${spendIntent.destinationKind}:${spendIntent.destination} via ${spendIntent.sourceAuthorityKind} principal=${spendIntent.principal} bucket=${spendIntent.bucketId} risk=${spendIntent.riskClass} ${recurring}${merchant}`;
 }
 
-export function evaluateSpendBoundaryAction(request: BoundaryActionRequest): BoundaryLawResult | null {
+export function evaluateSpendBoundaryAction(
+  request: BoundaryActionRequest,
+): BoundaryLawResult | null {
   return evaluateSpendBoundaryCommon(request);
 }
 

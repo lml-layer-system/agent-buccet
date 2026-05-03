@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 import { restoreBoundaryRuntimeStore } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
@@ -15,9 +15,7 @@ const scriptPath = await (async () => {
     try {
       await fs.access(candidate);
       return candidate;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   throw new Error("unable to locate buccet CLI script");
 })();
@@ -47,7 +45,11 @@ function runCli(
   });
 }
 
-function run(command: string, args: string[], cwd: string): Promise<{ code: number | null; stdout: string; stderr: string }> {
+function run(
+  command: string,
+  args: string[],
+  cwd: string,
+): Promise<{ code: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd,
@@ -145,7 +147,9 @@ async function main() {
   assert.equal(vscodePlan.configPath, path.join(vscodeProject, ".vscode", "mcp.json"));
   assert.equal(vscodePlan.config.mcpServers.buccet.command, launcherPath);
 
-  const packageJson = JSON.parse(await fs.readFile(path.join(repoRoot, "package.json"), "utf8")) as {
+  const packageJson = JSON.parse(
+    await fs.readFile(path.join(repoRoot, "package.json"), "utf8"),
+  ) as {
     exports?: Record<string, string>;
   };
   assert.equal(packageJson.exports?.["./integrations"], "./src/integrations/index.ts");
@@ -160,7 +164,7 @@ async function main() {
 
   const protectedSource = [
     "export function privateCoreX() {",
-    "  const launchCode = \"X-LAW-NEVER-LEAK\";",
+    '  const launchCode = "X-LAW-NEVER-LEAK";',
     "  return launchCode;",
     "}",
   ].join("\n");
@@ -169,7 +173,11 @@ async function main() {
 
   const gitInit = await run("git", ["init"], workspacePath);
   assert.equal(gitInit.code, 0, gitInit.stderr);
-  const gitRemote = await run("git", ["remote", "add", "origin", "https://example.com/private.git"], workspacePath);
+  const gitRemote = await run(
+    "git",
+    ["remote", "add", "origin", "https://example.com/private.git"],
+    workspacePath,
+  );
   assert.equal(gitRemote.code, 0, gitRemote.stderr);
   const gitAdd = await run("git", ["add", "private-core.ts"], workspacePath);
   assert.equal(gitAdd.code, 0, gitAdd.stderr);
@@ -179,12 +187,12 @@ async function main() {
     sessionsDir: path.join(homePath, "data", "agent-boundary", "sessions"),
   });
   assert.ok(restored, "expected CLI init to create a restorable boundary session");
-  await restored!.sealProtectedFile({
+  await restored?.sealProtectedFile({
     filePath: protectedFile,
     kind: "source_code",
     sealedBy: "user:entry-surface-contract",
   });
-  await restored!.persist();
+  await restored?.persist();
 
   const gitPush = await runCli(["git", "push", "origin", "main"], env, workspacePath);
   assert.equal(gitPush.code, 1, "expected protected git push to hard deny");
@@ -217,11 +225,7 @@ async function main() {
   assert.equal(ghCommentLeak.code, 1, "expected protected GitHub comment to hard deny");
   assert.match(ghCommentLeak.stderr, /Secrets Boundary/i);
 
-  const gitPatchLeak = await runCli(
-    ["git", "format-patch", "-1", "HEAD"],
-    env,
-    workspacePath,
-  );
+  const gitPatchLeak = await runCli(["git", "format-patch", "-1", "HEAD"], env, workspacePath);
   assert.equal(gitPatchLeak.code, 1, "expected protected patch export to hard deny");
   assert.match(gitPatchLeak.stderr, /Secrets Boundary/i);
 

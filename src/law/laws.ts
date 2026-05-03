@@ -1,7 +1,4 @@
-import {
-  grantsForAction,
-  isTargetReachable,
-} from "./../runtime/orchestrator.ts";
+import { grantsForAction, isTargetReachable } from "./../runtime/orchestrator.ts";
 import { DEFENSIVE_TIME_LAWS } from "./../runtime/time.ts";
 import type {
   BoundaryActionKind,
@@ -83,9 +80,10 @@ export function evaluateBoundaryLaws(args: {
   return {
     decision,
     reason,
-    triggeredLawIds: decision === "require_approval" && triggeredLawIds.length === 0
-      ? ["BOUNDARY.DEFAULT.ASK.01"]
-      : triggeredLawIds,
+    triggeredLawIds:
+      decision === "require_approval" && triggeredLawIds.length === 0
+        ? ["BOUNDARY.DEFAULT.ASK.01"]
+        : triggeredLawIds,
     requiresApproval: decision === "require_approval",
   };
 }

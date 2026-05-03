@@ -133,7 +133,9 @@ async function main() {
     dryRun: args.dryRun,
   });
 
-  console.log(`Agent Buccet wrapper completed. session=${result.sessionId} exitCode=${result.exitCode}`);
+  console.log(
+    `Agent Buccet wrapper completed. session=${result.sessionId} exitCode=${result.exitCode}`,
+  );
   process.exit(result.exitCode);
 }
 

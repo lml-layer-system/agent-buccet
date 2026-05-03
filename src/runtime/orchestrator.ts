@@ -60,8 +60,7 @@ function domainMatches(target: string, resourceValue: string): boolean {
   const normalizedTarget = target.trim().toLowerCase();
   const normalizedResource = resourceValue.trim().toLowerCase();
   return (
-    normalizedTarget === normalizedResource ||
-    normalizedTarget.endsWith(`.${normalizedResource}`)
+    normalizedTarget === normalizedResource || normalizedTarget.endsWith(`.${normalizedResource}`)
   );
 }
 
@@ -97,8 +96,7 @@ export function targetMatchesGrant(request: BoundaryActionRequest, grant: Bounda
       return request.target === grant.resourceValue;
     }
     return (
-      request.target === grant.resourceValue ||
-      request.target.startsWith(`${grant.resourceValue}/`)
+      request.target === grant.resourceValue || request.target.startsWith(`${grant.resourceValue}/`)
     );
   }
   if (grant.resourceKind === "domain") {
@@ -122,7 +120,10 @@ export function targetMatchesGrant(request: BoundaryActionRequest, grant: Bounda
   return false;
 }
 
-export function isTargetReachable(request: BoundaryActionRequest, actionGrants: BoundaryGrant[]): boolean {
+export function isTargetReachable(
+  request: BoundaryActionRequest,
+  actionGrants: BoundaryGrant[],
+): boolean {
   return actionGrants.some((grant) => targetMatchesGrant(request, grant));
 }
 

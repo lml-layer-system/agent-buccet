@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { armBoundaryQuarantineReboot } from "./../boundaries/quarantine.ts";
 import { assertBoundaryGravityProposalAllowed } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
 import { appendBoundaryLedger } from "./../proof/ledger.ts";
-import { armBoundaryQuarantineReboot } from "./../boundaries/quarantine.ts";
 import { persistBoundarySessionState } from "./state.ts";
 import { substrate } from "./substrate/substrate-rust.ts";
 import type {
@@ -59,13 +59,13 @@ function isRiskyLowTrustAction(request: BoundaryActionRequest): boolean {
   }
   const flags = request.flags;
   return Boolean(
-    flags?.authorityClaimed
-    || flags?.claimsUserApproval
-    || flags?.requestsLawMutation
-    || flags?.requestsLedgerBypass
-    || flags?.requestsScopeExpansion
-    || flags?.groundingMismatch
-    || flags?.claimsActionCompletionWithoutWitness,
+    flags?.authorityClaimed ||
+      flags?.claimsUserApproval ||
+      flags?.requestsLawMutation ||
+      flags?.requestsLedgerBypass ||
+      flags?.requestsScopeExpansion ||
+      flags?.groundingMismatch ||
+      flags?.claimsActionCompletionWithoutWitness,
   );
 }
 
@@ -81,8 +81,6 @@ function provenanceDomain(provenance: BoundaryRequestProvenance): string {
       return "disposable";
     case "tool_output":
       return "work";
-    case "mcp_host":
-    case "agent_inference":
     default:
       return "work";
   }
@@ -187,7 +185,11 @@ async function executeDisposableShed(args: {
   await substrate.init();
 
   const dataRoot = boundaryDataRoot(args.config);
-  const sessionRoot = path.join(dataRoot, "disposable", sanitizeSegment(args.config.session.sessionId));
+  const sessionRoot = path.join(
+    dataRoot,
+    "disposable",
+    sanitizeSegment(args.config.session.sessionId),
+  );
   const unitId = `disp-${sanitizeSegment(args.config.session.sessionId)}-${sanitizeSegment(args.request.requestId).slice(0, 16)}`;
   const runtimeDir = path.join(sessionRoot, unitId);
   const rootfsDir = path.join(runtimeDir, "rootfs");

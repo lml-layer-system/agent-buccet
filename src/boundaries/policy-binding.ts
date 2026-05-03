@@ -1,3 +1,4 @@
+import { loadUserPathLedger, writeCompiledUserPathLaws } from "./../proof/user-path-ledger.ts";
 import type {
   BoundaryApprovalDecision,
   BoundaryLedgerRecord,
@@ -10,7 +11,6 @@ import type {
   BoundaryUserPathLedger,
   CompiledDocumentLaw,
 } from "./../runtime/types.ts";
-import { loadUserPathLedger, writeCompiledUserPathLaws } from "./../proof/user-path-ledger.ts";
 
 export type BoundaryPolicyBinding = {
   sourceKind: BoundaryPolicySourceKind;
@@ -55,7 +55,7 @@ export async function writePolicyBindings(args: {
   witness: BoundaryLedgerRecord;
   session: BoundarySession;
 }): Promise<BoundaryUserPathLedger> {
-  const ledger = args.ledger ?? await loadUserPathLedger();
+  const ledger = args.ledger ?? (await loadUserPathLedger());
   return writeCompiledUserPathLaws({
     ledger,
     compiledLaws: args.bindings.map((binding) => ({
@@ -99,8 +99,12 @@ export async function bindPolicySourcesIntoConfig(args: {
     userLawIds: [
       ...new Set([
         ...(args.config.userLawIds ?? []),
-        ...upl.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE").map((entry) => entry.id),
-        ...upl.userDeniedLawPaths.filter((entry) => entry.status === "ACTIVE").map((entry) => entry.id),
+        ...upl.userApprovedLawPaths
+          .filter((entry) => entry.status === "ACTIVE")
+          .map((entry) => entry.id),
+        ...upl.userDeniedLawPaths
+          .filter((entry) => entry.status === "ACTIVE")
+          .map((entry) => entry.id),
       ]),
     ],
   };
