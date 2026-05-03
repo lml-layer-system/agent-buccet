@@ -46,6 +46,9 @@ It also ships the deeper boundary body that the old README undersold:
 - swarm resolution
 - shed reboot / boundary-on-self
 
+Stress-tested under adversarial swarm load. 
+denied_actions_reaching_tools: 0.
+
 ## Boundary Set
 
 Buccet is not one vague safety layer. It is a set of named boundaries and enforcers:
@@ -384,6 +387,13 @@ That distinction matters:
 - [law catalog](docs/specs/LAW_CATALOG.md)
 - [UPL base packs](docs/specs/UPL_BASE_PACKS.md)
 - [threat model traceability](docs/specs/THREAT_MODEL_TRACEABILITY.md)
+
+## Work With Us
+
+Early design partners and enterprise teams:
+[ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com)
+X: [@lml_layer](https://x.com/lml_layer)
+
 
 ## Current Limits
 
