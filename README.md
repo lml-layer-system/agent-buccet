@@ -157,8 +157,9 @@ The egress detector structurally flags:
 
 - PII: email, phone, SSN
 - credentials: API keys, private keys, GitHub PATs, JWTs
-- financial  valid credit cards (Luhn), valid IBAN (MOD-97), 
-  valid ABA routing numbers, valid IPv4 addresses
+- financial data: valid credit cards (Luhn), valid IBAN (MOD-97),
+  valid ABA routing numbers
+- network identifiers: valid IPv4 addresses
 
 False positives are avoided by design — invalid structures 
 (failed Luhn, impossible IPs, invalid IBANs) do not trigger. 
