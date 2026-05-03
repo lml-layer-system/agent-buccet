@@ -109,7 +109,7 @@ Everything else in Buccet points here.
 ```bash
 buccet ledger --follow
 buccet logs
-
+```
 
 These are not just docs. They are represented in runtime code, contracts, and ledgers.
 
