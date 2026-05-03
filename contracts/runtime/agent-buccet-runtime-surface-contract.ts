@@ -77,9 +77,10 @@ async function main() {
 
   for (const { relativePath, source } of hotSources) {
     for (const forbidden of READ_SURFACE_PATTERNS) {
-      const hasMatch = forbidden === "docs/"
-        ? new RegExp(`(?<![a-zA-Z0-9_-])${forbidden.replace("/", "\\/")}`).test(source)
-        : source.includes(forbidden);
+      const hasMatch =
+        forbidden === "docs/"
+          ? new RegExp(`(?<![a-zA-Z0-9_-])${forbidden.replace("/", "\\/")}`).test(source)
+          : source.includes(forbidden);
       assert.equal(
         hasMatch,
         false,

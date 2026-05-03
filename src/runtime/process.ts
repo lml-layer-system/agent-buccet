@@ -403,7 +403,7 @@ export async function runBoundaryProcess(args: {
           if (existsSync(darwinStatusPath)) {
             const statusText = readFileSync(darwinStatusPath, "utf8");
             const m = statusText.match(/jetsam_reinforcement=(\S+)/);
-            darwinJetsamStatus = m ? m[1]! : "status_parse_error";
+            darwinJetsamStatus = m ? (m[1] ?? "status_parse_error") : "status_parse_error";
           } else {
             darwinJetsamStatus = "status_file_missing";
           }
