@@ -16,7 +16,7 @@ Buccet decides:
 
 ![Agent Buccet](docs/assets/agent-buccet-hero.jpg)
 
-## Whats Live
+## What's Live
 
 This repo is beyond the old “wrapper + prompt strategy” pitch. The code already ships a layered control body:
 
@@ -126,9 +126,9 @@ That is why the repo includes:
 The important architectural split is:
 
 Pi is the Buccet AI assistant surface — it can draft, explain, 
-and review proposed law, but it cannot activate it.
+and review proposed law, but it cannot activate it. Only 
+human-approved law becomes active UPL.
 
-- only human-approved law becomes active UPL
 
 That is now real in code, not just a motto.
 
