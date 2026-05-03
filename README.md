@@ -210,7 +210,7 @@ The enterprise layer is the control plane for running that boundary at organizat
 - compliance-oriented evidence handling through witness ledgers, rollups, checkpoints, audit trails, and replay
 - integrations with internal systems, enterprise workflows, and environment-specific rollout support
 
-The open-source core is live now. The security is free. What organizations pay for is the scale layer: dashboards, organizational policy control, compliance evidence, and fleet governance for teams running Buccet across many agents, machines, and workflows.
+The open-source core is live now. The security is free. What organizations pay for is the scale layer: dashboards, organizational policy control, compliance evidence, and fleet governance for teams running Buccet across thousands or millions of agents, machines, and workflows.
 
 Early teams, commercial partners, and design partners can reach out at [ryangat@lmlsystemlayer.com](mailto:ryangat@lmlsystemlayer.com).
 
