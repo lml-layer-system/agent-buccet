@@ -26,7 +26,7 @@ Buccet decides:
 - what is denied
 - what requires a human
 - what becomes standing law
-- everything gets written to the witness ledger
+- what gets written to the witness ledger
 
 ![Agent Buccet](docs/assets/agent-buccet-hero.jpg)
 
