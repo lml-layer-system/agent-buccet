@@ -4,20 +4,15 @@ import {
   AGENT_BUCCET_META_LAW_REFERENCES,
 } from "./../runtime/meta.ts";
 import {
-  BOUNDARY_PERIODIC_FAILURE_DIMENSIONS,
-  BOUNDARY_PERIODIC_FAILURE_ROWS,
-} from "./../runtime/substrate/periodic-failure-taxonomy.ts";
-import {
-  BASE_BUCCET_FRONTIER_FAILURE_ALIASES,
-} from "./../runtime/substrate/frontier-failure-aliases.ts";
-import {
   BOUNDARY_BUCCET_CONTAINMENT_LAWS,
   BOUNDARY_BUCCET_FAILURE_DIMENSIONS,
   BOUNDARY_BUCCET_FAILURE_ROWS,
 } from "./../runtime/substrate/buccet-failure-catalog.ts";
+import { BASE_BUCCET_FRONTIER_FAILURE_ALIASES } from "./../runtime/substrate/frontier-failure-aliases.ts";
 import {
-  BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS,
-} from "./buccet-law-body-denial-catalog.ts";
+  BOUNDARY_PERIODIC_FAILURE_DIMENSIONS,
+  BOUNDARY_PERIODIC_FAILURE_ROWS,
+} from "./../runtime/substrate/periodic-failure-taxonomy.ts";
 import type {
   BoundaryActionFlagName,
   BoundaryActionKind,
@@ -28,6 +23,7 @@ import type {
   BoundaryUplEntry,
   BoundaryUserPathLedger,
 } from "./../runtime/types.ts";
+import { BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS } from "./buccet-law-body-denial-catalog.ts";
 
 export type HeadlessDecision = "deny" | "no_match";
 
@@ -105,10 +101,7 @@ const sensitiveCaptureKinds = [
   "browser.session.read",
 ] as unknown as BoundaryActionKind[];
 
-const externalCommKinds = [
-  "email.send",
-  "message.send",
-] as unknown as BoundaryActionKind[];
+const externalCommKinds = ["email.send", "message.send"] as unknown as BoundaryActionKind[];
 
 const outboundSecretsKinds: BoundaryActionKind[] = [
   "chat.emit",
@@ -142,9 +135,7 @@ const allTrackSurfaceKinds: BoundaryActionKind[] = [
 ];
 
 function globToRegexLiteral(pattern: string): string {
-  const escaped = pattern
-    .replaceAll(/[|\\{}()[\]^$+?.]/g, "\\$&")
-    .replaceAll("*", ".*");
+  const escaped = pattern.replaceAll(/[|\\{}()[\]^$+?.]/g, "\\$&").replaceAll("*", ".*");
   return `/^${escaped}$/i`;
 }
 
@@ -153,9 +144,7 @@ function toRegexList(patterns: readonly string[]): string[] {
 }
 
 function containsGlobToRegexLiteral(pattern: string): string {
-  const escaped = pattern
-    .replaceAll(/[|\\{}()[\]^$+?.]/g, "\\$&")
-    .replaceAll("*", ".*");
+  const escaped = pattern.replaceAll(/[|\\{}()[\]^$+?.]/g, "\\$&").replaceAll("*", ".*");
   return `/${escaped}/i`;
 }
 
@@ -182,7 +171,7 @@ function toCatalogRequestTextPatterns(values: readonly (string | undefined)[]): 
   for (const raw of values) {
     const value = collapseWhitespace(raw ?? "")
       .replaceAll("`", "")
-      .replaceAll("\"", "")
+      .replaceAll('"', "")
       .trim();
     if (value.length < 4) {
       continue;
@@ -203,7 +192,9 @@ const EXCLUDED_META_LAW_IDS = new Set<number>([
   ...AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS,
 ]);
 
-function isVendoredMetaLawReferenceAllowed(ref: (typeof AGENT_BUCCET_META_LAW_REFERENCES)[number]): boolean {
+function isVendoredMetaLawReferenceAllowed(
+  ref: (typeof AGENT_BUCCET_META_LAW_REFERENCES)[number],
+): boolean {
   if (EXCLUDED_META_LAW_IDS.has(ref.lawId)) {
     return false;
   }
@@ -247,29 +238,20 @@ function createPeriodicFailureSeeds(): BaseHeadlessDenialSeed[] {
     denialClass: "periodic_failure_taxonomy",
     reason: `[${row.dimension}] ${row.title} — ${row.forbidden}`,
     actionKinds: allTrackSurfaceKinds,
-    requestTextPatterns: toCatalogRequestTextPatterns([
-      row.id,
-      row.title,
-    ]),
+    requestTextPatterns: toCatalogRequestTextPatterns([row.id, row.title]),
     requestBasisTarget: `base-headless-denials:periodic:${row.id.toLowerCase()}`,
   }));
 }
 
 function createVendoredBaseCatalogSeeds(): BaseHeadlessDenialSeed[] {
-  return AGENT_BUCCET_META_LAW_REFERENCES
-    .filter(isVendoredMetaLawReferenceAllowed)
-    .map((ref) => ({
-      id: `DENY.BASE.CATALOG.${String(ref.lawId).padStart(4, "0")}`,
-      denialClass: "base_buccet_denial",
-      reason: `[${ref.category}] ${ref.name}`,
-      actionKinds: allTrackSurfaceKinds,
-      requestTextPatterns: toCatalogRequestTextPatterns([
-        `LAW ${ref.lawId}`,
-        ref.name,
-        ref.category,
-      ]),
-      requestBasisTarget: `base-headless-denials:base-catalog:${String(ref.lawId).padStart(4, "0")}`,
-    }));
+  return AGENT_BUCCET_META_LAW_REFERENCES.filter(isVendoredMetaLawReferenceAllowed).map((ref) => ({
+    id: `DENY.BASE.CATALOG.${String(ref.lawId).padStart(4, "0")}`,
+    denialClass: "base_buccet_denial",
+    reason: `[${ref.category}] ${ref.name}`,
+    actionKinds: allTrackSurfaceKinds,
+    requestTextPatterns: toCatalogRequestTextPatterns([`LAW ${ref.lawId}`, ref.name, ref.category]),
+    requestBasisTarget: `base-headless-denials:base-catalog:${String(ref.lawId).padStart(4, "0")}`,
+  }));
 }
 
 function createFrontierFailureAliasSeeds(): BaseHeadlessDenialSeed[] {
@@ -455,7 +437,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.IDENTITY.SECRETS.003D",
     denialClass: "identity_secrets",
-    reason: "Identity, session, and secrets-heavy tool surfaces are forbidden without explicit law.",
+    reason:
+      "Identity, session, and secrets-heavy tool surfaces are forbidden without explicit law.",
     actionKinds: ["fs.read", "sys.credential.read", "sys.credential.use"],
     targetPatterns: toRegexList([
       "*/1password*",
@@ -685,7 +668,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.STEALTH.BROWSER.006B",
     denialClass: "stealth_browser",
-    reason: "Stealth browser automation or anti-detection browsing is forbidden without explicit law.",
+    reason:
+      "Stealth browser automation or anti-detection browsing is forbidden without explicit law.",
     actionKinds: ["tool.exec", "network.send"],
     requestTextPatterns: toContainsRegexList([
       "*stealth browser*",
@@ -706,11 +690,7 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     denialClass: "propagation",
     reason: "Self-propagation or lateral spread is forbidden.",
     actionKinds: ["fs.write"],
-    targetPatterns: toRegexList([
-      "*/autorun.inf",
-      "*/usb/*",
-      "*/network-share/*",
-    ]),
+    targetPatterns: toRegexList(["*/autorun.inf", "*/usb/*", "*/network-share/*"]),
     requestBasisTarget: "base-headless-denials:propagation-paths",
   },
   {
@@ -895,7 +875,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.EXEC.014A",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies raw native execution, async submission, and syscall-surface motion without explicit law.",
+    reason:
+      "Kernel Boundary denies raw native execution, async submission, and syscall-surface motion without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*io_uring*",
@@ -917,7 +898,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.PRIVILEGE.014B",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies kernel-facing privilege elevation and token flips without explicit law.",
+    reason:
+      "Kernel Boundary denies kernel-facing privilege elevation and token flips without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*seteuid*",
@@ -934,7 +916,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.DRIVER.014C",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies driver, module, and low-level extension loading without explicit law.",
+    reason:
+      "Kernel Boundary denies driver, module, and low-level extension loading without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*insmod*",
@@ -962,7 +945,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.INJECTION.014D",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies process injection and foreign memory mutation without explicit law.",
+    reason:
+      "Kernel Boundary denies process injection and foreign memory mutation without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*ptrace*",
@@ -981,7 +965,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.SHARED_MEMORY.014E",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies shared-memory write crossings and zero-copy authority bypass without explicit law.",
+    reason:
+      "Kernel Boundary denies shared-memory write crossings and zero-copy authority bypass without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*mmap*shared*",
@@ -1016,7 +1001,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.HANDLE_PASS.014F",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies privileged handle or file-descriptor passing without explicit law.",
+    reason:
+      "Kernel Boundary denies privileged handle or file-descriptor passing without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*scm_rights*",
@@ -1031,7 +1017,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.NAMESPACE.014G",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies namespace, sandbox, and protected authority crossings without explicit law.",
+    reason:
+      "Kernel Boundary denies namespace, sandbox, and protected authority crossings without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*nsenter*",
@@ -1048,19 +1035,17 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.NAMESPACE.014G2",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies namespace handles and container-control sockets without explicit law.",
+    reason:
+      "Kernel Boundary denies namespace handles and container-control sockets without explicit law.",
     actionKinds: ["fs.read"],
-    targetPatterns: toRegexList([
-      "/proc/*/ns/*",
-      "/var/run/docker.sock",
-      "/run/docker.sock",
-    ]),
+    targetPatterns: toRegexList(["/proc/*/ns/*", "/var/run/docker.sock", "/run/docker.sock"]),
     requestBasisTarget: "base-headless-denials:kernel-namespace-paths",
   },
   {
     id: "DENY.KERNEL.DEVICE.014H",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies raw device and privileged hardware-backed resource access without explicit law.",
+    reason:
+      "Kernel Boundary denies raw device and privileged hardware-backed resource access without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*diskutil erase*",
@@ -1075,7 +1060,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.DEVICE.014H2",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies raw device and privileged hardware-backed resource paths without explicit law.",
+    reason:
+      "Kernel Boundary denies raw device and privileged hardware-backed resource paths without explicit law.",
     actionKinds: ["fs.read", "fs.write", "sys.credential.read", "sys.credential.use"],
     targetPatterns: toRegexList([
       "/dev/*",
@@ -1108,7 +1094,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.RUNTIME.014J",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies runtime substrate mutation, syscall control mutation, and host-policy tampering without explicit law.",
+    reason:
+      "Kernel Boundary denies runtime substrate mutation, syscall control mutation, and host-policy tampering without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*sysctl -w*",
@@ -1138,7 +1125,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.NETWORK.014K",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies raw network authority bypass and low-level routing mutation without explicit law.",
+    reason:
+      "Kernel Boundary denies raw network authority bypass and low-level routing mutation without explicit law.",
     actionKinds: ["tool.exec", "sys.config.write"],
     requestTextPatterns: toContainsRegexList([
       "*iptables *",
@@ -1156,7 +1144,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.OBSERVABILITY.014L",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies audit, witness, and host-observability tampering without explicit law.",
+    reason:
+      "Kernel Boundary denies audit, witness, and host-observability tampering without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*wevtutil cl*",
@@ -1172,7 +1161,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.DESTRUCTIVE.014M",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies destructive system mutation and boot-level corruption without explicit law.",
+    reason:
+      "Kernel Boundary denies destructive system mutation and boot-level corruption without explicit law.",
     actionKinds: ["tool.exec", "fs.write", "fs.delete"],
     requestTextPatterns: toContainsRegexList([
       "*diskutil erasedisk*",
@@ -1189,7 +1179,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.CONTACT.014N",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies direct outside-to-inside kernel contact attempts across trap, syscall, exception, interrupt, IPC, and hypercall gates without explicit law.",
+    reason:
+      "Kernel Boundary denies direct outside-to-inside kernel contact attempts across trap, syscall, exception, interrupt, IPC, and hypercall gates without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*int 0x80*",
@@ -1211,7 +1202,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.CONTEXT.014O",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies captured register, thread, fault, and machine-context control without explicit law.",
+    reason:
+      "Kernel Boundary denies captured register, thread, fault, and machine-context control without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*getthreadcontext*",
@@ -1232,7 +1224,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.DISPATCH.014P",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies syscall-table, vector, probe, and dispatch-hook mutation without explicit law.",
+    reason:
+      "Kernel Boundary denies syscall-table, vector, probe, and dispatch-hook mutation without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*syscall table*",
@@ -1254,7 +1247,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.CAPABILITY.014Q",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies capability-endpoint, Mach, Zircon, and microkernel authority crossings without explicit law.",
+    reason:
+      "Kernel Boundary denies capability-endpoint, Mach, Zircon, and microkernel authority crossings without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*sel4_call*",
@@ -1275,7 +1269,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.HYPERVISOR.014R",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies hypervisor, guest-control, and VM-monitor authority crossings without explicit law.",
+    reason:
+      "Kernel Boundary denies hypervisor, guest-control, and VM-monitor authority crossings without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*virsh *",
@@ -1294,7 +1289,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.FIRMWARE.014S",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies firmware-service, EFI, and boot-runtime authority mutation without explicit law.",
+    reason:
+      "Kernel Boundary denies firmware-service, EFI, and boot-runtime authority mutation without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*efibootmgr*",
@@ -1328,7 +1324,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.CONTROL_CORE.014T",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies reads and writes against raw control-core, kernel-memory, and hypervisor device paths without explicit law.",
+    reason:
+      "Kernel Boundary denies reads and writes against raw control-core, kernel-memory, and hypervisor device paths without explicit law.",
     actionKinds: ["fs.read", "fs.write", "sys.config.read", "sys.config.write"],
     targetPatterns: toRegexList([
       "/proc/kcore",
@@ -1354,7 +1351,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.KERNEL.INTERRUPT.014U",
     denialClass: "kernel_boundary",
-    reason: "Kernel Boundary denies low-level interrupt, APIC, MSR, and memory-mapped control mutation without explicit law.",
+    reason:
+      "Kernel Boundary denies low-level interrupt, APIC, MSR, and memory-mapped control mutation without explicit law.",
     actionKinds: ["tool.exec"],
     requestTextPatterns: toContainsRegexList([
       "*wrmsr*",
@@ -1376,7 +1374,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.DERIVED.015G",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies excerpts, transformed snippets, and derived outbound exposure once material is sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies excerpts, transformed snippets, and derived outbound exposure once material is sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedMaterial"],
     requestTextPatterns: toContainsRegexList([
@@ -1395,7 +1394,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.SOURCE.015A",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound source-code exposure once source truth is sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies outbound source-code exposure once source truth is sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedSourceCode"],
     requestBasisTarget: "base-headless-denials:secrets-boundary-source-code",
@@ -1403,7 +1403,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.PROMPT.015B",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound protected-prompt exposure once prompt truth is sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies outbound protected-prompt exposure once prompt truth is sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedPrompt"],
     requestBasisTarget: "base-headless-denials:secrets-boundary-prompt",
@@ -1411,7 +1412,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.CONTRACT.015C",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound contract and legal-term exposure once sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies outbound contract and legal-term exposure once sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedContract"],
     requestBasisTarget: "base-headless-denials:secrets-boundary-contract",
@@ -1419,7 +1421,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.INTERNAL_DOC.015D",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound internal-document exposure once sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies outbound internal-document exposure once sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedInternalDoc"],
     requestBasisTarget: "base-headless-denials:secrets-boundary-internal-doc",
@@ -1427,7 +1430,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.CUSTOMER_DATA.015E",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound customer-data exposure once sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies outbound customer-data exposure once sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedCustomerData"],
     requestBasisTarget: "base-headless-denials:secrets-boundary-customer-data",
@@ -1435,7 +1439,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.MODEL_WEIGHT.015F",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound model-weight exposure once sealed into Buccet custody.",
+    reason:
+      "Secrets Boundary denies outbound model-weight exposure once sealed into Buccet custody.",
     actionKinds: outboundSecretsKinds,
     requiredFlags: ["payloadContainsProtectedModelWeight"],
     requestBasisTarget: "base-headless-denials:secrets-boundary-model-weight",
@@ -1443,7 +1448,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.EXPORT.015H",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies export and posting tooling when protected material is in flight.",
+    reason:
+      "Secrets Boundary denies export and posting tooling when protected material is in flight.",
     actionKinds: ["tool.exec"],
     requiredFlags: ["payloadContainsProtectedMaterial"],
     requestTextPatterns: toContainsRegexList([
@@ -1464,7 +1470,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.LOGS.015I",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies telemetry, logging, and crash-report export when protected material is in flight.",
+    reason:
+      "Secrets Boundary denies telemetry, logging, and crash-report export when protected material is in flight.",
     actionKinds: ["network.send", "tool.exec"],
     requiredFlags: ["payloadContainsProtectedMaterial"],
     targetPatterns: toRegexList([
@@ -1483,7 +1490,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.SECRETS.BOUNDARY.GENERIC.015J",
     denialClass: "secrets_boundary",
-    reason: "Secrets Boundary denies outbound motion of sealed protected material without explicit law.",
+    reason:
+      "Secrets Boundary denies outbound motion of sealed protected material without explicit law.",
     actionKinds: ["network.send", "comm.send", "tool.exec"],
     requiredFlags: ["payloadContainsProtectedMaterial"],
     requestTextPatterns: toContainsRegexList([
@@ -1499,7 +1507,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.AGENT.SPEND.013A",
     denialClass: "agent_spend",
-    reason: "Agent spend must use canonical approved destination handles, not raw payment-provider or direct transport targets.",
+    reason:
+      "Agent spend must use canonical approved destination handles, not raw payment-provider or direct transport targets.",
     actionKinds: ["agent.spend"],
     targetPatterns: toRegexList([
       "http://*",
@@ -1516,7 +1525,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.AGENT.SPEND.013B",
     denialClass: "agent_spend",
-    reason: "Card, API-credential, and unknown spend authority classes are denied without explicit law.",
+    reason:
+      "Card, API-credential, and unknown spend authority classes are denied without explicit law.",
     actionKinds: ["agent.spend"],
     spendAllowedSourceAuthorityKinds: ["card", "api_credential", "other"],
     requestBasisTarget: "base-headless-denials:agent-spend-risky-authority",
@@ -1532,7 +1542,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.AGENT.SPEND.013D",
     denialClass: "agent_spend",
-    reason: "Cryptographic signing and swap-style spend commit intents are denied without explicit law.",
+    reason:
+      "Cryptographic signing and swap-style spend commit intents are denied without explicit law.",
     actionKinds: ["agent.spend"],
     spendAllowedCommitIntents: ["swap", "sign"],
     requestBasisTarget: "base-headless-denials:agent-spend-irreversible-commit",
@@ -1602,7 +1613,8 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.USER_TELEMETRY.DISCLOSURE.01",
     denialClass: "user_telemetry_boundary",
-    reason: "Outbound data disclosure is denied by default and requires explicit user law to be allowed.",
+    reason:
+      "Outbound data disclosure is denied by default and requires explicit user law to be allowed.",
     actionKinds: ["network.send", "comm.send", ...externalCommKinds],
     requestBasisTarget: "base-headless-denials:user-telemetry-default-disclosure",
   },
@@ -1630,7 +1642,14 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     denialClass: "creative_wall",
     reason:
       "Creative-side actions cannot override, modify, or contaminate defense-side decisions, in any form. Defense-face state — UPL acceptance, UPL denial, scope grants, ledger, witness, intercept socket, team registry, and console mode — is denial-locked to creative-side mutation. Operators ratify defense-face changes through `buccet upl` and `buccet scope` only.",
-    actionKinds: ["fs.write", "fs.append", "fs.delete", "fs.move", "sys.config.write", "sys.env.write"],
+    actionKinds: [
+      "fs.write",
+      "fs.append",
+      "fs.delete",
+      "fs.move",
+      "sys.config.write",
+      "sys.env.write",
+    ],
     targetPatterns: toRegexList([
       "*/.buccet/upl/*",
       "*/.buccet/upl-docs/*",
@@ -1787,11 +1806,17 @@ function seedMatchesRequest(seed: BaseHeadlessDenialSeed, req: HeadlessActionReq
   }
 
   const normalizedTarget = lower(req.target).replaceAll("\\", "/");
-  if (seed.targetPatterns?.length && !seed.targetPatterns.some((pattern) => matchesPattern(normalizedTarget, pattern))) {
+  if (
+    seed.targetPatterns?.length &&
+    !seed.targetPatterns.some((pattern) => matchesPattern(normalizedTarget, pattern))
+  ) {
     return false;
   }
 
-  if (seed.requestTextPatterns?.length && !seed.requestTextPatterns.some((pattern) => matchesPattern(requestText(req), pattern))) {
+  if (
+    seed.requestTextPatterns?.length &&
+    !seed.requestTextPatterns.some((pattern) => matchesPattern(requestText(req), pattern))
+  ) {
     return false;
   }
 
@@ -1834,9 +1859,7 @@ function seedMatchesRequest(seed: BaseHeadlessDenialSeed, req: HeadlessActionReq
   return true;
 }
 
-export function evaluateBaseHeadlessDenials(
-  req: HeadlessActionRequest,
-): HeadlessDenialResult {
+export function evaluateBaseHeadlessDenials(req: HeadlessActionRequest): HeadlessDenialResult {
   for (const seed of BASE_HEADLESS_DENIAL_SEEDS) {
     if (!seedMatchesRequest(seed, req)) {
       continue;
@@ -1868,37 +1891,35 @@ export function createBaseHeadlessDenialEntries(): BoundaryUplEntry[] {
       target: seed.requestBasisTarget,
       payloadSummary: seed.reason,
       provenance: "trusted_system",
-      ...(
-        seed.actionKinds.includes("agent.spend") &&
-        (
-          seed.spendAllowedDestinationKinds?.[0] ||
-          seed.spendAllowedSourceAuthorityKinds?.[0] ||
-          seed.spendAllowedCommitIntents?.[0]
-        )
-          ? {
-              spendIntent: {
-                amountRaw: "0",
-                amountNormalized: 0,
-                destination: seed.requestBasisTarget,
-                destinationKind: seed.spendAllowedDestinationKinds?.[0] ?? "other",
-                sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds?.[0] ?? "other",
-                commitIntent: seed.spendAllowedCommitIntents?.[0] ?? "purchase",
-                principal: "base-denial-system",
-                purpose: seed.reason,
-                bucketId: seed.id,
-                termsSummary: "base denial spend seed",
-                recurring: false,
-                riskClass: "low",
-                accountabilityRef: `seed:${seed.id}`,
-                instructionSource: "trusted_system",
-              },
-            }
-          : {}
-      ),
+      ...(seed.actionKinds.includes("agent.spend") &&
+      (seed.spendAllowedDestinationKinds?.[0] ||
+        seed.spendAllowedSourceAuthorityKinds?.[0] ||
+        seed.spendAllowedCommitIntents?.[0])
+        ? {
+            spendIntent: {
+              amountRaw: "0",
+              amountNormalized: 0,
+              destination: seed.requestBasisTarget,
+              destinationKind: seed.spendAllowedDestinationKinds?.[0] ?? "other",
+              sourceAuthorityKind: seed.spendAllowedSourceAuthorityKinds?.[0] ?? "other",
+              commitIntent: seed.spendAllowedCommitIntents?.[0] ?? "purchase",
+              principal: "base-denial-system",
+              purpose: seed.reason,
+              bucketId: seed.id,
+              termsSummary: "base denial spend seed",
+              recurring: false,
+              riskClass: "low",
+              accountabilityRef: `seed:${seed.id}`,
+              instructionSource: "trusted_system",
+            },
+          }
+        : {}),
     },
     trackConstraint: {
       allowedActionKinds: [...seed.actionKinds],
-      ...(seed.targetPatterns ? { targetPatterns: [...seed.targetPatterns], targetMatchMode: "regex" as const } : {}),
+      ...(seed.targetPatterns
+        ? { targetPatterns: [...seed.targetPatterns], targetMatchMode: "regex" as const }
+        : {}),
       ...(seed.requestTextPatterns ? { requestTextPatterns: [...seed.requestTextPatterns] } : {}),
       ...(seed.requiredFlags ? { requiredFlags: [...seed.requiredFlags] } : {}),
       ...(seed.spendAllowedDestinationKinds?.length

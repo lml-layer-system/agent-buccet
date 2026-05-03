@@ -1,9 +1,4 @@
-import type {
-  DynamicLawGrant,
-  EnforcementResult,
-  GravityProposal,
-  LawViolation,
-} from "./types.ts";
+import type { DynamicLawGrant, EnforcementResult, GravityProposal, LawViolation } from "./types.ts";
 import { allViolationsGrantable } from "./types.ts";
 
 /**

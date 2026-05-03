@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
+  type BoundarySpendIntent,
   appendBoundaryLedger,
   createBoundaryBodyguard,
   createBoundarySpendRequest,
@@ -12,7 +13,6 @@ import {
   saveUserPathLedger,
   writeApprovedUserPathLaw,
   writeDeniedUserPathLaw,
-  type BoundarySpendIntent,
 } from "./../../src/index.ts";
 
 function sleep(ms: number) {
@@ -75,7 +75,7 @@ async function main() {
     });
     const bodyguard = createBoundaryBodyguard(store);
     const applyLedger = async (ledgerParam?: Awaited<ReturnType<typeof loadUserPathLedger>>) => {
-      const ledger = ledgerParam ?? await loadUserPathLedger();
+      const ledger = ledgerParam ?? (await loadUserPathLedger());
       store.replaceConfig({
         ...store.getConfig(),
         upl: ledger,
@@ -108,7 +108,11 @@ async function main() {
       successReason: "agent spend executed",
     });
     assert.equal(unmapped.allowed, false, "expected unmapped spend to be denied");
-    assert.equal(unmapped.requiresApproval, false, "expected unmapped spend to deny without prompting");
+    assert.equal(
+      unmapped.requiresApproval,
+      false,
+      "expected unmapped spend to deny without prompting",
+    );
     assert.match(
       unmapped.reason,
       /agent spend is denied by default/i,
@@ -146,8 +150,12 @@ async function main() {
     });
     await applyLedger(approvedLedger);
 
-    const approvedEntry = approvedLedger.userApprovedLawPaths[approvedLedger.userApprovedLawPaths.length - 1];
-    assert.ok(approvedEntry?.trackConstraint, "expected spend allow rail to carry a track constraint");
+    const approvedEntry =
+      approvedLedger.userApprovedLawPaths[approvedLedger.userApprovedLawPaths.length - 1];
+    assert.ok(
+      approvedEntry?.trackConstraint,
+      "expected spend allow rail to carry a track constraint",
+    );
     assert.equal(
       approvedEntry?.trackConstraint?.spendMaxAmountNormalized,
       50,
@@ -207,7 +215,11 @@ async function main() {
       execute: async () => "spent-ok",
       successReason: "agent spend executed inside standing rail",
     });
-    assert.equal(admitted.allowed, true, "expected lower-value spend inside the rail to be allowed");
+    assert.equal(
+      admitted.allowed,
+      true,
+      "expected lower-value spend inside the rail to be allowed",
+    );
     assert.equal(admitted.requiresApproval, false, "expected lawful spend rail to avoid re-prompt");
     assert.equal(admitted.executed, true, "expected lawful spend rail to execute");
     assert.equal(admitted.value, "spent-ok", "expected spend execution result to propagate");
@@ -489,7 +501,11 @@ async function main() {
       execute: async () => "loop-2",
       successReason: "second loop spend executed inside standing rail",
     });
-    assert.equal(loopSecond.allowed, true, "expected second identical spend not to trip recursion yet");
+    assert.equal(
+      loopSecond.allowed,
+      true,
+      "expected second identical spend not to trip recursion yet",
+    );
 
     const loopThird = await bodyguard.spend.intent({
       spendIntent: spendIntent({
@@ -505,7 +521,11 @@ async function main() {
       successReason: "recursive loop spend executed",
     });
     assert.equal(loopThird.allowed, false, "expected recursive self-spend loop to be cut off");
-    assert.equal(loopThird.requiresApproval, false, "expected recursive self-spend loop to fail closed");
+    assert.equal(
+      loopThird.requiresApproval,
+      false,
+      "expected recursive self-spend loop to fail closed",
+    );
     assert.match(
       loopThird.reason,
       /recursive spend loop detected/i,
@@ -559,7 +579,11 @@ async function main() {
       successReason: "agent spend executed inside denied corridor",
     });
     assert.equal(denied.allowed, false, "expected standing spend deny wall to block repeat motion");
-    assert.equal(denied.requiresApproval, false, "expected standing spend deny wall to avoid re-prompt");
+    assert.equal(
+      denied.requiresApproval,
+      false,
+      "expected standing spend deny wall to avoid re-prompt",
+    );
 
     const workshopSessionId = `${sessionId}-workshop`;
     const workshopStore = await createPersistentBoundaryRuntimeStore({
@@ -572,7 +596,7 @@ async function main() {
     const applyWorkshopLedger = async (
       ledgerParam?: Awaited<ReturnType<typeof loadUserPathLedger>>,
     ) => {
-      const ledger = ledgerParam ?? await loadUserPathLedger();
+      const ledger = ledgerParam ?? (await loadUserPathLedger());
       workshopStore.replaceConfig({
         ...workshopStore.getConfig(),
         upl: ledger,
@@ -669,7 +693,7 @@ async function main() {
     if (originalLedgerPath) {
       process.env.AGENT_BUCCET_UPL_LEDGER_PATH = originalLedgerPath;
     } else {
-      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = undefined;
     }
   }
 }

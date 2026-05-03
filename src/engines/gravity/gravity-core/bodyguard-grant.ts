@@ -1,5 +1,5 @@
-import type { DynamicLawGrant, GravityProposal } from "./types.ts";
 import type { BodyguardGrantOffer } from "./bodyguard-routing.ts";
+import type { DynamicLawGrant, GravityProposal } from "./types.ts";
 
 /**
  * Ledger event names for grant and bodyguard flow.

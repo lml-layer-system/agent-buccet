@@ -1,11 +1,11 @@
-import { promises as fs } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
 import net from "node:net";
 import readline from "node:readline";
 import {
-  appendBoundaryLedgerLocal,
   type BoundaryLedgerWriterInput,
   type BoundaryLedgerWriterOutput,
+  appendBoundaryLedgerLocal,
   verifyBoundaryLedgerChain,
 } from "./../src/index.ts";
 
@@ -55,7 +55,13 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { host, port, socketPath };
 }
 
-function writeOutput(socket: net.Socket, output: BoundaryLedgerWriterOutput | { type: "status"; requestId: string; ok: boolean } | { type: "ack"; command: "shutdown"; requestId: string }) {
+function writeOutput(
+  socket: net.Socket,
+  output:
+    | BoundaryLedgerWriterOutput
+    | { type: "status"; requestId: string; ok: boolean }
+    | { type: "ack"; command: "shutdown"; requestId: string },
+) {
   socket.write(`${JSON.stringify(output)}\n`);
 }
 
@@ -68,7 +74,7 @@ async function main() {
   const server = net.createServer((socket) => {
     const rl = readline.createInterface({
       input: socket,
-      crlfDelay: Infinity,
+      crlfDelay: Number.POSITIVE_INFINITY,
     });
 
     void (async () => {
@@ -142,7 +148,9 @@ async function main() {
   if (typeof address === "string") {
     console.error(`Agent Buccet ledger writer running. socket=${address}`);
   } else if (address) {
-    console.error(`Agent Buccet ledger writer running. host=${address.address} port=${address.port}`);
+    console.error(
+      `Agent Buccet ledger writer running. host=${address.address} port=${address.port}`,
+    );
   }
 
   const shutdown = async () => {

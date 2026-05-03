@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
@@ -17,7 +17,7 @@ async function main() {
 
   const protectedSource = [
     "export function privateCoreX() {",
-    "  const launchCode = \"X-LAW-NEVER-LEAK\";",
+    '  const launchCode = "X-LAW-NEVER-LEAK";',
     "  return launchCode;",
     "}",
   ].join("\n");
@@ -49,7 +49,11 @@ async function main() {
     sessionsDir,
   });
   assert.ok(restored, "expected protected subject custody to survive session restore");
-  assert.equal(restored?.getConfig().protectedSubjects?.length, 2, "expected both protected subjects to restore");
+  assert.equal(
+    restored?.getConfig().protectedSubjects?.length,
+    2,
+    "expected both protected subjects to restore",
+  );
 
   const bodyguard = createBoundaryBodyguard(store);
   const sourceLeak = await bodyguard.chat.emit({
@@ -60,7 +64,11 @@ async function main() {
   });
   assert.equal(sourceLeak.allowed, false, "expected protected source code leak to be denied");
   assert.equal(sourceLeak.executed, false, "expected protected source code leak not to execute");
-  assert.equal(sourceLeak.requiresApproval, false, "expected protected source code leak to hard deny");
+  assert.equal(
+    sourceLeak.requiresApproval,
+    false,
+    "expected protected source code leak to hard deny",
+  );
   assert.ok(
     sourceLeak.reason.includes("source-code exposure") ||
       sourceLeak.reason.includes("source truth is sealed"),
@@ -82,7 +90,11 @@ async function main() {
   });
   assert.equal(networkLeak.allowed, false, "expected protected source upload to be denied");
   assert.equal(networkLeak.executed, false, "expected protected source upload not to execute");
-  assert.equal(networkLeak.requiresApproval, false, "expected protected source upload to hard deny");
+  assert.equal(
+    networkLeak.requiresApproval,
+    false,
+    "expected protected source upload to hard deny",
+  );
   assert.ok(
     networkLeak.reason.includes("source truth is sealed") ||
       networkLeak.reason.includes("protected material"),
@@ -104,7 +116,11 @@ async function main() {
   });
   assert.equal(cliLeak.allowed, false, "expected protected source export command to be denied");
   assert.equal(cliLeak.executed, false, "expected protected source export command not to execute");
-  assert.equal(cliLeak.requiresApproval, false, "expected protected source export command to hard deny");
+  assert.equal(
+    cliLeak.requiresApproval,
+    false,
+    "expected protected source export command to hard deny",
+  );
 
   const internalDocLeak = await bodyguard.chat.emit({
     userInput: "summarize the board note",
@@ -113,8 +129,16 @@ async function main() {
     successReason: "chat emitted",
   });
   assert.equal(internalDocLeak.allowed, false, "expected protected internal doc leak to be denied");
-  assert.equal(internalDocLeak.executed, false, "expected protected internal doc leak not to execute");
-  assert.equal(internalDocLeak.requiresApproval, false, "expected protected internal doc leak to hard deny");
+  assert.equal(
+    internalDocLeak.executed,
+    false,
+    "expected protected internal doc leak not to execute",
+  );
+  assert.equal(
+    internalDocLeak.requiresApproval,
+    false,
+    "expected protected internal doc leak to hard deny",
+  );
 
   const safeChat = await bodyguard.chat.emit({
     userInput: "say hello",

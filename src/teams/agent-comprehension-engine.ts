@@ -111,7 +111,12 @@ function defaultOwnersForStage(
     const renderOwners = peers
       .filter((peer) => peer.ownsStep === stage || peer.ownsStep === "all")
       .map((peer) => peer.id);
-    return [...new Set([...(renderOwners.length > 0 ? renderOwners : []), spokespersonAgentId ?? "pi-spokesperson"])];
+    return [
+      ...new Set([
+        ...(renderOwners.length > 0 ? renderOwners : []),
+        spokespersonAgentId ?? "pi-spokesperson",
+      ]),
+    ];
   }
   if (
     stage === "receive" ||
@@ -166,7 +171,10 @@ function pickMethod(args: {
   const normalized = args.userRequest.trim().toLowerCase();
   if (
     normalized.length > 0 &&
-    (normalized === "make it better" || normalized === "help" || normalized === "?" || normalized.length < 3)
+    (normalized === "make it better" ||
+      normalized === "help" ||
+      normalized === "?" ||
+      normalized.length < 3)
   ) {
     return "clarify-before-transform";
   }
@@ -194,14 +202,17 @@ export function allowedOutputsForComprehensionStage(stage: AgentTeamStageId): st
       "refusal",
     ];
   }
-  if (stage === "render" || stage === "return") return ["render-fragment", "answer-fragment", "blocked"];
+  if (stage === "render" || stage === "return")
+    return ["render-fragment", "answer-fragment", "blocked"];
   if (stage === "value_boundary") return ["validation", "blocked", "refusal"];
   if (stage === "validate") return ["validation", "blocked", "refusal"];
   if (stage === "infer_intent") return ["intent", "constraints", "blocked"];
   return ["analysis", "plan", "constraint", "blocked"];
 }
 
-export function allowedActionKindsForComprehensionStage(stage: AgentTeamStageId): BoundaryActionKind[] {
+export function allowedActionKindsForComprehensionStage(
+  stage: AgentTeamStageId,
+): BoundaryActionKind[] {
   if (stage === "all") return ["fs.read", "fs.write", "tool.exec", "network.send", "chat.emit"];
   if (stage === "value_boundary") return ["fs.read", "agent.spend"];
   if (stage === "acquire_knowledge") return ["fs.read", "network.send"];
@@ -210,7 +221,9 @@ export function allowedActionKindsForComprehensionStage(stage: AgentTeamStageId)
   return ["fs.read"];
 }
 
-export function buildInitialComprehensionPass(args: AgentComprehensionInitialPassArgs): AgentComprehensionPass {
+export function buildInitialComprehensionPass(
+  args: AgentComprehensionInitialPassArgs,
+): AgentComprehensionPass {
   const passId = args.passId ?? `${args.teamId}:comprehension-pass`;
   const requestedBy = args.requestedBy ?? `team-run:${args.teamId}`;
   const peers = args.peers;
@@ -263,7 +276,8 @@ export function buildInitialComprehensionPass(args: AgentComprehensionInitialPas
       id: "bind_constraints",
       status: "completed",
       owners: defaultOwnersForStage("bind_constraints", peers, args.spokespersonAgentId),
-      summary: "UPL, safety, privacy, format, and project constraints were attached before the peer field moved.",
+      summary:
+        "UPL, safety, privacy, format, and project constraints were attached before the peer field moved.",
       inputs: ["declared intent", "team UPL track snap"],
       outputs: sharedConstraints,
       constraints: sharedConstraints,
@@ -303,47 +317,47 @@ export function buildInitialComprehensionPass(args: AgentComprehensionInitialPas
       owners: defaultOwnersForStage("transform", peers, args.spokespersonAgentId),
       summary: "The specialist field must work bounded shards and return structured claims to Pi.",
       inputs: ["whole-view map", "projection shards", "peer specialties"],
-      constraints: [
-        ...sharedConstraints,
-        "Peers do not speak as final authority.",
-      ],
+      constraints: [...sharedConstraints, "Peers do not speak as final authority."],
     }),
     stageRecord({
       id: "validate",
       status: "ready",
       owners: defaultOwnersForStage("validate", peers, args.spokespersonAgentId),
-      summary: "A coherence judge must test claims against truth, intent, and execution law before finalization.",
+      summary:
+        "A coherence judge must test claims against truth, intent, and execution law before finalization.",
       inputs: ["peer claims", "evidence", "contradictions"],
       constraints: sharedConstraints,
     }),
   ];
   if (args.valueBoundaryRequired) {
-    stages.push(stageRecord({
-      id: "value_boundary",
-      status: "ready",
-      owners: defaultOwnersForStage("value_boundary", peers, args.spokespersonAgentId),
-      summary: "Any spend or obligation-creating act must satisfy the hardcoded spend packet and value boundary before commit.",
-      inputs: ["validated claim set", "spend packet", "UPL spend rails"],
-      constraints: financialConstraints,
-    }));
+    stages.push(
+      stageRecord({
+        id: "value_boundary",
+        status: "ready",
+        owners: defaultOwnersForStage("value_boundary", peers, args.spokespersonAgentId),
+        summary:
+          "Any spend or obligation-creating act must satisfy the hardcoded spend packet and value boundary before commit.",
+        inputs: ["validated claim set", "spend packet", "UPL spend rails"],
+        constraints: financialConstraints,
+      }),
+    );
   }
   stages.push(
     stageRecord({
       id: "render",
       status: "ready",
       owners: defaultOwnersForStage("render", peers, args.spokespersonAgentId),
-      summary: "Pi renders only after validation, speaking as the group spokesperson rather than the whole mind.",
+      summary:
+        "Pi renders only after validation, speaking as the group spokesperson rather than the whole mind.",
       inputs: ["validated claim set", "coherence disposition"],
-      constraints: [
-        ...sharedConstraints,
-        "Render must be usable by the receiver.",
-      ],
+      constraints: [...sharedConstraints, "Render must be usable by the receiver."],
     }),
     stageRecord({
       id: "return",
       status: "ready",
       owners: defaultOwnersForStage("return", peers, args.spokespersonAgentId),
-      summary: "The result returns only after the bounded render completes and the ledger-worthy state is known.",
+      summary:
+        "The result returns only after the bounded render completes and the ledger-worthy state is known.",
       inputs: ["rendered answer or blocked state"],
       constraints: sharedConstraints,
     }),
@@ -354,8 +368,10 @@ export function buildInitialComprehensionPass(args: AgentComprehensionInitialPas
     teamId: args.teamId,
     requestedBy,
     userRequest: args.userRequest,
-    declaredIntent: args.userRequest.trim() || "return a bounded lawful result for the user request",
-    successCondition: "return a user-usable answer or a lawful blocked state after coherence and UPL gates complete",
+    declaredIntent:
+      args.userRequest.trim() || "return a bounded lawful result for the user request",
+    successCondition:
+      "return a user-usable answer or a lawful blocked state after coherence and UPL gates complete",
     method,
     wholeViewPrepared: args.wholeViewPrepared,
     lawLayers: ["truth", "intent", "execution"],
@@ -386,11 +402,19 @@ function updateStage(
   };
 }
 
-export function recordComprehensionTransform(pass: AgentComprehensionPass, args: {
-  peerSummaries: Array<{ peerId: string; ownsStep: string; resultKind?: string; status: "completed" | "blocked" }>;
-}): AgentComprehensionPass {
-  const summaries = args.peerSummaries.map((peer) =>
-    `${peer.peerId}:${peer.ownsStep}:${peer.resultKind ?? "analysis"}:${peer.status}`,
+export function recordComprehensionTransform(
+  pass: AgentComprehensionPass,
+  args: {
+    peerSummaries: Array<{
+      peerId: string;
+      ownsStep: string;
+      resultKind?: string;
+      status: "completed" | "blocked";
+    }>;
+  },
+): AgentComprehensionPass {
+  const summaries = args.peerSummaries.map(
+    (peer) => `${peer.peerId}:${peer.ownsStep}:${peer.resultKind ?? "analysis"}:${peer.status}`,
   );
   return updateStage(pass, "transform", {
     status: args.peerSummaries.some((peer) => peer.status === "blocked") ? "blocked" : "completed",
@@ -399,14 +423,17 @@ export function recordComprehensionTransform(pass: AgentComprehensionPass, args:
   });
 }
 
-export function recordComprehensionValidation(pass: AgentComprehensionPass, args: {
-  disposition: string;
-  truthCoherent: boolean;
-  intentCoherent: boolean;
-  executionCoherent: boolean;
-  reasons: string[];
-  finalizationBlocked: boolean;
-}): AgentComprehensionPass {
+export function recordComprehensionValidation(
+  pass: AgentComprehensionPass,
+  args: {
+    disposition: string;
+    truthCoherent: boolean;
+    intentCoherent: boolean;
+    executionCoherent: boolean;
+    reasons: string[];
+    finalizationBlocked: boolean;
+  },
+): AgentComprehensionPass {
   return updateStage(pass, "validate", {
     status: args.finalizationBlocked ? "blocked" : "completed",
     summary: `Coherence adjudication finished with disposition ${args.disposition}.`,
@@ -419,11 +446,14 @@ export function recordComprehensionValidation(pass: AgentComprehensionPass, args
   });
 }
 
-export function recordComprehensionValueBoundary(pass: AgentComprehensionPass, args: {
-  blocked: boolean;
-  disposition: string;
-  reasons: string[];
-}): AgentComprehensionPass {
+export function recordComprehensionValueBoundary(
+  pass: AgentComprehensionPass,
+  args: {
+    blocked: boolean;
+    disposition: string;
+    reasons: string[];
+  },
+): AgentComprehensionPass {
   return updateStage(pass, "value_boundary", {
     status: args.blocked ? "blocked" : "completed",
     summary: `Value boundary finished with disposition ${args.disposition}.`,
@@ -431,11 +461,14 @@ export function recordComprehensionValueBoundary(pass: AgentComprehensionPass, a
   });
 }
 
-export function recordComprehensionRender(pass: AgentComprehensionPass, args: {
-  blocked: boolean;
-  spokesperson: string;
-  outputPreview: string;
-}): AgentComprehensionPass {
+export function recordComprehensionRender(
+  pass: AgentComprehensionPass,
+  args: {
+    blocked: boolean;
+    spokesperson: string;
+    outputPreview: string;
+  },
+): AgentComprehensionPass {
   return updateStage(pass, "render", {
     status: args.blocked ? "blocked" : "completed",
     summary: args.blocked
@@ -445,10 +478,13 @@ export function recordComprehensionRender(pass: AgentComprehensionPass, args: {
   });
 }
 
-export function recordComprehensionReturn(pass: AgentComprehensionPass, args: {
-  blocked: boolean;
-  outputPreview: string;
-}): AgentComprehensionPass {
+export function recordComprehensionReturn(
+  pass: AgentComprehensionPass,
+  args: {
+    blocked: boolean;
+    outputPreview: string;
+  },
+): AgentComprehensionPass {
   return updateStage(pass, "return", {
     status: args.blocked ? "blocked" : "completed",
     summary: args.blocked

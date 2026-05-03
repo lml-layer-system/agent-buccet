@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
@@ -19,8 +19,12 @@ function runCli(
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
     child.on("error", reject);
     child.on("close", (code) => resolve({ stdout, stderr, code }));
   });
@@ -158,7 +162,9 @@ async function main() {
   console.log(`blend source: ${drafted.sourcePath}`);
   console.log(`review deltas: ${drafted.review.deltas.length}`);
   console.log(`active targets exact: ${activeTargets.join(", ")}`);
-  console.log(`single-pack misuse blocked: ${/at least 2 components|spend draft/i.test(singleBlendResult.stderr)}`);
+  console.log(
+    `single-pack misuse blocked: ${/at least 2 components|spend draft/i.test(singleBlendResult.stderr)}`,
+  );
 }
 
 main().catch((error) => {

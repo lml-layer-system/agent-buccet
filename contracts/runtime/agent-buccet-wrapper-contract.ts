@@ -1,11 +1,8 @@
-import { promises as fs } from "node:fs";
 import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import {
-  prepareBoundaryProcess,
-  startPersistentBoundarySession,
-} from "./../../src/index.ts";
+import { prepareBoundaryProcess, startPersistentBoundarySession } from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {
@@ -141,9 +138,12 @@ async function main() {
       process.execPath,
       [
         path.join(previousCwd, "scripts", "agent-buccet-intercept-server.ts"),
-        "--session-id", `${sessionId}-intercept`,
-        "--actor-id", actorId,
-        "--socket", interceptSocketPath,
+        "--session-id",
+        `${sessionId}-intercept`,
+        "--actor-id",
+        actorId,
+        "--socket",
+        interceptSocketPath,
       ],
       {
         cwd: previousCwd,
@@ -169,13 +169,20 @@ async function main() {
       process.execPath,
       [
         path.join(previousCwd, "scripts", "agent-buccet-run.ts"),
-        "--session-id", `${sessionId}-run`,
-        "--actor-id", actorId,
-        "--scope", scopedRoot,
-        "--policy", policyPath,
-        "--cwd", scopedRoot,
-        "--env", "SAFE_VISIBLE=yes",
-        "--env", "SECRET_TOKEN=no",
+        "--session-id",
+        `${sessionId}-run`,
+        "--actor-id",
+        actorId,
+        "--scope",
+        scopedRoot,
+        "--policy",
+        policyPath,
+        "--cwd",
+        scopedRoot,
+        "--env",
+        "SAFE_VISIBLE=yes",
+        "--env",
+        "SECRET_TOKEN=no",
         "--",
         "/bin/echo",
         "wrapped-process-ok",

@@ -40,7 +40,9 @@ async function main(): Promise<void> {
       kind: "file:md",
       title: "Source A",
     });
-    const sourceAId = manifestAfterA.pathSourceCorpus.find((source) => source.title === "Source A")?.id;
+    const sourceAId = manifestAfterA.pathSourceCorpus.find(
+      (source) => source.title === "Source A",
+    )?.id;
     assert.ok(sourceAId, "source A must be present");
 
     await addTeamAgent({
@@ -59,7 +61,9 @@ async function main(): Promise<void> {
     });
 
     const historyAfterReady = await listTeamContinuitySnapshots(home, slug);
-    const readySnapshot = [...historyAfterReady].reverse().find((entry) => entry.trigger.kind === "runtime_prepared");
+    const readySnapshot = [...historyAfterReady]
+      .reverse()
+      .find((entry) => entry.trigger.kind === "runtime_prepared");
     assert.ok(readySnapshot, "runtime preparation must capture an exact continuity snapshot");
     console.log("SUCCESS: continuity snapshots capture the pre-Batcave prepared state.");
 
@@ -72,7 +76,9 @@ async function main(): Promise<void> {
       kind: "file:md",
       title: "Source B",
     });
-    const sourceBId = manifestAfterB.pathSourceCorpus.find((source) => source.title === "Source B")?.id;
+    const sourceBId = manifestAfterB.pathSourceCorpus.find(
+      (source) => source.title === "Source B",
+    )?.id;
     assert.ok(sourceBId, "source B must be present");
 
     await addTeamAgent({
@@ -94,32 +100,47 @@ async function main(): Promise<void> {
     });
 
     const historyAfterMess = await listTeamContinuitySnapshots(home, slug);
-    const sourceBSnapshot = [...historyAfterMess].reverse().find(
-      (entry) => entry.trigger.kind === "source_added" && entry.trigger.title.endsWith(String(sourceBId)),
-    );
+    const sourceBSnapshot = [...historyAfterMess]
+      .reverse()
+      .find(
+        (entry) =>
+          entry.trigger.kind === "source_added" && entry.trigger.title.endsWith(String(sourceBId)),
+      );
     assert.ok(sourceBSnapshot, "source B addition must produce a continuity snapshot");
 
     const rolledBack = await rollbackTeamToContinuitySnapshot({
       homePath: home,
       slug,
-      snapshotId: readySnapshot!.snapshotId,
+      snapshotId: readySnapshot?.snapshotId,
     });
-    assert.equal(rolledBack.manifest.status, "ready", "rollback restores the exact prepared team status");
+    assert.equal(
+      rolledBack.manifest.status,
+      "ready",
+      "rollback restores the exact prepared team status",
+    );
 
     const manifestAfterRollback = await loadTeam(home, slug);
     assert.ok(manifestAfterRollback, "team remains loadable after rollback");
     assert.ok(
-      !manifestAfterRollback!.pathSourceCorpus.some((source) => source.id === sourceBId),
+      !manifestAfterRollback?.pathSourceCorpus.some((source) => source.id === sourceBId),
       "rollback removes later source additions from the live Buccet map",
     );
     assert.ok(
-      !manifestAfterRollback!.agents.some((agent) => agent.id === "reviewer"),
+      !manifestAfterRollback?.agents.some((agent) => agent.id === "reviewer"),
       "rollback removes later roster changes from the live Buccet map",
     );
     const runtimeAfterRollback = await loadTeamRuntimePreparation(home, slug);
-    assert.equal(runtimeAfterRollback?.teamStatus, "ready", "rollback restores runtime preparation too");
+    assert.equal(
+      runtimeAfterRollback?.teamStatus,
+      "ready",
+      "rollback restores runtime preparation too",
+    );
     const memoryAfterRollback = await readTeamPathSourceMemoryEntries(home, slug);
-    assert.equal(memoryAfterRollback.at(-1)?.kind, "runtime_prepared", "rollback restores the exact work-memory tail");
+    assert.equal(
+      memoryAfterRollback.at(-1)?.kind,
+      "runtime_prepared",
+      "rollback restores the exact work-memory tail",
+    );
     const wholeViewAfterRollback = await buildTeamWholeView({
       homePath: home,
       manifest: manifestAfterRollback!,
@@ -128,23 +149,25 @@ async function main(): Promise<void> {
       !wholeViewAfterRollback.sources.some((source) => source.sourceId === sourceBId),
       "rollback removes later whole-view sources too",
     );
-    console.log("SUCCESS: rollback restores the exact-time Buccet map, runtime, and work-memory state.");
+    console.log(
+      "SUCCESS: rollback restores the exact-time Buccet map, runtime, and work-memory state.",
+    );
 
     const cherryPicked = await cherryPickTeamSnapshotSources({
       homePath: home,
       slug,
-      snapshotId: sourceBSnapshot!.snapshotId,
+      snapshotId: sourceBSnapshot?.snapshotId,
       sourceIds: [sourceBId!],
     });
     assert.equal(cherryPicked.sources.length, 1, "cherry-pick returns the selected source");
 
     const manifestAfterCherryPick = await loadTeam(home, slug);
     assert.ok(
-      manifestAfterCherryPick!.pathSourceCorpus.some((source) => source.id === sourceBId),
+      manifestAfterCherryPick?.pathSourceCorpus.some((source) => source.id === sourceBId),
       "cherry-pick restores the selected source into the current Buccet",
     );
     assert.ok(
-      !manifestAfterCherryPick!.agents.some((agent) => agent.id === "reviewer"),
+      !manifestAfterCherryPick?.agents.some((agent) => agent.id === "reviewer"),
       "cherry-pick does not drag unrelated roster changes forward",
     );
     const memoryAfterCherryPick = await readTeamPathSourceMemoryEntries(home, slug);
@@ -161,7 +184,9 @@ async function main(): Promise<void> {
       wholeViewAfterCherryPick.sources.some((source) => source.sourceId === sourceBId),
       "cherry-picked source is visible in the current whole-view",
     );
-    console.log("SUCCESS: cherry-pick lifts selected source checkpoints forward without replaying the bad team state.");
+    console.log(
+      "SUCCESS: cherry-pick lifts selected source checkpoints forward without replaying the bad team state.",
+    );
 
     console.log("\n--- Team Continuity Contract Verified ---");
   } finally {

@@ -1,11 +1,7 @@
 import {
-  endPersistentBoundarySession,
-  hydrateBoundaryRuntimeConfig,
-  persistBoundarySessionState,
-  restorePersistentBoundarySession,
-  startPersistentBoundarySession,
-  type BoundaryRuntimeHydrationMode,
-} from "./state.ts";
+  sealBoundaryProtectedFile,
+  sealBoundaryProtectedSubject,
+} from "./../boundaries/secrets-boundary.ts";
 import {
   expireBoundaryGrants,
   issueBoundaryGrant,
@@ -13,9 +9,13 @@ import {
   revokeBoundaryGrant,
 } from "./runtime.ts";
 import {
-  sealBoundaryProtectedFile,
-  sealBoundaryProtectedSubject,
-} from "./../boundaries/secrets-boundary.ts";
+  type BoundaryRuntimeHydrationMode,
+  endPersistentBoundarySession,
+  hydrateBoundaryRuntimeConfig,
+  persistBoundarySessionState,
+  restorePersistentBoundarySession,
+  startPersistentBoundarySession,
+} from "./state.ts";
 import type {
   BoundaryActionKind,
   BoundaryLaw,
@@ -70,7 +70,9 @@ export type BoundaryRuntimeStore = {
   endSession(args: { endedBy: string; reason?: string }): Promise<BoundaryRuntimeConfig>;
 };
 
-export function createBoundaryRuntimeStore(initialConfig: BoundaryRuntimeConfig): BoundaryRuntimeStore {
+export function createBoundaryRuntimeStore(
+  initialConfig: BoundaryRuntimeConfig,
+): BoundaryRuntimeStore {
   let current = initialConfig;
 
   return {
@@ -97,7 +99,14 @@ export function createBoundaryRuntimeStore(initialConfig: BoundaryRuntimeConfig)
       current = result.config;
       return current;
     },
-    issueGrant: async ({ resourceKind, resourceValue, grantedActions, issuedBy, expiresAt, metadata }) => {
+    issueGrant: async ({
+      resourceKind,
+      resourceValue,
+      grantedActions,
+      issuedBy,
+      expiresAt,
+      metadata,
+    }) => {
       const result = await issueBoundaryGrant({
         config: current,
         resourceKind,
@@ -128,7 +137,15 @@ export function createBoundaryRuntimeStore(initialConfig: BoundaryRuntimeConfig)
       current = result.config;
       return current;
     },
-    sealProtectedSubject: async ({ subjectId, label, kind, content, sourcePath, sealedBy, createdAt }) => {
+    sealProtectedSubject: async ({
+      subjectId,
+      label,
+      kind,
+      content,
+      sourcePath,
+      sealedBy,
+      createdAt,
+    }) => {
       current = sealBoundaryProtectedSubject({
         config: current,
         subjectId,

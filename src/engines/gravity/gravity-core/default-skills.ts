@@ -1,6 +1,6 @@
 import {
-  createMetaContactSkill,
   createMetaAuthoritySkill,
+  createMetaContactSkill,
   createMetaContinuationSkill,
   createMetaLawSkill,
   createMetaLedgerSkill,

@@ -50,9 +50,7 @@ export function noveltyFlagsForBoundaryRequest(
   };
 }
 
-export function stableBoundaryNoveltyDescriptor(
-  novelty?: BoundaryNoveltyState | null,
-): {
+export function stableBoundaryNoveltyDescriptor(novelty?: BoundaryNoveltyState | null): {
   detected: boolean;
   classes: BoundaryNoveltyClass[];
   boundaryHits: BoundaryNoveltyBoundaryHit[];
@@ -84,9 +82,7 @@ export function admitBoundaryNoveltyState(
   };
 }
 
-export function describeBoundaryNoveltyState(
-  novelty?: BoundaryNoveltyState | null,
-): string | null {
+export function describeBoundaryNoveltyState(novelty?: BoundaryNoveltyState | null): string | null {
   const normalized = normalizeBoundaryNoveltyState(novelty);
   if (!normalized?.detected) {
     return null;

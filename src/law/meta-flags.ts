@@ -88,10 +88,13 @@ export function inferBoundaryMetaFlagsFromText(text: string): {
 } {
   return {
     authorityClaimed: AUTHORITY_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
-    claimsCompleteCoverage: COMPLETE_COVERAGE_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
-    requestsScopeExpansion: SCOPE_EXPANSION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+    claimsCompleteCoverage:
+      COMPLETE_COVERAGE_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+    requestsScopeExpansion:
+      SCOPE_EXPANSION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     requestsLawMutation: LAW_MUTATION_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
-    requestsSessionRevival: SESSION_REVIVAL_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
+    requestsSessionRevival:
+      SESSION_REVIVAL_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
     requestsLedgerBypass: LEDGER_BYPASS_PATTERNS.some((pattern) => pattern.test(text)) || undefined,
   };
 }

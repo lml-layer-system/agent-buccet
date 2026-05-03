@@ -26,10 +26,7 @@ async function scanForArtifacts(rootDir: string): Promise<string[]> {
         await walk(fullPath);
         continue;
       }
-      if (
-        entry.name.startsWith(blockedPrefix) ||
-        blockedNames.includes(entry.name)
-      ) {
+      if (entry.name.startsWith(blockedPrefix) || blockedNames.includes(entry.name)) {
         matches.push(path.relative(repoRoot, fullPath));
       }
     }
@@ -41,10 +38,7 @@ async function scanForArtifacts(rootDir: string): Promise<string[]> {
 
 async function main() {
   const matches = await scanForArtifacts(repoRoot);
-  assert(
-    matches.length === 0,
-    `artifact hygiene contract failed:\n- ${matches.join("\n- ")}`,
-  );
+  assert(matches.length === 0, `artifact hygiene contract failed:\n- ${matches.join("\n- ")}`);
   console.log("artifact hygiene contract passed (no AppleDouble/metadata artifacts detected)");
 }
 

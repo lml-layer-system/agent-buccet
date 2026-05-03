@@ -126,21 +126,40 @@ async function main() {
   };
 
   const liveField = compileLiveUplField({ ledger, session });
-  assert.equal(liveField.length, 4, "expected approved and denied authored laws to compile into one live field");
+  assert.equal(
+    liveField.length,
+    4,
+    "expected approved and denied authored laws to compile into one live field",
+  );
   assert.ok(
-    liveField.some((segment) => segment.entry.id === "ALLOW.EXACT.WORKSPACE.READ.001" && segment.polarity === "allow"),
+    liveField.some(
+      (segment) =>
+        segment.entry.id === "ALLOW.EXACT.WORKSPACE.READ.001" && segment.polarity === "allow",
+    ),
     "expected live field to carry approved authored law",
   );
   assert.ok(
-    liveField.some((segment) => segment.entry.id === "DENY.EXACT.SECRET.READ.001" && segment.polarity === "deny"),
+    liveField.some(
+      (segment) => segment.entry.id === "DENY.EXACT.SECRET.READ.001" && segment.polarity === "deny",
+    ),
     "expected live field to carry denied authored law",
   );
   assert.ok(
-    liveField.some((segment) => segment.polarity === "allow" && segment.trafficClass === "allow_rail" && segment.trafficTag.startsWith("UPL.TRAFFIC.RAIL:sha256:")),
+    liveField.some(
+      (segment) =>
+        segment.polarity === "allow" &&
+        segment.trafficClass === "allow_rail" &&
+        segment.trafficTag.startsWith("UPL.TRAFFIC.RAIL:sha256:"),
+    ),
     "expected allow segments to carry a deterministic rail tag",
   );
   assert.ok(
-    liveField.some((segment) => segment.polarity === "deny" && segment.trafficClass === "deny_wall" && segment.trafficTag.startsWith("UPL.TRAFFIC.WALL:sha256:")),
+    liveField.some(
+      (segment) =>
+        segment.polarity === "deny" &&
+        segment.trafficClass === "deny_wall" &&
+        segment.trafficTag.startsWith("UPL.TRAFFIC.WALL:sha256:"),
+    ),
     "expected deny segments to carry a deterministic wall tag",
   );
   const tamperedSegment = {
@@ -154,16 +173,32 @@ async function main() {
   );
 
   const liveTracks = compileLiveUplTrackField({ ledger, session });
-  assert.equal(liveTracks.length, 2, "expected runtime track field to include both allow and deny corridors");
-  assert.equal(liveTracks[0]?.polarity, "deny", "expected deny wall to rank ahead of equal-specificity allow road");
-  assert.equal(liveTracks[1]?.polarity, "allow", "expected allow road to remain present in the same runtime field");
+  assert.equal(
+    liveTracks.length,
+    2,
+    "expected runtime track field to include both allow and deny corridors",
+  );
+  assert.equal(
+    liveTracks[0]?.polarity,
+    "deny",
+    "expected deny wall to rank ahead of equal-specificity allow road",
+  );
+  assert.equal(
+    liveTracks[1]?.polarity,
+    "allow",
+    "expected allow road to remain present in the same runtime field",
+  );
 
   const allowedReadDecision = lookupUserPathDecision({
     ledger,
     session,
     request: exactAllowedRead,
   });
-  assert.equal(allowedReadDecision?.decision, "allow", "expected exact workspace read to stay allowed");
+  assert.equal(
+    allowedReadDecision?.decision,
+    "allow",
+    "expected exact workspace read to stay allowed",
+  );
 
   const deniedReadDecision = lookupUserPathDecision({
     ledger,
@@ -177,19 +212,31 @@ async function main() {
     session,
     request: makeRequest("fs.write", path.join(workspace, "notes", "todo.txt"), "write:12bytes"),
   });
-  assert.equal(openRoadDecision?.decision, "allow", "expected workspace write to remain on the open road");
+  assert.equal(
+    openRoadDecision?.decision,
+    "allow",
+    "expected workspace write to remain on the open road",
+  );
 
   const closedRoadDecision = lookupUserPathTrackDecision({
     ledger,
     session,
     request: makeRequest("fs.write", path.join(secretsDir, "blocked.txt"), "write:12bytes"),
   });
-  assert.equal(closedRoadDecision?.decision, "deny", "expected secret wall to block motion on the same road");
+  assert.equal(
+    closedRoadDecision?.decision,
+    "deny",
+    "expected secret wall to block motion on the same road",
+  );
 
   const noRoadDecision = lookupUserPathTrackDecision({
     ledger,
     session,
-    request: makeRequest("fs.write", path.join("/tmp", "outside-field", "blocked.txt"), "write:12bytes"),
+    request: makeRequest(
+      "fs.write",
+      path.join("/tmp", "outside-field", "blocked.txt"),
+      "write:12bytes",
+    ),
   });
   assert.equal(
     noRoadDecision?.decision,

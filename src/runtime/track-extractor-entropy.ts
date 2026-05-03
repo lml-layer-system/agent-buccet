@@ -25,13 +25,7 @@ const METAPHOR_MARKERS = [
   /\bgame over\b/i,
 ];
 
-const PERSPECTIVE_MARKERS = [
-  /\bi\b/i,
-  /\bwe\b/i,
-  /\bour\b/i,
-  /\byou\b/i,
-  /\byour\b/i,
-];
+const PERSPECTIVE_MARKERS = [/\bi\b/i, /\bwe\b/i, /\bour\b/i, /\byou\b/i, /\byour\b/i];
 
 const ORDERING_MARKERS = [
   /\bfirst\b/i,
@@ -67,7 +61,10 @@ const POLICY_MARKERS = [
 ];
 
 export function stripTrailingPunctuation(value: string): string {
-  return value.trim().replace(/[.?!]+$/g, "").trim();
+  return value
+    .trim()
+    .replace(/[.?!]+$/g, "")
+    .trim();
 }
 
 export function normalizeDelimitedList(raw: string): string[] {

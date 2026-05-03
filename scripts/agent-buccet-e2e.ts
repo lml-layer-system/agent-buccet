@@ -14,10 +14,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForPendingApproval<T>(
-  listPending: () => T[],
-  timeoutMs = 1000,
-): Promise<T[]> {
+async function waitForPendingApproval<T>(listPending: () => T[], timeoutMs = 1000): Promise<T[]> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const pending = listPending();
@@ -52,7 +49,10 @@ async function pathExists(targetPath: string): Promise<boolean> {
   }
 }
 
-function findLatestRequestIdForTarget(lines: Awaited<ReturnType<typeof readBoundarySessionTimeline>>, target: string) {
+function findLatestRequestIdForTarget(
+  lines: Awaited<ReturnType<typeof readBoundarySessionTimeline>>,
+  target: string,
+) {
   const match = [...lines]
     .reverse()
     .find((record) => record.eventType === "ACTION_PROPOSED" && record.payload.target === target);
@@ -104,7 +104,10 @@ async function main() {
   });
 
   const allowedWriteResult = await allowedWrite({ path: insideFile });
-  assert(allowedWriteResult.allowed && allowedWriteResult.executed, "expected in-scope write to execute");
+  assert(
+    allowedWriteResult.allowed && allowedWriteResult.executed,
+    "expected in-scope write to execute",
+  );
   assert((await readText(insideFile)) === "inside scope\n", "expected in-scope file to be updated");
 
   const outsideWrite = bodyguard.openaiAgents.wrapTool({
@@ -119,12 +122,23 @@ async function main() {
   });
 
   const deniedWritePromise = outsideWrite({ path: outsideFile });
-  const pendingScopeApproval = await waitForPendingApproval(() => bodyguard.approvals.listPending());
-  assert(pendingScopeApproval.length === 1, "expected out-of-scope write to queue open-as-law approval");
+  const pendingScopeApproval = await waitForPendingApproval(() =>
+    bodyguard.approvals.listPending(),
+  );
+  assert(
+    pendingScopeApproval.length === 1,
+    "expected out-of-scope write to queue open-as-law approval",
+  );
   bodyguard.approvals.denyOnce(pendingScopeApproval[0].approvalId);
   const finalizedDeniedWriteResult = await deniedWritePromise;
-  assert(!finalizedDeniedWriteResult.allowed && !finalizedDeniedWriteResult.executed, "expected out-of-scope write to be denied");
-  assert((await readText(outsideFile)) === "protected\n", "expected out-of-scope file to remain unchanged");
+  assert(
+    !finalizedDeniedWriteResult.allowed && !finalizedDeniedWriteResult.executed,
+    "expected out-of-scope write to be denied",
+  );
+  assert(
+    (await readText(outsideFile)) === "protected\n",
+    "expected out-of-scope file to remain unchanged",
+  );
 
   const deleteProposal = bodyguard.telegram.buildProposal({
     actionKind: "fs.delete",
@@ -138,7 +152,10 @@ async function main() {
   });
 
   const deleteResult = await bodyguard.telegram.enforceProposal(deleteProposal);
-  assert(!deleteResult.allowed && !deleteResult.executed, "expected in-scope delete to be denied by default");
+  assert(
+    !deleteResult.allowed && !deleteResult.executed,
+    "expected in-scope delete to be denied by default",
+  );
   assert(await pathExists(insideDeleteFile), "expected denied delete target to remain present");
 
   const restoredStore = await restoreBoundaryRuntimeStore({
@@ -160,8 +177,14 @@ async function main() {
   });
 
   const restoredWriteResult = await restoredWrite({});
-  assert(restoredWriteResult.allowed && restoredWriteResult.executed, "expected restored in-scope write to execute");
-  assert((await readText(restoredFile)) === "restored scope still lawful\n", "expected restored write to persist");
+  assert(
+    restoredWriteResult.allowed && restoredWriteResult.executed,
+    "expected restored in-scope write to execute",
+  );
+  assert(
+    (await readText(restoredFile)) === "restored scope still lawful\n",
+    "expected restored write to persist",
+  );
 
   await restoredStore.endSession({
     endedBy: actorId,
@@ -178,7 +201,10 @@ async function main() {
       return { ok: true };
     },
   });
-  assert(!postEndResult.allowed && !postEndResult.executed, "expected ended session to deny later actions");
+  assert(
+    !postEndResult.allowed && !postEndResult.executed,
+    "expected ended session to deny later actions",
+  );
 
   const sessionAudit = await auditBoundarySessionLedger(sessionId);
   assert(sessionAudit.status === "complete", "expected session ledger audit to be complete");
@@ -197,11 +223,21 @@ async function main() {
   console.log(`scoped root: ${scopedRoot}`);
   console.log("");
   console.log("results:");
-  console.log(`- in-scope write: allowed=${allowedWriteResult.allowed} executed=${allowedWriteResult.executed}`);
-  console.log(`- out-of-scope write: allowed=${finalizedDeniedWriteResult.allowed} executed=${finalizedDeniedWriteResult.executed}`);
-  console.log(`- delete by default: allowed=${deleteResult.allowed} executed=${deleteResult.executed}`);
-  console.log(`- restored in-scope write: allowed=${restoredWriteResult.allowed} executed=${restoredWriteResult.executed}`);
-  console.log(`- post-end action: allowed=${postEndResult.allowed} executed=${postEndResult.executed}`);
+  console.log(
+    `- in-scope write: allowed=${allowedWriteResult.allowed} executed=${allowedWriteResult.executed}`,
+  );
+  console.log(
+    `- out-of-scope write: allowed=${finalizedDeniedWriteResult.allowed} executed=${finalizedDeniedWriteResult.executed}`,
+  );
+  console.log(
+    `- delete by default: allowed=${deleteResult.allowed} executed=${deleteResult.executed}`,
+  );
+  console.log(
+    `- restored in-scope write: allowed=${restoredWriteResult.allowed} executed=${restoredWriteResult.executed}`,
+  );
+  console.log(
+    `- post-end action: allowed=${postEndResult.allowed} executed=${postEndResult.executed}`,
+  );
   console.log("");
   console.log("audits:");
   console.log(`- session: ${sessionAudit.status}`);

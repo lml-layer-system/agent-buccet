@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
+  type BoundaryLedgerRecord,
   createPersistentBoundaryRuntimeStore,
   enableBodyguardControl,
   enforceBoundaryProposal,
   readAllBoundaryLedgerRecords,
-  type BoundaryLedgerRecord,
 } from "./../../src/index.ts";
 
 function latestEvent(records: BoundaryLedgerRecord[], eventType: string) {
@@ -58,8 +58,9 @@ async function main() {
     assert.equal(result.executed, false, "denied action must not execute");
     assert.equal(executed, false, "execute callback must not run");
 
-    const records = (await readAllBoundaryLedgerRecords())
-      .filter((record) => record.payload.sessionId === sessionId);
+    const records = (await readAllBoundaryLedgerRecords()).filter(
+      (record) => record.payload.sessionId === sessionId,
+    );
 
     const shed = latestEvent(records, "DISPOSABLE_SHED_TRIGGERED");
     assert.ok(shed, "shed trigger must be ledgered");
@@ -78,7 +79,12 @@ async function main() {
 
     const snapshotRaw = await fs.readFile(snapshotPath, "utf8");
     const snapshot = JSON.parse(snapshotRaw) as {
-      runtime: { isolationActive: boolean; persistedState: boolean; enteredEnvironment: boolean; lifecycleStarted: boolean };
+      runtime: {
+        isolationActive: boolean;
+        persistedState: boolean;
+        enteredEnvironment: boolean;
+        lifecycleStarted: boolean;
+      };
       trigger: string;
       request: { provenance: string; actionKind: string };
     };
@@ -87,8 +93,16 @@ async function main() {
     assert.equal(snapshot.request.actionKind, "tool.exec");
     assert.equal(typeof snapshot.runtime.isolationActive, "boolean");
     assert.equal(snapshot.runtime.persistedState, true, "shed flow must persist disposable state");
-    assert.equal(snapshot.runtime.enteredEnvironment, true, "shed flow must enter the clean disposable environment");
-    assert.equal(snapshot.runtime.lifecycleStarted, true, "shed flow must restart the disposable unit");
+    assert.equal(
+      snapshot.runtime.enteredEnvironment,
+      true,
+      "shed flow must enter the clean disposable environment",
+    );
+    assert.equal(
+      snapshot.runtime.lifecycleStarted,
+      true,
+      "shed flow must restart the disposable unit",
+    );
 
     console.log("Agent Buccet shed contract");
     console.log(`session: ${sessionId}`);

@@ -1,3 +1,4 @@
+import { evaluateBoundaryUplTraffic } from "./../law/upl-traffic.ts";
 import type {
   BoundaryApprovalDecision,
   BoundaryApprovalHandler,
@@ -5,7 +6,6 @@ import type {
   BoundaryRuntimeConfig,
   BoundaryUserPathLedger,
 } from "./../runtime/types.ts";
-import { evaluateBoundaryUplTraffic } from "./../law/upl-traffic.ts";
 
 /**
  * Headless approval policy — replaces the human in the chair for automated pipelines.
@@ -82,7 +82,8 @@ export function createBoundaryHeadlessApprovalHandler(
         //
         // Only pure scope-expansion prompts are auto-allowed here.
         // Track-wall collisions and other non-scope approval reasons must deny.
-        const scopeOnly = approval.lawIds.length > 0 && approval.lawIds.every((id) => id.startsWith("SCOPE."));
+        const scopeOnly =
+          approval.lawIds.length > 0 && approval.lawIds.every((id) => id.startsWith("SCOPE."));
         if (!scopeOnly) {
           return {
             choice: "deny_once",

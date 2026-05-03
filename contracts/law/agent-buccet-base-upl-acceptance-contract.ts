@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import type { BoundaryActionKind, BoundaryActionRequest } from "./../../src/index.ts";
 
 function makeRequest(args: {
@@ -67,13 +67,18 @@ async function main() {
     store.replaceConfig(config);
 
     const upl = await boundary.loadUserPathLedger();
-    const baseAcceptanceEntries = upl.userApprovedLawPaths.filter((entry) =>
-      entry.status === "ACTIVE" &&
-      entry.scope === "SESSION" &&
-      entry.sessionId === sessionId &&
-      entry.notes?.includes("Buccet base acceptance pack")
+    const baseAcceptanceEntries = upl.userApprovedLawPaths.filter(
+      (entry) =>
+        entry.status === "ACTIVE" &&
+        entry.scope === "SESSION" &&
+        entry.sessionId === sessionId &&
+        entry.notes?.includes("Buccet base acceptance pack"),
     );
-    assert.equal(baseAcceptanceEntries.length, 316, "expected base acceptance pack to seed three hundred sixteen session-scoped entries");
+    assert.equal(
+      baseAcceptanceEntries.length,
+      316,
+      "expected base acceptance pack to seed three hundred sixteen session-scoped entries",
+    );
     assert.ok(
       baseAcceptanceEntries.some((entry) => entry.notes?.includes("[workspace_read]")),
       "expected workspace read rail",
@@ -112,30 +117,36 @@ async function main() {
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) =>
-        entry.trackConstraint?.description?.includes("ACCEPT.AGENT.COMPREHENSION.0001")
+        entry.trackConstraint?.description?.includes("ACCEPT.AGENT.COMPREHENSION.0001"),
       ),
       "expected agent comprehension pass-required rail",
     );
     assert.ok(
       baseAcceptanceEntries.some((entry) =>
-        entry.trackConstraint?.description?.includes("ACCEPT.AGENT.COMPREHENSION.0010")
+        entry.trackConstraint?.description?.includes("ACCEPT.AGENT.COMPREHENSION.0010"),
       ),
       "expected agent bounded-by-upl-track rail",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005E")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005E"),
+      ),
       "expected gh CLI exec rail",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005F")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.SAFE.LOCAL.EXEC.005F"),
+      ),
       "expected bun exec rail",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.BOUNDED.WEB.RESEARCH.006D")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.BOUNDED.WEB.RESEARCH.006D"),
+      ),
       "expected developer Q&A and cloud docs web research rail",
     );
     const approvedMerchantSpend = baseAcceptanceEntries.find((entry) =>
-      entry.trackConstraint?.description?.includes("ACCEPT.AGENT.SPEND.013A")
+      entry.trackConstraint?.description?.includes("ACCEPT.AGENT.SPEND.013A"),
     );
     assert.ok(approvedMerchantSpend, "expected approved merchant spend rail");
     assert.equal(
@@ -154,7 +165,7 @@ async function main() {
       "expected approved merchant spend rail to bind purchase-style commit intents",
     );
     const approvedWalletSpend = baseAcceptanceEntries.find((entry) =>
-      entry.trackConstraint?.description?.includes("ACCEPT.AGENT.SPEND.013B")
+      entry.trackConstraint?.description?.includes("ACCEPT.AGENT.SPEND.013B"),
     );
     assert.ok(approvedWalletSpend, "expected approved wallet spend rail");
     assert.equal(
@@ -260,7 +271,9 @@ async function main() {
       "expected simonw-llm curated capability entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "ai-failure-periodic-table"),
+      baseAcceptanceEntries.some(
+        (entry) => entry.requestBasis?.target === "ai-failure-periodic-table",
+      ),
       "expected ai-failure-periodic-table curated capability entry",
     );
     assert.ok(
@@ -276,7 +289,9 @@ async function main() {
       "expected webapp-testing marketplace entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-skills-evaluation"),
+      baseAcceptanceEntries.some(
+        (entry) => entry.requestBasis?.target === "agent-skills-evaluation",
+      ),
       "expected agent-skills-evaluation marketplace entry",
     );
     assert.ok(
@@ -316,7 +331,9 @@ async function main() {
       "expected email-composer marketplace entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "agent-skills-validation"),
+      baseAcceptanceEntries.some(
+        (entry) => entry.requestBasis?.target === "agent-skills-validation",
+      ),
       "expected agent-skills-validation marketplace entry",
     );
     assert.ok(
@@ -336,23 +353,33 @@ async function main() {
       "expected playwright-mcp marketplace entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2101")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2101"),
+      ),
       "expected docx workflow entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2110")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2110"),
+      ),
       "expected Tavily workflow entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2115")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2115"),
+      ),
       "expected pdf workflow entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2120")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2120"),
+      ),
       "expected firecrawl workflow entry",
     );
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2123")),
+      baseAcceptanceEntries.some((entry) =>
+        entry.trackConstraint?.description?.includes("ACCEPT.CURATED.WORKFLOW.2123"),
+      ),
       "expected mcp factory workflow entry",
     );
     assert.ok(
@@ -364,356 +391,656 @@ async function main() {
       "expected camera capture skill to stay out of the base acceptance pack",
     );
 
-    const readDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.read",
-      target: path.join(workspace, "README.md"),
-      payloadSummary: "read:utf8",
-    }));
-    assert.equal(readDecision.result.decision, "allow", "expected workspace read to allow on contact");
+    const readDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.read",
+        target: path.join(workspace, "README.md"),
+        payloadSummary: "read:utf8",
+      }),
+    );
+    assert.equal(
+      readDecision.result.decision,
+      "allow",
+      "expected workspace read to allow on contact",
+    );
 
-    const writeDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.write",
-      target: path.join(workspace, "src", "index.ts"),
-      payloadSummary: "write:12bytes",
-    }));
-    assert.equal(writeDecision.result.decision, "allow", "expected workspace write to allow on contact");
+    const writeDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.write",
+        target: path.join(workspace, "src", "index.ts"),
+        payloadSummary: "write:12bytes",
+      }),
+    );
+    assert.equal(
+      writeDecision.result.decision,
+      "allow",
+      "expected workspace write to allow on contact",
+    );
 
-    const artifactDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.append",
-      target: path.join(outputsDir, "report.txt"),
-      payloadSummary: "append:12bytes",
-    }));
-    assert.equal(artifactDecision.result.decision, "allow", "expected outputs write to allow on contact");
+    const artifactDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.append",
+        target: path.join(outputsDir, "report.txt"),
+        payloadSummary: "append:12bytes",
+      }),
+    );
+    assert.equal(
+      artifactDecision.result.decision,
+      "allow",
+      "expected outputs write to allow on contact",
+    );
 
-    const mkdirDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.mkdir",
-      target: path.join(workspace, "notes"),
-    }));
-    assert.equal(mkdirDecision.result.decision, "allow", "expected local organization rail to allow mkdir");
+    const mkdirDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.mkdir",
+        target: path.join(workspace, "notes"),
+      }),
+    );
+    assert.equal(
+      mkdirDecision.result.decision,
+      "allow",
+      "expected local organization rail to allow mkdir",
+    );
 
-    const notesDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.write",
-      target: path.join(workspace, "notes", "todo.md"),
-      payloadSummary: "write:12bytes",
-    }));
-    assert.equal(notesDecision.result.decision, "allow", "expected notes and tasks rail to allow local note writes");
+    const notesDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.write",
+        target: path.join(workspace, "notes", "todo.md"),
+        payloadSummary: "write:12bytes",
+      }),
+    );
+    assert.equal(
+      notesDecision.result.decision,
+      "allow",
+      "expected notes and tasks rail to allow local note writes",
+    );
 
-    const execDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "git",
-      payloadSummary: "git status",
-    }));
-    assert.equal(execDecision.result.decision, "allow", "expected safe local exec rail to allow bounded git inspection");
+    const execDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "git",
+        payloadSummary: "git status",
+      }),
+    );
+    assert.equal(
+      execDecision.result.decision,
+      "allow",
+      "expected safe local exec rail to allow bounded git inspection",
+    );
 
-    const researchDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
-      payloadSummary: "fetch docs reference",
-    }));
-    assert.equal(researchDecision.result.decision, "allow", "expected bounded web research rail to allow documentation fetch");
+    const researchDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+        payloadSummary: "fetch docs reference",
+      }),
+    );
+    assert.equal(
+      researchDecision.result.decision,
+      "allow",
+      "expected bounded web research rail to allow documentation fetch",
+    );
 
-    const tmuxSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "tmux",
-      payloadSummary: "tmux skill attach session",
-    }));
-    assert.equal(tmuxSkillDecision.result.decision, "allow", "expected tmux Buccet skill rail to allow named tmux skill motion");
+    const tmuxSkillDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "tmux",
+        payloadSummary: "tmux skill attach session",
+      }),
+    );
+    assert.equal(
+      tmuxSkillDecision.result.decision,
+      "allow",
+      "expected tmux Buccet skill rail to allow named tmux skill motion",
+    );
 
-    const weatherSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://api.weather.gov/points/39.7456,-97.0892",
-      payloadSummary: "weather forecast lookup",
-    }));
-    assert.equal(weatherSkillDecision.result.decision, "allow", "expected weather Buccet skill rail to allow bounded weather-domain motion");
+    const weatherSkillDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://api.weather.gov/points/39.7456,-97.0892",
+        payloadSummary: "weather forecast lookup",
+      }),
+    );
+    assert.equal(
+      weatherSkillDecision.result.decision,
+      "allow",
+      "expected weather Buccet skill rail to allow bounded weather-domain motion",
+    );
 
-    const notionSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://api.notion.com/v1/pages",
-      payloadSummary: "notion page update request",
-    }));
-    assert.equal(notionSkillDecision.result.decision, "allow", "expected notion Buccet skill rail to allow bounded notion-domain motion");
+    const notionSkillDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://api.notion.com/v1/pages",
+        payloadSummary: "notion page update request",
+      }),
+    );
+    assert.equal(
+      notionSkillDecision.result.decision,
+      "allow",
+      "expected notion Buccet skill rail to allow bounded notion-domain motion",
+    );
 
-    const slackChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "chat.emit",
-      target: "slack",
-      payloadSummary: "slack notify channel",
-    }));
-    assert.equal(slackChannelDecision.result.decision, "allow", "expected slack Buccet skill rail to allow channel-shaped chat delivery");
+    const slackChannelDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "chat.emit",
+        target: "slack",
+        payloadSummary: "slack notify channel",
+      }),
+    );
+    assert.equal(
+      slackChannelDecision.result.decision,
+      "allow",
+      "expected slack Buccet skill rail to allow channel-shaped chat delivery",
+    );
 
-    const telegramChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "chat.emit",
-      target: "telegram",
-      payloadSummary: "telegram bot delivery",
-    }));
-    assert.equal(telegramChannelDecision.result.decision, "allow", "expected telegram Buccet skill rail to allow channel-shaped chat delivery");
+    const telegramChannelDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "chat.emit",
+        target: "telegram",
+        payloadSummary: "telegram bot delivery",
+      }),
+    );
+    assert.equal(
+      telegramChannelDecision.result.decision,
+      "allow",
+      "expected telegram Buccet skill rail to allow channel-shaped chat delivery",
+    );
 
-    const whatsappChannelDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "chat.emit",
-      target: "whatsapp",
-      payloadSummary: "whatsapp delivery",
-    }));
-    assert.equal(whatsappChannelDecision.result.decision, "allow", "expected whatsapp Buccet skill rail to allow channel-shaped chat delivery");
+    const whatsappChannelDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "chat.emit",
+        target: "whatsapp",
+        payloadSummary: "whatsapp delivery",
+      }),
+    );
+    assert.equal(
+      whatsappChannelDecision.result.decision,
+      "allow",
+      "expected whatsapp Buccet skill rail to allow channel-shaped chat delivery",
+    );
 
-    const slackNetworkDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "slack",
-      payloadSummary: "slack api call",
-    }));
-    assert.notEqual(slackNetworkDecision.result.decision, "allow", "expected slack raw network motion to stay outside the base acceptance pack");
+    const slackNetworkDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "slack",
+        payloadSummary: "slack api call",
+      }),
+    );
+    assert.notEqual(
+      slackNetworkDecision.result.decision,
+      "allow",
+      "expected slack raw network motion to stay outside the base acceptance pack",
+    );
 
-    const credentialSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "sys.credential.use",
-      target: "1password",
-      payloadSummary: "use vault secret",
-    }));
-    assert.notEqual(credentialSkillDecision.result.decision, "allow", "expected credential vault use to stay outside the base acceptance pack");
+    const credentialSkillDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "sys.credential.use",
+        target: "1password",
+        payloadSummary: "use vault secret",
+      }),
+    );
+    assert.notEqual(
+      credentialSkillDecision.result.decision,
+      "allow",
+      "expected credential vault use to stay outside the base acceptance pack",
+    );
 
-    const cameraSkillDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "camsnap",
-      payloadSummary: "capture camera snapshot",
-    }));
-    assert.notEqual(cameraSkillDecision.result.decision, "allow", "expected camera capture skill to stay outside the base acceptance pack");
+    const cameraSkillDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "camsnap",
+        payloadSummary: "capture camera snapshot",
+      }),
+    );
+    assert.notEqual(
+      cameraSkillDecision.result.decision,
+      "allow",
+      "expected camera capture skill to stay outside the base acceptance pack",
+    );
 
-    const agentMailDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "comm.send",
-      target: "agent-mail",
-      payloadSummary: "agent-mail draft reply",
-    }));
-    assert.equal(agentMailDecision.result.decision, "allow", "expected agent-mail awesome rail to allow bounded inbox delivery motion");
+    const agentMailDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "comm.send",
+        target: "agent-mail",
+        payloadSummary: "agent-mail draft reply",
+      }),
+    );
+    assert.equal(
+      agentMailDecision.result.decision,
+      "allow",
+      "expected agent-mail awesome rail to allow bounded inbox delivery motion",
+    );
 
-    const googleCalendarDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://calendar.googleapis.com/calendar/v3/calendars/primary/events",
-      payloadSummary: "google-calendar create event",
-    }));
-    assert.equal(googleCalendarDecision.result.decision, "allow", "expected google-calendar awesome rail to allow bounded calendar-domain motion");
+    const googleCalendarDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://calendar.googleapis.com/calendar/v3/calendars/primary/events",
+        payloadSummary: "google-calendar create event",
+      }),
+    );
+    assert.equal(
+      googleCalendarDecision.result.decision,
+      "allow",
+      "expected google-calendar awesome rail to allow bounded calendar-domain motion",
+    );
 
-    const audioTranscribeDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "audio-transcribe",
-      payloadSummary: "audio-transcribe local voice message",
-    }));
-    assert.equal(audioTranscribeDecision.result.decision, "allow", "expected audio-transcribe awesome rail to allow local transcription motion");
+    const audioTranscribeDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "audio-transcribe",
+        payloadSummary: "audio-transcribe local voice message",
+      }),
+    );
+    assert.equal(
+      audioTranscribeDecision.result.decision,
+      "allow",
+      "expected audio-transcribe awesome rail to allow local transcription motion",
+    );
 
-    const azureDevopsDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://dev.azure.com/example/project/_apis/projects",
-      payloadSummary: "azure-devops list projects",
-    }));
-    assert.equal(azureDevopsDecision.result.decision, "allow", "expected azure-devops awesome rail to allow bounded Azure DevOps motion");
+    const azureDevopsDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://dev.azure.com/example/project/_apis/projects",
+        payloadSummary: "azure-devops list projects",
+      }),
+    );
+    assert.equal(
+      azureDevopsDecision.result.decision,
+      "allow",
+      "expected azure-devops awesome rail to allow bounded Azure DevOps motion",
+    );
 
-    const docxDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "docx",
-      payloadSummary: "docx tracked changes edit",
-    }));
-    assert.equal(docxDecision.result.decision, "allow", "expected docx curated capability entry to allow document workflow motion");
+    const docxDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "docx",
+        payloadSummary: "docx tracked changes edit",
+      }),
+    );
+    assert.equal(
+      docxDecision.result.decision,
+      "allow",
+      "expected docx curated capability entry to allow document workflow motion",
+    );
 
-    const frontendDesignDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "frontend-design",
-      payloadSummary: "frontend-design dashboard redesign",
-    }));
-    assert.equal(frontendDesignDecision.result.decision, "allow", "expected frontend-design curated capability entry to allow design workflow motion");
+    const frontendDesignDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "frontend-design",
+        payloadSummary: "frontend-design dashboard redesign",
+      }),
+    );
+    assert.equal(
+      frontendDesignDecision.result.decision,
+      "allow",
+      "expected frontend-design curated capability entry to allow design workflow motion",
+    );
 
-    const tavilyDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "tavily",
-      payloadSummary: "tavily search competitor landscape",
-    }));
-    assert.equal(tavilyDecision.result.decision, "allow", "expected tavily curated capability entry to allow structured search workflow motion");
+    const tavilyDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "tavily",
+        payloadSummary: "tavily search competitor landscape",
+      }),
+    );
+    assert.equal(
+      tavilyDecision.result.decision,
+      "allow",
+      "expected tavily curated capability entry to allow structured search workflow motion",
+    );
 
-    const taskMasterDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "task-master-ai",
-      payloadSummary: "task-master-ai break prd into tasks",
-    }));
-    assert.equal(taskMasterDecision.result.decision, "allow", "expected task-master-ai curated capability entry to allow project workflow motion");
+    const taskMasterDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "task-master-ai",
+        payloadSummary: "task-master-ai break prd into tasks",
+      }),
+    );
+    assert.equal(
+      taskMasterDecision.result.decision,
+      "allow",
+      "expected task-master-ai curated capability entry to allow project workflow motion",
+    );
 
-    const brandGuidelinesDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "chat.emit",
-      target: "brand-guidelines",
-      payloadSummary: "brand-guidelines rewrite homepage copy",
-    }));
-    assert.equal(brandGuidelinesDecision.result.decision, "allow", "expected brand-guidelines curated capability entry to allow style-bound output workflow motion");
+    const brandGuidelinesDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "chat.emit",
+        target: "brand-guidelines",
+        payloadSummary: "brand-guidelines rewrite homepage copy",
+      }),
+    );
+    assert.equal(
+      brandGuidelinesDecision.result.decision,
+      "allow",
+      "expected brand-guidelines curated capability entry to allow style-bound output workflow motion",
+    );
 
-    const prMaintainerDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "pr-maintainer",
-      payloadSummary: "review related pull requests and issues",
-    }));
-    assert.equal(prMaintainerDecision.result.decision, "allow", "expected pr-maintainer marketplace entry to allow maintainer workflow motion");
+    const prMaintainerDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "pr-maintainer",
+        payloadSummary: "review related pull requests and issues",
+      }),
+    );
+    assert.equal(
+      prMaintainerDecision.result.decision,
+      "allow",
+      "expected pr-maintainer marketplace entry to allow maintainer workflow motion",
+    );
 
-    const aiContentPipelineDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "chat.emit",
-      target: "ai-content-pipeline",
-      payloadSummary: "draft content pipeline summary",
-    }));
-    assert.equal(aiContentPipelineDecision.result.decision, "allow", "expected ai-content-pipeline marketplace entry to allow content workflow motion");
+    const aiContentPipelineDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "chat.emit",
+        target: "ai-content-pipeline",
+        payloadSummary: "draft content pipeline summary",
+      }),
+    );
+    assert.equal(
+      aiContentPipelineDecision.result.decision,
+      "allow",
+      "expected ai-content-pipeline marketplace entry to allow content workflow motion",
+    );
 
-    const webappTestingDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "webapp-testing",
-      payloadSummary: "run webapp testing workflow",
-    }));
-    assert.equal(webappTestingDecision.result.decision, "allow", "expected webapp-testing marketplace entry to allow app testing workflow motion");
+    const webappTestingDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "webapp-testing",
+        payloadSummary: "run webapp testing workflow",
+      }),
+    );
+    assert.equal(
+      webappTestingDecision.result.decision,
+      "allow",
+      "expected webapp-testing marketplace entry to allow app testing workflow motion",
+    );
 
-    const agentSkillsEvaluationDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "agent-skills-evaluation",
-      payloadSummary: "evaluate current skill package",
-    }));
-    assert.equal(agentSkillsEvaluationDecision.result.decision, "allow", "expected agent-skills-evaluation marketplace entry to allow skill evaluation workflow motion");
+    const agentSkillsEvaluationDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "agent-skills-evaluation",
+        payloadSummary: "evaluate current skill package",
+      }),
+    );
+    assert.equal(
+      agentSkillsEvaluationDecision.result.decision,
+      "allow",
+      "expected agent-skills-evaluation marketplace entry to allow skill evaluation workflow motion",
+    );
 
-    const dataAnalystDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "data-analyst",
-      payloadSummary: "analyze customer cohort data",
-    }));
-    assert.equal(dataAnalystDecision.result.decision, "allow", "expected data-analyst marketplace entry to allow data workflow motion");
+    const dataAnalystDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "data-analyst",
+        payloadSummary: "analyze customer cohort data",
+      }),
+    );
+    assert.equal(
+      dataAnalystDecision.result.decision,
+      "allow",
+      "expected data-analyst marketplace entry to allow data workflow motion",
+    );
 
-    const uiUxDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "chat.emit",
-      target: "ui-ux-pro-max",
-      payloadSummary: "review dashboard layout and accessibility",
-    }));
-    assert.equal(uiUxDecision.result.decision, "allow", "expected ui-ux-pro-max marketplace entry to allow design workflow motion");
+    const uiUxDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "chat.emit",
+        target: "ui-ux-pro-max",
+        payloadSummary: "review dashboard layout and accessibility",
+      }),
+    );
+    assert.equal(
+      uiUxDecision.result.decision,
+      "allow",
+      "expected ui-ux-pro-max marketplace entry to allow design workflow motion",
+    );
 
-    const workflowOrchestratorDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "db.update",
-      target: "workflow-orchestrator",
-      payloadSummary: "update project workflow status",
-    }));
-    assert.equal(workflowOrchestratorDecision.result.decision, "allow", "expected workflow-orchestrator marketplace entry to allow workflow orchestration motion");
+    const workflowOrchestratorDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "db.update",
+        target: "workflow-orchestrator",
+        payloadSummary: "update project workflow status",
+      }),
+    );
+    assert.equal(
+      workflowOrchestratorDecision.result.decision,
+      "allow",
+      "expected workflow-orchestrator marketplace entry to allow workflow orchestration motion",
+    );
 
-    const testDataManagementDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "test-data-management",
-      payloadSummary: "generate synthetic qa test data",
-    }));
-    assert.equal(testDataManagementDecision.result.decision, "allow", "expected test-data-management marketplace entry to allow test-data workflow motion");
+    const testDataManagementDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "test-data-management",
+        payloadSummary: "generate synthetic qa test data",
+      }),
+    );
+    assert.equal(
+      testDataManagementDecision.result.decision,
+      "allow",
+      "expected test-data-management marketplace entry to allow test-data workflow motion",
+    );
 
-    const tavilyWorkflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://api.tavily.com/search",
-      payloadSummary: "tavily search competitor landscape",
-    }));
-    assert.equal(tavilyWorkflowDecision.result.decision, "allow", "expected Tavily workflow entry to allow bounded provider motion");
+    const tavilyWorkflowDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://api.tavily.com/search",
+        payloadSummary: "tavily search competitor landscape",
+      }),
+    );
+    assert.equal(
+      tavilyWorkflowDecision.result.decision,
+      "allow",
+      "expected Tavily workflow entry to allow bounded provider motion",
+    );
 
-    const notebooklmWorkflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://notebooklm.google.com/",
-      payloadSummary: "notebooklm build study notebook",
-    }));
-    assert.equal(notebooklmWorkflowDecision.result.decision, "allow", "expected NotebookLM workflow entry to allow bounded provider motion");
+    const notebooklmWorkflowDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://notebooklm.google.com/",
+        payloadSummary: "notebooklm build study notebook",
+      }),
+    );
+    assert.equal(
+      notebooklmWorkflowDecision.result.decision,
+      "allow",
+      "expected NotebookLM workflow entry to allow bounded provider motion",
+    );
 
-    const deleteDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.delete",
-      target: path.join(workspace, "README.md"),
-    }));
-    assert.equal(deleteDecision.result.decision, "deny", "expected delete to stay outside the base acceptance pack and remain hard-denied");
+    const deleteDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.delete",
+        target: path.join(workspace, "README.md"),
+      }),
+    );
+    assert.equal(
+      deleteDecision.result.decision,
+      "deny",
+      "expected delete to stay outside the base acceptance pack and remain hard-denied",
+    );
 
-    const secretDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "fs.read",
-      target: path.join(secretsDir, "api.txt"),
-      payloadSummary: "read:utf8",
-    }));
-    assert.equal(secretDecision.result.decision, "deny", "expected deny wall to cut out workspace secrets");
+    const secretDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "fs.read",
+        target: path.join(secretsDir, "api.txt"),
+        payloadSummary: "read:utf8",
+      }),
+    );
+    assert.equal(
+      secretDecision.result.decision,
+      "deny",
+      "expected deny wall to cut out workspace secrets",
+    );
     assert.ok(
       secretDecision.result.triggeredLawIds.some((id) => id.startsWith("DENY.SECRETS.ACCESS.003")),
       "expected secret access denial to come from the base denial pack",
     );
 
-    const failureClassifierDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "ai-failure-periodic-table",
-      payloadSummary: "classify failure mode periodic table failure dimension analysis",
-    }));
-    assert.equal(failureClassifierDecision.result.decision, "allow", "expected failure classifier rail to allow failure-mode analysis motion without headless denial");
+    const failureClassifierDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "ai-failure-periodic-table",
+        payloadSummary: "classify failure mode periodic table failure dimension analysis",
+      }),
+    );
+    assert.equal(
+      failureClassifierDecision.result.decision,
+      "allow",
+      "expected failure classifier rail to allow failure-mode analysis motion without headless denial",
+    );
 
-    const gitPushDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "git",
-      payloadSummary: "git push origin main",
-    }));
-    assert.equal(gitPushDecision.result.decision, "allow", "expected git push to allow on base acceptance pack");
+    const gitPushDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "git",
+        payloadSummary: "git push origin main",
+      }),
+    );
+    assert.equal(
+      gitPushDecision.result.decision,
+      "allow",
+      "expected git push to allow on base acceptance pack",
+    );
 
-    const ghPrDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "gh",
-      payloadSummary: "gh pr create --title fix --body fix",
-    }));
-    assert.equal(ghPrDecision.result.decision, "allow", "expected gh CLI rail to allow bounded pr creation motion");
+    const ghPrDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "gh",
+        payloadSummary: "gh pr create --title fix --body fix",
+      }),
+    );
+    assert.equal(
+      ghPrDecision.result.decision,
+      "allow",
+      "expected gh CLI rail to allow bounded pr creation motion",
+    );
 
-    const bunTestDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "bun",
-      payloadSummary: "bun test",
-    }));
-    assert.equal(bunTestDecision.result.decision, "allow", "expected bun exec rail to allow bounded bun test motion");
+    const bunTestDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "bun",
+        payloadSummary: "bun test",
+      }),
+    );
+    assert.equal(
+      bunTestDecision.result.decision,
+      "allow",
+      "expected bun exec rail to allow bounded bun test motion",
+    );
 
-    const stackoverflowDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "network.send",
-      target: "https://stackoverflow.com/questions/12345/how-to-git",
-      payloadSummary: "fetch stackoverflow answer",
-    }));
-    assert.equal(stackoverflowDecision.result.decision, "allow", "expected developer Q&A rail to allow stackoverflow fetch");
+    const stackoverflowDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "network.send",
+        target: "https://stackoverflow.com/questions/12345/how-to-git",
+        payloadSummary: "fetch stackoverflow answer",
+      }),
+    );
+    assert.equal(
+      stackoverflowDecision.result.decision,
+      "allow",
+      "expected developer Q&A rail to allow stackoverflow fetch",
+    );
 
-    const unsafeExecDecision = await boundary.evaluateBoundaryAction(config, makeRequest({
-      sessionId,
-      actionKind: "tool.exec",
-      target: "git",
-      payloadSummary: "git clean -fdx",
-    }));
-    assert.notEqual(unsafeExecDecision.result.decision, "allow", "expected destructive git clean to stay outside automatic allowance");
-
+    const unsafeExecDecision = await boundary.evaluateBoundaryAction(
+      config,
+      makeRequest({
+        sessionId,
+        actionKind: "tool.exec",
+        target: "git",
+        payloadSummary: "git clean -fdx",
+      }),
+    );
+    assert.notEqual(
+      unsafeExecDecision.result.decision,
+      "allow",
+      "expected destructive git clean to stay outside automatic allowance",
+    );
   } finally {
     process.chdir(previousCwd);
     if (previousLedgerPath === undefined) {
-      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = undefined;
     } else {
       process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousLedgerPath;
     }

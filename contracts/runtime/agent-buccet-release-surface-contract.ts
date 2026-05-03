@@ -1,18 +1,18 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { randomUUID } from "node:crypto";
 import {
-  createEmptyUserPathLedger,
   DEFAULT_BOUNDARY_LAWS,
   createBoundaryBodyguard,
+  createEmptyUserPathLedger,
   createPersistentBoundaryRuntimeStore,
+  loadUserPathLedger,
   lookupUserPathTrackDecision,
   openBoundaryPath,
   readBoundaryLedgerBySession,
   saveUserPathLedger,
-  loadUserPathLedger,
 } from "./../../src/index.ts";
 import type {
   BoundaryActionKind,
@@ -88,7 +88,12 @@ function makeApprovedTrack(args: {
 
 async function main() {
   // R1: default filesystem mutation laws require approval.
-  for (const actionKind of ["fs.write", "fs.append", "fs.mkdir", "fs.move"] as BoundaryActionKind[]) {
+  for (const actionKind of [
+    "fs.write",
+    "fs.append",
+    "fs.mkdir",
+    "fs.move",
+  ] as BoundaryActionKind[]) {
     const law = DEFAULT_BOUNDARY_LAWS.find((entry) => entry.lawId === "BOUNDARY.FS.WRITE.01");
     assert.ok(law, "expected BOUNDARY.FS.WRITE.01 to exist");
     const result = law.evaluate({
@@ -97,7 +102,11 @@ async function main() {
       activeGrants: [],
     });
     assert.ok(result, `expected ${actionKind} to match BOUNDARY.FS.WRITE.01`);
-    assert.equal(result?.decision, "require_approval", `${actionKind} must require approval by default`);
+    assert.equal(
+      result?.decision,
+      "require_approval",
+      `${actionKind} must require approval by default`,
+    );
   }
 
   // R2: a valid allow track beats an unrelated track violation.
@@ -124,7 +133,11 @@ async function main() {
     request: makeRequest("tool.exec", "git", "git"),
   });
   assert.ok(trackDecision, "expected a track decision for tool.exec");
-  assert.equal(trackDecision?.decision, "allow", "matching git track must win over unrelated npm violation");
+  assert.equal(
+    trackDecision?.decision,
+    "allow",
+    "matching git track must win over unrelated npm violation",
+  );
   assert.equal(trackDecision?.entry.id, "UPL-ALLOW-GIT", "matching git track must be selected");
 
   // R3/R4: session end drains pending approvals and records session-ended denial reason.
@@ -182,8 +195,9 @@ async function main() {
     assert.equal(proposalResult.executed, false, "drained pending approval must not execute");
 
     const records = await readBoundaryLedgerBySession(sessionId);
-    const approvalDenied = records.find((record) =>
-      record.eventType === "APPROVAL_DENIED" && record.payload.reason === "session ended"
+    const approvalDenied = records.find(
+      (record) =>
+        record.eventType === "APPROVAL_DENIED" && record.payload.reason === "session ended",
     );
     assert.ok(approvalDenied, "expected approval denial to be ledgered with session-ended reason");
 

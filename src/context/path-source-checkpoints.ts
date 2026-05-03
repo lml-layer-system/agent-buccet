@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
-import { brotliCompressSync, brotliDecompressSync } from "node:zlib";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { brotliCompressSync, brotliDecompressSync } from "node:zlib";
 
 import type { BoundaryActionKind } from "./../runtime/types.ts";
 import {
@@ -178,7 +178,11 @@ export function relativeCheckpointStoragePath(sourceId: string): string {
   return path.join("checkpoints", `${sourceId}.json`);
 }
 
-export function absoluteCheckpointPath(homePath: string, slug: TeamSlug, ref: TeamSourceCheckpointRef): string {
+export function absoluteCheckpointPath(
+  homePath: string,
+  slug: TeamSlug,
+  ref: TeamSourceCheckpointRef,
+): string {
   return path.join(homePath, "teams", slug, ref.storagePath);
 }
 
@@ -333,7 +337,10 @@ export async function loadTeamSourceCheckpoint(args: {
   ref: TeamSourceCheckpointRef;
 }): Promise<TeamSourceCheckpointBody | null> {
   try {
-    const raw = await fs.readFile(absoluteCheckpointPath(args.homePath, args.slug, args.ref), "utf8");
+    const raw = await fs.readFile(
+      absoluteCheckpointPath(args.homePath, args.slug, args.ref),
+      "utf8",
+    );
     const parsed = JSON.parse(raw) as TeamSourceCheckpointBody;
     if (parsed.format !== TEAM_SOURCE_CHECKPOINT_FORMAT) return null;
     return parsed;
@@ -343,7 +350,9 @@ export async function loadTeamSourceCheckpoint(args: {
 }
 
 function decodeCheckpointBody(checkpoint: TeamSourceCheckpointBody): string {
-  const decoded = brotliDecompressSync(Buffer.from(checkpoint.encodedBody, "base64")).toString("utf8");
+  const decoded = brotliDecompressSync(Buffer.from(checkpoint.encodedBody, "base64")).toString(
+    "utf8",
+  );
   return decoded;
 }
 
@@ -418,8 +427,9 @@ export async function openProjectionHandle(args: {
         args.sourceRef.internalRole === "work_memory" ? memoryTail : "",
         args.sourceRef.internalRole === "work_memory" ? "" : "",
         "region-index:",
-        ...checkpoint.regions.map((region) =>
-          `- ${region.stableAddress} · ${region.title} · ${region.hash} · ${region.preview.replaceAll("\n", " ").slice(0, 120)}`,
+        ...checkpoint.regions.map(
+          (region) =>
+            `- ${region.stableAddress} · ${region.title} · ${region.hash} · ${region.preview.replaceAll("\n", " ").slice(0, 120)}`,
         ),
       ]
         .filter(Boolean)
@@ -477,7 +487,9 @@ export async function buildTeamWholeView(args: {
             checkpoint.lineCount,
             source.summary ?? checkpoint.regions[0]?.preview ?? source.title,
           ),
-          regionHandles: checkpoint.regions.map((region) => regionHandleFromCheckpoint(source.id, region)),
+          regionHandles: checkpoint.regions.map((region) =>
+            regionHandleFromCheckpoint(source.id, region),
+          ),
         });
         continue;
       }
@@ -534,14 +546,21 @@ function agentNonBrainSourceIds(agent: TeamAgent): string[] {
   return agent.sourceIds.filter((id) => !isBuiltinTeamBrainSourceId(id));
 }
 
-function candidateWholeViewSourcesForAgent(agent: TeamAgent, wholeView: TeamWholeView): TeamWholeViewSource[] {
+function candidateWholeViewSourcesForAgent(
+  agent: TeamAgent,
+  wholeView: TeamWholeView,
+): TeamWholeViewSource[] {
   const requested = new Set(agentNonBrainSourceIds(agent));
   if (requested.size === 0) {
-    return wholeView.sources.filter((source) => !source.kind.startsWith("remote-llm:") && !source.kind.startsWith("local-llm:"));
+    return wholeView.sources.filter(
+      (source) => !source.kind.startsWith("remote-llm:") && !source.kind.startsWith("local-llm:"),
+    );
   }
   const matched = wholeView.sources.filter((source) => requested.has(source.sourceId));
   if (matched.length > 0) return matched;
-  return wholeView.sources.filter((source) => !source.kind.startsWith("remote-llm:") && !source.kind.startsWith("local-llm:"));
+  return wholeView.sources.filter(
+    (source) => !source.kind.startsWith("remote-llm:") && !source.kind.startsWith("local-llm:"),
+  );
 }
 
 function buildInputExcerpt(previews: string[]): string {
@@ -572,7 +591,8 @@ function scoreHandleForAgent(args: {
     ...tokenize(args.source.title),
     ...tokenize(args.source.kind),
   ]);
-  const haystack = `${args.handle.title} ${args.handle.preview} ${args.handle.stableAddress}`.toLowerCase();
+  const haystack =
+    `${args.handle.title} ${args.handle.preview} ${args.handle.stableAddress}`.toLowerCase();
   let score = args.handle.kind === "whole-view" ? 2 : 0;
   for (const term of terms) {
     if (haystack.includes(term)) score += 3;
@@ -612,7 +632,10 @@ export async function buildTeamPeerTaskGraph(args: {
       (sourceNodesByAgent.get(agent.id) ?? []).some((entry) => entry.sourceId === source.sourceId),
     );
     const receivers = eligibleAgents.length > 0 ? eligibleAgents : args.agents;
-    eligiblePeerIdsBySource.set(source.sourceId, uniqueSourceIds(receivers.map((entry) => entry.id)));
+    eligiblePeerIdsBySource.set(
+      source.sourceId,
+      uniqueSourceIds(receivers.map((entry) => entry.id)),
+    );
     for (const receiver of receivers) {
       assignedHandles.get(receiver.id)?.push(source.wholeHandle);
     }
@@ -645,7 +668,11 @@ export async function buildTeamPeerTaskGraph(args: {
   for (const agent of args.agents) {
     const sourceNodes = sourceNodesByAgent.get(agent.id) ?? [];
     const handles = assignedHandles.get(agent.id) ?? [];
-    const dedupedHandles = [...new Map(handles.map((handle) => [`${handle.sourceId}:${handle.regionId}`, handle])).values()];
+    const dedupedHandles = [
+      ...new Map(
+        handles.map((handle) => [`${handle.sourceId}:${handle.regionId}`, handle]),
+      ).values(),
+    ];
     const constrainedHandles = dedupedHandles
       .sort((a, b) => {
         if (a.kind !== b.kind) return a.kind === "whole-view" ? -1 : 1;
@@ -678,7 +705,9 @@ export async function buildTeamPeerTaskGraph(args: {
         shardsById.set(shardId, shard);
         return shard;
       });
-    const previews = constrainedHandles.filter((handle) => handle.kind !== "whole-view").map((handle) => handle.preview);
+    const previews = constrainedHandles
+      .filter((handle) => handle.kind !== "whole-view")
+      .map((handle) => handle.preview);
     packets.push({
       teamId: args.manifest.slug,
       runId,
@@ -710,7 +739,9 @@ export async function buildTeamPeerTaskGraph(args: {
   return {
     runId,
     intentDigest,
-    shards: [...shardsById.values()].sort((left, right) => left.shardId.localeCompare(right.shardId)),
+    shards: [...shardsById.values()].sort((left, right) =>
+      left.shardId.localeCompare(right.shardId),
+    ),
     packets,
   };
 }
@@ -730,9 +761,7 @@ function isProjectionKind(value: unknown): value is TeamSourceProjectionKind {
   return value === "whole-view" || value === "region" || value === "span";
 }
 
-function readShardRefsFromMemoryRecord(
-  record: TeamPathSourceMemoryRecord,
-): TeamShardRecordRef[] {
+function readShardRefsFromMemoryRecord(record: TeamPathSourceMemoryRecord): TeamShardRecordRef[] {
   const refs: TeamShardRecordRef[] = [];
   const meta = record.meta;
   if (!meta || typeof meta !== "object") return refs;
@@ -768,11 +797,14 @@ function readShardRefsFromMemoryRecord(
   return refs;
 }
 
-function statusFromMemoryRecord(record: TeamPathSourceMemoryRecord): TeamShardLedgerState["currentStatus"] {
+function statusFromMemoryRecord(
+  record: TeamPathSourceMemoryRecord,
+): TeamShardLedgerState["currentStatus"] {
   if (record.kind === "shard_dispatch" || record.kind === "shard_handoff") return "assigned";
-  const raw = record.meta && typeof record.meta === "object"
-    ? (record.meta as Record<string, unknown>).status
-    : undefined;
+  const raw =
+    record.meta && typeof record.meta === "object"
+      ? (record.meta as Record<string, unknown>).status
+      : undefined;
   if (raw === "blocked" || raw === "completed" || raw === "assigned" || raw === "pending") {
     return raw;
   }
@@ -805,7 +837,9 @@ export function rebuildTeamShardLedger(args: {
     const eventKind = eventKindFromRecordKind(record.kind);
     if (!eventKind) continue;
     const peerId =
-      record.meta && typeof record.meta === "object" && typeof (record.meta as Record<string, unknown>).peerId === "string"
+      record.meta &&
+      typeof record.meta === "object" &&
+      typeof (record.meta as Record<string, unknown>).peerId === "string"
         ? ((record.meta as Record<string, unknown>).peerId as string)
         : null;
     const status = statusFromMemoryRecord(record);

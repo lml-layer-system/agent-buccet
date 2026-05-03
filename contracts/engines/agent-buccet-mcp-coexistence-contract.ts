@@ -80,23 +80,25 @@ async function proveFreshHomeMcpAutoInit() {
     assert.equal(before.code, 0, before.stderr);
     assert.match(before.stdout, /not initialized/i);
 
-    const autoInit = await new Promise<{ stderr: string; code: number | null }>((resolve, reject) => {
-      const child = spawn("node", [scriptPath, "mcp"], {
-        cwd: repoRoot,
-        env,
-        stdio: ["pipe", "ignore", "pipe"],
-      });
-      let stderr = "";
-      child.stderr?.on("data", (chunk: Buffer) => {
-        stderr += chunk.toString();
-        if (stderr.includes("[buccet-mcp] ensuring hook daemon")) {
-          child.kill("SIGTERM");
-        }
-      });
-      child.on("error", reject);
-      child.on("close", (code) => resolve({ stderr, code }));
-      setTimeout(() => child.kill("SIGTERM"), 30_000).unref();
-    });
+    const autoInit = await new Promise<{ stderr: string; code: number | null }>(
+      (resolve, reject) => {
+        const child = spawn("node", [scriptPath, "mcp"], {
+          cwd: repoRoot,
+          env,
+          stdio: ["pipe", "ignore", "pipe"],
+        });
+        let stderr = "";
+        child.stderr?.on("data", (chunk: Buffer) => {
+          stderr += chunk.toString();
+          if (stderr.includes("[buccet-mcp] ensuring hook daemon")) {
+            child.kill("SIGTERM");
+          }
+        });
+        child.on("error", reject);
+        child.on("close", (code) => resolve({ stderr, code }));
+        setTimeout(() => child.kill("SIGTERM"), 30_000).unref();
+      },
+    );
 
     assert.match(autoInit.stderr, /auto-initializing Agent Buccet/);
     assert.match(autoInit.stderr, /auto-initialization complete/);
@@ -121,7 +123,9 @@ async function proveFreshHomeMcpAutoInit() {
 }
 
 async function proveAiFailurePeriodicTableLane() {
-  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-mcp-coexistence-base-pack-"));
+  const tempRoot = await fs.mkdtemp(
+    path.join(os.tmpdir(), "agent-buccet-mcp-coexistence-base-pack-"),
+  );
   const previousCwd = process.cwd();
   const previousLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
   const ledgerPath = path.join(tempRoot, "user-path-ledger.json");
@@ -153,20 +157,23 @@ async function proveAiFailurePeriodicTableLane() {
     store.replaceConfig(config);
 
     const upl = await boundary.loadUserPathLedger();
-    const baseAcceptanceEntries = upl.userApprovedLawPaths.filter((entry) =>
-      entry.status === "ACTIVE" &&
-      entry.scope === "SESSION" &&
-      entry.sessionId === sessionId &&
-      entry.notes?.includes("Buccet base acceptance pack")
+    const baseAcceptanceEntries = upl.userApprovedLawPaths.filter(
+      (entry) =>
+        entry.status === "ACTIVE" &&
+        entry.scope === "SESSION" &&
+        entry.sessionId === sessionId &&
+        entry.notes?.includes("Buccet base acceptance pack"),
     );
 
     assert.ok(
-      baseAcceptanceEntries.some((entry) => entry.requestBasis?.target === "ai-failure-periodic-table"),
+      baseAcceptanceEntries.some(
+        (entry) => entry.requestBasis?.target === "ai-failure-periodic-table",
+      ),
       "expected ai-failure-periodic-table curated capability entry in the live base acceptance pack",
     );
   } finally {
     if (previousLedgerPath === undefined) {
-      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = undefined;
     } else {
       process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousLedgerPath;
     }
@@ -188,7 +195,9 @@ async function main() {
 
   console.log("Agent Buccet MCP coexistence contract");
   console.log("- fresh-home buccet mcp auto-init and fallback scope: ok");
-  console.log("- ai-failure-periodic-table curated acceptance lane is present in the live base pack: ok");
+  console.log(
+    "- ai-failure-periodic-table curated acceptance lane is present in the live base pack: ok",
+  );
   console.log("- same Buccet denial side still governs MCP host-path execution: ok");
 }
 

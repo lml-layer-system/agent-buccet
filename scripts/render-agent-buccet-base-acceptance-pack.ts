@@ -3,25 +3,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBaseAcceptanceLaws } from "./../src/law/base-upl-acceptance.ts";
 import {
-  BASE_EXTENDED_SKILL_ACCEPTANCE_LANES,
-} from "./../src/teams/extended-skill-acceptance.ts";
-import {
   BASE_LIST_V_ACCEPTANCE_LANES,
-  createListVWorkflowAcceptanceLanes,
   type ListVAcceptanceLane,
+  createListVWorkflowAcceptanceLanes,
 } from "./../src/law/list-v-acceptance.ts";
-import {
-  AGENTSKILLS_ACCEPTANCE_LANES,
-  AITMPL_ACCEPTANCE_LANES,
-  SKILLHUB_ACCEPTANCE_LANES,
-  SKILLSMP_ACCEPTANCE_LANES,
-  type MarketplaceAcceptanceLane,
-} from "./../src/teams/marketplace-acceptance.ts";
+import type { BoundaryActionKind, CompiledDocumentLaw } from "./../src/runtime/types.ts";
 import {
   BASE_CORE_SKILL_ACCEPTANCE_LANES,
   type BuccetSkillAcceptanceLane,
 } from "./../src/teams/core-skill-acceptance.ts";
-import type { BoundaryActionKind, CompiledDocumentLaw } from "./../src/runtime/types.ts";
+import { BASE_EXTENDED_SKILL_ACCEPTANCE_LANES } from "./../src/teams/extended-skill-acceptance.ts";
+import {
+  AGENTSKILLS_ACCEPTANCE_LANES,
+  AITMPL_ACCEPTANCE_LANES,
+  type MarketplaceAcceptanceLane,
+  SKILLHUB_ACCEPTANCE_LANES,
+  SKILLSMP_ACCEPTANCE_LANES,
+} from "./../src/teams/marketplace-acceptance.ts";
 
 type BaseEntry = {
   id: string;
@@ -74,10 +72,7 @@ const WEB_RESEARCH_ENTRY_IDS = [
   "ACCEPT.BOUNDED.WEB.RESEARCH.006D",
 ] as const;
 
-const AGENT_SPEND_ENTRY_IDS = [
-  "ACCEPT.AGENT.SPEND.013A",
-  "ACCEPT.AGENT.SPEND.013B",
-] as const;
+const AGENT_SPEND_ENTRY_IDS = ["ACCEPT.AGENT.SPEND.013A", "ACCEPT.AGENT.SPEND.013B"] as const;
 
 function repoRootFromHere() {
   const scriptDir = path.dirname(fileURLToPath(import.meta.url));
@@ -85,9 +80,7 @@ function repoRootFromHere() {
 }
 
 function cleanSummary(summary: string): string {
-  return summary
-    .replace(/^(?:named|bounded)\s+rail\s+for\s+/i, "")
-    .replace(/\.$/, "");
+  return summary.replace(/^(?:named|bounded)\s+rail\s+for\s+/i, "").replace(/\.$/, "");
 }
 
 function normalizeDisplay(value: string): string {
@@ -192,7 +185,7 @@ function compiledLawToEntry(law: CompiledDocumentLaw): BaseEntry {
   };
 }
 
-function laneToEntry(label: string, lane: LaneLike): BaseEntry {
+function laneToEntry(_label: string, lane: LaneLike): BaseEntry {
   return {
     id: lane.id,
     whatItIs: cleanSummary(lane.summary),
@@ -215,7 +208,12 @@ function renderEntry(entry: BaseEntry, label?: string): string {
 }
 
 function entryMap(laws: readonly CompiledDocumentLaw[]) {
-  return new Map(laws.map((law) => [law.trackConstraint?.description?.split(" — ", 1)[0] ?? law.requestBasis.target, law]));
+  return new Map(
+    laws.map((law) => [
+      law.trackConstraint?.description?.split(" — ", 1)[0] ?? law.requestBasis.target,
+      law,
+    ]),
+  );
 }
 
 async function main() {
@@ -334,42 +332,42 @@ async function main() {
     `## Bundled Buccet Skill Entries (${bundledBuccetSkillEntries.length})`,
     "",
     ...bundledBuccetSkillEntries.map((entry, index) =>
-      renderEntry(entry, BASE_CORE_SKILL_ACCEPTANCE_LANES[index]!.skill),
+      renderEntry(entry, BASE_CORE_SKILL_ACCEPTANCE_LANES[index]?.skill),
     ),
     `## Extended Buccet Skill Entries (${extendedBuccetSkillEntries.length})`,
     "",
     ...extendedBuccetSkillEntries.map((entry, index) =>
-      renderEntry(entry, BASE_EXTENDED_SKILL_ACCEPTANCE_LANES[index]!.skill),
+      renderEntry(entry, BASE_EXTENDED_SKILL_ACCEPTANCE_LANES[index]?.skill),
     ),
     `## Curated Capability Entries (${curatedCapabilityEntries.length})`,
     "",
     ...curatedCapabilityEntries.map((entry, index) =>
-      renderEntry(entry, BASE_LIST_V_ACCEPTANCE_LANES[index]!.capability),
+      renderEntry(entry, BASE_LIST_V_ACCEPTANCE_LANES[index]?.capability),
     ),
     `## Curated Workflow Entries (${curatedWorkflowEntries.length})`,
     "",
     ...curatedWorkflowEntries.map((entry, index) =>
-      renderEntry(entry, createListVWorkflowAcceptanceLanes(WORKSPACE_ROOT)[index]!.capability),
+      renderEntry(entry, createListVWorkflowAcceptanceLanes(WORKSPACE_ROOT)[index]?.capability),
     ),
     `## SkillsMP Entries (${skillsmpEntries.length})`,
     "",
     ...skillsmpEntries.map((entry, index) =>
-      renderEntry(entry, SKILLSMP_ACCEPTANCE_LANES[index]!.name),
+      renderEntry(entry, SKILLSMP_ACCEPTANCE_LANES[index]?.name),
     ),
     `## SkillHub Entries (${skillhubEntries.length})`,
     "",
     ...skillhubEntries.map((entry, index) =>
-      renderEntry(entry, SKILLHUB_ACCEPTANCE_LANES[index]!.name),
+      renderEntry(entry, SKILLHUB_ACCEPTANCE_LANES[index]?.name),
     ),
     `## AITmpl Entries (${aitmplEntries.length})`,
     "",
     ...aitmplEntries.map((entry, index) =>
-      renderEntry(entry, AITMPL_ACCEPTANCE_LANES[index]!.name),
+      renderEntry(entry, AITMPL_ACCEPTANCE_LANES[index]?.name),
     ),
     `## AgentSkills Entries (${agentSkillsEntries.length})`,
     "",
     ...agentSkillsEntries.map((entry, index) =>
-      renderEntry(entry, AGENTSKILLS_ACCEPTANCE_LANES[index]!.name),
+      renderEntry(entry, AGENTSKILLS_ACCEPTANCE_LANES[index]?.name),
     ),
     "## Important Limits",
     "",

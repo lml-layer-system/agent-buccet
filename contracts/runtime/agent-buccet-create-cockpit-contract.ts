@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 import {
   addTeamAgent,
   appendTeamPathSourceMemoryEntry,
   createTeam,
-  loadTeam,
   prepareTeamRuntime,
   saveTeam,
   teamSlug,
@@ -24,14 +23,15 @@ const scriptPath = await (async () => {
     try {
       await fs.access(candidate);
       return candidate;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   throw new Error("unable to locate buccet CLI script");
 })();
 
-function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string; code: number | null }> {
+function runCli(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], {
       cwd: repoRoot,
@@ -74,8 +74,18 @@ async function main(): Promise<void> {
 
   try {
     await createTeam({ homePath, name: "active-team", domain: "runtime", summary: "active team" });
-    await createTeam({ homePath, name: "waiting-team", domain: "runtime", summary: "waiting team" });
-    await createTeam({ homePath, name: "blocked-team", domain: "runtime", summary: "blocked team" });
+    await createTeam({
+      homePath,
+      name: "waiting-team",
+      domain: "runtime",
+      summary: "waiting team",
+    });
+    await createTeam({
+      homePath,
+      name: "blocked-team",
+      domain: "runtime",
+      summary: "blocked team",
+    });
 
     const activeSlug = teamSlug("active-team");
     const waitingSlug = teamSlug("waiting-team");
@@ -92,7 +102,11 @@ async function main(): Promise<void> {
       });
     }
 
-    const activePrepared = await prepareTeamRuntime({ homePath, slug: activeSlug, markReady: true });
+    const activePrepared = await prepareTeamRuntime({
+      homePath,
+      slug: activeSlug,
+      markReady: true,
+    });
     activePrepared.manifest.status = "running";
     await saveTeam(homePath, activePrepared.manifest);
     await appendSessionRecord(homePath, activeSlug, {
@@ -171,15 +185,21 @@ async function main(): Promise<void> {
     assert.equal(cockpit.teams.find((team) => team.slug === activeSlug)?.runState, "active");
     assert.equal(cockpit.teams.find((team) => team.slug === waitingSlug)?.runState, "waiting");
     assert.ok(
-      cockpit.teams.find((team) => team.slug === waitingSlug)?.waitingFor?.includes("Pi engine not installed"),
+      cockpit.teams
+        .find((team) => team.slug === waitingSlug)
+        ?.waitingFor?.includes("Pi engine not installed"),
       "waiting Buccet must surface the persisted wait reason",
     );
     assert.equal(cockpit.teams.find((team) => team.slug === blockedSlug)?.runState, "blocked");
     assert.ok(
-      cockpit.teams.find((team) => team.slug === activeSlug)?.latestProofTitle?.includes("architect:transform"),
+      cockpit.teams
+        .find((team) => team.slug === activeSlug)
+        ?.latestProofTitle?.includes("architect:transform"),
       "cockpit must surface the latest proof-of-work title",
     );
-    console.log("SUCCESS: create cockpit surfaces multi-Buccet active/waiting/blocked state with proof-of-work.");
+    console.log(
+      "SUCCESS: create cockpit surfaces multi-Buccet active/waiting/blocked state with proof-of-work.",
+    );
 
     const statusResult = await runCli(["status", "--json"], env);
     assert.equal(statusResult.code, 0, statusResult.stderr);

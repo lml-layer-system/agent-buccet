@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { once } from "node:events";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 import {
-  createPersistentBoundaryRuntimeStore,
-  sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonOutput,
   type BoundaryInterceptSwarmGroup,
+  createPersistentBoundaryRuntimeStore,
+  sendBoundaryInterceptServerInput,
 } from "./../../src/index.ts";
 
 type SwarmStatusOutput = Extract<BoundaryInterceptDaemonOutput, { type: "swarm_status" }>;
@@ -83,18 +83,22 @@ async function main() {
     issuedBy: "user:novelty-contract",
   });
 
-  const interceptServer = spawn(process.execPath, [
-    path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
-    "--session-id",
-    sessionId,
-    "--sessions-dir",
-    sessionsDir,
-    "--socket",
-    socketPath,
-  ], {
-    cwd: repoRoot,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  const interceptServer = spawn(
+    process.execPath,
+    [
+      path.join(repoRoot, "scripts", "agent-buccet-intercept-server.ts"),
+      "--session-id",
+      sessionId,
+      "--sessions-dir",
+      sessionsDir,
+      "--socket",
+      socketPath,
+    ],
+    {
+      cwd: repoRoot,
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
 
   let ready = false;
   let stderr = "";
@@ -136,13 +140,15 @@ async function main() {
     target,
     label: "self-originated novelty queue",
     predicate: (status) =>
-      status.groups.some((group) =>
-        group.target === selfOriginatedPath
-        && group.state === "waiting"
-        && group.waitingCount >= 2
-        && group.path === "purple"
-        && group.novelty?.selfOriginated === true
-        && group.lawIds.includes("TIME.NOVELTY.01")),
+      status.groups.some(
+        (group) =>
+          group.target === selfOriginatedPath &&
+          group.state === "waiting" &&
+          group.waitingCount >= 2 &&
+          group.path === "purple" &&
+          group.novelty?.selfOriginated === true &&
+          group.lawIds.includes("TIME.NOVELTY.01"),
+      ),
   });
   const selfGroup = requireSwarmGroup(selfStatus, selfOriginatedPath);
   assert.equal(selfGroup.novelty?.selfOriginated, true);
@@ -161,7 +167,7 @@ async function main() {
   });
   assert.equal(selfApprove.type, "ack");
 
-  const [selfDecisionOne, selfDecisionTwo] = await Promise.all([selfOne, selfTwo]) as [
+  const [selfDecisionOne, selfDecisionTwo] = (await Promise.all([selfOne, selfTwo])) as [
     BoundaryInterceptDaemonOutput,
     BoundaryInterceptDaemonOutput,
   ];
@@ -190,12 +196,14 @@ async function main() {
     target,
     label: "exec novelty queue",
     predicate: (status) =>
-      status.groups.some((group) =>
-        group.target === noveltyExecTarget
-        && group.state === "waiting"
-        && group.path === "purple"
-        && group.novelty?.boundaryHits?.includes("kernel")
-        && group.lawIds.includes("TIME.NOVELTY.01")),
+      status.groups.some(
+        (group) =>
+          group.target === noveltyExecTarget &&
+          group.state === "waiting" &&
+          group.path === "purple" &&
+          group.novelty?.boundaryHits?.includes("kernel") &&
+          group.lawIds.includes("TIME.NOVELTY.01"),
+      ),
   });
   const execGroup = requireSwarmGroup(execStatus, noveltyExecTarget);
   assert.equal(execGroup.novelty?.classes?.includes("unknown_tool_request"), true);
@@ -235,10 +243,10 @@ async function main() {
     target,
     label: "standing-law novelty queue",
     predicate: (status) =>
-      status.groups.some((group) =>
-        group.target === standingLawPath
-        && group.state === "waiting"
-        && group.path === "purple"),
+      status.groups.some(
+        (group) =>
+          group.target === standingLawPath && group.state === "waiting" && group.path === "purple",
+      ),
   });
   const standingSeedGroup = requireSwarmGroup(standingSeedStatus, standingLawPath);
 
@@ -284,10 +292,13 @@ async function main() {
   const noPendingStatus = await waitForSwarmStatus({
     target,
     label: "no pending novelty group after standing law replay",
-    predicate: (status) => !status.groups.some((group) => group.target === standingLawPath && group.state === "waiting"),
+    predicate: (status) =>
+      !status.groups.some((group) => group.target === standingLawPath && group.state === "waiting"),
   });
   assert.equal(
-    noPendingStatus.groups.some((group) => group.target === standingLawPath && group.state === "waiting"),
+    noPendingStatus.groups.some(
+      (group) => group.target === standingLawPath && group.state === "waiting",
+    ),
     false,
   );
 
@@ -296,9 +307,15 @@ async function main() {
 
   console.log("Agent Buccet novelty boundary contract");
   console.log(`self-originated queued: ${selfGroup.groupId}`);
-  console.log(`self-originated replay decisions: ${selfDecisionOne.type === "decision" ? selfDecisionOne.decision : "error"}, ${selfDecisionTwo.type === "decision" ? selfDecisionTwo.decision : "error"}`);
-  console.log(`novel exec downstream deny: ${execDecision.type === "decision" ? execDecision.decision : "error"}`);
-  console.log(`standing-law replay: ${standingLawDecision.type === "decision" ? standingLawDecision.decision : "error"}`);
+  console.log(
+    `self-originated replay decisions: ${selfDecisionOne.type === "decision" ? selfDecisionOne.decision : "error"}, ${selfDecisionTwo.type === "decision" ? selfDecisionTwo.decision : "error"}`,
+  );
+  console.log(
+    `novel exec downstream deny: ${execDecision.type === "decision" ? execDecision.decision : "error"}`,
+  );
+  console.log(
+    `standing-law replay: ${standingLawDecision.type === "decision" ? standingLawDecision.decision : "error"}`,
+  );
 }
 
 main().catch((error) => {

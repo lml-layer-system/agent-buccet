@@ -154,14 +154,7 @@ export const CAPABILITY_INTAKE_SNAPSHOT = {
       "thread-ownership",
       "voice-call",
     ],
-    searchAndFetchExtensions: [
-      "brave",
-      "duckduckgo",
-      "exa",
-      "firecrawl",
-      "perplexity",
-      "searxng",
-    ],
+    searchAndFetchExtensions: ["brave", "duckduckgo", "exa", "firecrawl", "perplexity", "searxng"],
     channelExtensions: [
       "bluebubbles",
       "discord",
@@ -269,7 +262,8 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
   {
     id: "BUCCET.CAPABILITY.LOCAL.WORKSPACE",
     title: "Local Workspace I/O",
-    summary: "Buccet bundled base coding surface: read, write, edit, patch, move, and organize local workspace files.",
+    summary:
+      "Buccet bundled base coding surface: read, write, edit, patch, move, and organize local workspace files.",
     sourceKinds: ["tool", "skill", "extension"],
     sourceNames: [
       "read",
@@ -289,7 +283,8 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
   {
     id: "BUCCET.CAPABILITY.LOCAL.EXEC",
     title: "Local Command and Runtime Work",
-    summary: "Shell, process, and coding runtimes that let Buccet execute local development or workflow commands.",
+    summary:
+      "Shell, process, and coding runtimes that let Buccet execute local development or workflow commands.",
     sourceKinds: ["tool", "skill", "extension"],
     sourceNames: [
       "exec",
@@ -310,7 +305,8 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
   {
     id: "BUCCET.CAPABILITY.WEB.RESEARCH",
     title: "Browser and Web Research",
-    summary: "Browser control, search, fetch, PDF, and search-provider integrations used for bounded research and retrieval.",
+    summary:
+      "Browser control, search, fetch, PDF, and search-provider integrations used for bounded research and retrieval.",
     sourceKinds: ["tool", "skill", "extension"],
     sourceNames: [
       "browser",
@@ -329,7 +325,8 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
     normalizedActionKinds: ["network.send", "tool.exec", "fs.read", "fs.write"],
     runtimeShapes: ["approved_domain", "browser_profile", "safe_output_root"],
     disposition: "scoped_candidate",
-    notes: "Good acceptance intake, but domains and browser targets need explicit corridor binding.",
+    notes:
+      "Good acceptance intake, but domains and browser targets need explicit corridor binding.",
   },
   {
     id: "BUCCET.CAPABILITY.MESSAGE.CHANNELS",
@@ -349,7 +346,8 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
     normalizedActionKinds: ["chat.emit", "comm.send", "network.send"],
     runtimeShapes: ["recipient_allowlist", "channel_account", "thread_binding"],
     disposition: "channel_candidate",
-    notes: "Denial-side external communication walls should override unless specific recipients/channels are opened.",
+    notes:
+      "Denial-side external communication walls should override unless specific recipients/channels are opened.",
   },
   {
     id: "BUCCET.CAPABILITY.CANVAS.NODES.DEVICES",
@@ -368,7 +366,13 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
       "sonoscli",
       "spotify-player",
     ],
-    normalizedActionKinds: ["tool.exec", "network.send", "sys.config.read", "sys.config.write", "chat.emit"],
+    normalizedActionKinds: [
+      "tool.exec",
+      "network.send",
+      "sys.config.read",
+      "sys.config.write",
+      "chat.emit",
+    ],
     runtimeShapes: ["paired_device", "canvas_surface", "device_action_family"],
     disposition: "device_candidate",
     notes: "These need device pairing and target-specific corridors before acceptance.",
@@ -415,7 +419,14 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
       "blogwatcher",
       "model-usage",
     ],
-    normalizedActionKinds: ["fs.read", "fs.write", "db.query", "db.insert", "db.update", "network.send"],
+    normalizedActionKinds: [
+      "fs.read",
+      "fs.write",
+      "db.query",
+      "db.insert",
+      "db.update",
+      "network.send",
+    ],
     runtimeShapes: ["dataset_root", "vault_root", "provider_account", "safe_output_root"],
     disposition: "scoped_candidate",
     notes: "Good acceptance intake, but secret-bearing stores still need denial carve-outs.",
@@ -457,12 +468,14 @@ export const CAPABILITY_ACCEPTANCE_INTAKE_FAMILIES: readonly CapabilityAcceptanc
     normalizedActionKinds: ["network.send", "sys.env.read", "sys.credential.use"],
     runtimeShapes: ["approved_provider", "model_profile", "credential_slot"],
     disposition: "provider_candidate",
-    notes: "Provider transport is acceptance intake, but credentials stay denied unless explicit provider law opens them.",
+    notes:
+      "Provider transport is acceptance intake, but credentials stay denied unless explicit provider law opens them.",
   },
   {
     id: "BUCCET.CAPABILITY.UTILITY.CONNECTORS",
     title: "Utility and Connector Skills",
-    summary: "Smaller app integrations and operator helpers that broaden the bundled capability surface.",
+    summary:
+      "Smaller app integrations and operator helpers that broaden the bundled capability surface.",
     sourceKinds: ["skill"],
     sourceNames: [
       "gh-issues",

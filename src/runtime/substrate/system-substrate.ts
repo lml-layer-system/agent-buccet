@@ -45,11 +45,7 @@ export const BUCCET_SUBSTRATE_PLANES = [
 
 export type BuccetSubstratePlane = (typeof BUCCET_SUBSTRATE_PLANES)[number];
 
-export const BUCCET_TERMINALS = [
-  "Terminal1",
-  "Terminal2",
-  "Terminal3",
-] as const;
+export const BUCCET_TERMINALS = ["Terminal1", "Terminal2", "Terminal3"] as const;
 
 export type BuccetTerminal = (typeof BUCCET_TERMINALS)[number];
 
@@ -69,10 +65,13 @@ export type BuccetSystemGraph = {
 export type BuccetSubstrate = {
   systemGraph: BuccetSystemGraph;
   planes: Record<BuccetSubstratePlane, BuccetSystemNode[]>;
-  terminals: Record<BuccetTerminal, {
-    planes: BuccetSubstratePlane[];
-    role: string;
-  }>;
+  terminals: Record<
+    BuccetTerminal,
+    {
+      planes: BuccetSubstratePlane[];
+      role: string;
+    }
+  >;
   consequenceBoundaries: BuccetConsequenceBoundary[];
   firingOrder: string[];
   orphanedNodes: BuccetSystemNode[];
@@ -85,12 +84,7 @@ export type BuccetSubstrate = {
 };
 
 const DEFAULT_PLANE_MAP: Record<BuccetSubstratePlane, BuccetSystemNode[]> = {
-  LifecyclePlane: [
-    "bootstrap",
-    "install",
-    "runtime_store",
-    "restart_fail_closed",
-  ],
+  LifecyclePlane: ["bootstrap", "install", "runtime_store", "restart_fail_closed"],
   AuthorityPlane: [
     "scope",
     "grants",
@@ -100,16 +94,8 @@ const DEFAULT_PLANE_MAP: Record<BuccetSubstratePlane, BuccetSystemNode[]> = {
     "document_import",
     "approvals",
   ],
-  TranslationPlane: [
-    "intercept",
-    "hook",
-    "adapter_bridge",
-    "action_class_mapper",
-  ],
-  BoundaryPlane: [
-    "input_admission",
-    "payload_physics",
-  ],
+  TranslationPlane: ["intercept", "hook", "adapter_bridge", "action_class_mapper"],
+  BoundaryPlane: ["input_admission", "payload_physics"],
   ControlPlane: [
     "track_extractor",
     "expression_corridor",
@@ -121,11 +107,7 @@ const DEFAULT_PLANE_MAP: Record<BuccetSubstratePlane, BuccetSystemNode[]> = {
     "bodyguard",
     "swarm",
   ],
-  WitnessPlane: [
-    "ledger",
-    "witness",
-    "release_witness",
-  ],
+  WitnessPlane: ["ledger", "witness", "release_witness"],
 };
 
 const DEFAULT_TERMINALS: BuccetSubstrate["terminals"] = {
@@ -156,11 +138,15 @@ const DEFAULT_FIRING_ORDER = [
   "WitnessPlane records the full path",
 ];
 
-export function createBuccetSystemGraph(nodes: readonly BuccetSystemNode[] = BUCCET_SYSTEM_NODES): BuccetSystemGraph {
+export function createBuccetSystemGraph(
+  nodes: readonly BuccetSystemNode[] = BUCCET_SYSTEM_NODES,
+): BuccetSystemGraph {
   return { nodes: [...nodes] };
 }
 
-export function snapBuccetSystem(systemGraph: BuccetSystemGraph = createBuccetSystemGraph()): BuccetSubstrate {
+export function snapBuccetSystem(
+  systemGraph: BuccetSystemGraph = createBuccetSystemGraph(),
+): BuccetSubstrate {
   const covered = new Set<BuccetSystemNode>(Object.values(DEFAULT_PLANE_MAP).flat());
   const orphanedNodes = systemGraph.nodes.filter((node) => !covered.has(node));
 

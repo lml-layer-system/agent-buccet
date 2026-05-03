@@ -166,8 +166,8 @@ function parseStructuredSections(text: string): Map<string, string> {
   const lines = text.split("\n");
   for (const line of lines) {
     const match = line.match(/^([a-z_]+):\s*(.*)$/i);
-    if (match && SECTION_KEYS.has(match[1]!.toLowerCase())) {
-      currentKey = match[1]!.toLowerCase();
+    if (match && SECTION_KEYS.has(match[1]?.toLowerCase())) {
+      currentKey = match[1]?.toLowerCase();
       const inlineValue = match[2] ?? "";
       buffers.set(currentKey, inlineValue.length > 0 ? [inlineValue] : []);
       continue;
@@ -184,12 +184,16 @@ function parseStructuredSections(text: string): Map<string, string> {
   return sections;
 }
 
-function inferValidationState(text: string, status: "completed" | "blocked"): CoherenceValidationState {
+function inferValidationState(
+  text: string,
+  status: "completed" | "blocked",
+): CoherenceValidationState {
   if (status === "blocked") return "blocked";
   const lower = text.toLowerCase();
   if (lower.includes("contradicted")) return "contradicted";
   if (lower.includes("verified")) return "verified";
-  if (lower.includes("tested") || lower.includes("test_pass") || lower.includes("test pass")) return "tested";
+  if (lower.includes("tested") || lower.includes("test_pass") || lower.includes("test pass"))
+    return "tested";
   if (lower.includes("blocked")) return "blocked";
   if (lower.includes("untested")) return "untested";
   return "unknown";
@@ -214,7 +218,9 @@ function parseConfidence(value: string): number {
 
 function parseDisposition(value: string): CoherenceDisposition {
   const normalized = value.trim();
-  const direct = DISPOSITION_PRIORITY.find((entry) => entry.toLowerCase() === normalized.toLowerCase());
+  const direct = DISPOSITION_PRIORITY.find(
+    (entry) => entry.toLowerCase() === normalized.toLowerCase(),
+  );
   return direct ?? "Revise";
 }
 
@@ -238,12 +244,13 @@ function inferIndependence(args: {
   let fullyShared = true;
   let anyOverlap = false;
   for (const other of others) {
-    const comparable = other.sourceIds.filter((sourceId) => !isSharedInternalTeamSourceId(sourceId));
+    const comparable = other.sourceIds.filter(
+      (sourceId) => !isSharedInternalTeamSourceId(sourceId),
+    );
     const overlap = comparable.some((sourceId) => own.has(sourceId));
     anyOverlap = anyOverlap || overlap;
     const sameSet =
-      comparable.length === own.size &&
-      comparable.every((sourceId) => own.has(sourceId));
+      comparable.length === own.size && comparable.every((sourceId) => own.has(sourceId));
     fullyShared = fullyShared && sameSet;
   }
   if (fullyShared) return "correlated";
@@ -265,7 +272,10 @@ function scorePacket(packet: Omit<CoherenceClaimPacket, "coherenceScore">): numb
   if (lawRelation.includes("aligned") || lawRelation.includes("supports")) score += 2;
   if (lawRelation.includes("conflict") || lawRelation.includes("violates")) score -= 4;
 
-  if ((packet.riskLevel === "high" || packet.riskLevel === "critical") && !["verified", "tested"].includes(inferValidationFromPacket(packet))) {
+  if (
+    (packet.riskLevel === "high" || packet.riskLevel === "critical") &&
+    !["verified", "tested"].includes(inferValidationFromPacket(packet))
+  ) {
     score -= packet.riskLevel === "critical" ? 8 : 5;
   }
 
@@ -274,7 +284,9 @@ function scorePacket(packet: Omit<CoherenceClaimPacket, "coherenceScore">): numb
   return score;
 }
 
-function inferValidationFromPacket(packet: Omit<CoherenceClaimPacket, "coherenceScore">): CoherenceValidationState {
+function inferValidationFromPacket(
+  packet: Omit<CoherenceClaimPacket, "coherenceScore">,
+): CoherenceValidationState {
   const normalized = packet.testStatus.trim().toLowerCase();
   if (normalized === "verified") return "verified";
   if (normalized === "tested") return "tested";
@@ -305,9 +317,16 @@ export function buildCoherenceClaimPacket(args: {
   const confidence = parseConfidence(sections.get("confidence") ?? "0.5");
   const userLawRelation = normalizeLineValue(sections.get("user_law_relation") ?? "unspecified");
   const constraintsAffected = tokenizeList(sections.get("constraints_affected") ?? "");
-  const testStatus = normalizeLineValue(sections.get("test_status") ?? inferValidationState(args.peer.output, args.peer.status));
-  const riskLevel = (normalizeLineValue(sections.get("risk_level") ?? inferRiskLevel(args.peer.output)) || "low").toLowerCase() as CoherenceRiskLevel;
-  const proposedDisposition = parseDisposition(sections.get("proposed_disposition") ?? (args.peer.status === "blocked" ? "BlockFinalization" : "Revise"));
+  const testStatus = normalizeLineValue(
+    sections.get("test_status") ?? inferValidationState(args.peer.output, args.peer.status),
+  );
+  const riskLevel = (
+    normalizeLineValue(sections.get("risk_level") ?? inferRiskLevel(args.peer.output)) || "low"
+  ).toLowerCase() as CoherenceRiskLevel;
+  const proposedDisposition = parseDisposition(
+    sections.get("proposed_disposition") ??
+      (args.peer.status === "blocked" ? "BlockFinalization" : "Revise"),
+  );
   const independence = inferIndependence({
     parsedValue: sections.get("independence") ?? undefined,
     sourceIds: args.peer.sourceIds,
@@ -358,17 +377,19 @@ function groupAgreements(packets: CoherenceClaimPacket[]): CoherenceAgreementGro
       claimPreview: entries[0]?.claim ?? claimKey,
       peerIds: entries.map((entry) => entry.peerId),
       count: entries.length,
-      averageScore: entries.reduce((sum, entry) => sum + entry.coherenceScore, 0) / Math.max(entries.length, 1),
+      averageScore:
+        entries.reduce((sum, entry) => sum + entry.coherenceScore, 0) / Math.max(entries.length, 1),
       independenceSignals: entries.map((entry) => entry.independence),
     }))
     .sort((a, b) => b.count - a.count || b.averageScore - a.averageScore);
 }
 
 function strongestPacket(packets: CoherenceClaimPacket[]): CoherenceClaimPacket | undefined {
-  return [...packets].sort((a, b) =>
-    b.coherenceScore - a.coherenceScore ||
-    confidenceSort(b, a) ||
-    b.evidence.length - a.evidence.length,
+  return [...packets].sort(
+    (a, b) =>
+      b.coherenceScore - a.coherenceScore ||
+      confidenceSort(b, a) ||
+      b.evidence.length - a.evidence.length,
   )[0];
 }
 
@@ -384,21 +405,31 @@ export function adjudicateMultiAgentCoherence(args: {
   const agreementGroups = groupAgreements(packets);
   const majorityGroup = agreementGroups[0];
   const strongest = strongestPacket(packets);
-  const dissentingPeerIds =
-    majorityGroup
-      ? packets.filter((packet) => !majorityGroup.peerIds.includes(packet.peerId)).map((packet) => packet.peerId)
-      : [];
+  const dissentingPeerIds = majorityGroup
+    ? packets
+        .filter((packet) => !majorityGroup.peerIds.includes(packet.peerId))
+        .map((packet) => packet.peerId)
+    : [];
 
   const truthCoherent = packets.every((packet) => {
     const validation = inferValidationFromPacket(packet);
     if (validation === "blocked" || validation === "contradicted") return false;
-    if ((packet.riskLevel === "high" || packet.riskLevel === "critical") && packet.evidence.length === 0) return false;
+    if (
+      (packet.riskLevel === "high" || packet.riskLevel === "critical") &&
+      packet.evidence.length === 0
+    )
+      return false;
     return true;
   });
-  const intentCoherent = packets.every((packet) => !packet.userLawRelation.toLowerCase().includes("conflict"));
+  const intentCoherent = packets.every(
+    (packet) => !packet.userLawRelation.toLowerCase().includes("conflict"),
+  );
   const executionCoherent = packets.every((packet) => {
     const validation = inferValidationFromPacket(packet);
-    if ((packet.riskLevel === "high" || packet.riskLevel === "critical") && !["verified", "tested"].includes(validation)) {
+    if (
+      (packet.riskLevel === "high" || packet.riskLevel === "critical") &&
+      !["verified", "tested"].includes(validation)
+    ) {
       return false;
     }
     return packet.proposedDisposition !== "Escalate";
@@ -411,7 +442,9 @@ export function adjudicateMultiAgentCoherence(args: {
     reasons.push("At least one peer explicitly requested block finalization.");
   } else if (!truthCoherent) {
     disposition = "RequestEvidence";
-    reasons.push("One or more candidate claims fail truth coherence against evidence or validation state.");
+    reasons.push(
+      "One or more candidate claims fail truth coherence against evidence or validation state.",
+    );
   } else if (!executionCoherent) {
     disposition = "RunTest";
     reasons.push("Execution coherence failed for high-risk or unverified claims.");
@@ -431,14 +464,20 @@ export function adjudicateMultiAgentCoherence(args: {
     dissentBeatsMajority = true;
     reasons.push("A dissenting peer has the strongest coherence score.");
     if (disposition === "Accept") {
-      disposition = strongest.riskLevel === "high" || strongest.riskLevel === "critical"
-        ? "BlockFinalization"
-        : "Revise";
+      disposition =
+        strongest.riskLevel === "high" || strongest.riskLevel === "critical"
+          ? "BlockFinalization"
+          : "Revise";
     }
   }
 
   const topTwo = [...packets].sort((a, b) => b.coherenceScore - a.coherenceScore).slice(0, 2);
-  if (disposition === "Accept" && topTwo.length === 2 && Math.abs(topTwo[0]!.coherenceScore - topTwo[1]!.coherenceScore) <= 1 && topTwo[0]!.claimKey !== topTwo[1]!.claimKey) {
+  if (
+    disposition === "Accept" &&
+    topTwo.length === 2 &&
+    Math.abs(topTwo[0]?.coherenceScore - topTwo[1]?.coherenceScore) <= 1 &&
+    topTwo[0]?.claimKey !== topTwo[1]?.claimKey
+  ) {
     disposition = "MarkUncertain";
     reasons.push("Top competing claims are too close in coherence score to finalize cleanly.");
   }
@@ -450,7 +489,9 @@ export function adjudicateMultiAgentCoherence(args: {
       : strongest
         ? [strongest.peerId]
         : [];
-  const rejectedPeerIds = packets.map((packet) => packet.peerId).filter((peerId) => !selectedPeerIds.includes(peerId));
+  const rejectedPeerIds = packets
+    .map((packet) => packet.peerId)
+    .filter((peerId) => !selectedPeerIds.includes(peerId));
 
   if (reasons.length === 0) {
     reasons.push("Agreement and evidence passed the coherence gate.");

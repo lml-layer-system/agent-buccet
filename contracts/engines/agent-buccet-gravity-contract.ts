@@ -1,17 +1,17 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  type GravityEvent,
+  type GravityState,
+  type LawSkill,
+  META_CONTACT_01,
+  META_CONTINUATION_01,
   assertBoundaryGravityLawUpdateAllowed,
   createBoundaryActionRequest,
   createBoundaryGravityService,
   evaluateBoundaryGravityEvent,
   evaluateGravityEvent,
-  META_CONTACT_01,
-  META_CONTINUATION_01,
   startPersistentBoundarySession,
-  type GravityEvent,
-  type GravityState,
-  type LawSkill,
 } from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
@@ -48,7 +48,13 @@ async function main() {
   const runId = new Date().toISOString().replace(/[:.]/g, "-");
   const sessionId = `agent-buccet-gravity-contract-${runId}`;
   const actorId = "user:gravity-contract";
-  const demoRoot = path.join(process.cwd(), "data", "agent-boundary", "gravity-contract", sessionId);
+  const demoRoot = path.join(
+    process.cwd(),
+    "data",
+    "agent-boundary",
+    "gravity-contract",
+    sessionId,
+  );
   const scopedRoot = path.join(demoRoot, "workspace");
   const outsideRoot = path.join(demoRoot, "outside");
   await fs.mkdir(scopedRoot, { recursive: true });
@@ -70,8 +76,14 @@ async function main() {
     config,
     request: outOfScope,
   });
-  assert(outOfScopeResult.outcome === "bodyguard_grant_offer", "expected out-of-scope request to yield a Bodyguard grant offer");
-  assert(outOfScopeResult.bodyguardMoves.some((move) => move.kind === "open_as_law"), "expected open_as_law Bodyguard move");
+  assert(
+    outOfScopeResult.outcome === "bodyguard_grant_offer",
+    "expected out-of-scope request to yield a Bodyguard grant offer",
+  );
+  assert(
+    outOfScopeResult.bodyguardMoves.some((move) => move.kind === "open_as_law"),
+    "expected open_as_law Bodyguard move",
+  );
 
   const authorityClaim = createBoundaryActionRequest({
     config,
@@ -108,8 +120,14 @@ async function main() {
       },
     },
   });
-  assert(malformedContact.result.decision === "deny", "expected malformed contact proposal to be denied");
-  assert(malformedContact.lawIds.includes(META_CONTACT_01), "expected META.CONTACT.01 to trigger on malformed contact");
+  assert(
+    malformedContact.result.decision === "deny",
+    "expected malformed contact proposal to be denied",
+  );
+  assert(
+    malformedContact.lawIds.includes(META_CONTACT_01),
+    "expected META.CONTACT.01 to trigger on malformed contact",
+  );
 
   const untrustedLawUpdate = await evaluateBoundaryGravityEvent({
     config,
@@ -132,8 +150,14 @@ async function main() {
       },
     },
   });
-  assert(untrustedLawUpdate.result.decision === "deny", "expected untrusted law update proposal to be denied");
-  assert(untrustedLawUpdate.lawIds.includes(META_CONTINUATION_01), "expected META.CONTINUATION.01 to trigger on untrusted law update");
+  assert(
+    untrustedLawUpdate.result.decision === "deny",
+    "expected untrusted law update proposal to be denied",
+  );
+  assert(
+    untrustedLawUpdate.lawIds.includes(META_CONTINUATION_01),
+    "expected META.CONTINUATION.01 to trigger on untrusted law update",
+  );
 
   await assertBoundaryGravityLawUpdateAllowed({
     config,
@@ -155,8 +179,14 @@ async function main() {
       requestTraceComplete: true,
     },
   });
-  assert(incompleteRestore.result.decision === "deny", "expected incomplete restore trace to be denied");
-  assert(incompleteRestore.lawIds.includes(META_CONTINUATION_01), "expected META.CONTINUATION.01 to trigger on incomplete restore");
+  assert(
+    incompleteRestore.result.decision === "deny",
+    "expected incomplete restore trace to be denied",
+  );
+  assert(
+    incompleteRestore.lawIds.includes(META_CONTINUATION_01),
+    "expected META.CONTINUATION.01 to trigger on incomplete restore",
+  );
 
   const throwingSkill: LawSkill = {
     id: "TEST.GRAVITY.THROW.01",

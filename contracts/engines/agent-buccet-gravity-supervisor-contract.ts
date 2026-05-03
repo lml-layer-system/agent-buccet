@@ -61,7 +61,10 @@ async function main() {
   await sleep(350);
   const restarted = supervisor.getStatus();
   assert(restarted.restartCount >= 1, "expected supervisor to record restart count");
-  assert(restarted.lastRestartReason === "contract restart", "expected supervisor to record restart reason");
+  assert(
+    restarted.lastRestartReason === "contract restart",
+    "expected supervisor to record restart reason",
+  );
 
   await supervisor.stop();
   const stopped = supervisor.getStatus();

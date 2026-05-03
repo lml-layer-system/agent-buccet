@@ -1,10 +1,10 @@
 import readline from "node:readline";
 import {
-  evaluateSystemInterceptEvent,
-  sendBoundaryInterceptServerInput,
   type BoundaryInterceptDaemonCommand,
   type BoundaryInterceptDaemonOutput,
   type BoundarySystemInterceptEvent,
+  evaluateSystemInterceptEvent,
+  sendBoundaryInterceptServerInput,
 } from "./../src/index.ts";
 
 type ParsedArgs = {
@@ -64,10 +64,12 @@ function writeOutput(output: BoundaryInterceptDaemonOutput) {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const target = args.socketPath ? { socketPath: args.socketPath } : { host: args.host!, port: args.port! };
+  const target = args.socketPath
+    ? { socketPath: args.socketPath }
+    : { host: args.host!, port: args.port! };
   const rl = readline.createInterface({
     input: process.stdin,
-    crlfDelay: Infinity,
+    crlfDelay: Number.POSITIVE_INFINITY,
   });
 
   for await (const line of rl) {

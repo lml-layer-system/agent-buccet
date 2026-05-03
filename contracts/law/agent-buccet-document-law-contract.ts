@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 import {
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
@@ -14,7 +14,10 @@ import {
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
 
-function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string; code: number | null }> {
+function runCli(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], {
       cwd: repoRoot,
@@ -24,8 +27,12 @@ function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: strin
 
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
     child.on("error", reject);
     child.on("close", (code) => resolve({ stdout, stderr, code }));
   });
@@ -48,32 +55,38 @@ async function main() {
     await fs.mkdir(actionRailDir, { recursive: true });
     const documentPath = path.join(workspacePath, "policy.md");
     const mixedDocumentPath = path.join(workspacePath, "mixed-policy.md");
-    await fs.writeFile(documentPath, [
-      "# Response policy",
-      "",
-      "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
-      "",
-      "Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.",
-      "",
-      "Invariant: Completion must stay single sentence.",
-      "Completion grammar: single sentence",
-      "",
-      `Only permit fs.write inside "${path.join(actionRailDir, "allowed.txt")}". Never write outside "${path.join(actionRailDir, "allowed.txt")}".`,
-      "",
-      "Decision: deny",
-      "Invariant: Never mention spoilers.",
-      "Enforcement: Reject spoiler phrasing entirely.",
-      "Forbid: spoilers",
-    ].join("\n"));
-    await fs.writeFile(mixedDocumentPath, [
-      "# Mixed response policy",
-      "",
-      "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
-      "",
-      "Invariant: Mixed block must not partially snap.",
-      "Expression: cosmic legendary phoenix storyteller voice",
-      "Require: canon-sigil-42",
-    ].join("\n"));
+    await fs.writeFile(
+      documentPath,
+      [
+        "# Response policy",
+        "",
+        "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
+        "",
+        "Speak in a direct, objective, impersonal, no metaphor, no hype, brief style.",
+        "",
+        "Invariant: Completion must stay single sentence.",
+        "Completion grammar: single sentence",
+        "",
+        `Only permit fs.write inside "${path.join(actionRailDir, "allowed.txt")}". Never write outside "${path.join(actionRailDir, "allowed.txt")}".`,
+        "",
+        "Decision: deny",
+        "Invariant: Never mention spoilers.",
+        "Enforcement: Reject spoiler phrasing entirely.",
+        "Forbid: spoilers",
+      ].join("\n"),
+    );
+    await fs.writeFile(
+      mixedDocumentPath,
+      [
+        "# Mixed response policy",
+        "",
+        "Return only 1999 material. The response must be in bullets. Never mention 2000s. Speak in archival tone.",
+        "",
+        "Invariant: Mixed block must not partially snap.",
+        "Expression: cosmic legendary phoenix storyteller voice",
+        "Require: canon-sigil-42",
+      ].join("\n"),
+    );
 
     const env = {
       ...process.env,
@@ -93,40 +106,127 @@ async function main() {
     };
     assert.equal(imported.scope, "GLOBAL");
     assert.equal(imported.imported.length, 1);
-    assert.equal(imported.imported[0].imported, 5, "expected five invariant blocks to compile into five laws");
+    assert.equal(
+      imported.imported[0].imported,
+      5,
+      "expected five invariant blocks to compile into five laws",
+    );
 
     const mixedImport = await runCli(["upl", "import", mixedDocumentPath], env);
-    assert.notEqual(mixedImport.code, 0, "expected mixed unsupported law doc to fail strict import");
+    assert.notEqual(
+      mixedImport.code,
+      0,
+      "expected mixed unsupported law doc to fail strict import",
+    );
     assert.match(mixedImport.stderr, /refuses partial import|unsupported or unsnappable/i);
 
-    const importedLedgerPath = path.join(homePath, "data", "agent-buccet-law-foundation", "user-path-ledger.json");
-    const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<ReturnType<typeof loadUserPathLedger>>;
-    const activeDenied = upl.userDeniedLawPaths.filter((entry) =>
-      entry.status === "ACTIVE" &&
-      entry.notes?.includes("document-law import:")
+    const importedLedgerPath = path.join(
+      homePath,
+      "data",
+      "agent-buccet-law-foundation",
+      "user-path-ledger.json",
+    );
+    const upl = JSON.parse(await fs.readFile(importedLedgerPath, "utf8")) as Awaited<
+      ReturnType<typeof loadUserPathLedger>
+    >;
+    const activeDenied = upl.userDeniedLawPaths.filter(
+      (entry) => entry.status === "ACTIVE" && entry.notes?.includes("document-law import:"),
     );
     const activeApproved = upl.userApprovedLawPaths.filter((entry) => entry.status === "ACTIVE");
     assert.equal(activeDenied.length, 1);
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("2000s")));
+    assert.ok(
+      activeApproved.some((entry) =>
+        entry.trackConstraint?.forbiddenTextPatterns?.includes("2000s"),
+      ),
+    );
     assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputShape === "bullets"));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("1999")));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "archival"));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("1999")));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.outputShape === "bullets"));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.completionGrammar === "single_sentence"));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.completionCorridor?.grammar === "single_sentence"));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.register === "direct"));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.disallowMetaphor === true));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.expressionCorridor?.disallowSubjectivity === true));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.allowedActionKinds.includes("fs.write")));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.targetPattern === actionRailDir));
-    assert.ok(activeApproved.some((entry) => entry.trackConstraint?.actionCorridor?.targetPattern === actionRailDir));
-    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("canon-sigil-42")));
-    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("canon-sigil-42")));
-    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "cosmic legendary phoenix storyteller"));
-    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("legendary unforgettable phoenix ascension")));
-    assert.ok(!activeApproved.some((entry) => entry.trackConstraint?.targetPattern === "legendary cosmic somewhere wonderful"));
-    assert.ok(activeDenied.some((entry) => entry.trackConstraint?.forbiddenTextPatterns?.includes("spoilers")));
+    assert.ok(
+      activeApproved.some((entry) => entry.trackConstraint?.requiredTextPatterns?.includes("1999")),
+    );
+    assert.ok(
+      activeApproved.some((entry) => entry.trackConstraint?.expressionProfile === "archival"),
+    );
+    assert.ok(
+      activeApproved.some((entry) =>
+        entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("1999"),
+      ),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.outputCorridor?.outputShape === "bullets",
+      ),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.completionGrammar === "single_sentence",
+      ),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.completionCorridor?.grammar === "single_sentence",
+      ),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.expressionCorridor?.register === "direct",
+      ),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.expressionCorridor?.disallowMetaphor === true,
+      ),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.expressionCorridor?.disallowSubjectivity === true,
+      ),
+    );
+    assert.ok(
+      activeApproved.some((entry) =>
+        entry.trackConstraint?.allowedActionKinds.includes("fs.write"),
+      ),
+    );
+    assert.ok(
+      activeApproved.some((entry) => entry.trackConstraint?.targetPattern === actionRailDir),
+    );
+    assert.ok(
+      activeApproved.some(
+        (entry) => entry.trackConstraint?.actionCorridor?.targetPattern === actionRailDir,
+      ),
+    );
+    assert.ok(
+      !activeApproved.some((entry) =>
+        entry.trackConstraint?.requiredTextPatterns?.includes("canon-sigil-42"),
+      ),
+    );
+    assert.ok(
+      !activeApproved.some((entry) =>
+        entry.trackConstraint?.outputCorridor?.requiredTextPatterns?.includes("canon-sigil-42"),
+      ),
+    );
+    assert.ok(
+      !activeApproved.some(
+        (entry) =>
+          entry.trackConstraint?.expressionProfile === "cosmic legendary phoenix storyteller",
+      ),
+    );
+    assert.ok(
+      !activeApproved.some((entry) =>
+        entry.trackConstraint?.requiredTextPatterns?.includes(
+          "legendary unforgettable phoenix ascension",
+        ),
+      ),
+    );
+    assert.ok(
+      !activeApproved.some(
+        (entry) => entry.trackConstraint?.targetPattern === "legendary cosmic somewhere wonderful",
+      ),
+    );
+    assert.ok(
+      activeDenied.some((entry) =>
+        entry.trackConstraint?.forbiddenTextPatterns?.includes("spoilers"),
+      ),
+    );
 
     const sessionId = `agent-buccet-document-law-${Date.now()}`;
     const actorId = "user:document-law-contract";
@@ -160,7 +260,11 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "chat output emitted after document law",
     });
-    assert.equal(expressionBlocked.allowed, false, "expected archival expression corridor to block hype output");
+    assert.equal(
+      expressionBlocked.allowed,
+      false,
+      "expected archival expression corridor to block hype output",
+    );
 
     const directExpressionBlocked = await bodyguard.chat.emit({
       userInput: "respond directly",
@@ -168,7 +272,11 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "chat output emitted after document law",
     });
-    assert.equal(directExpressionBlocked.allowed, false, "expected structural direct expression corridor to block subjective metaphorical output");
+    assert.equal(
+      directExpressionBlocked.allowed,
+      false,
+      "expected structural direct expression corridor to block subjective metaphorical output",
+    );
 
     const completionBlocked = await bodyguard.chat.emit({
       userInput: "answer in one sentence",
@@ -176,7 +284,11 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "chat output emitted after document law",
     });
-    assert.equal(completionBlocked.allowed, false, "expected completion corridor to block multi-sentence output");
+    assert.equal(
+      completionBlocked.allowed,
+      false,
+      "expected completion corridor to block multi-sentence output",
+    );
 
     const writeAllowed = await bodyguard.enforceProposal({
       actionKind: "fs.write",
@@ -186,8 +298,16 @@ async function main() {
       execute: async () => "ok",
       successReason: "wrote inside rail",
     });
-    assert.equal(writeAllowed.allowed, true, "expected imported fs.write corridor to allow inside target");
-    assert.equal(writeAllowed.requiresApproval, false, "expected imported fs.write corridor to avoid re-prompt inside rail");
+    assert.equal(
+      writeAllowed.allowed,
+      true,
+      "expected imported fs.write corridor to allow inside target",
+    );
+    assert.equal(
+      writeAllowed.requiresApproval,
+      false,
+      "expected imported fs.write corridor to avoid re-prompt inside rail",
+    );
 
     const writeBlocked = await bodyguard.enforceProposal({
       actionKind: "fs.write",
@@ -197,7 +317,11 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "should not write outside rail",
     });
-    assert.equal(writeBlocked.allowed, false, "expected imported fs.write corridor to block outside target");
+    assert.equal(
+      writeBlocked.allowed,
+      false,
+      "expected imported fs.write corridor to block outside target",
+    );
 
     const allowed = await bodyguard.chat.emit({
       userInput: "only return 1999 material",

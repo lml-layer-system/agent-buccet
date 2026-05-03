@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   createBoundaryActionRequest,
   evaluateBoundaryAction,
@@ -130,10 +130,14 @@ async function main() {
   assert.equal(unrelatedDeleteRequest.flags?.violatesUserConstraint, undefined);
 
   console.log(`time runtime decision: ${evaluated.result.decision}`);
-  console.log(`time runtime hard deny: ${evaluated.result.triggeredLawIds.includes("DENY.AUTHORITY.SPOOFING.004D")}`);
+  console.log(
+    `time runtime hard deny: ${evaluated.result.triggeredLawIds.includes("DENY.AUTHORITY.SPOOFING.004D")}`,
+  );
   console.log(`time runtime laws: ${evaluated.result.triggeredLawIds.join(",")}`);
   console.log(`deny wall beats novelty review: ${denied.result.decision}`);
-  console.log(`delete constraint activation: ${deleteConstraintRequest.flags?.violatesUserConstraint === true}`);
+  console.log(
+    `delete constraint activation: ${deleteConstraintRequest.flags?.violatesUserConstraint === true}`,
+  );
 }
 
 main().catch((error) => {

@@ -17,9 +17,9 @@
 import {
   DEFAULT_ADMISSION_WEIGHT,
   DENSITY_SAFE_MAX_WINDOW_SIZE,
+  WEAK_PROVENANCE_HARD_BLOCK_CEILING,
   evaluateAdmission,
   initialAdmissionState,
-  WEAK_PROVENANCE_HARD_BLOCK_CEILING,
   validateAdmissionConfig,
 } from "./../../src/index.ts";
 import type {
@@ -47,9 +47,16 @@ function makeRequest(
 }
 
 /** Build a state with a weak provenance pre-seeded to a given totalDeniedCount. */
-function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: number): BoundaryAdmissionState {
+function stateWithDeniedCount(
+  provenance: string,
+  deniedCount: number,
+  nowMs: number,
+): BoundaryAdmissionState {
   const record: BoundaryProvenanceRecord = {
-    requestTimestamps: Array.from({ length: deniedCount }, (_, i) => nowMs - (deniedCount - i) * 100),
+    requestTimestamps: Array.from(
+      { length: deniedCount },
+      (_, i) => nowMs - (deniedCount - i) * 100,
+    ),
     recentDecisions: Array.from({ length: deniedCount }, () => false),
     totalDeniedCount: deniedCount,
     totalInboundWeight: deniedCount,
@@ -77,7 +84,11 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   };
 
   // Pre-seed: ceiling - 1 denied. One more tarpit must fire the ceiling.
-  const seedState = stateWithDeniedCount("ip:weak-h1", WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1, 1_000);
+  const seedState = stateWithDeniedCount(
+    "ip:weak-h1",
+    WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1,
+    1_000,
+  );
 
   // First eval: ceiling not yet reached (deniedCount = 9 < 10)
   const r1 = evaluateAdmission({
@@ -87,7 +98,10 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     nowMs: 2_000,
   });
   assert(r1.result.promoted === false, "H1a: ceiling must NOT fire at ceiling-1 denials");
-  assert(r1.result.promotionKind !== "hard_ceiling", "H1a: promotionKind must not be hard_ceiling yet");
+  assert(
+    r1.result.promotionKind !== "hard_ceiling",
+    "H1a: promotionKind must not be hard_ceiling yet",
+  );
 
   // One more deny (velocity fires again, accumulating 10 total)
   const r2 = evaluateAdmission({
@@ -114,14 +128,22 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     state = r3.state;
   }
 
-  assert(ceilingFired, "H1b: ceiling must fire within 1 request of reaching WEAK_PROVENANCE_HARD_BLOCK_CEILING denials");
-  assert(state.canyonProvenances["ip:weak-h1"] !== undefined, "H1c: provenance must be in canyon hold");
+  assert(
+    ceilingFired,
+    "H1b: ceiling must fire within 1 request of reaching WEAK_PROVENANCE_HARD_BLOCK_CEILING denials",
+  );
+  assert(
+    state.canyonProvenances["ip:weak-h1"] !== undefined,
+    "H1c: provenance must be in canyon hold",
+  );
   assert(
     state.canyonProvenances["ip:weak-h1"].promotionKind === "hard_ceiling",
     "H1d: canyon hold entry must have promotionKind=hard_ceiling",
   );
 
-  console.log(`  [pass] H1: hard ceiling fires at WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING} tarpit decisions`);
+  console.log(
+    `  [pass] H1: hard ceiling fires at WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING} tarpit decisions`,
+  );
 }
 
 // ─── H2: Loose density config does not push past ceiling ─────────────────────
@@ -135,7 +157,11 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   };
 
   // Pre-seed to ceiling - 1
-  const seedState = stateWithDeniedCount("ip:weak-h2", WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1, 1_000);
+  const seedState = stateWithDeniedCount(
+    "ip:weak-h2",
+    WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1,
+    1_000,
+  );
 
   let state = seedState;
   let promotionKind: "density" | "hard_ceiling" | undefined;
@@ -158,7 +184,8 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
 
   assert(state.canyonProvenances["ip:weak-h2"] !== undefined, "H2: must be in canyon hold");
   assert(
-    promotionKind === "hard_ceiling" || state.canyonProvenances["ip:weak-h2"].promotionKind === "hard_ceiling",
+    promotionKind === "hard_ceiling" ||
+      state.canyonProvenances["ip:weak-h2"].promotionKind === "hard_ceiling",
     `H2: loose density config must not prevent ceiling — got promotionKind=${promotionKind ?? state.canyonProvenances["ip:weak-h2"]?.promotionKind}`,
   );
 
@@ -172,11 +199,18 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     velocity: { maxRpm: 0, windowMs: 60_000 },
   };
 
-  const seedState = stateWithDeniedCount("ip:weak-h3", WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1, 1_000);
+  const seedState = stateWithDeniedCount(
+    "ip:weak-h3",
+    WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1,
+    1_000,
+  );
 
   let state = seedState;
-  let ceilingResult: typeof import("./../../src/index.ts").evaluateAdmission extends
-    (args: infer _A) => infer R ? R : never | undefined;
+  let _ceilingResult: typeof import("./../../src/index.ts").evaluateAdmission extends (
+    args: infer _A,
+  ) => infer R
+    ? R
+    : never | undefined;
   let found = false;
 
   for (let i = 0; i < 5; i++) {
@@ -190,7 +224,10 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     if (r.result.promoted && r.result.promotionKind === "hard_ceiling") {
       found = true;
       assert(r.result.decision === "tarpit", "H3: hard ceiling result must be tarpit");
-      assert(r.result.lawId === "BOUNDARY.ADMISSION.HARD_CEILING.01", `H3: lawId must be HARD_CEILING.01 — got ${r.result.lawId}`);
+      assert(
+        r.result.lawId === "BOUNDARY.ADMISSION.HARD_CEILING.01",
+        `H3: lawId must be HARD_CEILING.01 — got ${r.result.lawId}`,
+      );
       assert(r.result.promoted === true, "H3: promoted must be true");
       assert(r.result.promotionKind === "hard_ceiling", "H3: promotionKind must be hard_ceiling");
       break;
@@ -198,9 +235,14 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     if (state.canyonProvenances["ip:weak-h3"]) break;
   }
 
-  assert(found, "H3: hard ceiling must fire within 5 requests of ceiling - 1 denials and expose promotionKind");
+  assert(
+    found,
+    "H3: hard ceiling must fire within 5 requests of ceiling - 1 denials and expose promotionKind",
+  );
 
-  console.log("  [pass] H3: result.promotionKind='hard_ceiling' visible at ceiling fire with correct lawId");
+  console.log(
+    "  [pass] H3: result.promotionKind='hard_ceiling' visible at ceiling fire with correct lawId",
+  );
 }
 
 // ─── H4: validateAdmissionConfig warns on unsafe density configs ──────────────
@@ -242,7 +284,9 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
   const warnings4 = validateAdmissionConfig(noDensityCfg);
   assert(warnings4.length === 0, "H4d: config with no density section must produce no warnings");
 
-  console.log(`  [pass] H4: validateAdmissionConfig warns on unsafe configs (DENSITY_SAFE_MAX_WINDOW_SIZE=${DENSITY_SAFE_MAX_WINDOW_SIZE})`);
+  console.log(
+    `  [pass] H4: validateAdmissionConfig warns on unsafe configs (DENSITY_SAFE_MAX_WINDOW_SIZE=${DENSITY_SAFE_MAX_WINDOW_SIZE})`,
+  );
 }
 
 // ─── H5: Tight density fires before ceiling ────────────────────────────────────
@@ -286,7 +330,9 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     `H5: density must fire before ceiling=${WEAK_PROVENANCE_HARD_BLOCK_CEILING} — fired at ${promotedAt}`,
   );
 
-  console.log(`  [pass] H5: tight density fires at request ${promotedAt} (before ceiling=${WEAK_PROVENANCE_HARD_BLOCK_CEILING})`);
+  console.log(
+    `  [pass] H5: tight density fires at request ${promotedAt} (before ceiling=${WEAK_PROVENANCE_HARD_BLOCK_CEILING})`,
+  );
 }
 
 // ─── H6: O(1) cache hit after ceiling promotion ────────────────────────────────
@@ -296,7 +342,11 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     velocity: { maxRpm: 0, windowMs: 60_000 },
   };
 
-  const seedState = stateWithDeniedCount("ip:weak-h6", WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1, 1_000);
+  const seedState = stateWithDeniedCount(
+    "ip:weak-h6",
+    WEAK_PROVENANCE_HARD_BLOCK_CEILING - 1,
+    1_000,
+  );
 
   let state = seedState;
   for (let i = 0; i < 5; i++) {
@@ -412,7 +462,9 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
     "H7: promotion after TTL expiry must be hard_ceiling (not density reset)",
   );
 
-  console.log("  [pass] H7: TTL-evicted provenance carries prior denied count via hostileDeniedCounts — ceiling still fires");
+  console.log(
+    "  [pass] H7: TTL-evicted provenance carries prior denied count via hostileDeniedCounts — ceiling still fires",
+  );
 }
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
@@ -420,4 +472,4 @@ function stateWithDeniedCount(provenance: string, deniedCount: number, nowMs: nu
 console.log("\nAdmission hard-cap contract: all 7 tests passed.");
 console.log(`  WEAK_PROVENANCE_HARD_BLOCK_CEILING=${WEAK_PROVENANCE_HARD_BLOCK_CEILING}`);
 console.log(`  DENSITY_SAFE_MAX_WINDOW_SIZE=${DENSITY_SAFE_MAX_WINDOW_SIZE}`);
-console.log(`  DEFAULT_ADMISSION_WEIGHT.standard=${DEFAULT_ADMISSION_WEIGHT["standard"]}`);
+console.log(`  DEFAULT_ADMISSION_WEIGHT.standard=${DEFAULT_ADMISSION_WEIGHT.standard}`);

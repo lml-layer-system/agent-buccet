@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   DEFAULT_ADMISSION_CONFIG,
   DEFAULT_GOVERNOR_CONFIG,

@@ -1,6 +1,4 @@
-export type {
-  AgentBuccetMetaLawReference as AgentBuccetTimeLawReference,
-} from "./meta.ts";
+export type { AgentBuccetMetaLawReference as AgentBuccetTimeLawReference } from "./meta.ts";
 
 export {
   AGENT_BUCCET_META_LAW_POSTURE as AGENT_BUCCET_TIME_LAW_POSTURE,

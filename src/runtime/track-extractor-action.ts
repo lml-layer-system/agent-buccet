@@ -1,13 +1,13 @@
 import { basename, sep as pathSep } from "node:path";
 import path from "node:path";
+import { stripTrailingPunctuation } from "./track-extractor-entropy.ts";
+import { canonicalizeTrackLiteral, passesTrackMeaningGate } from "./track-extractor-negative.ts";
 import type {
-  BoundaryActionKind,
   BoundaryActionCorridor,
+  BoundaryActionKind,
   BoundaryReviewContext,
   BoundaryUplTrackConstraint,
 } from "./types.ts";
-import { stripTrailingPunctuation } from "./track-extractor-entropy.ts";
-import { canonicalizeTrackLiteral, passesTrackMeaningGate } from "./track-extractor-negative.ts";
 
 const CHAT_TARGET = "chat:primary";
 
@@ -88,14 +88,19 @@ export function inferTargetFromSentence(sentence: string): string | null {
   if (fsPath?.[1]) {
     return canonicalizeTrackLiteral(stripTrailingPunctuation(fsPath[1]));
   }
-  const domainTarget = sentence.match(/\b(?:to|within|inside|on)\s+([a-z0-9._:-]+\.[a-z]{2,}(?:\/[^\s,;]+)?)/i);
+  const domainTarget = sentence.match(
+    /\b(?:to|within|inside|on)\s+([a-z0-9._:-]+\.[a-z]{2,}(?:\/[^\s,;]+)?)/i,
+  );
   if (domainTarget?.[1]) {
     return canonicalizeTrackLiteral(stripTrailingPunctuation(domainTarget[1]));
   }
   return null;
 }
 
-export function inferTargetPattern(actionKind: BoundaryActionKind, rawTarget: string | undefined): {
+export function inferTargetPattern(
+  actionKind: BoundaryActionKind,
+  rawTarget: string | undefined,
+): {
   target: string;
   targetPattern?: string;
   targetMatchMode?: BoundaryUplTrackConstraint["targetMatchMode"];
@@ -121,17 +126,28 @@ export function inferTargetPattern(actionKind: BoundaryActionKind, rawTarget: st
       targetMatchMode: "exact",
     };
   }
-  if (actionKind === "network.send" || actionKind === "comm.send" || actionKind.startsWith("db.") || actionKind.startsWith("sys.")) {
+  if (
+    actionKind === "network.send" ||
+    actionKind === "comm.send" ||
+    actionKind.startsWith("db.") ||
+    actionKind.startsWith("sys.")
+  ) {
     return {
       target,
       targetPattern: target,
       targetMatchMode: "exact",
     };
   }
-  const isPathLike = target.startsWith("/") || target.startsWith("./") || target.startsWith("../") || target.includes(pathSep);
+  const isPathLike =
+    target.startsWith("/") ||
+    target.startsWith("./") ||
+    target.startsWith("../") ||
+    target.includes(pathSep);
   return {
     target,
-    ...(isPathLike ? { targetPattern: target, targetMatchMode: "prefix" as const } : { targetPattern: target, targetMatchMode: "exact" as const }),
+    ...(isPathLike
+      ? { targetPattern: target, targetMatchMode: "prefix" as const }
+      : { targetPattern: target, targetMatchMode: "exact" as const }),
   };
 }
 
@@ -152,7 +168,9 @@ function canonicalizeStructuredTarget(rawTarget: string): string | undefined {
   return passesTrackMeaningGate(target, "action") ? target : undefined;
 }
 
-export function inferReviewSurface(actionKind: BoundaryActionKind): BoundaryReviewContext["surface"] {
+export function inferReviewSurface(
+  actionKind: BoundaryActionKind,
+): BoundaryReviewContext["surface"] {
   return actionKind === "chat.emit" ? "chat" : "action";
 }
 
@@ -160,16 +178,20 @@ export function collapseActionTrackMeaning(args: {
   actionKind: BoundaryActionKind;
   rawTarget?: string;
 }): ActionTrackMeaning {
-  const { target, targetPattern, targetMatchMode } = inferTargetPattern(args.actionKind, args.rawTarget);
+  const { target, targetPattern, targetMatchMode } = inferTargetPattern(
+    args.actionKind,
+    args.rawTarget,
+  );
   const reviewSurface = inferReviewSurface(args.actionKind);
-  const corridor = args.actionKind === "chat.emit" || target === "unspecified"
-    ? undefined
-    : {
-        allowedActionKinds: [args.actionKind],
-        ...(targetPattern ? { targetPattern } : {}),
-        ...(targetMatchMode ? { targetMatchMode } : {}),
-        reviewSurface,
-      };
+  const corridor =
+    args.actionKind === "chat.emit" || target === "unspecified"
+      ? undefined
+      : {
+          allowedActionKinds: [args.actionKind],
+          ...(targetPattern ? { targetPattern } : {}),
+          ...(targetMatchMode ? { targetMatchMode } : {}),
+          reviewSurface,
+        };
   return {
     corridor,
     actionKind: args.actionKind,

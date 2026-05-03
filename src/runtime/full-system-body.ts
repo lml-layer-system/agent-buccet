@@ -1,25 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createDefaultBuccetPathLibrary } from "../context/path-memory.ts";
+import { createBaseAcceptanceLaws } from "../law/base-upl-acceptance.ts";
+import { createBaseHeadlessDenialEntries } from "../law/headless-base-denials.ts";
 import {
-  createBaseAcceptanceLaws,
-} from "../law/base-upl-acceptance.ts";
-import {
-  createBaseHeadlessDenialEntries,
-} from "../law/headless-base-denials.ts";
-import {
-  benchmarkBuccetSystemSnap,
   BUCCET_CONSEQUENCE_BOUNDARIES,
   BUCCET_SUBSTRATE_PLANES,
   BUCCET_SYSTEM_NODES,
   BUCCET_TERMINALS,
+  benchmarkBuccetSystemSnap,
 } from "./substrate/system-substrate.ts";
-import {
-  createDefaultBuccetPathLibrary,
-} from "../context/path-memory.ts";
-import {
-  snapBuccetSystem,
-} from "./substrate/system-substrate.ts";
+import { snapBuccetSystem } from "./substrate/system-substrate.ts";
 import type { BoundaryActionKind } from "./types.ts";
 
 const WORKSPACE_ROOT = "/<workspace-root>";
@@ -167,25 +159,25 @@ function walkFiles(rootPath: string, relativeRoot: string): string[] {
 
 function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | "orphaned" {
   if (
-    relativePath === "package.json"
-    || relativePath === "package-lock.json"
-    || relativePath === "LICENSE"
-    || relativePath === ".gitignore"
-    || relativePath === "biome.json"
-    || relativePath === "tsconfig.json"
-    || relativePath === "tsconfig.build.json"
-    || relativePath.startsWith(".github/")
+    relativePath === "package.json" ||
+    relativePath === "package-lock.json" ||
+    relativePath === "LICENSE" ||
+    relativePath === ".gitignore" ||
+    relativePath === "biome.json" ||
+    relativePath === "tsconfig.json" ||
+    relativePath === "tsconfig.build.json" ||
+    relativePath.startsWith(".github/")
   ) {
     return "InstallReleaseBody";
   }
   if (
-    relativePath === "README.md"
-    || relativePath === "CHANGELOG.md"
-    || relativePath === "SECURITY.md"
-    || relativePath === "AGENTS.md"
-    || relativePath === "CONTRIBUTING.md"
-    || relativePath === "CODE_OF_CONDUCT.md"
-    || relativePath.startsWith("docs/")
+    relativePath === "README.md" ||
+    relativePath === "CHANGELOG.md" ||
+    relativePath === "SECURITY.md" ||
+    relativePath === "AGENTS.md" ||
+    relativePath === "CONTRIBUTING.md" ||
+    relativePath === "CODE_OF_CONDUCT.md" ||
+    relativePath.startsWith("docs/")
   ) {
     return "RenderDocsBody";
   }
@@ -195,7 +187,10 @@ function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | 
   if (relativePath.startsWith("scripts/render-")) {
     return "RenderDocsBody";
   }
-  if (relativePath.startsWith("scripts/install-") || relativePath === "scripts/prepare-agent-buccet-package.ts") {
+  if (
+    relativePath.startsWith("scripts/install-") ||
+    relativePath === "scripts/prepare-agent-buccet-package.ts"
+  ) {
     return "InstallReleaseBody";
   }
   if (relativePath.startsWith("scripts/") && relativePath.endsWith("-contract.ts")) {
@@ -213,17 +208,23 @@ function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | 
   if (relativePath.startsWith("examples/") || relativePath.startsWith("demo/")) {
     return "OperatorBody";
   }
-  if (relativePath === "lib/agent-buccet/path-memory.ts" || relativePath === "lib/agent-buccet/swarm.ts") {
+  if (
+    relativePath === "lib/agent-buccet/path-memory.ts" ||
+    relativePath === "lib/agent-buccet/swarm.ts"
+  ) {
     return "PathBody";
   }
   if (
-    relativePath.startsWith("lib/agent-buccet/ledger")
-    || relativePath === "lib/agent-buccet/witness.ts"
-    || relativePath === "lib/agent-buccet/release-witness.ts"
+    relativePath.startsWith("lib/agent-buccet/ledger") ||
+    relativePath === "lib/agent-buccet/witness.ts" ||
+    relativePath === "lib/agent-buccet/release-witness.ts"
   ) {
     return "WitnessBody";
   }
-  if (relativePath.startsWith("lib/agent-buccet/gravity-core/") || relativePath.startsWith("lib/agent-buccet/gravity-adapter/")) {
+  if (
+    relativePath.startsWith("lib/agent-buccet/gravity-core/") ||
+    relativePath.startsWith("lib/agent-buccet/gravity-adapter/")
+  ) {
     return "RuntimeBody";
   }
   if (relativePath.startsWith("lib/agent-buccet/integrations/")) {
@@ -232,25 +233,26 @@ function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | 
   if (relativePath.startsWith("lib/agent-buccet/")) {
     const file = relativePath.slice("lib/agent-buccet/".length);
     if (
-      file.startsWith("base-upl-acceptance")
-      || file.startsWith("headless-base-denials")
-      || file.startsWith("document-law")
-      || file.startsWith("track-extractor")
-      || file.startsWith("upl-")
-      || file.startsWith("user-path-ledger")
-      || file.startsWith("capability-") || file.startsWith("core-skill-")
-      || file.startsWith("extended-skill-")
-      || file.startsWith("list-v-acceptance")
-      || file.startsWith("marketplace-acceptance")
-      || file.startsWith("time-constraint-flags")
-      || file.startsWith("periodic-failure-taxonomy")
-      || file.startsWith("frontier-failure-aliases")
-      || file.startsWith("buccet-failure-catalog")
-      || file.startsWith("buccet-law-body-denial-catalog")
-      || file.startsWith("law")
-      || file.startsWith("meta")
-      || file.startsWith("full-system-body")
-      || file.startsWith("foundation")
+      file.startsWith("base-upl-acceptance") ||
+      file.startsWith("headless-base-denials") ||
+      file.startsWith("document-law") ||
+      file.startsWith("track-extractor") ||
+      file.startsWith("upl-") ||
+      file.startsWith("user-path-ledger") ||
+      file.startsWith("capability-") ||
+      file.startsWith("core-skill-") ||
+      file.startsWith("extended-skill-") ||
+      file.startsWith("list-v-acceptance") ||
+      file.startsWith("marketplace-acceptance") ||
+      file.startsWith("time-constraint-flags") ||
+      file.startsWith("periodic-failure-taxonomy") ||
+      file.startsWith("frontier-failure-aliases") ||
+      file.startsWith("buccet-failure-catalog") ||
+      file.startsWith("buccet-law-body-denial-catalog") ||
+      file.startsWith("law") ||
+      file.startsWith("meta") ||
+      file.startsWith("full-system-body") ||
+      file.startsWith("foundation")
     ) {
       return "LawBody";
     }
@@ -262,18 +264,18 @@ function classifyBuccetRepoArtifact(relativePath: string): BuccetRepoSnapBody | 
 function createBuccetRepoArtifactManifest(repoRoot: string): BuccetRepoArtifact[] {
   const artifacts = walkFiles(repoRoot, "").filter((relativePath) => {
     return !(
-      relativePath.startsWith(".git/")
-      || relativePath === ".git"
-      || relativePath.startsWith(".next/")
-      || relativePath.startsWith("out/")
-      || relativePath.startsWith("coverage/")
-      || relativePath.startsWith("node_modules/")
-      || relativePath.startsWith("dist/")
-      || relativePath.startsWith("data/agent-boundary/")
-      || relativePath.startsWith("data/ledger/")
-      || relativePath.startsWith("artifacts/")
-      || relativePath.startsWith("demo/workspace/")
-      || relativePath.includes("/build/")
+      relativePath.startsWith(".git/") ||
+      relativePath === ".git" ||
+      relativePath.startsWith(".next/") ||
+      relativePath.startsWith("out/") ||
+      relativePath.startsWith("coverage/") ||
+      relativePath.startsWith("node_modules/") ||
+      relativePath.startsWith("dist/") ||
+      relativePath.startsWith("data/agent-boundary/") ||
+      relativePath.startsWith("data/ledger/") ||
+      relativePath.startsWith("artifacts/") ||
+      relativePath.startsWith("demo/workspace/") ||
+      relativePath.includes("/build/")
     );
   });
   return [...new Set(artifacts)]
@@ -307,7 +309,10 @@ function snapBuccetRepoArtifactManifest(manifest: BuccetRepoArtifact[]): {
   };
 }
 
-function benchmarkBuccetRepoArtifactSnap(manifest: BuccetRepoArtifact[], iterations: number): {
+function benchmarkBuccetRepoArtifactSnap(
+  manifest: BuccetRepoArtifact[],
+  iterations: number,
+): {
   avgMs: number;
   deterministic: boolean;
   iterations: number;
@@ -347,10 +352,18 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
   const repoBenchmarkMedium = benchmarkBuccetRepoArtifactSnap(repoManifest, 1_000);
   const repoBenchmark = benchmarkBuccetRepoArtifactSnap(repoManifest, 10_000);
   const substrateJson = JSON.stringify(substrate);
-  const deterministic = Array.from({ length: 10 }).every(() => JSON.stringify(snapBuccetSystem()) === substrateJson);
+  const deterministic = Array.from({ length: 10 }).every(
+    () => JSON.stringify(snapBuccetSystem()) === substrateJson,
+  );
   const repoSnapJson = JSON.stringify(repoSnap);
-  const repoDeterministic = Array.from({ length: 10 }).every(() => JSON.stringify(snapBuccetRepoArtifactManifest(repoManifest)) === repoSnapJson);
-  const executableBodyCount = BUCCET_SUBSTRATE_PLANES.length + BUCCET_TERMINALS.length + BUCCET_CONSEQUENCE_BOUNDARIES.length + 1;
+  const repoDeterministic = Array.from({ length: 10 }).every(
+    () => JSON.stringify(snapBuccetRepoArtifactManifest(repoManifest)) === repoSnapJson,
+  );
+  const executableBodyCount =
+    BUCCET_SUBSTRATE_PLANES.length +
+    BUCCET_TERMINALS.length +
+    BUCCET_CONSEQUENCE_BOUNDARIES.length +
+    1;
   const snapTargetMs = 10;
   const repoCoverageCount = repoManifest.length - repoSnap.orphanedArtifacts.length;
 
@@ -363,7 +376,9 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
     substrateTerminalCount: BUCCET_TERMINALS.length,
     consequenceBoundaryCount: BUCCET_CONSEQUENCE_BOUNDARIES.length,
     snapCompressionRatioToPlanes: substrate.compression.ratio,
-    snapCompressionRatioToExecutableBody: Number((BUCCET_SYSTEM_NODES.length / executableBodyCount).toFixed(2)),
+    snapCompressionRatioToExecutableBody: Number(
+      (BUCCET_SYSTEM_NODES.length / executableBodyCount).toFixed(2),
+    ),
     executableBodyCount,
     snapAvgMs: benchmark.avgMs,
     snapTargetMs,
@@ -388,14 +403,17 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
       medium1000AvgMs: repoBenchmarkMedium.avgMs,
       large10000AvgMs: repoBenchmark.avgMs,
     },
-    sameFunctionStatement: "same lawful consequence function: authored repo/world in -> lawful runtime, witness, operator state, and release surface out",
+    sameFunctionStatement:
+      "same lawful consequence function: authored repo/world in -> lawful runtime, witness, operator state, and release surface out",
     samePowerStatement: `same governing power preserved across ${BUCCET_SYSTEM_NODES.length}/${BUCCET_SYSTEM_NODES.length} runtime nodes and ${repoCoverageCount}/${repoManifest.length} repo artifacts`,
     newBodyStatement: `new executable body = ${BUCCET_REPO_SNAP_BODIES.length} repo snap bodies carrying ${BUCCET_SUBSTRATE_PLANES.length} planes, ${BUCCET_TERMINALS.length} terminals, ${BUCCET_CONSEQUENCE_BOUNDARIES.length} consequence boundaries, and 1 finite lawful machine`,
-    endToEndRuntimeStatement: "no matter how much is added to either UPL side, anything Buccet controls still resolves end to end through the same finite runtime body",
+    endToEndRuntimeStatement:
+      "no matter how much is added to either UPL side, anything Buccet controls still resolves end to end through the same finite runtime body",
   };
 
   return {
-    concept: "an infinitely extensible agent-governance system that must remain executable, lawful, finite, and real-time operable on commodity hardware",
+    concept:
+      "an infinitely extensible agent-governance system that must remain executable, lawful, finite, and real-time operable on commodity hardware",
     runtimeFacts,
     step1: {
       infinite: [
@@ -449,12 +467,14 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
         "any runtime that depends on holding the full authored infinity active at once",
         "any split where the repo body and the runtime body drift into separate organisms",
       ],
-      cardinality: "finite executable repo-and-runtime substrate with open-ended authored growth outside runtime",
+      cardinality:
+        "finite executable repo-and-runtime substrate with open-ended authored growth outside runtime",
     },
     step3: {
       domain: "(Repo∞, UPL∞, Paths∞, Sources∞, Requests∞, Witnesses)",
       codomain: "ExecutableFiniteSubstrate",
-      definition: "BuccetCollapse : (Repo∞, UPL∞, Paths∞, Sources∞, Requests∞, Witnesses) -> ExecutableFiniteSubstrate",
+      definition:
+        "BuccetCollapse : (Repo∞, UPL∞, Paths∞, Sources∞, Requests∞, Witnesses) -> ExecutableFiniteSubstrate",
       invariants: [
         "one live lawful field",
         "one deny-over-allow truth",
@@ -463,7 +483,8 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
         "one witness-bearing consequence history",
         "one snapped repo body supporting the runtime instead of a split archive",
       ],
-      complexity: "runtime state scales with active laws, active tracks, active paths, active formations, and attached path sources; repo snap scales with classified artifact count, not with open-ended authored infinity",
+      complexity:
+        "runtime state scales with active laws, active tracks, active paths, active formations, and attached path sources; repo snap scales with classified artifact count, not with open-ended authored infinity",
       theorems: [
         "Existence: the surviving Buccet substrate is non-empty because the current system already instantiates it",
         "Correctness: authored yes/no infinity collapses into one lawful machine without losing deny-over-allow or witness truth",
@@ -497,7 +518,8 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
     },
     step6: {
       timeMs: repoBenchmark.avgMs,
-      spaceModel: "finite repo snap bodies, finite substrate planes, finite terminals, finite consequence boundaries, finite active path/runtime state",
+      spaceModel:
+        "finite repo snap bodies, finite substrate planes, finite terminals, finite consequence boundaries, finite active path/runtime state",
       complexityCheck: `repo snap benchmark confirms avg ${repoBenchmark.avgMs.toFixed(6)}ms over ${repoBenchmark.iterations.toLocaleString()} iterations with deterministic repeated output while the runtime substrate snap stays at ${benchmark.avgMs.toFixed(6)}ms`,
     },
     step7: {
@@ -512,7 +534,10 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
         `repo snap stays deterministic across repeated runs: ${runtimeFacts.repoSnapDeterministic ? "yes" : "no"}`,
       ],
       proofSurface: [
-        { label: "substrate snap proof", path: "scripts/agent-buccet-system-substrate-contract.ts" },
+        {
+          label: "substrate snap proof",
+          path: "scripts/agent-buccet-system-substrate-contract.ts",
+        },
         { label: "system body proof", path: "scripts/agent-buccet-full-system-body-contract.ts" },
         { label: "path/runtime proof", path: "scripts/agent-buccet-path-memory-contract.ts" },
         { label: "CLI/runtime proof", path: "scripts/agent-buccet-cli-contract.ts" },
@@ -528,7 +553,7 @@ function bulletList(values: string[]): string {
 }
 
 function percentCompressedFromRatio(ratio: number): number {
-  return Number((100 - (100 / ratio)).toFixed(2));
+  return Number((100 - 100 / ratio).toFixed(2));
 }
 
 export function buildBuccetInstallSnapSummary(
@@ -538,7 +563,9 @@ export function buildBuccetInstallSnapSummary(
     repoArtifactCount: process.runtimeFacts.repoArtifactCount,
     repoSnapBodyCount: process.runtimeFacts.repoSnapBodyCount,
     repoCompressionRatio: process.runtimeFacts.repoSnapCompressionRatio,
-    repoCompressionPercent: percentCompressedFromRatio(process.runtimeFacts.repoSnapCompressionRatio),
+    repoCompressionPercent: percentCompressedFromRatio(
+      process.runtimeFacts.repoSnapCompressionRatio,
+    ),
     runtimeNodeCount: process.runtimeFacts.substrateNodeCount,
     runtimeExecutablePrimitiveCount: process.runtimeFacts.executableBodyCount,
     runtimeSnapAvgMs: process.runtimeFacts.snapAvgMs,
@@ -651,7 +678,9 @@ export function renderBuccetFullSystemBodyMarkdown(
     "",
     "## Step 5: Implement In Code",
     "",
-    ...process.step5.implementationSurface.map((entry) => `- ${entry.label}: [${entry.path}](../../${entry.path})`),
+    ...process.step5.implementationSurface.map(
+      (entry) => `- ${entry.label}: [${entry.path}](../../${entry.path})`,
+    ),
     "",
     "## Step 6: Measure Performance",
     "",
@@ -673,7 +702,9 @@ export function renderBuccetFullSystemBodyMarkdown(
     "",
     "### Proof Surface",
     "",
-    ...process.step7.proofSurface.map((entry) => `- ${entry.label}: [${entry.path}](../../${entry.path})`),
+    ...process.step7.proofSurface.map(
+      (entry) => `- ${entry.label}: [${entry.path}](../../${entry.path})`,
+    ),
     "",
     "## Result",
     "",

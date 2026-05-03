@@ -15,14 +15,14 @@ import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
+  LIOPE_MATERIAL_EVENTS,
+  LIOPE_MAX_QUEUE_SIZE,
   appendBoundaryLedger,
   flushLiopeQueue,
   getLiopeStats,
-  stopLiopeDaemon,
-  LIOPE_MAX_QUEUE_SIZE,
-  LIOPE_MATERIAL_EVENTS,
-  readBoundaryLedgerBySession,
   readAllBoundaryLedgerRecords,
+  readBoundaryLedgerBySession,
+  stopLiopeDaemon,
   verifyBoundaryLedgerRecordSignature,
 } from "./../../src/index.ts";
 
@@ -94,15 +94,19 @@ async function main() {
   // ─── Test 2: LIOPE_MATERIAL_EVENTS set covers expected entries ───────────────
 
   const expectedMaterial: string[] = [
-    "SESSION_STARTED", "SESSION_ENDED", "GRANT_ISSUED", "GRANT_REVOKED",
-    "ACTION_BLOCKED", "ACTION_EXECUTED", "GOVERNOR_TRIP",
-    "PROCESS_PHYSWRAP_ACTIVE", "INGRESS_CANYON_STATE_WRITTEN", "LEDGER_STORM_SUMMARY",
+    "SESSION_STARTED",
+    "SESSION_ENDED",
+    "GRANT_ISSUED",
+    "GRANT_REVOKED",
+    "ACTION_BLOCKED",
+    "ACTION_EXECUTED",
+    "GOVERNOR_TRIP",
+    "PROCESS_PHYSWRAP_ACTIVE",
+    "INGRESS_CANYON_STATE_WRITTEN",
+    "LEDGER_STORM_SUMMARY",
   ];
   for (const ev of expectedMaterial) {
-    assert(
-      LIOPE_MATERIAL_EVENTS.has(ev as never),
-      `LIOPE_MATERIAL_EVENTS must include ${ev}`,
-    );
+    assert(LIOPE_MATERIAL_EVENTS.has(ev as never), `LIOPE_MATERIAL_EVENTS must include ${ev}`);
   }
 
   console.log("  [pass] Test 2: LIOPE_MATERIAL_EVENTS covers expected material event types");
@@ -119,7 +123,10 @@ async function main() {
   await appendBoundaryLedger("INGRESS_VELOCITY_TRIP", makePayload(obsSession));
 
   const depthAfter = getLiopeStats().queueDepth;
-  assert(depthAfter === depthBefore + 3, `3 observation events must be in queue — expected ${depthBefore + 3} got ${depthAfter}`);
+  assert(
+    depthAfter === depthBefore + 3,
+    `3 observation events must be in queue — expected ${depthBefore + 3} got ${depthAfter}`,
+  );
 
   // Not yet on disk (daemon hasn't flushed)
   const obsBeforeFlush = await readBoundaryLedgerBySession(obsSession);
@@ -132,7 +139,10 @@ async function main() {
   await flushLiopeQueue();
 
   const obsAfterFlush = await readBoundaryLedgerBySession(obsSession);
-  assert(obsAfterFlush.length >= 3, `all 3 queued events must be durable after flush — got ${obsAfterFlush.length}`);
+  assert(
+    obsAfterFlush.length >= 3,
+    `all 3 queued events must be durable after flush — got ${obsAfterFlush.length}`,
+  );
   assert(
     obsAfterFlush.some((r) => r.eventType === "INGRESS_PROVENANCE_BLOCKED"),
     "INGRESS_PROVENANCE_BLOCKED must be in ledger after flush",
@@ -170,14 +180,22 @@ async function main() {
   }
 
   const shedStats = getLiopeStats();
-  assert(shedStats.shedCount >= 50, `shed count must be >= 50 (overfill=${overfill}, maxQueueSize=${LIOPE_MAX_QUEUE_SIZE}) — got shedCount=${shedStats.shedCount}`);
-  assert(shedStats.queueDepth <= LIOPE_MAX_QUEUE_SIZE, `queue depth must not exceed LIOPE_MAX_QUEUE_SIZE=${LIOPE_MAX_QUEUE_SIZE} — got ${shedStats.queueDepth}`);
   assert(
-    shedStats.shedByClass["INGRESS_PROVENANCE_BLOCKED"] !== undefined,
+    shedStats.shedCount >= 50,
+    `shed count must be >= 50 (overfill=${overfill}, maxQueueSize=${LIOPE_MAX_QUEUE_SIZE}) — got shedCount=${shedStats.shedCount}`,
+  );
+  assert(
+    shedStats.queueDepth <= LIOPE_MAX_QUEUE_SIZE,
+    `queue depth must not exceed LIOPE_MAX_QUEUE_SIZE=${LIOPE_MAX_QUEUE_SIZE} — got ${shedStats.queueDepth}`,
+  );
+  assert(
+    shedStats.shedByClass.INGRESS_PROVENANCE_BLOCKED !== undefined,
     "shed class tracking must record INGRESS_PROVENANCE_BLOCKED",
   );
 
-  console.log(`  [pass] Test 5: Q1.8 shed — ${shedStats.shedCount} events shed, queue bounded to ${shedStats.queueDepth}`);
+  console.log(
+    `  [pass] Test 5: Q1.8 shed — ${shedStats.shedCount} events shed, queue bounded to ${shedStats.queueDepth}`,
+  );
 
   // ─── Test 6: A3.8 storm summary — LEDGER_STORM_SUMMARY emitted on flush when shed > 0 ──
   // Shed state is captured from Test 5 above. We flush immediately — no async gap
@@ -209,20 +227,31 @@ async function main() {
     "LEDGER_STORM_SUMMARY must carry by_class JSON string",
   );
 
-  const parsedByClass = JSON.parse(storm.payload.metadata.by_class as string) as Record<string, number>;
+  const parsedByClass = JSON.parse(storm.payload.metadata.by_class as string) as Record<
+    string,
+    number
+  >;
   assert(
-    parsedByClass["INGRESS_PROVENANCE_BLOCKED"] !== undefined,
+    parsedByClass.INGRESS_PROVENANCE_BLOCKED !== undefined,
     "LEDGER_STORM_SUMMARY.by_class must include shed class INGRESS_PROVENANCE_BLOCKED",
   );
 
-  console.log(`  [pass] Test 6: A3.8 LEDGER_STORM_SUMMARY emitted — shed_count=${storm.payload.metadata?.shed_count} window_ms=${storm.payload.metadata?.window_ms}`);
+  console.log(
+    `  [pass] Test 6: A3.8 LEDGER_STORM_SUMMARY emitted — shed_count=${storm.payload.metadata?.shed_count} window_ms=${storm.payload.metadata?.window_ms}`,
+  );
 
   // ─── Test 7: LEDGER_STORM_SUMMARY is signed ───────────────────────────────────
 
   const stormSig = storm.META.signature;
   const stormSignerId = storm.META.signer_id;
-  assert(typeof stormSig === "string" && stormSig.length > 0, "LEDGER_STORM_SUMMARY must carry a signature");
-  assert(typeof stormSignerId === "string" && stormSignerId.length > 0, "LEDGER_STORM_SUMMARY must carry a signer_id");
+  assert(
+    typeof stormSig === "string" && stormSig.length > 0,
+    "LEDGER_STORM_SUMMARY must carry a signature",
+  );
+  assert(
+    typeof stormSignerId === "string" && stormSignerId.length > 0,
+    "LEDGER_STORM_SUMMARY must carry a signer_id",
+  );
 
   const sigResult = await verifyBoundaryLedgerRecordSignature(storm);
   assert(sigResult.ok, `LEDGER_STORM_SUMMARY signature must verify — reason: ${sigResult.reason}`);
@@ -238,13 +267,17 @@ async function main() {
   assert(statsClean.queueDepth === 0, "queue must be empty after flush");
 
   const allAfterClean = await readAllBoundaryLedgerRecords();
-  const stormAfterClean = allAfterClean.filter((r) => r.eventType === "LEDGER_STORM_SUMMARY").length;
+  const stormAfterClean = allAfterClean.filter(
+    (r) => r.eventType === "LEDGER_STORM_SUMMARY",
+  ).length;
   assert(
     stormAfterClean === stormRecords.length,
     "no additional LEDGER_STORM_SUMMARY must be emitted when shed=0",
   );
 
-  console.log("  [pass] Test 8: shed counter resets after flush, no spurious storm summaries emitted");
+  console.log(
+    "  [pass] Test 8: shed counter resets after flush, no spurious storm summaries emitted",
+  );
 
   // ─── Summary ─────────────────────────────────────────────────────────────────
   console.log("\nLIOPE contract: all 8 tests passed.");

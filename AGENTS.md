@@ -31,7 +31,7 @@ This codebase uses **executable contract tests** (in `contracts/`), not a tradit
 
 ### Non-obvious gotchas
 
-- `npm run lint` exits non-zero due to pre-existing lint warnings in the codebase (456 errors, 215 warnings — all style issues like `useLiteralKeys`). This is the baseline state of the repo. `npm run typecheck` is clean.
+- `npm run lint` exits with code 0. There are ~90 remaining warnings (`noNonNullAssertion`, `noUnusedVariables`) which are configured as `warn` in `biome.json` and are acceptable.
 - The `demo:agent-buccet` script has one expected assertion failure ("Track violation surfaced") — this is a known condition in the demo where a track corridor exit is not flagged as a violation.
 - `buccet run` and `buccet hook start` require the native hook daemon (`libbuccet-hook.so`) to be running. In Cloud Agent environments, the hook daemon may not stay running because it requires specific session parameters. Use the programmatic API or `npm run demo:quickstart` for end-to-end testing instead.
 - The MCP contract (`test:agent-buccet:mcp`) depends on the native hook daemon and may fail in environments where it can't persist.

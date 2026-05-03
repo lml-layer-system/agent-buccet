@@ -24,9 +24,16 @@
  */
 
 import path from "node:path";
-import type { BoundaryActionKind, BoundaryActionRequest, BoundaryUplTrackConstraint } from "./../runtime/types.ts";
 import { checkExpressionCorridor } from "./../runtime/expression-track-extractor.ts";
-import { checkCompletionCorridor, checkOutputCorridor } from "./../runtime/output-track-extractor.ts";
+import {
+  checkCompletionCorridor,
+  checkOutputCorridor,
+} from "./../runtime/output-track-extractor.ts";
+import type {
+  BoundaryActionKind,
+  BoundaryActionRequest,
+  BoundaryUplTrackConstraint,
+} from "./../runtime/types.ts";
 
 /** All filesystem action kinds. */
 const FS_ACTION_KINDS: BoundaryActionKind[] = [
@@ -39,12 +46,7 @@ const FS_ACTION_KINDS: BoundaryActionKind[] = [
 ];
 
 /** All database action kinds. */
-const DB_ACTION_KINDS: BoundaryActionKind[] = [
-  "db.query",
-  "db.insert",
-  "db.update",
-  "db.delete",
-];
+const DB_ACTION_KINDS: BoundaryActionKind[] = ["db.query", "db.insert", "db.update", "db.delete"];
 
 /** All system action kinds. */
 const SYS_ACTION_KINDS: BoundaryActionKind[] = [
@@ -248,7 +250,9 @@ export function buildAutoTrackConstraint(
   }
 }
 
-function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConstraint["outputShape"] | undefined {
+function inferChatOutputShape(
+  output: string | undefined,
+): BoundaryUplTrackConstraint["outputShape"] | undefined {
   if (!output) {
     return undefined;
   }
@@ -256,7 +260,7 @@ function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConst
   if (!trimmed) {
     return undefined;
   }
-  if ((trimmed.startsWith("{") || trimmed.startsWith("["))) {
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
     try {
       JSON.parse(trimmed);
       return "json";
@@ -264,7 +268,10 @@ function inferChatOutputShape(output: string | undefined): BoundaryUplTrackConst
       // ignore
     }
   }
-  const lines = trimmed.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  const lines = trimmed
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
   if (lines.length > 1 && lines.every((line) => /^[-*]\s+/.test(line))) {
     return "bullets";
   }
@@ -325,7 +332,9 @@ function buildRequestTrackText(request: BoundaryActionRequest): string {
     request.spendIntent?.accountabilityRef ?? "",
     request.spendIntent?.instructionSource ?? "",
     request.spendIntent?.periodWindow ?? "",
-    request.spendIntent?.periodCapNormalized !== undefined ? String(request.spendIntent.periodCapNormalized) : "",
+    request.spendIntent?.periodCapNormalized !== undefined
+      ? String(request.spendIntent.periodCapNormalized)
+      : "",
     request.reviewContext?.question ?? "",
     request.reviewContext?.attemptedOutput ?? "",
     request.reviewContext?.userInput ?? "",
@@ -347,7 +356,8 @@ export function checkTrackConstraint(
   constraint: BoundaryUplTrackConstraint,
   request: BoundaryActionRequest,
 ): string | null {
-  const allowedActionKinds = constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds;
+  const allowedActionKinds =
+    constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds;
   // 1. Action kind must be in the allowed set.
   if (!allowedActionKinds.includes(request.actionKind)) {
     return (
@@ -373,9 +383,10 @@ export function checkTrackConstraint(
       target.startsWith("../") ||
       target.includes(path.sep);
 
-    const matchMode = constraint.actionCorridor?.targetMatchMode
-      ?? constraint.targetMatchMode
-      ?? (isPathLike ? "prefix" : "exact");
+    const matchMode =
+      constraint.actionCorridor?.targetMatchMode ??
+      constraint.targetMatchMode ??
+      (isPathLike ? "prefix" : "exact");
     const matches = targetPatterns.some((pattern) => {
       if (matchMode === "regex") {
         return matchesTrackPattern(normalizedTarget, pattern);
@@ -383,7 +394,11 @@ export function checkTrackConstraint(
       if (matchMode === "exact") {
         return target === pattern;
       }
-      return target === pattern || target.startsWith(pattern + path.sep) || target.startsWith(pattern + "/");
+      return (
+        target === pattern ||
+        target.startsWith(pattern + path.sep) ||
+        target.startsWith(`${pattern}/`)
+      );
     });
 
     if (!matches) {
@@ -396,12 +411,11 @@ export function checkTrackConstraint(
 
   if (constraint.requestTextPatterns?.length) {
     const requestText = buildRequestTrackText(request);
-    const matches = constraint.requestTextPatterns.some((pattern) => matchesTrackPattern(requestText, pattern));
+    const matches = constraint.requestTextPatterns.some((pattern) =>
+      matchesTrackPattern(requestText, pattern),
+    );
     if (!matches) {
-      return (
-        `request text exits the approved execution corridor ` +
-        `(track: ${constraint.description})`
-      );
+      return `request text exits the approved execution corridor (track: ${constraint.description})`;
     }
   }
 
@@ -409,10 +423,7 @@ export function checkTrackConstraint(
     const flags = request.flags ?? {};
     const missingFlags = constraint.requiredFlags.filter((flag) => !flags[flag]);
     if (missingFlags.length > 0) {
-      return (
-        `request flags exit the approved execution corridor ` +
-        `(missing flags: ${missingFlags.join(", ")} | track: ${constraint.description})`
-      );
+      return `request flags exit the approved execution corridor (missing flags: ${missingFlags.join(", ")} | track: ${constraint.description})`;
     }
   }
 
@@ -535,7 +546,8 @@ export function checkTrackConstraint(
   }
 
   const reviewSurface = constraint.actionCorridor?.reviewSurface ?? constraint.reviewSurface;
-  const inboundSurface = request.reviewContext?.surface ?? (request.actionKind === "chat.emit" ? "chat" : "action");
+  const inboundSurface =
+    request.reviewContext?.surface ?? (request.actionKind === "chat.emit" ? "chat" : "action");
   if (reviewSurface && inboundSurface !== reviewSurface) {
     return (
       `review surface '${inboundSurface}' exits the approved execution corridor ` +
@@ -558,7 +570,11 @@ export function checkTrackConstraint(
   if (outputViolation) {
     return outputViolation;
   }
-  const completionViolation = checkCompletionCorridor(constraint.completionCorridor, constraint, text);
+  const completionViolation = checkCompletionCorridor(
+    constraint.completionCorridor,
+    constraint,
+    text,
+  );
   if (completionViolation) {
     return completionViolation;
   }
@@ -581,7 +597,9 @@ export function checkTrackConstraint(
  * Summarise an active track constraint for display in Terminal 2 (buccet console).
  */
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
-  const kinds = (constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds).join(", ");
+  const kinds = (
+    constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds
+  ).join(", ");
   const targetPattern = constraint.actionCorridor?.targetPattern ?? constraint.targetPattern;
   const targetPatterns = constraint.targetPatterns;
   const targetMatchMode = constraint.actionCorridor?.targetMatchMode ?? constraint.targetMatchMode;
@@ -590,7 +608,7 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
     ? ` | target${targetMatchMode === "exact" ? "==" : targetMatchMode === "regex" ? "~=" : "^="}: ${targetPattern}`
     : targetPatterns?.length
       ? ` | targets${targetMatchMode === "regex" ? "~=" : targetMatchMode === "exact" ? "==" : "^="}: ${targetPatterns.join(" ; ")}`
-    : "";
+      : "";
   const requestPart = constraint.requestTextPatterns?.length
     ? ` | request~=: ${constraint.requestTextPatterns.join(" ; ")}`
     : "";
@@ -631,29 +649,48 @@ export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): s
     constraint.spendPeriodWindow !== undefined
       ? `period_window=${constraint.spendPeriodWindow}`
       : null,
-  ].filter(Boolean).join(" | ");
+  ]
+    .filter(Boolean)
+    .join(" | ");
   const invariantPart = constraint.reviewInvariantLawId
     ? ` | invariant: ${constraint.reviewInvariantLawId}`
     : "";
-  const requiredPart = (outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.length
+  const requiredPart = (outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)
+    ?.length
     ? ` | require: ${(outputCorridor?.requiredTextPatterns ?? constraint.requiredTextPatterns)?.join(" ; ")}`
     : "";
-  const forbiddenPart = (outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.length
+  const forbiddenPart = (outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)
+    ?.length
     ? ` | forbid: ${(outputCorridor?.forbiddenTextPatterns ?? constraint.forbiddenTextPatterns)?.join(" ; ")}`
     : "";
-  const shapePart = (outputCorridor?.outputShape ?? constraint.outputShape) ? ` | shape: ${outputCorridor?.outputShape ?? constraint.outputShape}` : "";
+  const shapePart =
+    (outputCorridor?.outputShape ?? constraint.outputShape)
+      ? ` | shape: ${outputCorridor?.outputShape ?? constraint.outputShape}`
+      : "";
   const completionPart = constraint.completionCorridor
-    ? ` | completion-corridor: ${Object.entries(constraint.completionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
-    : (constraint.completionGrammar ? ` | completion: ${constraint.completionGrammar}` : "");
-  const profilePart = constraint.expressionProfile ? ` | expression: ${constraint.expressionProfile}` : "";
+    ? ` | completion-corridor: ${Object.entries(constraint.completionCorridor)
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(",")}`
+    : constraint.completionGrammar
+      ? ` | completion: ${constraint.completionGrammar}`
+      : "";
+  const profilePart = constraint.expressionProfile
+    ? ` | expression: ${constraint.expressionProfile}`
+    : "";
   const corridorPart = constraint.expressionCorridor
-    ? ` | expression-corridor: ${Object.entries(constraint.expressionCorridor).map(([k, v]) => `${k}=${String(v)}`).join(",")}`
+    ? ` | expression-corridor: ${Object.entries(constraint.expressionCorridor)
+        .map(([k, v]) => `${k}=${String(v)}`)
+        .join(",")}`
     : "";
   const outputCorridorPart = outputCorridor
-    ? ` | output-corridor: ${Object.entries(outputCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
+    ? ` | output-corridor: ${Object.entries(outputCorridor)
+        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`)
+        .join(",")}`
     : "";
   const actionCorridorPart = constraint.actionCorridor
-    ? ` | action-corridor: ${Object.entries(constraint.actionCorridor).map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`).join(",")}`
+    ? ` | action-corridor: ${Object.entries(constraint.actionCorridor)
+        .map(([k, v]) => `${k}=${Array.isArray(v) ? v.join(";") : String(v)}`)
+        .join(",")}`
     : "";
   return `${constraint.description} — kinds: ${kinds}${patternPart}${requestPart}${flagPart}${spendPart ? ` | spend: ${spendPart}` : ""}${invariantPart}${requiredPart}${forbiddenPart}${shapePart}${completionPart}${profilePart}${corridorPart}${outputCorridorPart}${actionCorridorPart}`;
 }

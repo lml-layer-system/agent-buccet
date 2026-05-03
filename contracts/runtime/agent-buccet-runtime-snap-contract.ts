@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import {
   ACTIVE_DENIAL_CATALOG_SNAP_RELATIVE_PATH,
   ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH,
@@ -28,8 +28,12 @@ async function main() {
     sourceManifest: source.manifest,
   });
 
-  const actualRuntimeMuscle = await readJson<typeof expectedRuntimeMuscle>(ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH);
-  const actualDenialSnap = await readJson<typeof expectedDenialSnap>(ACTIVE_DENIAL_CATALOG_SNAP_RELATIVE_PATH);
+  const actualRuntimeMuscle = await readJson<typeof expectedRuntimeMuscle>(
+    ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH,
+  );
+  const actualDenialSnap = await readJson<typeof expectedDenialSnap>(
+    ACTIVE_DENIAL_CATALOG_SNAP_RELATIVE_PATH,
+  );
 
   assert.deepEqual(
     actualRuntimeMuscle,

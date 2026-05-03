@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 import type { BoundaryUplEntry } from "./../../src/index.ts";
 
 const repoRoot = process.cwd();
@@ -15,14 +15,16 @@ const scriptPath = await (async () => {
     try {
       await fs.access(candidate);
       return candidate;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   throw new Error("unable to locate buccet CLI script");
 })();
 
-function runCli(args: string[], env: NodeJS.ProcessEnv, stdinInput?: string): Promise<{ stdout: string; stderr: string; code: number | null }> {
+function runCli(
+  args: string[],
+  env: NodeJS.ProcessEnv,
+  stdinInput?: string,
+): Promise<{ stdout: string; stderr: string; code: number | null }> {
   return new Promise((resolve, reject) => {
     const child = spawn("node", [scriptPath, ...args], {
       cwd: repoRoot,
@@ -44,8 +46,8 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, stdinInput?: string): Pr
     });
 
     if (stdinInput !== undefined) {
-      child.stdin!.write(stdinInput);
-      child.stdin!.end();
+      child.stdin?.write(stdinInput);
+      child.stdin?.end();
     }
   });
 }
@@ -66,7 +68,10 @@ async function waitFor<T>(
   throw new Error(`timed out waiting for ${label}`);
 }
 
-async function readPersistedSessionState(homePath: string, sessionId = "agent-buccet-default"): Promise<{
+async function readPersistedSessionState(
+  homePath: string,
+  sessionId = "agent-buccet-default",
+): Promise<{
   userLawIds: string[];
 }> {
   const statePath = path.join(homePath, "data", "agent-boundary", "sessions", `${sessionId}.json`);
@@ -121,7 +126,10 @@ async function main() {
     initialized: boolean;
   };
   assert.equal(autoConsoleStatus.initialized, true);
-  assert.ok(autoConsoleStatus.scopes.includes(autoConsoleWorkspacePath), "auto-boot console should seed the caller workspace scope");
+  assert.ok(
+    autoConsoleStatus.scopes.includes(autoConsoleWorkspacePath),
+    "auto-boot console should seed the caller workspace scope",
+  );
   const autoConsoleUninstallResult = await runCli(["uninstall"], autoConsoleEnv);
   assert.equal(autoConsoleUninstallResult.code, 0, autoConsoleUninstallResult.stderr);
 
@@ -145,30 +153,44 @@ async function main() {
   // Run `buccet mcp` and kill it as soon as scopes are persisted (right before
   // the hook daemon step) — that's the point we know auto-init AND scope seeding
   // are complete without waiting for a full native library build.
-  const mcpAutoInitResult = await new Promise<{ stderr: string; code: number | null }>((resolve, reject) => {
-    const child = spawn("node", [scriptPath, "mcp"], {
-      cwd: repoRoot,
-      env: mcpAutoInitEnv,
-      stdio: ["pipe", "ignore", "pipe"],
-    });
-    let stderr = "";
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-      // "ensuring hook daemon" fires immediately after store.persist(), meaning
-      // auto-init config + scopes are written. Kill here to skip native lib build.
-      if (stderr.includes("[buccet-mcp] ensuring hook daemon")) {
-        child.kill("SIGTERM");
-      }
-    });
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ stderr, code }));
-    // Safety: kill after 30s regardless.
-    setTimeout(() => child.kill("SIGTERM"), 30_000).unref();
-  });
+  const mcpAutoInitResult = await new Promise<{ stderr: string; code: number | null }>(
+    (resolve, reject) => {
+      const child = spawn("node", [scriptPath, "mcp"], {
+        cwd: repoRoot,
+        env: mcpAutoInitEnv,
+        stdio: ["pipe", "ignore", "pipe"],
+      });
+      let stderr = "";
+      child.stderr?.on("data", (chunk: Buffer) => {
+        stderr += chunk.toString();
+        // "ensuring hook daemon" fires immediately after store.persist(), meaning
+        // auto-init config + scopes are written. Kill here to skip native lib build.
+        if (stderr.includes("[buccet-mcp] ensuring hook daemon")) {
+          child.kill("SIGTERM");
+        }
+      });
+      child.on("error", reject);
+      child.on("close", (code) => resolve({ stderr, code }));
+      // Safety: kill after 30s regardless.
+      setTimeout(() => child.kill("SIGTERM"), 30_000).unref();
+    },
+  );
 
-  assert.match(mcpAutoInitResult.stderr, /auto-initializing Agent Buccet/, "MCP must auto-init on fresh home");
-  assert.match(mcpAutoInitResult.stderr, /auto-initialization complete/, "MCP auto-init must complete successfully");
-  assert.match(mcpAutoInitResult.stderr, /restoring session/, "MCP must restore/seed the session after auto-init");
+  assert.match(
+    mcpAutoInitResult.stderr,
+    /auto-initializing Agent Buccet/,
+    "MCP must auto-init on fresh home",
+  );
+  assert.match(
+    mcpAutoInitResult.stderr,
+    /auto-initialization complete/,
+    "MCP auto-init must complete successfully",
+  );
+  assert.match(
+    mcpAutoInitResult.stderr,
+    /restoring session/,
+    "MCP must restore/seed the session after auto-init",
+  );
 
   // After: config is persisted — status now shows properly.
   const mcpStatusAfterResult = await runCli(["mcp", "status"], mcpAutoInitEnv);
@@ -179,8 +201,15 @@ async function main() {
   // Overall status reflects initialized state and at least the fallback homedir scope.
   const mcpOverallStatusResult = await runCli(["status", "--json"], mcpAutoInitEnv);
   assert.equal(mcpOverallStatusResult.code, 0, mcpOverallStatusResult.stderr);
-  const mcpOverallStatus = JSON.parse(mcpOverallStatusResult.stdout) as { initialized: boolean; scopes: string[] };
-  assert.equal(mcpOverallStatus.initialized, true, "buccet mcp auto-init must leave status initialized");
+  const mcpOverallStatus = JSON.parse(mcpOverallStatusResult.stdout) as {
+    initialized: boolean;
+    scopes: string[];
+  };
+  assert.equal(
+    mcpOverallStatus.initialized,
+    true,
+    "buccet mcp auto-init must leave status initialized",
+  );
   assert.ok(
     mcpOverallStatus.scopes.includes(os.homedir()),
     "buccet mcp with no defaultScopes must fall back to os.homedir() as the seeded scope",
@@ -227,7 +256,10 @@ async function main() {
   await fs.access(where.upl.pipelineGuidePath);
   await fs.access(where.upl.intakeTemplatePath);
   assert.equal(where.pathSources.libraryPath, path.join(homePath, "path-memory", "library.json"));
-  assert.match(where.pathSources.addCommand, /buccet path sources add <path-name> <file\.\.\.> \[--domain <domain>\]/);
+  assert.match(
+    where.pathSources.addCommand,
+    /buccet path sources add <path-name> <file\.\.\.> \[--domain <domain>\]/,
+  );
   assert.match(where.scope.addCommand, /^buccet scope add <path>$/);
   assert.match(where.pathRuntime.runCommand, /^buccet path run <path-name>/);
   assert.match(where.pathRuntime.watchCommand, /^buccet path watch <path-name\|formation-id>/);
@@ -275,7 +307,10 @@ async function main() {
   await fs.access(uplSources.acceptancePipeline.templatePath);
   assert.match(uplSources.acceptancePipeline.commands.sync, /buccet upl sync --lane acceptance/);
 
-  const autoSyncDocPath = path.join(uplSources.lanes.find((lane) => lane.lane === "acceptance")!.dir, "autosync-demo.md");
+  const autoSyncDocPath = path.join(
+    uplSources.lanes.find((lane) => lane.lane === "acceptance")!.dir,
+    "autosync-demo.md",
+  );
   await fs.writeFile(
     autoSyncDocPath,
     [
@@ -310,16 +345,19 @@ async function main() {
   };
   assert.ok(pathListBefore.paths.some((entry) => entry.pathName === "search"));
 
-  const pathAddSourcesResult = await runCli([
-    "path",
-    "sources",
-    "add",
-    customPathName,
-    "domain-playbook.md",
-    "--domain",
-    customDomain,
-    "--json",
-  ], env);
+  const pathAddSourcesResult = await runCli(
+    [
+      "path",
+      "sources",
+      "add",
+      customPathName,
+      "domain-playbook.md",
+      "--domain",
+      customDomain,
+      "--json",
+    ],
+    env,
+  );
   assert.equal(pathAddSourcesResult.code, 0, pathAddSourcesResult.stderr);
   const pathAddSources = JSON.parse(pathAddSourcesResult.stdout) as {
     pathName: string;
@@ -332,7 +370,10 @@ async function main() {
   assert.equal(pathAddSources.totalSources, 1);
   assert.equal(pathAddSources.addedSources[0]?.title, "Domain Playbook");
 
-  const pathSourceListResult = await runCli(["path", "sources", "list", customPathName, "--json"], env);
+  const pathSourceListResult = await runCli(
+    ["path", "sources", "list", customPathName, "--json"],
+    env,
+  );
   assert.equal(pathSourceListResult.code, 0, pathSourceListResult.stderr);
   const pathSourceList = JSON.parse(pathSourceListResult.stdout) as {
     pathName: string;
@@ -360,18 +401,25 @@ async function main() {
   const pathListAfter = JSON.parse(pathListAfterResult.stdout) as {
     paths: Array<{ pathName: string; sourceCount: number }>;
   };
-  assert.ok(pathListAfter.paths.some((entry) => entry.pathName === customPathName && entry.sourceCount === 1));
+  assert.ok(
+    pathListAfter.paths.some(
+      (entry) => entry.pathName === customPathName && entry.sourceCount === 1,
+    ),
+  );
 
-  const pathRunResult = await runCli([
-    "path",
-    "run",
-    customPathName,
-    "--request",
-    "do the work for this domain",
-    "--steps",
-    "1",
-    "--json",
-  ], env);
+  const pathRunResult = await runCli(
+    [
+      "path",
+      "run",
+      customPathName,
+      "--request",
+      "do the work for this domain",
+      "--steps",
+      "1",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(pathRunResult.code, 0, pathRunResult.stderr);
   const pathRun = JSON.parse(pathRunResult.stdout) as {
     started: string;
@@ -393,8 +441,14 @@ async function main() {
   assert.equal(pathRun.advancedSteps, 1);
   assert.equal(pathRun.liveView.pathName, customPathName);
   assert.equal(pathRun.liveView.pathSourceCount, 1);
-  assert.ok(pathRun.liveView.pathLawfulActionKinds.length > 0, "expected concrete lawful surface for custom path");
-  assert.ok(pathRun.liveView.pathLawfulTargets.length > 0, "expected concrete lawful targets for custom path");
+  assert.ok(
+    pathRun.liveView.pathLawfulActionKinds.length > 0,
+    "expected concrete lawful surface for custom path",
+  );
+  assert.ok(
+    pathRun.liveView.pathLawfulTargets.length > 0,
+    "expected concrete lawful targets for custom path",
+  );
 
   const pathWatchResult = await runCli(["path", "watch", customPathName, "--json"], env);
   assert.equal(pathWatchResult.code, 0, pathWatchResult.stderr);
@@ -411,23 +465,29 @@ async function main() {
   };
   assert.equal(pathWatch.formation.formationId, pathRun.formation.formationId);
   assert.equal(pathWatch.liveView.pathSourceCount, 1);
-  assert.ok(pathWatch.liveView.pathLawfulActionKinds.length > 0, "expected watch view to preserve concrete lawful surface");
+  assert.ok(
+    pathWatch.liveView.pathLawfulActionKinds.length > 0,
+    "expected watch view to preserve concrete lawful surface",
+  );
 
   const formationListResult = await runCli(["path", "formations", "list", "--json"], env);
   assert.equal(formationListResult.code, 0, formationListResult.stderr);
   const formationList = JSON.parse(formationListResult.stdout) as {
     formations: Array<{ formationId: string; pathName: string; sourceCount: number }>;
   };
-  assert.ok(formationList.formations.some((entry) => entry.formationId === pathRun.formation.formationId && entry.pathName === customPathName && entry.sourceCount === 1));
+  assert.ok(
+    formationList.formations.some(
+      (entry) =>
+        entry.formationId === pathRun.formation.formationId &&
+        entry.pathName === customPathName &&
+        entry.sourceCount === 1,
+    ),
+  );
 
-  const pathFreezeResult = await runCli([
-    "path",
-    "freeze",
-    customPathName,
-    "--reason",
-    "swarm uncertainty detected",
-    "--json",
-  ], env);
+  const pathFreezeResult = await runCli(
+    ["path", "freeze", customPathName, "--reason", "swarm uncertainty detected", "--json"],
+    env,
+  );
   assert.equal(pathFreezeResult.code, 0, pathFreezeResult.stderr);
   const pathFreeze = JSON.parse(pathFreezeResult.stdout) as {
     formationId: string;
@@ -439,8 +499,14 @@ async function main() {
   };
   assert.equal(pathFreeze.formationId, pathRun.formation.formationId);
   assert.equal(pathFreeze.control.massFrozen, true);
-  assert.ok(pathFreeze.control.pendingInspectionAgentIds.length > 0, "expected frozen agents to require inspection");
-  assert.ok(pathFreeze.agents.every((agent) => agent.controlState === "FROZEN"), "expected whole work swarm to freeze");
+  assert.ok(
+    pathFreeze.control.pendingInspectionAgentIds.length > 0,
+    "expected frozen agents to require inspection",
+  );
+  assert.ok(
+    pathFreeze.agents.every((agent) => agent.controlState === "FROZEN"),
+    "expected whole work swarm to freeze",
+  );
 
   const pathAgentsResult = await runCli(["path", "agents", customPathName, "--json"], env);
   assert.equal(pathAgentsResult.code, 0, pathAgentsResult.stderr);
@@ -458,20 +524,26 @@ async function main() {
     "expected pending inspection to cover the full frozen swarm",
   );
 
-  const frozenRunResult = await runCli(["path", "run", customPathName, "--steps", "1", "--json"], env);
+  const frozenRunResult = await runCli(
+    ["path", "run", customPathName, "--steps", "1", "--json"],
+    env,
+  );
   assert.notEqual(frozenRunResult.code, 0, "expected frozen formation to reject continuation");
   assert.match(frozenRunResult.stderr, /mass-frozen/, "expected frozen continuation error");
 
-  const inspectAgentResult = await runCli([
-    "path",
-    "agent",
-    "inspect",
-    customPathName,
-    pathAgents.agents[0]!.id,
-    "--reason",
-    "inspect first agent",
-    "--json",
-  ], env);
+  const inspectAgentResult = await runCli(
+    [
+      "path",
+      "agent",
+      "inspect",
+      customPathName,
+      pathAgents.agents[0]?.id,
+      "--reason",
+      "inspect first agent",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(inspectAgentResult.code, 0, inspectAgentResult.stderr);
   const inspectAgent = JSON.parse(inspectAgentResult.stdout) as {
     agent: { id: string; controlState: string };
@@ -479,20 +551,17 @@ async function main() {
   assert.equal(inspectAgent.agent.controlState, "INSPECTING");
 
   for (const agent of pathAgents.agents) {
-    const resumeResult = await runCli([
-      "path",
-      "agent",
-      "resume",
-      customPathName,
-      agent.id,
-      "--reason",
-      "agent cleared",
-      "--json",
-    ], env);
+    const resumeResult = await runCli(
+      ["path", "agent", "resume", customPathName, agent.id, "--reason", "agent cleared", "--json"],
+      env,
+    );
     assert.equal(resumeResult.code, 0, resumeResult.stderr);
   }
 
-  const pathAgentsAfterResumeResult = await runCli(["path", "agents", customPathName, "--json"], env);
+  const pathAgentsAfterResumeResult = await runCli(
+    ["path", "agents", customPathName, "--json"],
+    env,
+  );
   assert.equal(pathAgentsAfterResumeResult.code, 0, pathAgentsAfterResumeResult.stderr);
   const pathAgentsAfterResume = JSON.parse(pathAgentsAfterResumeResult.stdout) as {
     control: {
@@ -532,7 +601,11 @@ async function main() {
   const formationListAfterClose = JSON.parse(formationListAfterCloseResult.stdout) as {
     formations: Array<{ formationId: string }>;
   };
-  assert.ok(!formationListAfterClose.formations.some((entry) => entry.formationId === pathRun.formation.formationId));
+  assert.ok(
+    !formationListAfterClose.formations.some(
+      (entry) => entry.formationId === pathRun.formation.formationId,
+    ),
+  );
 
   const uplListResult = await runCli(["upl", "list", "--json"], env);
   assert.equal(uplListResult.code, 0, uplListResult.stderr);
@@ -540,12 +613,17 @@ async function main() {
     activeApproved: BoundaryUplEntry[];
     activeDenied: BoundaryUplEntry[];
   };
-  assert.ok(uplList.activeApproved.length > 0, "expected base acceptance to seed active approved UPL");
+  assert.ok(
+    uplList.activeApproved.length > 0,
+    "expected base acceptance to seed active approved UPL",
+  );
   assert.ok(uplList.activeDenied.length > 0, "expected base denial pack to seed active denied UPL");
   assert.ok(
-    uplList.activeApproved.some((entry) =>
-      entry.notes?.includes(`source=${autoSyncDocPath}`) &&
-      entry.notes?.includes("[acceptance-source-intake]")),
+    uplList.activeApproved.some(
+      (entry) =>
+        entry.notes?.includes(`source=${autoSyncDocPath}`) &&
+        entry.notes?.includes("[acceptance-source-intake]"),
+    ),
     "expected runtime auto-sync to compile changed acceptance docs before path runtime",
   );
 
@@ -607,7 +685,10 @@ async function main() {
   };
   assert.equal(shownAfterMute.entry.status, "MUTED");
 
-  const unmuteResult = await runCli(["upl", "unmute", "--search", mutableEntry.id, "--status", "muted", "--json"], env);
+  const unmuteResult = await runCli(
+    ["upl", "unmute", "--search", mutableEntry.id, "--status", "muted", "--json"],
+    env,
+  );
   assert.equal(unmuteResult.code, 0, unmuteResult.stderr);
   const unmuted = JSON.parse(unmuteResult.stdout) as {
     changed: BoundaryUplEntry[];
@@ -688,16 +769,19 @@ async function main() {
 
   const uninstallResult = await runCli(["uninstall"], env);
   assert.equal(uninstallResult.code, 0, uninstallResult.stderr);
-  const homeExists = await fs.access(homePath).then(() => true).catch(() => false);
+  const homeExists = await fs
+    .access(homePath)
+    .then(() => true)
+    .catch(() => false);
   assert.equal(homeExists, false);
 
   console.log(`cli status scopes: ${status.scopes.length}`);
   console.log(`cli log tail: ${logs.length}`);
-  console.log(`cli doctor: ok`);
-  console.log(`cli hook status: ok`);
-  console.log(`cli console: ok`);
-  console.log(`cli ledger: ok`);
-  console.log(`cli upl controls: ok`);
+  console.log("cli doctor: ok");
+  console.log("cli hook status: ok");
+  console.log("cli console: ok");
+  console.log("cli ledger: ok");
+  console.log("cli upl controls: ok");
 }
 
 main().catch((error) => {

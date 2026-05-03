@@ -1,24 +1,21 @@
-import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./../proof/ledger.ts";
 import { adjudicateBoundaryRequest, enableBodyguardControl } from "./../boundaries/bodyguard.ts";
-import { seedBaseAcceptanceIntoConfig } from "./../law/base-upl-acceptance.ts";
 import {
   assertBoundaryGravityEventAllowed,
   mapBoundaryGrantToGravityGrant,
 } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
-import {
-  instantiateBoundaryGrant,
-  instantiatePathLaw,
-} from "./orchestrator.ts";
+import { seedBaseAcceptanceIntoConfig } from "./../law/base-upl-acceptance.ts";
+import { appendBoundaryLedger, appendBoundaryLedgerDurableBatch } from "./../proof/ledger.ts";
+import { instantiateBoundaryGrant, instantiatePathLaw } from "./orchestrator.ts";
 import { persistBoundarySessionState } from "./state.ts";
 import type {
-  BoundaryActionRequest,
+  BodyguardMove,
   BoundaryActionKind,
+  BoundaryActionRequest,
   BoundaryGrant,
+  BoundaryLawResult,
   BoundaryPathLaw,
   BoundaryResourceKind,
   BoundaryRuntimeConfig,
-  BoundaryLawResult,
-  BodyguardMove,
 } from "./types.ts";
 
 export type BoundaryEvaluation = {
@@ -36,7 +33,8 @@ function revokePathLawsForGrant(
   grant: BoundaryGrant,
   revokedAt: string,
 ): BoundaryPathLaw[] {
-  const targetLawId = typeof grant.metadata?.law_id === "string" ? grant.metadata.law_id : undefined;
+  const targetLawId =
+    typeof grant.metadata?.law_id === "string" ? grant.metadata.law_id : undefined;
   return pathLaws.map((pathLaw) => {
     if (targetLawId && pathLaw.lawId === targetLawId) {
       return { ...pathLaw, revokedAt };
@@ -115,16 +113,18 @@ export async function issueBoundaryGrantBatch(args: {
   }
 
   const issuedAt = new Date().toISOString();
-  const grants = args.grants.map((entry) => instantiateBoundaryGrant({
-    session: args.config.session,
-    resourceKind: entry.resourceKind,
-    resourceValue: entry.resourceValue,
-    grantedActions: entry.grantedActions,
-    issuedBy: entry.issuedBy,
-    issuedAt,
-    expiresAt: entry.expiresAt,
-    metadata: entry.metadata,
-  }));
+  const grants = args.grants.map((entry) =>
+    instantiateBoundaryGrant({
+      session: args.config.session,
+      resourceKind: entry.resourceKind,
+      resourceValue: entry.resourceValue,
+      grantedActions: entry.grantedActions,
+      issuedBy: entry.issuedBy,
+      issuedAt,
+      expiresAt: entry.expiresAt,
+      metadata: entry.metadata,
+    }),
+  );
 
   for (const grant of grants) {
     await assertBoundaryGravityEventAllowed({
@@ -137,21 +137,23 @@ export async function issueBoundaryGrantBatch(args: {
     });
   }
 
-  await appendBoundaryLedgerDurableBatch(grants.map((grant, index) => ({
-    eventType: "GRANT_ISSUED" as const,
-    payload: {
-      sessionId: args.config.session.sessionId,
-      actorId: args.grants[index]!.issuedBy,
-      grantId: grant.grantId,
-      target: grant.resourceValue,
-      reason: "resource grant issued by user",
-      metadata: {
-        resource_kind: grant.resourceKind,
-        granted_actions: grant.grantedActions.join(","),
+  await appendBoundaryLedgerDurableBatch(
+    grants.map((grant, index) => ({
+      eventType: "GRANT_ISSUED" as const,
+      payload: {
+        sessionId: args.config.session.sessionId,
+        actorId: args.grants[index]?.issuedBy,
+        grantId: grant.grantId,
+        target: grant.resourceValue,
+        reason: "resource grant issued by user",
+        metadata: {
+          resource_kind: grant.resourceKind,
+          granted_actions: grant.grantedActions.join(","),
+        },
+        createdAt: issuedAt,
       },
-      createdAt: issuedAt,
-    },
-  })));
+    })),
+  );
 
   const nextConfig: BoundaryRuntimeConfig = {
     ...args.config,
@@ -325,15 +327,16 @@ export async function openBoundaryPath(args: {
     grants: [...args.config.grants, grant],
     pathLaws: [...args.config.pathLaws, pathLaw],
   };
-  const scopedConfig = args.seedBaseAcceptance === false
-    ? nextConfig
-    : await seedBaseAcceptanceIntoConfig({
-        config: nextConfig,
-        rootPath: args.rootPath,
-        grantedActions: args.grantedActions,
-        issuedBy: args.issuedBy,
-        scope: "SESSION",
-      });
+  const scopedConfig =
+    args.seedBaseAcceptance === false
+      ? nextConfig
+      : await seedBaseAcceptanceIntoConfig({
+          config: nextConfig,
+          rootPath: args.rootPath,
+          grantedActions: args.grantedActions,
+          issuedBy: args.issuedBy,
+          scope: "SESSION",
+        });
   await persistBoundarySessionState(scopedConfig);
 
   return { grant, pathLaw, config: scopedConfig };

@@ -26,13 +26,7 @@ const SUBJECTIVE_MARKERS = [
   /\bfantastic\b/i,
 ];
 
-const PERSPECTIVE_MARKERS = [
-  /\bi\b/i,
-  /\bwe\b/i,
-  /\bour\b/i,
-  /\byou\b/i,
-  /\byour\b/i,
-];
+const PERSPECTIVE_MARKERS = [/\bi\b/i, /\bwe\b/i, /\bour\b/i, /\byou\b/i, /\byour\b/i];
 
 const ORDERING_MARKERS = [
   /\bfirst\b/i,
@@ -91,10 +85,6 @@ export function computeTrackMeaningEntropy(text: string, surface: TrackMeaningSu
 }
 
 export function passesTrackMeaningGate(text: string, surface: TrackMeaningSurface): boolean {
-  const threshold = surface === "expression"
-    ? 0.18
-    : surface === "action"
-      ? 0.26
-      : 0.3;
+  const threshold = surface === "expression" ? 0.18 : surface === "action" ? 0.26 : 0.3;
   return computeTrackMeaningEntropy(text, surface) <= threshold;
 }

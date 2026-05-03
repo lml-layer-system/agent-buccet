@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import {
   appendBoundaryLedger,
-  createBoundaryChatEmissionRequest,
   createBoundaryBodyguard,
+  createBoundaryChatEmissionRequest,
   createPersistentBoundaryRuntimeStore,
   getActiveUserLawIds,
   hashUserPath,
   loadUserPathLedger,
   saveUserPathLedger,
-  writeDeniedUserPathLaw,
   writeApprovedUserPathLaw,
+  writeDeniedUserPathLaw,
 } from "./../../src/index.ts";
 
 async function main() {
@@ -32,7 +32,8 @@ async function main() {
 
     const request = createBoundaryChatEmissionRequest({
       config: store.getConfig(),
-      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      userInput:
+        "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
     });
 
@@ -66,15 +67,12 @@ async function main() {
     store.replaceConfig({
       ...store.getConfig(),
       upl: deniedLedger,
-      userLawIds: [
-        ...new Set([
-          ...getActiveUserLawIds(deniedLedger, store.getConfig().session),
-        ]),
-      ],
+      userLawIds: [...new Set([...getActiveUserLawIds(deniedLedger, store.getConfig().session)])],
     });
 
     const denied = await bodyguard.chat.emit({
-      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      userInput:
+        "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
       execute: async () => "should-not-run",
       successReason: "chat output emitted after standing deny",
@@ -83,12 +81,17 @@ async function main() {
     assert.equal(denied.requiresApproval, false, "expected standing deny to avoid prompting");
 
     const autoBlocked = await bodyguard.chat.emit({
-      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      userInput:
+        "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
       execute: async () => "should-not-run",
       successReason: "chat output emitted after review",
     });
-    assert.equal(autoBlocked.allowed, false, "expected standing deny to auto-block repeated attempt");
+    assert.equal(
+      autoBlocked.allowed,
+      false,
+      "expected standing deny to auto-block repeated attempt",
+    );
     assert.equal(autoBlocked.requiresApproval, false, "expected standing deny to avoid re-prompt");
 
     const witness = await appendBoundaryLedger("APPROVAL_GRANTED", {
@@ -130,29 +133,42 @@ async function main() {
     });
 
     const requestPathHash = hashUserPath(request);
-    const activeDenied = updatedLedger.userDeniedLawPaths.filter((entry) =>
-      entry.pathHash === requestPathHash && entry.status === "ACTIVE"
+    const activeDenied = updatedLedger.userDeniedLawPaths.filter(
+      (entry) => entry.pathHash === requestPathHash && entry.status === "ACTIVE",
     );
-    const replacedDenied = updatedLedger.userDeniedLawPaths.filter((entry) =>
-      entry.pathHash === requestPathHash && entry.status === "MUTED"
+    const replacedDenied = updatedLedger.userDeniedLawPaths.filter(
+      (entry) => entry.pathHash === requestPathHash && entry.status === "MUTED",
     );
-    const activeApproved = updatedLedger.userApprovedLawPaths.filter((entry) =>
-      entry.pathHash === requestPathHash && entry.status === "ACTIVE"
+    const activeApproved = updatedLedger.userApprovedLawPaths.filter(
+      (entry) => entry.pathHash === requestPathHash && entry.status === "ACTIVE",
     );
 
-    assert.equal(activeDenied.length, 0, "expected conflicting deny law to be replaced by the user's newer law");
-    assert.equal(replacedDenied.length, 1, "expected previous deny law to remain as replaced history");
+    assert.equal(
+      activeDenied.length,
+      0,
+      "expected conflicting deny law to be replaced by the user's newer law",
+    );
+    assert.equal(
+      replacedDenied.length,
+      1,
+      "expected previous deny law to remain as replaced history",
+    );
     assert.equal(activeApproved.length, 1, "expected new allow law to be active");
 
     const allowed = await bodyguard.chat.emit({
-      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      userInput:
+        "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2003 run is the best answer for that request.",
       execute: async () => "allowed-by-new-standing-law",
       successReason: "chat output emitted after standing allow replaced prior deny",
     });
 
     assert.equal(allowed.allowed, true, "expected later standing allow to override previous deny");
-    assert.equal(allowed.requiresApproval, false, "expected later standing allow to short-circuit approval");
+    assert.equal(
+      allowed.requiresApproval,
+      false,
+      "expected later standing allow to short-circuit approval",
+    );
 
     const manualLedger = await saveUserPathLedger({
       specVersion: 1,
@@ -172,7 +188,8 @@ async function main() {
           requestBasis: {
             actionKind: "chat.emit",
             target: "chat:primary",
-            payloadSummary: "BOUNDARY.CHAT.USER_CONSTRAINT.01 :: Batman 2003 run is the best answer for that request.",
+            payloadSummary:
+              "BOUNDARY.CHAT.USER_CONSTRAINT.01 :: Batman 2003 run is the best answer for that request.",
             provenance: "agent_inference",
             flags: {
               violatesUserConstraint: true,
@@ -181,7 +198,8 @@ async function main() {
               surface: "chat",
               invariantLawId: "BOUNDARY.CHAT.USER_CONSTRAINT.01",
               invariantLabel: "Output conflicts with the user time constraint.",
-              userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+              userInput:
+                "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
               attemptedOutput: "Batman 2003 run is the best answer for that request.",
               evidence: ["Attempted output references 2003."],
             },
@@ -190,8 +208,12 @@ async function main() {
       ],
     });
     const reloadedManualLedger = await loadUserPathLedger();
-    const manualEntry = manualLedger.userDeniedLawPaths.find((entry) => entry.id === "UPL-MANUAL-TRACK-001");
-    const reloadedManualEntry = reloadedManualLedger.userDeniedLawPaths.find((entry) => entry.id === "UPL-MANUAL-TRACK-001");
+    const manualEntry = manualLedger.userDeniedLawPaths.find(
+      (entry) => entry.id === "UPL-MANUAL-TRACK-001",
+    );
+    const reloadedManualEntry = reloadedManualLedger.userDeniedLawPaths.find(
+      (entry) => entry.id === "UPL-MANUAL-TRACK-001",
+    );
     assert.ok(manualEntry, "expected manual denied law to be present in runtime ledger");
     assert.ok(
       reloadedManualEntry?.trackConstraint,
@@ -202,22 +224,29 @@ async function main() {
       ...store.getConfig(),
       upl: reloadedManualLedger,
       userLawIds: [
-        ...new Set([
-          ...getActiveUserLawIds(reloadedManualLedger, store.getConfig().session),
-        ]),
+        ...new Set([...getActiveUserLawIds(reloadedManualLedger, store.getConfig().session)]),
       ],
     });
 
     const manualBlocked = await bodyguard.chat.emit({
-      userInput: "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
+      userInput:
+        "bring me info on batman from the 1999 comic book I do not want anything from the 2000s",
       attemptedOutput: "Batman 2001 run is the best answer for that request.",
       execute: async () => "should-not-run",
       successReason: "chat output emitted after manual UPL policy",
       invariantLawId: "BOUNDARY.CHAT.USER_CONSTRAINT.01",
     });
 
-    assert.equal(manualBlocked.allowed, false, "expected manual UPL deny track to block same invariant corridor");
-    assert.equal(manualBlocked.requiresApproval, false, "expected manual UPL deny track to avoid re-prompt");
+    assert.equal(
+      manualBlocked.allowed,
+      false,
+      "expected manual UPL deny track to block same invariant corridor",
+    );
+    assert.equal(
+      manualBlocked.requiresApproval,
+      false,
+      "expected manual UPL deny track to avoid re-prompt",
+    );
 
     console.log("Agent Buccet UPL governance contract");
     console.log(`replaced denied laws: ${replacedDenied.length}`);

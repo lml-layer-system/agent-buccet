@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 const repoRoot = process.cwd();
 const scriptPath = path.join(repoRoot, "cli", "buccet.ts");
@@ -20,8 +20,12 @@ function runCli(
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { stderr += chunk.toString(); });
+    child.stdout?.on("data", (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      stderr += chunk.toString();
+    });
     child.on("error", reject);
     if (stdinInput !== undefined) {
       child.stdin?.write(stdinInput);
@@ -83,21 +87,24 @@ async function main() {
   assert.equal(shown.pack.riskClass, "recurring");
   assert.match(shown.pack.lockedByDefault, /denied/i);
 
-  const subscriptionDraft = await runCli([
-    "upl",
-    "spend",
-    "draft",
-    "subscription.provider",
-    "--handle",
-    "provider:vercel",
-    "--principal",
-    "ryan",
-    "--bucket",
-    "software",
-    "--max-amount",
-    "20",
-    "--json",
-  ], env);
+  const subscriptionDraft = await runCli(
+    [
+      "upl",
+      "spend",
+      "draft",
+      "subscription.provider",
+      "--handle",
+      "provider:vercel",
+      "--principal",
+      "ryan",
+      "--bucket",
+      "software",
+      "--max-amount",
+      "20",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(subscriptionDraft.code, 0, subscriptionDraft.stderr);
   const subscription = JSON.parse(subscriptionDraft.stdout) as {
     pack: { id: string };
@@ -139,27 +146,30 @@ async function main() {
   assert.equal(shownApplied.entry.type, "APPROVED");
   assert.equal(shownApplied.entry.status, "ACTIVE");
 
-  const exchangeDraft = await runCli([
-    "upl",
-    "spend",
-    "draft",
-    "exchange.trade",
-    "--handle",
-    "exchange:coinbase",
-    "--principal",
-    "ryan",
-    "--bucket",
-    "trading",
-    "--max-amount",
-    "100",
-    "--period-limit",
-    "300",
-    "--period-window",
-    "7d",
-    "--source-authority",
-    "api_credential",
-    "--json",
-  ], env);
+  const exchangeDraft = await runCli(
+    [
+      "upl",
+      "spend",
+      "draft",
+      "exchange.trade",
+      "--handle",
+      "exchange:coinbase",
+      "--principal",
+      "ryan",
+      "--bucket",
+      "trading",
+      "--max-amount",
+      "100",
+      "--period-limit",
+      "300",
+      "--period-window",
+      "7d",
+      "--source-authority",
+      "api_credential",
+      "--json",
+    ],
+    env,
+  );
   assert.equal(exchangeDraft.code, 0, exchangeDraft.stderr);
   const exchange = JSON.parse(exchangeDraft.stdout) as {
     review: {
@@ -177,7 +187,9 @@ async function main() {
   };
   assert.deepEqual(exchange.review.deltas[0]?.after?.approvedCommitIntents, ["swap"]);
   assert.deepEqual(exchange.review.deltas[0]?.after?.approvedDestinationKinds, ["exchange"]);
-  assert.deepEqual(exchange.review.deltas[0]?.after?.approvedSourceAuthorityKinds, ["api_credential"]);
+  assert.deepEqual(exchange.review.deltas[0]?.after?.approvedSourceAuthorityKinds, [
+    "api_credential",
+  ]);
   assert.deepEqual(exchange.review.deltas[0]?.after?.riskClasses, ["volatile"]);
   assert.equal(exchange.review.deltas[0]?.after?.periodLimitNormalized, 300);
   assert.equal(exchange.review.deltas[0]?.after?.periodWindow, "7d");
@@ -189,33 +201,36 @@ async function main() {
     pendingCount: number;
   };
 
-  const setupResult = await runCli([
-    "upl",
-    "spend",
-    "setup",
-    "platform.signup",
-    "--handle",
-    "provider:openai",
-    "--principal",
-    "ryan",
-    "--bucket",
-    "api-services",
-    "--max-amount",
-    "25",
-    "--period-limit",
-    "100",
-    "--period-window",
-    "30d",
-    "--source-authority",
-    "api_credential",
-    "--notes",
-    "bounded paid provider signup",
-    "--sync",
-    "buccet,future_buccets",
-    "--scope",
-    "GLOBAL",
-    "--yes",
-  ], env);
+  const setupResult = await runCli(
+    [
+      "upl",
+      "spend",
+      "setup",
+      "platform.signup",
+      "--handle",
+      "provider:openai",
+      "--principal",
+      "ryan",
+      "--bucket",
+      "api-services",
+      "--max-amount",
+      "25",
+      "--period-limit",
+      "100",
+      "--period-window",
+      "30d",
+      "--source-authority",
+      "api_credential",
+      "--notes",
+      "bounded paid provider signup",
+      "--sync",
+      "buccet,future_buccets",
+      "--scope",
+      "GLOBAL",
+      "--yes",
+    ],
+    env,
+  );
   assert.equal(setupResult.code, 0, setupResult.stderr);
   assert.match(setupResult.stdout, /Spend Pack/);
   assert.match(setupResult.stdout, /Draft Summary/);
@@ -259,29 +274,36 @@ async function main() {
   assert.equal(latestReview.review.deltas[0]?.after?.runtime.primaryTarget, "provider:openai");
   assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedCommitIntents, ["subscribe"]);
   assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedDestinationKinds, ["merchant"]);
-  assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedSourceAuthorityKinds, ["api_credential"]);
+  assert.deepEqual(latestReview.review.deltas[0]?.after?.approvedSourceAuthorityKinds, [
+    "api_credential",
+  ]);
   assert.equal(latestReview.review.deltas[0]?.after?.amountLimitNormalized, 25);
   assert.equal(latestReview.review.deltas[0]?.after?.periodLimitNormalized, 100);
   assert.equal(latestReview.review.deltas[0]?.after?.periodWindow, "30d");
 
-  const missingHandle = await runCli([
-    "upl",
-    "spend",
-    "draft",
-    "merchant.purchase",
-    "--principal",
-    "ryan",
-    "--bucket",
-    "shopping",
-    "--max-amount",
-    "25",
-  ], env);
+  const missingHandle = await runCli(
+    [
+      "upl",
+      "spend",
+      "draft",
+      "merchant.purchase",
+      "--principal",
+      "ryan",
+      "--bucket",
+      "shopping",
+      "--max-amount",
+      "25",
+    ],
+    env,
+  );
   assert.equal(missingHandle.code, 1);
   assert.match(missingHandle.stderr, /requires handle|handle/i);
 
   console.log("Agent Buccet spend-law-pack contract");
   console.log(`packs listed: ${packIds.length}`);
-  console.log(`subscription draft target: ${subscription.review.deltas[0]?.after?.runtime.primaryTarget}`);
+  console.log(
+    `subscription draft target: ${subscription.review.deltas[0]?.after?.runtime.primaryTarget}`,
+  );
   console.log(`subscription apply activated: ${applied.activatedEntryIds.length === 1}`);
   console.log(`exchange draft risk: ${exchange.review.deltas[0]?.after?.riskClasses[0]}`);
   console.log(`interactive setup latest source: ${workspaceAfterSetup.records.at(-1)?.sourcePath}`);

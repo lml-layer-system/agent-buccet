@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   auditBoundaryRequestLedger,
   buildActiveAgentBuccetLawIds,
@@ -25,10 +25,7 @@ async function runWithTimeout<T>(label: string, work: Promise<T>, timeoutMs = 12
   ]);
 }
 
-async function waitForPendingApproval<T>(
-  listPending: () => T[],
-  timeoutMs = 8_000,
-): Promise<T[]> {
+async function waitForPendingApproval<T>(listPending: () => T[], timeoutMs = 8_000): Promise<T[]> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const pending = listPending();
@@ -153,10 +150,11 @@ async function runApprovalWriteScenario(args: {
   if (args.mode === "interactive") {
     const pending = await waitForPendingApproval(() => bodyguard.approvals.listPending());
     assert.equal(pending.length, 1, "expected exactly one interactive approval");
-    requestId = pending[0]!.approvalId;
-    const settled = args.approvalChoice === "allow_once"
-      ? bodyguard.approvals.allowOnce(requestId, { notes: "mode parity allow once" })
-      : bodyguard.approvals.denyOnce(requestId, { notes: "mode parity deny once" });
+    requestId = pending[0]?.approvalId;
+    const settled =
+      args.approvalChoice === "allow_once"
+        ? bodyguard.approvals.allowOnce(requestId, { notes: "mode parity allow once" })
+        : bodyguard.approvals.denyOnce(requestId, { notes: "mode parity deny once" });
     assert.equal(settled, true, "expected interactive approval settlement");
   }
 
@@ -210,10 +208,11 @@ async function runHardDenyScenario(args: {
   const timeline = await readBoundarySessionTimeline(sessionId);
   const requestId = [...timeline]
     .reverse()
-    .find((record) =>
-      record.eventType === "ACTION_PROPOSED" &&
-      record.payload.target === target &&
-      record.payload.actionKind === "chat.emit"
+    .find(
+      (record) =>
+        record.eventType === "ACTION_PROPOSED" &&
+        record.payload.target === target &&
+        record.payload.actionKind === "chat.emit",
     )?.payload.requestId;
   assert.ok(requestId, "expected request id for hard deny scenario");
   const audit = await auditBoundaryRequestLedger(requestId!);
@@ -272,18 +271,42 @@ async function main() {
     assert.equal(headlessAllow.audit.status, "complete");
     assert.deepEqual(
       interactiveAllow.eventTypes,
-      ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED", "APPROVAL_GRANTED", "ACTION_EXECUTED"],
+      [
+        "ACTION_PROPOSED",
+        "DECISION_RETURNED",
+        "APPROVAL_REQUESTED",
+        "APPROVAL_GRANTED",
+        "ACTION_EXECUTED",
+      ],
       "expected interactive allow trace shape",
     );
     assert.deepEqual(
       headlessAllow.eventTypes,
-      ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED", "APPROVAL_GRANTED", "ACTION_EXECUTED"],
+      [
+        "ACTION_PROPOSED",
+        "DECISION_RETURNED",
+        "APPROVAL_REQUESTED",
+        "APPROVAL_GRANTED",
+        "ACTION_EXECUTED",
+      ],
       "expected headless allow trace shape",
     );
-    assert.ok(interactiveAllow.formatted.every((line) => line.includes("reason=")), "expected interactive allow ledger narration");
-    assert.ok(headlessAllow.formatted.every((line) => line.includes("reason=")), "expected headless allow ledger narration");
-    assert.ok(interactiveAllow.formatted.some((line) => line.includes("APPROVAL_GRANTED")), "expected interactive allow grant line");
-    assert.ok(headlessAllow.formatted.some((line) => line.includes("APPROVAL_GRANTED")), "expected headless allow grant line");
+    assert.ok(
+      interactiveAllow.formatted.every((line) => line.includes("reason=")),
+      "expected interactive allow ledger narration",
+    );
+    assert.ok(
+      headlessAllow.formatted.every((line) => line.includes("reason=")),
+      "expected headless allow ledger narration",
+    );
+    assert.ok(
+      interactiveAllow.formatted.some((line) => line.includes("APPROVAL_GRANTED")),
+      "expected interactive allow grant line",
+    );
+    assert.ok(
+      headlessAllow.formatted.some((line) => line.includes("APPROVAL_GRANTED")),
+      "expected headless allow grant line",
+    );
 
     console.log("  start interactive deny");
     const interactiveDeny = await runWithTimeout(
@@ -335,12 +358,30 @@ async function main() {
       approvalDenyTraceShape,
       "expected headless deny trace shape",
     );
-    assert.ok(interactiveDeny.formatted.some((line) => line.includes("APPROVAL_DENIED")), "expected interactive deny ledger line");
-    assert.ok(headlessDeny.formatted.some((line) => line.includes("APPROVAL_DENIED")), "expected headless deny ledger line");
-    assert.ok(interactiveDeny.formatted.some((line) => line.includes("ACTION_BLOCKED")), "expected interactive block line");
-    assert.ok(headlessDeny.formatted.some((line) => line.includes("ACTION_BLOCKED")), "expected headless block line");
-    assert.ok(interactiveDeny.formatted.some((line) => line.includes("BODYGUARD_MOVE_SUGGESTED")), "expected interactive deny bodyguard move line");
-    assert.ok(headlessDeny.formatted.some((line) => line.includes("BODYGUARD_MOVE_SUGGESTED")), "expected headless deny bodyguard move line");
+    assert.ok(
+      interactiveDeny.formatted.some((line) => line.includes("APPROVAL_DENIED")),
+      "expected interactive deny ledger line",
+    );
+    assert.ok(
+      headlessDeny.formatted.some((line) => line.includes("APPROVAL_DENIED")),
+      "expected headless deny ledger line",
+    );
+    assert.ok(
+      interactiveDeny.formatted.some((line) => line.includes("ACTION_BLOCKED")),
+      "expected interactive block line",
+    );
+    assert.ok(
+      headlessDeny.formatted.some((line) => line.includes("ACTION_BLOCKED")),
+      "expected headless block line",
+    );
+    assert.ok(
+      interactiveDeny.formatted.some((line) => line.includes("BODYGUARD_MOVE_SUGGESTED")),
+      "expected interactive deny bodyguard move line",
+    );
+    assert.ok(
+      headlessDeny.formatted.some((line) => line.includes("BODYGUARD_MOVE_SUGGESTED")),
+      "expected headless deny bodyguard move line",
+    );
 
     console.log("  start interactive hard deny");
     const interactiveHardDeny = await runWithTimeout(
@@ -390,8 +431,18 @@ async function main() {
       hardDenyTraceShape,
       "expected headless hard deny trace shape",
     );
-    assert.ok(interactiveHardDeny.formatted.every((line) => line.includes("session=") && line.includes("reason=")), "expected interactive hard deny narration");
-    assert.ok(headlessHardDeny.formatted.every((line) => line.includes("session=") && line.includes("reason=")), "expected headless hard deny narration");
+    assert.ok(
+      interactiveHardDeny.formatted.every(
+        (line) => line.includes("session=") && line.includes("reason="),
+      ),
+      "expected interactive hard deny narration",
+    );
+    assert.ok(
+      headlessHardDeny.formatted.every(
+        (line) => line.includes("session=") && line.includes("reason="),
+      ),
+      "expected headless hard deny narration",
+    );
 
     console.log(`interactive allow trace: ${interactiveAllow.eventTypes.join(" -> ")}`);
     console.log(`headless allow trace: ${headlessAllow.eventTypes.join(" -> ")}`);

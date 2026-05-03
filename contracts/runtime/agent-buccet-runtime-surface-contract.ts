@@ -1,17 +1,21 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { promises as fs } from "node:fs";
+import path from "node:path";
 import { BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS } from "./../../src/law/buccet-law-body-denial-catalog.ts";
-import { loadAgentBuccetRuntimeMuscle } from "./../../src/runtime/foundation.ts";
 import { loadUserPathLedger } from "./../../src/proof/user-path-ledger.ts";
+import { loadAgentBuccetRuntimeMuscle } from "./../../src/runtime/foundation.ts";
 import { substrate } from "./../../src/runtime/substrate/substrate-rust.ts";
 
 const repoRoot = process.cwd();
 
-const ACTIVE_LAW_BODY_MANIFEST = "data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json";
-const ACTIVE_LAW_BODY_SOURCE = "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json";
-const ACTIVE_RUNTIME_MUSCLE = "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json";
-const ACTIVE_DENIAL_CATALOG_SNAP = "data/agent-buccet-law-foundation/data/working/active-law-body/denial-catalog-snap.json";
+const ACTIVE_LAW_BODY_MANIFEST =
+  "data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json";
+const ACTIVE_LAW_BODY_SOURCE =
+  "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json";
+const ACTIVE_RUNTIME_MUSCLE =
+  "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json";
+const ACTIVE_DENIAL_CATALOG_SNAP =
+  "data/agent-buccet-law-foundation/data/working/active-law-body/denial-catalog-snap.json";
 const USER_PATH_LEDGER = "data/agent-buccet-law-foundation/user-path-ledger.json";
 const RUST_SUBSTRATE_BG = "native/buccet-substrate-rust/pkg/buccet_substrate_bg.js";
 const RUST_SUBSTRATE_WASM = "native/buccet-substrate-rust/pkg/buccet_substrate_bg.wasm";
@@ -81,12 +85,27 @@ async function main() {
     }
   }
 
-  const foundationSource = hotSources.find((entry) => entry.relativePath === "src/runtime/foundation.ts")?.source ?? "";
-  assert.match(foundationSource, /active-law-body/, "foundation should load runtime from active law body");
-  assert.doesNotMatch(foundationSource, /projected-laws\.json/, "foundation should not hot-load the rich active law rows");
-  assert.match(foundationSource, /runtime-muscle\.json/, "foundation should load the snapped runtime muscle artifact");
+  const foundationSource =
+    hotSources.find((entry) => entry.relativePath === "src/runtime/foundation.ts")?.source ?? "";
+  assert.match(
+    foundationSource,
+    /active-law-body/,
+    "foundation should load runtime from active law body",
+  );
+  assert.doesNotMatch(
+    foundationSource,
+    /projected-laws\.json/,
+    "foundation should not hot-load the rich active law rows",
+  );
+  assert.match(
+    foundationSource,
+    /runtime-muscle\.json/,
+    "foundation should load the snapped runtime muscle artifact",
+  );
 
-  const denialCatalogSource = hotSources.find((entry) => entry.relativePath === "src/law/buccet-law-body-denial-catalog.ts")?.source ?? "";
+  const denialCatalogSource =
+    hotSources.find((entry) => entry.relativePath === "src/law/buccet-law-body-denial-catalog.ts")
+      ?.source ?? "";
   assert.doesNotMatch(
     denialCatalogSource,
     /projected-laws\.json/,
@@ -98,27 +117,83 @@ async function main() {
     "law-body denial catalog should load the snapped denial catalog artifact",
   );
 
-  const ledgerSource = hotSources.find((entry) => entry.relativePath === "src/proof/user-path-ledger.ts")?.source ?? "";
-  assert.match(ledgerSource, /user-path-ledger\.json/, "UPL runtime should anchor to the live user-path ledger");
+  const ledgerSource =
+    hotSources.find((entry) => entry.relativePath === "src/proof/user-path-ledger.ts")?.source ??
+    "";
+  assert.match(
+    ledgerSource,
+    /user-path-ledger\.json/,
+    "UPL runtime should anchor to the live user-path ledger",
+  );
 
-  const processSource = hotSources.find((entry) => entry.relativePath === "src/runtime/process.ts")?.source ?? "";
-  assert.match(processSource, /native\/physwrap\/build/, "process runtime should anchor to the native physwrap binary");
+  const processSource =
+    hotSources.find((entry) => entry.relativePath === "src/runtime/process.ts")?.source ?? "";
+  assert.match(
+    processSource,
+    /native\/physwrap\/build/,
+    "process runtime should anchor to the native physwrap binary",
+  );
 
-  const substrateSource = hotSources.find((entry) => entry.relativePath === "src/runtime/substrate/substrate-rust.ts")?.source ?? "";
-  assert.match(substrateSource, /native\/buccet-substrate-rust\/pkg/, "substrate runtime should anchor to vendored WASM assets");
+  const substrateSource =
+    hotSources.find((entry) => entry.relativePath === "src/runtime/substrate/substrate-rust.ts")
+      ?.source ?? "";
+  assert.match(
+    substrateSource,
+    /native\/buccet-substrate-rust\/pkg/,
+    "substrate runtime should anchor to vendored WASM assets",
+  );
 
-  const cliSource = hotSources.find((entry) => entry.relativePath === "cli/buccet.ts")?.source ?? "";
-  assert.match(cliSource, /deep-intercept/, "buccet runtime should anchor hook build/install to native deep intercept");
-  assert.match(cliSource, /boundary\.substrate\.init\(\)/, "transport runtime should initialize the shared substrate");
-  assert.match(cliSource, /boundary\.substrate\.applyIsolation/, "transport runtime should enter isolation through the shared substrate");
-  assert.match(cliSource, /boundary\.substrate\.persistState/, "transport runtime should persist packaged state through the shared substrate");
-  assert.match(cliSource, /boundary\.substrate\.enterEnvironment/, "transport runtime should enter packaged environment through the shared substrate");
-  assert.match(cliSource, /resolveTransportExecutable/, "transport runtime should resolve commands from inside the packaged rootfs");
+  const cliSource =
+    hotSources.find((entry) => entry.relativePath === "cli/buccet.ts")?.source ?? "";
+  assert.match(
+    cliSource,
+    /deep-intercept/,
+    "buccet runtime should anchor hook build/install to native deep intercept",
+  );
+  assert.match(
+    cliSource,
+    /boundary\.substrate\.init\(\)/,
+    "transport runtime should initialize the shared substrate",
+  );
+  assert.match(
+    cliSource,
+    /boundary\.substrate\.applyIsolation/,
+    "transport runtime should enter isolation through the shared substrate",
+  );
+  assert.match(
+    cliSource,
+    /boundary\.substrate\.persistState/,
+    "transport runtime should persist packaged state through the shared substrate",
+  );
+  assert.match(
+    cliSource,
+    /boundary\.substrate\.enterEnvironment/,
+    "transport runtime should enter packaged environment through the shared substrate",
+  );
+  assert.match(
+    cliSource,
+    /resolveTransportExecutable/,
+    "transport runtime should resolve commands from inside the packaged rootfs",
+  );
 
-  const mcpSource = hotSources.find((entry) => entry.relativePath === "scripts/agent-buccet-mcp-server.ts")?.source ?? "";
-  assert.match(mcpSource, /evaluateBoundaryIntercept/, "MCP runtime should route tool calls through boundary intercept");
-  assert.match(mcpSource, /enableBodyguardControl/, "MCP runtime should use the shared bodyguard-controlled config");
-  assert.match(mcpSource, /provenance "mcp_host"|provenance: "mcp_host"/, "MCP runtime should ledger its provenance as mcp_host");
+  const mcpSource =
+    hotSources.find((entry) => entry.relativePath === "scripts/agent-buccet-mcp-server.ts")
+      ?.source ?? "";
+  assert.match(
+    mcpSource,
+    /evaluateBoundaryIntercept/,
+    "MCP runtime should route tool calls through boundary intercept",
+  );
+  assert.match(
+    mcpSource,
+    /enableBodyguardControl/,
+    "MCP runtime should use the shared bodyguard-controlled config",
+  );
+  assert.match(
+    mcpSource,
+    /provenance "mcp_host"|provenance: "mcp_host"/,
+    "MCP runtime should ledger its provenance as mcp_host",
+  );
 
   const runtimeMuscle = await loadAgentBuccetRuntimeMuscle();
   assert.equal(
@@ -131,7 +206,10 @@ async function main() {
     ACTIVE_LAW_BODY_SOURCE,
     "runtime muscle should retain a source track back to the rich active law source",
   );
-  assert.ok(runtimeMuscle.activeLawIds.length > 0, "runtime muscle should load active law ids from the snapped law body");
+  assert.ok(
+    runtimeMuscle.activeLawIds.length > 0,
+    "runtime muscle should load active law ids from the snapped law body",
+  );
   assert.ok(
     BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS.length > 8000,
     "runtime should load the snapped law-body denial catalog",

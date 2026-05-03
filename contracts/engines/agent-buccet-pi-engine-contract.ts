@@ -4,25 +4,25 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import {
-  ENGINE_ACCEPTANCE_CORRIDORS,
-  ENGINE_ACCEPTANCE_LANES,
-} from "./../../src/teams/agent-comprehension-acceptance.ts";
-import { buildBaseAcceptanceSeeds } from "./../../src/law/base-upl-acceptance.ts";
-import {
-  ENGINE_PROVIDER_DEFAULTS,
-  addTeamEngineSource,
-  addTeamRemoteLlmSource,
-  createTeam,
-  loadTeam,
-  teamSlug,
-  type EngineSourceConfig,
-} from "./../../src/teams/team-workshop.ts";
-import {
   buildBuccetSystemContext,
   mapPiToolToBoundaryKind,
   summarizeToolCallForBoundary,
   tryLoadPiBindings,
 } from "./../../src/engines/pi/pi-adapter.ts";
+import { buildBaseAcceptanceSeeds } from "./../../src/law/base-upl-acceptance.ts";
+import {
+  ENGINE_ACCEPTANCE_CORRIDORS,
+  ENGINE_ACCEPTANCE_LANES,
+} from "./../../src/teams/agent-comprehension-acceptance.ts";
+import {
+  ENGINE_PROVIDER_DEFAULTS,
+  type EngineSourceConfig,
+  addTeamEngineSource,
+  addTeamRemoteLlmSource,
+  createTeam,
+  loadTeam,
+  teamSlug,
+} from "./../../src/teams/team-workshop.ts";
 
 /**
  * Pi Engine Contract.
@@ -55,7 +55,12 @@ async function main(): Promise<void> {
   const home = await mkdtemp(path.join(tmpdir(), "buccet-pi-contract-"));
   try {
     const slug = teamSlug("pi-contract-team");
-    await createTeam({ homePath: home, name: "pi-contract-team", domain: "contract", summary: "pi engine contract" });
+    await createTeam({
+      homePath: home,
+      name: "pi-contract-team",
+      domain: "contract",
+      summary: "pi engine contract",
+    });
 
     // ----- 1. Engine source persists; hands are singular ------------------
     await addTeamRemoteLlmSource({ homePath: home, slug, provider: "anthropic" });
@@ -71,10 +76,10 @@ async function main(): Promise<void> {
 
     const manifest = await loadTeam(home, slug);
     assert.ok(manifest, "team manifest loadable");
-    const engineSource = manifest!.pathSourceCorpus.find((s) => s.transport === "engine");
+    const engineSource = manifest?.pathSourceCorpus.find((s) => s.transport === "engine");
     assert.ok(engineSource, "engine source must persist");
-    assert.equal(engineSource!.kind, "engine:pi", "engine source kind is engine:pi");
-    const engineCfg = engineSource!.engine as EngineSourceConfig;
+    assert.equal(engineSource?.kind, "engine:pi", "engine source kind is engine:pi");
+    const engineCfg = engineSource?.engine as EngineSourceConfig;
     assert.equal(engineCfg.provider, "pi", "engine provider is pi");
     assert.equal(
       engineCfg.agentCorePackage,
@@ -90,20 +95,36 @@ async function main(): Promise<void> {
     // ----- 2. Pi's acceptance corridor is seeded into the base pack -------
     const seeds = buildBaseAcceptanceSeeds({
       rootPath: home,
-      grantedActions: ["fs.read", "fs.write", "fs.delete", "network.send", "tool.exec", "agent.spend", "chat.emit"],
+      grantedActions: [
+        "fs.read",
+        "fs.write",
+        "fs.delete",
+        "network.send",
+        "tool.exec",
+        "agent.spend",
+        "chat.emit",
+      ],
     });
 
     for (const corridor of ENGINE_ACCEPTANCE_CORRIDORS) {
       const lane = seeds.find((s) => s.id === corridor.id);
       assert.ok(lane, `expected base UPL seed for engine corridor ${corridor.id}`);
-      assert.equal(lane!.acceptanceClass, "agent_comprehension", `${corridor.id} sits in the agent_comprehension class`);
+      assert.equal(
+        lane?.acceptanceClass,
+        "agent_comprehension",
+        `${corridor.id} sits in the agent_comprehension class`,
+      );
       assert.deepEqual(
-        lane!.actionKinds,
+        lane?.actionKinds,
         ["chat.emit"],
         `${corridor.id} is declaratory (chat.emit) — actual gating happens at per-action lanes`,
       );
     }
-    assert.equal(ENGINE_ACCEPTANCE_LANES.length, ENGINE_ACCEPTANCE_CORRIDORS.length, "every corridor has a lane");
+    assert.equal(
+      ENGINE_ACCEPTANCE_LANES.length,
+      ENGINE_ACCEPTANCE_CORRIDORS.length,
+      "every corridor has a lane",
+    );
 
     console.log("SUCCESS: Pi engine corridor seeded into base UPL acceptance pack.");
 
@@ -116,12 +137,21 @@ async function main(): Promise<void> {
     assert.equal(mapPiToolToBoundaryKind("glob"), "fs.read", "glob → fs.read");
     assert.equal(mapPiToolToBoundaryKind("delete"), "fs.delete", "delete → fs.delete");
     assert.equal(mapPiToolToBoundaryKind("fetch"), "network.send", "fetch → network.send");
-    assert.equal(mapPiToolToBoundaryKind("UNKNOWN_TOOL"), "tool.exec", "unknown tool falls through to tool.exec — every dispatch gated");
+    assert.equal(
+      mapPiToolToBoundaryKind("UNKNOWN_TOOL"),
+      "tool.exec",
+      "unknown tool falls through to tool.exec — every dispatch gated",
+    );
 
-    console.log("SUCCESS: Pi tool-name → boundary action-kind map covers stdlib + falls through to tool.exec.");
+    console.log(
+      "SUCCESS: Pi tool-name → boundary action-kind map covers stdlib + falls through to tool.exec.",
+    );
 
     // ----- 4. Payload summary preserves the proposal shape ---------------
-    const summary = summarizeToolCallForBoundary({ name: "bash", arguments: { command: "ls /tmp" } });
+    const summary = summarizeToolCallForBoundary({
+      name: "bash",
+      arguments: { command: "ls /tmp" },
+    });
     assert.ok(summary.includes("pi-tool:bash"), "summary names the tool");
     assert.ok(summary.includes("ls /tmp"), "summary preserves the argument material");
 
@@ -140,8 +170,11 @@ async function main(): Promise<void> {
       uplTrackSnapDescription: "Standing law: read-only on /tmp, no network.",
     });
     assert.ok(ctx.includes("BRAIN PROTOCOL"), "system context contains brain protocol header");
-    assert.ok(ctx.includes("Universal procedural law every agent must run") || ctx.includes("Receive"), "brain protocol body is injected (UBIE)");
-    assert.ok(ctx.includes(`TEAM: ${manifest!.name}`), "team identity is injected");
+    assert.ok(
+      ctx.includes("Universal procedural law every agent must run") || ctx.includes("Receive"),
+      "brain protocol body is injected (UBIE)",
+    );
+    assert.ok(ctx.includes(`TEAM: ${manifest?.name}`), "team identity is injected");
     assert.ok(ctx.includes("LIBRARY (path sources)"), "library section is named");
     assert.ok(ctx.includes("anthropic"), "AI source is enumerated in library section");
     assert.ok(ctx.includes("STANDING LAW"), "standing law (UPL track) is named");
@@ -159,9 +192,14 @@ async function main(): Promise<void> {
     // ----- 6. Pi ships as a direct dep — tryLoadPiBindings returns live bindings ------
     const bindings = await tryLoadPiBindings();
     assert.ok(bindings !== null, "Pi is a direct dep — tryLoadPiBindings returns live bindings");
-    assert.ok(typeof (bindings as { agentCore: unknown }).agentCore === "object", "pi-agent-core loaded");
+    assert.ok(
+      typeof (bindings as { agentCore: unknown }).agentCore === "object",
+      "pi-agent-core loaded",
+    );
     assert.ok(typeof (bindings as { piAi: unknown }).piAi === "object", "pi-ai loaded");
-    console.log("SUCCESS: Pi ships as a direct dependency; tryLoadPiBindings returns live bindings on install.");
+    console.log(
+      "SUCCESS: Pi ships as a direct dependency; tryLoadPiBindings returns live bindings on install.",
+    );
 
     console.log("\n--- Pi Engine Contract Verified ---");
   } finally {

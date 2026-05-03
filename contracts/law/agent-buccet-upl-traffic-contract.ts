@@ -1,10 +1,6 @@
 import assert from "node:assert/strict";
 import path from "node:path";
-import {
-  describeUserPath,
-  evaluateBoundaryUplTraffic,
-  hashUserPath,
-} from "./../../src/index.ts";
+import { describeUserPath, evaluateBoundaryUplTraffic, hashUserPath } from "./../../src/index.ts";
 import type {
   BoundaryActionKind,
   BoundaryActionRequest,
@@ -201,7 +197,11 @@ async function main() {
 
   const drift = evaluateBoundaryUplTraffic({
     config,
-    request: makeRequest("fs.write", path.join("/tmp", "outside-traffic", "blocked.txt"), "write:12bytes"),
+    request: makeRequest(
+      "fs.write",
+      path.join("/tmp", "outside-traffic", "blocked.txt"),
+      "write:12bytes",
+    ),
   });
   assert.equal(drift.decision, "drift");
   assert.equal(drift.trafficClass, "allow_rail");

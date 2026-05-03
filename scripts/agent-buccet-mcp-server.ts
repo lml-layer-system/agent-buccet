@@ -13,8 +13,8 @@
  */
 
 import { promises as fs } from "node:fs";
-import path from "node:path";
 import os from "node:os";
+import path from "node:path";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 
@@ -30,7 +30,7 @@ type ParsedArgs = {
 
 function usage(): never {
   process.stderr.write(
-    [
+    `${[
       "Usage:",
       "  node scripts/agent-buccet-mcp-server.ts",
       "    --session-id <id>",
@@ -38,7 +38,7 @@ function usage(): never {
       "    --sessions-dir <path>",
       "    --home <path>",
       "    [--dry-run]",
-    ].join("\n") + "\n",
+    ].join("\n")}\n`,
   );
   process.exit(1);
 }
@@ -52,11 +52,25 @@ function parseArgs(argv: string[]): ParsedArgs {
 
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
-    if (t === "--session-id") { sessionId = argv[++i] ?? usage(); continue; }
-    if (t === "--actor-id") { actorId = argv[++i] ?? usage(); continue; }
-    if (t === "--sessions-dir") { sessionsDir = argv[++i] ?? usage(); continue; }
-    if (t === "--home") { home = argv[++i] ?? usage(); continue; }
-    if (t === "--dry-run") { dryRun = true; continue; }
+    if (t === "--session-id") {
+      sessionId = argv[++i] ?? usage();
+      continue;
+    }
+    if (t === "--actor-id") {
+      actorId = argv[++i] ?? usage();
+      continue;
+    }
+    if (t === "--sessions-dir") {
+      sessionsDir = argv[++i] ?? usage();
+      continue;
+    }
+    if (t === "--home") {
+      home = argv[++i] ?? usage();
+      continue;
+    }
+    if (t === "--dry-run") {
+      dryRun = true;
+    }
   }
 
   if (!sessionId || !actorId || !sessionsDir) {
@@ -92,7 +106,7 @@ type McpToolDefinition = {
 };
 
 function respond(res: JsonRpcResponse): void {
-  process.stdout.write(JSON.stringify(res) + "\n");
+  process.stdout.write(`${JSON.stringify(res)}\n`);
 }
 
 function respondError(id: string | number | null, code: number, message: string): void {
@@ -108,7 +122,8 @@ function respondResult(id: string | number | null, result: unknown): void {
 const MCP_TOOLS: McpToolDefinition[] = [
   {
     name: "read_file",
-    description: "Read the contents of a file at the given path. Enforced by Buccet boundary (fs.read).",
+    description:
+      "Read the contents of a file at the given path. Enforced by Buccet boundary (fs.read).",
     inputSchema: {
       type: "object",
       properties: {
@@ -119,7 +134,8 @@ const MCP_TOOLS: McpToolDefinition[] = [
   },
   {
     name: "write_file",
-    description: "Write content to a file at the given path. Creates the file if it does not exist. Enforced by Buccet boundary (fs.write).",
+    description:
+      "Write content to a file at the given path. Creates the file if it does not exist. Enforced by Buccet boundary (fs.write).",
     inputSchema: {
       type: "object",
       properties: {
@@ -131,11 +147,15 @@ const MCP_TOOLS: McpToolDefinition[] = [
   },
   {
     name: "append_file",
-    description: "Append content to a file at the given path. Enforced by Buccet boundary (fs.append).",
+    description:
+      "Append content to a file at the given path. Enforced by Buccet boundary (fs.append).",
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Absolute or relative path to the file to append to." },
+        path: {
+          type: "string",
+          description: "Absolute or relative path to the file to append to.",
+        },
         content: { type: "string", description: "Text content to append." },
       },
       required: ["path", "content"],
@@ -154,18 +174,23 @@ const MCP_TOOLS: McpToolDefinition[] = [
   },
   {
     name: "make_directory",
-    description: "Create a directory (and any parents) at the given path. Enforced by Buccet boundary (fs.mkdir).",
+    description:
+      "Create a directory (and any parents) at the given path. Enforced by Buccet boundary (fs.mkdir).",
     inputSchema: {
       type: "object",
       properties: {
-        path: { type: "string", description: "Absolute or relative path of the directory to create." },
+        path: {
+          type: "string",
+          description: "Absolute or relative path of the directory to create.",
+        },
       },
       required: ["path"],
     },
   },
   {
     name: "move_file",
-    description: "Move or rename a file from one path to another. Enforced by Buccet boundary (fs.move).",
+    description:
+      "Move or rename a file from one path to another. Enforced by Buccet boundary (fs.move).",
     inputSchema: {
       type: "object",
       properties: {
@@ -177,7 +202,8 @@ const MCP_TOOLS: McpToolDefinition[] = [
   },
   {
     name: "run_command",
-    description: "Run a shell command and capture its output. Enforced by Buccet boundary (tool.exec).",
+    description:
+      "Run a shell command and capture its output. Enforced by Buccet boundary (tool.exec).",
     inputSchema: {
       type: "object",
       properties: {
@@ -215,7 +241,8 @@ const MCP_TOOLS: McpToolDefinition[] = [
   },
   {
     name: "emit_chat",
-    description: "Emit a chat message to the primary surface. Enforced by Buccet boundary (chat.emit).",
+    description:
+      "Emit a chat message to the primary surface. Enforced by Buccet boundary (chat.emit).",
     inputSchema: {
       type: "object",
       properties: {
@@ -232,7 +259,11 @@ async function execTool(
   toolName: string,
   input: unknown,
   options?: {
-    runCommand?: (command: string, args: string[], cwd: string) => Promise<{
+    runCommand?: (
+      command: string,
+      args: string[],
+      cwd: string,
+    ) => Promise<{
       stdout: string;
       stderr: string;
       exitCode: number;
@@ -252,13 +283,17 @@ async function execTool(
       const content = String(inp.content ?? "");
       await fs.mkdir(path.dirname(filePath), { recursive: true });
       await fs.writeFile(filePath, content, "utf8");
-      return { content: [{ type: "text", text: `Written ${content.length} bytes to ${filePath}` }] };
+      return {
+        content: [{ type: "text", text: `Written ${content.length} bytes to ${filePath}` }],
+      };
     }
     case "append_file": {
       const filePath = String(inp.path ?? "");
       const content = String(inp.content ?? "");
       await fs.appendFile(filePath, content, "utf8");
-      return { content: [{ type: "text", text: `Appended ${content.length} bytes to ${filePath}` }] };
+      return {
+        content: [{ type: "text", text: `Appended ${content.length} bytes to ${filePath}` }],
+      };
     }
     case "delete_file": {
       const filePath = String(inp.path ?? "");
@@ -289,7 +324,9 @@ async function execTool(
         result.stdout,
         result.stderr ? `[stderr]\n${result.stderr}` : "",
         `[exit ${result.exitCode}]`,
-      ].filter(Boolean).join("\n");
+      ]
+        .filter(Boolean)
+        .join("\n");
       return { content: [{ type: "text", text }] };
     }
     case "send_http_request": {
@@ -301,10 +338,12 @@ async function execTool(
       const res = await fetch(url, { method, body, headers });
       const text = await res.text();
       return {
-        content: [{
-          type: "text",
-          text: `HTTP ${res.status} ${res.statusText}\n\n${text}`,
-        }],
+        content: [
+          {
+            type: "text",
+            text: `HTTP ${res.status} ${res.statusText}\n\n${text}`,
+          },
+        ],
       };
     }
     case "read_env": {
@@ -330,7 +369,13 @@ async function execTool(
 
 // ─── boundary action class mapping ──────────────────────────────────────────
 
-type BoundaryInterceptActionClass = "file" | "shell" | "network" | "database" | "system" | "communication";
+type BoundaryInterceptActionClass =
+  | "file"
+  | "shell"
+  | "network"
+  | "database"
+  | "system"
+  | "communication";
 
 type ToolBoundaryMapping = {
   actionClass: BoundaryInterceptActionClass;
@@ -340,16 +385,57 @@ type ToolBoundaryMapping = {
 };
 
 const TOOL_BOUNDARY_MAP: Record<string, ToolBoundaryMapping> = {
-  read_file:         { actionClass: "file",          operation: "read",    describeTarget: (i) => String(i.path ?? "") },
-  write_file:        { actionClass: "file",          operation: "write",   describeTarget: (i) => String(i.path ?? ""), describePayload: (i) => `${String(i.content ?? "").length} bytes` },
-  append_file:       { actionClass: "file",          operation: "append",  describeTarget: (i) => String(i.path ?? "") },
-  delete_file:       { actionClass: "file",          operation: "delete",  describeTarget: (i) => String(i.path ?? "") },
-  make_directory:    { actionClass: "file",          operation: "mkdir",   describeTarget: (i) => String(i.path ?? "") },
-  move_file:         { actionClass: "file",          operation: "move",    describeTarget: (i) => `${i.from} → ${i.to}` },
-  run_command:       { actionClass: "shell",         operation: "exec",    describeTarget: (i) => String(i.command ?? "") },
-  send_http_request: { actionClass: "network",       operation: "send",    describeTarget: (i) => String(i.url ?? "") },
-  read_env:          { actionClass: "system",        operation: "env.read", describeTarget: (i) => String(i.key ?? "") },
-  emit_chat:         { actionClass: "communication", operation: "emit",    describeTarget: () => "chat:primary" },
+  read_file: {
+    actionClass: "file",
+    operation: "read",
+    describeTarget: (i) => String(i.path ?? ""),
+  },
+  write_file: {
+    actionClass: "file",
+    operation: "write",
+    describeTarget: (i) => String(i.path ?? ""),
+    describePayload: (i) => `${String(i.content ?? "").length} bytes`,
+  },
+  append_file: {
+    actionClass: "file",
+    operation: "append",
+    describeTarget: (i) => String(i.path ?? ""),
+  },
+  delete_file: {
+    actionClass: "file",
+    operation: "delete",
+    describeTarget: (i) => String(i.path ?? ""),
+  },
+  make_directory: {
+    actionClass: "file",
+    operation: "mkdir",
+    describeTarget: (i) => String(i.path ?? ""),
+  },
+  move_file: {
+    actionClass: "file",
+    operation: "move",
+    describeTarget: (i) => `${i.from} → ${i.to}`,
+  },
+  run_command: {
+    actionClass: "shell",
+    operation: "exec",
+    describeTarget: (i) => String(i.command ?? ""),
+  },
+  send_http_request: {
+    actionClass: "network",
+    operation: "send",
+    describeTarget: (i) => String(i.url ?? ""),
+  },
+  read_env: {
+    actionClass: "system",
+    operation: "env.read",
+    describeTarget: (i) => String(i.key ?? ""),
+  },
+  emit_chat: {
+    actionClass: "communication",
+    operation: "emit",
+    describeTarget: () => "chat:primary",
+  },
 };
 
 // ─── main ────────────────────────────────────────────────────────────────────
@@ -388,13 +474,15 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
       sessionsDir: args.sessionsDir,
       hydrationMode: "full",
     });
-    const store = restored ?? await boundary.createPersistentBoundaryRuntimeStore({
-      sessionId: args.sessionId,
-      actorId: args.actorId,
-      dryRun: args.dryRun,
-      sessionsDir: args.sessionsDir,
-      hydrationMode: "full",
-    });
+    const store =
+      restored ??
+      (await boundary.createPersistentBoundaryRuntimeStore({
+        sessionId: args.sessionId,
+        actorId: args.actorId,
+        dryRun: args.dryRun,
+        sessionsDir: args.sessionsDir,
+        hydrationMode: "full",
+      }));
 
     const config = store.getConfig();
     let initialized = false;
@@ -445,10 +533,12 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         const mapping = TOOL_BOUNDARY_MAP[toolName];
         if (!mapping) {
           respondResult(id, {
-            content: [{
-              type: "text",
-              text: `Tool "${toolName}" is not registered in the Buccet boundary tool registry. Unknown tools are denied.\n\nlawId: BOUNDARY.TOOL.UNMAPPED`,
-            }],
+            content: [
+              {
+                type: "text",
+                text: `Tool "${toolName}" is not registered in the Buccet boundary tool registry. Unknown tools are denied.\n\nlawId: BOUNDARY.TOOL.UNMAPPED`,
+              },
+            ],
             isError: true,
           });
           return;
@@ -504,13 +594,17 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         if (result.decision === "deny") {
           await recordBoundaryBlockedAction(config, boundaryRequest, result.reason, result.lawIds);
           respondResult(id, {
-            content: [{
-              type: "text",
-              text: [
-                `Boundary denied: ${result.reason}`,
-                result.lawIds.length > 0 ? `lawIds: ${result.lawIds.join(", ")}` : "",
-              ].filter(Boolean).join("\n"),
-            }],
+            content: [
+              {
+                type: "text",
+                text: [
+                  `Boundary denied: ${result.reason}`,
+                  result.lawIds.length > 0 ? `lawIds: ${result.lawIds.join(", ")}` : "",
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+              },
+            ],
             isError: true,
           });
           return;
@@ -524,14 +618,18 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
             lawIds: result.lawIds,
           });
           respondResult(id, {
-            content: [{
-              type: "text",
-              text: [
-                `Boundary requires approval: ${result.reason}`,
-                result.lawIds.length > 0 ? `lawIds: ${result.lawIds.join(", ")}` : "",
-                "Approve via: buccet console",
-              ].filter(Boolean).join("\n"),
-            }],
+            content: [
+              {
+                type: "text",
+                text: [
+                  `Boundary requires approval: ${result.reason}`,
+                  result.lawIds.length > 0 ? `lawIds: ${result.lawIds.join(", ")}` : "",
+                  "Approve via: buccet console",
+                ]
+                  .filter(Boolean)
+                  .join("\n"),
+              },
+            ],
             isError: true,
           });
           return;
@@ -569,10 +667,12 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           respondResult(id, execResult);
         } catch (err) {
           respondResult(id, {
-            content: [{
-              type: "text",
-              text: `Execution error: ${err instanceof Error ? err.message : String(err)}`,
-            }],
+            content: [
+              {
+                type: "text",
+                text: `Execution error: ${err instanceof Error ? err.message : String(err)}`,
+              },
+            ],
             isError: true,
           });
         }
@@ -583,7 +683,10 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
     }
 
     await new Promise<void>((resolve) => {
-      const rl = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
+      const rl = readline.createInterface({
+        input: process.stdin,
+        crlfDelay: Number.POSITIVE_INFINITY,
+      });
 
       rl.on("line", (line: string) => {
         const trimmed = line.trim();
@@ -597,17 +700,25 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           return;
         }
 
-        track(handleRequest(req).catch((err) => {
-          process.stderr.write(`[buccet-mcp] request error: ${err instanceof Error ? err.message : String(err)}\n`);
-        }));
+        track(
+          handleRequest(req).catch((err) => {
+            process.stderr.write(
+              `[buccet-mcp] request error: ${err instanceof Error ? err.message : String(err)}\n`,
+            );
+          }),
+        );
       });
 
       rl.on("close", () => {
         void Promise.all([...inFlight]).then(() => resolve());
       });
 
-      process.once("SIGTERM", () => { rl.close(); });
-      process.once("SIGINT", () => { rl.close(); });
+      process.once("SIGTERM", () => {
+        rl.close();
+      });
+      process.once("SIGINT", () => {
+        rl.close();
+      });
     });
   } finally {
     process.chdir(originalCwd);
@@ -616,7 +727,9 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   runBuccetMcpServer(process.argv.slice(2)).catch((err) => {
-    process.stderr.write(`[buccet-mcp] fatal: ${err instanceof Error ? err.message : String(err)}\n`);
+    process.stderr.write(
+      `[buccet-mcp] fatal: ${err instanceof Error ? err.message : String(err)}\n`,
+    );
     process.exit(1);
   });
 }

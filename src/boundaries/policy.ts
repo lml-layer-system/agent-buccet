@@ -1,4 +1,5 @@
 import { promises as fs } from "node:fs";
+import { instantiateBoundaryGrant } from "./../runtime/orchestrator.ts";
 import type {
   BoundaryActionKind,
   BoundaryGrant,
@@ -7,7 +8,6 @@ import type {
   BoundaryProcessPolicy,
   BoundaryRuntimeConfig,
 } from "./../runtime/types.ts";
-import { instantiateBoundaryGrant } from "./../runtime/orchestrator.ts";
 
 const VALID_ACTION_KINDS: BoundaryActionKind[] = [
   "fs.read",
@@ -75,17 +75,11 @@ function assertValidProcessPolicy(policy?: BoundaryProcessPolicy): void {
     }
   }
 
-  if (
-    policy.inheritParentEnv !== undefined &&
-    typeof policy.inheritParentEnv !== "boolean"
-  ) {
+  if (policy.inheritParentEnv !== undefined && typeof policy.inheritParentEnv !== "boolean") {
     throw new Error("invalid process policy field inheritParentEnv; expected boolean");
   }
 
-  if (
-    policy.enforceScopedCwd !== undefined &&
-    typeof policy.enforceScopedCwd !== "boolean"
-  ) {
+  if (policy.enforceScopedCwd !== undefined && typeof policy.enforceScopedCwd !== "boolean") {
     throw new Error("invalid process policy field enforceScopedCwd; expected boolean");
   }
 }
@@ -159,7 +153,9 @@ export function applyBoundaryPolicyConfig(args: {
     laws: nextLaws,
     grants: nextGrants,
     approvalRequiredFor: args.policy.approvalRequiredFor ?? args.config.approvalRequiredFor,
-    userLawIds: [...new Set([...(args.config.userLawIds ?? []), ...nextLaws.map((law) => law.lawId)])],
+    userLawIds: [
+      ...new Set([...(args.config.userLawIds ?? []), ...nextLaws.map((law) => law.lawId)]),
+    ],
     processPolicy: args.policy.process ?? args.config.processPolicy,
   };
 }

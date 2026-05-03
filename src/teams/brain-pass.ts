@@ -33,48 +33,48 @@
 import path from "node:path";
 
 import {
-  buildInitialComprehensionPass,
-  recordComprehensionRender,
-  recordComprehensionReturn,
-  recordComprehensionTransform,
-  recordComprehensionValueBoundary,
-  recordComprehensionValidation,
-  renderComprehensionPassForPrompt,
-  type AgentComprehensionPass,
-} from "./agent-comprehension-engine.ts";
-import {
-  adjudicateMultiAgentCoherence,
-  renderCoherenceGateReport,
-  type CoherenceAdjudication,
-} from "./coherence-adjudication.ts";
-import {
-  buildBuccetGovernedPiAgent,
-  PiNotInstalledError,
-  tryLoadPiBindings,
-} from "./../engines/pi/pi-adapter.ts";
-import {
-  buildTeamPeerTaskGraph,
-  buildTeamWholeView,
-  renderProjectionBundle,
   type TeamPeerTaskGraph,
   type TeamPeerTaskPacket,
   type TeamWholeView,
+  buildTeamPeerTaskGraph,
+  buildTeamWholeView,
+  renderProjectionBundle,
 } from "./../context/path-source-checkpoints.ts";
+import {
+  PiNotInstalledError,
+  buildBuccetGovernedPiAgent,
+  tryLoadPiBindings,
+} from "./../engines/pi/pi-adapter.ts";
+import { syncTeamSpendBoundaryProofOfWork } from "./../proof/spend-boundary-proof.ts";
 import {
   endPersistentBoundarySession,
   startPersistentBoundarySession,
 } from "./../runtime/state.ts";
+import type { BoundaryActionKind } from "./../runtime/types.ts";
 import {
-  appendTeamPathSourceMemoryEntry,
-  ensureTeamWorkMemorySource,
-  loadTeam,
+  type AgentComprehensionPass,
+  buildInitialComprehensionPass,
+  recordComprehensionRender,
+  recordComprehensionReturn,
+  recordComprehensionTransform,
+  recordComprehensionValidation,
+  recordComprehensionValueBoundary,
+  renderComprehensionPassForPrompt,
+} from "./agent-comprehension-engine.ts";
+import {
+  type CoherenceAdjudication,
+  adjudicateMultiAgentCoherence,
+  renderCoherenceGateReport,
+} from "./coherence-adjudication.ts";
+import {
   type TeamAgent,
   type TeamManifest,
   type TeamSlug,
   type TeamSourceRef,
+  appendTeamPathSourceMemoryEntry,
+  ensureTeamWorkMemorySource,
+  loadTeam,
 } from "./team-workshop.ts";
-import { syncTeamSpendBoundaryProofOfWork } from "./../proof/spend-boundary-proof.ts";
-import type { BoundaryActionKind } from "./../runtime/types.ts";
 
 export type BrainPassEvent =
   | { type: "session_started"; sessionId: string; aiProvider: string; engineProvider: string }
@@ -104,7 +104,7 @@ export type RunBrainPassResult = {
   coherence: CoherenceAdjudication;
 };
 
-const PI_RUN_GRANTED_ACTIONS: BoundaryActionKind[] = [
+const _PI_RUN_GRANTED_ACTIONS: BoundaryActionKind[] = [
   "fs.read",
   "fs.write",
   "fs.append",
@@ -165,10 +165,12 @@ export async function preflightBrainPass(args: {
   if (!manifest) {
     throw new BrainPassPreconditionError(`No team named "${args.slug}".`);
   }
-  manifest = (await ensureTeamWorkMemorySource({
-    homePath: args.homePath,
-    manifest,
-  })).manifest;
+  manifest = (
+    await ensureTeamWorkMemorySource({
+      homePath: args.homePath,
+      manifest,
+    })
+  ).manifest;
 
   const engineSource = manifest.pathSourceCorpus.find((s) => s.transport === "engine");
   if (!engineSource) {
@@ -200,9 +202,7 @@ export async function preflightBrainPass(args: {
   if (args.agentId) {
     const selected = manifest.agents.find((entry) => entry.id === args.agentId) ?? null;
     if (!selected) {
-      throw new BrainPassPreconditionError(
-        `Team "${args.slug}" has no peer "${args.agentId}".`,
-      );
+      throw new BrainPassPreconditionError(`Team "${args.slug}" has no peer "${args.agentId}".`);
     }
     agents = [selected];
   }
@@ -228,7 +228,10 @@ export async function preflightBrainPass(args: {
     checkpointedSourceCount: wholeView.checkpointedSourceCount,
     totalLineCount: wholeView.totalLineCount,
     packetCount: peerTaskGraph.packets.length,
-    projectionCount: peerTaskGraph.packets.reduce((sum, packet) => sum + packet.projectionHandles.length, 0),
+    projectionCount: peerTaskGraph.packets.reduce(
+      (sum, packet) => sum + packet.projectionHandles.length,
+      0,
+    ),
     spokespersonAgentId: agent.id,
     valueBoundaryRequired: manifest.buccetClass === "spend",
     peers: agents.map((entry) => ({
@@ -238,7 +241,16 @@ export async function preflightBrainPass(args: {
     })),
   });
 
-  return { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph, comprehensionPass };
+  return {
+    manifest,
+    engineSource,
+    aiSource,
+    agent,
+    agents,
+    wholeView,
+    peerTaskGraph,
+    comprehensionPass,
+  };
 }
 
 function aiProviderLabel(source: TeamSourceRef): string {
@@ -254,7 +266,10 @@ function extractTextOutput(value: unknown): string {
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
   if (Array.isArray(value)) {
-    return value.map(extractTextOutput).filter((s) => s.length > 0).join("\n");
+    return value
+      .map(extractTextOutput)
+      .filter((s) => s.length > 0)
+      .join("\n");
   }
   if (typeof value === "object") {
     const v = value as Record<string, unknown>;
@@ -290,7 +305,16 @@ function extractTextOutput(value: unknown): string {
  * existing message-queue ack.
  */
 export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPassResult> {
-  let { manifest, engineSource, aiSource, agent, agents, wholeView, peerTaskGraph, comprehensionPass: initialComprehensionPass } = await preflightBrainPass({
+  let {
+    manifest,
+    engineSource,
+    aiSource,
+    agent,
+    agents,
+    wholeView,
+    peerTaskGraph,
+    comprehensionPass: initialComprehensionPass,
+  } = await preflightBrainPass({
     homePath: args.homePath,
     slug: args.slug,
     agentId: args.agentId,
@@ -460,24 +484,19 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
         resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
         proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
       });
-      await appendWorkRecord(
-        "peer_result",
-        `${peerAgent.id}:${packet.ownsStep}`,
-        peerOutput,
-        {
-          peerId: peerAgent.id,
-          packetId: packet.packetId,
-          specialty: peerAgent.specialty,
-          ownsStep: peerAgent.ownsStep,
-          sourceIds: packet.sourceIds,
-          shardIds: packet.shards.map((shard) => shard.shardId),
-          shards: packet.shards,
-          projectionCount: packet.projectionHandles.length,
-          status: "completed",
-          resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
-          proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
-        },
-      );
+      await appendWorkRecord("peer_result", `${peerAgent.id}:${packet.ownsStep}`, peerOutput, {
+        peerId: peerAgent.id,
+        packetId: packet.packetId,
+        specialty: peerAgent.specialty,
+        ownsStep: peerAgent.ownsStep,
+        sourceIds: packet.sourceIds,
+        shardIds: packet.shards.map((shard) => shard.shardId),
+        shards: packet.shards,
+        projectionCount: packet.projectionHandles.length,
+        status: "completed",
+        resultKind: extractTaggedScalar(peerOutput, "result_kind") ?? undefined,
+        proposedDisposition: extractTaggedScalar(peerOutput, "proposed_disposition") ?? undefined,
+      });
     }
 
     comprehensionPass = recordComprehensionTransform(comprehensionPass, {
@@ -621,10 +640,7 @@ export async function runBrainPass(args: RunBrainPassArgs): Promise<RunBrainPass
  * source and an AI source registered. Pi-not-installed is detected later
  * inside `runBrainPass` so the install hint surfaces with full context.
  */
-export async function teamCanBrainPass(
-  homePath: string,
-  slug: TeamSlug,
-): Promise<boolean> {
+export async function teamCanBrainPass(homePath: string, slug: TeamSlug): Promise<boolean> {
   const manifest = await loadTeam(homePath, slug);
   if (!manifest) return false;
   const hasEngine = manifest.pathSourceCorpus.some((s) => s.transport === "engine");

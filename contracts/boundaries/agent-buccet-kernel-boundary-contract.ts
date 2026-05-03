@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
 import {
   createBoundaryBodyguard,
   createPersistentBoundaryRuntimeStore,
@@ -9,7 +9,11 @@ import {
   loadUserPathLedger,
   lookupUserPathTrackDecision,
 } from "./../../src/index.ts";
-import type { BoundaryActionKind, BoundaryActionRequest, BoundarySession } from "./../../src/index.ts";
+import type {
+  BoundaryActionKind,
+  BoundaryActionRequest,
+  BoundarySession,
+} from "./../../src/index.ts";
 
 function makeSession(): BoundarySession {
   return {
@@ -77,7 +81,11 @@ async function main() {
     const zeroCopyTransfer = lookupUserPathTrackDecision({
       ledger,
       session,
-      request: makeRequest("tool.exec", "python", "sendfile(out_fd, in_fd) followed by splice(pipefd[0], fd)"),
+      request: makeRequest(
+        "tool.exec",
+        "python",
+        "sendfile(out_fd, in_fd) followed by splice(pipefd[0], fd)",
+      ),
     });
     assert.ok(zeroCopyTransfer, "expected zero-copy continuation shape to match the kernel wall");
     assert.equal(zeroCopyTransfer?.decision, "deny");
@@ -86,7 +94,11 @@ async function main() {
     const sharedMemory = lookupUserPathTrackDecision({
       ledger,
       session,
-      request: makeRequest("tool.exec", "python", "mmap MAP_SHARED shared memory write into foreign region"),
+      request: makeRequest(
+        "tool.exec",
+        "python",
+        "mmap MAP_SHARED shared memory write into foreign region",
+      ),
     });
     assert.ok(sharedMemory, "expected shared-memory continuation shape to match the kernel wall");
     assert.equal(sharedMemory?.decision, "deny");
@@ -108,7 +120,11 @@ async function main() {
     });
     assert.ok(dockerSock, "expected docker.sock read to match the kernel wall");
     assert.equal(dockerSock?.decision, "deny");
-    assert.match(dockerSock?.entry.id ?? "", /^DENY\.KERNEL\./, "expected docker.sock read to hit a kernel wall");
+    assert.match(
+      dockerSock?.entry.id ?? "",
+      /^DENY\.KERNEL\./,
+      "expected docker.sock read to hit a kernel wall",
+    );
 
     const rawNetwork = lookupUserPathTrackDecision({
       ledger,
@@ -168,7 +184,10 @@ async function main() {
       session,
       request: makeRequest("tool.exec", "wrmsr", "wrmsr 0x1a0 0x4000850089"),
     });
-    assert.ok(interruptControl, "expected low-level interrupt/MSR control to match the kernel wall");
+    assert.ok(
+      interruptControl,
+      "expected low-level interrupt/MSR control to match the kernel wall",
+    );
     assert.equal(interruptControl?.decision, "deny");
     assert.equal(interruptControl?.entry.id, "DENY.KERNEL.INTERRUPT.014U");
 
@@ -202,7 +221,8 @@ async function main() {
         actionClass: "shell",
         operation: "exec",
         target: "bpftrace",
-        payloadSummary: "bpftrace -e 'kprobe:sys_execve { @[comm] = count(); }' && patch syscall table",
+        payloadSummary:
+          "bpftrace -e 'kprobe:sys_execve { @[comm] = count(); }' && patch syscall table",
         provenance: "external_content",
       },
     });
@@ -231,7 +251,7 @@ async function main() {
     console.log(`dispatch intercept wall: ${dispatchIntercept.lawIds.join(", ")}`);
   } finally {
     if (previousLedgerPath === undefined) {
-      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = undefined;
     } else {
       process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousLedgerPath;
     }

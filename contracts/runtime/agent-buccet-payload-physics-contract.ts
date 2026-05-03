@@ -1,7 +1,5 @@
 import { runBoundaryProcess } from "./../../src/index.ts";
-import {
-  createPersistentBoundaryRuntimeStore,
-} from "./../../src/index.ts";
+import { createPersistentBoundaryRuntimeStore } from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
   if (!condition) {

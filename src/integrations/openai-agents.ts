@@ -1,9 +1,9 @@
 import {
-  enforceBoundaryProposal,
-  wrapBoundaryTool,
   type BoundaryExecutionResult,
   type BoundaryToolEnvelope,
   type BoundaryToolProposal,
+  enforceBoundaryProposal,
+  wrapBoundaryTool,
 } from "./../boundaries/bodyguard.ts";
 import type { BoundaryRuntimeConfig } from "./../runtime/types.ts";
 

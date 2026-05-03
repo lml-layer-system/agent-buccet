@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
-import path from "node:path";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   activateCompiledBoundaryUplState,
   approveBoundaryUplReview,
-  createStructuredUplLaw,
   compileApprovedBoundaryUplReview,
   compileStructuredUplLawToDocumentLaw,
   createEmptyUserPathLedger,
+  createStructuredUplLaw,
   draftBoundaryUplProcess,
-  writeCompiledUserPathLaws,
   reviewBoundaryUplDraft,
   saveUserPathLedger,
   writeApprovedBoundaryUplReviewToLedger,
+  writeCompiledUserPathLaws,
 } from "./../../src/index.ts";
 
 async function main() {
@@ -108,7 +108,11 @@ async function main() {
       draft: allowDraft,
     });
     assert.equal(allowReview.deltas.length, 1, "expected one reviewed law delta");
-    assert.equal(allowReview.deltas[0]?.after?.state, "allow", "expected allow state in reviewed delta");
+    assert.equal(
+      allowReview.deltas[0]?.after?.state,
+      "allow",
+      "expected allow state in reviewed delta",
+    );
 
     const allowApproved = approveBoundaryUplReview({
       review: allowReview,
@@ -122,7 +126,11 @@ async function main() {
       compiled,
     });
     assert.equal(active.stage, "active", "expected activated UPL state");
-    assert.deepEqual(active.syncTargets, ["buccet", "future_buccets"], "expected normalized sync targets");
+    assert.deepEqual(
+      active.syncTargets,
+      ["buccet", "future_buccets"],
+      "expected normalized sync targets",
+    );
 
     const uplAfterAllow = await writeApprovedBoundaryUplReviewToLedger({
       ledger: createEmptyUserPathLedger(),
@@ -133,10 +141,26 @@ async function main() {
     assert.equal(uplAfterAllow.userApprovedLawPaths.length, 1, "expected approved live UPL entry");
     const approvedEntry = uplAfterAllow.userApprovedLawPaths[0];
     assert.ok(approvedEntry, "expected approved entry");
-    assert.equal(approvedEntry.requestBasis?.actionKind, "agent.spend", "expected spend action kind");
-    assert.equal(approvedEntry.trackConstraint?.spendMaxAmountNormalized, 20, "expected spend cap in track");
-    assert.deepEqual(approvedEntry.trackConstraint?.spendAllowedCommitIntents, ["subscribe"], "expected subscribe intent in track");
-    assert.deepEqual(approvedEntry.trackConstraint?.spendAllowedBucketIds, ["software"], "expected bucket binding in track");
+    assert.equal(
+      approvedEntry.requestBasis?.actionKind,
+      "agent.spend",
+      "expected spend action kind",
+    );
+    assert.equal(
+      approvedEntry.trackConstraint?.spendMaxAmountNormalized,
+      20,
+      "expected spend cap in track",
+    );
+    assert.deepEqual(
+      approvedEntry.trackConstraint?.spendAllowedCommitIntents,
+      ["subscribe"],
+      "expected subscribe intent in track",
+    );
+    assert.deepEqual(
+      approvedEntry.trackConstraint?.spendAllowedBucketIds,
+      ["software"],
+      "expected bucket binding in track",
+    );
 
     const denyDraft = draftBoundaryUplProcess({
       observation: {
@@ -212,7 +236,11 @@ async function main() {
       "expected one additional denied live UPL entry",
     );
     const deniedEntry = uplAfterDeny.userDeniedLawPaths.at(-1);
-    assert.equal(deniedEntry?.requestBasis?.actionKind, "network.send", "expected network send deny path");
+    assert.equal(
+      deniedEntry?.requestBasis?.actionKind,
+      "network.send",
+      "expected network send deny path",
+    );
 
     const askLaw = createStructuredUplLaw({
       lawKey: "spend.subscription.ask-only",
@@ -248,20 +276,23 @@ async function main() {
     );
 
     await assert.rejects(
-      () => writeCompiledUserPathLaws({
-        ledger: createEmptyUserPathLedger(),
-        compiledLaws: [{
-          compiledLaw: compileStructuredUplLawToDocumentLaw(allowReview.afterLaws[0]!),
-          witness,
-        }],
-        session,
-        authority: {
-          authorityKind: "trusted_system_sync",
-          actorKind: "pi",
-          actorId: "pi:policy-drafter",
-          reason: "pi tries to write active upl directly",
-        } as never,
-      }),
+      () =>
+        writeCompiledUserPathLaws({
+          ledger: createEmptyUserPathLedger(),
+          compiledLaws: [
+            {
+              compiledLaw: compileStructuredUplLawToDocumentLaw(allowReview.afterLaws[0]!),
+              witness,
+            },
+          ],
+          session,
+          authority: {
+            authorityKind: "trusted_system_sync",
+            actorKind: "pi",
+            actorId: "pi:policy-drafter",
+            reason: "pi tries to write active upl directly",
+          } as never,
+        }),
       /actorKind=system/,
       "expected non-human/non-system direct active UPL write to fail closed",
     );
@@ -269,13 +300,15 @@ async function main() {
     console.log("Agent Buccet UPL process contract");
     console.log(`allow review delta count: ${allowReview.deltas.length}`);
     console.log(`allow entry activated: ${uplAfterAllow.userApprovedLawPaths.length === 1}`);
-    console.log(`deny entry activated: ${uplAfterDeny.userDeniedLawPaths.length === baselineLedger.userDeniedLawPaths.length + 1}`);
+    console.log(
+      `deny entry activated: ${uplAfterDeny.userDeniedLawPaths.length === baselineLedger.userDeniedLawPaths.length + 1}`,
+    );
     console.log("ask state blocked from activation: true");
   } finally {
     if (originalLedgerPath !== undefined) {
       process.env.AGENT_BUCCET_UPL_LEDGER_PATH = originalLedgerPath;
     } else {
-      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = undefined;
     }
   }
 }

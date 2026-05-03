@@ -44,14 +44,21 @@
  * ```
  */
 
-import { createBoundaryFunnelInterceptRequest, evaluateBoundaryIntercept } from "./../runtime/intercept.ts";
+import { enableBodyguardControl } from "./../boundaries/bodyguard.ts";
+import {
+  createBoundaryFunnelInterceptRequest,
+  evaluateBoundaryIntercept,
+} from "./../runtime/intercept.ts";
 import type {
   BoundaryInterceptActionClass,
   BoundaryInterceptRequest,
   BoundaryInterceptResult,
 } from "./../runtime/intercept.ts";
-import { enableBodyguardControl } from "./../boundaries/bodyguard.ts";
-import type { BoundaryRequestProvenance, BoundaryReviewContext, BoundaryRuntimeConfig } from "./../runtime/types.ts";
+import type {
+  BoundaryRequestProvenance,
+  BoundaryReviewContext,
+  BoundaryRuntimeConfig,
+} from "./../runtime/types.ts";
 
 export type BoundaryMcpToolMapping = {
   /** The boundary action class for this tool (file, shell, network, database, system, communication). */

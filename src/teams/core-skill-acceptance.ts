@@ -408,10 +408,7 @@ export const CORE_SKILL_ACCEPTANCE_LANES: readonly BuccetSkillAcceptanceLane[] =
     skill: "trello",
     summary: "bounded rail for Trello board and task motion",
     actionKinds: ["network.send", "db.query", "db.insert", "db.update"],
-    targetPatterns: [
-      "/^(?:https?:\\/\\/)?(?:api\\.)?trello\\.com(?:\\/|$)/i",
-      "/^trello$/i",
-    ],
+    targetPatterns: ["/^(?:https?:\\/\\/)?(?:api\\.)?trello\\.com(?:\\/|$)/i", "/^trello$/i"],
     requestTextPatterns: ["trello", "board", "card", "task"],
   }),
   namedLane({

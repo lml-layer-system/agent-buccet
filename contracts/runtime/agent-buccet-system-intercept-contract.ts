@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { once } from "node:events";
 import { promises as fs } from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
-import { once } from "node:events";
 import {
   evaluateSystemInterceptEvent,
   sendBoundaryInterceptServerInput,
@@ -13,7 +13,11 @@ async function wait(ms: number) {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitFor<T>(fn: () => Promise<T | null>, timeoutMs: number, stepMs: number): Promise<T> {
+async function waitFor<T>(
+  fn: () => Promise<T | null>,
+  timeoutMs: number,
+  stepMs: number,
+): Promise<T> {
   const started = Date.now();
   while (Date.now() - started < timeoutMs) {
     const result = await fn();
@@ -33,12 +37,18 @@ async function main() {
   const cwd = process.cwd();
   const scriptPath = path.join(cwd, "bin", "agent-buccet-intercept-server.ts");
   const fallbackPath = path.join(cwd, "scripts", "agent-buccet-intercept-server.ts");
-  const serverPath = cwd.includes(`${path.sep}dist${path.sep}agent-buccet`) ? scriptPath : fallbackPath;
+  const serverPath = cwd.includes(`${path.sep}dist${path.sep}agent-buccet`)
+    ? scriptPath
+    : fallbackPath;
 
-  const child = spawn(process.execPath, [serverPath, "--session-id", sessionId, "--socket", socketPath], {
-    cwd,
-    stdio: ["ignore", "ignore", "pipe"],
-  });
+  const child = spawn(
+    process.execPath,
+    [serverPath, "--session-id", sessionId, "--socket", socketPath],
+    {
+      cwd,
+      stdio: ["ignore", "ignore", "pipe"],
+    },
+  );
 
   let ready = false;
   child.stderr.setEncoding("utf8");
@@ -72,22 +82,27 @@ async function main() {
     },
   });
 
-  const pendingGroupId = await waitFor(async () => {
-    const swarmStatus = await sendBoundaryInterceptServerInput({
-      target: { socketPath },
-      input: { command: "swarm_status", requestId: "swarm-status-1" },
-    });
-    if (swarmStatus.type !== "swarm_status") {
-      return null;
-    }
-    const pending = swarmStatus.groups.find((group) =>
-      group.state === "waiting"
-      && group.actionClass === "file"
-      && group.operation === "delete"
-      && group.target === "/tmp/outside-scope.txt"
-    );
-    return pending?.groupId ?? null;
-  }, 5_000, 100);
+  const pendingGroupId = await waitFor(
+    async () => {
+      const swarmStatus = await sendBoundaryInterceptServerInput({
+        target: { socketPath },
+        input: { command: "swarm_status", requestId: "swarm-status-1" },
+      });
+      if (swarmStatus.type !== "swarm_status") {
+        return null;
+      }
+      const pending = swarmStatus.groups.find(
+        (group) =>
+          group.state === "waiting" &&
+          group.actionClass === "file" &&
+          group.operation === "delete" &&
+          group.target === "/tmp/outside-scope.txt",
+      );
+      return pending?.groupId ?? null;
+    },
+    5_000,
+    100,
+  );
 
   const deleteDenied = await sendBoundaryInterceptServerInput({
     target: { socketPath },

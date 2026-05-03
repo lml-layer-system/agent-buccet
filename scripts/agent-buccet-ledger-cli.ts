@@ -1,16 +1,14 @@
-import path from "node:path";
 import {
   buildBoundaryLedgerCheckpoint,
   buildBoundaryLedgerRollup,
   createFileBoundaryLedgerWitness,
   createHttpBoundaryLedgerWitness,
   publishBoundaryLedgerCheckpoint,
-  publishBoundaryReleaseWitness,
   queryBoundaryLedger,
   readBoundaryLedgerCheckpoints,
   readBoundaryLedgerSigningIdentity,
-  repairBoundaryLedgerChain,
   readBoundaryLedgerStats,
+  repairBoundaryLedgerChain,
   sealBoundaryLedgerSignatures,
   verifyBoundaryLedgerChain,
   writeBoundaryLedgerCheckpoint,
@@ -232,10 +230,13 @@ async function main() {
       ? await writeBoundaryLedgerCheckpoint()
       : await buildBoundaryLedgerCheckpoint();
     const stored = await readBoundaryLedgerCheckpoints();
-    print({
-      checkpoint,
-      stored_checkpoints: stored.length,
-    }, args.format);
+    print(
+      {
+        checkpoint,
+        stored_checkpoints: stored.length,
+      },
+      args.format,
+    );
     return;
   }
 

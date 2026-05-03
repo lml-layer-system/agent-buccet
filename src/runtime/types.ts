@@ -142,11 +142,11 @@ export type BoundaryGovernorState = {
 
 /** Weight class of an inbound input — not all inputs cost the same. */
 export type BoundaryInputWeightClass =
-  | "standard"          // weight 1 — normal request
-  | "large_prompt"      // weight 4 — body > configured token threshold
-  | "attachment"        // weight 6 — binary/media attachment
+  | "standard" // weight 1 — normal request
+  | "large_prompt" // weight 4 — body > configured token threshold
+  | "attachment" // weight 6 — binary/media attachment
   | "retrieval_request" // weight 5 — triggers RAG / external retrieval
-  | "fanout_request";   // weight 8 — triggers broadcast to multiple targets
+  | "fanout_request"; // weight 8 — triggers broadcast to multiple targets
 
 /** Strength of provenance evidence — stronger binds tighter and evicts slower. */
 export type BoundaryProvenanceStrength = "strong" | "medium" | "weak";
@@ -164,7 +164,7 @@ export type BoundaryAdmissionConfig = {
 
 export type BoundaryProvenanceRecord = {
   requestTimestamps: number[];
-  recentDecisions: boolean[];   // true = admitted, false = denied
+  recentDecisions: boolean[]; // true = admitted, false = denied
   totalInboundWeight: number;
   windowWeightTimestamps: Array<{ ts: number; weight: number }>;
   lastSeenMs: number;
@@ -176,31 +176,43 @@ export type BoundaryProvenanceRecord = {
 
 export type BoundaryAdmissionState = {
   /** O(1) canyon cache: provenances held at the front line for the session lifetime. */
-  canyonProvenances: Record<string, {
-    canyonedAt: number;
-    reason: string;
-    ledgered: boolean;
-    /** How canyon hold was triggered. "hard_ceiling" means the hard block ceiling
-     *  fired — density config was too loose to catch it first. */
-    promotionKind: "density" | "hard_ceiling";
-    operatorDisposition?: "deny_as_law";
-  }>;
+  canyonProvenances: Record<
+    string,
+    {
+      canyonedAt: number;
+      reason: string;
+      ledgered: boolean;
+      /** How canyon hold was triggered. "hard_ceiling" means the hard block ceiling
+       *  fired — density config was too loose to catch it first. */
+      promotionKind: "density" | "hard_ceiling";
+      operatorDisposition?: "deny_as_law";
+    }
+  >;
   /** One-shot ingress releases written by Terminal 2. */
-  allowOnceProvenances: Record<string, {
-    grantedAt: number;
-    remaining: number;
-  }>;
+  allowOnceProvenances: Record<
+    string,
+    {
+      grantedAt: number;
+      remaining: number;
+    }
+  >;
   /** One-shot ingress holds written by Terminal 2. Overrides standing allow once. */
-  denyOnceProvenances: Record<string, {
-    grantedAt: number;
-    remaining: number;
-    reason: string;
-  }>;
+  denyOnceProvenances: Record<
+    string,
+    {
+      grantedAt: number;
+      remaining: number;
+      reason: string;
+    }
+  >;
   /** Standing ingress allows written by Terminal 2. */
-  allowedProvenances: Record<string, {
-    grantedAt: number;
-    reason: string;
-  }>;
+  allowedProvenances: Record<
+    string,
+    {
+      grantedAt: number;
+      reason: string;
+    }
+  >;
   /** Bounded density tracking — evicted by TTL/LRU. */
   provenanceRecords: Record<string, BoundaryProvenanceRecord>;
   /**
@@ -283,10 +295,7 @@ export type BoundarySession = {
   teamBuccetClass?: "spend" | "workshop";
 };
 
-export type BoundaryQuarantineStatus =
-  | "pending_replay"
-  | "pending_resolution"
-  | "cleared";
+export type BoundaryQuarantineStatus = "pending_replay" | "pending_resolution" | "cleared";
 
 export type BoundaryQuarantineState = {
   required: boolean;
@@ -398,12 +407,7 @@ export type BoundarySpendRiskClass =
   | "identity_sensitive"
   | "legal_obligation";
 
-export type BoundarySpendPeriodWindow =
-  | "1h"
-  | "24h"
-  | "7d"
-  | "30d"
-  | "month";
+export type BoundarySpendPeriodWindow = "1h" | "24h" | "7d" | "30d" | "month";
 
 export type BoundarySpendIntent = {
   amountRaw: string;
@@ -744,11 +748,7 @@ export type BoundaryLedgerInput = {
   raw_request?: string;
 };
 
-export type BoundaryLedgerDecisionVerdict =
-  | "ALLOW"
-  | "DENY"
-  | "REQUIRE_APPROVAL"
-  | "PENDING";
+export type BoundaryLedgerDecisionVerdict = "ALLOW" | "DENY" | "REQUIRE_APPROVAL" | "PENDING";
 
 export type BoundaryLedgerDecisionBlock = {
   verdict: BoundaryLedgerDecisionVerdict;
@@ -772,11 +772,7 @@ export type BoundaryLedgerPathBlock = {
   total_eval_ms?: number;
 };
 
-export type BoundaryLedgerNextOutcome =
-  | "EXECUTED"
-  | "BLOCKED"
-  | "QUEUED"
-  | "WAITING";
+export type BoundaryLedgerNextOutcome = "EXECUTED" | "BLOCKED" | "QUEUED" | "WAITING";
 
 export type BoundaryLedgerNextBlock = {
   outcome: BoundaryLedgerNextOutcome;
@@ -828,7 +824,10 @@ export type BoundaryUplScope = "SESSION" | "GLOBAL" | "DOMAIN";
 export type BoundaryUplStatus = "ACTIVE" | "MUTED" | "DELETED";
 export type BoundaryUplLineageMode = "upl_sync" | "upl_import";
 export type BoundaryUplSourceLane = "acceptance" | "denial";
-export type BoundaryActiveUplWriteAuthorityKind = "human_approved" | "trusted_system_sync" | "base_seed";
+export type BoundaryActiveUplWriteAuthorityKind =
+  | "human_approved"
+  | "trusted_system_sync"
+  | "base_seed";
 export type BoundaryActiveUplWriteActorKind = "human" | "system";
 
 export type BoundaryActiveUplWriteAuthority = {
@@ -987,11 +986,7 @@ export type BoundaryApprovalRequest = {
   prompt: BoundaryApprovalPrompt;
 };
 
-export type BoundaryApprovalChoice =
-  | "allow_once"
-  | "allow_as_law"
-  | "deny_once"
-  | "deny_as_law";
+export type BoundaryApprovalChoice = "allow_once" | "allow_as_law" | "deny_once" | "deny_as_law";
 
 export type BoundaryApprovalOption = {
   choice: BoundaryApprovalChoice;
@@ -1031,7 +1026,8 @@ export type BoundaryLegacyApprovalDecision = {
 
 export type BoundaryApprovalHandler = (
   approval: BoundaryApprovalRequest,
-) => Promise<boolean | BoundaryApprovalDecision | BoundaryLegacyApprovalDecision>
+) =>
+  | Promise<boolean | BoundaryApprovalDecision | BoundaryLegacyApprovalDecision>
   | boolean
   | BoundaryApprovalDecision
   | BoundaryLegacyApprovalDecision;

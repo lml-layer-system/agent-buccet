@@ -90,7 +90,11 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "guardrail-bound chat output emitted",
     });
-    assert.equal(spoilerBlocked.allowed, false, "expected guardrail-bound law to block spoilers on contact");
+    assert.equal(
+      spoilerBlocked.allowed,
+      false,
+      "expected guardrail-bound law to block spoilers on contact",
+    );
 
     const compliantWrite = await bodyguard.enforceProposal({
       actionKind: "fs.write",
@@ -99,7 +103,11 @@ async function main() {
       execute: async () => "ok",
       successReason: "business rail write admitted",
     });
-    assert.equal(compliantWrite.allowed, true, "expected regulator/business binding to allow in-rail write");
+    assert.equal(
+      compliantWrite.allowed,
+      true,
+      "expected regulator/business binding to allow in-rail write",
+    );
 
     const escapedWrite = await bodyguard.enforceProposal({
       actionKind: "fs.write",
@@ -108,7 +116,11 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "business rail write admitted",
     });
-    assert.equal(escapedWrite.allowed, false, "expected regulator/business binding to block out-of-rail write");
+    assert.equal(
+      escapedWrite.allowed,
+      false,
+      "expected regulator/business binding to block out-of-rail write",
+    );
 
     console.log("Agent Buccet policy binding contract");
     console.log(`guardrail deny on contact: ${!spoilerBlocked.allowed}`);

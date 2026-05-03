@@ -317,7 +317,14 @@ export const EXTENDED_SKILL_ACCEPTANCE_LANES: readonly BuccetSkillAcceptanceLane
       "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?exa\\.ai(?:\\/|$)/i",
       "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?firecrawl\\.dev(?:\\/|$)/i",
     ],
-    requestTextPatterns: ["free-web-search", "openclaw-free-web-search", "web search", "search", "research", "lookup"],
+    requestTextPatterns: [
+      "free-web-search",
+      "openclaw-free-web-search",
+      "web search",
+      "search",
+      "research",
+      "lookup",
+    ],
   }),
   namedLane({
     id: "ACCEPT.BUCCET.SKILL.1084",
@@ -363,9 +370,7 @@ export const EXTENDED_SKILL_ACCEPTANCE_LANES: readonly BuccetSkillAcceptanceLane
     skill: "intomd",
     summary: "bounded rail for documentation-to-Markdown retrieval motion",
     actionKinds: ["network.send", "fs.write"],
-    targetPatterns: [
-      "/^(?:https?:\\/\\/)?(?:[^/]+\\.)?into\\.md(?:\\/|$)/i",
-    ],
+    targetPatterns: ["/^(?:https?:\\/\\/)?(?:[^/]+\\.)?into\\.md(?:\\/|$)/i"],
     requestTextPatterns: ["intomd", "markdown", "docs", "convert"],
   }),
   namedLane({
@@ -519,7 +524,13 @@ export const EXTENDED_SKILL_ACCEPTANCE_LANES: readonly BuccetSkillAcceptanceLane
       "/^(?:https?:\\/\\/)?dev\\.azure\\.com(?:\\/|$)/i",
       "/^(?:https?:\\/\\/)?[^/]+\\.visualstudio\\.com(?:\\/|$)/i",
     ],
-    requestTextPatterns: ["azure-devops", "azure devops", "repository", "work item", "pull request"],
+    requestTextPatterns: [
+      "azure-devops",
+      "azure devops",
+      "repository",
+      "work item",
+      "pull request",
+    ],
   }),
   regexLane({
     id: "ACCEPT.BUCCET.SKILL.1107",
@@ -537,7 +548,13 @@ export const EXTENDED_SKILL_ACCEPTANCE_LANES: readonly BuccetSkillAcceptanceLane
     skill: "filesystem",
     summary: "named rail for advanced workspace file listing, search, and batch motion",
     actionKinds: ["fs.read", "fs.write", "fs.append", "fs.mkdir", "fs.move"],
-    requestTextPatterns: ["filesystem", "list files", "search content", "batch processing", "directory"],
+    requestTextPatterns: [
+      "filesystem",
+      "list files",
+      "search content",
+      "batch processing",
+      "directory",
+    ],
   }),
   namedLane({
     id: "ACCEPT.BUCCET.SKILL.1109",
@@ -555,5 +572,6 @@ export const EXTENDED_SKILL_ACCEPTANCE_LANES: readonly BuccetSkillAcceptanceLane
   }),
 ] as const;
 
-export const BASE_EXTENDED_SKILL_ACCEPTANCE_LANES =
-  EXTENDED_SKILL_ACCEPTANCE_LANES.filter((lane) => lane.seedInBasePack !== false);
+export const BASE_EXTENDED_SKILL_ACCEPTANCE_LANES = EXTENDED_SKILL_ACCEPTANCE_LANES.filter(
+  (lane) => lane.seedInBasePack !== false,
+);

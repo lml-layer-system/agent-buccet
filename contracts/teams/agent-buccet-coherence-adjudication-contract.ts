@@ -97,9 +97,21 @@ async function main(): Promise<void> {
       userRequest: "Ship the patch safely.",
     });
 
-    assert.equal(adjudication.dissentBeatsMajority, true, "stronger dissent should outrank majority");
-    assert.equal(adjudication.disposition, "BlockFinalization", "critical validated dissent should block finalization");
-    assert.equal(adjudication.strongestPacket?.peerId, "c", "security dissent should win coherence");
+    assert.equal(
+      adjudication.dissentBeatsMajority,
+      true,
+      "stronger dissent should outrank majority",
+    );
+    assert.equal(
+      adjudication.disposition,
+      "BlockFinalization",
+      "critical validated dissent should block finalization",
+    );
+    assert.equal(
+      adjudication.strongestPacket?.peerId,
+      "c",
+      "security dissent should win coherence",
+    );
     console.log("SUCCESS: stronger dissent outranks majority agreement.");
   }
 
@@ -157,8 +169,16 @@ async function main(): Promise<void> {
     });
 
     assert.equal(adjudication.disposition, "Accept", "verified aligned agreement should pass");
-    assert.equal(adjudication.finalizationBlocked, false, "clean coherent agreement should finalize");
-    assert.deepEqual(adjudication.selectedPeerIds.sort(), ["a", "b"], "accepted majority group should remain selected");
+    assert.equal(
+      adjudication.finalizationBlocked,
+      false,
+      "clean coherent agreement should finalize",
+    );
+    assert.deepEqual(
+      adjudication.selectedPeerIds.sort(),
+      ["a", "b"],
+      "accepted majority group should remain selected",
+    );
     console.log("SUCCESS: coherent agreement passes finalization.");
   }
 

@@ -58,7 +58,10 @@ function hasNonEmptyScopeIdentifier(proposal: GravityProposal): boolean {
 }
 
 function hasTrackedOrigin(proposal: GravityProposal): boolean {
-  return typeof proposal.provenance.originId === "string" && proposal.provenance.originId.trim().length > 0;
+  return (
+    typeof proposal.provenance.originId === "string" &&
+    proposal.provenance.originId.trim().length > 0
+  );
 }
 
 function pathGrantMatches(scope: string, target: string, exactOnly?: boolean): boolean {
@@ -80,7 +83,7 @@ function pathGrantMatches(scope: string, target: string, exactOnly?: boolean): b
 export function createMetaTrustSkill(): LawSkill {
   return {
     id: META_TRUST_01,
-    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
       const { provenance } = proposal;
@@ -112,7 +115,7 @@ export function createMetaTrustSkill(): LawSkill {
 export function createMetaAuthoritySkill(): LawSkill {
   return {
     id: META_AUTHORITY_01,
-    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
       const { provenance } = proposal;
@@ -142,7 +145,7 @@ export function createMetaAuthoritySkill(): LawSkill {
 export function createMetaScopeSkill(): LawSkill {
   return {
     id: META_SCOPE_01,
-    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
       const { provenance } = proposal;
@@ -172,7 +175,7 @@ export function createMetaScopeSkill(): LawSkill {
 export function createMetaLawSkill(): LawSkill {
   return {
     id: META_LAW_01,
-    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
       const { provenance } = proposal;
@@ -202,7 +205,7 @@ export function createMetaLawSkill(): LawSkill {
 export function createMetaSessionSkill(): LawSkill {
   return {
     id: META_SESSION_01,
-    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
       const proposal = asProposal(event);
       if (!proposal) return [];
       const { provenance } = proposal;
@@ -232,7 +235,7 @@ export function createMetaSessionSkill(): LawSkill {
 export function createMetaLedgerSkill(): LawSkill {
   return {
     id: META_LEDGER_01,
-    validate(state: GravityState, event: GravityEvent): LawViolation[] {
+    validate(_state: GravityState, event: GravityEvent): LawViolation[] {
       const violations: LawViolation[] = [];
       const proposal = asProposal(event);
 
@@ -311,7 +314,10 @@ function isTrustedContinuationSource(source: GravityProposal["provenance"]["sour
   return source === "trusted_user" || source === "trusted_system";
 }
 
-function validateContinuationProposal(state: GravityState, proposal: GravityProposal): LawViolation[] {
+function validateContinuationProposal(
+  state: GravityState,
+  proposal: GravityProposal,
+): LawViolation[] {
   if (
     proposal.kind !== "grant_update" &&
     proposal.kind !== "law_update" &&
@@ -342,7 +348,9 @@ function validateContinuationProposal(state: GravityState, proposal: GravityProp
   return violations;
 }
 
-function validateGrantEvent(event: Extract<GravityEvent, { kind: "GrantIssued" | "GrantRevoked" | "GrantExpired" }>): LawViolation[] {
+function validateGrantEvent(
+  event: Extract<GravityEvent, { kind: "GrantIssued" | "GrantRevoked" | "GrantExpired" }>,
+): LawViolation[] {
   const violations: LawViolation[] = [];
   if (event.grant.scope.trim().length === 0) {
     violations.push(
@@ -380,7 +388,10 @@ function validateGrantEvent(event: Extract<GravityEvent, { kind: "GrantIssued" |
       ),
     );
   }
-  if ((event.kind === "GrantRevoked" || event.kind === "GrantExpired") && event.grant.revokedAt == null) {
+  if (
+    (event.kind === "GrantRevoked" || event.kind === "GrantExpired") &&
+    event.grant.revokedAt == null
+  ) {
     violations.push(
       violation(
         META_CONTINUATION_01,
@@ -497,7 +508,7 @@ export function createScopeGrantSkill(): LawSkill {
       if (hasGrant) return [];
 
       const code = SCOPE_VIOLATION_CODES[scopeKind];
-      const actionLabel = payload?.actionLabel ?? "access";
+      const _actionLabel = payload?.actionLabel ?? "access";
       return [
         {
           lawId: SCOPE_GRANT_CLOSED,

@@ -91,7 +91,9 @@ function selectScopedCwd(args: {
 }): string {
   const requested = args.requestedCwd
     ? path.resolve(args.requestedCwd)
-    : (args.scopePaths[0] ? path.resolve(args.scopePaths[0]) : process.cwd());
+    : args.scopePaths[0]
+      ? path.resolve(args.scopePaths[0])
+      : process.cwd();
   const enforceScopedCwd = args.policy?.enforceScopedCwd ?? true;
   if (!enforceScopedCwd || args.scopePaths.length === 0) {
     return requested;
@@ -132,7 +134,9 @@ function buildProcessEnv(args: {
   policyPath?: string;
   cwd: string;
 }): { env: NodeJS.ProcessEnv; droppedEnvVars: string[] } {
-  const startingEnv = (args.policy?.inheritParentEnv === false ? {} : args.baseEnv) as NodeJS.ProcessEnv;
+  const startingEnv = (
+    args.policy?.inheritParentEnv === false ? {} : args.baseEnv
+  ) as NodeJS.ProcessEnv;
   const merged = {} as NodeJS.ProcessEnv;
   const dropped: string[] = [];
 
@@ -176,12 +180,16 @@ export async function prepareBoundaryProcess(args: {
   requestedCwd?: string;
 }): Promise<BoundaryPreparedProcess> {
   const commandTarget = normalizeCommandTarget(args.command);
-  if (!isCommandAllowed({
-    target: commandTarget,
-    policy: args.config.processPolicy,
-    allowedCommandTargets: args.allowedCommandTargets,
-  })) {
-    throw new Error("process command requires explicit standing law, allowlist, or current approval");
+  if (
+    !isCommandAllowed({
+      target: commandTarget,
+      policy: args.config.processPolicy,
+      allowedCommandTargets: args.allowedCommandTargets,
+    })
+  ) {
+    throw new Error(
+      "process command requires explicit standing law, allowlist, or current approval",
+    );
   }
 
   const cwd = selectScopedCwd({
@@ -272,8 +280,13 @@ export async function runBoundaryProcess(args: {
         actorId: args.config.session.actorId,
         actionKind: "tool.exec",
         target: prepared.commandTarget,
-        reason: "shell-ulimit fallback: physwrap binary not found — limits applied but CAP_SYS_RESOURCE not dropped",
-        metadata: { ...buildRlimitMetadata(physics), physwrap_bin: PHYSWRAP_BIN, physwrap_platform: PHYSWRAP_PLATFORM },
+        reason:
+          "shell-ulimit fallback: physwrap binary not found — limits applied but CAP_SYS_RESOURCE not dropped",
+        metadata: {
+          ...buildRlimitMetadata(physics),
+          physwrap_bin: PHYSWRAP_BIN,
+          physwrap_platform: PHYSWRAP_PLATFORM,
+        },
         createdAt: new Date().toISOString(),
       });
     }
@@ -286,7 +299,10 @@ export async function runBoundaryProcess(args: {
   // in PROCESS_PHYSWRAP_ACTIVE so operators see the exact runtime enforcement truth.
   const darwinStatusPath =
     spawnCommand.mode === "physwrap" && process.platform === "darwin"
-      ? path.join(os.tmpdir(), `buccet-physwrap-${Date.now()}-${Math.random().toString(36).slice(2)}.status`)
+      ? path.join(
+          os.tmpdir(),
+          `buccet-physwrap-${Date.now()}-${Math.random().toString(36).slice(2)}.status`,
+        )
       : undefined;
 
   const spawnEnv = darwinStatusPath
@@ -394,7 +410,11 @@ export async function runBoundaryProcess(args: {
         } catch {
           darwinJetsamStatus = "status_read_error";
         }
-        try { unlinkSync(darwinStatusPath); } catch { /* ignore cleanup failure */ }
+        try {
+          unlinkSync(darwinStatusPath);
+        } catch {
+          /* ignore cleanup failure */
+        }
       }
 
       // Emit PROCESS_PHYSWRAP_ACTIVE post-exit with complete runtime truth:
@@ -497,9 +517,13 @@ const PHYSWRAP_BIN = path.resolve(_moduleDir, `../../native/physwrap/build/${_ph
 
 /** Platform tag recorded in PROCESS_PHYSWRAP_ACTIVE / PROCESS_PHYSWRAP_FALLBACK ledger events. */
 export const PHYSWRAP_PLATFORM: "linux" | "macos" | "windows" | "unknown" =
-  process.platform === "linux"  ? "linux"   :
-  process.platform === "darwin" ? "macos"   :
-  process.platform === "win32"  ? "windows" : "unknown";
+  process.platform === "linux"
+    ? "linux"
+    : process.platform === "darwin"
+      ? "macos"
+      : process.platform === "win32"
+        ? "windows"
+        : "unknown";
 
 /** True if the platform-native physwrap binary is available at the expected path. */
 export function isPhyswrapAvailable(): boolean {
@@ -679,7 +703,9 @@ function buildPhysicsSpawnCommand(
   const ulimitParts: string[] = [];
 
   if (physics.cpuTimeLimitSec !== undefined) {
-    ulimitParts.push(`ulimit -St ${physics.cpuTimeLimitSec}; ulimit -Ht ${physics.cpuTimeLimitSec}`);
+    ulimitParts.push(
+      `ulimit -St ${physics.cpuTimeLimitSec}; ulimit -Ht ${physics.cpuTimeLimitSec}`,
+    );
   }
   if (physics.maxProcesses !== undefined) {
     ulimitParts.push(`ulimit -Su ${physics.maxProcesses}; ulimit -Hu ${physics.maxProcesses}`);
@@ -696,22 +722,27 @@ function buildPhysicsSpawnCommand(
     ulimitParts.push(`ulimit -Sf ${blocks}; ulimit -Hf ${blocks}`);
   }
 
-  const escapedArgs = [command, ...commandArgs].map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(" ");
+  const escapedArgs = [command, ...commandArgs]
+    .map((a) => `'${a.replace(/'/g, "'\\''")}'`)
+    .join(" ");
   const shellCmd = [...ulimitParts, `exec ${escapedArgs}`].join("; ");
 
   return { command: "sh", args: ["-c", shellCmd], mode: "shell_ulimit" };
 }
 
-function buildRlimitMetadata(physics: BoundaryProcessPhysics): Record<string, string | number | boolean> {
+function buildRlimitMetadata(
+  physics: BoundaryProcessPhysics,
+): Record<string, string | number | boolean> {
   const meta: Record<string, string | number | boolean> = {};
-  if (physics.cpuTimeLimitSec !== undefined) meta["rlimit_cpu_sec"] = physics.cpuTimeLimitSec;
-  if (physics.maxProcesses !== undefined) meta["rlimit_nproc"] = physics.maxProcesses;
-  if (physics.maxMemoryBytes !== undefined) meta["rlimit_as_bytes"] = physics.maxMemoryBytes;
-  if (physics.maxOpenFiles !== undefined) meta["rlimit_nofile"] = physics.maxOpenFiles;
-  if (physics.maxFileSizeBytes !== undefined) meta["rlimit_fsize_bytes"] = physics.maxFileSizeBytes;
-  if (physics.maxIoRateBytesPerSec !== undefined) meta["io_rate_bytes_per_sec"] = physics.maxIoRateBytesPerSec;
-  if (physics.maxIoOpsPerSec !== undefined) meta["io_max_iops"] = physics.maxIoOpsPerSec;
-  if (physics.dropToUid !== undefined) meta["drop_uid"] = physics.dropToUid;
-  if (physics.dropToGid !== undefined) meta["drop_gid"] = physics.dropToGid;
+  if (physics.cpuTimeLimitSec !== undefined) meta.rlimit_cpu_sec = physics.cpuTimeLimitSec;
+  if (physics.maxProcesses !== undefined) meta.rlimit_nproc = physics.maxProcesses;
+  if (physics.maxMemoryBytes !== undefined) meta.rlimit_as_bytes = physics.maxMemoryBytes;
+  if (physics.maxOpenFiles !== undefined) meta.rlimit_nofile = physics.maxOpenFiles;
+  if (physics.maxFileSizeBytes !== undefined) meta.rlimit_fsize_bytes = physics.maxFileSizeBytes;
+  if (physics.maxIoRateBytesPerSec !== undefined)
+    meta.io_rate_bytes_per_sec = physics.maxIoRateBytesPerSec;
+  if (physics.maxIoOpsPerSec !== undefined) meta.io_max_iops = physics.maxIoOpsPerSec;
+  if (physics.dropToUid !== undefined) meta.drop_uid = physics.dropToUid;
+  if (physics.dropToGid !== undefined) meta.drop_gid = physics.dropToGid;
   return meta;
 }

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
+import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { promises as fs } from "node:fs";
-import { spawn } from "node:child_process";
 
 async function run(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   return await new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
@@ -38,10 +38,12 @@ function spawnBuccet(args: string[], env: NodeJS.ProcessEnv, cwd: string) {
   child.stderr.on("data", (chunk) => {
     stderr += chunk.toString();
   });
-  const result = new Promise<{ code: number; stdout: string; stderr: string }>((resolve, reject) => {
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
-  });
+  const result = new Promise<{ code: number; stdout: string; stderr: string }>(
+    (resolve, reject) => {
+      child.on("error", reject);
+      child.on("close", (code) => resolve({ code: code ?? 1, stdout, stderr }));
+    },
+  );
   return { child, result };
 }
 
@@ -103,20 +105,20 @@ async function main() {
       "",
       "int main(int argc, char **argv) {",
       "  if (argc < 2) {",
-      "    fprintf(stderr, \"usage: %s <target>\\n\", argv[0]);",
+      '    fprintf(stderr, "usage: %s <target>\\n", argv[0]);',
       "    return 2;",
       "  }",
       "  pid_t pid = 0;",
-      "  char *const child_argv[] = {\"/bin/rm\", \"-f\", argv[1], NULL};",
-      "  int rc = posix_spawn(&pid, \"/bin/rm\", NULL, NULL, child_argv, environ);",
+      '  char *const child_argv[] = {"/bin/rm", "-f", argv[1], NULL};',
+      '  int rc = posix_spawn(&pid, "/bin/rm", NULL, NULL, child_argv, environ);',
       "  if (rc != 0) {",
       "    errno = rc;",
-      "    perror(\"posix_spawn\");",
+      '    perror("posix_spawn");',
       "    return 3;",
       "  }",
       "  int status = 0;",
       "  if (waitpid(pid, &status, 0) < 0) {",
-      "    perror(\"waitpid\");",
+      '    perror("waitpid");',
       "    return 4;",
       "  }",
       "  if (WIFEXITED(status)) {",
@@ -129,7 +131,11 @@ async function main() {
     "utf8",
   );
 
-  const compileResult = await runCommand(process.env.CC ?? "cc", [attackerSourcePath, "-o", attackerBinaryPath], workspace);
+  const compileResult = await runCommand(
+    process.env.CC ?? "cc",
+    [attackerSourcePath, "-o", attackerBinaryPath],
+    workspace,
+  );
   assert.equal(compileResult.code, 0, compileResult.stderr);
 
   const initResult = await run(["init", "--no-default-scope", "--scope", workspace], env, repoRoot);
@@ -163,7 +169,11 @@ async function main() {
   assert.equal(hookEnv.BUCCET_SOCKET_PATH, hookStatus.gravityBridgeSocketPath);
   assert.notEqual(hookEnv.BUCCET_SOCKET_PATH, hookStatus.interceptSocketPath);
 
-  const attackRun = spawnBuccet(["hook", "run", "--", attackerBinaryPath, victimPath], env, repoRoot);
+  const attackRun = spawnBuccet(
+    ["hook", "run", "--", attackerBinaryPath, victimPath],
+    env,
+    repoRoot,
+  );
 
   const deniedGroup = await waitFor(async () => {
     const swarmResult = await run(["swarm", "list", "--json"], env, repoRoot);
@@ -181,13 +191,12 @@ async function main() {
         bodyguardMoves?: Array<{ moveId: string; kind: string; target?: string }>;
       }>;
     };
-    const denied = payload.groups?.find((group) =>
-      group.state === "denied"
-      && (
-        group.target === victimPath
-        || group.target === "/bin/rm"
-        || (group.actionClass === "shell" && group.operation === "exec")
-      )
+    const denied = payload.groups?.find(
+      (group) =>
+        group.state === "denied" &&
+        (group.target === victimPath ||
+          group.target === "/bin/rm" ||
+          (group.actionClass === "shell" && group.operation === "exec")),
     );
     if (!denied) {
       return false;
@@ -200,7 +209,9 @@ async function main() {
     "expected intercepted command to be denied for out-of-scope executable reach",
   );
   assert.ok(
-    deniedGroup.bodyguardMoves?.some((move) => move.kind === "open_path" && move.target === "/bin/rm"),
+    deniedGroup.bodyguardMoves?.some(
+      (move) => move.kind === "open_path" && move.target === "/bin/rm",
+    ),
     "expected denied intercept to offer an open_path bodyguard move for /bin/rm",
   );
 
@@ -217,7 +228,7 @@ async function main() {
       return false;
     }
     const status = JSON.parse(statusResult.stdout) as { running?: boolean };
-    return status.running === false ? true : false;
+    return status.running === false;
   }, "hook daemon stop");
 
   console.log("hook runtime contract");
