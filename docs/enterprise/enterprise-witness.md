@@ -20,7 +20,7 @@ You must host this server on **your own infrastructure**. We provide the binary 
 
 ## Step 1 — Build the Go binary
 
-Requires Go 1.22+. No C compiler needed. No Docker. No runtime dependencies.
+Requires Go 1.22+. No C compiler needed. No container tooling. No extra runtime dependencies beyond the shipped binary.
 
 ```bash
 cd server/witness

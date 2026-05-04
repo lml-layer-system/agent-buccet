@@ -8,7 +8,7 @@ Agent Buccet is 100% offline by default. The witness server is optional — it e
 
 ---
 
-A single Go binary with an embedded SQLite database. No Docker. No runtime. No dependencies to install. Drop it on a machine and run it.
+A single Go binary with an embedded SQLite database. No containers. No secondary runtime stack. Nothing else to install. Drop it on a machine and run it.
 
 Receives signed ledger checkpoints from agent installations and stores them in an append-only SQLite table with WAL mode. The checkpoint is already signed ed25519 by the client — the server is an independent store that the local process cannot reach to suppress.
 

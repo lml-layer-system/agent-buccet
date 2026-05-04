@@ -2,13 +2,7 @@
 
 Vendored fused substrate crate for Agent Buccet.
 
-This is the Rust-native D/K/Q surface:
-
-- `D` = Docker lineage → containment, resource limits, lifecycle, network, contract
-- `K` = Kubernetes lineage → scheduling, reconciliation, validation, routing, enforcement
-- `Q` = Qubes lineage → trust domains, policy gates, interception, isolation
-
-It is carried in this repo as a first-class native surface.
+This is the native Rust substrate surface: containment, lifecycle, reconciliation-style validation hooks, isolation boundaries, and portable workload execution — fused into one crate shipped in-repo.
 
 What it is for:
 
@@ -16,7 +10,7 @@ What it is for:
 - WASM build for TypeScript-side consumers that want the fused substrate functions without a second repo
 - vendored `pkg/` bundle already built for the current repo
 - Buccet-owned adapter at `src/runtime/substrate/substrate-rust.ts`
-- a portable bounded substrate surface for moving working demos and runtime behavior between machines without dragging Docker-scale runtime bloat into Buccet
+- a portable bounded substrate surface for moving demos and runtime behavior between machines without an extra heavyweight host stack beside Buccet
 
 Portable runtime chain:
 
@@ -24,7 +18,7 @@ Portable runtime chain:
 2. `persistState` = overlay and writable layer
 3. `enterEnvironment` = pivot into the merged root so the workload stops seeing the host filesystem as `/`
 
-That third step is what turns "isolated plus mounted" into "actually portable runtime body".
+That third step turns an isolated mounted tree into an actually portable runtime body.
 
 What it is not:
 

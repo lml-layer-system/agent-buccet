@@ -156,7 +156,7 @@ async function main() {
     /ExecutableFiniteSubstrate/,
     "expected finite substrate definition",
   );
-  assert.equal(process.step4.pseudocode.length, 8, "expected full executable collapse flow");
+  assert.equal(process.step4.pseudocode.length, 8, "expected full executable body flow");
   assert.equal(
     process.step5.implementationSurface.length >= 6,
     true,
@@ -164,8 +164,12 @@ async function main() {
   );
   assert.equal(process.step7.proofSurface.length >= 5, true, "expected proof surface");
 
-  assert.match(markdown, /## Step 1: Forces/, "expected step 1 in markdown");
-  assert.match(markdown, /## Step 7: Verify Correctness/, "expected step 7 in markdown");
+  assert.ok(
+    !markdown.includes("## Step "),
+    "expected published markdown to omit step-by-step methodology",
+  );
+  assert.match(markdown, /## Current Runtime Facts/, "expected runtime facts in markdown");
+  assert.match(markdown, /## Result/, "expected result section in markdown");
   assert.match(markdown, /UPL can keep growing/, "expected infinite growth result in markdown");
   assert.match(
     markdown,
