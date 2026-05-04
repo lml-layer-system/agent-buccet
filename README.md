@@ -42,11 +42,19 @@ This README is the front door. The full boundary set — spend, cost pressure, t
 
 ## Why
 
-AI agents are getting access to files, terminals, APIs, secrets, browsers, chat, and money.
+AI agents are moving from chat into consequence: files, terminals, APIs, secrets, browsers, chat, spend, workflows, and other agents.
 
-Current permissions are too coarse: either the agent has a tool or it does not.
+The issue is not only that models hallucinate or get prompt-injected.
 
-Buccet adds an action-time boundary between agent intent and real-world consequence.
+The hard failure is authority: once an agent has tools, a helpful, confused, or compromised model can still create real side effects.
+
+Real agent failure patterns include prompt injection, tool misuse, data exfiltration, unauthorized spend, privilege escalation, destructive writes, approval bypass, runaway loops, multi-agent incoherence, and missing audit trails. These are not solved by prompts alone. They need an enforcement point between proposed action and consequence.
+
+Current attempts are not wrong intentionally. They lack a combined enforcement at runtime.
+
+Agent Buccet adds the missing action-time boundary. Agents can propose actions, but they cannot authorize consequences. Every consequential action must pass through user law before it lands.
+
+The goal is not to only prove the model is safe. The goal is to prove that unauthorized action does not become authority at runtime.
 
 
 ## Install
