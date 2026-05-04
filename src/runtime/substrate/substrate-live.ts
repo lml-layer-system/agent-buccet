@@ -362,7 +362,10 @@ export async function assessBoundarySubstrateGravity(args: {
   request: BoundaryActionRequest;
 }): Promise<BoundarySubstrateGravityAssessment> {
   await substrate.init();
-  const counterKey = `${args.config.session.sessionId}:${args.request.actionKind}`;
+  // Route selection must not share state across distinct proposals in the same
+  // session: spend (and other kinds) can be evaluated many times per session and
+  // a shared counter caused non-deterministic k_validate / gravity outcomes.
+  const counterKey = `${args.config.session.sessionId}:${args.request.requestId}:${args.request.actionKind}`;
   const route = substrate.kRoute(args.config.session.sessionId, {
     backends: buildRouteBackends(args.request),
     _route_counter: routeCounters.get(counterKey) ?? 0,

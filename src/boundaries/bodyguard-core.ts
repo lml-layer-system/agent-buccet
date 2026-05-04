@@ -478,6 +478,24 @@ export async function adjudicateBodyguardRequest(args: {
     });
 
     if (gravity.outcome === "deny") {
+      // Gravity may emit decision "deny" for non-grantable META.* bookkeeping while
+      // UPL track + spend runtime still require an explicit approval hold (corridor
+      // exit, rolling cap, high-risk packet). Do not bypass substrate kernel validate:
+      // that path must remain a hard deny with no approval queue.
+      const substrateKernelRejected = gravity.lawIds.includes("SUBSTRATE.K.VALIDATE.01");
+      if (!substrateKernelRejected && args.request.actionKind === "agent.spend") {
+        const runtimeHold = await evaluateBodyguardActionRuntime({
+          config: gravity.config,
+          request: gravity.request,
+        });
+        if (runtimeHold.result.decision === "require_approval") {
+          return {
+            ...runtimeHold,
+            config: gravity.config,
+            request: gravity.request,
+          };
+        }
+      }
       return {
         config: gravity.config,
         request: gravity.request,

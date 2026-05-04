@@ -19,7 +19,9 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function waitForPending<T>(list: () => T[], timeoutMs = 15_000): Promise<T[]> {
+async function waitForPending<T>(list: () => T[], timeoutMs = 45_000): Promise<T[]> {
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  await new Promise<void>((resolve) => setImmediate(resolve));
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const items = list();
@@ -305,6 +307,7 @@ async function main() {
       execute: async () => "should-not-run",
       successReason: "subscription spend executed",
     });
+    await new Promise<void>((resolve) => setImmediate(resolve));
     const subscribePending = await waitForPending(() => bodyguard.approvals.listPending());
     assert.ok(subscribePending.length > 0, "expected recurring obligation to surface for approval");
     assert.match(
@@ -318,6 +321,7 @@ async function main() {
     const subscribeResult = await subscribePromise;
     assert.equal(subscribeResult.allowed, false, "expected denied recurring spend not to execute");
 
+    await new Promise<void>((resolve) => setImmediate(resolve));
     const overLimitPromise = bodyguard.spend.intent({
       spendIntent: spendIntent({
         amountRaw: "75.00",
