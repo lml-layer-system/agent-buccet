@@ -7,10 +7,9 @@ import {
   publishBoundaryReleaseWitness,
 } from "./../src/index.ts";
 import {
-  buildBuccetInstallSnapSummary,
+  computeBuccetInstallSnapSummary,
   renderBuccetInstallSnapSummaryText,
-  runBuccetFullSystemBody,
-} from "./../src/runtime/full-system-body.ts";
+} from "./../src/runtime/install-snap-summary.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
@@ -700,11 +699,10 @@ async function writePrebuiltNativeHook() {
 }
 
 async function writeSnapArtifacts() {
-  const process = runBuccetFullSystemBody();
-  const summary = buildBuccetInstallSnapSummary(process);
+  const summary = computeBuccetInstallSnapSummary();
   await fs.writeFile(
     path.join(outDir, "INSTALL_SNAP.txt"),
-    `${renderBuccetInstallSnapSummaryText(process)}\n`,
+    `${renderBuccetInstallSnapSummaryText(summary)}\n`,
     "utf8",
   );
   await fs.writeFile(
@@ -1025,8 +1023,8 @@ async function main() {
   await rmrf(releaseDir);
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
-  await rmrf(path.join(outDir, "src", "full-system-body.ts"));
-  await rmrf(path.join(outDir, "src", "system-substrate.ts"));
+  await rmrf(path.join(outDir, "src", "runtime", "install-snap-summary.ts"));
+  await rmrf(path.join(outDir, "src", "runtime", "substrate", "system-substrate.ts"));
   for (const relativeDocPath of packagedDocs) {
     await copyRelativePath(sourceDocsDir, relativeDocPath, path.join(outDir, "docs"));
   }

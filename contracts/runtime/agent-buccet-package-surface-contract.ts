@@ -104,7 +104,7 @@ async function main() {
   assert.equal(
     packagedRuntimeMuscle,
     true,
-    "standalone package should carry the snapped runtime-muscle artifact",
+    "standalone package should carry the precomputed runtime-muscle artifact",
   );
   const packagedDenialCatalogSnap = await fs
     .access(
@@ -123,7 +123,7 @@ async function main() {
   assert.equal(
     packagedDenialCatalogSnap,
     true,
-    "standalone package should carry the snapped denial catalog artifact",
+    "standalone package should carry the precomputed denial catalog artifact",
   );
   const packagedProjectedLawSource = await fs
     .access(
@@ -193,7 +193,7 @@ async function main() {
   assert.equal(
     packagedDocs.includes("BUCCET_FULL_SYSTEM_BODY.md"),
     false,
-    "standalone package should not expose the internal full system body document",
+    "standalone package should not ship internal methodology markdown under docs/",
   );
   assert.equal(
     packagedDocs.includes("BUCCET_SYSTEM_SUBSTRATE.md"),
@@ -225,7 +225,7 @@ async function main() {
   console.log("  release shell: present");
   console.log("  install snap summary: present");
   console.log(
-    `  snapped runtime artifacts: ${packagedRuntimeMuscle && packagedDenialCatalogSnap ? "present" : "missing"}`,
+    `  runtime classification artifacts: ${packagedRuntimeMuscle && packagedDenialCatalogSnap ? "present" : "missing"}`,
   );
   console.log(`  packaged rust substrate: ${packagedRustSubstrate ? "present" : "missing"}`);
   console.log(

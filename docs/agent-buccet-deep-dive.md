@@ -50,7 +50,7 @@ Acceptance becomes motion rails. Denial becomes motion walls. They live in one c
 That is how recursive drift gets cut at the source:
 
 - the model does not return to open-ended general agency after law is set
-- lawful motion stays inside the snapped corridor
+- lawful motion stays inside the lawful corridor
 - denied motion is not a usable lane for the agent
 - if motion leaves the approved corridor, Buccet surfaces the drift instead of silently widening the world
 

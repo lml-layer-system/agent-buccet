@@ -39,7 +39,7 @@ function main() {
   assert.equal(systemRequest.funnel?.rawAction, "file.write");
   assert.match(systemRequest.payloadSummary ?? "", /pid=4242/);
   console.log(
-    `gravity and system feeders collapse to: ${gravityRequest.actionClass}.${gravityRequest.operation}`,
+    `gravity and system feeders normalize to: ${gravityRequest.actionClass}.${gravityRequest.operation}`,
   );
 
   const claudeRequest = mapClaudeToolUseToInterceptRequest({
@@ -65,7 +65,7 @@ function main() {
   assert.equal(claudeRequest.funnel?.source, "framework");
   assert.equal(claudeRequest.funnel?.rawAction, "write_file");
   assert.equal(claudeRequest.funnel?.extra, "adapter=claude-sdk");
-  console.log(`framework feeder collapse source: ${claudeRequest.funnel?.source}`);
+  console.log(`framework feeder normalize source: ${claudeRequest.funnel?.source}`);
 }
 
 main();

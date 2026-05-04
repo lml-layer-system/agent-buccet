@@ -162,7 +162,6 @@
     "test:agent-buccet:system-substrate": "node contracts/runtime/agent-buccet-system-substrate-contract.ts",
     "test:agent-buccet:substrate-rust": "node contracts/runtime/agent-buccet-substrate-rust-contract.ts",
     "test:agent-buccet:transport": "node contracts/runtime/agent-buccet-transport-contract.ts",
-    "test:agent-buccet:full-system-body": "node contracts/runtime/agent-buccet-full-system-body-contract.ts",
     "test:agent-buccet:path-memory": "node contracts/context/agent-buccet-path-memory-contract.ts",
     "test:agent-buccet:release-surface": "node contracts/runtime/agent-buccet-release-surface-contract.ts",
     "test:agent-buccet:package-surface": "node contracts/runtime/agent-buccet-package-surface-contract.ts",

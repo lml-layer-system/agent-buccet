@@ -52,7 +52,7 @@ async function read(relativePath: string): Promise<string> {
 }
 
 async function main() {
-  const snappedInputs = [
+  const precomputedInputs = [
     ACTIVE_LAW_BODY_MANIFEST,
     ACTIVE_LAW_BODY_SOURCE,
     ACTIVE_RUNTIME_MUSCLE,
@@ -66,7 +66,7 @@ async function main() {
     NATIVE_DEEP_INTERCEPT_BUILD,
   ];
 
-  await Promise.all(snappedInputs.map((relativePath) => mustExist(relativePath)));
+  await Promise.all(precomputedInputs.map((relativePath) => mustExist(relativePath)));
 
   const hotSources = await Promise.all(
     HOT_MODULES.map(async (relativePath) => ({
@@ -104,7 +104,7 @@ async function main() {
   assert.match(
     foundationSource,
     /runtime-muscle\.json/,
-    "foundation should load the snapped runtime muscle artifact",
+    "foundation should load the precomputed runtime muscle artifact",
   );
 
   const denialCatalogSource =
@@ -118,7 +118,7 @@ async function main() {
   assert.match(
     denialCatalogSource,
     /denial-catalog-snap\.json/,
-    "law-body denial catalog should load the snapped denial catalog artifact",
+    "law-body denial catalog should load the precomputed denial catalog artifact",
   );
 
   const ledgerSource =
@@ -203,7 +203,7 @@ async function main() {
   assert.equal(
     runtimeMuscle.manifest.artifactPaths.substrate,
     ACTIVE_RUNTIME_MUSCLE,
-    "runtime muscle should anchor to the snapped runtime-muscle artifact",
+    "runtime muscle should anchor to the precomputed runtime-muscle artifact",
   );
   assert.equal(
     runtimeMuscle.manifest.artifactPaths.activeLawBodySource,
@@ -212,17 +212,17 @@ async function main() {
   );
   assert.ok(
     runtimeMuscle.activeLawIds.length > 0,
-    "runtime muscle should load active law ids from the snapped law body",
+    "runtime muscle should load active law ids from the working law body",
   );
   assert.ok(
     BOUNDARY_BUCCET_LAW_BODY_DENIAL_ROWS.length > 8000,
-    "runtime should load the snapped law-body denial catalog",
+    "runtime should load the working law-body denial catalog",
   );
 
   const ledger = await loadUserPathLedger();
   assert.ok(
     ledger.userApprovedLawPaths.length + ledger.userDeniedLawPaths.length > 0,
-    "runtime should load the live UPL ledger from the snapped ledger artifact",
+    "runtime should load the live UPL ledger from the ledger artifact",
   );
 
   await substrate.init();
@@ -234,13 +234,13 @@ async function main() {
   console.log(`  run-surface denial catalog:   ${ACTIVE_DENIAL_CATALOG_SNAP}`);
   console.log(`  run-surface UPL ledger:       ${USER_PATH_LEDGER}`);
   console.log(`  read-surface law source:      ${ACTIVE_LAW_BODY_SOURCE}`);
-  console.log(`  run-surface physwrap lane:    ${PHYSWRAP_BUILD_SCRIPT}`);
+  console.log(`  native wrapper build script:  ${PHYSWRAP_BUILD_SCRIPT}`);
   console.log(`  run-surface physwrap source:  ${PHYSWRAP_SOURCE}`);
   console.log(`  run-surface hook source:      ${NATIVE_DEEP_INTERCEPT_DIR}`);
   console.log(`  run-surface rust bridge:      ${RUST_SUBSTRATE_BG}`);
   console.log(`  run-surface rust wasm:        ${RUST_SUBSTRATE_WASM}`);
   console.log("  read-surface archives:        excluded from hot runtime references");
-  console.log("  transport chain:              snapped runtime path");
+  console.log("  transport chain:              artifact-backed runtime path");
   console.log("  MCP path:                     same Buccet body, no parallel logic");
 }
 
