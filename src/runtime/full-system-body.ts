@@ -7,10 +7,10 @@ export type BuccetFullSystemBodyRuntimeFacts = {
   substrateTerminalCount: number;
   consequenceBoundaryCount: number;
   executableBodyCount: number;
-  snapAvgMs: number;
-  snapTargetMs: number;
-  snapUnderTargetFactor: number;
-  snapDeterministic: boolean;
+  runtimeAvgMs: number;
+  runtimeTargetMs: number;
+  runtimeUnderTargetFactor: number;
+  runtimeDeterministic: boolean;
 };
 
 export type BuccetFullSystemBody = {
@@ -21,7 +21,7 @@ export type BuccetFullSystemBody = {
 export type BuccetInstallSnapSummary = {
   runtimeNodeCount: number;
   runtimeExecutablePrimitiveCount: number;
-  runtimeSnapAvgMs: number;
+  runtimeAvgMs: number;
   runtimeDeterministic: boolean;
   operatorConsoleCommand: string;
 };
@@ -38,10 +38,10 @@ export function runBuccetFullSystemBody(): BuccetFullSystemBody {
       substrateTerminalCount: 0,
       consequenceBoundaryCount: 0,
       executableBodyCount: 0,
-      snapAvgMs: 0,
-      snapTargetMs: 10,
-      snapUnderTargetFactor: 0,
-      snapDeterministic: true,
+      runtimeAvgMs: 0,
+      runtimeTargetMs: 10,
+      runtimeUnderTargetFactor: 0,
+      runtimeDeterministic: true,
     },
   };
 }
@@ -50,7 +50,7 @@ export function buildBuccetInstallSnapSummary(): BuccetInstallSnapSummary {
   return {
     runtimeNodeCount: 0,
     runtimeExecutablePrimitiveCount: 0,
-    runtimeSnapAvgMs: 0,
+    runtimeAvgMs: 0,
     runtimeDeterministic: true,
     operatorConsoleCommand: "buccet console",
   };
@@ -68,7 +68,7 @@ export function renderBuccetFullSystemBodyMarkdown(): string {
   return [
     "# Agent Buccet Runtime Surface",
     "",
-    "This public build intentionally omits internal runtime-collapse methodology.",
+    "This public build intentionally omits internal runtime methodology.",
     "",
     "Agent Buccet exposes the governed action boundary, UPL/user-law model, witness ledger, and operator docs needed to run the open-source runtime.",
   ].join("\n");
