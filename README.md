@@ -12,7 +12,7 @@ Buccet controls its hands.
 ## The Spec, Daily Driver, and Brakes
 
 ```text
-failure → known/unknown → class/gap → boundary → UPL / user custom rules → Buccet enforcement → proof ledger
+failure → known/unknown → class/gap → boundary → UPL / user custom rules → Buccet enforcement → proof ledger → fresh failure loop →
 ```
 
 The **[AI Failure Periodic Table](https://github.com/lml-layer-system/ai-failure-periodic-table)** is the spec: it names the failure.  
