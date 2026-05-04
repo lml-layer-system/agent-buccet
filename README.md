@@ -1,6 +1,6 @@
 # Agent Buccet
 
-Governed runtime for AI agents.
+The Brakes and governed runtime for AI agents.
 
 Agent Buccet intercepts file, env, shell, network, delete, and chat actions before they land.
 
@@ -8,6 +8,19 @@ Agent Buccet intercepts file, env, shell, network, delete, and chat actions befo
 
 Prompt injection can change the agent’s mind.  
 Buccet controls its hands.
+
+## The Spec, Daily Driver, and Brakes
+
+```text
+failure → known/unknown → class/gap → boundary → UPL / user custom rules → Buccet enforcement → proof ledger
+```
+
+The **AI Failure Periodic Table** is the spec: it names the failure.  
+**Daily Driver MCP** brings the map into Cursor/Claude workflows.  
+**Agent Buccet** is the brakes: it enforces the boundary before actions land.  
+The **witness ledger** proves what was allowed or denied.
+
+AI Failure Periodic Table: https://github.com/lml-layer-system/ai-failure-periodic-table
 
 ## Demo
 
@@ -37,18 +50,6 @@ Current permissions are too coarse: either the agent has a tool or it does not.
 
 Buccet adds an action-time boundary between agent intent and real-world consequence.
 
-## The Spec, Daily Driver, and Brakes
-
-```text
-failure → class → boundary → law → enforcement → witness
-```
-
-The **AI Failure Periodic Table** is the spec: it names the failure.  
-**Daily Driver MCP** brings the map into Cursor/Claude workflows.  
-**Agent Buccet** is the brakes: it enforces the boundary before actions land.  
-The **witness ledger** proves what was allowed or denied.
-
-AI Failure Periodic Table: https://github.com/lml-layer-system/ai-failure-periodic-table
 
 ## Install
 
