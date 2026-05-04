@@ -282,6 +282,12 @@ human-approved law becomes active UPL.
 
 That is now real in code, not just a motto.
 
+## Deeper System Model
+
+The README is the front door. For the longer explanation of how Buccet treats agents, headless operation, recursive loops, swarms, skills, sources, open-source deployments, closed-source deployments, and enterprise fleet governance, read:
+
+[Agent Buccet Deep Dive →](docs/agent-buccet-deep-dive.md)
+
 ## Start Here
 
 If you are new to the repo, use this order:
