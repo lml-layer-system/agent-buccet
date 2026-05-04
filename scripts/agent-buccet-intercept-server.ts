@@ -389,7 +389,7 @@ async function main() {
                 .map(([provenance, entry]) => ({
                   provenance,
                   state: "allow_once" as const,
-                  reason: "Terminal 2 released this provenance from canyon once",
+                  reason: "operator console released this provenance from canyon once",
                   seenAt: entry.grantedAt,
                   deniedCount: hostileDeniedCounts[provenance] ?? 0,
                   allowOnceRemaining: entry.remaining,
@@ -525,7 +525,7 @@ async function main() {
                   decision: "allow",
                   target: parsed.provenance,
                   reason:
-                    parsed.reason ?? `Terminal 2 released ${parsed.provenance} from canyon once`,
+                    parsed.reason ?? `operator console released ${parsed.provenance} from canyon once`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -538,7 +538,7 @@ async function main() {
                   target: parsed.provenance,
                   reason:
                     parsed.reason ??
-                    `Terminal 2 wrote standing ingress allow for ${parsed.provenance}`,
+                    `operator console wrote standing ingress allow for ${parsed.provenance}`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -546,7 +546,7 @@ async function main() {
                 nextState = denyIngressOnce(
                   state,
                   parsed.provenance,
-                  parsed.reason ?? `Terminal 2 kept ${parsed.provenance} in the canyon once`,
+                  parsed.reason ?? `operator console kept ${parsed.provenance} in the canyon once`,
                 );
                 await appendBoundaryLedger("INGRESS_DENY_ONCE", {
                   sessionId: current.session.sessionId,
@@ -554,7 +554,7 @@ async function main() {
                   decision: "deny",
                   target: parsed.provenance,
                   reason:
-                    parsed.reason ?? `Terminal 2 kept ${parsed.provenance} in the canyon this time`,
+                    parsed.reason ?? `operator console kept ${parsed.provenance} in the canyon this time`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });
@@ -567,7 +567,7 @@ async function main() {
                   target: parsed.provenance,
                   reason:
                     parsed.reason ??
-                    `Terminal 2 wrote standing canyon hold for ${parsed.provenance}`,
+                    `operator console wrote standing canyon hold for ${parsed.provenance}`,
                   metadata: { provenance: parsed.provenance },
                   createdAt: new Date().toISOString(),
                 });

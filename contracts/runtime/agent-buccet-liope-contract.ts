@@ -1,16 +1,12 @@
 /**
- * LIOPE — Ledger I/O Physics Envelope contract
+ * Bounded ledger write-path contract (queue + flush).
  *
- * Proves the three LIOPE invariants:
- *   Q1.8  Atomic Shedding Ring Buffer — queue is bounded; overflow is shed, not written
- *   D2.8  Max-IOPS Background Daemon  — batch flush writes all queued events under one lock
- *   A3.8  Signed Magnitude Storm Events — LEDGER_STORM_SUMMARY is emitted when shed > 0
- *
- * Also verifies:
- *   - Material state transitions bypass the queue and are written immediately
- *   - LEDGER_STORM_SUMMARY is signed and chain-linked like any other record
+ * Proves:
+ *   - Bounded queue with shed on overflow (no unbounded writes)
+ *   - Observation events batch-flush while the ticker is cooperative
+ *   - Signed LEDGER_STORM_SUMMARY when shed > 0 in a flush window
+ *   - Material state transitions bypass the queue (immediate durability)
  */
-
 import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -27,7 +23,7 @@ import {
 } from "./../../src/index.ts";
 
 function assert(condition: unknown, message: string): asserts condition {
-  if (!condition) throw new Error(`LIOPE contract FAIL: ${message}`);
+  if (!condition) throw new Error(`ledger queue contract FAIL: ${message}`);
 }
 
 async function clearLedgerForTest(): Promise<void> {
@@ -44,11 +40,11 @@ async function clearLedgerForTest(): Promise<void> {
 function makePayload(sessionId: string, overrides?: Partial<{ target: string; reason: string }>) {
   return {
     sessionId,
-    actorId: "system:liope-contract",
+    actorId: "system:ledger-queue-contract",
     requestId: `req-${randomUUID()}`,
     actionKind: "network.send" as const,
     target: overrides?.target ?? "https://example.com",
-    reason: overrides?.reason ?? "liope test",
+    reason: overrides?.reason ?? "ledger queue harness",
     createdAt: new Date().toISOString(),
   };
 }
@@ -60,9 +56,9 @@ async function main() {
 
   await clearLedgerForTest();
 
-  // ─── Test 1: Material events bypass LIOPE queue ──────────────────────────────
+  // ─── Test 1: Material events bypass the ledger queue ─────────────────────────
 
-  const materialSession = `liope-material-${randomUUID()}`;
+  const materialSession = `ledger-mat-${randomUUID()}`;
 
   // Flush any prior queued junk first
   await flushLiopeQueue();
@@ -89,9 +85,9 @@ async function main() {
     "material record must have eventType SESSION_STARTED",
   );
 
-  console.log("  [pass] Test 1: material events bypass LIOPE queue and are immediately durable");
+  console.log("  [pass] Test 1: material events bypass the ledger queue and are immediately durable");
 
-  // ─── Test 2: LIOPE_MATERIAL_EVENTS set covers expected entries ───────────────
+  // ─── Test 2: Material-event whitelist covers expected entries ───────────────
 
   const expectedMaterial: string[] = [
     "SESSION_STARTED",
@@ -106,15 +102,15 @@ async function main() {
     "LEDGER_STORM_SUMMARY",
   ];
   for (const ev of expectedMaterial) {
-    assert(LIOPE_MATERIAL_EVENTS.has(ev as never), `LIOPE_MATERIAL_EVENTS must include ${ev}`);
+    assert(LIOPE_MATERIAL_EVENTS.has(ev as never), `material event whitelist must include ${ev}`);
   }
 
-  console.log("  [pass] Test 2: LIOPE_MATERIAL_EVENTS covers expected material event types");
+  console.log("  [pass] Test 2: material-event whitelist covers expected types");
 
-  // ─── Test 3: Observation events go through the queue (O(1) enqueue) ──────────
+  // ─── Test 3: Observation events enqueue before flush ─────────────────────────
 
   await flushLiopeQueue(); // start with empty queue
-  const obsSession = `liope-obs-${randomUUID()}`;
+  const obsSession = `ledger-obs-${randomUUID()}`;
 
   const depthBefore = getLiopeStats().queueDepth;
 
@@ -134,7 +130,7 @@ async function main() {
 
   console.log("  [pass] Test 3: observation events queue in memory, not written until flush");
 
-  // ─── Test 4: Flush writes all queued events — D2.8 batch flush ───────────────
+  // ─── Test 4: Flush writes all queued events (single batch lock) ──────────────
 
   await flushLiopeQueue();
 
@@ -167,12 +163,12 @@ async function main() {
 
   console.log("  [pass] Test 4: flush writes all queued events, chain-linked correctly");
 
-  // ─── Test 5: Q1.8 shed — overflow is counted, not written ────────────────────
+  // ─── Test 5: Overflow shed — bounded queue, counted drops ────────────────────
 
   await flushLiopeQueue(); // start clean
 
   // Fill queue past capacity
-  const shedSession = `liope-shed-${randomUUID()}`;
+  const shedSession = `ledger-shed-${randomUUID()}`;
   const overfill = LIOPE_MAX_QUEUE_SIZE + 50;
 
   for (let i = 0; i < overfill; i++) {
@@ -194,10 +190,10 @@ async function main() {
   );
 
   console.log(
-    `  [pass] Test 5: Q1.8 shed — ${shedStats.shedCount} events shed, queue bounded to ${shedStats.queueDepth}`,
+    `  [pass] Test 5: overflow shed — ${shedStats.shedCount} events shed, queue bounded to ${shedStats.queueDepth}`,
   );
 
-  // ─── Test 6: A3.8 storm summary — LEDGER_STORM_SUMMARY emitted on flush when shed > 0 ──
+  // ─── Test 6: Shed summary row — LEDGER_STORM_SUMMARY on flush when shed > 0 ──
   // Shed state is captured from Test 5 above. We flush immediately — no async gap
   // where the daemon could reset the counters (daemon is stopped for the contract).
 
@@ -237,7 +233,7 @@ async function main() {
   );
 
   console.log(
-    `  [pass] Test 6: A3.8 LEDGER_STORM_SUMMARY emitted — shed_count=${storm.payload.metadata?.shed_count} window_ms=${storm.payload.metadata?.window_ms}`,
+    `  [pass] Test 6: LEDGER_STORM_SUMMARY emitted — shed_count=${storm.payload.metadata?.shed_count} window_ms=${storm.payload.metadata?.window_ms}`,
   );
 
   // ─── Test 7: LEDGER_STORM_SUMMARY is signed ───────────────────────────────────
@@ -280,8 +276,8 @@ async function main() {
   );
 
   // ─── Summary ─────────────────────────────────────────────────────────────────
-  console.log("\nLIOPE contract: all 8 tests passed.");
-  console.log(`  LIOPE_MAX_QUEUE_SIZE=${LIOPE_MAX_QUEUE_SIZE}`);
+  console.log("\nLedger queue contract: all 8 tests passed.");
+  console.log(`  max queue=${LIOPE_MAX_QUEUE_SIZE}`);
 }
 
 main().catch((err) => {

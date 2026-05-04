@@ -18,7 +18,7 @@ Use `buccet console` when you want a human at the boundary in real time.
 
 ### 24/7 headless mode
 
-Use headless mode when you want the same governed system to run continuously without a human sitting at Terminal 2.
+Use headless mode when you want the same governed system to run continuously without a human at the approval console (`buccet console`).
 
 - the runtime follows standing human law already recorded in the UPL
 - the same boundaries, rails, walls, ledger, and governor still apply
@@ -40,7 +40,7 @@ That means the agent is always downstream of the UPL, not above it. It can propo
 
 Buccet does not let approval reopen infinite agency.
 
-Once standing law exists, Buccet snaps that live UPL into finite tracks on the two post-law continuation surfaces:
+Once standing law exists, Buccet binds that live UPL into finite tracks on the two post-law continuation surfaces:
 
 - tool and action motion
 - chat and output motion

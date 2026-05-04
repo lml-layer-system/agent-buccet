@@ -4,11 +4,11 @@ This document defines the operational split inside Agent Buccet.
 
 ## Core Split
 
-### Feeders / Gravity Funnel
+### Feeders / shared intake path
 
 Every consequence-bearing feeder does only this:
 - catch motion at its local seam
-- collapse that motion into the shared Gravity funnel shape
+- normalize that motion into the shared adapter intake shape
 - forward the frozen proposal into the same Buccet runtime
 
 Feeders include:
@@ -66,14 +66,14 @@ The main Agent Buccet runtime owns:
 ## Decision Path
 
 1. motion is intercepted at the action boundary
-2. the feeder collapses it into the shared Gravity funnel
+2. the feeder normalizes it into the shared adapter intake
 3. Gravity catches, freezes, and holds — the action does not execute
 4. **Input Admission Boundary fires** (when `admissionConfig` is configured):
    - O(1) canyon cache check — brain never wakes for known-hostile provenances
    - Bounded provenance density tracking
    - Velocity / Density / Mass reflex thresholds for inbound traffic
    - Tarpit decision: hold socket, return nothing (not a fast 403/429)
-   - Ledger the event and surface it to Terminal 2
+   - Ledger the event and surface it to the operator console
    - Only if admitted → continue
 5. Buccet brain evaluates while the action stays frozen:
    - **resource governor** (Tier 1 pre-check — velocity / density / mass / weight; trips before law evaluation)
@@ -147,7 +147,7 @@ They are the authored rails and walls that the runtime can enforce after law has
 
 **Surface scope:** Tracks apply only to Tool/Action and Chat/Output surfaces. Input Admission and Payload-Physics surfaces are excluded — ingress is front-line catch/freeze/deny, not a post-law continuation corridor; physics is hard ceiling enforcement, not semantic shaping.
 
-View active track corridors from Terminal 2: `tracks`
+View active track corridors from the operator console: `tracks`
 
 ## UPL Traffic — Live Motion Enforcement
 
@@ -186,7 +186,7 @@ When a subsequent request matches the UPL field by action family:
 - motion hits a denial wall → deny
 - motion exits the approved rail → drift
 
-`drift` is not a new law decision. It is the runtime fact that motion left the already-decided UPL corridor. Terminal 2 can then resolve that drift according to the active mode.
+`drift` is not a new law decision. It is the runtime fact that motion left the already-decided UPL corridor. The operator console can then resolve that drift according to the active mode.
 
 ## Swarm Mode
 
@@ -225,7 +225,7 @@ It reuses the same Buccet body:
 
 The stable shipped base packs remain the judge layer. The mutable UPL body is what goes on trial.
 
-To keep replay finite for large UPL corpora, Buccet snaps the computation:
+To keep replay finite for large UPL corpora, Buccet bounds the replay computation:
 - one snapshot of the mutable UPL corpus
 - bounded shards
 - bounded worker budget
@@ -249,7 +249,7 @@ INTERCEPT hooks at:
   → framework APIs (Claude SDK, NeMo, OpenAI Agents, LangGraph, Telegram)
 
 Both map into the same finite boundary action classes.
-Both collapse into the same Gravity funnel and route to the same Buccet brain.
+Both map into the same intake path and route to the same Buccet brain.
 ```
 
 `buccet init` now does the fast machine bring-up by default. When the native layer is already present, `buccet init` also arms strong-path immediately. `buccet hook start` remains the explicit recovery/re-arm command, and if a C compiler is not available Agent Buccet runs in user-space bridge mode — the same brain, law body, and ledger, with framework-level interception only until native build becomes available.
@@ -383,7 +383,7 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 - A **motion governor** (Tier 1) — velocity, density, mass, and weight laws cap how the agent can move; shipped defaults govern outbound rate and weighted action cost without pretending to be token accounting
 - A **payload physics enforcer** (Tier 2a: envelope — CPU/memory/process ceiling on all platforms; Tier 2b: live I/O boundary — file descriptor/file size limits on all platforms; I/O rate/IOPS throttle on Windows 10 1607+) — native rlimits, IAT-hook DLL injection, Job Objects, capability drop, and macOS jetsam ceiling govern what approved processes can physically become and do; runtime enforcement outcome ledgered per-run
 - An **input admission boundary** — hostile inbound traffic is denied before tokenization, inference, or API invocation; shipped defaults govern inbound velocity, density, and weighted work before the brain wakes
-- A **ledger I/O physics envelope** (LIOPE) — the ledger survives distributed event storms via a bounded ring buffer (Q1.8), max-IOPS background daemon (D2.8), and signed magnitude storm summaries (A3.8); hot path O(1); material state transitions always durable
+- A **bounded ledger writer path** — the live ledger uses a bounded queue, scheduled flushes, and summarized overflow windows so bursty traffic cannot starve durable material events (implementation details intentionally not specified here)
 
 ### Agent Buccet Is Not
 
@@ -392,7 +392,7 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 - An LLM moderation gateway (no semantic classification in the hot path; pre-cognitive law only)
 - A probabilistic scanner (decisions are deterministic — law matches or doesn't)
 - A fail-open wrapper (there is no default-allow fallback on brain death)
-- A promise of 100% OS-kernel mediation on every syscall (Buccet's authority seam is upstream consequence classification; deep-intercept honesty is about native proof depth and normalization coverage)
+- A promise of 100% OS-kernel mediation on every syscall (Buccet's authority seam is upstream consequence classification; native intercept depth is documented separately and is not universal kernel completion)
 
 ---
 
@@ -406,9 +406,9 @@ The doctrine is exact: existing safety intent -> Buccet enforcement plane -> con
 - Release artifacts carry a witness decision trail by default
 - Tier 1 governor enforces before law evaluation — velocity, density, mass, weight all live
 - Wall-clock kill enforces on all platforms — platform-independent
-- Native physwrap enforces rlimits directly when `PROCESS_PHYSWRAP_ACTIVE` in ledger; on Darwin, `physwrap_macos_jetsam_reinforcement` tells the operator exactly which memory enforcement path was active at runtime
+- Native payload wrapper enforces rlimits directly when `PROCESS_PHYSWRAP_ACTIVE` in ledger; on Darwin, `physwrap_macos_jetsam_reinforcement` records which memory enforcement path was active at runtime
 - Input admission boundary protects the brain from hostile inbound force when `admissionConfig` is configured
-- Ledger I/O Physics Envelope (LIOPE) bounds disk I/O and memory under distributed event storms — hot path O(1), material state transitions always durable, storm repetition collapses to signed `LEDGER_STORM_SUMMARY`
+- The bounded ledger writer path keeps disk and memory pressure predictable under bursty traffic — material state transitions stay durable; repeated overflow windows consolidate into signed `LEDGER_STORM_SUMMARY` records
 
 ---
 

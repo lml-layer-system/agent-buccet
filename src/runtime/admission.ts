@@ -301,7 +301,7 @@ export function evaluateAdmission(args: {
   const state = normalizeAdmissionState(args.state);
   const maxSize = config.provenanceMaxSize ?? 10_000;
 
-  // ── Step 1: operator ingress overrides + O(1) canyon cache ───────────────
+  // ── Phase 1: operator ingress overrides + O(1) canyon cache ───────────────
   const denyOnceOverride = state.denyOnceProvenances[provenance];
   if (denyOnceOverride && denyOnceOverride.remaining > 0) {
     const nextDenyOnce = { ...state.denyOnceProvenances };
@@ -342,7 +342,7 @@ export function evaluateAdmission(args: {
     return {
       result: {
         decision: "admit",
-        reason: `provenance ${provenance} released from canyon once by Terminal 2`,
+        reason: `provenance ${provenance} released from canyon once by operator console`,
         promoted: false,
       },
       state: {
@@ -356,7 +356,7 @@ export function evaluateAdmission(args: {
     return {
       result: {
         decision: "admit",
-        reason: `provenance ${provenance} is standing-allowed by Terminal 2`,
+        reason: `provenance ${provenance} is standing-allowed by operator console`,
         promoted: false,
       },
       state,
@@ -376,7 +376,7 @@ export function evaluateAdmission(args: {
     };
   }
 
-  // ── Step 2: Eviction + record lookup ─────────────────────────────────────
+  // ── Phase 2: Eviction + record lookup ─────────────────────────────────────
   const ttlMs = config.provenanceTtlMs ?? 300_000; // 5 min default
 
   let records = state.provenanceRecords;
@@ -397,7 +397,7 @@ export function evaluateAdmission(args: {
     : { ...emptyProvenanceRecord(nowMs), totalDeniedCount: historicalCount };
   const weight = getInputWeight(weightClass, config.weight);
 
-  // ── Step 2.5: Hard block ceiling for weak provenance ─────────────────────
+  // ── Phase 2b: Hard block ceiling for weak provenance ─────────────────────
   // Safety floor — fires before velocity/density/mass and cannot be disabled
   // or loosened by density config. Density can promote sooner; it cannot push
   // promotion past WEAK_PROVENANCE_HARD_BLOCK_CEILING for weak provenances.
@@ -430,7 +430,7 @@ export function evaluateAdmission(args: {
     };
   }
 
-  // ── Step 3: Velocity check ────────────────────────────────────────────────
+  // ── Phase 3: Velocity check ────────────────────────────────────────────────
   if (config.velocity) {
     const windowMs = config.velocity.windowMs ?? 60_000;
     const windowStart = nowMs - windowMs;
@@ -466,7 +466,7 @@ export function evaluateAdmission(args: {
     }
   }
 
-  // ── Step 4: Mass check ────────────────────────────────────────────────────
+  // ── Phase 4: Mass check ────────────────────────────────────────────────────
   if (config.mass) {
     const massWindowMs = config.mass.windowMs ?? 60_000;
     const massWindowStart = nowMs - massWindowMs;
@@ -502,7 +502,7 @@ export function evaluateAdmission(args: {
     }
   }
 
-  // ── Step 5: Density check (standalone — repeated hostile inputs) ──────────
+  // ── Phase 5: Density check (standalone — repeated hostile inputs) ──────────
   if (config.density) {
     const windowSize = config.density.windowSize ?? 20;
     const recent = existing.recentDecisions.slice(-windowSize);
@@ -541,7 +541,7 @@ export function evaluateAdmission(args: {
     }
   }
 
-  // ── Step 6: Admit ─────────────────────────────────────────────────────────
+  // ── Phase 6: Admit ─────────────────────────────────────────────────────────
   const nextState = buildUpdatedState(
     state,
     records,
@@ -714,7 +714,7 @@ export function allowIngressOnce(
 export function denyIngressOnce(
   state: BoundaryAdmissionState,
   provenance: string,
-  reason = `Terminal 2 kept ${provenance} in the canyon once`,
+  reason = `operator console kept ${provenance} in the canyon once`,
 ): BoundaryAdmissionState {
   const nextAllowOnce = { ...state.allowOnceProvenances };
   delete nextAllowOnce[provenance];
@@ -735,7 +735,7 @@ export function denyIngressOnce(
 export function allowIngressAsLaw(
   state: BoundaryAdmissionState,
   provenance: string,
-  reason = "standing ingress allow written by Terminal 2",
+  reason = "standing ingress allow written by operator console",
 ): BoundaryAdmissionState {
   const nextCanyon = { ...state.canyonProvenances };
   delete nextCanyon[provenance];
@@ -761,7 +761,7 @@ export function allowIngressAsLaw(
 export function denyIngressAsLaw(
   state: BoundaryAdmissionState,
   provenance: string,
-  reason = "standing canyon hold written by Terminal 2",
+  reason = "standing canyon hold written by operator console",
 ): BoundaryAdmissionState {
   const nextAllowed = { ...state.allowedProvenances };
   delete nextAllowed[provenance];

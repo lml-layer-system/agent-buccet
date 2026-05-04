@@ -1045,7 +1045,7 @@ async function ensureBoundaryQuarantineReportUnlocked(args: {
       sessionId: config.session.sessionId,
       actorId: config.session.actorId,
       decision: "deny",
-      reason: "shed reboot activated boundary-on-self replay against snapped UPL corpus",
+      reason: "shed reboot activated boundary-on-self replay against persisted UPL corpus snapshot",
       metadata: {
         items: snapshot.items.length,
         snapshot_path: quarantineState.snapshotPath,

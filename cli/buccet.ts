@@ -500,7 +500,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
     [
       "Workshop — build hyper-specialized teams (creativity face)",
       [
-        "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track snapped)",
+        "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track finalized)",
         "  buccet create spend <team-name> --domain <domain> [--summary <text>]   SPEND Buccet — financial agents only (see warning + `--confirm-spend`)",
         "  buccet create list                                                list standing teams",
         "  buccet create show <team-name>                                    show a team manifest",
@@ -9318,7 +9318,7 @@ async function handleCreate(rest: string[]) {
     console.log(
       `${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(UBIE value-boundary · auto-injected)")}`,
     );
-    console.log(`${clrDim("upl-track:   ")}snapped at ${spendManifest.uplTrackSnap.takenAt}`);
+    console.log(`${clrDim("upl-track:   ")}frozen at ${spendManifest.uplTrackSnap.takenAt}`);
     console.log("");
     console.log(`  ${clrDim("Next:")}`);
     console.log(
@@ -9381,7 +9381,7 @@ async function handleCreate(rest: string[]) {
   console.log(
     `${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(Universal comprehension · auto-injected)")}`,
   );
-  console.log(`${clrDim("upl-track:   ")}snapped at ${manifest.uplTrackSnap.takenAt}`);
+  console.log(`${clrDim("upl-track:   ")}frozen at ${manifest.uplTrackSnap.takenAt}`);
   console.log("");
   console.log(`  ${clrDim("Next:")}`);
   console.log(
@@ -11613,7 +11613,7 @@ async function handleConsole() {
             "  24/7 no-questions mode active — UPL is now resolving pending action groups. Press Esc to return to interactive mode.",
           );
         } else {
-          console.log("  Interactive mode restored — Terminal 2 will ask the 4 choices again.");
+          console.log("  Interactive mode restored — the operator CLI will ask the 4 choices again.");
         }
         console.log(`  reason: ${reason}`);
       }
@@ -12009,7 +12009,7 @@ async function handleConsole() {
     if (key.name === "escape" && currentApprovalMode === "standing_law") {
       void setConsoleApprovalMode(
         "interactive",
-        "console: Esc returned Terminal 2 to interactive mode",
+        "console: Esc returned the operator CLI to interactive mode",
       );
       rl.prompt();
     }

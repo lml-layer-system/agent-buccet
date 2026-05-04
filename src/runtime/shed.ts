@@ -276,7 +276,7 @@ async function executeDisposableShed(args: {
     requestId: args.request.requestId,
     actionKind: args.request.actionKind,
     target: runtimeDir,
-    reason: "disposable runtime respawned from snapped lawful session state",
+    reason: "disposable runtime respawned from persisted lawful session state",
     lawIds: args.lawIds,
     metadata: {
       trigger: args.trigger,

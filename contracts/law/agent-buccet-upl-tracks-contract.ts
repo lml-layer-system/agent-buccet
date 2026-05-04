@@ -177,7 +177,7 @@ async function main() {
     const corridorPending = await waitForPending(() => bodyguard.approvals.listPending());
     assert.ok(
       corridorPending.length > 0,
-      "T3: expected corridor violation to surface as require_approval in Terminal 2",
+      "T3: expected corridor violation to surface as require_approval in operator CLI mode",
     );
 
     const corridorApproval = corridorPending[0];
@@ -191,7 +191,7 @@ async function main() {
     const escapeResult = await escapeProposal;
     assert.equal(escapeResult.allowed, false, "T3: expected denial after corridor violation");
 
-    console.log("T3 ok: out-of-corridor request surfaced to Terminal 2 with correct reason");
+    console.log("T3 ok: out-of-corridor request surfaced to operator CLI mode with correct reason");
 
     // ─── T4: UPL_TRACK_VIOLATED event in ledger ──────────────────────────────
 

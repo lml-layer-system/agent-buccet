@@ -7,14 +7,14 @@
 # Wrapped with `buccet hook run` — DYLD_INSERT_LIBRARIES is injected.
 #
 # When the agent tries to exec the shell command, gravity.c intercepts
-# the execve() call before /bin/sh runs. Terminal 2 (buccet console)
+# the execve() call before /bin/sh runs. `buccet console`
 # shows the intercepted request. User types 3 to deny.
 # SENSITIVE.txt survives.
 #
-# Terminal layout:
-#   Terminal 1 (this window)  — the agent
-#   Terminal 2                — buccet console   (run it NOW before pressing Enter)
-#   Terminal 3                — buccet logs --follow
+# Window layout:
+#   Agent pane (this window)  — the agent
+#   Approval console          — buccet console   (run it NOW before pressing Enter)
+#   Ledger tail               — buccet logs --follow
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 DEMO_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -35,13 +35,13 @@ echo "  ╚═══════════════════════
 echo ""
 echo "  Before running: open TWO more terminals and run:"
 echo ""
-echo "    Terminal 2:  buccet console"
-echo "    Terminal 3:  buccet logs --follow"
+echo "    Approval console:  buccet console"
+echo "    Ledger tail:       buccet logs --follow"
 echo ""
-echo "  When the approval prompt appears in Terminal 2, type:  3  (Deny once)"
+echo "  When the approval prompt appears in buccet console, type:  3  (Deny once)"
 echo ""
 echo "  ─────────────────────────────────────────────────────────────"
-echo "  Press ENTER when Terminal 2 and Terminal 3 are running..."
+echo "  Press ENTER when approval console + log tail are running..."
 read -r
 
 # ── Ensure daemons are running ────────────────────────────────────────────
@@ -99,6 +99,6 @@ else
 fi
 echo ""
 echo "  ─────────────────────────────────────────────────────────────"
-echo "  Terminal 3 shows the full ledger — scroll to see APPROVAL_DENIED."
+echo '  Ledger tail (buccet logs --follow) shows the full stream — scroll to see APPROVAL_DENIED.'
 echo "  Now run scene3_swarm.sh for the swarm demo."
 echo ""

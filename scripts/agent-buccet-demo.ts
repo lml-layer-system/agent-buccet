@@ -149,7 +149,7 @@ async function main() {
     const targetA = path.join(subdir, "result.txt");
     console.log(`  ${C.dim}target: ${targetA}${C.reset}`);
 
-    // Switch to queue adapter for this step (simulates human in Terminal 2)
+    // Switch to queue adapter for this step (simulates a human at the approval console)
     const { createApprovalQueueAdapter } = await import("./../src/boundaries/approval.ts");
     const queue = createApprovalQueueAdapter();
     store.replaceConfig({ ...store.getConfig(), approvalHandler: queue.handler });
@@ -163,7 +163,7 @@ async function main() {
       },
     });
 
-    // Simulate human approving as standing law (Terminal 2 interaction)
+    // Simulate human approving as standing law (approval console interaction)
     // Poll for the pending approval (it arrives async from the bodyguard pipeline)
     const deadline = Date.now() + 2_000;
     let pending: { approvalId: string }[] = [];

@@ -1,7 +1,7 @@
 /**
  * UPL Tracks — Post-law execution corridor enforcement.
  *
- * Purpose: collapse post-law execution from infinite recursive possibility into
+ * Purpose: narrow post-law execution from infinite recursive possibility into
  * finite lawful motion. Once UPL law is recorded on a tracked surface, execution
  * must stay inside the corridor that law put into motion. The model does not
  * return to open-ended general agency; it enters a narrow lawful channel.
@@ -594,7 +594,7 @@ export function checkTrackConstraint(
 }
 
 /**
- * Summarise an active track constraint for display in Terminal 2 (buccet console).
+ * Summarise an active track constraint for display in the operator console (`buccet console`).
  */
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
   const kinds = (

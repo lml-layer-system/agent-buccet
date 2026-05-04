@@ -37,19 +37,14 @@ const SIGNING_PRIVATE_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-private.pem
 const SIGNING_PUBLIC_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-public.pem");
 const LOCK_STALE_MS = 5_000;
 
-// ─── LIOPE — Ledger I/O Physics Envelope ──────────────────────────────────────
-// Three dimensions:
-//   Q1.8 — Atomic Shedding Ring Buffer: bounded queue, O(1) hot path, shed overflow
-//   D2.8 — Max-IOPS Background Daemon: fixed-interval flush with file rollover
-//   A3.8 — Signed Magnitude Storm Events: signed LEDGER_STORM_SUMMARY when shed > 0
+// ─── Bounded ledger write path ────────────────────────────────────────────────
+// Internal bounded queue + scheduled flush daemon. Hot enqueue stays O(1); overflow is shed
+// and summarized (see LEDGER_STORM_SUMMARY). Tuning env: BUCCET_LEDGER_MAX_QUEUE_SIZE,
+// BUCCET_LEDGER_FLUSH_INTERVAL_MS, BUCCET_LEDGER_MAX_FILE_SIZE_BYTES.
 //
-// Invariants:
-//   Hot path O(1) — never blocks on disk/memory
-//   Physical disk flushes bounded to floor(1000 / LIOPE_FLUSH_INTERVAL_MS) per second
-//   Memory bounded to LIOPE_MAX_QUEUE_SIZE entries
-//   Material state transitions bypass the queue and write immediately
-//   Shed repetition collapses into a single signed LEDGER_STORM_SUMMARY per flush window
-
+// Rules of the road:
+//   Material boundary records bypass the queue and are written immediately
+//   Repeated shed windows consolidate into signed LEDGER_STORM_SUMMARY records
 const LIOPE_MAX_QUEUE_SIZE = Math.max(1, parseInt(process.env.BUCCET_LEDGER_MAX_QUEUE_SIZE ?? "10000", 10));
 const LIOPE_FLUSH_INTERVAL_MS = Math.max(10, parseInt(process.env.BUCCET_LEDGER_FLUSH_INTERVAL_MS ?? "100", 10));
 const LIOPE_MAX_FILE_SIZE_BYTES = Math.max(
@@ -57,18 +52,14 @@ const LIOPE_MAX_FILE_SIZE_BYTES = Math.max(
   parseInt(process.env.BUCCET_LEDGER_MAX_FILE_SIZE_BYTES ?? String(10 * 1024 * 1024), 10),
 );
 
-// Material state transitions bypass LIOPE and are written immediately.
+// Material state transitions bypass the queue and are written immediately.
 // Only five high-volume admission observation events go through the queue:
 //   INGRESS_PROVENANCE_BLOCKED, INGRESS_DENIED, INGRESS_VELOCITY_TRIP,
 //   INGRESS_DENSITY_TRIP, INGRESS_MASS_TRIP.
 // INGRESS_CANYON_STATE_WRITTEN is material (exactly-once canyon-state authority
 // record) and bypasses the queue even though it originates from the admission path.
 //
-// The storm scenario: 10M unique IPs hitting the admission boundary generates
-// 10M INGRESS_* observation events — those are queued/shed. Each IP gets at most
-// one INGRESS_CANYON_STATE_WRITTEN (material, immediately durable). Action
-// lifecycle events (PROPOSED, DECIDED, BLOCKED, EXECUTED) are material and must
-// be immediately durable — they are the law boundary record.
+// High-volume admission observations may enqueue; authoritative boundary lifecycle records stay on the write-through path.
 const LIOPE_MATERIAL_EVENTS = new Set<BoundaryLedgerEventType>([
   "SESSION_STARTED", "SESSION_RESTORED", "SESSION_PERSISTED", "SESSION_ENDED",
   "GRAVITY_SKILL_ERROR",
@@ -107,7 +98,7 @@ type LiopeQueueEntry = {
   payload: BoundaryLedgerPayload;
 };
 
-// Q1.8: pre-allocated bounded ring buffer
+// Bounded ring-backed queue slice
 const liopeQueue: LiopeQueueEntry[] = [];
 let liopeShedCount = 0;
 const liopeShedByClass = new Map<string, number>();
@@ -123,7 +114,7 @@ function liopeEnqueue(eventType: BoundaryLedgerEventType, payload: BoundaryLedge
   liopeQueue.push({ eventType, payload });
 }
 
-// D2.8: max-IOPS background daemon
+// Background flush ticker
 let liopeDaemonHandle: ReturnType<typeof setInterval> | undefined;
 let liopeFlushActive = false;
 let liopeDaemonDisabled = false; // set by stopLiopeDaemon(); prevents restart after stop
@@ -159,15 +150,15 @@ async function liopeFlush(): Promise<void> {
 
   if (batch.length === 0 && shedCount === 0) return;
 
-  // A3.8: when shed > 0, prepend a signed LEDGER_STORM_SUMMARY event
+  // When shed > 0, prepend a signed LEDGER_STORM_SUMMARY for this flush window.
   if (shedCount > 0) {
     const byClassObj: Record<string, number> = {};
     for (const [k, v] of shedByClass) byClassObj[k] = v;
     const firstEntry = batch[0];
     const stormPayload: BoundaryLedgerPayload = {
-      sessionId: firstEntry?.payload.sessionId ?? "liope-storm",
-      actorId: "ledger.liope",
-      reason: `LIOPE: ${shedCount} events shed in ${windowMs}ms window`,
+      sessionId: firstEntry?.payload.sessionId ?? "ledger-shed-unknown",
+      actorId: "ledger.flush",
+      reason: `ledger backlog: ${shedCount} events shed in ${windowMs}ms window`,
       createdAt: new Date().toISOString(),
       metadata: {
         shed_count: shedCount,
@@ -194,7 +185,7 @@ async function rolloverLedgerFileIfNeeded(): Promise<void> {
   }
 }
 
-/** Force an immediate LIOPE flush (drains the queue now, outside the daemon schedule). */
+/** Force an immediate ledger-queue flush (drains pending entries now). */
 export async function flushLiopeQueue(): Promise<void> {
   return liopeFlush();
 }
@@ -210,7 +201,7 @@ export function stopLiopeDaemon(): void {
   }
 }
 
-/** Current LIOPE queue depth + shed counter — for observability and contract tests. */
+/** Current ledger queue depth + shed counter — observability / contract helpers. */
 export function getLiopeStats(): { queueDepth: number; shedCount: number; shedByClass: Record<string, number> } {
   const shedByClass: Record<string, number> = {};
   for (const [k, v] of liopeShedByClass) shedByClass[k] = v;
@@ -956,14 +947,12 @@ export async function appendBoundaryLedger(
     return normalizeBoundaryLedgerRecord(response.record);
   }
 
-  // LIOPE local routing:
-  // Material state transitions bypass the queue — always written immediately.
-  // Observation events go through the Q1.8 ring buffer (O(1) hot path).
+  // Local routing: material transitions write through; observations enqueue.
   if (LIOPE_MATERIAL_EVENTS.has(eventType)) {
     return appendBoundaryLedgerLocal(eventType, payload);
   }
 
-  // Observation event: O(1) enqueue, D2.8 daemon flushes in background
+  // Observation event: enqueue; ticker flushes in the background.
   ensureLiopeDaemonRunning();
   liopeEnqueue(eventType, payload);
 
@@ -975,7 +964,7 @@ export async function appendBoundaryLedger(
     eventType,
     payload,
     META: {
-      id: "liope:pending",
+      id: "ledger:pending",
       timestamp: payload.createdAt,
       hash: "sha256:pending",
       prev_hash: "sha256:pending",

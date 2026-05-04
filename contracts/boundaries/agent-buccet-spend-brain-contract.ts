@@ -140,7 +140,7 @@ async function main() {
     const spendCtx = buildBuccetSystemContext({
       manifest: loadedSpend!,
       agent: makeAgent("buyer", "transform"),
-      uplTrackSnapDescription: "UPL snap: contract",
+      uplTrackSnapDescription: "UPL corpus label: contract",
     });
 
     assert.ok(
@@ -196,7 +196,7 @@ async function main() {
     const workshopCtx = buildBuccetSystemContext({
       manifest: loadedWorkshop!,
       agent: makeAgent("researcher", "transform"),
-      uplTrackSnapDescription: "UPL snap: contract",
+      uplTrackSnapDescription: "UPL corpus label: contract",
     });
 
     assert.ok(
