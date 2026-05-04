@@ -22,7 +22,7 @@ The **witness ledger** proves what was allowed or denied.
 
 ## Demo
 
-<!-- add trimmed video/GIF here -->
+[Watch the Agent BuccetMCPCursordemo(./Agent%20Buccet%20MCP%20Cursor%20Demo%20github.mov)
 
 In one gauntlet, Buccet blocked:
 
