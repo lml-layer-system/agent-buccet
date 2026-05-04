@@ -15,12 +15,10 @@ Buccet controls its hands.
 failure → known/unknown → class/gap → boundary → UPL / user custom rules → Buccet enforcement → proof ledger
 ```
 
-The **AI Failure Periodic Table** is the spec: it names the failure.  
+The **[AI Failure Periodic Table](https://github.com/lml-layer-system/ai-failure-periodic-table)** is the spec: it names the failure.  
 **Daily Driver MCP** brings the map into Cursor/Claude workflows.  
 **Agent Buccet** is the brakes: it enforces the boundary before actions land.  
 The **witness ledger** proves what was allowed or denied.
-
-AI Failure Periodic Table: https://github.com/lml-layer-system/ai-failure-periodic-table
 
 ## Demo
 
