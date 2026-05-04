@@ -58,6 +58,19 @@ function normalizeLinkTarget(link: string): string | null {
   return noQuery;
 }
 
+/** Match browser/GitHub resolution: `%20`, etc., and `<...>` paths with spaces. */
+function filesystemPathFromMarkdownTarget(target: string): string {
+  let t = target.trim();
+  if (t.startsWith("<") && t.endsWith(">")) {
+    t = t.slice(1, -1).trim();
+  }
+  try {
+    return decodeURIComponent(t);
+  } catch {
+    return t;
+  }
+}
+
 async function main() {
   const markdownFiles = await walkMarkdownFiles(repoRoot);
 
@@ -75,14 +88,16 @@ async function main() {
 
       // GitHub interprets `/docs/...` and `/lib/...` as domain-root paths, not repo-root.
       // Enforce repo-relative links so public docs don't break.
-      if (target.startsWith("/")) {
+      const pathTarget = filesystemPathFromMarkdownTarget(target);
+
+      if (pathTarget.startsWith("/")) {
         errors.push(
           `${path.relative(repoRoot, filePath)} uses forbidden absolute local link target: ${target}`,
         );
         continue;
       }
 
-      const resolved = path.resolve(path.dirname(filePath), target);
+      const resolved = path.resolve(path.dirname(filePath), pathTarget);
 
       const exists = await fs
         .access(resolved)
