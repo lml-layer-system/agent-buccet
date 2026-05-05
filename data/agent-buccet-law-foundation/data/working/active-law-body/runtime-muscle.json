@@ -13,8 +13,7 @@
       "runtimeSubstrateBytes": 264897
     },
     "artifactPaths": {
-      "substrate": "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json",
-      "activeLawBodySource": "private-law-source-redacted"
+      "substrate": "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json"
     }
   },
   "substrate": {

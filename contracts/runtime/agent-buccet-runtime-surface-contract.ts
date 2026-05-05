@@ -200,11 +200,6 @@ async function main() {
     ACTIVE_RUNTIME_MUSCLE,
     "runtime muscle should anchor to the precomputed runtime-muscle artifact",
   );
-  assert.equal(
-    runtimeMuscle.manifest.artifactPaths.activeLawBodySource,
-    "private-law-source-redacted",
-    "runtime muscle should not expose the internal source path",
-  );
   assert.ok(
     runtimeMuscle.activeLawIds.length > 0,
     "runtime muscle should load active law ids from the working law body",
@@ -228,7 +223,6 @@ async function main() {
   console.log(`  run-surface law muscle:       ${ACTIVE_RUNTIME_MUSCLE}`);
   console.log(`  run-surface denial catalog:   ${ACTIVE_DENIAL_CATALOG_SNAP}`);
   console.log(`  run-surface UPL ledger:       ${USER_PATH_LEDGER}`);
-  console.log("  read-surface law source:      private-law-source-redacted");
   console.log(`  native wrapper build script:  ${PHYSWRAP_BUILD_SCRIPT}`);
   console.log(`  run-surface physwrap source:  ${PHYSWRAP_SOURCE}`);
   console.log(`  run-surface hook source:      ${NATIVE_DEEP_INTERCEPT_DIR}`);

@@ -274,38 +274,23 @@ async function validatePublicRuntimeLawArtifacts(): Promise<void> {
     "denial-catalog-snap.json",
   );
   const runtimeMuscle = JSON.parse(await fs.readFile(runtimeMusclePath, "utf8")) as {
-    manifest?: {
-      hashes?: Record<string, unknown>;
-      sizes?: Record<string, unknown>;
-      artifactPaths?: { activeLawBodySource?: string };
-    };
+    manifest?: { activeLawBodyCount?: number };
     activeLawIds?: unknown[];
   };
   const denialSnap = JSON.parse(await fs.readFile(denialSnapPath, "utf8")) as {
-    sourceArtifactPath?: string;
     lawIds?: unknown[];
-  } & Record<string, unknown>;
-  const privateSourceHashKey = "source" + "Sha256";
-  const privateBodyHashKey = "materialized" + "ActiveLawBodySha256";
-  const privateBodySizeKey = "materialized" + "ActiveLawBodyBytes";
+  };
 
-  if (runtimeMuscle.manifest?.artifactPaths?.activeLawBodySource !== "private-law-source-redacted") {
-    throw new Error("runtime-muscle.json must redact the internal source path");
+  const runtimeCount = runtimeMuscle.activeLawIds?.length ?? 0;
+  const denialCount = denialSnap.lawIds?.length ?? 0;
+  if (runtimeCount < 8000 || denialCount < 8000) {
+    throw new Error("runtime law artifacts must carry the 8k+ law id inventory");
   }
-  if (runtimeMuscle.manifest?.hashes?.[privateBodyHashKey] !== undefined) {
-    throw new Error("runtime-muscle.json must not expose an internal source hash");
+  if (runtimeMuscle.manifest?.activeLawBodyCount !== runtimeCount) {
+    throw new Error("runtime-muscle manifest law count must match the active law id list");
   }
-  if (runtimeMuscle.manifest?.sizes?.[privateBodySizeKey] !== undefined) {
-    throw new Error("runtime-muscle.json must not expose an internal source byte size");
-  }
-  if (denialSnap.sourceArtifactPath !== "private-law-source-redacted") {
-    throw new Error("denial-catalog-snap.json must redact the internal source path");
-  }
-  if (denialSnap[privateSourceHashKey] !== undefined) {
-    throw new Error("denial-catalog-snap.json must not expose an internal source hash");
-  }
-  if ((runtimeMuscle.activeLawIds?.length ?? 0) < 8000 || (denialSnap.lawIds?.length ?? 0) < 8000) {
-    throw new Error("public runtime law artifacts must carry the 8k+ law id inventory");
+  if (runtimeCount !== denialCount) {
+    throw new Error("runtime-muscle and denial-catalog inventories must cover the same law id set");
   }
 }
 
@@ -345,7 +330,6 @@ async function computePackageInputHash(): Promise<string> {
     ),
     "scripts/prepare-agent-buccet-package.ts",
     "scripts/agent-buccet-runtime-snap-shared.ts",
-    "scripts/render-agent-buccet-runtime-snaps.ts",
     "contracts/runtime/agent-buccet-runtime-snap-contract.ts",
     "contracts/runtime/agent-buccet-package-surface-contract.ts",
     "scripts/install-agent-buccet.sh",

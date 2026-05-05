@@ -91,7 +91,6 @@ function makeConfig(ledger: BoundaryUserPathLedger): BoundaryRuntimeConfig {
         },
         artifactPaths: {
           substrate: "upl-traffic-contract",
-          activeLawBodySource: "upl-traffic-contract",
         },
       },
       substrate: {

@@ -917,7 +917,6 @@ export type BoundaryRuntimeMuscleManifest = {
   };
   artifactPaths: {
     substrate: string;
-    activeLawBodySource: string;
   };
 };
 

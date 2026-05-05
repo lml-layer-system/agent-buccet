@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import type {
   BoundaryRuntimeMuscle,
@@ -14,8 +13,6 @@ export const ACTIVE_LAW_BODY_MANIFEST_RELATIVE_PATH = path.join(
   "active-law-body",
   "manifest.json",
 );
-
-export const PRIVATE_LAW_SOURCE_LABEL = "private-law-source-redacted";
 
 export const ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH = path.join(
   "data",
@@ -52,7 +49,6 @@ export type ProjectedLawRow = {
 
 export type DenialCatalogSnap = {
   generatedAt: string;
-  sourceArtifactPath: string;
   lawIds: string[];
 };
 
@@ -107,7 +103,7 @@ export function buildRuntimeMuscleArtifact(args: {
   const snapPayload = {
     substrate: {
       source: runtimeArtifactPath,
-      derivedFrom: "public-runtime-law-snapshot",
+      derivedFrom: "runtime-law-snapshot",
       rowCount: args.sourceRows.length,
     },
     activeLawIds,
@@ -130,7 +126,6 @@ export function buildRuntimeMuscleArtifact(args: {
     },
     artifactPaths: {
       substrate: runtimeArtifactPath,
-      activeLawBodySource: PRIVATE_LAW_SOURCE_LABEL,
     },
   };
 
@@ -147,19 +142,6 @@ export function buildDenialCatalogSnap(args: {
 }): DenialCatalogSnap {
   return {
     generatedAt: args.sourceManifest.generatedAt,
-    sourceArtifactPath: PRIVATE_LAW_SOURCE_LABEL,
     lawIds: args.sourceRows.map((row) => row.projectedLawId),
   };
-}
-
-export async function loadActiveLawBodySource(repoRoot: string): Promise<{
-  manifest: ActiveLawBodyManifest;
-  manifestRaw: string;
-  sourceRows: ProjectedLawRow[];
-  sourceRaw: string;
-}> {
-  void repoRoot;
-  throw new Error(
-    "The rich active law source body is private and is not shipped in the public repository.",
-  );
 }

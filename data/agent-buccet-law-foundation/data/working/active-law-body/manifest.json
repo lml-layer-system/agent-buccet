@@ -8,13 +8,11 @@
   "partitions": [
     {
       "id": "base",
-      "projectedLawCount": 7221,
-      "sourcePath": "private-law-source-redacted"
+      "projectedLawCount": 7221
     },
     {
       "id": "time",
-      "projectedLawCount": 988,
-      "sourcePath": "private-law-source-redacted"
+      "projectedLawCount": 988
     }
   ]
 }

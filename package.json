@@ -78,7 +78,6 @@
     "demo:agent-buccet:gravity": "node scripts/agent-buccet-gravity-e2e.ts",
     "demo:agent-buccet:attacks": "node scripts/agent-buccet-attack-demo.ts",
     "demo:quickstart": "node examples/quickstart/index.ts",
-    "render:agent-buccet:runtime-snaps": "node scripts/render-agent-buccet-runtime-snaps.ts",
     "test:agent-buccet:gravity-contract": "node contracts/engines/agent-buccet-gravity-contract.ts",
     "test:agent-buccet:chat-boundary": "node contracts/boundaries/agent-buccet-chat-boundary-contract.ts",
     "test:agent-buccet:upl-governance": "node contracts/law/agent-buccet-upl-governance-contract.ts",
