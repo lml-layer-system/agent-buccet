@@ -34,6 +34,8 @@
   },
   "files": [
     "src/",
+    "!src/runtime/install-snap-summary.ts",
+    "!src/runtime/substrate/system-substrate.ts",
     "cli/",
     "data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json",
     "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json",

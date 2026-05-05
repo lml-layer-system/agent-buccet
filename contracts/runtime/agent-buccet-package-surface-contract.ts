@@ -165,7 +165,7 @@ async function main() {
     "standalone package should carry the vendored Buccet Rust substrate WASM package",
   );
   const packagedRustAdapter = await fs
-    .access(path.join(packagedRoot, "src", "substrate-rust.ts"))
+    .access(path.join(packagedRoot, "src", "runtime", "substrate", "substrate-rust.ts"))
     .then(() => true)
     .catch(() => false);
   assert.equal(
@@ -174,7 +174,7 @@ async function main() {
     "standalone package should carry the Buccet TS adapter for the Rust substrate",
   );
   const packagedRustLiveBridge = await fs
-    .access(path.join(packagedRoot, "src", "substrate-live.ts"))
+    .access(path.join(packagedRoot, "src", "runtime", "substrate", "substrate-live.ts"))
     .then(() => true)
     .catch(() => false);
   assert.equal(
