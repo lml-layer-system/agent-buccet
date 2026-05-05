@@ -97,7 +97,8 @@ async function main() {
     staleSnapMarker,
     "source install should rebuild package artifacts instead of copying stale dist output",
   );
-  assert.match(snapSummary, /Agent Buccet full system install:/);
+  assert.match(snapSummary, /Agent Buccet release install summary:/);
+  assert.doesNotMatch(snapSummary, /full system install/i);
   assert.match(snapSummary, /console: buccet console/);
 
   const cliEnv = {

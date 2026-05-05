@@ -599,6 +599,20 @@ function currentScriptDir(): string {
   return path.dirname(fileURLToPath(import.meta.url));
 }
 
+async function resolveCompanionScriptPath(fileName: string): Promise<string> {
+  const scriptDir = currentScriptDir();
+  const candidates = [
+    path.join(scriptDir, fileName), // packaged bin/ layout
+    path.resolve(scriptDir, "..", "scripts", fileName), // repo source layout
+  ];
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0];
+}
+
 function shortSocketPath(homePath: string, label: string): string {
   const digest = createHash("sha256").update(`${homePath}:${label}`).digest("hex").slice(0, 12);
   const socketRoot =
@@ -10652,7 +10666,7 @@ async function handleMcp(rest: string[]) {
   await waitForHookRuntimeHealthy(boundary, home);
 
   const { runBuccetMcpServer } = await import(
-    path.join(currentScriptDir(), "agent-buccet-mcp-server.ts")
+    await resolveCompanionScriptPath("agent-buccet-mcp-server.ts")
   );
 
   // Hook socket env so the MCP server can reach the bodyguard/intercept IPC.
@@ -10957,7 +10971,7 @@ async function handleHook(rest: string[]) {
     usage();
   }
 
-  const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+  const daemonScriptPath = await resolveCompanionScriptPath("agent-buccet-hook-daemon.ts");
   const quiet = rest.includes("--quiet");
   const emitHookStatus = (message: string) => {
     if (quiet) {

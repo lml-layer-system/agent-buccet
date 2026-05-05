@@ -53,6 +53,7 @@ async function main() {
   const repoRoot = process.cwd();
   const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-novelty-"));
   const sessionsDir = path.join(tempRoot, "sessions");
+  const uplLedgerPath = path.join(tempRoot, "user-path-ledger.json");
   const sessionId = `novelty-contract-${randomUUID()}`;
   const socketPath = path.join("/tmp", `ab-novelty-${randomUUID().slice(0, 12)}.sock`);
   const target = { socketPath };
@@ -96,6 +97,10 @@ async function main() {
     ],
     {
       cwd: repoRoot,
+      env: {
+        ...process.env,
+        AGENT_BUCCET_UPL_LEDGER_PATH: uplLedgerPath,
+      },
       stdio: ["ignore", "ignore", "pipe"],
     },
   );

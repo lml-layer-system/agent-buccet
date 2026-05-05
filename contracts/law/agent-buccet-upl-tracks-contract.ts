@@ -39,12 +39,14 @@ async function waitForPending<T>(list: () => T[], timeoutMs = 15_000): Promise<T
 
 async function main() {
   // Isolate UPL state for this contract run.
-  const originalLedger = await loadUserPathLedger();
+  const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-tracks-"));
+  const ledgerPath = path.join(tempRoot, "user-path-ledger.json");
+  const previousLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+  process.env.AGENT_BUCCET_UPL_LEDGER_PATH = ledgerPath;
 
   try {
     await saveUserPathLedger({ specVersion: 1, userApprovedLawPaths: [], userDeniedLawPaths: [] });
 
-    const tempRoot = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-tracks-"));
     const workspace = path.join(tempRoot, "workspace");
     const subdir = path.join(workspace, "subdir");
     await fs.mkdir(subdir, { recursive: true });
@@ -325,9 +327,13 @@ async function main() {
     console.log(`  T6 deny corridor:   ${!deniedSiblingResult.allowed}`);
     console.log(`  T7 closed segment:  ${!deniedInsideBroadRoadResult.allowed}`);
 
-    await fs.rm(tempRoot, { recursive: true, force: true });
   } finally {
-    await saveUserPathLedger(originalLedger);
+    if (previousLedgerPath === undefined) {
+      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+    } else {
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousLedgerPath;
+    }
+    await fs.rm(tempRoot, { recursive: true, force: true });
   }
 }
 

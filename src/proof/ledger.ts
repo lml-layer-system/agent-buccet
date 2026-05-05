@@ -25,16 +25,45 @@ import type {
   BoundaryLedgerRecord,
 } from "./../runtime/types.ts";
 
-const LEDGER_DIR = path.join(process.cwd(), "data", "ledger");
-const BOUNDARY_LEDGER_FILE = path.join(LEDGER_DIR, "agent-boundary-ledger.jsonl");
-const BOUNDARY_LEDGER_WAL_FILE = path.join(LEDGER_DIR, "agent-boundary-ledger.wal.jsonl");
-const INDEX_DIR = path.join(LEDGER_DIR, "indexes");
-const ROLLUP_DIR = path.join(LEDGER_DIR, "rollups");
-const LOCK_FILE = path.join(LEDGER_DIR, "agent-boundary-ledger.lock");
-const KEYS_DIR = path.join(LEDGER_DIR, "keys");
-const CHECKPOINT_DIR = path.join(LEDGER_DIR, "checkpoints");
-const SIGNING_PRIVATE_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-private.pem");
-const SIGNING_PUBLIC_KEY_FILE = path.join(KEYS_DIR, "ledger-signing-public.pem");
+function ledgerDir(): string {
+  return path.join(process.env.AGENT_BUCCET_HOME ?? process.cwd(), "data", "ledger");
+}
+
+function boundaryLedgerFile(): string {
+  return path.join(ledgerDir(), "agent-boundary-ledger.jsonl");
+}
+
+function boundaryLedgerWalFile(): string {
+  return path.join(ledgerDir(), "agent-boundary-ledger.wal.jsonl");
+}
+
+function indexDir(): string {
+  return path.join(ledgerDir(), "indexes");
+}
+
+function rollupDir(): string {
+  return path.join(ledgerDir(), "rollups");
+}
+
+function lockFile(): string {
+  return path.join(ledgerDir(), "agent-boundary-ledger.lock");
+}
+
+function keysDir(): string {
+  return path.join(ledgerDir(), "keys");
+}
+
+function checkpointDir(): string {
+  return path.join(ledgerDir(), "checkpoints");
+}
+
+function signingPrivateKeyFile(): string {
+  return path.join(keysDir(), "ledger-signing-private.pem");
+}
+
+function signingPublicKeyFile(): string {
+  return path.join(keysDir(), "ledger-signing-public.pem");
+}
 const LOCK_STALE_MS = 5_000;
 
 // ─── Bounded ledger write path ────────────────────────────────────────────────
@@ -174,11 +203,11 @@ async function liopeFlush(): Promise<void> {
 
 async function rolloverLedgerFileIfNeeded(): Promise<void> {
   try {
-    const stats = await fs.stat(BOUNDARY_LEDGER_FILE);
+    const stats = await fs.stat(boundaryLedgerFile());
     if (stats.size >= LIOPE_MAX_FILE_SIZE_BYTES) {
       const timestamp = new Date().toISOString().replaceAll(/[:.]/g, "-");
-      const archivePath = path.join(LEDGER_DIR, `agent-boundary-ledger.${timestamp}.jsonl`);
-      await fs.rename(BOUNDARY_LEDGER_FILE, archivePath);
+      const archivePath = path.join(ledgerDir(), `agent-boundary-ledger.${timestamp}.jsonl`);
+      await fs.rename(boundaryLedgerFile(), archivePath);
     }
   } catch {
     // file does not exist yet — no rollover needed
@@ -218,7 +247,7 @@ async function appendBoundaryLedgerBatch(entries: LiopeQueueEntry[]): Promise<Bo
     await replayLedgerWal();
     await rolloverLedgerFileIfNeeded();
     const signer = await ensureBoundaryLedgerSigningIdentity();
-    const existing = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+    const existing = await readLedgerFile(boundaryLedgerFile());
     const latest = existing.at(-1);
     let nextIndex = (latest?.index ?? -1) + 1;
     let prevHash = latest?.META.hash ?? "sha256:genesis";
@@ -240,9 +269,9 @@ async function appendBoundaryLedgerBatch(entries: LiopeQueueEntry[]): Promise<Bo
     }
 
     const batchContent = `${lines.join("\n")}\n`;
-    await appendLineAtomic(BOUNDARY_LEDGER_WAL_FILE, batchContent);
-    await appendLineAtomic(BOUNDARY_LEDGER_FILE, batchContent);
-    await writeAtomic(BOUNDARY_LEDGER_WAL_FILE, "");
+    await appendLineAtomic(boundaryLedgerWalFile(), batchContent);
+    await appendLineAtomic(boundaryLedgerFile(), batchContent);
+    await writeAtomic(boundaryLedgerWalFile(), "");
     await updateBoundaryLedgerIndexesBatch(records);
     return records;
   } finally {
@@ -523,11 +552,11 @@ function normalizeBoundaryLedgerRecord(record: Partial<BoundaryLedgerRecord>): B
 }
 
 async function ensureLedgerDir() {
-  await fs.mkdir(LEDGER_DIR, { recursive: true });
-  await fs.mkdir(INDEX_DIR, { recursive: true });
-  await fs.mkdir(ROLLUP_DIR, { recursive: true });
-  await fs.mkdir(KEYS_DIR, { recursive: true });
-  await fs.mkdir(CHECKPOINT_DIR, { recursive: true });
+  await fs.mkdir(ledgerDir(), { recursive: true });
+  await fs.mkdir(indexDir(), { recursive: true });
+  await fs.mkdir(rollupDir(), { recursive: true });
+  await fs.mkdir(keysDir(), { recursive: true });
+  await fs.mkdir(checkpointDir(), { recursive: true });
 }
 
 function signerIdFromPublicKeyPem(publicKeyPem: string): string {
@@ -542,8 +571,8 @@ async function ensureBoundaryLedgerSigningIdentity(): Promise<{
 }> {
   await ensureLedgerDir();
   const [privateKeyPem, publicKeyPem] = await Promise.all([
-    fs.readFile(SIGNING_PRIVATE_KEY_FILE, "utf8").catch(() => ""),
-    fs.readFile(SIGNING_PUBLIC_KEY_FILE, "utf8").catch(() => ""),
+    fs.readFile(signingPrivateKeyFile(), "utf8").catch(() => ""),
+    fs.readFile(signingPublicKeyFile(), "utf8").catch(() => ""),
   ]);
 
   if (privateKeyPem && publicKeyPem) {
@@ -557,8 +586,8 @@ async function ensureBoundaryLedgerSigningIdentity(): Promise<{
   const generated = generateKeyPairSync("ed25519");
   const nextPrivateKeyPem = generated.privateKey.export({ format: "pem", type: "pkcs8" }).toString();
   const nextPublicKeyPem = generated.publicKey.export({ format: "pem", type: "spki" }).toString();
-  await fs.writeFile(SIGNING_PRIVATE_KEY_FILE, nextPrivateKeyPem, { mode: 0o600 });
-  await fs.writeFile(SIGNING_PUBLIC_KEY_FILE, nextPublicKeyPem, { mode: 0o644 });
+  await fs.writeFile(signingPrivateKeyFile(), nextPrivateKeyPem, { mode: 0o600 });
+  await fs.writeFile(signingPublicKeyFile(), nextPublicKeyPem, { mode: 0o644 });
   return {
     privateKeyPem: nextPrivateKeyPem,
     publicKeyPem: nextPublicKeyPem,
@@ -627,7 +656,7 @@ function isProcessAlive(pid: number): boolean {
 
 async function readBoundaryLedgerLockMetadata(): Promise<BoundaryLedgerLockMetadata | null> {
   try {
-    const raw = await fs.readFile(LOCK_FILE, "utf8");
+    const raw = await fs.readFile(lockFile(), "utf8");
     const parsed = JSON.parse(raw) as Partial<BoundaryLedgerLockMetadata>;
     if (typeof parsed.pid !== "number" || typeof parsed.createdAt !== "string") {
       return null;
@@ -644,14 +673,14 @@ async function readBoundaryLedgerLockMetadata(): Promise<BoundaryLedgerLockMetad
 async function clearStaleBoundaryLedgerLock(): Promise<boolean> {
   const metadata = await readBoundaryLedgerLockMetadata();
   if (metadata && !isProcessAlive(metadata.pid)) {
-    await fs.rm(LOCK_FILE, { force: true }).catch(() => undefined);
+    await fs.rm(lockFile(), { force: true }).catch(() => undefined);
     return true;
   }
 
   try {
-    const stats = await fs.stat(LOCK_FILE);
+    const stats = await fs.stat(lockFile());
     if (Date.now() - stats.mtimeMs > LOCK_STALE_MS) {
-      await fs.rm(LOCK_FILE, { force: true }).catch(() => undefined);
+      await fs.rm(lockFile(), { force: true }).catch(() => undefined);
       return true;
     }
   } catch {
@@ -665,14 +694,14 @@ async function acquireBoundaryLedgerLock(maxAttempts = 200, waitMs = 10): Promis
   await ensureLedgerDir();
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     try {
-      const handle = await fs.open(LOCK_FILE, "wx");
+      const handle = await fs.open(lockFile(), "wx");
       await handle.writeFile(
         `${JSON.stringify({ pid: process.pid, createdAt: new Date().toISOString() })}\n`,
         "utf8",
       );
       return async () => {
         await handle.close().catch(() => undefined);
-        await fs.rm(LOCK_FILE, { force: true }).catch(() => undefined);
+        await fs.rm(lockFile(), { force: true }).catch(() => undefined);
       };
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "EEXIST") {
@@ -688,23 +717,23 @@ async function acquireBoundaryLedgerLock(maxAttempts = 200, waitMs = 10): Promis
 }
 
 async function replayLedgerWal(): Promise<void> {
-  const walEntries = await readLedgerFile(BOUNDARY_LEDGER_WAL_FILE);
+  const walEntries = await readLedgerFile(boundaryLedgerWalFile());
   if (walEntries.length === 0) {
     return;
   }
 
   for (const record of walEntries) {
-    await appendLineAtomic(BOUNDARY_LEDGER_FILE, `${JSON.stringify(record)}\n`);
+    await appendLineAtomic(boundaryLedgerFile(), `${JSON.stringify(record)}\n`);
     await updateBoundaryLedgerIndexes(record);
   }
 
-  await writeAtomic(BOUNDARY_LEDGER_WAL_FILE, "");
+  await writeAtomic(boundaryLedgerWalFile(), "");
 }
 
 function timeIndexPath(timestamp: string): string {
   const [date, time] = timestamp.split("T");
   const hour = time?.slice(0, 2) ?? "00";
-  return path.join(INDEX_DIR, "by_time", `${date}-${hour}.idx`);
+  return path.join(indexDir(), "by_time", `${date}-${hour}.idx`);
 }
 
 function sanitizeIndexKey(value: string): string {
@@ -734,20 +763,20 @@ function buildBoundaryLedgerIndexEntries(record: BoundaryLedgerRecord): Array<{ 
   if (record.eventType === "UPL_TRACK_ACTIVATED") {
     return [
       { filePath: timeIndexPath(record.META.timestamp), value: record.META.id },
-      { filePath: path.join(INDEX_DIR, "by_decision", `${sanitizeIndexKey(record.DECISION.verdict)}.idx`), value: record.META.id },
+      { filePath: path.join(indexDir(), "by_decision", `${sanitizeIndexKey(record.DECISION.verdict)}.idx`), value: record.META.id },
     ];
   }
 
   const entries = [
     { filePath: timeIndexPath(record.META.timestamp), value: record.META.id },
-    { filePath: path.join(INDEX_DIR, "by_source", `${sanitizeIndexKey(record.INPUT.source || "unknown-source")}.idx`), value: record.META.id },
-    { filePath: path.join(INDEX_DIR, "by_action", `${sanitizeIndexKey(record.INPUT.action || "unknown-action")}.idx`), value: record.META.id },
-    { filePath: path.join(INDEX_DIR, "by_decision", `${sanitizeIndexKey(record.DECISION.verdict)}.idx`), value: record.META.id },
+    { filePath: path.join(indexDir(), "by_source", `${sanitizeIndexKey(record.INPUT.source || "unknown-source")}.idx`), value: record.META.id },
+    { filePath: path.join(indexDir(), "by_action", `${sanitizeIndexKey(record.INPUT.action || "unknown-action")}.idx`), value: record.META.id },
+    { filePath: path.join(indexDir(), "by_decision", `${sanitizeIndexKey(record.DECISION.verdict)}.idx`), value: record.META.id },
   ];
 
   for (const law of record.PATH.laws_evaluated) {
     entries.push({
-      filePath: path.join(INDEX_DIR, "by_law", `${sanitizeIndexKey(law.law)}.idx`),
+      filePath: path.join(indexDir(), "by_law", `${sanitizeIndexKey(law.law)}.idx`),
       value: record.META.id,
     });
   }
@@ -835,7 +864,7 @@ function buildBoundaryLedgerRecord(args: {
 export async function readAllBoundaryLedgerRecords(): Promise<BoundaryLedgerRecord[]> {
   await ensureLedgerDir();
   await replayLedgerWal();
-  const records = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+  const records = await readLedgerFile(boundaryLedgerFile());
   return records.sort((left, right) => left.index - right.index);
 }
 
@@ -848,7 +877,7 @@ async function appendBoundaryLedgerLocal(
     await ensureLedgerDir();
     await replayLedgerWal();
     const signer = await ensureBoundaryLedgerSigningIdentity();
-    const existing = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+    const existing = await readLedgerFile(boundaryLedgerFile());
     const latest = existing.at(-1);
     const nextIndex = (latest?.index ?? -1) + 1;
     const prevHash = latest?.META.hash ?? "sha256:genesis";
@@ -860,9 +889,9 @@ async function appendBoundaryLedgerLocal(
       signer,
     });
 
-    await appendLineAtomic(BOUNDARY_LEDGER_WAL_FILE, `${JSON.stringify(record)}\n`);
-    await appendLineAtomic(BOUNDARY_LEDGER_FILE, `${JSON.stringify(record)}\n`);
-    await writeAtomic(BOUNDARY_LEDGER_WAL_FILE, "");
+    await appendLineAtomic(boundaryLedgerWalFile(), `${JSON.stringify(record)}\n`);
+    await appendLineAtomic(boundaryLedgerFile(), `${JSON.stringify(record)}\n`);
+    await writeAtomic(boundaryLedgerWalFile(), "");
     await updateBoundaryLedgerIndexes(record);
     return record;
   } finally {
@@ -1071,7 +1100,7 @@ export async function readBoundaryLedgerSigningIdentity(): Promise<{
   return {
     signer_id: signerId,
     public_key_pem: publicKeyPem,
-    public_key_path: SIGNING_PUBLIC_KEY_FILE,
+    public_key_path: signingPublicKeyFile(),
   };
 }
 
@@ -1255,20 +1284,20 @@ export async function writeBoundaryLedgerRollup(args: {
   await ensureLedgerDir();
   const rollup = await buildBoundaryLedgerRollup(args);
   const fileName = `${args.period.replaceAll(/[^a-zA-Z0-9._-]+/g, "_")}.json`;
-  await writeAtomic(path.join(ROLLUP_DIR, fileName), `${JSON.stringify(rollup, null, 2)}\n`);
+  await writeAtomic(path.join(rollupDir(), fileName), `${JSON.stringify(rollup, null, 2)}\n`);
   return rollup;
 }
 
 export async function readBoundaryLedgerRollups(): Promise<BoundaryLedgerRollup[]> {
   await ensureLedgerDir();
-  const entries = await fs.readdir(ROLLUP_DIR, { withFileTypes: true }).catch(() => []);
+  const entries = await fs.readdir(rollupDir(), { withFileTypes: true }).catch(() => []);
   const rollups: BoundaryLedgerRollup[] = [];
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".json")) {
       continue;
     }
     try {
-      const raw = await fs.readFile(path.join(ROLLUP_DIR, entry.name), "utf8");
+      const raw = await fs.readFile(path.join(rollupDir(), entry.name), "utf8");
       rollups.push(JSON.parse(raw) as BoundaryLedgerRollup);
     } catch {
       continue;
@@ -1283,7 +1312,7 @@ export async function sealBoundaryLedgerSignatures(): Promise<{
   signedRecords: number;
 }> {
   await ensureLedgerDir();
-  const records = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+  const records = await readLedgerFile(boundaryLedgerFile());
   if (records.length === 0) {
     return {
       sealed: false,
@@ -1293,7 +1322,7 @@ export async function sealBoundaryLedgerSignatures(): Promise<{
   }
 
   const signer = await ensureBoundaryLedgerSigningIdentity();
-  const backupPath = `${BOUNDARY_LEDGER_FILE}.seal.bak.${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
+  const backupPath = `${boundaryLedgerFile()}.seal.bak.${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
   const sealedRecords = records.map((record) => {
     if (record.META.signature && record.META.signer_id && record.META.signature_algo) {
       return record;
@@ -1321,9 +1350,9 @@ export async function sealBoundaryLedgerSignatures(): Promise<{
     };
   }
 
-  await fs.copyFile(BOUNDARY_LEDGER_FILE, backupPath);
+  await fs.copyFile(boundaryLedgerFile(), backupPath);
   await writeAtomic(
-    BOUNDARY_LEDGER_FILE,
+    boundaryLedgerFile(),
     sealedRecords.map((record) => JSON.stringify(record)).join("\n").concat("\n"),
   );
 
@@ -1369,20 +1398,20 @@ export async function writeBoundaryLedgerCheckpoint(): Promise<BoundaryLedgerChe
   await ensureLedgerDir();
   const checkpoint = await buildBoundaryLedgerCheckpoint();
   const fileName = `${checkpoint.generated_at.replaceAll(/[:.]/g, "-")}.checkpoint.json`;
-  await writeAtomic(path.join(CHECKPOINT_DIR, fileName), `${JSON.stringify(checkpoint, null, 2)}\n`);
+  await writeAtomic(path.join(checkpointDir(), fileName), `${JSON.stringify(checkpoint, null, 2)}\n`);
   return checkpoint;
 }
 
 export async function readBoundaryLedgerCheckpoints(): Promise<BoundaryLedgerCheckpoint[]> {
   await ensureLedgerDir();
-  const entries = await fs.readdir(CHECKPOINT_DIR, { withFileTypes: true }).catch(() => []);
+  const entries = await fs.readdir(checkpointDir(), { withFileTypes: true }).catch(() => []);
   const checkpoints: BoundaryLedgerCheckpoint[] = [];
   for (const entry of entries) {
     if (!entry.isFile() || !entry.name.endsWith(".json")) {
       continue;
     }
     try {
-      const raw = await fs.readFile(path.join(CHECKPOINT_DIR, entry.name), "utf8");
+      const raw = await fs.readFile(path.join(checkpointDir(), entry.name), "utf8");
       checkpoints.push(JSON.parse(raw) as BoundaryLedgerCheckpoint);
     } catch {
       continue;
@@ -1397,7 +1426,7 @@ export async function repairBoundaryLedgerChain(): Promise<{
   totalRecords: number;
 }> {
   await ensureLedgerDir();
-  const records = await readLedgerFile(BOUNDARY_LEDGER_FILE);
+  const records = await readLedgerFile(boundaryLedgerFile());
   if (records.length === 0) {
     return {
       repaired: false,
@@ -1406,8 +1435,8 @@ export async function repairBoundaryLedgerChain(): Promise<{
     };
   }
 
-  const backupPath = `${BOUNDARY_LEDGER_FILE}.bak.${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
-  await fs.copyFile(BOUNDARY_LEDGER_FILE, backupPath);
+  const backupPath = `${boundaryLedgerFile()}.bak.${new Date().toISOString().replaceAll(/[:.]/g, "-")}`;
+  await fs.copyFile(boundaryLedgerFile(), backupPath);
 
   let prevHash = "sha256:genesis";
   const signer = await ensureBoundaryLedgerSigningIdentity();
@@ -1427,11 +1456,11 @@ export async function repairBoundaryLedgerChain(): Promise<{
   });
 
   await writeAtomic(
-    BOUNDARY_LEDGER_FILE,
+    boundaryLedgerFile(),
     repaired.map((record) => JSON.stringify(record)).join("\n").concat("\n"),
   );
-  await fs.rm(INDEX_DIR, { recursive: true, force: true }).catch(() => undefined);
-  await fs.mkdir(INDEX_DIR, { recursive: true });
+  await fs.rm(indexDir(), { recursive: true, force: true }).catch(() => undefined);
+  await fs.mkdir(indexDir(), { recursive: true });
   const batchedIndexWrites = new Map<string, string[]>();
   for (const record of repaired) {
     for (const entry of buildBoundaryLedgerIndexEntries(record)) {
