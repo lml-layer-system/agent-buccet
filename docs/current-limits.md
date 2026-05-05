@@ -16,7 +16,7 @@ A **hosted multi-tenant fleet control plane is not part** of this repository’s
 
 ## Deeper platform mediation
 
-Tighter coordination with **kernels, hypervisors, firmware, low-level syscall filtering, memory isolation, tracing, and similar platform layers** stays on the **roadmap and private engineering** side. Do not read the OSS tree as a blanket guarantee in those areas yet.
+Deeper OS and platform mediation stays on the **roadmap and private engineering** side. Do not read the OSS tree as a blanket guarantee in those areas yet.
 
 ---
 
