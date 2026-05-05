@@ -1,8 +1,6 @@
 # Agent Buccet Deep Dive
 
-This document keeps the longer system model out of the root README while preserving the deeper explanation of how Agent Buccet treats agents, law, loops, swarms, sources, open deployments, closed deployments, and enterprise fleet governance.
-
-The README is the front door. This is the deeper map.
+The longer system model — how Agent Buccet treats agents, law, loops, swarms, sources, open deployments, closed deployments, and enterprise fleet governance.
 
 ## How Buccet Runs In Practice
 

@@ -45,7 +45,7 @@ comm.send     → chat:primary
 
 Same spine. Different surfaces. All denied until law says otherwise.
 
-This README is the front door. The full boundary set — spend, cost pressure, telemetry/disclosure, input admission, secrets, payload limits, motion/fanout, law mutation, and witness/audit trails — lives in the deeper docs.
+The full boundary set — spend, cost pressure, telemetry/disclosure, input admission, secrets, payload limits, motion/fanout, law mutation, and witness/audit trails — is documented in [`docs/agent-buccet-deep-dive.md`](docs/agent-buccet-deep-dive.md).
 
 ## Why
 
