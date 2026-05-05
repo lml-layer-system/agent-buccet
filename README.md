@@ -22,7 +22,12 @@ The **witness ledger** proves what was allowed or denied.
 
 ## Demo
 
-[Watch demo](./Agent%20Buccet%20MCP%20Cursor%20Demo%20github.mov)
+**Live capture:** another Cursor agent (with MCP) runs a gauntlet; **Buccet + `buccet` CLI** on one side, **Cursor** on the other — same stack you wire in production, showing refusals in real time.
+
+<video controls playsinline preload="metadata" width="100%"
+  src="./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4"></video>
+
+[Open demo video](./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4)
 
 In one gauntlet, Buccet blocked:
 
