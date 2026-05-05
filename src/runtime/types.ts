@@ -911,11 +911,9 @@ export type BoundaryRuntimeMuscleManifest = {
   substrateSourceKernelCount: number;
   hashes: {
     runtimeSubstrateSha256: string;
-    materializedActiveLawBodySha256: string;
   };
   sizes: {
     runtimeSubstrateBytes: number;
-    materializedActiveLawBodyBytes: number;
   };
   artifactPaths: {
     substrate: string;

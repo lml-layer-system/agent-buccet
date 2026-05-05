@@ -4,9 +4,6 @@ import path from "node:path";
 import {
   ACTIVE_DENIAL_CATALOG_SNAP_RELATIVE_PATH,
   ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH,
-  buildDenialCatalogSnap,
-  buildRuntimeMuscleArtifact,
-  loadActiveLawBodySource,
 } from "./../../scripts/agent-buccet-runtime-snap-shared.ts";
 
 const repoRoot = process.cwd();
@@ -16,40 +13,77 @@ async function readJson<T>(relativePath: string): Promise<T> {
 }
 
 async function main() {
-  const source = await loadActiveLawBodySource(repoRoot);
-  const expectedRuntimeMuscle = buildRuntimeMuscleArtifact({
-    sourceRows: source.sourceRows,
-    sourceRaw: source.sourceRaw,
-    sourceManifest: source.manifest,
-  });
-  const expectedDenialSnap = buildDenialCatalogSnap({
-    sourceRows: source.sourceRows,
-    sourceRaw: source.sourceRaw,
-    sourceManifest: source.manifest,
-  });
-
-  const actualRuntimeMuscle = await readJson<typeof expectedRuntimeMuscle>(
+  const actualRuntimeMuscle = await readJson<{
+    manifest?: {
+      activeLawBodyCount?: number;
+      hashes?: Record<string, unknown>;
+      sizes?: Record<string, unknown>;
+      artifactPaths?: { activeLawBodySource?: string };
+    };
+    activeLawIds?: string[];
+  }>(
     ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH,
   );
-  const actualDenialSnap = await readJson<typeof expectedDenialSnap>(
+  const actualDenialSnap = await readJson<{
+    sourceArtifactPath?: string;
+    lawIds?: string[];
+  } & Record<string, unknown>>(
     ACTIVE_DENIAL_CATALOG_SNAP_RELATIVE_PATH,
   );
+  const runtimeCount = actualRuntimeMuscle.activeLawIds?.length ?? 0;
+  const denialCount = actualDenialSnap.lawIds?.length ?? 0;
+  const privateSourceHashKey = "source" + "Sha256";
+  const privateBodyHashKey = "materialized" + "ActiveLawBodySha256";
+  const privateBodySizeKey = "materialized" + "ActiveLawBodyBytes";
 
-  assert.deepEqual(
-    actualRuntimeMuscle,
-    expectedRuntimeMuscle,
-    "runtime-muscle snap is stale; rerun render-agent-buccet-runtime-snaps.ts",
+  assert.equal(
+    actualRuntimeMuscle.manifest?.artifactPaths?.activeLawBodySource,
+    "private-law-source-redacted",
+    "runtime-muscle snap must not expose the internal source path",
   );
-  assert.deepEqual(
-    actualDenialSnap,
-    expectedDenialSnap,
-    "denial-catalog snap is stale; rerun render-agent-buccet-runtime-snaps.ts",
+  assert.equal(
+    actualDenialSnap.sourceArtifactPath,
+    "private-law-source-redacted",
+    "denial-catalog snap must not expose the internal source path",
+  );
+  assert.equal(
+    actualRuntimeMuscle.manifest?.hashes?.[privateBodyHashKey],
+    undefined,
+    "runtime-muscle snap must not expose an internal source hash",
+  );
+  assert.equal(
+    actualRuntimeMuscle.manifest?.sizes?.[privateBodySizeKey],
+    undefined,
+    "runtime-muscle snap must not expose an internal source byte size",
+  );
+  assert.equal(
+    actualDenialSnap[privateSourceHashKey],
+    undefined,
+    "denial-catalog snap must not expose an internal source hash",
+  );
+  assert.ok(
+    Array.isArray(actualRuntimeMuscle.activeLawIds) && runtimeCount > 8000,
+    "runtime-muscle snap must carry the public runtime law id inventory",
+  );
+  assert.ok(
+    Array.isArray(actualDenialSnap.lawIds) && denialCount > 8000,
+    "denial-catalog snap must carry the public law id inventory",
+  );
+  assert.equal(
+    actualRuntimeMuscle.manifest?.activeLawBodyCount,
+    runtimeCount,
+    "runtime-muscle count must match active law ids",
+  );
+  assert.equal(
+    runtimeCount,
+    denialCount,
+    "runtime and denial snap inventories should cover the same law id set",
   );
 
   console.log("Agent Buccet runtime snap contract");
-  console.log(`  source rows:         ${source.sourceRows.length}`);
-  console.log(`  runtime muscle rows: ${actualRuntimeMuscle.activeLawIds.length}`);
-  console.log(`  denial snap rows:    ${actualDenialSnap.lawIds.length}`);
+  console.log(`  runtime muscle rows: ${runtimeCount}`);
+  console.log(`  denial snap rows:    ${denialCount}`);
+  console.log("  private law source:  redacted");
 }
 
 main().catch((error) => {

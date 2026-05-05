@@ -42,7 +42,7 @@ import {
  *     standard tools (bash/read/write/edit/grep/glob) and falls through
  *     to `tool.exec` for unknown tools — every dispatch is gated.
  *
- *  4) The system-context builder injects the brain (UBIE), the team
+ *  4) The system-context builder injects the brain (spend boundary), the team
  *     library, the agent profile, and the standing-law reminder; nothing
  *     in the injected context can mutate UPL.
  *
@@ -172,7 +172,7 @@ async function main(): Promise<void> {
     assert.ok(ctx.includes("BRAIN PROTOCOL"), "system context contains brain protocol header");
     assert.ok(
       ctx.includes("Universal procedural law every agent must run") || ctx.includes("Receive"),
-      "brain protocol body is injected (UBIE)",
+      "brain protocol body is injected (spend boundary)",
     );
     assert.ok(ctx.includes(`TEAM: ${manifest?.name}`), "team identity is injected");
     assert.ok(ctx.includes("LIBRARY (path sources)"), "library section is named");

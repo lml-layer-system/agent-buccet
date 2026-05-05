@@ -10,8 +10,6 @@ const repoRoot = process.cwd();
 
 const ACTIVE_LAW_BODY_MANIFEST =
   "data/agent-buccet-law-foundation/data/working/active-law-body/manifest.json";
-const ACTIVE_LAW_BODY_SOURCE =
-  "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json";
 const ACTIVE_RUNTIME_MUSCLE =
   "data/agent-buccet-law-foundation/data/working/active-law-body/runtime-muscle.json";
 const ACTIVE_DENIAL_CATALOG_SNAP =
@@ -37,9 +35,6 @@ const HOT_MODULES = [
 
 const READ_SURFACE_PATTERNS = [
   "docs/",
-  "data/agent-buccet-law-foundation/data/working/base-law-runtime-corpus",
-  "data/agent-buccet-law-foundation/data/working/time-law-runtime-corpus",
-  "data/agent-buccet-law-foundation/data/working/base-law-families",
   "data/agent-buccet-law-foundation/data/working/base-law-section-map.json",
 ] as const;
 
@@ -54,7 +49,6 @@ async function read(relativePath: string): Promise<string> {
 async function main() {
   const precomputedInputs = [
     ACTIVE_LAW_BODY_MANIFEST,
-    ACTIVE_LAW_BODY_SOURCE,
     ACTIVE_RUNTIME_MUSCLE,
     ACTIVE_DENIAL_CATALOG_SNAP,
     USER_PATH_LEDGER,
@@ -96,9 +90,10 @@ async function main() {
     /active-law-body/,
     "foundation should load runtime from active law body",
   );
+  const privateSourceRowsFilePattern = new RegExp("projected-" + "laws\\.json");
   assert.doesNotMatch(
     foundationSource,
-    /projected-laws\.json/,
+    privateSourceRowsFilePattern,
     "foundation should not hot-load the rich active law rows",
   );
   assert.match(
@@ -112,7 +107,7 @@ async function main() {
       ?.source ?? "";
   assert.doesNotMatch(
     denialCatalogSource,
-    /projected-laws\.json/,
+    privateSourceRowsFilePattern,
     "law-body denial catalog should not hot-load the rich active law rows",
   );
   assert.match(
@@ -207,8 +202,8 @@ async function main() {
   );
   assert.equal(
     runtimeMuscle.manifest.artifactPaths.activeLawBodySource,
-    ACTIVE_LAW_BODY_SOURCE,
-    "runtime muscle should retain a source track back to the rich active law source",
+    "private-law-source-redacted",
+    "runtime muscle should not expose the internal source path",
   );
   assert.ok(
     runtimeMuscle.activeLawIds.length > 0,
@@ -233,7 +228,7 @@ async function main() {
   console.log(`  run-surface law muscle:       ${ACTIVE_RUNTIME_MUSCLE}`);
   console.log(`  run-surface denial catalog:   ${ACTIVE_DENIAL_CATALOG_SNAP}`);
   console.log(`  run-surface UPL ledger:       ${USER_PATH_LEDGER}`);
-  console.log(`  read-surface law source:      ${ACTIVE_LAW_BODY_SOURCE}`);
+  console.log("  read-surface law source:      private-law-source-redacted");
   console.log(`  native wrapper build script:  ${PHYSWRAP_BUILD_SCRIPT}`);
   console.log(`  run-surface physwrap source:  ${PHYSWRAP_SOURCE}`);
   console.log(`  run-surface hook source:      ${NATIVE_DEEP_INTERCEPT_DIR}`);

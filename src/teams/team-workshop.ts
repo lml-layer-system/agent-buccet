@@ -4,7 +4,7 @@ import path from "node:path";
 
 import {
   type BuccetPathSource,
-  SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
+  SPENDING_AGENT_VALUE_BOUNDARY_SOURCE,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
   isBuiltinTeamBrainSourceId,
   resolveTeamBrainPathSource,
@@ -31,7 +31,7 @@ import { AGENT_TEAM_STAGE_IDS, type AgentTeamStageId } from "./agent-comprehensi
  *  - a roster of peer agents (each with model hint, --owns-step, source slice,
  *    spend cap)
  *  - a brain instance (Universal Agent Comprehension Process for workshop teams,
- *    or the UBIE value-boundary brain for SPEND Buccets; auto-injected per class)
+ *    or the spend value-boundary brain for SPEND Buccets; auto-injected per class)
  *  - a path-source corpus (the team's library)
  *  - a UPL track snap reference (taken at create time so audits can replay)
  *  - per-agent conscience-spend trackers (running spend + cap per peer)
@@ -73,7 +73,7 @@ export type TeamInternalSourceRole = "brain" | "work_memory";
  *  - local-llm   : local inference runtime (Ollama, llama.cpp, LM Studio, ...)
  *  - http-api    : generic HTTP knowledge endpoint (vector DBs, search, RAG)
  *  - engine      : the singular execution engine — Pi today — that runs as
- *                  the team's HANDS. The brain (UBIE + AI/LLM + library)
+ *                  the team's HANDS. The brain (spend boundary + AI/LLM + library)
  *                  proposes; the engine carries proposals through Buccet's
  *                  boundary and only executes the lawful subset.
  *
@@ -526,7 +526,7 @@ export function isSharedInternalTeamSourceId(sourceId: string): boolean {
 /** Effective brain id for runtime / Pi / formation (SPEND class always uses the value-boundary brain). */
 export function teamManifestBrainSourceId(manifest: TeamManifest): string {
   if (manifest.buccetClass === "spend") {
-    return SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id;
+    return SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id;
   }
   return manifest.brainSourceId;
 }
@@ -1083,7 +1083,7 @@ const SPEND_BUCCET_NOTES_STAMP = [
   "[SPEND BUCCET — financial agents only]",
   "This slice is for agents that can move real money or create financial obligations (shopping, trading, subscriptions, bill pay, procurement, donations, cloud/API spend, and similar).",
   "It is not a general-purpose creative-coding or research-only Buccet — the mission is value-boundary work.",
-  "The team brain is the UBIE value-boundary framework (`spending-agent-ubie-value-boundary`), not the default Universal Agent Comprehension Process.",
+  "The team brain is the spend value-boundary framework (`spending-agent-value-boundary`), not the default Universal Agent Comprehension Process.",
   "Standing Agent Buccet UPL laws, agent.spend tracks, and operator approvals in `buccet console` / `buccet upl` are the control plane for any value movement.",
   "If you did not intend a money-moving workload, use `buccet create <team> --domain ...` instead.",
 ].join("\n");
@@ -1098,7 +1098,7 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
   const now = new Date().toISOString();
   const brainPath =
     args.buccetClass === "spend"
-      ? SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE
+      ? SPENDING_AGENT_VALUE_BOUNDARY_SOURCE
       : UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE;
   const brain = teamBrainSourceRef(brainPath);
   const mergedNotes =
@@ -1137,7 +1137,7 @@ export async function createTeam(args: CreateTeamArgs): Promise<TeamManifest> {
     title: `team_created:${slug}`,
     text:
       args.buccetClass === "spend"
-        ? `Created SPEND Buccet ${slug} for ${args.domain}. UBIE value-boundary brain injected; path-source memory ready — real spend remains gated by UPL, agent.spend, and operator law.`
+        ? `Created SPEND Buccet ${slug} for ${args.domain}. spend value-boundary brain injected; path-source memory ready — real spend remains gated by UPL, agent.spend, and operator law.`
         : `Created team ${slug} for ${args.domain}. Persistent brain source and Buccet path-source memory are ready before live input.`,
     meta: {
       name: args.name,

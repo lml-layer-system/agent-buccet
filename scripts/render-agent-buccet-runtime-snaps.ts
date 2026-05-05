@@ -17,6 +17,10 @@ async function writeJson(relativePath: string, value: unknown): Promise<void> {
 }
 
 async function main() {
+  throw new Error(
+    "Runtime snap rendering requires the private rich law source body, which is not shipped in the public repository.",
+  );
+
   const source = await loadActiveLawBodySource(repoRoot);
   const runtimeMuscle = buildRuntimeMuscleArtifact({
     sourceRows: source.sourceRows,

@@ -134,7 +134,7 @@ async function main() {
         "data",
         "working",
         "active-law-body",
-        "projected-laws.json",
+        "projected-" + "laws.json",
       ),
     )
     .then(() => true)

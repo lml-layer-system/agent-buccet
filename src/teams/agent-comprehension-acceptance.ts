@@ -46,7 +46,7 @@ export type AgentComprehensionAcceptanceLane = {
   brainSourceUri: string;
 };
 
-const BRAIN_SOURCE_URI = "buccet://internal/agent-comprehension-process";
+const BRAIN_SOURCE_URI = "buccet://builtin/agent-comprehension-process";
 
 /**
  * The comprehension contract surfaces most cleanly at the rendering boundary —

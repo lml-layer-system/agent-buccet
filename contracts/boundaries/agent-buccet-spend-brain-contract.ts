@@ -23,7 +23,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
+  SPENDING_AGENT_VALUE_BOUNDARY_SOURCE,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
 } from "./../../src/context/path-memory.ts";
 import { buildBuccetSystemContext } from "./../../src/engines/pi/pi-adapter.ts";
@@ -144,7 +144,7 @@ async function main() {
     });
 
     assert.ok(
-      spendCtx.includes(SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id) ||
+      spendCtx.includes(SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id) ||
         spendCtx.includes("Spending Agents") ||
         spendCtx.includes("Value Boundary"),
       "SPEND system context must include value-boundary brain content",
@@ -232,7 +232,7 @@ async function main() {
       title: `brain-pass:${spendSlug}`,
       text: "Pi prepared the whole-view for spend team.",
       meta: {
-        brainSourceId: SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+        brainSourceId: SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id,
         buccetClass: "spend",
         sessionId: "contract-session-1",
       },
@@ -252,7 +252,7 @@ async function main() {
     const preflight = spendRecords.find((r) => r.kind === "brain_pass_preflight");
     assert.ok(preflight, "SPEND PoW must include brain_pass_preflight entry");
     assert.ok(
-      preflight?.meta?.brainSourceId === SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+      preflight?.meta?.brainSourceId === SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id,
       "brain_pass_preflight meta must reference value-boundary brain id",
     );
     assert.ok(

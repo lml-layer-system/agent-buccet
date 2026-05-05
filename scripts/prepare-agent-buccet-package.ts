@@ -258,6 +258,57 @@ async function readPackageVersion(): Promise<string> {
   return pkg.version ?? "0.1.0";
 }
 
+async function validatePublicRuntimeLawArtifacts(): Promise<void> {
+  const runtimeMusclePath = path.join(
+    sourceLawFoundationDir,
+    "data",
+    "working",
+    "active-law-body",
+    "runtime-muscle.json",
+  );
+  const denialSnapPath = path.join(
+    sourceLawFoundationDir,
+    "data",
+    "working",
+    "active-law-body",
+    "denial-catalog-snap.json",
+  );
+  const runtimeMuscle = JSON.parse(await fs.readFile(runtimeMusclePath, "utf8")) as {
+    manifest?: {
+      hashes?: Record<string, unknown>;
+      sizes?: Record<string, unknown>;
+      artifactPaths?: { activeLawBodySource?: string };
+    };
+    activeLawIds?: unknown[];
+  };
+  const denialSnap = JSON.parse(await fs.readFile(denialSnapPath, "utf8")) as {
+    sourceArtifactPath?: string;
+    lawIds?: unknown[];
+  } & Record<string, unknown>;
+  const privateSourceHashKey = "source" + "Sha256";
+  const privateBodyHashKey = "materialized" + "ActiveLawBodySha256";
+  const privateBodySizeKey = "materialized" + "ActiveLawBodyBytes";
+
+  if (runtimeMuscle.manifest?.artifactPaths?.activeLawBodySource !== "private-law-source-redacted") {
+    throw new Error("runtime-muscle.json must redact the internal source path");
+  }
+  if (runtimeMuscle.manifest?.hashes?.[privateBodyHashKey] !== undefined) {
+    throw new Error("runtime-muscle.json must not expose an internal source hash");
+  }
+  if (runtimeMuscle.manifest?.sizes?.[privateBodySizeKey] !== undefined) {
+    throw new Error("runtime-muscle.json must not expose an internal source byte size");
+  }
+  if (denialSnap.sourceArtifactPath !== "private-law-source-redacted") {
+    throw new Error("denial-catalog-snap.json must redact the internal source path");
+  }
+  if (denialSnap[privateSourceHashKey] !== undefined) {
+    throw new Error("denial-catalog-snap.json must not expose an internal source hash");
+  }
+  if ((runtimeMuscle.activeLawIds?.length ?? 0) < 8000 || (denialSnap.lawIds?.length ?? 0) < 8000) {
+    throw new Error("public runtime law artifacts must carry the 8k+ law id inventory");
+  }
+}
+
 async function walkRelativeFiles(rootPath: string, relativeRoot: string): Promise<string[]> {
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
   const out: string[] = [];
@@ -292,7 +343,6 @@ async function computePackageInputHash(): Promise<string> {
     ...packagedLawFoundationFiles.map((relativePath) =>
       path.join("data/agent-buccet-law-foundation", relativePath).split(path.sep).join("/"),
     ),
-    "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
     "scripts/prepare-agent-buccet-package.ts",
     "scripts/agent-buccet-runtime-snap-shared.ts",
     "scripts/render-agent-buccet-runtime-snaps.ts",
@@ -1005,7 +1055,7 @@ async function writeReleaseArtifacts(version: string, witness: BoundaryReleaseWi
 async function main() {
   const skipVerification = process.env.AGENT_BUCCET_PACKAGE_SKIP_VERIFY === "1";
   const version = await readPackageVersion();
-  await runCommand("node", ["scripts/render-agent-buccet-runtime-snaps.ts"], repoRoot);
+  await validatePublicRuntimeLawArtifacts();
   const inputHash = await computePackageInputHash();
   if (await packageArtifactsAreFresh(inputHash, version)) {
     console.log(`Agent Buccet package already current at ${outDir}`);

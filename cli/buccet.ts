@@ -8735,7 +8735,7 @@ function printSpendBuccetCautionBanner(): void {
     "  This path creates a Buccet slice for agents that can spend real money or create financial obligations — shopping, trading, subscriptions, bill pay, procurement, donations, paid APIs, ads, and similar.",
     `  It is ${clrBold("not")} the default creative-coding / general workshop slice. Mission here is ${clrBold("value-boundary")} work.`,
     "  Standing UPL laws, agent.spend tracks, and operator decisions in `buccet console` / `buccet upl` are what bound those agents — not informal intent.",
-    "  The injected brain is the UBIE value-boundary / spend-packet framework — not the default creative workshop comprehension brain.",
+    "  The injected brain is the spend value-boundary / spend-packet framework — not the default creative workshop comprehension brain.",
     "  The team manifest will be stamped with [SPEND BUCCET] notes you can inspect via `buccet create show <team>`.",
   ]);
   console.log("");
@@ -9316,7 +9316,7 @@ async function handleCreate(rest: string[]) {
       `${clrDim("class:       ")}${clrWarn("SPEND")} — UPL + agent.spend bound real-money agents.`,
     );
     console.log(
-      `${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(UBIE value-boundary · auto-injected)")}`,
+      `${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(spend value-boundary · auto-injected)")}`,
     );
     console.log(`${clrDim("upl-track:   ")}frozen at ${spendManifest.uplTrackSnap.takenAt}`);
     console.log("");

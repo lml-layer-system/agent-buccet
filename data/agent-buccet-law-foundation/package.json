@@ -1,13 +1,5 @@
 {
-  "name": "agent-buccet-base-laws",
+  "name": "agent-buccet-law-foundation-artifacts",
   "private": true,
-  "version": "1.0.0",
-  "scripts": {
-    "verify:upstream-transfer": "node scripts/verify-upstream-transfer.js",
-    "generate:active-law-body": "node scripts/generate-active-law-body.js",
-    "generate:base-law-families": "node scripts/generate-base-law-families.js",
-    "generate:base-runtime-corpus": "node scripts/generate-base-runtime-corpus.js",
-    "generate:time-law-family": "node scripts/generate-time-law-family.js",
-    "generate:time-runtime-corpus": "node scripts/generate-time-runtime-corpus.js"
-  }
+  "version": "1.0.0"
 }
