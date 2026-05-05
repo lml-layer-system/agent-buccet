@@ -256,10 +256,6 @@ Both map into the same intake path and route to the same Buccet brain.
 
 `agent-buccet:intercept-daemon` is a stdin/stdout transport over the intercept server path. It is not a separate adjudicator.
 
-The C/libc layer is the deepest level in the public release. That is by design.
-
-Below the C/libc layer — OS-kernel interception (eBPF, seccomp, ptrace), hypervisor-level, and firmware/boot-level enforcement — is not part of this release. It is not an open extension point. If you need that depth, contact the author or build it yourself. Those layers are proprietary by design and intentionally withheld.
-
 ## Failure Model
 
 ### Brain alive but not yet answered
