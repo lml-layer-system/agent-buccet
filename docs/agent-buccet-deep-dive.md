@@ -143,6 +143,85 @@ So the split is:
 - denial still overrides acceptance
 - the ledger records what happened
 
+## How `buccet create` Builds Hyperspecialized Agents (Without Widening UPL)
+
+Buccet has a creative face. `buccet create` is the operator-facing surface for building hyperspecialized agent teams that propose work; the same defense face still decides every action. Teams just propose. The creative wall denies team actions that would touch defense-face state.
+
+There are two `create` flavors. Both produce a saved, named slice of the Buccet substrate.
+
+```
+buccet create <team-name> [--domain <domain>]
+buccet create spend <team-name> --domain <domain> [--confirm-spend]
+```
+
+The first builds a **workshop team** — creative agents under the universal agent comprehension brain. The second builds a **SPEND Buccet** — financial agents under the spending-agent value-boundary brain. The brain is auto-injected per class. Workshop teams cannot be repurposed into spend teams or vice versa: the brain protocol is bound at create time.
+
+### What a team actually is
+
+From `src/teams/team-workshop.ts`, a team manifest carries:
+
+- **a domain** and a slug
+- **a roster of peer agents**, each with: title, specialty, model hint, an owned comprehension stage (`--owns-step`), a tool list, an assigned source slice, and a per-agent spend cap
+- **a brain instance** — `base-agent-comprehension-process` for workshop teams, `spending-agent-value-boundary` for SPEND. Auto-injected. **`team-workshop.ts:1641` throws if you try to remove it: *"The brain source is auto-injected and cannot be removed from a team."*** The operator chooses the LLM that thinks inside this protocol; the protocol itself stays.
+- **a path-source corpus** — the team's library
+- **a UPL track snap reference** — taken at create time so audits can replay
+- **per-agent conscience-spend trackers** — running spend + cap per peer
+
+Teams live under `<home>/teams/<slug>/manifest.json` plus a `continuity/` dir for snapshots.
+
+### The boundedness invariant
+
+Adding skills, agents, or path sources to a team **does not widen the UPL track**. The team manifest is a slice *under* the UPL boundary, not above it. Every source intake routes through the boundary at runtime via Pi's `beforeToolCall` hook, mapped per transport:
+
+- file sources → `fs.read`
+- remote-LLM sources → `network.send`
+- local-LLM sources → `tool.exec`
+- HTTP-API sources (RAG / vectors) → `network.send`
+- engine sources (Pi or custom) → tool dispatch surface, each individually gated
+
+`pi-adapter.ts:34` imports `enforceBoundaryProposal` directly. Every Pi tool dispatch traverses that function. There is no path where a newly added source picks up authority that wasn't already in UPL — the source is just another caller of the same gated dispatch path.
+
+### Path-source intake — what happens at the moment of attach
+
+When `buccet create add-source` accepts a source, `buildTeamSourceCheckpoint` in `src/context/path-source-checkpoints.ts:262` runs:
+
+1. **Normalize** — CRLF → LF, deterministic byte order
+2. **Hash** — SHA-256 over `sourceId::title::kind::bodyHash` produces the digest
+3. **Compress** — brotli + base64, stored compactly
+4. **Segment into stable regions** — fixed line spans, each given a stable address (e.g. `sourceId:L1-L40`), region id, hash, and 240-byte preview
+5. **Persist** under the team's checkpoint root
+
+This is what makes sources addressable, verifiable, and replayable. A peer agent doesn't get the whole library; it gets a constrained set of region handles (`buildTeamPeerTaskGraph` line 727: *"Use only your assigned projection region handles plus whole-view context."*) with required readiness `["team-ready", "projection-opened", "upl-bound"]`.
+
+### Pi as the active map — model portability
+
+Pi (`@mariozechner/pi-agent-core` + `@mariozechner/pi-ai`) is the singular **HANDS** of every team. From the layered architecture comment at the top of `pi-adapter.ts`:
+
+> BRAIN = brain protocol path source + AI/LLM path source + Library path sources. *Brain proposes; never mutates UPL.*
+> UPL = standing law; allow / deny / ask operator.
+> HANDS = Pi. *Pi receives the user input, packages it with the brain protocol + library + UPL track snap, calls the AI, and dispatches the AI's proposed actions. Each dispatch traverses Buccet's boundary via `beforeToolCall` → `enforceBoundaryProposal`.*
+
+The packaging is the active map: input + brain protocol + library projection handles + UPL track snap. Because Pi does the packaging, the AI/LLM is a path source like any other — swap the model and the next one picks up the exact same packet. No model-specific context is hidden inside the AI; it lives in the package Pi assembles.
+
+This is what gives Buccet model portability. A team running on Claude can hand off to GPT, Gemini, Grok, a local Llama, or any other LLM transport — the brain protocol, library handles, UPL track snap, and ledger trail are identical inputs to whichever model takes the next pass. The operator changes one path source ref; the team continues.
+
+### The persistent brain in every Buccet
+
+Two layers of "brain" exist on every team:
+
+- **The brain protocol path source** — auto-injected, immutable. Workshop = `base-agent-comprehension-process`. SPEND = `spending-agent-value-boundary`. This is the cognitive framework: how the team comprehends a request, structures stages, and runs the spend boundary. It coordinates the team's peers under one shared shape.
+- **The AI/LLM path source** — operator-chosen. Add via `buccet create add-source <team> --remote <provider>` or `--local <provider>`. This is the model doing the thinking inside the brain protocol.
+
+The first is permanent because removing it would let an unconstrained LLM define its own comprehension stages and spend logic — that's the failure mode Buccet is built to prevent. The second is the operator's call, swappable any time.
+
+`buccet create cockpit` shows every team running across the substrate: brain status, active peers, waiting peers, blocked peers, teams needing attention. Coordination is observable.
+
+### Open-source proves the pattern; enterprise scales it
+
+The open-source core proves that a hyperspecialized team — agents, skills, sources, brain, hands — can be built and run with full UPL enforcement, full ledger trail, and zero permission widening. One team at a time. Reproducibly.
+
+The enterprise layer is for organizations running thousands or millions of these teams in parallel: dashboards, organization-wide policy, compliance evidence, resource governance for spend / token burn / reasoning depth, integrations with internal systems. The constitutional core is free; what organizations pay for is the operational layer above it.
+
 ## How Buccet Handles Flooding And Cost
 
 Buccet does not wait for an agent to wake up, think, and spend money before trying to defend itself.
