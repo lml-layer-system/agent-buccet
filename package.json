@@ -180,8 +180,8 @@
     "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts"
   },
   "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.70.6",
-    "@mariozechner/pi-ai": "^0.70.6"
+    "@mariozechner/pi-agent-core": "^0.73.0",
+    "@mariozechner/pi-ai": "^0.73.0"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
