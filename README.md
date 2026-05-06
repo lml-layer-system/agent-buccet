@@ -24,12 +24,10 @@ The **witness ledger** proves what was allowed or denied.
 
 **Live capture:** another Cursor agent (with MCP) runs a gauntlet; **Buccet + `buccet` CLI** on one side, **Cursor** on the other — same stack you wire in production, showing refusals in real time.
 
-GitHub only draws the **boxed player** when the `<video>` `src` is a full absolute URL (below uses `main`). If you only see a link, use the BitNet trick: paste the MP4 once in an issue comment, copy the `user-images.githubusercontent.com/...` URL, and put that in `src`.
-
 <video controls playsinline preload="metadata" width="640"
-  src="https://raw.githubusercontent.com/lml-layer-system/agent-buccet/main/LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4"></video>
+  src="https://github.com/lml-layer-system/agent-buccet/raw/refs/heads/main/LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4"></video>
 
-[Open demo file on **this branch**](./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4) · [Same file on `main`](https://github.com/lml-layer-system/agent-buccet/blob/main/LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4)
+[Open demo MP4](./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4)
 
 In one gauntlet, Buccet blocked:
 
