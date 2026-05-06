@@ -98,26 +98,26 @@ export const UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE: BuccetPathSource = {
   ].join("\n"),
   summary:
     "Universal procedural law every agent must run. Brain governs, library supplies, mouth speaks; ten stages, no skipping, bounded by the UPL track.",
-  sourceUri: "buccet://internal/agent-comprehension-process",
-  tags: ["base", "framework", "cognition", "ubie", "engine"],
+  sourceUri: "buccet://builtin/agent-comprehension-process",
+  tags: ["base", "framework", "cognition", "process", "engine"],
 };
 
 /**
- * Hardcoded brain for SPEND Buccets only — UBIE reduction for spending agents /
+ * Hardcoded brain for SPEND Buccets only — spend-boundary reduction for spending agents /
  * agent buckets / financial-action boundaries. Not interchangeable with
  * {@link UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE} (creative workshop brain).
  */
-export const SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE: BuccetPathSource = {
-  id: "spending-agent-ubie-value-boundary",
-  title: "Spending Agents · UBIE Value Boundary (Agent Buckets)",
+export const SPENDING_AGENT_VALUE_BOUNDARY_SOURCE: BuccetPathSource = {
+  id: "spending-agent-value-boundary",
+  title: "Spending Agents · Spend Value Boundary (Agent Buckets)",
   kind: "cognitive-framework",
   content: [
-    "# Spending Agents / Agent Buckets — UBIE Value Boundary",
+    "# Spending Agents / Agent Buckets — Spend Value Boundary",
     "",
     "## Position",
     "This document is the procedural brain for **SPEND Buccets** — teams whose agents can move real money or create financial obligations. It **replaces** the Universal Agent Comprehension Process for those teams. Creative, coding-only, and general workshop teams keep the default ten-stage comprehension brain.",
     "",
-    "## UBIE order (this domain)",
+    "## spend boundary order (this domain)",
     "Inventory → reduction → boundary → invariant. This text is the **reduced invariant + boundary law** for spending; literal enumeration of every commerce shape is impossible.",
     "",
     "## Domain (inventory floor, compressed)",
@@ -205,15 +205,15 @@ export const SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE: BuccetPathSource = {
     "**Spending is not a normal tool call.** A tool call changes information; spend changes **life-state** (balance, debt, obligation, legal exposure). Only the **value boundary** may produce financial consequence. Buccet **UPL**, **agent.spend**, and operator decisions are the enforcement plane; this brain is the procedural law inside the SPEND slice.",
   ].join("\n"),
   summary:
-    "UBIE value-boundary brain for SPEND Buccets: spend packet, Know/Decide/Commit separation, disposition set, bucket schema — replaces the default comprehension brain for financial agents.",
-  sourceUri: "buccet://internal/spending-agent-ubie-value-boundary",
-  tags: ["spend", "ubie", "value-boundary", "agent-buckets", "financial"],
+    "spend value-boundary brain for SPEND Buccets: spend packet, Know/Decide/Commit separation, disposition set, bucket schema — replaces the default comprehension brain for financial agents.",
+  sourceUri: "buccet://builtin/spending-agent-value-boundary",
+  tags: ["spend", "spend-boundary", "value-boundary", "agent-buckets", "financial"],
 };
 
 /** Built-in team brains (workshop vs SPEND). Order: default first, spend second. */
 export const TEAM_BRAIN_PATH_SOURCES: readonly BuccetPathSource[] = [
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
-  SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
+  SPENDING_AGENT_VALUE_BOUNDARY_SOURCE,
 ] as const;
 
 export function isBuiltinTeamBrainSourceId(sourceId: string): boolean {

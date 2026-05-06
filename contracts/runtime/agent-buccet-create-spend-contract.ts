@@ -3,10 +3,10 @@
  *
  * Invariants:
  *   1. `buccet create spend <team> --domain <d> --confirm-spend` creates a team
- *      with buccetClass: "spend" and the UBIE value-boundary brain.
+ *      with buccetClass: "spend" and the spend value-boundary brain.
  *   2. Non-interactive shell without --confirm-spend exits non-zero.
  *   3. manifest.buccetClass === "spend" — field is stamped.
- *   4. manifest.brainSourceId === "spending-agent-ubie-value-boundary".
+ *   4. manifest.brainSourceId === "spending-agent-value-boundary".
  *   5. manifest.notes contains "[SPEND BUCCET" stamp.
  *   6. Notes stamp names financial-agent use case.
  *   7. Workshop (default) team does NOT receive buccetClass or value-boundary brain.
@@ -21,7 +21,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE,
+  SPENDING_AGENT_VALUE_BOUNDARY_SOURCE,
   UNIVERSAL_AGENT_COMPREHENSION_PROCESS_SOURCE,
 } from "./../../src/context/path-memory.ts";
 import {
@@ -74,7 +74,7 @@ async function main() {
     assert.equal(manifest.buccetClass, "spend", "buccetClass must be 'spend'");
     assert.equal(
       manifest.brainSourceId,
-      SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+      SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id,
       "brainSourceId must be the value-boundary brain id",
     );
     assert.ok(manifest.notes?.includes("[SPEND BUCCET"), "notes must contain [SPEND BUCCET stamp");
@@ -91,7 +91,7 @@ async function main() {
     assert.equal(loaded?.buccetClass, "spend", "loaded manifest buccetClass must be 'spend'");
     assert.equal(
       loaded?.brainSourceId,
-      SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+      SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id,
       "loaded manifest brainSourceId must be value-boundary",
     );
 
@@ -100,7 +100,7 @@ async function main() {
     const spendBrainId = teamManifestBrainSourceId(manifest);
     assert.equal(
       spendBrainId,
-      SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+      SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id,
       "teamManifestBrainSourceId must return value-boundary id for SPEND team",
     );
 
@@ -148,7 +148,7 @@ async function main() {
     );
     assert.ok(
       cliResult.stdout.includes("value-boundary") ||
-        cliResult.stdout.includes("spending-agent-ubie"),
+        cliResult.stdout.includes("spending-agent-spend-boundary"),
       "CLI output must reference value-boundary brain",
     );
     assert.ok(
@@ -174,7 +174,7 @@ async function main() {
     );
     assert.equal(
       cliManifest?.brainSourceId,
-      SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.id,
+      SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.id,
       "CLI-created manifest must have value-boundary brain",
     );
 
@@ -195,35 +195,35 @@ async function main() {
       "CLI must mention --confirm-spend or non-interactive in error output",
     );
 
-    // ── 7. UBIE prose contains 'exchange' and 'subscribe' vocabulary ─────────────
+    // ── 7. spend-boundary prose contains 'exchange' and 'subscribe' vocabulary ─────────────
 
-    const brainContent = SPENDING_AGENT_UBIE_VALUE_BOUNDARY_SOURCE.content;
+    const brainContent = SPENDING_AGENT_VALUE_BOUNDARY_SOURCE.content;
     assert.ok(
       brainContent.includes("exchange"),
-      "UBIE value-boundary prose must contain 'exchange' vocabulary",
+      "spend value-boundary prose must contain 'exchange' vocabulary",
     );
     assert.ok(
       brainContent.includes("subscribe"),
-      "UBIE value-boundary prose must contain 'subscribe' vocabulary",
+      "spend value-boundary prose must contain 'subscribe' vocabulary",
     );
-    assert.ok(brainContent.includes("principal"), "UBIE prose must contain 'principal'");
-    assert.ok(brainContent.includes("purpose"), "UBIE prose must contain 'purpose'");
-    assert.ok(brainContent.includes("bucket"), "UBIE prose must contain 'bucket'");
-    assert.ok(brainContent.includes("terms"), "UBIE prose must contain 'terms'");
+    assert.ok(brainContent.includes("principal"), "spend-boundary prose must contain 'principal'");
+    assert.ok(brainContent.includes("purpose"), "spend-boundary prose must contain 'purpose'");
+    assert.ok(brainContent.includes("bucket"), "spend-boundary prose must contain 'bucket'");
+    assert.ok(brainContent.includes("terms"), "spend-boundary prose must contain 'terms'");
     assert.ok(
       brainContent.includes("recurring") || brainContent.includes("recurrence"),
-      "UBIE prose must contain recurring/recurrence",
+      "spend-boundary prose must contain recurring/recurrence",
     );
-    assert.ok(brainContent.includes("risk"), "UBIE prose must contain 'risk'");
-    assert.ok(brainContent.includes("accountability"), "UBIE prose must contain 'accountability'");
+    assert.ok(brainContent.includes("risk"), "spend-boundary prose must contain 'risk'");
+    assert.ok(brainContent.includes("accountability"), "spend-boundary prose must contain 'accountability'");
     assert.ok(
       brainContent.includes("instruction provenance"),
-      "UBIE prose must contain 'instruction provenance'",
+      "spend-boundary prose must contain 'instruction provenance'",
     );
 
     console.log("Create-Spend Contract");
     console.log("buccetClass stamp:               buccetClass='spend' on manifest");
-    console.log("brainSourceId:                   spending-agent-ubie-value-boundary");
+    console.log("brainSourceId:                   spending-agent-value-boundary");
     console.log("notes stamp:                     [SPEND BUCCET] + financial + value-boundary");
     console.log("teamManifestBrainSourceId:       value-boundary for SPEND; default for workshop");
     console.log("CLI --confirm-spend:             exits 0, SPEND + value-boundary in output");
@@ -231,7 +231,7 @@ async function main() {
       "CLI spend next-steps:            points to upl spend propose + upl spend list + upl spend setup",
     );
     console.log("CLI no --confirm-spend (non-TTY): exits non-zero, mentions confirm-spend");
-    console.log("UBIE prose vocabulary:           all 10 terms present incl. exchange + subscribe");
+    console.log("spend-boundary prose vocabulary:           all 10 terms present incl. exchange + subscribe");
   } finally {
     await fs.rm(tempRoot, { recursive: true, force: true });
   }

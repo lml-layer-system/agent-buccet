@@ -7,10 +7,9 @@ import {
   publishBoundaryReleaseWitness,
 } from "./../src/index.ts";
 import {
-  buildBuccetInstallSnapSummary,
+  computeBuccetInstallSnapSummary,
   renderBuccetInstallSnapSummaryText,
-  runBuccetFullSystemBody,
-} from "./../src/runtime/full-system-body.ts";
+} from "./../src/runtime/install-snap-summary.ts";
 
 const repoRoot = process.cwd();
 const outDir = path.join(repoRoot, "dist", "agent-buccet");
@@ -259,6 +258,42 @@ async function readPackageVersion(): Promise<string> {
   return pkg.version ?? "0.1.0";
 }
 
+async function validatePublicRuntimeLawArtifacts(): Promise<void> {
+  const runtimeMusclePath = path.join(
+    sourceLawFoundationDir,
+    "data",
+    "working",
+    "active-law-body",
+    "runtime-muscle.json",
+  );
+  const denialSnapPath = path.join(
+    sourceLawFoundationDir,
+    "data",
+    "working",
+    "active-law-body",
+    "denial-catalog-snap.json",
+  );
+  const runtimeMuscle = JSON.parse(await fs.readFile(runtimeMusclePath, "utf8")) as {
+    manifest?: { activeLawBodyCount?: number };
+    activeLawIds?: unknown[];
+  };
+  const denialSnap = JSON.parse(await fs.readFile(denialSnapPath, "utf8")) as {
+    lawIds?: unknown[];
+  };
+
+  const runtimeCount = runtimeMuscle.activeLawIds?.length ?? 0;
+  const denialCount = denialSnap.lawIds?.length ?? 0;
+  if (runtimeCount < 8000 || denialCount < 8000) {
+    throw new Error("runtime law artifacts must carry the 8k+ law id inventory");
+  }
+  if (runtimeMuscle.manifest?.activeLawBodyCount !== runtimeCount) {
+    throw new Error("runtime-muscle manifest law count must match the active law id list");
+  }
+  if (runtimeCount !== denialCount) {
+    throw new Error("runtime-muscle and denial-catalog inventories must cover the same law id set");
+  }
+}
+
 async function walkRelativeFiles(rootPath: string, relativeRoot: string): Promise<string[]> {
   const entries = await fs.readdir(rootPath, { withFileTypes: true });
   const out: string[] = [];
@@ -293,10 +328,8 @@ async function computePackageInputHash(): Promise<string> {
     ...packagedLawFoundationFiles.map((relativePath) =>
       path.join("data/agent-buccet-law-foundation", relativePath).split(path.sep).join("/"),
     ),
-    "data/agent-buccet-law-foundation/data/working/active-law-body/projected-laws.json",
     "scripts/prepare-agent-buccet-package.ts",
     "scripts/agent-buccet-runtime-snap-shared.ts",
-    "scripts/render-agent-buccet-runtime-snaps.ts",
     "contracts/runtime/agent-buccet-runtime-snap-contract.ts",
     "contracts/runtime/agent-buccet-package-surface-contract.ts",
     "scripts/install-agent-buccet.sh",
@@ -700,11 +733,10 @@ async function writePrebuiltNativeHook() {
 }
 
 async function writeSnapArtifacts() {
-  const process = runBuccetFullSystemBody();
-  const summary = buildBuccetInstallSnapSummary(process);
+  const summary = computeBuccetInstallSnapSummary();
   await fs.writeFile(
     path.join(outDir, "INSTALL_SNAP.txt"),
-    `${renderBuccetInstallSnapSummaryText(process)}\n`,
+    `${renderBuccetInstallSnapSummaryText(summary)}\n`,
     "utf8",
   );
   await fs.writeFile(
@@ -1007,7 +1039,7 @@ async function writeReleaseArtifacts(version: string, witness: BoundaryReleaseWi
 async function main() {
   const skipVerification = process.env.AGENT_BUCCET_PACKAGE_SKIP_VERIFY === "1";
   const version = await readPackageVersion();
-  await runCommand("node", ["scripts/render-agent-buccet-runtime-snaps.ts"], repoRoot);
+  await validatePublicRuntimeLawArtifacts();
   const inputHash = await computePackageInputHash();
   if (await packageArtifactsAreFresh(inputHash, version)) {
     console.log(`Agent Buccet package already current at ${outDir}`);
@@ -1025,8 +1057,8 @@ async function main() {
   await rmrf(releaseDir);
   await mkdirp(outDir);
   await copyDir(sourceRuntimeDir, path.join(outDir, "src"));
-  await rmrf(path.join(outDir, "src", "full-system-body.ts"));
-  await rmrf(path.join(outDir, "src", "system-substrate.ts"));
+  await rmrf(path.join(outDir, "src", "runtime", "install-snap-summary.ts"));
+  await rmrf(path.join(outDir, "src", "runtime", "substrate", "system-substrate.ts"));
   for (const relativeDocPath of packagedDocs) {
     await copyRelativePath(sourceDocsDir, relativeDocPath, path.join(outDir, "docs"));
   }

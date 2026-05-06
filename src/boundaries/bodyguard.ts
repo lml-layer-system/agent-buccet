@@ -1372,7 +1372,7 @@ export async function runBoundaryControlledAction<T>(args: {
   } | null = null;
 
   // Governor pre-check — kinetic reflex only. It can freeze and hold the
-  // action before law evaluation, but Terminal 2 still owns the decision.
+  // action before law evaluation, but the operator console still owns the decision.
   if (activeConfig.governorConfig) {
     const govState = activeConfig.governorState ?? initialGovernorState();
     const govResult = evaluateBoundaryGovernor({

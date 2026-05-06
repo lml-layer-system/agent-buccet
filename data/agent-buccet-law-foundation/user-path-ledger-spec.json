@@ -1,6 +1,6 @@
 {
   "specVersion": 1,
-  "_role": "behavioral-contract — this is the full upstream implementer specification for the User Path Ledger. The machine-verifiable governing-law list used by verify-upstream-transfer.js lives at data/working/user-path-ledger-spec.json.",
+  "_role": "behavioral-contract — this is the public implementer specification for the User Path Ledger. The machine-verifiable governing-law list lives at data/working/user-path-ledger-spec.json.",
   "name": "Agent Buccet User Path Ledger",
   "description": "Persistent sub-ledger of the main Agent Buccet ledger. Records all user-originated law decisions made at the action boundary. Authoritative source for NSL pre-checks before presenting user decisions.",
   "governingLawSpec": "data/working/user-path-ledger-spec.json",

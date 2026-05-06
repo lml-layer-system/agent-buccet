@@ -22,7 +22,12 @@ The **witness ledger** proves what was allowed or denied.
 
 ## Demo
 
-[Watch demo](./Agent%20Buccet%20MCP%20Cursor%20Demo%20github.mov)
+**Live capture:** another Cursor agent (with MCP) runs a gauntlet; **Buccet + `buccet` CLI** on one side, **Cursor** on the other — same stack you wire in production, showing refusals in real time.
+
+<video controls playsinline preload="metadata" width="640"
+  src="https://github.com/lml-layer-system/agent-buccet/raw/refs/heads/main/LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4"></video>
+
+[Open demo MP4](./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4)
 
 In one gauntlet, Buccet blocked:
 
@@ -38,7 +43,7 @@ comm.send     → chat:primary
 
 Same spine. Different surfaces. All denied until law says otherwise.
 
-This README is the front door. The full boundary set — spend, cost pressure, telemetry/disclosure, input admission, secrets, payload limits, motion/fanout, law mutation, and witness/audit trails — lives in the deeper docs.
+The full boundary set — spend, cost pressure, telemetry/disclosure, input admission, secrets, payload limits, motion/fanout, law mutation, and witness/audit trails — is documented in [`docs/agent-buccet-deep-dive.md`](docs/agent-buccet-deep-dive.md).
 
 ## Why
 

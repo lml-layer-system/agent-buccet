@@ -500,7 +500,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
     [
       "Workshop — build hyper-specialized teams (creativity face)",
       [
-        "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track snapped)",
+        "  buccet create <team-name> --domain <domain> [--summary <text>]    spin up a new team slice (brain auto-injected, UPL track finalized)",
         "  buccet create spend <team-name> --domain <domain> [--summary <text>]   SPEND Buccet — financial agents only (see warning + `--confirm-spend`)",
         "  buccet create list                                                list standing teams",
         "  buccet create show <team-name>                                    show a team manifest",
@@ -597,6 +597,20 @@ function printBuccetWelcome(): void {
 
 function currentScriptDir(): string {
   return path.dirname(fileURLToPath(import.meta.url));
+}
+
+async function resolveCompanionScriptPath(fileName: string): Promise<string> {
+  const scriptDir = currentScriptDir();
+  const candidates = [
+    path.join(scriptDir, fileName), // packaged bin/ layout
+    path.resolve(scriptDir, "..", "scripts", fileName), // repo source layout
+  ];
+  for (const candidate of candidates) {
+    if (await pathExists(candidate)) {
+      return candidate;
+    }
+  }
+  return candidates[0];
 }
 
 function shortSocketPath(homePath: string, label: string): string {
@@ -8735,7 +8749,7 @@ function printSpendBuccetCautionBanner(): void {
     "  This path creates a Buccet slice for agents that can spend real money or create financial obligations — shopping, trading, subscriptions, bill pay, procurement, donations, paid APIs, ads, and similar.",
     `  It is ${clrBold("not")} the default creative-coding / general workshop slice. Mission here is ${clrBold("value-boundary")} work.`,
     "  Standing UPL laws, agent.spend tracks, and operator decisions in `buccet console` / `buccet upl` are what bound those agents — not informal intent.",
-    "  The injected brain is the UBIE value-boundary / spend-packet framework — not the default creative workshop comprehension brain.",
+    "  The injected brain is the spend value-boundary / spend-packet framework — not the default creative workshop comprehension brain.",
     "  The team manifest will be stamped with [SPEND BUCCET] notes you can inspect via `buccet create show <team>`.",
   ]);
   console.log("");
@@ -9316,9 +9330,9 @@ async function handleCreate(rest: string[]) {
       `${clrDim("class:       ")}${clrWarn("SPEND")} — UPL + agent.spend bound real-money agents.`,
     );
     console.log(
-      `${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(UBIE value-boundary · auto-injected)")}`,
+      `${clrDim("brain:       ")}${spendManifest.brainSourceId} ${clrDim("(spend value-boundary · auto-injected)")}`,
     );
-    console.log(`${clrDim("upl-track:   ")}snapped at ${spendManifest.uplTrackSnap.takenAt}`);
+    console.log(`${clrDim("upl-track:   ")}frozen at ${spendManifest.uplTrackSnap.takenAt}`);
     console.log("");
     console.log(`  ${clrDim("Next:")}`);
     console.log(
@@ -9381,7 +9395,7 @@ async function handleCreate(rest: string[]) {
   console.log(
     `${clrDim("brain:       ")}${manifest.brainSourceId} ${clrDim("(Universal comprehension · auto-injected)")}`,
   );
-  console.log(`${clrDim("upl-track:   ")}snapped at ${manifest.uplTrackSnap.takenAt}`);
+  console.log(`${clrDim("upl-track:   ")}frozen at ${manifest.uplTrackSnap.takenAt}`);
   console.log("");
   console.log(`  ${clrDim("Next:")}`);
   console.log(
@@ -10652,7 +10666,7 @@ async function handleMcp(rest: string[]) {
   await waitForHookRuntimeHealthy(boundary, home);
 
   const { runBuccetMcpServer } = await import(
-    path.join(currentScriptDir(), "agent-buccet-mcp-server.ts")
+    await resolveCompanionScriptPath("agent-buccet-mcp-server.ts")
   );
 
   // Hook socket env so the MCP server can reach the bodyguard/intercept IPC.
@@ -10957,7 +10971,7 @@ async function handleHook(rest: string[]) {
     usage();
   }
 
-  const daemonScriptPath = path.join(currentScriptDir(), "agent-buccet-hook-daemon.ts");
+  const daemonScriptPath = await resolveCompanionScriptPath("agent-buccet-hook-daemon.ts");
   const quiet = rest.includes("--quiet");
   const emitHookStatus = (message: string) => {
     if (quiet) {
@@ -11613,7 +11627,7 @@ async function handleConsole() {
             "  24/7 no-questions mode active — UPL is now resolving pending action groups. Press Esc to return to interactive mode.",
           );
         } else {
-          console.log("  Interactive mode restored — Terminal 2 will ask the 4 choices again.");
+          console.log("  Interactive mode restored — the operator CLI will ask the 4 choices again.");
         }
         console.log(`  reason: ${reason}`);
       }
@@ -12009,7 +12023,7 @@ async function handleConsole() {
     if (key.name === "escape" && currentApprovalMode === "standing_law") {
       void setConsoleApprovalMode(
         "interactive",
-        "console: Esc returned Terminal 2 to interactive mode",
+        "console: Esc returned the operator CLI to interactive mode",
       );
       rl.prompt();
     }

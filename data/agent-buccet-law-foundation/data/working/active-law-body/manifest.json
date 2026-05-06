@@ -8,13 +8,11 @@
   "partitions": [
     {
       "id": "base",
-      "projectedLawCount": 7221,
-      "sourcePath": "data/working/base-law-runtime-corpus/projected-laws.json"
+      "projectedLawCount": 7221
     },
     {
       "id": "time",
-      "projectedLawCount": 988,
-      "sourcePath": "data/working/time-law-runtime-corpus/projected-laws.json"
+      "projectedLawCount": 988
     }
   ]
 }

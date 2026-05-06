@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { promises as fs } from "node:fs";
 import path from "node:path";
 import type {
   BoundaryRuntimeMuscle,
@@ -13,15 +12,6 @@ export const ACTIVE_LAW_BODY_MANIFEST_RELATIVE_PATH = path.join(
   "working",
   "active-law-body",
   "manifest.json",
-);
-
-export const ACTIVE_LAW_BODY_SOURCE_RELATIVE_PATH = path.join(
-  "data",
-  "agent-buccet-law-foundation",
-  "data",
-  "working",
-  "active-law-body",
-  "projected-laws.json",
 );
 
 export const ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH = path.join(
@@ -59,8 +49,6 @@ export type ProjectedLawRow = {
 
 export type DenialCatalogSnap = {
   generatedAt: string;
-  sourceSha256: string;
-  sourceArtifactPath: string;
   lawIds: string[];
 };
 
@@ -108,7 +96,6 @@ export function buildRuntimeMuscleArtifact(args: {
     );
   }
 
-  const sourceArtifactPath = normalizeArtifactPath(ACTIVE_LAW_BODY_SOURCE_RELATIVE_PATH);
   const runtimeArtifactPath = normalizeArtifactPath(ACTIVE_RUNTIME_MUSCLE_RELATIVE_PATH);
   const activeLawIds = args.sourceRows.map((row) => row.projectedLawId);
   const { timeLawIdsByGate, timeLawIdsByCategory } = buildTimeIndexes(args.sourceRows);
@@ -116,7 +103,7 @@ export function buildRuntimeMuscleArtifact(args: {
   const snapPayload = {
     substrate: {
       source: runtimeArtifactPath,
-      derivedFrom: "active-law-body",
+      derivedFrom: "runtime-law-snapshot",
       rowCount: args.sourceRows.length,
     },
     activeLawIds,
@@ -133,15 +120,12 @@ export function buildRuntimeMuscleArtifact(args: {
     substrateSourceKernelCount: uniqueSourceKernelCount,
     hashes: {
       runtimeSubstrateSha256: sha256(snapPayloadRaw),
-      materializedActiveLawBodySha256: sha256(args.sourceRaw),
     },
     sizes: {
       runtimeSubstrateBytes: Buffer.byteLength(snapPayloadRaw),
-      materializedActiveLawBodyBytes: Buffer.byteLength(args.sourceRaw),
     },
     artifactPaths: {
       substrate: runtimeArtifactPath,
-      activeLawBodySource: sourceArtifactPath,
     },
   };
 
@@ -158,29 +142,6 @@ export function buildDenialCatalogSnap(args: {
 }): DenialCatalogSnap {
   return {
     generatedAt: args.sourceManifest.generatedAt,
-    sourceSha256: sha256(args.sourceRaw),
-    sourceArtifactPath: normalizeArtifactPath(ACTIVE_LAW_BODY_SOURCE_RELATIVE_PATH),
     lawIds: args.sourceRows.map((row) => row.projectedLawId),
-  };
-}
-
-export async function loadActiveLawBodySource(repoRoot: string): Promise<{
-  manifest: ActiveLawBodyManifest;
-  manifestRaw: string;
-  sourceRows: ProjectedLawRow[];
-  sourceRaw: string;
-}> {
-  const manifestPath = path.join(repoRoot, ACTIVE_LAW_BODY_MANIFEST_RELATIVE_PATH);
-  const sourcePath = path.join(repoRoot, ACTIVE_LAW_BODY_SOURCE_RELATIVE_PATH);
-  const [manifestRaw, sourceRaw] = await Promise.all([
-    fs.readFile(manifestPath, "utf8"),
-    fs.readFile(sourcePath, "utf8"),
-  ]);
-
-  return {
-    manifest: JSON.parse(manifestRaw) as ActiveLawBodyManifest,
-    manifestRaw,
-    sourceRows: JSON.parse(sourceRaw) as ProjectedLawRow[],
-    sourceRaw,
   };
 }

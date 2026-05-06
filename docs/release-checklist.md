@@ -129,7 +129,6 @@ Confirm the top-level repo still reads as:
 Confirm these docs are present and current:
 - `docs/README.md`
 - `docs/quickstart.md`
-- `docs/specs/LAUNCH_BOUNDARY.md`
 - `docs/specs/LAUNCH_PROOF.md`
 - `docs/security-model.md`
 - `docs/current-limits.md`

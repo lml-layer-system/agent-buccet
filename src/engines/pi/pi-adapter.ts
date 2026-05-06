@@ -9,9 +9,9 @@
  *
  * Layered architecture:
  *
- *   BRAIN   = UBIE cognitive-framework path source: workshop teams use
+ *   BRAIN   = spend boundary cognitive-framework path source: workshop teams use
  *           `base-agent-comprehension-process`; SPEND Buccets use
- *           `spending-agent-ubie-value-boundary` (value boundary / spend packet).
+ *           `spending-agent-value-boundary` (value boundary / spend packet).
  *           +  AI/LLM  (path source, transport=remote-llm or local-llm)
  *           +  Library  (path sources, transport=file / http-api / etc.)
  *           Brain proposes; never mutates UPL.
@@ -276,7 +276,7 @@ export function buildBuccetAfterToolCall(ctx: BuccetPiHookContext) {
 
 /**
  * Build the system context Pi will inject before the LLM call. The
- * brain (UBIE) sits at the head of the system prompt; the team's
+ * brain (spend boundary) sits at the head of the system prompt; the team's
  * library follows; the UPL track snap is named so the LLM knows it is
  * bound by it. Pi's `transformContext` calls this on every turn.
  */
@@ -296,7 +296,7 @@ export function buildBuccetSystemContext(args: {
     lines.push("=== SPEND BUCCET — same Pi flow, different domain law ===");
     lines.push(
       "Pi operates identically on this team — same beforeToolCall boundary hooks, same standing UPL law, " +
-        "same tool execution pipeline. The domain changes: this team uses the UBIE value-boundary brain " +
+        "same tool execution pipeline. The domain changes: this team uses the spend value-boundary brain " +
         "(spending agents / agent buckets). No agent.spend action may reach Commit without a complete, " +
         "authorized spend packet. UPL and operator law are the enforcement plane; this brain is the " +
         "procedural law inside the SPEND slice.",

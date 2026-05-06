@@ -10,7 +10,7 @@ import type {
 /**
  * Headless approval policy — replaces the human in the chair for automated pipelines.
  *
- * Most agent deployments are fully automated: no human at Terminal 2, no one to
+ * Most agent deployments are fully automated: no human at operator console, no one to
  * approve or deny frozen proposals. Without a headless policy, `require_approval`
  * results hang indefinitely.
  *

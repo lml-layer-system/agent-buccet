@@ -5,10 +5,10 @@
  *      │
  *      ▼
  *   PI (engine path source, hands)
- *      │ packages: input + brain protocol (UBIE) + library + UPL track snap
+ *      │ packages: input + brain protocol (spend boundary) + library + UPL track snap
  *      ▼
  *   AI / LLM (path source, the brain reasoner)
- *      │ runs UBIE; proposes actions
+ *      │ runs spend boundary; proposes actions
  *      ▼
  *   for each proposed action:
  *      Pi.beforeToolCall ──► enforceBoundaryProposal (UPL boundary)

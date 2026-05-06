@@ -7,7 +7,7 @@ This script has ZERO Buccet-specific code.
 Three of these run concurrently. When wrapped with `buccet hook run`,
 all three shell executions hit the same intercept server. They share
 the same target path → same swarm key → one approval prompt appears
-in Terminal 2 (not three separate prompts).
+in buccet console (not three separate prompts).
 
 Usage:
   buccet hook run -- python worker.py worker-1 0.0

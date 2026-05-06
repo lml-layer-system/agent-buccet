@@ -64,8 +64,13 @@ async function main() {
     AGENT_BUCCET_HOME: homePath,
     AGENT_BUCCET_UPL_LEDGER_PATH: ledgerPath,
   };
+  const previousHome = process.env.AGENT_BUCCET_HOME;
+  const previousUplLedgerPath = process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
 
   try {
+    process.env.AGENT_BUCCET_HOME = homePath;
+    process.env.AGENT_BUCCET_UPL_LEDGER_PATH = ledgerPath;
+
     const initResult = await runCli(
       ["init", "--session-id", "quarantine-cli-session", "--actor-id", "user:quarantine-cli"],
       env,
@@ -230,6 +235,16 @@ async function main() {
     console.log("console gate: ok");
     console.log("interactive review: ok");
   } finally {
+    if (previousHome === undefined) {
+      delete process.env.AGENT_BUCCET_HOME;
+    } else {
+      process.env.AGENT_BUCCET_HOME = previousHome;
+    }
+    if (previousUplLedgerPath === undefined) {
+      delete process.env.AGENT_BUCCET_UPL_LEDGER_PATH;
+    } else {
+      process.env.AGENT_BUCCET_UPL_LEDGER_PATH = previousUplLedgerPath;
+    }
     await fs.rm(tempRoot, { recursive: true, force: true });
   }
 }

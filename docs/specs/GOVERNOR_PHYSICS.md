@@ -25,7 +25,7 @@ Shipped default posture: persistent runtime sessions seed outbound governor **ve
 
 Maximum boundary crossings per minute.
 
-Agent actions cross the boundary constantly. Without a ceiling, an agent can fire thousands of actions per minute — either as a runaway loop or as a deliberate overwhelm attempt. Velocity applies a sliding-window RPM ceiling. Actions that arrive above the ceiling are frozen and surfaced through Terminal 2 before law evaluation continues.
+Agent actions cross the boundary constantly. Without a ceiling, an agent can fire thousands of actions per minute — either as a runaway loop or as a deliberate overwhelm attempt. Velocity applies a sliding-window RPM ceiling. Actions that arrive above the ceiling are frozen and surfaced through the approval console before law evaluation continues.
 
 ```ts
 governorConfig: {
@@ -112,7 +112,7 @@ Weight is not a separate law dimension — it is the cost scale applied when com
 
 ### Fail Behavior
 
-Governor trips before `evaluateBoundaryLaws` is called. Terminal 1 freezes the action, records `GOVERNOR_TRIP`, and surfaces the event through the normal approval path. Terminal 2 still decides the outcome. No execution happens while the event is held. Fail closed — no silent continuation.
+Governor trips before `evaluateBoundaryLaws` is called. The boundary host freezes the action, records `GOVERNOR_TRIP`, and surfaces the event through the normal approval path. The operator console still decides the outcome. No execution happens while the event is held. Fail closed — no silent continuation.
 
 ---
 

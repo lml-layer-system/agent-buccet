@@ -188,7 +188,7 @@ export type BoundaryAdmissionState = {
       operatorDisposition?: "deny_as_law";
     }
   >;
-  /** One-shot ingress releases written by Terminal 2. */
+  /** One-shot ingress releases written by operator console. */
   allowOnceProvenances: Record<
     string,
     {
@@ -196,7 +196,7 @@ export type BoundaryAdmissionState = {
       remaining: number;
     }
   >;
-  /** One-shot ingress holds written by Terminal 2. Overrides standing allow once. */
+  /** One-shot ingress holds written by operator console. Overrides standing allow once. */
   denyOnceProvenances: Record<
     string,
     {
@@ -205,7 +205,7 @@ export type BoundaryAdmissionState = {
       reason: string;
     }
   >;
-  /** Standing ingress allows written by Terminal 2. */
+  /** Standing ingress allows written by operator console. */
   allowedProvenances: Record<
     string,
     {
@@ -911,15 +911,12 @@ export type BoundaryRuntimeMuscleManifest = {
   substrateSourceKernelCount: number;
   hashes: {
     runtimeSubstrateSha256: string;
-    materializedActiveLawBodySha256: string;
   };
   sizes: {
     runtimeSubstrateBytes: number;
-    materializedActiveLawBodyBytes: number;
   };
   artifactPaths: {
     substrate: string;
-    activeLawBodySource: string;
   };
 };
 

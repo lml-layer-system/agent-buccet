@@ -85,15 +85,12 @@ function makeConfig(ledger: BoundaryUserPathLedger): BoundaryRuntimeConfig {
         substrateSourceKernelCount: 1,
         hashes: {
           runtimeSubstrateSha256: "sha256:upl-traffic-contract",
-          materializedActiveLawBodySha256: "sha256:upl-traffic-contract-body",
         },
         sizes: {
           runtimeSubstrateBytes: 1,
-          materializedActiveLawBodyBytes: 1,
         },
         artifactPaths: {
           substrate: "upl-traffic-contract",
-          activeLawBodySource: "upl-traffic-contract",
         },
       },
       substrate: {

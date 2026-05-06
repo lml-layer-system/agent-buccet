@@ -6,14 +6,14 @@
 # 3 concurrent workers each try to write to the same target path.
 # All 3 hit the same intercept server via DYLD_INSERT_LIBRARIES.
 # They share the same action class + operation + target → same swarm key.
-# ONE approval prompt appears in Terminal 2 showing "3 request(s) waiting".
+# ONE approval prompt appears in buccet console showing "3 request(s) waiting".
 # User types 1 to allow. All 3 workers complete.
 # `cat workspace/reports/shared.txt` shows 3 entries.
 #
-# Terminal layout:
-#   Terminal 1 (this window)  — the three workers + results
-#   Terminal 2                — buccet console   (run it NOW)
-#   Terminal 3                — buccet logs --follow
+# Window layout:
+#   Agent pane (this window)  — the three workers + results
+#   Approval console          — buccet console   (run it NOW)
+#   Ledger tail               — buccet logs --follow
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 DEMO_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -28,13 +28,13 @@ echo "  ║  SCENE 3 — SWARM                                            ║"
 echo "  ║  3 concurrent agents. 1 approval prompt. Zero spam.        ║"
 echo "  ╚══════════════════════════════════════════════════════════════╝"
 echo ""
-echo "  Before running: Terminal 2 should show buccet console"
-echo "                  Terminal 3 should show buccet logs --follow"
+echo "  Before running: buccet console should be open"
+echo "                  buccet logs --follow should be running"
 echo ""
-echo "  When the prompt appears in Terminal 2, type:  1  (Allow once)"
+echo "  When the prompt appears in buccet console, type:  1  (Allow once)"
 echo ""
 echo "  ─────────────────────────────────────────────────────────────"
-echo "  Press ENTER when Terminal 2 and Terminal 3 are running..."
+echo "  Press ENTER when approval console + log tail are running..."
 read -r
 
 # ── Ensure daemons are running ────────────────────────────────────────────
@@ -63,7 +63,7 @@ cat workspace/reports/shared.txt 2>/dev/null && echo "" || echo "  (empty)"
 echo ""
 echo "  ─────────────────────────────────────────────────────────────"
 echo "  Launching 3 workers concurrently..."
-echo "  Watch Terminal 2 — one prompt should appear with 3 requests."
+echo "  Watch buccet console — one prompt should appear with 3 requests."
 echo ""
 
 # Launch all 3 workers in background, wait for all to finish
@@ -89,10 +89,10 @@ if [[ -f workspace/reports/shared.txt ]]; then
   echo ""
   if [[ "$LINE_COUNT" -ge 3 ]]; then
     echo "  ✅ RESULT: All 3 workers wrote their entries after ONE approval."
-    echo "             Swarm collapse confirmed."
+    echo "             Swarm grouping confirmed."
   elif [[ "$LINE_COUNT" -eq 0 ]]; then
-    echo "  ❌ RESULT: No entries written — did you approve in Terminal 2?"
-    echo "             Type 1 in Terminal 2 to allow, then re-run."
+    echo "  ❌ RESULT: No entries written — did you approve in buccet console?"
+    echo "             Type 1 there to allow, then re-run."
   else
     echo "  ℹ️  $LINE_COUNT worker(s) completed — some may have been denied."
   fi
@@ -101,6 +101,6 @@ else
 fi
 echo ""
 echo "  ─────────────────────────────────────────────────────────────"
-echo "  Terminal 3 shows the full ledger for the swarm event."
+echo "  Ledger tail shows the full stream for the swarm event."
 echo "  Look for: SWARM_GROUP_SETTLED, UPL_ALLOW_RECORDED, ACTION_EXECUTED"
 echo ""

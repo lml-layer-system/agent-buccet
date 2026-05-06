@@ -8,7 +8,6 @@ export type BuccetLawBodyDenialCatalogRow = {
 
 type DenialCatalogSnap = {
   generatedAt?: string;
-  sourceSha256?: string;
   sourceArtifactPath?: string;
   lawIds?: string[];
 };

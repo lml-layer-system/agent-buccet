@@ -18,7 +18,7 @@ It sits at the action boundary and decides:
 
 After a `DENY`, the user can also choose to make that denial a law so the same class of motion is denied on contact in later requests.
 
-With bodyguard-integrated gravity enabled, unlawful motion can also collapse to:
+With bodyguard-integrated gravity enabled, unlawful motion can also resolve as:
 - `null`
 - followed by Bodyguard recovery moves outside the active execution path (e.g. `open_as_law`, `grant_network`, `dry_run_preview`)
 
@@ -29,7 +29,7 @@ Add boundary law for containment.
 
 If the path was not issued, the action cannot happen.
 
-All public feeders should collapse proposal shape into the same Gravity funnel request before Buccet decides anything.
+All public feeders should normalize proposal shape into the same adapter intake request before Buccet decides anything.
 
 ## Entry Surface Priorities
 
@@ -60,7 +60,7 @@ Existing stack:
 - proposes execution
 
 Boundary runtime:
-- normalizes the proposal into the shared Gravity funnel shape
+- normalizes the proposal into the shared adapter intake shape
 - checks reachable scope
 - checks laws
 - checks gravity no-leak constraints
@@ -130,7 +130,7 @@ Use:
 
 These allow existing agent stacks to wrap tool execution without changing their whole architecture.
 They also allow callers to pass provenance and defensive meta flags so prompt-injection attempts fail closed at the action boundary.
-Framework adapters that stay at the intercept layer should still emit the shared Gravity funnel request rather than inventing a private feeder shape.
+Framework adapters that stay at the intercept layer should still emit the shared adapter intake request rather than inventing a private feeder shape.
 
 ### Policy loading
 
@@ -159,7 +159,7 @@ Use:
 
 The queue adapter is the bridge for remote approval surfaces like Telegram, Slack, Discord, web UI, or custom control panels.
 
-The **headless handler** is for fully automated pipelines — no human at Terminal 2. It resolves approval requests automatically according to a policy:
+The **headless handler** is for fully automated pipelines — no human at an interactive approval console. It resolves approval requests automatically according to a policy:
 
 ```typescript
 // Maximum safety — deny every approval request
@@ -240,7 +240,7 @@ const config: BoundaryRuntimeConfig = {
 };
 ```
 
-The governor pre-check fires before law evaluation. When any dimension trips, Terminal 1 holds the action, records `GOVERNOR_TRIP`, and surfaces the event through the normal Bodyguard approval path. Terminal 2 still decides whether to allow once, allow as law, deny once, or deny as law. State flows back automatically via `BoundaryExecutionResult.config` — callers using `createBoundaryBodyguard` need no changes.
+The governor pre-check fires before law evaluation. When any dimension trips, the boundary host freezes the action, records `GOVERNOR_TRIP`, and surfaces the event through the normal Bodyguard approval path. The operator console still decides whether to allow once, allow as law, deny once, or deny as law. State flows back automatically via `BoundaryExecutionResult.config` — callers using `createBoundaryBodyguard` need no changes.
 
 Default weight table (full): `tool.exec=10`, `fs.delete=8`, `sys.credential.use/read=8`, `sys.config.write/sys.env.write=6`, `network.send/comm.send=5`, `db.delete=8`, `db.update=4`, `db.insert=3`, `db.query=2`, `fs.write/append/move=2`, `fs.mkdir/fs.read/chat.emit/sys.env.read/sys.config.read=1`.
 

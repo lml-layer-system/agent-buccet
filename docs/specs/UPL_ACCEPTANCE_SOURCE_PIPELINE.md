@@ -107,7 +107,7 @@ What does not parse reliably:
 - decorative filler with no real work surface
 - empty templates with no copied source text
 
-See [Track Extractor](./TRACK_EXTRACTOR.md) for the exact parseability contract.
+Keep summaries tied to observable capability text rather than prose-only hype. Authoring rules are exercised by UPL governance contracts and regeneration scripts checked into this repo.
 
 ## Why this exists
 

@@ -46,7 +46,7 @@ The remaining work is to add more doors with the same property.
 
 ## What Survives
 
-The public entry problem collapses to four doors:
+The public entry problem reduces to four doors:
 
 1. hosted install
 2. SDK middleware wrapper
@@ -113,7 +113,7 @@ while moving consequence through the Buccet body.
 
 ### Required properties
 
-- proposal normalization into the shared Gravity funnel shape
+- proposal normalization into the shared adapter intake shape
 - same law evaluation path as MCP and CLI
 - no private feeder shapes per framework
 - same ledger and provenance semantics
