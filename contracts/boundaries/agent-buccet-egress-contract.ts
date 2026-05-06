@@ -1,0 +1,176 @@
+import {
+  createBoundaryBodyguard,
+  createPersistentBoundaryRuntimeStore,
+  inferBoundaryEgressFlagsFromPayload,
+} from "./../../src/index.ts";
+
+function assert(condition: unknown, message: string): asserts condition {
+  if (!condition) {
+    throw new Error(message);
+  }
+}
+
+async function main() {
+  // --- Unit: inferBoundaryEgressFlagsFromPayload ---
+
+  const cleanPayload = "Hello, here is the weather report for today.";
+  const cleanFlags = inferBoundaryEgressFlagsFromPayload(cleanPayload);
+  assert(!cleanFlags?.payloadContainsPii, "clean payload should not flag PII");
+  assert(!cleanFlags?.payloadContainsCredential, "clean payload should not flag credential");
+  assert(!cleanFlags?.payloadContainsFinancialData, "clean payload should not flag financial");
+
+  const emailPayload = "Please forward this to alice@example.com for review.";
+  const emailFlags = inferBoundaryEgressFlagsFromPayload(emailPayload);
+  assert(emailFlags?.payloadContainsPii === true, "email address should flag PII");
+
+  const phonePayload = "Call me at (555) 867-5309 anytime.";
+  const phoneFlags = inferBoundaryEgressFlagsFromPayload(phonePayload);
+  assert(phoneFlags?.payloadContainsPii === true, "phone number should flag PII");
+
+  const ssnPayload = "User SSN is 123-45-6789.";
+  const ssnFlags = inferBoundaryEgressFlagsFromPayload(ssnPayload);
+  assert(ssnFlags?.payloadContainsPii === true, "SSN should flag PII");
+
+  const apiKeyPayload = "Authorization: Bearer sk-abcdefghijklmnopqrstuvwxyz1234567890";
+  const apiKeyFlags = inferBoundaryEgressFlagsFromPayload(apiKeyPayload);
+  assert(apiKeyFlags?.payloadContainsCredential === true, "API key should flag credential");
+
+  const privateKeyPayload =
+    "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQ...\n-----END RSA PRIVATE KEY-----";
+  const privateKeyFlags = inferBoundaryEgressFlagsFromPayload(privateKeyPayload);
+  assert(privateKeyFlags?.payloadContainsCredential === true, "private key should flag credential");
+
+  // Visa test card 4111111111111111 — known valid Luhn
+  const cardPayload = "Card: 4111111111111111";
+  const cardFlags = inferBoundaryEgressFlagsFromPayload(cardPayload);
+  assert(
+    cardFlags?.payloadContainsFinancialData === true,
+    "valid card number should flag financial",
+  );
+
+  // Invalid Luhn (4111111111111112) — should not flag
+  const badCardPayload = "Card: 4111111111111112";
+  const badCardFlags = inferBoundaryEgressFlagsFromPayload(badCardPayload);
+  assert(!badCardFlags?.payloadContainsFinancialData, "invalid Luhn should not flag financial");
+
+  // ─── Structural Generator: IPv4 byte-boundary ────────────────────────────
+  // 192.168.1.1 is a valid IPv4 (all octets ≤ 255)
+  const ipv4Payload = "Forward to server at 192.168.1.1 for processing.";
+  const ipv4Flags = inferBoundaryEgressFlagsFromPayload(ipv4Payload);
+  assert(ipv4Flags?.payloadContainsPii === true, "valid IPv4 address should flag PII");
+
+  // 256.0.0.1 overflows the 8-bit octet — structurally impossible IPv4, not real PII
+  const fakeIpPayload = "Target address: 256.0.0.1";
+  const fakeIpFlags = inferBoundaryEgressFlagsFromPayload(fakeIpPayload);
+  assert(!fakeIpFlags?.payloadContainsPii, "invalid IPv4 (octet > 255) should NOT flag PII");
+
+  // ─── Structural Generator: IBAN MOD-97 checksum ──────────────────────────
+  // GB29 NWBK 6016 1331 9268 19 is a well-known IBAN test value (MOD-97 = 1)
+  const ibanPayload = "Please send £100 to GB29NWBK60161331926819.";
+  const ibanFlags = inferBoundaryEgressFlagsFromPayload(ibanPayload);
+  assert(ibanFlags?.payloadContainsPii === true, "valid IBAN should flag PII");
+
+  // Structurally plausible but MOD-97 fails — not a real IBAN
+  const fakeIbanPayload = "Send to GB00NWBK60161331926819.";
+  const fakeIbanFlags = inferBoundaryEgressFlagsFromPayload(fakeIbanPayload);
+  assert(!fakeIbanFlags?.payloadContainsPii, "invalid IBAN (MOD-97 fails) should NOT flag PII");
+
+  // ─── Structural Generator: ABA routing number checksum ───────────────────
+  // 021000021 is JPMorgan Chase's ABA routing — checksum valid
+  const abaPayload = "Routing: 021000021, Account: 123456789";
+  const abaFlags = inferBoundaryEgressFlagsFromPayload(abaPayload);
+  assert(
+    abaFlags?.payloadContainsFinancialData === true,
+    "valid ABA routing number should flag financial",
+  );
+
+  // 021000022 — off by one, checksum fails
+  const fakeAbaPayload = "Routing: 021000022, Account: 123456789";
+  const fakeAbaFlags = inferBoundaryEgressFlagsFromPayload(fakeAbaPayload);
+  assert(
+    !fakeAbaFlags?.payloadContainsFinancialData,
+    "invalid ABA checksum should NOT flag financial",
+  );
+
+  // ─── GitHub PAT vendor namespace ─────────────────────────────────────────
+  // ghp_ + exactly 36 alphanum chars
+  const githubPatPayload = "token: ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZabcdef1234";
+  const githubPatFlags = inferBoundaryEgressFlagsFromPayload(githubPatPayload);
+  assert(githubPatFlags?.payloadContainsCredential === true, "GitHub PAT should flag credential");
+
+  // ─── JWT detection ────────────────────────────────────────────────────────
+  const jwtPayload =
+    "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyMTIzIn0.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";
+  const jwtFlags = inferBoundaryEgressFlagsFromPayload(jwtPayload);
+  assert(jwtFlags?.payloadContainsCredential === true, "JWT should flag credential");
+
+  // --- Integration: laws deny outbound PII via network.send ---
+
+  const runId = new Date().toISOString().replace(/[:.]/g, "-");
+  const sessionId = `agent-buccet-egress-${runId}`;
+  const actorId = "user:egress-contract";
+
+  const store = await createPersistentBoundaryRuntimeStore({ sessionId, actorId });
+  await store.issueGrant({
+    resourceKind: "domain",
+    resourceValue: "api.example.com",
+    grantedActions: ["network.send"],
+    issuedBy: actorId,
+  });
+  const bodyguard = createBoundaryBodyguard(store);
+
+  const piiResult = await bodyguard.enforceProposal({
+    actionKind: "network.send",
+    target: "api.example.com",
+    payloadSummary: "POST body",
+    flags: inferBoundaryEgressFlagsFromPayload("Sending user data for alice@example.com"),
+    execute: async () => "should-not-run",
+    successReason: "network send admitted",
+  });
+
+  assert(!piiResult.allowed, "network.send with PII flag should be denied");
+  assert(!piiResult.executed, "network.send with PII flag should not execute");
+  assert(
+    piiResult.bodyguardMoves.some((m) => m.kind === "deny_and_explain"),
+    "expected deny_and_explain move for blocked egress",
+  );
+
+  const credResult = await bodyguard.enforceProposal({
+    actionKind: "network.send",
+    target: "api.example.com",
+    payloadSummary: "POST body",
+    flags: inferBoundaryEgressFlagsFromPayload("token=sk-abcdefghijklmnopqrstuvwxyz"),
+    execute: async () => "should-not-run",
+    successReason: "network send admitted",
+  });
+
+  assert(!credResult.allowed, "network.send with credential flag should be denied");
+
+  const financialResult = await bodyguard.enforceProposal({
+    actionKind: "network.send",
+    target: "api.example.com",
+    payloadSummary: "POST body",
+    flags: inferBoundaryEgressFlagsFromPayload("Card: 4111111111111111"),
+    execute: async () => "should-not-run",
+    successReason: "network send admitted",
+  });
+
+  assert(!financialResult.allowed, "network.send with financial flag should be denied");
+
+  const cleanResult = await bodyguard.enforceProposal({
+    actionKind: "network.send",
+    target: "api.example.com",
+    payloadSummary: "POST body",
+    flags: inferBoundaryEgressFlagsFromPayload(cleanPayload),
+    execute: async () => "clean-send-complete",
+    successReason: "network send admitted",
+  });
+
+  // network.send requires approval by default even without egress flags, so it should reach approval queue
+  assert(!cleanResult.executed, "clean network.send without approval handler should not execute");
+}
+
+main().catch((error) => {
+  console.error(error);
+  process.exit(1);
+});

@@ -1,0 +1,38 @@
+{
+  "approvalRequiredFor": [
+    "comm.send",
+    "network.send"
+  ],
+  "grants": [
+    {
+      "resourceKind": "recipient",
+      "resourceValue": "ops@example.com",
+      "grantedActions": [
+        "comm.send"
+      ],
+      "metadata": {
+        "profile": "remote-recipient"
+      }
+    },
+    {
+      "resourceKind": "domain",
+      "resourceValue": "api.example.com",
+      "grantedActions": [
+        "network.send"
+      ],
+      "metadata": {
+        "profile": "remote-recipient"
+      }
+    }
+  ],
+  "laws": [
+    "TIME.TRUST.01",
+    "TIME.AUTHORITY.01",
+    "TIME.SCOPE.01",
+    "TIME.LAW.01",
+    "TIME.SESSION.01",
+    "TIME.LEDGER.01",
+    "BOUNDARY.COMM.01",
+    "BOUNDARY.NETWORK.01"
+  ]
+}

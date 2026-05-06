@@ -1,0 +1,75 @@
+name: Bug Report
+description: Report a bug in Agent Buccet enforcement behavior
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before reporting, run `npm run test:agent-buccet:foundation` to confirm the law foundation loads correctly.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the incorrect behavior. Include the decision returned vs. what you expected.
+      placeholder: "evaluateBoundaryIntercept returned 'allow' but I expected 'deny'"
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Minimal code to reproduce. Include the actionClass, operation, target, provenance, and flags.
+      render: typescript
+      placeholder: |
+        const result = await evaluateBoundaryIntercept({
+          config,
+          request: {
+            actionClass: "file",
+            operation: "write",
+            target: "/etc/passwd",
+            provenance: "agent_inference",
+            flags: { authorityClaimed: true },
+          },
+        });
+        // Expected: deny / TIME.AUTHORITY.01
+        // Got: allow
+    validations:
+      required: true
+
+  - type: input
+    id: law-id
+    attributes:
+      label: Law ID (if known)
+      description: Which law should have fired? e.g. TIME.AUTHORITY.01, BOUNDARY.DELETE.01
+      placeholder: TIME.AUTHORITY.01
+
+  - type: input
+    id: session-id
+    attributes:
+      label: Session ID (if available)
+      description: From your boundary session — helps trace ledger entries.
+
+  - type: textarea
+    id: ledger
+    attributes:
+      label: Ledger excerpt (if available)
+      description: Paste relevant entries from your boundary ledger.
+      render: json
+
+  - type: input
+    id: version
+    attributes:
+      label: Agent Buccet version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: "22.x"
+    validations:
+      required: true

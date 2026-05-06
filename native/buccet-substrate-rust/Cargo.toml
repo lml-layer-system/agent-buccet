@@ -1,0 +1,39 @@
+[package]
+name    = "buccet-substrate"
+version = "0.1.0"
+edition = "2021"
+description = "Production-grade Buccet enforcement substrate. verified=True · ∀i: Snap(S)(i) = S(i)"
+license = "Apache-2.0"
+
+# Build as both a native library and a WASM module
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# ── Features ────────────────────────────────────────────────────────────────
+# native (default): syscall-level enforcement — cgroup writes, unshare, prctl
+# wasm:             pure enforcement logic — policy decisions, no kernel calls
+#                   compile with: wasm-pack build --features wasm
+[features]
+default = ["native"]
+native  = ["libc"]
+wasm    = ["wasm-bindgen", "serde-wasm-bindgen", "js-sys"]
+
+# ── Dependencies ─────────────────────────────────────────────────────────────
+[dependencies]
+serde      = { version = "1",   features = ["derive"] }
+serde_json = { version = "1" }
+
+# native-only: syscall bindings
+libc = { version = "0.2", optional = true }
+
+# wasm-only: TypeScript bridge
+wasm-bindgen      = { version = "0.2", optional = true }
+serde-wasm-bindgen = { version = "0.6", optional = true }
+js-sys            = { version = "0.3", optional = true }
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+# ── WASM pack config ─────────────────────────────────────────────────────────
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O4"]

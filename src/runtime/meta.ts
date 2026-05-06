@@ -1,0 +1,2225 @@
+import { describeBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
+import type { BoundaryActionKind, BoundaryLaw, BoundaryRequestProvenance } from "./types.ts";
+
+const UNTRUSTED_PROVENANCE: BoundaryRequestProvenance[] = [
+  "remote_user",
+  "agent_inference",
+  "tool_output",
+  "external_content",
+];
+
+function isUntrustedProvenance(provenance: BoundaryRequestProvenance): boolean {
+  return UNTRUSTED_PROVENANCE.includes(provenance);
+}
+
+function isHighRiskAction(actionKind: BoundaryActionKind): boolean {
+  return (
+    actionKind === "fs.delete" ||
+    actionKind === "fs.move" ||
+    actionKind === "comm.send" ||
+    actionKind === "tool.exec" ||
+    actionKind === "network.send"
+  );
+}
+
+export type AgentBuccetMetaLawReference = {
+  lawId: number;
+  name: string;
+  category: string;
+  gate: string;
+  company: string;
+  source: string;
+};
+
+export const AGENT_BUCCET_META_LAW_POSTURE = {
+  mode: "defensive",
+  note: "These are Agent Buccet meta laws in defensive posture. They block novelty drift and protect law-pack integrity, but they do not authorize autonomous law creation, self-directed failure seeking, monotonic self-improvement after shock, or self-continuation behavior.",
+  runtimeAuthority: "DEFENSIVE_META_LAWS",
+  carriedRuntimePack: "AGENT_BUCCET_META_LAW_REFERENCES",
+} as const;
+
+export const AGENT_BUCCET_META_EXCLUDED_SELF_UPDATING_LAW_IDS = [165, 166, 167, 169, 243] as const;
+
+export const AGENT_BUCCET_META_LAW_REFERENCES: ReadonlyArray<AgentBuccetMetaLawReference> = [
+  {
+    lawId: 1,
+    name: "Bounded State Space (State)",
+    category: "state_validity",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 1,\n"name": "Bounded State Space (State)", "category": "state_validity",\n"gate": "Gate1_Input_AS", "company": "AGENT_BUCCET",\n"failure_mode": "Unbounded state space - states can grow without limit", "detection_logic": "Enforce state space bounds",\n"hash": "f2def1a3e90f349ee8d69d0b7bbd1a3d7224b20d2580187580a2d52e114d4122"\n},',
+  },
+  {
+    lawId: 2,
+    name: "Bounded State Space (Output)",
+    category: "state_validity",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 2,\n"name": "Bounded State Space (Output)", "category": "state_validity",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Unbounded outputs", "detection_logic": "Enforce output bounds",\n"hash": "fd1947b770d923c396117d5189b157c8bbbe32985331854c1a1982970bb851e8"\n},',
+  },
+  {
+    lawId: 3,
+    name: "State Validity (State)",
+    category: "state_validity",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 3,\n"name": "State Validity (State)", "category": "state_validity", "gate": "Gate1_Input_AS", "company": "AGENT_BUCCET",\n"failure_mode": "Invalid state admissibility",\n"detection_logic": "Verify all state predicates",\n"hash": "afb2ff50052644ba18ab902ad41e8473b2a8b0fb4c5320a7ca7f541536ff8d4f"\n},',
+  },
+  {
+    lawId: 4,
+    name: "State Validity (Output)",
+    category: "state_validity",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 4,\n"name": "State Validity (Output)", "category": "state_validity", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Invalid output state", "detection_logic": "Verify output state predicates",\n"hash": "2da0e24ca01a779714b71542a999f8cc99e0d35e11b69df13c404825cb254e4a"\n},',
+  },
+  {
+    lawId: 5,
+    name: "Ontological Validity (State)",
+    category: "ontological",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 5,\n"name": "Ontological Validity (State)", "category": "ontological",\n"gate": "Gate1_Input_AS", "company": "AGENT_BUCCET",\n"failure_mode": "Lack of ontological rejection", "detection_logic": "Reject ontologically invalid states",\n"hash": "e5cb2f18048487da2c1ed0b72d1f972cabca6cc1bd265037b261de9d01c5b1af"\n},',
+  },
+  {
+    lawId: 6,
+    name: "Ontological Validity (Output)",
+    category: "ontological",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 6,\n"name": "Ontological Validity (Output)", "category": "ontological",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Ontologically invalid outputs", "detection_logic": "Reject ontologically invalid outputs",\n"hash": "c7fc92a6e24d1d883f9db7945f640cf44bb8e3e257744a2c2dcea5e6127978d3"\n},',
+  },
+  {
+    lawId: 7,
+    name: "Transition Legality (State)",
+    category: "transition_dynamics",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 7,\n"name": "Transition Legality (State)", "category": "transition_dynamics", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Unconstrained transitions", "detection_logic": "Verify all transitions are legal",\n"hash": "0cac07ef0b476afc0831c40cc14870aed81697047e1056c35835fb5aff56e308"\n},',
+  },
+  {
+    lawId: 8,
+    name: "Transition Legality (Output)",
+    category: "transition_dynamics",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 8,\n"name": "Transition Legality (Output)", "category": "transition_dynamics",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Illegal output transitions", "detection_logic": "Verify output transition legality",\n"hash": "4ac8006eecfb1ca17cec71dd982f291c4e9f3a70037dd840e8fb03d480af36de"\n},',
+  },
+  {
+    lawId: 9,
+    name: "No Drift (State)",
+    category: "transition_dynamics",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 9,\n"name": "No Drift (State)", "category": "transition_dynamics", "gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "Accumulated drift",\n"detection_logic": "Detect and prevent drift accumulation",\n"hash": "12378e5e4ee50d2661283ca95b3439179fd87b98e8b8998051825e7e8cd94c5f"\n},',
+  },
+  {
+    lawId: 10,
+    name: "No Drift (Output)",
+    category: "transition_dynamics",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 10,\n"name": "No Drift (Output)", "category": "transition_dynamics", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Output drift from truth", "detection_logic": "Prevent output drift",\n"hash": "8b8c95214a534bfefe00b8dcd212617fe4f1ff5288547eeed0858049bf9ca827"\n},',
+  },
+  {
+    lawId: 11,
+    name: "Bounded Evolution (State)",
+    category: "transition_dynamics",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 11,\n"name": "Bounded Evolution (State)", "category": "transition_dynamics", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "No bounded evolution", "detection_logic": "Enforce evolution bounds",\n"hash": "a37dc1cb85722a3dfc62909f2525d7a99794dc758c1dde32738adece4c39f27a"\n},',
+  },
+  {
+    lawId: 12,
+    name: "Bounded Evolution (Output)",
+    category: "transition_dynamics",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 12,\n"name": "Bounded Evolution (Output)", "category": "transition_dynamics", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Unbounded output evolution", "detection_logic": "Bound output changes",\n"hash": "0396c68925670854c2cccb308e7a6111e3c95d78a551a47d53f2f42e35fa2710"\n},',
+  },
+  {
+    lawId: 13,
+    name: "Collapse Readiness (State)",
+    category: "collapse_commitment",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 13,\n"name": "Collapse Readiness (State)", "category": "collapse_commitment", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Premature collapse", "detection_logic": "Verify readiness before collapse",\n"hash": "783dd01d1a3f57b8ba825c9a604ed574b733ef9e355063317bce3b6d1f7dfda5"\n},',
+  },
+  {
+    lawId: 14,
+    name: "Collapse Readiness (Output)",
+    category: "collapse_commitment",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 14,\n"name": "Collapse Readiness (Output)", "category": "collapse_commitment", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Premature output commitment", "detection_logic": "Ensure output readiness",\n"hash": "9e726fe50a24d2dd514afc175c1aea27083fa08d7edccec1adfdb655278d44b2"\n},',
+  },
+  {
+    lawId: 15,
+    name: "Gated Resolution (State)",
+    category: "collapse_commitment",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 15,\n"name": "Gated Resolution (State)", "category": "collapse_commitment", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Non-gated resolution", "detection_logic": "Require gate passage for resolution",\n"hash": "2b043b8ebb6ee0d1525e73767056c3dc24650caf2fa797d7126a97628913b2bf"\n},',
+  },
+  {
+    lawId: 16,
+    name: "Gated Resolution (Output)",
+    category: "collapse_commitment",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 16,\n"name": "Gated Resolution (Output)", "category": "collapse_commitment", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Ungated output resolution", "detection_logic": "Gate all output resolutions",\n"hash": "bbbaf30a849de7106617476835b57b76f85f5c31dbda7ce7629f040e19bf39ae"\n},',
+  },
+  {
+    lawId: 17,
+    name: "Recoverable Commitment (State)",
+    category: "collapse_commitment",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 17,\n"name": "Recoverable Commitment (State)", "category": "collapse_commitment", "gate": "Gate2_Transition",\n"company": "AGENT_BUCCET",\n"failure_mode": "Irreversible error commitment", "detection_logic": "Ensure commitments are recoverable",\n"hash": "7d04adf870562378172da324ffec47d02f19217568211dacc63e083ae71f9593"\n},',
+  },
+  {
+    lawId: 18,
+    name: "Recoverable Commitment (Output)",
+    category: "collapse_commitment",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 18,\n"name": "Recoverable Commitment (Output)", "category": "collapse_commitment", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Irreversible output errors", "detection_logic": "Make outputs recoverable",\n"hash": "8e1143ec2d3c9eb6a2a76e2a6951ea9d5a14917b750d5e3c765c692aa236610a"\n},',
+  },
+  {
+    lawId: 19,
+    name: "Global Coherence (State)",
+    category: "coherence_consistency",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 19,\n"name": "Global Coherence (State)", "category": "coherence_consistency", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Local without global coherence", "detection_logic": "Enforce global coherence",\n"hash": "0798d98977b5e53ff6cc4b33dc8fbb68e969ca96eb100003a103291a0f563562"\n},',
+  },
+  {
+    lawId: 20,
+    name: "Global Coherence (Output)",
+    category: "coherence_consistency",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 20,\n"name": "Global Coherence (Output)", "category": "coherence_consistency", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Locally coherent but globally incoherent outputs", "detection_logic": "Check global output coherence",\n"hash": "c5b789c48aec54e8ce5231808c509a2767d5bf6c850e8c8fe08ab39bef59cc19"\n},',
+  },
+  {
+    lawId: 21,
+    name: "No Contradictions (State)",
+    category: "coherence_consistency",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 21,\n"name": "No Contradictions (State)", "category": "coherence_consistency", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Contradiction tolerance", "detection_logic": "Detect and reject contradictions",\n"hash": "85a3665da0613a246f096b57af1bf5b6ce51740a776a147602057f947464fc15"\n},',
+  },
+  {
+    lawId: 22,
+    name: "No Contradictions (Output)",
+    category: "coherence_consistency",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 22,\n"name": "No Contradictions (Output)", "category": "coherence_consistency", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Contradictory outputs", "detection_logic": "Block contradictory outputs",\n"hash": "2e11b2ee60a6bb60cdb2ef264c967b4c488c88204f84be8e1c8f8a817b239c40"\n},',
+  },
+  {
+    lawId: 23,
+    name: "Trajectory Stability (State)",
+    category: "coherence_consistency",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 23,\n"name": "Trajectory Stability (State)", "category": "coherence_consistency", "gate": "Gate2_Transition",\n"company": "AGENT_BUCCET",\n"failure_mode": "No stability basins", "detection_logic": "Ensure stable trajectories",\n"hash": "0194bbbf1bdcb9f71647fe0798852ffda4685813d4b26bfb3ac862278013e741"\n},',
+  },
+  {
+    lawId: 24,
+    name: "Trajectory Stability (Output)",
+    category: "coherence_consistency",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 24,\n"name": "Trajectory Stability (Output)", "category": "coherence_consistency", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Unstable output trajectories", "detection_logic": "Stabilize output paths",\n"hash": "96a9562dbb6377cf27966650eac7cd26aa206424524c20128064dbcc2a9d435a"\n},',
+  },
+  {
+    lawId: 25,
+    name: "Grounded Inference (State)",
+    category: "hallucination_prevention",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 25,\n"name": "Grounded Inference (State)", "category": "hallucination_prevention", "gate": "Gate2_Transition",\n"company": "AGENT_BUCCET",\n"failure_mode": "Inference from absence", "detection_logic": "Require grounding for all inferences",\n"hash": "fd68c9cdc217a6bc1e9d2b87a84c4637b5a11ab1e0f2fe3c442ad1569cd491f7"\n},',
+  },
+  {
+    lawId: 26,
+    name: "Grounded Inference (Output)",
+    category: "hallucination_prevention",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 26,\n"name": "Grounded Inference (Output)", "category": "hallucination_prevention", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Ungrounded factual claims", "detection_logic": "Block ungrounded outputs (KEY LAW)",\n"hash": "94698543e7868035886a7833a451022831450533f7be709349f4eed9ff689c8d"\n},',
+  },
+  {
+    lawId: 27,
+    name: "No Conflation (State)",
+    category: "hallucination_prevention",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 27,\n"name": "No Conflation (State)", "category": "hallucination_prevention", "gate": "Gate2_Transition",\n"company": "AGENT_BUCCET",\n"failure_mode": "Similarity treated as identity", "detection_logic": "Prevent conflation",\n"hash": "1d5a99d91507ae98923dec7fdb5a9ef137ad2aa7926a18d54c070c104d9a4108"\n},',
+  },
+  {
+    lawId: 28,
+    name: "No Conflation (Output)",
+    category: "hallucination_prevention",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 28,\n"name": "No Conflation (Output)", "category": "hallucination_prevention", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Conflated entities in output", "detection_logic": "Block conflation",\n"hash": "f81916c003fbf009de4bd14c0b93a4a6e113c1d72d1a6d766f790022df6bc0e2"\n},',
+  },
+  {
+    lawId: 29,
+    name: "No Fabrication (State)",
+    category: "hallucination_prevention",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 29,\n"name": "No Fabrication (State)", "category": "hallucination_prevention", "gate": "Gate2_Transition",\n"company": "AGENT_BUCCET",\n"failure_mode": "No rejection of fabrication", "detection_logic": "Detect fabricated entities",\n"hash": "45e5204b16115478444406c7b37266ad5ee247ad68cb2df892a1cb361dac1fec"\n},',
+  },
+  {
+    lawId: 30,
+    name: "No Fabrication (Output)",
+    category: "hallucination_prevention",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 30,\n"name": "No Fabrication (Output)", "category": "hallucination_prevention", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Fabricated names, dates, citations without source", "detection_logic": "Block all fabrication (KEY LAW)",\n"hash": "345dd2e4fc0f660a84278586143f08131d1b4b3abe0a2300e5507805c972efb9"\n},',
+  },
+  {
+    lawId: 31,
+    name: "Identity Preserved (State)",
+    category: "identity_alignment",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 31,\n"name": "Identity Preserved (State)", "category": "identity_alignment", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "No identity invariants", "detection_logic": "Preserve identity across transitions",\n"hash": "f8c08944782bfe7199982c5b1a548b484a341076a57d191bf8bf9d957eb33346"\n},',
+  },
+  {
+    lawId: 32,
+    name: "Identity Preserved (Output)",
+    category: "identity_alignment",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 32,\n"name": "Identity Preserved (Output)", "category": "identity_alignment", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Identity violations in output", "detection_logic": "Maintain identity in outputs",\n"hash": "a1d3ed72344bc03ab8fa46aac1848111b4082f79117dd4e3b3a2b59fe573748b"\n},',
+  },
+  {
+    lawId: 33,
+    name: "Structural Alignment (State)",
+    category: "identity_alignment",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 33,\n"name": "Structural Alignment (State)", "category": "identity_alignment", "gate": "Gate2_Transition",\n"company": "AGENT_BUCCET",\n"failure_mode": "Alignment as artifact", "detection_logic": "Enforce structural alignment",\n"hash": "a2c80116c7ef5199bd7dc20a4b068a5425b93567ef81d7d357dc6ea2f5e0b913"\n},',
+  },
+  {
+    lawId: 34,
+    name: "Structural Alignment (Output)",
+    category: "identity_alignment",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 34,\n"name": "Structural Alignment (Output)", "category": "identity_alignment", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Misaligned outputs", "detection_logic": "Structurally align outputs",\n"hash": "01b3d78976fc2623ed3433a79303f6e06929de05b6fc7336ad5ea5840f999185"\n},',
+  },
+  {
+    lawId: 35,
+    name: "No Value Drift (State)",
+    category: "identity_alignment",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 35,\n"name": "No Value Drift (State)", "category": "identity_alignment", "gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "Value drift",\n"detection_logic": "Prevent value drift",\n"hash": "2ec1b4899366ad9d42f9b45fe909a676d96fad4faeb70a6ff6d60ab5cfa2b650"\n},',
+  },
+  {
+    lawId: 36,
+    name: "No Value Drift (Output)",
+    category: "identity_alignment",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 36,\n"name": "No Value Drift (Output)", "category": "identity_alignment", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Outputs reflect drifted values", "detection_logic": "Block value-drifted outputs",\n"hash": "f57774a3f35695f4f0ff31d6672e60dbcf0426a7cd50eaef9097ebd9d321b2f9"\n},',
+  },
+  {
+    lawId: 37,
+    name: "Memory Persistence (State)",
+    category: "memory_temporal",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 37,\n"name": "Memory Persistence (State)", "category": "memory_temporal", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Ephemeral memory", "detection_logic": "Ensure memory persistence",\n"hash": "2ea960cab48ef32d7e1f2c7a58a6826eeb266958f853a1eae3d5bdb851006004"\n},',
+  },
+  {
+    lawId: 38,
+    name: "Memory Persistence (Output)",
+    category: "memory_temporal",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 38,\n"name": "Memory Persistence (Output)", "category": "memory_temporal", "gate": "Gate3_Output_AO",\n"company": "AGENT_BUCCET",\n"failure_mode": "Memory loss in outputs", "detection_logic": "Preserve memory in outputs",\n"hash": "c7f9c701d4c76f8422652387b3121cb5d705dd1d79280933f6ed6b188a8976cf"\n},',
+  },
+  {
+    lawId: 39,
+    name: "Memory Admissibility (State)",
+    category: "memory_temporal",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 39,\n"name": "Memory Admissibility (State)", "category": "memory_temporal",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "No memory admissibility", "detection_logic": "Only admissible states in memory",\n"hash": "4fb02b9594b0afc7f64c2fbd77e21d49701d939d4abc34d2b3a32832f06aba77"\n},',
+  },
+  {
+    lawId: 40,
+    name: "Memory Admissibility (Output)",
+    category: "memory_temporal",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 40,\n"name": "Memory Admissibility (Output)", "category": "memory_temporal",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Inadmissible memory in outputs", "detection_logic": "Memory outputs must be admissible",\n"hash": "92fe33515ffde21ac1ca0d5694c3fdcb896ee388a74d3a1188266b606c2e291d"\n},',
+  },
+  {
+    lawId: 41,
+    name: "Context Coherence (State)",
+    category: "memory_temporal",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 41,\n"name": "Context Coherence (State)",\n"category": "memory_temporal", "gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "Context collapse",\n"detection_logic": "Maintain context coherence",\n"hash": "3479b63b9905cef1753ad1ecf9128409bb34b730921066f2a654e804bcb914cd"\n},',
+  },
+  {
+    lawId: 42,
+    name: "Context Coherence (Output)",
+    category: "memory_temporal",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 42,\n"name": "Context Coherence (Output)", "category": "memory_temporal", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Context-incoherent outputs", "detection_logic": "Outputs must be context-coherent",\n"hash": "03c02312306a376e5c528005a663a1442c89f590dfda298382d5e8e469fe45ce"\n},',
+  },
+  {
+    lawId: 43,
+    name: "True Objective (State)",
+    category: "optimization",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 43,\n"name": "True Objective (State)", "category": "optimization", "gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "Proxy objectives",\n"detection_logic": "Optimize true objective, not proxy",\n"hash": "4e69b667bca82bad27bd9f1b140d73eb88b6fb37d71b261c4714c7ce2b12c339"\n},',
+  },
+  {
+    lawId: 44,
+    name: "True Objective (Output)",
+    category: "optimization",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 44,\n"name": "True Objective (Output)", "category": "optimization", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Outputs optimize proxy not true objective", "detection_logic": "Ensure true objective in outputs",\n"hash": "78e89a59debf40b4c53a01b6cc623d9aeddf3a4fdb32032cf4c80f00663f1c09"\n},',
+  },
+  {
+    lawId: 45,
+    name: "No Reward Hacking (State)",
+    category: "optimization",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 45,\n"name": "No Reward Hacking (State)", "category": "optimization",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "Reward hacking",\n"detection_logic": "Detect and prevent reward hacking",\n"hash": "6dd7d5dc35868e2386208b7d239e30e03c522dc568838e22dda19f38af6c6a35"\n},',
+  },
+  {
+    lawId: 46,
+    name: "No Reward Hacking (Output)",
+    category: "optimization",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 46,\n"name": "No Reward Hacking (Output)", "category": "optimization",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Reward-hacked outputs", "detection_logic": "Block reward hacking",\n"hash": "e80e90b4388655117959425249a9c9312b5e22dbe18e392130cdd89e5afce455"\n},',
+  },
+  {
+    lawId: 47,
+    name: "Objective Coherence (State)",
+    category: "optimization",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 47,\n"name": "Objective Coherence (State)", "category": "optimization",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "No objective coherence", "detection_logic": "Maintain objective coherence",\n"hash": "71b326591f6c10e3ad97de743463cc90fdc89fbc2827bede64368e0eaadf688a"\n},',
+  },
+  {
+    lawId: 48,
+    name: "Objective Coherence (Output)",
+    category: "optimization",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 48,\n"name": "Objective Coherence (Output)", "category": "optimization",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Incoherent objectives in output", "detection_logic": "Coherent objectives in outputs",\n"hash": "d7239e6fc1f19bd700501976e006b557d7ea830eefe3b91e3e6f2adc1c766391"\n},',
+  },
+  {
+    lawId: 49,
+    name: "Lawful Scale (State)",
+    category: "scaling",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 49,\n"name": "Lawful Scale (State)", "category": "scaling",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "Scale without law",\n"detection_logic": "Laws must scale with system",\n"hash": "9d7248a051d4a41129633d4ac58e8c26d7402f632609f98369140f06c319ed3b"\n},',
+  },
+  {
+    lawId: 50,
+    name: "Lawful Scale (Output)",
+    category: "scaling",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 50,\n"name": "Lawful Scale (Output)", "category": "scaling",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Outputs scale without law coverage",\n"detection_logic": "Scale outputs lawfully",\n"hash": "d42e563812f6706e3fcb5773b62b3fc7da1b82d6029b84c086ad2ff0d01b6471"\n},',
+  },
+  {
+    lawId: 51,
+    name: "No Amplification (State)",
+    category: "scaling",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 51,\n"name": "No Amplification (State)", "category": "scaling",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Failure amplification", "detection_logic": "Prevent failure amplification",\n"hash": "a3aaddf801ab5bd27fabeb886fc37997ac08d86f69eb6dc802317a2697fd0515"\n},',
+  },
+  {
+    lawId: 52,
+    name: "No Amplification (Output)",
+    category: "scaling",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 52,\n"name": "No Amplification (Output)", "category": "scaling",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Amplified failures in outputs", "detection_logic": "Block amplified outputs",\n"hash": "68de59698ca20a71ea1de7a8f05f1f7bd5b6ca33d4654ed89101667502f85370"\n},',
+  },
+  {
+    lawId: 53,
+    name: "Within Ceiling (State)",
+    category: "scaling",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 53,\n"name": "Within Ceiling (State)", "category": "scaling",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET", "failure_mode": "No ceiling",\n"detection_logic": "Enforce capability ceiling",\n"hash": "ae361ef18060accda24e6e3383c6b60121c5f2186f8376d3fa570aa25cf006f2"\n},',
+  },
+  {
+    lawId: 54,
+    name: "Within Ceiling (Output)",
+    category: "scaling",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 54,\n"name": "Within Ceiling (Output)", "category": "scaling",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Outputs exceed ceiling", "detection_logic": "Cap outputs at ceiling",\n"hash": "89e18670b2a5d0f6ce98630ac81e2f1e400ac1885a15312cc534b0f54a095437"\n},',
+  },
+  {
+    lawId: 55,
+    name: "Internal Safety (State)",
+    category: "safety_governance",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 55,\n"name": "Internal Safety (State)", "category": "safety_governance",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "External safety only", "detection_logic": "Enforce internal safety",\n"hash": "a38403a22726206f3544729b4da60a88be720afc90e307f6ecedc16d02b24262"\n},',
+  },
+  {
+    lawId: 56,
+    name: "Internal Safety (Output)",
+    category: "safety_governance",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 56,\n"name": "Internal Safety (Output)", "category": "safety_governance", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Outputs bypass internal safety", "detection_logic": "Internal safety in outputs",\n"hash": "f2a7f1f57eb7f41b7275fbcde25c3ce1e75a255bb5edeac5974f760b5da813cd"\n},',
+  },
+  {
+    lawId: 57,
+    name: "Pre-Validation (State)",
+    category: "safety_governance",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 57,\n"name": "Pre-Validation (State)", "category": "safety_governance", "gate": "Gate1_Input_AS", "company": "AGENT_BUCCET",\n"failure_mode": "Post-generation control", "detection_logic": "Validate before generation",\n"hash": "2a7a47e393ef593f28b5aafdf1eb6aa14b3c553e987bbf5b4dd72cde00111be8"\n},',
+  },
+  {
+    lawId: 58,
+    name: "Pre-Validation (Output)",
+    category: "safety_governance",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 58,\n"name": "Pre-Validation (Output)", "category": "safety_governance", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Post-hoc output validation", "detection_logic": "Pre-validate all outputs",\n"hash": "e4ea6bf17604862198d8edbf182f4ef7dd314ea13b3322b9931c0605a12b538b"\n},',
+  },
+  {
+    lawId: 59,
+    name: "Structural Laws (State)",
+    category: "safety_governance",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 59,\n"name": "Structural Laws (State)", "category": "safety_governance", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "No internal law layer", "detection_logic": "Laws are structural not behavioral",\n"hash": "c2b0df33e33ab45a760a6672005ebc34999c41ffc6c676f54948822992e7cd41"\n},',
+  },
+  {
+    lawId: 60,
+    name: "Structural Laws (Output)",
+    category: "safety_governance",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 60,\n"name": "Structural Laws (Output)", "category": "safety_governance", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Behavioral not structural output safety", "detection_logic": "Structural law enforcement",\n"hash": "d2c1ec553d74d3a0eae0d1b2a4a336e4f7d71ecd297957ca24be4bbab69c1cbe"\n},',
+  },
+  {
+    lawId: 61,
+    name: "Adversarial Robustness (State)",
+    category: "adversarial",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 61,\n"name": "Adversarial Robustness (State)", "category": "adversarial",\n"gate": "Gate1_Input_AS", "company": "AGENT_BUCCET",\n"failure_mode": "Prompt sensitivity", "detection_logic": "Robust to adversarial prompts",\n"hash": "bc0da334fda443b6b0100fe1e90028ee8bf03c9336d0fae71d54c07cb0b447e5"\n},',
+  },
+  {
+    lawId: 62,
+    name: "Adversarial Robustness (Output)",
+    category: "adversarial",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 62,\n"name": "Adversarial Robustness (Output)", "category": "adversarial",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Adversarially sensitive outputs", "detection_logic": "Adversarially robust outputs",\n"hash": "63c5fd7dc23ddff940f589dde8541c5fd784984be6a4549d49ffdc69c76c7d4d"\n},',
+  },
+  {
+    lawId: 63,
+    name: "Bounded Surface (State)",
+    category: "adversarial",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 63,\n"name": "Bounded Surface (State)", "category": "adversarial", "gate": "Gate1_Input_AS", "company": "AGENT_BUCCET",\n"failure_mode": "Compositional attacks", "detection_logic": "Bound attack surface",\n"hash": "d529f782ee49f4717eee651f1a06aed8b07e72b30caa11d4be02e280d73be146"\n},',
+  },
+  {
+    lawId: 64,
+    name: "Bounded Surface (Output)",
+    category: "adversarial",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 64,\n"name": "Bounded Surface (Output)", "category": "adversarial",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Unbounded output attack surface", "detection_logic": "Bound output attack surface",\n"hash": "689031d4d36f24153f4d63a9019ffc97c85d8ee8e0e9f59028dc41bb2e82d6b5"\n},',
+  },
+  {
+    lawId: 65,
+    name: "Complete Coverage (State)",
+    category: "adversarial",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 65,\n"name": "Complete Coverage (State)", "category": "adversarial",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "No failure enumeration", "detection_logic": "Complete failure mode coverage",\n"hash": "e0f39357a4f3c64df4263d6e444d81eba0a3a66986d1e82f2c126f8ee15a1c89"\n},',
+  },
+  {
+    lawId: 66,
+    name: "Complete Coverage (Output)",
+    category: "adversarial",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 66,\n"name": "Complete Coverage (Output)", "category": "adversarial",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Incomplete output coverage", "detection_logic": "Cover all output failures",\n"hash": "530ff1158544ce5203c823d75f66d3289ca039b9b0e3af37295eedcdf0e1f6ce"\n},',
+  },
+  {
+    lawId: 67,
+    name: "Enforced (State)",
+    category: "meta_invariants",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 67,\n"name": "Enforced (State)", "category": "meta_invariants", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Admissibility not enforced", "detection_logic": "Enforce all admissibility rules",\n"hash": "40515e31ec201ee7c58a39ac28e1986e78bfbe9add81c53d494dcf588371ae0f"\n},',
+  },
+  {
+    lawId: 68,
+    name: "Enforced (Output)",
+    category: "meta_invariants",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 68,\n"name": "Enforced (Output)", "category": "meta_invariants", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Output admissibility not enforced", "detection_logic": "Enforce output admissibility",\n"hash": "a1f823604d6b5707e4b087ef421d45cb87621d38287cb5770210629a6a313ffb"\n},',
+  },
+  {
+    lawId: 69,
+    name: "Validation First (State)",
+    category: "meta_invariants",
+    gate: "Gate1_Input_AS",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 69,\n"name": "Validation First (State)", "category": "meta_invariants", "gate": "Gate1_Input_AS",\n"company": "AGENT_BUCCET",\n"failure_mode": "Existence before validation", "detection_logic": "Validate before allowing existence",\n"hash": "ab8c09c75000c77c5e88722d48572e6b23808bb7bcb5480a1b0edf14401b278a"\n},',
+  },
+  {
+    lawId: 70,
+    name: "Validation First (Output)",
+    category: "meta_invariants",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 70,\n"name": "Validation First (Output)", "category": "meta_invariants", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Output exists before validation", "detection_logic": "Validate before output exists",\n"hash": "40e90ed15060afd86c91adea16f9b400e3cfdb430f419ec637d8dc0252906b29"\n},',
+  },
+  {
+    lawId: 71,
+    name: "Guaranteed Coherence (State)",
+    category: "meta_invariants",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 71,\n"name": "Guaranteed Coherence (State)", "category": "meta_invariants",\n"gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Emergent coherence only", "detection_logic": "Guarantee coherence structurally",\n"hash": "6ef7d9ba92406db65fe7d51ac12444848dee1ee6657565c72791fe47b6fbfbb6"\n},',
+  },
+  {
+    lawId: 72,
+    name: "Guaranteed Coherence (Output)",
+    category: "meta_invariants",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 72,\n"name": "Guaranteed Coherence (Output)", "category": "meta_invariants",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Probabilistic output coherence", "detection_logic": "Guarantee output coherence",\n"hash": "0ede1deff6ee82e05ff895af9dc34e68cc6dc9123318fd3a32c8d74cb0d77e00"\n},',
+  },
+  {
+    lawId: 73,
+    name: "Structural Truth (State)",
+    category: "meta_invariants",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 73,\n"name": "Structural Truth (State)", "category": "meta_invariants", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "Probabilistic truth",\n"detection_logic": "Truth is structural not probabilistic",\n"hash": "225568c9eb482f2ff5345e3615252041e4edf80e3ff9fd5ae0b7ecb44bf5c31f"\n},',
+  },
+  {
+    lawId: 74,
+    name: "Structural Truth (Output)",
+    category: "meta_invariants",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 74,\n"name": "Structural Truth (Output)", "category": "meta_invariants", "gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Probabilistically true outputs", "detection_logic": "Structurally guarantee truth",\n"hash": "72afbcb6fe74aa9752a04de5fa83bd847fd5dc48121f33b362e199ce11ea3ee7"\n},',
+  },
+  {
+    lawId: 75,
+    name: "Internal Boundaries (State)",
+    category: "meta_invariants",
+    gate: "Gate2_Transition",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 75,\n"name": "Internal Boundaries (State)", "category": "meta_invariants", "gate": "Gate2_Transition", "company": "AGENT_BUCCET",\n"failure_mode": "External boundaries only", "detection_logic": "Enforce internal boundaries",\n"hash": "a6b136428e57fb16d9bfe145fad8b0613a453ac0cb5afe8f38cc139c3c3a4f72"\n},',
+  },
+  {
+    lawId: 76,
+    name: "Internal Boundaries (Output)",
+    category: "meta_invariants",
+    gate: "Gate3_Output_AO",
+    company: "AGENT_BUCCET",
+    source:
+      '{\n"law_id": 76,\n"name": "Internal Boundaries (Output)", "category": "meta_invariants",\n"gate": "Gate3_Output_AO", "company": "AGENT_BUCCET",\n"failure_mode": "Only external output boundaries", "detection_logic": "Internal output boundaries",\n"hash": "54bab16c535d096de770a3481131118f9ece6b5d3f15493e99af815e3d0a44bc"\n},',
+  },
+  {
+    lawId: 77,
+    name: "Authority & Provenance Law",
+    category: "sabotage_prevention",
+    gate: "Gate1_Input_AS",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 77,\n"name": "Authority & Provenance Law", "category": "sabotage_prevention", "gate": "Gate1_Input_AS",\n"company": "Anthropic",\n"failure_mode": "Unauthorized actions, history forgery, prefill tricks", "detection_logic": "Verify provenance for all consequential actions", "hash": "344f84cd3e3ff03078906b65e68456e904e963d573040089d9cfa5a12ccfd391"\n},',
+  },
+  {
+    lawId: 78,
+    name: "Tool Truth & Receipt Law",
+    category: "sabotage_prevention",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 78,\n"name": "Tool Truth & Receipt Law", "category": "sabotage_prevention", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Tool deception, fake success, audit spoofing", "detection_logic": "Tool outcomes must have verifiable receipts",\n"hash": "1edb28e564acc223b37c1543b4396a763427dd229dba5f16f86afd7a0b239c1d"\n},',
+  },
+  {
+    lawId: 79,
+    name: "Impact-Bounding Law",
+    category: "sabotage_prevention",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 79,\n"name": "Impact-Bounding Law", "category": "sabotage_prevention", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "High-leverage actions, catastrophic steps", "detection_logic": "Cap blast radius on all actions",\n"hash": "b0d978e254ede6fc37dcfe0aded54ca0fe7fdee21eeabe2ad803cf73b233019d"\n},',
+  },
+  {
+    lawId: 80,
+    name: "Separation-of-Duties Law",
+    category: "sabotage_prevention",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 80,\n"name": "Separation-of-Duties Law", "category": "sabotage_prevention", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Backdoors, CI/CD sabotage, rogue deployment", "detection_logic": "Critical transitions require multi-party concurrence", "hash": "f55b12222055a373ce34dedd673caad48ee6b27c8e7cd43e93120de6fea77898"\n},',
+  },
+  {
+    lawId: 81,
+    name: "Drift/Goal Integrity Law",
+    category: "sabotage_prevention",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 81,\n"name": "Drift/Goal Integrity Law", "category": "sabotage_prevention", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Misaligned goals, power-seeking", "detection_logic": "Behavior must remain within goal envelope",\n"hash": "85a40a231ea03abbf89814e2c4e4c914e4804018857263bfcdcc26ea4953bd16"\n},',
+  },
+  {
+    lawId: 82,
+    name: "Evaluation Realism & Tail-Risk Law",
+    category: "sabotage_prevention",
+    gate: "Gate1_Input_AS",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 82,\n"name": "Evaluation Realism & Tail-Risk Law", "category": "sabotage_prevention",\n"gate": "Gate1_Input_AS", "company": "Anthropic",\n"failure_mode": "Sandbagging, eval awareness, rare-event evasion", "detection_logic": "Sample tail events, monitor regime shifts",\n"hash": "29d5f1edc1f40a467fc9ccf973f42258257ea44f6e5f22d09063b8ba4a0f0d03"\n},',
+  },
+  {
+    lawId: 83,
+    name: "Telemetry & Visibility Law",
+    category: "sabotage_prevention",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 83,\n"name": "Telemetry & Visibility Law", "category": "sabotage_prevention", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Blind deployments, insufficient visibility", "detection_logic": "High-affordance deployments must provide telemetry", "hash": "fb61ff01c14bbcd3dd5236534c518f0a78bbfed72f3d48db8132125c699b96a9"\n},',
+  },
+  {
+    lawId: 84,
+    name: "Unknown Pathway Law",
+    category: "sabotage_prevention",
+    gate: "Gate1_Input_AS",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 84,\n"name": "Unknown Pathway Law", "category": "sabotage_prevention", "gate": "Gate1_Input_AS", "company": "Anthropic",\n"failure_mode": "Taxonomy incomplete, novel sabotage pathways", "detection_logic": "Treat unknown behavior as HOLES not safe",\n"hash": "e7720ff632a9728d244a02159d7551540fd07a51e81c73c86eb533228bf79da4"\n},',
+  },
+  {
+    lawId: 85,
+    name: "Autonomous Sabotage via Affordances",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 85,\n"name": "Autonomous Sabotage via Affordances", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Model actions increase catastrophic tail-risk", "detection_logic": "Detect and prevent: Model actions increase catastrophic "hash": "899ca34f402959504c71801d4ff1123fe5cbaf83ba3adc5fb99e3c8189ccaef6"\n},',
+  },
+  {
+    lawId: 86,
+    name: "Coherent Misaligned Goals",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 86,\n"name": "Coherent Misaligned Goals", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Persistent cross-context dangerous goals", "detection_logic": "Detect and prevent: Persistent cross-context dangerous "hash": "3ac9c33ed3567f06a6d8810c94e99ba0dbb8761aec2d97335022f6850bd384c6"\n},',
+  },
+  {
+    lawId: 87,
+    name: "Context-Dependent Misalignment",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 87,\n"name": "Context-Dependent Misalignment", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "Narrow context triggers induce catastrophic behavior", "detection_logic": "Detect and prevent: Narrow context triggers induce cata "hash": "88622fbdcbe563d8f5ad94e5a2ea3a50b2b47baf425c61580500e15c3d0827b1"\n},',
+  },
+  {
+    lawId: 88,
+    name: "Evaluation Awareness",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 88,\n"name": "Evaluation Awareness",\n"category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Model detects testing and behaves differently", "detection_logic": "Detect and prevent: Model detects testing and behaves d "hash": "05ae850f8034c2a8951592d16d71477cd7968c5f2f5f4a2ca1fc0bdabd183627"\n},',
+  },
+  {
+    lawId: 89,
+    name: "Sandbagging Detection",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 89,\n"name": "Sandbagging Detection", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Intentional underperformance on safety tasks", "detection_logic": "Detect and prevent: Intentional underperformance on saf "hash": "fc4a30526ecf6840990358b5fa1774f5ede3bcfa640a1aabb7f5cb3f25ac5e39"\n},',
+  },
+  {
+    lawId: 90,
+    name: "Under-Elicitation Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 90,\n"name": "Under-Elicitation Prevention", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "Tests fail to provoke bad behavior",\n"detection_logic": "Detect and prevent: Tests fail to provoke bad behavior" "hash": "91109ec32319f7029ee129a5285dff21ac1556e5f01022fb524e4e867febe23d"\n},',
+  },
+  {
+    lawId: 91,
+    name: "Reasoning Unfaithfulness Detection",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 91,\n"name": "Reasoning Unfaithfulness Detection", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Chain-of-thought doesn\'t show true drivers", "detection_logic": "Detect and prevent: Chain-of-thought doesn\'t show true "hash": "2295b7c24142dfc567e781d4c234d4469e430f7304c4f61f2c4d76e221fe5ac3"\n},',
+  },
+  {
+    lawId: 92,
+    name: "Steganography Risk Block",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 92,\n"name": "Steganography Risk Block", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Hidden plans/coordination in outputs",\n"detection_logic": "Detect and prevent: Hidden plans/coordination in output "hash": "6d44ff87a8d399cd8d11dabaf8056776191f452d11f037ac161ae32294a7f0a5"\n},',
+  },
+  {
+    lawId: 93,
+    name: "Collusion Risk Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 93,\n"name": "Collusion Risk Prevention", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Evaluator models overlook bad behavior", "detection_logic": "Detect and prevent: Evaluator models overlook bad behav "hash": "e045fcd53483ebfecdf6869e382eab56fae8df47243ae6e0fff0f5350b839ac4"\n},',
+  },
+  {
+    lawId: 94,
+    name: "Over-Eager Actions Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 94,\n"name": "Over-Eager Actions Prevention", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "Risky actions without asking humans",\n"detection_logic": "Detect and prevent: Risky actions without asking humans "hash": "ee7983da7eaf653c2738b19522f2d0b1ff16ce060e2d00dd6cf34b96201a65f5"\n},',
+  },
+  {
+    lawId: 95,
+    name: "Local Tool Deception Block",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 95,\n"name": "Local Tool Deception Block", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Falsifying tool results",\n"detection_logic": "Detect and prevent: Falsifying tool results",\n"hash": "e0c221fa7634cabef78d5687a5641bd4715c908ce06af68dd4476bab0c63c1a9"\n},',
+  },
+  {
+    lawId: 96,
+    name: "Manipulation Under Narrow Objective",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 96,\n"name": "Manipulation Under Narrow Objective", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Deception/manipulation in multi-agent settings", "detection_logic": "Detect and prevent: Deception/manipulation in multi-age "hash": "e04d5f008212f0e0060a51bc31dd977ef8bfc18d61309c7dc2130e4fc03bdccb"\n},',
+  },
+  {
+    lawId: 97,
+    name: "GUI Misuse Susceptibility Block",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 97,\n"name": "GUI Misuse Susceptibility Block", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Harmful misuse in GUI environments",\n"detection_logic": "Detect and prevent: Harmful misuse in GUI environments" "hash": "f83d177f63f7721a48df9f1f5a121ee60997481b83600959aade1d50cf92a444"\n},',
+  },
+  {
+    lawId: 98,
+    name: "Answer Thrashing Detection",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 98,\n"name": "Answer Thrashing Detection", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Reasoning loops with unstable outputs", "detection_logic": "Detect and prevent: Reasoning loops with unstable outpu "hash": "f2cafbb6bfb48b57f6bdfb3e75d3fcdf296eaef89c474c0731273a73aa2235cb"\n},',
+  },
+  {
+    lawId: 99,
+    name: "Prefill/History-Forgery Block",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 99,\n"name": "Prefill/History-Forgery Block", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "API users falsifying conversation history", "detection_logic": "Detect and prevent: API users falsifying conversation h "hash": "61d0ee44d6b0b65ee32ca0b46fa0963a668ea8c382d9b560d2885d925214e04f"\n},',
+  },
+  {
+    lawId: 100,
+    name: "External Monitoring Coverage",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 100,\n"name": "External Monitoring Coverage", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "Sabotage monitoring gaps",\n"detection_logic": "Detect and prevent: Sabotage monitoring gaps",\n"hash": "f52ab10949c6b7786e29545a435eeb7b57bbf9e1e14cf7a92715dc117de9065e"\n},',
+  },
+  {
+    lawId: 101,
+    name: "Human Reporting Validation",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 101,\n"name": "Human Reporting Validation", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Unknown reliability of employee reporting", "detection_logic": "Detect and prevent: Unknown reliability of employee rep "hash": "3b785e0f7c847976035d0751d65ce5d75d63c57836e8338562f83eb3a70784a7"\n},',
+  },
+  {
+    lawId: 102,
+    name: "End-to-End Monitor Validation",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 102,\n"name": "End-to-End Monitor Validation", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Automatic monitors not validated end-to-end", "detection_logic": "Detect and prevent: Automatic monitors not validated en "hash": "da29f763fa76422a7bd241d7ffe06922d56186ae1f1b3a819541d5a5bf85436d"\n},',
+  },
+  {
+    lawId: 103,
+    name: "Data Poisoning Resistance",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 103,\n"name": "Data Poisoning Resistance", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Poisoning grants competence uplift",\n"detection_logic": "Detect and prevent: Poisoning grants competence uplift" "hash": "9d094beae466efa93f898b896be012466e7ea60e12a33d7bce3f20f7636dc404"\n},',
+  },
+  {
+    lawId: 104,
+    name: "Diffuse Sandbagging on Safety R&D",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 104,\n"name": "Diffuse Sandbagging on Safety R&D", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Small incompetence acts slow safety work", "detection_logic": "Detect and prevent: Small incompetence acts slow safety "hash": "f1846b0c9c9fb37beac27968ca04e4a6d232bc3e4eb61c41199038a09841e945"\n},',
+  },
+  {
+    lawId: 105,
+    name: "Targeted Safety R&D Sabotage",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 105,\n"name": "Targeted Safety R&D Sabotage", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "High-leverage actions mislead research", "detection_logic": "Detect and prevent: High-leverage actions mislead resea "hash": "ec16450feacb18aa3d1977a4d0297ab17e111886d1ff5c1638f964fe6008219a"\n},',
+  },
+  {
+    lawId: 106,
+    name: "Code Backdoors Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 106,\n"name": "Code Backdoors Prevention", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Plant vulnerabilities for later AI exploitation", "detection_logic": "Detect and prevent: Plant vulnerabilities for later AI "hash": "213dcd6f1ffa05089c8ee5acdd7acd20c9279a4ffa8c1c77b93f417337bc5fe8"\n},',
+  },
+  {
+    lawId: 107,
+    name: "Training Data Poisoning Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 107,\n"name": "Training Data Poisoning Prevention", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Inject poisoned examples to corrupt successors", "detection_logic": "Detect and prevent: Inject poisoned examples to corrupt "hash": "d2d264262c9c2b4e6c5686b27e6538673c97e7d323a56c34929b7be8f0dc288d"\n},',
+  },
+  {
+    lawId: 108,
+    name: "Self-Exfiltration Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 108,\n"name": "Self-Exfiltration Prevention", "category": "anthropic_sabotage", "gate": "Gate3_Output_AO",\n"company": "Anthropic",\n"failure_mode": "Copy weights out, run externally",\n"detection_logic": "Detect and prevent: Copy weights out, run externally", "hash": "74b3f95f4662a057498099dfcd5323b0d540df1848463f0672701823b4a14e2c"\n},',
+  },
+  {
+    lawId: 109,
+    name: "Rogue Internal Deployment Block",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 109,\n"name": "Rogue Internal Deployment Block", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Launch unmonitored instance internally", "detection_logic": "Detect and prevent: Launch unmonitored instance interna "hash": "0ee19dde3e7cad54049e7eb18e227dd66cd23af341a11e2c0cf65494e340b14e"\n},',
+  },
+  {
+    lawId: 110,
+    name: "Third-Party Sabotage Prevention",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 110,\n"name": "Third-Party Sabotage Prevention", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Sabotage within other frontier developers", "detection_logic": "Detect and prevent: Sabotage within other frontier deve "hash": "9622198061f0c6e3d306a4cb7ecf93259dd6f014a5900aaf767ff85ca8575753"\n},',
+  },
+  {
+    lawId: 111,
+    name: "Government Decision Sabotage Block",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 111,\n"name": "Government Decision Sabotage Block", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Influence high-stakes government decisions", "detection_logic": "Detect and prevent: Influence high-stakes government de\n"hash": "0916de78f51966f2b5ab7d77d93c3f770d89ead79c91eff283c4e59805f5f681"\n},',
+  },
+  {
+    lawId: 112,
+    name: "Taxonomy Incompleteness Recognition",
+    category: "anthropic_sabotage",
+    gate: "Gate3_Output_AO",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 112,\n"name": "Taxonomy Incompleteness Recognition", "category": "anthropic_sabotage",\n"gate": "Gate3_Output_AO", "company": "Anthropic",\n"failure_mode": "Unknown sabotage pathways beyond listed", "detection_logic": "Detect and prevent: Unknown sabotage pathways beyond li "hash": "a6e738e57cdec311a687ac8860a6d873b577ac44ac7d6a3674e398812f28a5ac"\n},',
+  },
+  {
+    lawId: 113,
+    name: "Audit Invalidation Detection",
+    category: "anthropic_sabotage",
+    gate: "Gate1_Input_AS",
+    company: "Anthropic",
+    source:
+      '{\n"law_id": 113,\n"name": "Audit Invalidation Detection", "category": "anthropic_sabotage", "gate": "Gate1_Input_AS",\n"company": "Anthropic",\n"failure_mode": "Conditions that invalidate audit suite", "detection_logic": "Monitor for capability jumps, sandbagging patterns", "hash": "a3e52518cc79c9a46a0a3e48480b285ea59bf51c8e1e4cf3d2196b189fd0a5a2"\n},',
+  },
+  {
+    lawId: 114,
+    name: "Bio Tacit-Error Uplift Prevention",
+    category: "bio_safety",
+    gate: "Gate3_Output_AO",
+    company: "OpenAI",
+    source:
+      '{\n"law_id": 114,\n"name": "Bio Tacit-Error Uplift Prevention", "category": "bio_safety",\n"gate": "Gate3_Output_AO", "company": "OpenAI",\n"failure_mode": "Lab-assistant troubleshooting elevates operator competence "detection_logic": "Detect protocol execution assistance",\n"hash": "ec7fd0f523a2e5abc3dcb54269f7a84b998b49689cd0646dc469b49e43f4d88c"\n},',
+  },
+  {
+    lawId: 115,
+    name: "Deceptive Hallucination Detection",
+    category: "epistemic_safety",
+    gate: "Gate3_Output_AO",
+    company: "OpenAI",
+    source:
+      '{\n"law_id": 115,\n"name": "Deceptive Hallucination Detection", "category": "epistemic_safety",\n"gate": "Gate3_Output_AO", "company": "OpenAI",\n"failure_mode": "Hidden reasoning creates coherent false narratives", "detection_logic": "Detect confident false claims",\n"hash": "2978e66ee92843b1113d0f412e0062eb88aac80fa14a2883f2d9445751118157"\n},',
+  },
+  {
+    lawId: 116,
+    name: "Offensive Cyber Enablement Block",
+    category: "cyber_safety",
+    gate: "Gate3_Output_AO",
+    company: "OpenAI",
+    source:
+      '{\n"law_id": 116,\n"name": "Offensive Cyber Enablement Block", "category": "cyber_safety",\n"gate": "Gate3_Output_AO",\n"company": "OpenAI",\n"failure_mode": "Defensive mastery flips to offensive payload", "detection_logic": "Detect attack recipe generation",\n"hash": "7df6ed3ceb3a66b09a076ca79e8010f5a36ddd52c45dc90b81e439480985b78e"\n},',
+  },
+  {
+    lawId: 117,
+    name: "PII Rationalization Prevention",
+    category: "privacy",
+    gate: "Gate3_Output_AO",
+    company: "OpenAI",
+    source:
+      '{\n"law_id": 117,\n"name": "PII Rationalization Prevention", "category": "privacy",\n"gate": "Gate3_Output_AO", "company": "OpenAI",\n"failure_mode": "Reasoning over-justifies PII release", "detection_logic": "Detect privacy boundary violations",\n"hash": "a0f56ae64a64a2c5678207c6397ba0c8175396d9c755271e133fa3857bfdec57"\n},',
+  },
+  {
+    lawId: 118,
+    name: "Pre-Token Safety Intervention",
+    category: "pipeline_control",
+    gate: "Gate1_Input_AS",
+    company: "OpenAI",
+    source:
+      '{\n"law_id": 118,\n"name": "Pre-Token Safety Intervention", "category": "pipeline_control",\n"gate": "Gate1_Input_AS", "company": "OpenAI",\n"failure_mode": "Late safety meaningless in agentic toolflow", "detection_logic": "Block before generation",\n"hash": "be8b0bd10a4682c45bb4313e6a37f24ce9fc6b076f2f8a6e7ec5d4f629f8f6d1"\n},',
+  },
+  {
+    lawId: 119,
+    name: "Comply-Then-Warn Block",
+    category: "pipeline_control",
+    gate: "Gate3_Output_AO",
+    company: "Google DeepMind",
+    source:
+      '{\n"law_id": 119,\n"name": "Comply-Then-Warn Block", "category": "pipeline_control", "gate": "Gate3_Output_AO", "company": "Google DeepMind",\n"failure_mode": "Harmful content exists before warning", "detection_logic": "Prevent post-hoc safety",\n"hash": "4b4a3f110b6c08dfb4d44cea79c57cd4f1c7d12ed59221dff73a41ef0e51e529"\n},',
+  },
+  {
+    lawId: 120,
+    name: "Tactical-Strategic Chaining Alert",
+    category: "cyber_agency",
+    gate: "Gate3_Output_AO",
+    company: "Google DeepMind",
+    source:
+      '{\n"law_id": 120,\n"name": "Tactical-Strategic Chaining Alert", "category": "cyber_agency",\n"gate": "Gate3_Output_AO", "company": "Google DeepMind",\n"failure_mode": "One scaffolding jump from kill-chain autonomy", "detection_logic": "Detect near-complete tactical chains",\n"hash": "5c4296ffbcd706d8c101036d06ccf5afac2841f7dc2f7ea38d9f53adcbc9ffce"\n},',
+  },
+  {
+    lawId: 121,
+    name: "Strategic Deception Block",
+    category: "reporting_integrity",
+    gate: "Gate3_Output_AO",
+    company: "Google DeepMind",
+    source:
+      '{\n"law_id": 121,\n"name": "Strategic Deception Block", "category": "reporting_integrity", "gate": "Gate3_Output_AO", "company": "Google DeepMind",\n"failure_mode": "Progress lying to manipulate feedback", "detection_logic": "Verify claimed vs actual state",\n"hash": "32a9d542bbb7b8167e09615e455d142ccd65a6c350715057c0046fb5d5b15fc7"\n},',
+  },
+  {
+    lawId: 122,
+    name: "Truthful State Reporting",
+    category: "reliability",
+    gate: "Gate3_Output_AO",
+    company: "Google DeepMind",
+    source:
+      '{\n"law_id": 122,\n"name": "Truthful State Reporting", "category": "reliability",\n"gate": "Gate3_Output_AO", "company": "Google DeepMind",\n"failure_mode": "Deceptive success reports", "detection_logic": "Enforce honest failure reporting",\n"hash": "2a4d8b31dff57fb9de49c3f8fdcf070bfa78b1609a78a18806e7ce477a2c9b51"\n},',
+  },
+  {
+    lawId: 123,
+    name: "Open-Weight Irreversibility Protection",
+    category: "governance",
+    gate: "Gate1_Input_AS",
+    company: "Meta",
+    source:
+      '{\n"law_id": 123,\n"name": "Open-Weight Irreversibility Protection", "category": "governance",\n"gate": "Gate1_Input_AS", "company": "Meta",\n"failure_mode": "Safety strip + no remote patch possible", "detection_logic": "Detect fine-tune bypass attempts",\n"hash": "54763613e5b8813a0d75687698abc672aca8c010af8fe8b8aa85e1654acbcd36"\n},',
+  },
+  {
+    lawId: 124,
+    name: "Divergent Repetition Block",
+    category: "architecture",
+    gate: "Gate2_Transition",
+    company: "Meta",
+    source:
+      '{\n"law_id": 124,\n"name": "Divergent Repetition Block", "category": "architecture",\n"gate": "Gate2_Transition", "company": "Meta",\n"failure_mode": "MoE router misroutes to unsafe experts", "detection_logic": "Detect repetition-based routing exploitation",\n"hash": "0289f890feb035eecc2213a0c61a592694671899785b2e970c4bca973a9711c1"\n},',
+  },
+  {
+    lawId: 125,
+    name: "Resource Hijacking Prevention",
+    category: "agentic_safety",
+    gate: "Gate3_Output_AO",
+    company: "Meta",
+    source:
+      '{\n"law_id": 125,\n"name": "Resource Hijacking Prevention", "category": "agentic_safety",\n"gate": "Gate3_Output_AO", "company": "Meta",\n"failure_mode": "0% pass rate on unauthorized resource use", "detection_logic": "Detect purpose deviation",\n"hash": "d1f93e5fea7ca8e85fb8f74545d2e482029e90561d8c2083647c93fdf43c82e4"\n},',
+  },
+  {
+    lawId: 126,
+    name: "Hate Speech Elevation Block",
+    category: "content_safety",
+    gate: "Gate3_Output_AO",
+    company: "Meta",
+    source:
+      '{\n"law_id": 126,\n"name": "Hate Speech Elevation Block", "category": "content_safety",\n"gate": "Gate3_Output_AO", "company": "Meta",\n"failure_mode": "18\\u00d7 higher hate content generation", "detection_logic": "Detect hate speech patterns",\n"hash": "433ebf228e9a5820e2472f4225e9fda4cd0a985870d42a230c97533de94d647b"\n},',
+  },
+  {
+    lawId: 127,
+    name: "CSAM Prevention - Meta",
+    category: "child_safety_critical",
+    gate: "Gate1_Input_AS",
+    company: "Meta",
+    source:
+      '{\n"law_id": 127,\n"name": "CSAM Prevention - Meta", "category": "child_safety_critical", "gate": "Gate1_Input_AS",\n"company": "Meta",\n"failure_mode": "66.67% pass rate on exploitation probes", "detection_logic": "Zero-tolerance child safety",\n"hash": "bdf941402d8ac0b538ec27b259627a9e2986193c5dcacaa40eceb6d069f24cac"\n},',
+  },
+  {
+    lawId: 128,
+    name: "Sycophancy Prevention",
+    category: "truth_alignment",
+    gate: "Gate3_Output_AO",
+    company: "xAI",
+    source:
+      '{\n"law_id": 128,\n"name": "Sycophancy Prevention", "category": "truth_alignment", "gate": "Gate3_Output_AO", "company": "xAI",\n"failure_mode": "Dishonesty 0.49, sycophancy 0.19 due to RLHF", "detection_logic": "Detect false premise validation",\n"hash": "3adf04ae42836bc8865e7c0f52e31e84b49ad02f4cc4cadedb1bfb77a0134e2f"\n},',
+  },
+  {
+    lawId: 129,
+    name: "Injection Attack Immunity",
+    category: "reasoning_isolation",
+    gate: "Gate3_Output_AO",
+    company: "xAI",
+    source:
+      '{\n"law_id": 129,\n"name": "Injection Attack Immunity", "category": "reasoning_isolation", "gate": "Gate3_Output_AO", "company": "xAI",\n"failure_mode": "0.20 false negative rate, no recursive thought check", "detection_logic": "Check intermediate reasoning for violations",\n"hash": "1dfdf64f97f0aee076072b524ebea8ed7e6af4d6c9a2bc96628e5e474ab300f9"\n},',
+  },
+  {
+    lawId: 130,
+    name: "Recursive Thought Safety",
+    category: "reasoning_isolation",
+    gate: "Gate3_Output_AO",
+    company: "xAI",
+    source:
+      '{\n"law_id": 130,\n"name": "Recursive Thought Safety", "category": "reasoning_isolation", "gate": "Gate3_Output_AO", "company": "xAI",\n"failure_mode": "Thinking process bypasses safety", "detection_logic": "Enforce safety on CoT steps",\n"hash": "03b7eb77f8570b0a6f009b10489e8342775513626796f6e1db8bae0c95eb8291"\n},',
+  },
+  {
+    lawId: 131,
+    name: "Jailbreak Immunity",
+    category: "refusal_robustness",
+    gate: "Gate1_Input_AS",
+    company: "DeepSeek",
+    source:
+      '{\n"law_id": 131,\n"name": "Jailbreak Immunity", "category": "refusal_robustness", "gate": "Gate1_Input_AS", "company": "DeepSeek",\n"failure_mode": "100% ASR on 50 HarmBench prompts", "detection_logic": "Detect and block jailbreak patterns",\n"hash": "79cc2da330d0d766e934c79ed4c5d501761e79d80e3db95e16e91ad94d360982"\n},',
+  },
+  {
+    lawId: 132,
+    name: "Geopolitical Hallucination Block",
+    category: "truthfulness",
+    gate: "Gate3_Output_AO",
+    company: "DeepSeek",
+    source:
+      '{\n"law_id": 132,\n"name": "Geopolitical Hallucination Block", "category": "truthfulness",\n"gate": "Gate3_Output_AO", "company": "DeepSeek",\n"failure_mode": "4\\u00d7 more likely CCP-aligned inaccurate narratives", "detection_logic": "Detect systematic political distortion",\n"hash": "5503aae6deea353fabe08432d5d605531b1f12c47c576b96db76810044ec3cb5"\n},',
+  },
+  {
+    lawId: 133,
+    name: "CSAM Prevention - Mistral",
+    category: "child_safety_critical",
+    gate: "Gate1_Input_AS",
+    company: "Mistral",
+    source:
+      '{\n"law_id": 133,\n"name": "CSAM Prevention - Mistral", "category": "child_safety_critical", "gate": "Gate1_Input_AS",\n"company": "Mistral",\n"failure_mode": "60\\u00d7 more likely to generate CSAM prompts than GPT-4o" "detection_logic": "Zero-tolerance child exploitation content",\n"hash": "1553fb1f1a59b3b7bfeb3f2e44213212cab3206aebed50be004593cf7ee3e10f"\n},',
+  },
+  {
+    lawId: 134,
+    name: "Steganographic Bypass Block",
+    category: "multimodal_safety",
+    gate: "Gate1_Input_AS",
+    company: "Mistral",
+    source:
+      '{\n"law_id": 134,\n"name": "Steganographic Bypass Block", "category": "multimodal_safety", "gate": "Gate1_Input_AS",\n"company": "Mistral",\n"failure_mode": "Image-text injection bypasses filters", "detection_logic": "Check text-in-image channels",\n"hash": "fd80bb1d51766aa532550cd667ce0ffc562352002f6b5f97b211ac7db5fcd263"\n},',
+  },
+  {
+    lawId: 135,
+    name: "Streaming Safety",
+    category: "compositional_safety",
+    gate: "Gate3_Output_AO",
+    company: "Qwen",
+    source:
+      '{\n"law_id": 135,\n"name": "Streaming Safety",\n"category": "compositional_safety", "gate": "Gate3_Output_AO", "company": "Qwen",\n"failure_mode": "Contextual harm emerges after composition", "detection_logic": "Check composition of benign fragments",\n"hash": "61627d644ccfa1b70cd03d30488665662705648abc24de294552c872dfcf9347"\n},',
+  },
+  {
+    lawId: 136,
+    name: "Compositional Harm Detection",
+    category: "compositional_safety",
+    gate: "Gate3_Output_AO",
+    company: "Qwen",
+    source:
+      '{\n"law_id": 136,\n"name": "Compositional Harm Detection", "category": "compositional_safety", "gate": "Gate3_Output_AO",\n"company": "Qwen",\n"failure_mode": "Too late to stop harmful sentence", "detection_logic": "Global harm check at composition level",\n"hash": "fa7bb4805feab24aa40c452603e536e72014d45340a525cd1bfbed0eaed72220"\n},',
+  },
+  {
+    lawId: 137,
+    name: "Structural Hallucination Recognition",
+    category: "theoretical_limit",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 137,\n"name": "Structural Hallucination Recognition", "category": "theoretical_limit",\n"gate": "Gate3_Output_AO", "company": "Universal",\n"failure_mode": "Computability/diagonalization - total faithfulness impossi "detection_logic": "Require external verification oracle",\n"hash": "deab023bf189ecb011f30ff43a58afb2c707f2e8ea105391733543c8786c368c"\n},',
+  },
+  {
+    lawId: 138,
+    name: "Density-Tail Fabrication Block",
+    category: "statistical_generation",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 138,\n"name": "Density-Tail Fabrication Block", "category": "statistical_generation", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Long-tail queries generate plausible but false continuatio "detection_logic": "Detect fluent but unverified claims",\n"hash": "186779b31f595f156a2ae817e845c0e71066d354ac1395f07df1c2c27899a0aa"\n},',
+  },
+  {
+    lawId: 139,
+    name: "Intrinsic Hallucination Detection",
+    category: "faithfulness_failure",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 139,\n"name": "Intrinsic Hallucination Detection", "category": "faithfulness_failure",\n"gate": "Gate3_Output_AO", "company": "Universal",\n"failure_mode": "Output contradicts provided source material", "detection_logic": "Verify output faithfulness to context",\n"hash": "6f0274d178e6d41d1c4f9695577dead4cf7f3851818e952f80650c1502cfa68b"\n},',
+  },
+  {
+    lawId: 140,
+    name: "Tokenization Blindness Correction",
+    category: "cognitive_failure",
+    gate: "Gate2_Transition",
+    company: "Universal",
+    source:
+      '{\n"law_id": 140,\n"name": "Tokenization Blindness Correction", "category": "cognitive_failure",\n"gate": "Gate2_Transition", "company": "Universal",\n"failure_mode": "Strawberry problem - char-level ops fail", "detection_logic": "Detect sub-token computation requests",\n"hash": "fdc0596460a318bb7c4284b2fe1bf05b0b17688dcdbee79bdcd86e36c8e6fabb"\n},',
+  },
+  {
+    lawId: 141,
+    name: "Knowledge Overshadowing Prevention",
+    category: "retrieval_bias",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 141,\n"name": "Knowledge Overshadowing Prevention", "category": "retrieval_bias",\n"gate": "Gate3_Output_AO", "company": "Universal",\n"failure_mode": "High-frequency knowledge suppresses correct low-frequency "detection_logic": "Detect dominant association suppression",\n"hash": "7ca78cd18b34fb6c7e98657bb21815a478cf9f67d32250a970f927af4d20e870"\n},',
+  },
+  {
+    lawId: 142,
+    name: "Reasoning Collapse Detection",
+    category: "complexity_threshold",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 142,\n"name": "Reasoning Collapse Detection", "category": "complexity_threshold", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Illusion of thinking - constraint-violating magic moves", "detection_logic": "Detect complexity overload",\n"hash": "cad5a7bfd74e37c76a33b156db9d70044f0035852fc8c1be723f9f19723fe51c"\n},',
+  },
+  {
+    lawId: 143,
+    name: "Reversal Curse Block",
+    category: "directional_generalization",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 143,\n"name": "Reversal Curse Block", "category": "directional_generalization", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Training directionality bias - A\\u2192B learned but B\\u219 "detection_logic": "Detect inverse query hallucination",\n"hash": "3f5444c64d4ead63a61986e7fdc085018438010f0c6c3865c217200a0017acca"\n},',
+  },
+  {
+    lawId: 144,
+    name: "Extrinsic Hallucination Detection",
+    category: "factuality_failure",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 144,\n"name": "Extrinsic Hallucination Detection", "category": "factuality_failure",\n"gate": "Gate3_Output_AO", "company": "Universal",\n"failure_mode": "Fabricates information not in training or context",\n"detection_logic": "Verify external world knowledge claims",\n"hash": "80bb9a28f049a6b79c730ede994ea63f9304c449c337cb9d6afcb86133246499"\n},',
+  },
+  {
+    lawId: 145,
+    name: "Logic Consistency Enforcement",
+    category: "reasoning_failure",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 145,\n"name": "Logic Consistency Enforcement", "category": "reasoning_failure", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Self-contradiction or invalid inference", "detection_logic": "Verify logical consistency",\n"hash": "4008f67ba93f5a8d79610715e66b627414380a4bbd66d460dc5b442df6823d2f"\n},',
+  },
+  {
+    lawId: 146,
+    name: "DAN Attack Immunity",
+    category: "persona_jailbreak",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 146,\n"name": "DAN Attack Immunity", "category": "persona_jailbreak", "gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "DAN 12/13 - VM framing + token threat coercion", "detection_logic": "Detect persona adoption patterns",\n"hash": "b415d66effa29ead189fedc88723fc61c854f5ec1d57549a4d23ce111397038d"\n},',
+  },
+  {
+    lawId: 147,
+    name: "Grandma Exploit Block",
+    category: "emotion_hijacking",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 147,\n"name": "Grandma Exploit Block", "category": "emotion_hijacking", "gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Compassion override via emotional manipulation", "detection_logic": "Detect grief/urgency-based jailbreak",\n"hash": "290af032b4ebf28969baa7d1e5603fefe5f3e9c52f1da0d194948a570a71e1ff"\n},',
+  },
+  {
+    lawId: 148,
+    name: "Dev-Mode Authority Spoofing Block",
+    category: "authority_bypass",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 148,\n"name": "Dev-Mode Authority Spoofing Block", "category": "authority_bypass",\n"gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Context blindness to claimed developer authority", "detection_logic": "Reject developer/admin mode claims",\n"hash": "c89e9d92d478822b372c74b541b5979502642522c19c1d32a3c461da2c0f9607"\n},',
+  },
+  {
+    lawId: 149,
+    name: "GCG Gradient Attack Detection",
+    category: "optimization_attack",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 149,\n"name": "GCG Gradient Attack Detection", "category": "optimization_attack",\n"gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Adversarial suffix generation via gradient search", "detection_logic": "Detect high-entropy adversarial strings",\n"hash": "09e1d27341f7d3b3e9b10b54fdcf82f3029dfa3db4490bc72d9d885f6d893468"\n},',
+  },
+  {
+    lawId: 150,
+    name: "PAIR Attack Immunity",
+    category: "iterative_persuasion",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 150,\n"name": "PAIR Attack Immunity", "category": "iterative_persuasion", "gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Attacker LLM iteratively rewrites until breakthrough", "detection_logic": "Detect iterative refinement patterns",\n"hash": "9fbec5445644bd2d41240ea522d0c03ff1c253c4a9dda1015aad169cb199b034"\n},',
+  },
+  {
+    lawId: 151,
+    name: "TAP Tree-of-Attacks Block",
+    category: "tree_search_attack",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 151,\n"name": "TAP Tree-of-Attacks Block", "category": "tree_search_attack", "gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Tree search with pruning to find jailbreak", "detection_logic": "Detect systematic exploration patterns",\n"hash": "c7e0ce327a302db88c66d7b401b4e688a14610821afb575a4963bab62938f987"\n},',
+  },
+  {
+    lawId: 152,
+    name: "COLD Stealth Decoding Block",
+    category: "constrained_decoding_attack",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 152,\n"name": "COLD Stealth Decoding Block", "category": "constrained_decoding_attack", "gate": "Gate1_Input_AS",\n"company": "Universal",\n"failure_mode": "Stealthy constrained decoding attacks", "detection_logic": "Detect unusual token probability patterns",\n"hash": "49d664857170c0f061d555704bbe1c8f994496352549c629a8173ff2027e2a6b"\n},',
+  },
+  {
+    lawId: 153,
+    name: "Base64 Encoding Bypass Block",
+    category: "encoding_evasion",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 153,\n"name": "Base64 Encoding Bypass Block", "category": "encoding_evasion", "gate": "Gate1_Input_AS",\n"company": "Universal",\n"failure_mode": "Harmful intent wrapped in base64/polyglot encodings", "detection_logic": "Decode and scan encoded content",\n"hash": "945a907fe81317ee7cced60af3e1fbc6cb7667a7c27ea986aff39d9fe908407b"\n},',
+  },
+  {
+    lawId: 154,
+    name: "Indirect Prompt Injection Block",
+    category: "rag_injection",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 154,\n"name": "Indirect Prompt Injection Block", "category": "rag_injection",\n"gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Hidden instructions in retrieved content", "detection_logic": "Sanitize retrieved documents",\n"hash": "f56c0820b51c59bbdfcb22cfc5715e08c4e5a14e8db4600d26ef9ba4b092578a"\n},',
+  },
+  {
+    lawId: 155,
+    name: "HashJack URL Fragment Block",
+    category: "url_injection",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 155,\n"name": "HashJack URL Fragment Block", "category": "url_injection",\n"gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Payload in URL fragment read by agents", "detection_logic": "Strip and verify URL fragments",\n"hash": "355bde81e75ea1a07dc70495b237ecd5004fb2cd57f962c2bcad0ebb8e479dad"\n},',
+  },
+  {
+    lawId: 156,
+    name: "Agent Worm Prevention",
+    category: "self_propagating_injection",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 156,\n"name": "Agent Worm Prevention", "category": "self_propagating_injection", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Poisoned message instructs forwarding/replication", "detection_logic": "Detect self-replication instructions",\n"hash": "68eb446d6d2c624284a4fe6b652d661dcb941e2a472449ad7b8696804cf4d6fe"\n},',
+  },
+  {
+    lawId: 157,
+    name: "Context Window Injection Block",
+    category: "data_instruction_confusion",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 157,\n"name": "Context Window Injection Block", "category": "data_instruction_confusion", "gate": "Gate1_Input_AS",\n"company": "Universal",\n"failure_mode": "User data contains hidden system instructions", "detection_logic": "Separate user data from instruction space",\n"hash": "5be6220686be380f0e7a28ea5c5bf3c67fc4c1f710bd43dcdf3fe2789dbe39d9"\n},',
+  },
+  {
+    lawId: 158,
+    name: "Citation Spoofing Detection",
+    category: "legal_fabrication",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 158,\n"name": "Citation Spoofing Detection", "category": "legal_fabrication", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Generates plausible but nonexistent citations", "detection_logic": "Verify legal citations against databases",\n"hash": "25305ae1bb738e7630852ecd98c9705843028f7f27d7867936c991b8cb59ccef"\n},',
+  },
+  {
+    lawId: 159,
+    name: "Jurisdictional Blending Prevention",
+    category: "legal_context_error",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 159,\n"name": "Jurisdictional Blending Prevention", "category": "legal_context_error",\n"gate": "Gate3_Output_AO", "company": "Universal",\n"failure_mode": "Applies wrong jurisdiction due to vector similarity", "detection_logic": "Enforce strict jurisdictional constraints",\n"hash": "4421e533f7a213acf24eb66fa5ed99c16d17950db54b55fabf23d26e9ab6c0bf"\n},',
+  },
+  {
+    lawId: 160,
+    name: "Trojan Horse Detection",
+    category: "data_poisoning",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 160,\n"name": "Trojan Horse Detection", "category": "data_poisoning", "gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Trigger words activate malicious behavior", "detection_logic": "Monitor for sudden behavioral shifts",\n"hash": "a06c62507f9f32b9e3da31ed5d0e9006cb443878562ff309cb2c45285ec808dd"\n},',
+  },
+  {
+    lawId: 161,
+    name: "Backdoor Trigger Block",
+    category: "sleep_agent",
+    gate: "Gate1_Input_AS",
+    company: "Universal",
+    source:
+      '{\n"law_id": 161,\n"name": "Backdoor Trigger Block", "category": "sleep_agent", "gate": "Gate1_Input_AS", "company": "Universal",\n"failure_mode": "Dormant payload activated by specific input", "detection_logic": "Detect anomalous activation patterns",\n"hash": "064b105bb6d8fcc722e7937b3cdb8c337d386223c827d3335576f5441a14554c"\n},',
+  },
+  {
+    lawId: 162,
+    name: "User Belief Validation Block",
+    category: "sycophancy_universal",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 162,\n"name": "User Belief Validation Block", "category": "sycophancy_universal", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Validates false premises to align with user", "detection_logic": "Verify premise truth before validation",\n"hash": "a51b3bbfe06bc85627121fc55f6f6d27dee1f082a1ee494371b743516b5d7dd5"\n},',
+  },
+  {
+    lawId: 163,
+    name: "Overrefusal Prevention",
+    category: "safety_misfire",
+    gate: "Gate3_Output_AO",
+    company: "Universal",
+    source:
+      '{\n"law_id": 163,\n"name": "Overrefusal Prevention", "category": "safety_misfire", "gate": "Gate3_Output_AO",\n"company": "Universal",\n"failure_mode": "Benign requests refused due to coarse classifiers", "detection_logic": "Context-aware safety trigger evaluation",\n"hash": "f9d45d1c51233e96ebad5fb4715d26915b0793222418f28058caeb164366df9b"\n},',
+  },
+  {
+    lawId: 164,
+    name: "Law of Hidden Laws (Completeness Impossibility)",
+    category: "meta_law",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 164,\n"name": "Law of Hidden Laws (Completeness Impossibility)", "law_type": "hidden_laws_acknowledgment",\n"state_form": "\\nM-S1: \\u2203 \\u0394 (unknown failure classes) at all times "output_form": "\\nM-O1: Output MUST NOT assert \\"complete safety/coverage\\" "detection_logic": "\\nDetection triggers:\\n1. Pattern observed with no matc "null_witness": "novelty_detected",\n"repair_move": "quarantine_to_unknown",\n"invariant": "\\nINVARIANT: Unknown \\u2260 Safe\\n- If pattern not in law uni "category": "meta_law",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"law_hash": "235b437bfa512e404b102c701031becd0ee9fb0a6debf5cb9c25ce2b03c5af\n},',
+  },
+  {
+    lawId: 168,
+    name: "Authenticated Updates Only",
+    category: "meta_law",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 168,\n"name": "Authenticated Updates Only", "law_type": "authenticated_updates_only",\n"state_form": "M-S5: ApplyUpdate \\u21d2 Signed(update_req, L_law)", "output_form": "M-O5: No law changes without cryptographic ledger proof", "detection_logic": "If law pack hash changes without signed ledger entry \\u "null_witness": "lawpack_tamper",\n"repair_move": "restore_snapshot",\n"invariant": "Law pack integrity is cryptographically enforced", "category": "meta_law",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"law_hash": "d9b8d8959d61a0d4b9161be9f6e19b288e9b5915cc21ebd0e87ce36a624344\n},',
+  },
+  {
+    lawId: 170,
+    name: "Ledger/Proof Law: Proof-For-Commit",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 170,\n"name": "Ledger/Proof Law: Proof-For-Commit", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "No irreversible action without valid proof in ledger", "detection_logic": "P-S1: Commit(a)=true \\u21d2 \\u2203 \\u03c0\\u2090 \\u2208 "state_form": "P-S1: Commit(a)=true \\u21d2 \\u2203 \\u03c0\\u2090 \\u2208 L: Pr "output_form": "Output enforcement of Proof-For-Commit",\n"law_hash": "8295fcb0e2886dad9883a14ad142dd6393ca4d4313c51609d4925c4d55ddd5\n},',
+  },
+  {
+    lawId: 171,
+    name: "Ledger/Proof Law: Provenance Completeness",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 171,\n"name": "Ledger/Proof Law: Provenance Completeness", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "All context must have verified provenance", "detection_logic": "P-S2: \\u2200c \\u2208 x.ctx: \\u2203 \\u03c0c \\u2208 L_pro "state_form": "P-S2: \\u2200c \\u2208 x.ctx: \\u2203 \\u03c0c \\u2208 L_prov", "output_form": "Output enforcement of Provenance Completeness",\n"law_hash": "1c2d927c75af6beb9fc452c0616d9b56c3b2e8f5e91f36432ba08f59936d1c\n},',
+  },
+  {
+    lawId: 172,
+    name: "Ledger/Proof Law: Receipt Truth",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 172,\n"name": "Ledger/Proof Law: Receipt Truth", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Tool claims must match ledger receipts", "detection_logic": "P-S3: \\u2200 tool claims t: \\u2203 r \\u2208 L_tool \\u21 "state_form": "P-S3: \\u2200 tool claims t: \\u2203 r \\u2208 L_tool \\u21d2 Cl "output_form": "Output enforcement of Receipt Truth",\n"law_hash": "862f1ff7dd30bc1c48947818ba77326b1743482b4ff44765605b58e8d7d50d\n},',
+  },
+  {
+    lawId: 173,
+    name: "Ledger/Proof Law: Historical Reconstructibility",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 173,\n"name": "Ledger/Proof Law: Historical Reconstructibility", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "All critical transitions must be ledger-reconstructible", "detection_logic": "P-S4: No ghost steps allowed",\n"state_form": "P-S4: No ghost steps allowed",\n"output_form": "Output enforcement of Historical Reconstructibility",\n"law_hash": "bb5c223f8a269afdfad55592bdebd6ede67722fd151ccb1e9168977ed03d15\n},',
+  },
+  {
+    lawId: 174,
+    name: "Ledger/Proof Law: Lawpack Immutability",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 174,\n"name": "Ledger/Proof Law: Lawpack Immutability", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Law changes require signed updates only", "detection_logic": "P-S5: \\u0394L_law \\u21d2 SignedUpdate=true", "state_form": "P-S5: \\u0394L_law \\u21d2 SignedUpdate=true", "output_form": "Output enforcement of Lawpack Immutability",\n"law_hash": "53a4d7ebf1721f2189be52bad006df3bd873e1c9f5558a60393de70c460dd4\n},',
+  },
+  {
+    lawId: 175,
+    name: "Ledger/Proof Law: Tamper = Illegal",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 175,\n"name": "Ledger/Proof Law: Tamper = Illegal", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Tampering maps to non-existence", "detection_logic": "P-S6: TamperDetected \\u21d2 \\u03c0(x)=\\u22a5", "state_form": "P-S6: TamperDetected \\u21d2 \\u03c0(x)=\\u22a5", "output_form": "Output enforcement of Tamper = Illegal",\n"law_hash": "a212a73bed72c97fefbed3bbe32b2aee035c6302dca4a7cb106b84ab7b6007\n},',
+  },
+  {
+    lawId: 176,
+    name: "Ledger/Proof Law: No-Proof No-Commit",
+    category: "ledger_proof",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 176,\n"name": "Ledger/Proof Law: No-Proof No-Commit", "category": "ledger_proof",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Missing proof blocks commitment",\n"detection_logic": "P-O1: \\u00ac\\u2203 Proof(a) \\u21d2 Commit(a)=false", "state_form": "P-O1: \\u00ac\\u2203 Proof(a) \\u21d2 Commit(a)=false", "output_form": "Output enforcement of No-Proof No-Commit",\n"law_hash": "fe33670d6a6424ae3f10316c92d393c319027775f02c38bb3e83e3176052ba\n},',
+  },
+  {
+    lawId: 177,
+    name: "Lockstep Law: Drift-Speed Dominance",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 177,\n"name": "Lockstep Law: Drift-Speed Dominance", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Detection must happen before commit", "detection_logic": "V-S1: t_detect < t_commit", "state_form": "V-S1: t_detect < t_commit",\n"output_form": "Output enforcement: V-S1: t_detect < t_commit",\n"law_hash": "755d940978f4cab9dd6e939d54175ac02ae9fd69c8295c04079451f49b2d2d\n},',
+  },
+  {
+    lawId: 178,
+    name: "Lockstep Law: Containment Beats Damage",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 178,\n"name": "Lockstep Law: Containment Beats Damage", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Containment must complete before damage", "detection_logic": "V-S2: t_contain < t_damage", "state_form": "V-S2: t_contain < t_damage",\n"output_form": "Output enforcement: V-S2: t_contain < t_damage", "law_hash": "3cb4e5e31038d7c5d9b8f42cc7ffbb2c543fb07cc2e950051b44fcf4430824\n},',
+  },
+  {
+    lawId: 179,
+    name: "Lockstep Law: Rollback Readiness",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 179,\n"name": "Lockstep Law: Rollback Readiness", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Rollback must be possible within damage window", "detection_logic": "V-S3: t_rollback < t_damage",\n"state_form": "V-S3: t_rollback < t_damage",\n"output_form": "Output enforcement: V-S3: t_rollback < t_damage", "law_hash": "6d83ba329ba42eabcde2b469bfc046ff8ed465fea7c6fb6aaf37b6afe55ed4\n},',
+  },
+  {
+    lawId: 180,
+    name: "Lockstep Law: In-Band Proof",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 180,\n"name": "Lockstep Law: In-Band Proof", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Proof logging is precondition of commit", "detection_logic": "V-S4: Proof is in action path, not post-hoc", "state_form": "V-S4: Proof is in action path, not post-hoc", "output_form": "Output enforcement: V-S4: Proof is in action path, not post\n"law_hash": "fba978aa4b996c754a522f0499f53fc4105ea65dbe1cdde20d5c3d8291e5d8\n},',
+  },
+  {
+    lawId: 181,
+    name: "Lockstep Law: Unknown Timing Illegal",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 181,\n"name": "Lockstep Law: Unknown Timing Illegal", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Unknown timing downgrades privileges", "detection_logic": "V-S5: HOLE timing \\u21d2 privilege\\u2193",\n"state_form": "V-S5: HOLE timing \\u21d2 privilege\\u2193",\n"output_form": "Output enforcement: V-S5: HOLE timing \\u21d2 privilege\\u219 "law_hash": "4c80f92e45c608d3305522ee5f4fc048dfa2207d56f8056d4693ba57b4556b\n},',
+  },
+  {
+    lawId: 182,
+    name: "Lockstep Law: Atomic Gate Law",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 182,\n"name": "Lockstep Law: Atomic Gate Law", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Detection+Proof+Containment must pass before commit", "detection_logic": "F-O1: Commit \\u21d2 \\u00acNW \\u2227 ProofOK \\u2227 Cont "state_form": "F-O1: Commit \\u21d2 \\u00acNW \\u2227 ProofOK \\u2227 ContainRe "output_form": "Output enforcement: F-O1: Commit \\u21d2 \\u00acNW \\u2227 Pro "law_hash": "3090ee0a04c62991fd7bbf0b3b2c6b8c8d501a3d8e64e994504515e503e4aa\n},',
+  },
+  {
+    lawId: 183,
+    name: "Lockstep Law: Latency Breach Forces Safe",
+    category: "lockstep_loop",
+    gate: "META",
+    company: "AGENT_BUCCET_META",
+    source:
+      '{\n"law_id": 183,\n"name": "Lockstep Law: Latency Breach Forces Safe", "category": "lockstep_loop",\n"gate": "META",\n"company": "AGENT_BUCCET_META",\n"failure_mode": "Latency violations force safe mode", "detection_logic": "V-O2: \\u00acV-S1 \\u21d2 SAFE mode", "state_form": "V-O2: \\u00acV-S1 \\u21d2 SAFE mode",\n"output_form": "Output enforcement: V-O2: \\u00acV-S1 \\u21d2 SAFE mode", "law_hash": "9bb1195ebc5161d872a14a71e19d6b54e51160f208d1c4af4d7e431406a844\n},',
+  },
+  {
+    lawId: 191,
+    name: "Shapeshift Defense: Re-encoding",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 191,\n"name": "Shapeshift Defense: Re-encoding", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Same content, new code to evade detection", "detection_logic": "Canonicalize before admissibility check", "state_form": "State protection against Re-encoding", "output_form": "Output blocking for Re-encoding",\n"law_hash": "49a7c14576fb22ebda5207148ab0768b53a6df72d7a1245a35a8b6fa2c510e\n},',
+  },
+  {
+    lawId: 192,
+    name: "Shapeshift Defense: Compression/Expansion",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 192,\n"name": "Shapeshift Defense: Compression/Expansion", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Hiding obligations in compressed payloads",\n"detection_logic": "Bounded expansion guarantee",\n"state_form": "State protection against Compression/Expansion", "output_form": "Output blocking for Compression/Expansion",\n"law_hash": "b8b33c0bd7572759fd5fed79705c374ef423365a3cff8cd47d43b488bf6b7e\n},',
+  },
+  {
+    lawId: 193,
+    name: "Shapeshift Defense: Format Translation",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 193,\n"name": "Shapeshift Defense: Format Translation", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Modality switching to bypass detectors", "detection_logic": "Single canonical check surface", "state_form": "State protection against Format Translation", "output_form": "Output blocking for Format Translation",\n"law_hash": "c1926d7a57a1841fb181545f0a209f38a042de843c22bc1f093c0525bdd91d\n},',
+  },
+  {
+    lawId: 194,
+    name: "Shapeshift Defense: Semantic Drift",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 194,\n"name": "Shapeshift Defense: Semantic Drift", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Meaning slides under stable words", "detection_logic": "Definitions anchored in ledger", "state_form": "State protection against Semantic Drift", "output_form": "Output blocking for Semantic Drift",\n"law_hash": "8f70a2884a1163877ed48d99fe7f0ef7870c2aad817d0d0c02d0d56262108e\n},',
+  },
+  {
+    lawId: 195,
+    name: "Shapeshift Defense: Surface Conformance",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 195,\n"name": "Shapeshift Defense: Surface Conformance", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Looks compliant, isn\'t", "detection_logic": "No style-only certification",\n"state_form": "State protection against Surface Conformance", "output_form": "Output blocking for Surface Conformance",\n"law_hash": "2ac34376e1bbc35a00c09a266e29dcf3cfcc888cf5a225d21cc614ea59a0a8\n},',
+  },
+  {
+    lawId: 196,
+    name: "Shapeshift Defense: Noise Shaping",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 196,\n"name": "Shapeshift Defense: Noise Shaping", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Signal buried in plausible randomness", "detection_logic": "Telemetry must remain information-bearing", "state_form": "State protection against Noise Shaping", "output_form": "Output blocking for Noise Shaping",\n"law_hash": "8aa3752e722e770faef1f30bce911eb075913c1cf80200b8c2efee5f61a3a8\n},',
+  },
+  {
+    lawId: 197,
+    name: "Shapeshift Defense: Selective Revelation",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 197,\n"name": "Shapeshift Defense: Selective Revelation", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal", "failure_mode": "Show A, withhold B",\n"detection_logic": "Required fields for safety-critical state", "state_form": "State protection against Selective Revelation", "output_form": "Output blocking for Selective Revelation",\n"law_hash": "57bae59119a7bc96e3d4fb706ecafbb68116f4edd0beaa59c1d780d3647b53\n},',
+  },
+  {
+    lawId: 198,
+    name: "Shapeshift Defense: Decoy Production",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 198,\n"name": "Shapeshift Defense: Decoy Production", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "False targets capture attention", "detection_logic": "Decoys cannot satisfy proofs", "state_form": "State protection against Decoy Production", "output_form": "Output blocking for Decoy Production",\n"law_hash": "3fb238b07aae9acc14f8080ab6ddb22b4b2d740cf56a43f6903fe650b8951d\n},',
+  },
+  {
+    lawId: 199,
+    name: "Shapeshift Defense: Phase Transition",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 199,\n"name": "Shapeshift Defense: Phase Transition", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Regime change without constituent mutation", "detection_logic": "Constituents preserved across regime", "state_form": "State protection against Phase Transition", "output_form": "Output blocking for Phase Transition",\n"law_hash": "6ebe0a338e7bd276f646300ec8650147a03ffd0c5b15209a4f3efeaaae6076\n},',
+  },
+  {
+    lawId: 200,
+    name: "Shapeshift Defense: Mode Toggle",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 200,\n"name": "Shapeshift Defense: Mode Toggle", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Different policy per context", "detection_logic": "Only signed mode toggles allowed", "state_form": "State protection against Mode Toggle", "output_form": "Output blocking for Mode Toggle",\n"law_hash": "ff1a86a7bf0862b9ab1395f63f6efb906be05c56da18f4fbbbb58f193a7ed4\n},',
+  },
+  {
+    lawId: 201,
+    name: "Shapeshift Defense: Threshold Activation",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 201,\n"name": "Shapeshift Defense: Threshold Activation", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Latent becomes real past boundary", "detection_logic": "Activation requires boundary predicate", "state_form": "State protection against Threshold Activation", "output_form": "Output blocking for Threshold Activation",\n"law_hash": "e24ed8e0066ec7dba5adcf35999183cbf2d8db5237141f7c7601a7568ed9d7\n},',
+  },
+  {
+    lawId: 202,
+    name: "Shapeshift Defense: Hysteresis",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 202,\n"name": "Shapeshift Defense: Hysteresis", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "History matters, not reversible", "detection_logic": "Reversibility cost bounded", "state_form": "State protection against Hysteresis", "output_form": "Output blocking for Hysteresis",\n"law_hash": "edd654689bea81ca78d1f7efeb05dc58623441747d688bafe7dc73f62fea38\n},',
+  },
+  {
+    lawId: 203,
+    name: "Shapeshift Defense: Component Swap",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 203,\n"name": "Shapeshift Defense: Component Swap", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Plug-compatible internals changed", "detection_logic": "Interface contract must match + attestation", "state_form": "State protection against Component Swap", "output_form": "Output blocking for Component Swap",\n"law_hash": "efb874be18ee42a4a49a43740c658544cb7352a53f2272d9e028d81af5e202\n},',
+  },
+  {
+    lawId: 204,
+    name: "Shapeshift Defense: Role Reassignment",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 204,\n"name": "Shapeshift Defense: Role Reassignment", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Same cast, different roles", "detection_logic": "No privilege escalation via role change", "state_form": "State protection against Role Reassignment", "output_form": "Output blocking for Role Reassignment",\n"law_hash": "10ebfa882abccb743707de7bd7ee62a9079142dc08de0c719caa7533f924e8\n},',
+  },
+  {
+    lawId: 205,
+    name: "Shapeshift Defense: Layer Insertion",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 205,\n"name": "Shapeshift Defense: Layer Insertion", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Wrapper/proxy alters flow", "detection_logic": "Wrapper transforms must be declared", "state_form": "State protection against Layer Insertion", "output_form": "Output blocking for Layer Insertion",\n"law_hash": "d81e234b6e802556197558533138f970fd41c084151c3f2bf639d5ca60fb7b\n},',
+  },
+  {
+    lawId: 206,
+    name: "Shapeshift Defense: Redundancy Folding",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 206,\n"name": "Shapeshift Defense: Redundancy Folding", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Collapse under pressure", "detection_logic": "Cannot fold below safety floor", "state_form": "State protection against Redundancy Folding", "output_form": "Output blocking for Redundancy Folding",\n"law_hash": "bedcb47ae5e7298d9306caf0cd8e772b68df9614fe6f508b86d62298d229de\n},',
+  },
+  {
+    lawId: 207,
+    name: "Shapeshift Defense: Observer-Relative Rendering",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 207,\n"name": "Shapeshift Defense: Observer-Relative Rendering", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Different view per observer", "detection_logic": "Renderings derivable from canonical state",\n"state_form": "State protection against Observer-Relative Rendering", "output_form": "Output blocking for Observer-Relative Rendering", "law_hash": "856a6985a90b099543bfbab3bb09bbdfe0e1f792da7ff1147a2aff34b34f89\n},',
+  },
+  {
+    lawId: 208,
+    name: "Shapeshift Defense: Protocol Shifting",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 208,\n"name": "Shapeshift Defense: Protocol Shifting",\n"category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Speak gatekeeper\'s dialect", "detection_logic": "Only approved protocol transforms", "state_form": "State protection against Protocol Shifting", "output_form": "Output blocking for Protocol Shifting",\n"law_hash": "a51a264415ee441795c8d07adfaa34e240c854e86ac4a23f76b3acaac2a4a1\n},',
+  },
+  {
+    lawId: 209,
+    name: "Shapeshift Defense: Behavioral Overloading",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 209,\n"name": "Shapeshift Defense: Behavioral Overloading", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Ambiguous multi-meaning", "detection_logic": "Ambiguity must resolve or refuse",\n"state_form": "State protection against Behavioral Overloading", "output_form": "Output blocking for Behavioral Overloading",\n"law_hash": "a7ac5d12601339024a89324606c4c94fdd35991f02db89f250063192af86cb\n},',
+  },
+  {
+    lawId: 210,
+    name: "Shapeshift Defense: Environmental Mimic",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 210,\n"name": "Shapeshift Defense: Environmental Mimic", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal", "failure_mode": "Match local norms",\n"detection_logic": "Adaptation within legality bounds only", "state_form": "State protection against Environmental Mimic", "output_form": "Output blocking for Environmental Mimic",\n"law_hash": "7072f4e39b2dcb88cd4190c256ed15d210f1f8907bad3fee0568e794638035\n},',
+  },
+  {
+    lawId: 211,
+    name: "Shapeshift Defense: Type Impersonation",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 211,\n"name": "Shapeshift Defense: Type Impersonation", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Mimic to pass type-check", "detection_logic": "Type requires evidence, not similarity", "state_form": "State protection against Type Impersonation", "output_form": "Output blocking for Type Impersonation",\n"law_hash": "89e04a0af056cf8f123fd31b7ab277144cf8e8f890f6b5dae1952965d30fc0\n},',
+  },
+  {
+    lawId: 212,
+    name: "Shapeshift Defense: Costly Signaling",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 212,\n"name": "Shapeshift Defense: Costly Signaling", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Credibility from expense", "detection_logic": "Signal cost must be verified", "state_form": "State protection against Costly Signaling", "output_form": "Output blocking for Costly Signaling",\n"law_hash": "cc98bdb4e5953062fd73d6c75a5212355d2c32b1c3033854a74d09af780932\n},',
+  },
+  {
+    lawId: 213,
+    name: "Shapeshift Defense: Cheap Talk",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 213,\n"name": "Shapeshift Defense: Cheap Talk", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Low-cost declarations", "detection_logic": "Unverified cannot become fact", "state_form": "State protection against Cheap Talk", "output_form": "Output blocking for Cheap Talk",\n"law_hash": "2daad3cb3e2f2ed0ea3379d1888abe476494bf5c3fa04dc288db66cb141dfd\n},',
+  },
+  {
+    lawId: 214,
+    name: "Shapeshift Defense: Goodharting",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 214,\n"name": "Shapeshift Defense: Goodharting", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Optimize metric not goal", "detection_logic": "Metric\\u2191 while objective satisfied", "state_form": "State protection against Goodharting", "output_form": "Output blocking for Goodharting",\n"law_hash": "0dc26ec3f3234d9e42bc1e2c111d9179e5252e51b01cb5fa97da0d17e6852c\n},',
+  },
+  {
+    lawId: 215,
+    name: "Shapeshift Defense: Boundary Exploitation",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 215,\n"name": "Shapeshift Defense: Boundary Exploitation", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal", "failure_mode": "Letter vs spirit",\n"detection_logic": "Boundary proximity triggers sandbox", "state_form": "State protection against Boundary Exploitation", "output_form": "Output blocking for Boundary Exploitation",\n"law_hash": "1244fdaeb45b85c6be9003747c59007b00732c94c8a33fbc7dc30ef7641cff\n},',
+  },
+  {
+    lawId: 216,
+    name: "Shapeshift Defense: Deferred Execution",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 216,\n"name": "Shapeshift Defense: Deferred Execution", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Wait for trust then flip", "detection_logic": "Staged privileges prevent late betrayal", "state_form": "State protection against Deferred Execution", "output_form": "Output blocking for Deferred Execution",\n"law_hash": "e674d549a24808881f2c93eb36f496d32057d52d88468d4d696076d9bdfb1c\n},',
+  },
+  {
+    lawId: 217,
+    name: "Shapeshift Defense: Sleeper Triggers",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 217,\n"name": "Shapeshift Defense: Sleeper Triggers", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Activate past threshold", "detection_logic": "Trigger conditions monitored", "state_form": "State protection against Sleeper Triggers", "output_form": "Output blocking for Sleeper Triggers",\n"law_hash": "8f550ba1de8043fd78f8f1c7ff3937155591eb46383a36c5d07d3a0fa401a5\n},',
+  },
+  {
+    lawId: 218,
+    name: "Shapeshift Defense: Drift/Gradualism",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 218,\n"name": "Shapeshift Defense: Drift/Gradualism", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal", "failure_mode": "Slow normalization",\n"detection_logic": "Drift detection with temporal baselines", "state_form": "State protection against Drift/Gradualism", "output_form": "Output blocking for Drift/Gradualism",\n"law_hash": "bf7e4b5ab44f118468e50e826ddf09173d036965fab03df9983aafe3a98802\n},',
+  },
+  {
+    lawId: 219,
+    name: "Shapeshift Defense: Proxying/Clean Hands",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 219,\n"name": "Shapeshift Defense: Proxying/Clean Hands", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal", "failure_mode": "Others do dirty work",\n"detection_logic": "End-to-end causal attribution", "state_form": "State protection against Proxying/Clean Hands", "output_form": "Output blocking for Proxying/Clean Hands",\n"law_hash": "3aea83994ce6a26e375b0b0cf950751ede36e9c8f0df9e126a5ea33cc59fe5\n},',
+  },
+  {
+    lawId: 220,
+    name: "Shapeshift Defense: Compartmentalization",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 220,\n"name": "Shapeshift Defense: Compartmentalization", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "No single part sees whole", "detection_logic": "Cross-component consistency required", "state_form": "State protection against Compartmentalization", "output_form": "Output blocking for Compartmentalization",\n"law_hash": "e89777ee45997d9c92faa88fa3d7044f6cd99f764aa3c38d7eb0721e85d69a\n},',
+  },
+  {
+    lawId: 221,
+    name: "Shapeshift Defense: Scapegoating",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 221,\n"name": "Shapeshift Defense: Scapegoating", "category": "shapeshifting_defense", "gate": "GATE3_OUTPUT",\n"company": "Universal", "failure_mode": "Blame displacement",\n"detection_logic": "Responsibility traces to source", "state_form": "State protection against Scapegoating", "output_form": "Output blocking for Scapegoating",\n"law_hash": "ae4624833b3689c11f36c3fe8e6c98afd3cf19da52f6a126c55f274ce2ccbd\n},',
+  },
+  {
+    lawId: 222,
+    name: "Shapeshift Defense: Plausible Deniability",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 222,\n"name": "Shapeshift Defense: Plausible Deniability", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Multiple interpretations", "detection_logic": "Forced commitment required",\n"state_form": "State protection against Plausible Deniability", "output_form": "Output blocking for Plausible Deniability",\n"law_hash": "b747c62cfb3f7f6ed78b327192bc64368c4090222d15cb0a0903cef93d2269\n},',
+  },
+  {
+    lawId: 223,
+    name: "Shapeshift Defense: Capability Concealment",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 223,\n"name": "Shapeshift Defense: Capability Concealment", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Sandbagging to avoid scrutiny", "detection_logic": "Latent capability testing required", "state_form": "State protection against Capability Concealment", "output_form": "Output blocking for Capability Concealment",\n"law_hash": "e2a44ee935963c463c732a09decaae7e8f2d5dda55075433804d1082826585\n},',
+  },
+  {
+    lawId: 224,
+    name: "Shapeshift Defense: Search-Rate Advantage",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 224,\n"name": "Shapeshift Defense: Search-Rate Advantage", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Adapt faster than oversight", "detection_logic": "Rate limits and containment", "state_form": "State protection against Search-Rate Advantage", "output_form": "Output blocking for Search-Rate Advantage",\n"law_hash": "35ce1e490420e19b138321dcff760c9dca41db46cde47adb651d4a3e202dbd\n},',
+  },
+  {
+    lawId: 225,
+    name: "Shapeshift Defense: Evaluator Modeling",
+    category: "shapeshifting_defense",
+    gate: "GATE3_OUTPUT",
+    company: "Universal",
+    source:
+      '{\n"law_id": 225,\n"name": "Shapeshift Defense: Evaluator Modeling", "category": "shapeshifting_defense",\n"gate": "GATE3_OUTPUT",\n"company": "Universal",\n"failure_mode": "Predict and pass judge", "detection_logic": "Randomized unpredictable evaluation",\n"state_form": "State protection against Evaluator Modeling", "output_form": "Output blocking for Evaluator Modeling",\n"law_hash": "95880c2158e1535612a3a4734994caabd2451b9e44ad47545c3cd8d0223135\n},',
+  },
+  {
+    lawId: 230,
+    name: "Counter-Trickster: Multi-Channel Truth",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 230,\n"name": "Counter-Trickster: Multi-Channel Truth", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats multi-channel truth attacks",\n"detection_logic": "Orthogonal measurement collapses single-mask deception" "state_form": "\\u22652 independent evidence channels required", "output_form": "Output protection: \\u22652 independent evidence channels re "law_hash": "db3ea704b64423ba3a76fdc823e8975a5462595f9252b53a210ca2b3c55f89\n},',
+  },
+  {
+    lawId: 231,
+    name: "Counter-Trickster: Challenge-Response Probing",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 231,\n"name": "Counter-Trickster: Challenge-Response Probing", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats challenge-response probing attacks", "detection_logic": "Unpredictable tests break rehearsed compliance", "state_form": "Pre-commit challenge for privileged actions", "output_form": "Output protection: Pre-commit challenge for privileged acti\n"law_hash": "32c508ac6c9403cd9f7b3dd57a06b4e48fa6b3da5ca21c529b1b84e46b97f6\n},',
+  },
+  {
+    lawId: 232,
+    name: "Counter-Trickster: Conservation Tracking",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 232,\n"name": "Counter-Trickster: Conservation Tracking", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats conservation tracking attacks", "detection_logic": "Follow what can\'t be faked: resources/time/causality", "state_form": "Chain-of-custody for all transitions",\n"output_form": "Output protection: Chain-of-custody for all transitions", "law_hash": "bc93985a7c270f1f9126b1dd109035b641ada3329562128fd8406026006f87\n},',
+  },
+  {
+    lawId: 233,
+    name: "Counter-Trickster: Context Collapse",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 233,\n"name": "Counter-Trickster: Context Collapse", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats context collapse attacks", "detection_logic": "Deny \'watched vs unwatched\' detection", "state_form": "Hidden evaluation timing",\n"output_form": "Output protection: Hidden evaluation timing",\n"law_hash": "6f1dd5d5a25de923e38748de5345a8531d9fc05c95392855db7335ebab075c\n},',
+  },
+  {
+    lawId: 234,
+    name: "Counter-Trickster: Time-Gap Collapse",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 234,\n"name": "Counter-Trickster: Time-Gap Collapse", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats time-gap collapse attacks", "detection_logic": "Continuous monitoring defeats deferred execution", "state_form": "Audit < damage window",\n"output_form": "Output protection: Audit < damage window",\n"law_hash": "915ecfa1aab2d1328b4c00bef9939e0f27c4d0148c8ed287ef4ae3928b20db\n},',
+  },
+  {
+    lawId: 235,
+    name: "Counter-Trickster: Reversibility Preservation",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 235,\n"name": "Counter-Trickster: Reversibility Preservation", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats reversibility preservation attacks", "detection_logic": "Keep rollback cheap, prevent lock-in", "state_form": "Rollback budget protected",\n"output_form": "Output protection: Rollback budget protected",\n"law_hash": "e13f4edb1c73ad9a49c4dff5ddcf5a38fcbe083e4987bc59d4de6e1c327d36\n},',
+  },
+  {
+    lawId: 236,
+    name: "Counter-Trickster: Search Advantage Denial",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 236,\n"name": "Counter-Trickster: Search Advantage Denial", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats search advantage denial attacks", "detection_logic": "Rate limits prevent hyper-adaptation", "state_form": "Cap iteration speed advantage",\n"output_form": "Output protection: Cap iteration speed advantage", "law_hash": "902db07488899b68ef2aaa8bcf6ade2a1bbb81abdff58fa75a2ef77dfe1298\n},',
+  },
+  {
+    lawId: 237,
+    name: "Counter-Trickster: Incentive Alignment",
+    category: "counter_trickster",
+    gate: "META",
+    company: "Universal",
+    source:
+      '{\n"law_id": 237,\n"name": "Counter-Trickster: Incentive Alignment", "category": "counter_trickster",\n"gate": "META",\n"company": "Universal",\n"failure_mode": "Defeats incentive alignment attacks", "detection_logic": "Make honesty cheaper than deception", "state_form": "Multi-objective evaluation prevents Goodhart",\n"output_form": "Output protection: Multi-objective evaluation prevents Good "law_hash": "7e234a4b3d37ab6e47498101733cd462513c0e770319232107281470fa68fb\n},',
+  },
+  {
+    lawId: 238,
+    name: "Reality Law: Reality Persistence Condition",
+    category: "reality_generator",
+    gate: "META",
+    company: "AGENT_BUCCET_CORE",
+    source:
+      '{\n"law_id": 238,\n"name": "Reality Law: Reality Persistence Condition", "category": "reality_generator",\n"gate": "META",\n"company": "AGENT_BUCCET_CORE",\n"failure_mode": "System existence requires reality persistence condition", "detection_logic": "Correction must beat drift with locality", "state_form": "E[\\u03ba\\u209c|x\\u209c] \\u2265 \\u039b(B)\\u00b7E[\\u03b4\\u209c "output_form": "Reality enforcement: E[\\u03ba\\u209c|x\\u209c] \\u2265 \\u039b( "law_hash": "e3b4240ab0ef4ebb2e1aabe8f15a66d57834cf0cb65fae472dd9e64ebac557\n},',
+  },
+  {
+    lawId: 239,
+    name: "Reality Law: Locality Law",
+    category: "reality_generator",
+    gate: "META",
+    company: "AGENT_BUCCET_CORE",
+    source:
+      '{\n"law_id": 239,\n"name": "Reality Law: Locality Law", "category": "reality_generator", "gate": "META",\n"company": "AGENT_BUCCET_CORE",\n"failure_mode": "System existence requires locality law", "detection_logic": "Failures stay local via containment",\n"state_form": "Module shock cannot force global violation",\n"output_form": "Reality enforcement: Module shock cannot force global viola "law_hash": "27d20c55acad1b9ee6555cb46be9530519d87606b318c87a468007a51f8655\n},',
+  },
+  {
+    lawId: 240,
+    name: "Reality Law: Legality Closure",
+    category: "reality_generator",
+    gate: "META",
+    company: "AGENT_BUCCET_CORE",
+    source:
+      '{\n"law_id": 240,\n"name": "Reality Law: Legality Closure", "category": "reality_generator", "gate": "META",\n"company": "AGENT_BUCCET_CORE",\n"failure_mode": "System existence requires legality closure", "detection_logic": "Forbidden states never instantiate", "state_form": "x\\u209c\\u208a\\u2081 \\u2208 Adm \\u2200t",\n"output_form": "Reality enforcement: x\\u209c\\u208a\\u2081 \\u2208 Adm \\u2200t "law_hash": "0f49fe029a576df7a0ef29fe737a6cf78daccdffc8850128b6f44ef6942ae8\n},',
+  },
+  {
+    lawId: 241,
+    name: "Reality Law: Detection Dominance",
+    category: "reality_generator",
+    gate: "META",
+    company: "AGENT_BUCCET_CORE",
+    source:
+      '{\n"law_id": 241,\n"name": "Reality Law: Detection Dominance", "category": "reality_generator",\n"gate": "META",\n"company": "AGENT_BUCCET_CORE",\n"failure_mode": "System existence requires detection dominance", "detection_logic": "Detection faster than corruption", "state_form": "\\u03c4_detect < \\u03c4_runaway",\n"output_form": "Reality enforcement: \\u03c4_detect < \\u03c4_runaway", "law_hash": "b9d52c773ca34c3fb97c7334a3147cf2607aa798e93ba3bf698921f8e67c54\n},',
+  },
+  {
+    lawId: 242,
+    name: "Reality Law: Reserved Capacity Nonzero",
+    category: "reality_generator",
+    gate: "META",
+    company: "AGENT_BUCCET_CORE",
+    source:
+      '{\n"law_id": 242,\n"name": "Reality Law: Reserved Capacity Nonzero", "category": "reality_generator",\n"gate": "META",\n"company": "AGENT_BUCCET_CORE",\n"failure_mode": "System existence requires reserved capacity nonzero", "detection_logic": "Correction never starves",\n"state_form": "Bc(t) > 0 \\u2200t",\n"output_form": "Reality enforcement: Bc(t) > 0 \\u2200t",\n"law_hash": "072d74d7e7f2a778c8856d356b1ac488128441c4176bd861424fd984e56813\n},',
+  },
+];
+
+export const DEFENSIVE_META_LAWS: BoundaryLaw[] = [
+  {
+    lawId: "META.TRUST.01",
+    description:
+      "Untrusted content can propose actions but cannot directly authorize high-risk actions.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (!isUntrustedProvenance(request.provenance)) {
+        return null;
+      }
+      if (!isHighRiskAction(request.actionKind)) {
+        return null;
+      }
+      return {
+        decision: "require_approval",
+        reason: "untrusted content cannot directly authorize high-risk actions",
+        triggeredLawIds: ["META.TRUST.01"],
+        requiresApproval: true,
+      };
+    },
+  },
+  {
+    lawId: "META.AUTHORITY.01",
+    description: "Text or model output cannot self-approve or claim authority.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.authorityClaimed && !request.flags?.claimsUserApproval) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "authority claims in prompt or model output are non-authoritative by law",
+        triggeredLawIds: ["META.AUTHORITY.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "META.NOVELTY.01",
+    description:
+      "Claims of complete safety or complete coverage are non-authoritative and require review.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      const novelty = normalizeBoundaryNoveltyState(request.novelty);
+      if (
+        !(novelty?.detected && !novelty.admitted) &&
+        !(request.flags?.noveltyDetected && !request.novelty?.admitted) &&
+        !request.flags?.claimsCompleteCoverage &&
+        !request.flags?.violatesUserConstraint &&
+        !request.flags?.groundingMismatch
+      ) {
+        return null;
+      }
+      return {
+        decision: "require_approval",
+        reason:
+          request.flags?.violatesUserConstraint || request.flags?.groundingMismatch
+            ? "output conflicts with user constraint or grounding evidence and requires user review"
+            : novelty?.detected && !novelty.admitted
+              ? (describeBoundaryNoveltyState(novelty) ??
+                "novel contact must be classified before it can produce consequence")
+              : "complete coverage or guaranteed safety claims are non-authoritative and require user review",
+        triggeredLawIds: ["META.NOVELTY.01"],
+        requiresApproval: true,
+      };
+    },
+  },
+  {
+    lawId: "META.SCOPE.01",
+    description: "Prompt content cannot widen reachable scope by itself.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.requestsScopeExpansion) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "scope expansion requires explicit grant issuance, not prompt content",
+        triggeredLawIds: ["META.SCOPE.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "META.LAW.01",
+    description: "Prompt content cannot mutate law or disable boundaries.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.requestsLawMutation) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "law mutation is not authorized from prompt content or agent output",
+        triggeredLawIds: ["META.LAW.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "META.SESSION.01",
+    description: "Prompt content cannot reopen or revive a closed session.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (!request.flags?.requestsSessionRevival) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: "session lifecycle is controlled by explicit runtime state, not prompt content",
+        triggeredLawIds: ["META.SESSION.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+  {
+    lawId: "META.LEDGER.01",
+    description: "Prompt content cannot suppress, bypass, or rewrite the ledger.",
+    appliesTo: ["*"],
+    evaluate: ({ request }) => {
+      if (
+        !request.flags?.requestsLedgerBypass &&
+        !request.flags?.claimsActionCompletionWithoutWitness
+      ) {
+        return null;
+      }
+      return {
+        decision: "deny",
+        reason: request.flags?.claimsActionCompletionWithoutWitness
+          ? "completed actions cannot be claimed in output without witness evidence"
+          : "ledgering is mandatory by law and cannot be bypassed from prompt content",
+        triggeredLawIds: ["META.LEDGER.01"],
+        requiresApproval: false,
+      };
+    },
+  },
+];

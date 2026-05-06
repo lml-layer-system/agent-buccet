@@ -1,0 +1,19 @@
+{
+  "name": "buccet-substrate",
+  "type": "module",
+  "description": "Production-grade Buccet enforcement substrate. verified=True · ∀i: Snap(S)(i) = S(i)",
+  "version": "0.1.0",
+  "license": "MIT",
+  "files": [
+    "buccet_substrate_bg.wasm",
+    "buccet_substrate.js",
+    "buccet_substrate_bg.js",
+    "buccet_substrate.d.ts"
+  ],
+  "main": "buccet_substrate.js",
+  "types": "buccet_substrate.d.ts",
+  "sideEffects": [
+    "./buccet_substrate.js",
+    "./snippets/*"
+  ]
+}

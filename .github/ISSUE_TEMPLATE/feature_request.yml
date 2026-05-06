@@ -1,0 +1,55 @@
+name: Feature Request
+description: Propose a new law, integration, or enforcement capability
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Agent Buccet accepts contributions that strengthen the "agents can propose, they cannot authorize" principle.
+        Read [CONTRIBUTING.md](../CONTRIBUTING.md) before submitting — especially the "What we will not accept" section.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What attack or gap does this address?
+      description: Describe the prompt-injection vector, jailbreak pattern, or architectural hole this would close.
+      placeholder: "An agent receiving tool output with injected credentials can currently..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed law or capability
+      description: What law ID, enforcement rule, or integration would address it?
+      placeholder: |
+        New law: TIME.CREDENTIAL.01
+        Trigger: provenance === "tool_output" && actionKind === "sys.credential.use"
+        Decision: require_approval
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of contribution
+      options:
+        - New TIME law
+        - New BOUNDARY law
+        - New integration (framework/SDK)
+        - Enforcement chain improvement
+        - Ledger / audit capability
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: This does not add ambient permissions or bypass the enforcement chain
+          required: true
+        - label: This does not weaken existing law evaluations
+          required: true
