@@ -179,10 +179,7 @@
     "install:agent-buccet": "sh scripts/install-agent-buccet.sh",
     "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts"
   },
-  "dependencies": {
-    "@mariozechner/pi-agent-core": "^0.73.0",
-    "@mariozechner/pi-ai": "^0.73.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
     "@types/node": "^24.7.2",
