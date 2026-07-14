@@ -68,6 +68,16 @@ import {
   renderProofOfWorkTraceText,
 } from "./../src/proof/create-trace.ts";
 import {
+  type BoxGroupInput,
+  type BoxPalette,
+  type BoxState,
+  type BoxVerdict,
+  choiceFromKey,
+  reduceStatusToBox,
+  renderBoxStandaloneHtml,
+  renderBoxText,
+} from "./../src/runtime/box/box-view.ts";
+import {
   type BuccetPromptMode,
   buildCreatePromptEvent,
   renderCreatePromptEvent,
@@ -451,6 +461,7 @@ function usage(stream: "stdout" | "stderr" = "stderr"): never {
     [
       "Defense — law and verdict",
       [
+        "  buccet box [--wire <host>] [--render <file>] [--no-visual]        the one box: agent proposes, you confirm (auto-wires MCP + hooks)",
         "  buccet console                                                    open the unified operator cockpit",
         "  buccet upl list|search|show|diff [...]                            inspect standing law (acceptance + denial)",
         "  buccet upl mute|unmute|remove <upl-id...> [...]                   curate standing law",
@@ -553,7 +564,8 @@ function printBuccetWelcome(): void {
   const C = c;
 
   const defenseLines = [
-    `  ${clrBold("buccet console")}                       ${clrDim("open the unified operator cockpit")}`,
+    `  ${clrBold("buccet box")}                           ${clrDim("the one box — propose · you confirm · everything else hidden")}`,
+    `  ${clrBold("buccet console")}                       ${clrDim("open the full operator cockpit")}`,
     `  ${clrBold("buccet upl list|search|show")}          ${clrDim("inspect standing law")}`,
     `  ${clrBold("buccet swarm list")}                    ${clrDim("see groups awaiting one verdict")}`,
     `  ${clrBold("buccet scope add <path>")}              ${clrDim("grant a scope corridor")}`,
@@ -11358,6 +11370,303 @@ async function handleDoctor(rest: string[] = []) {
   }
 }
 
+// ─── buccet box ──────────────────────────────────────────────────────────────
+// The single compressed surface. One command auto-arms the hooks and points MCP
+// at the same intercept surface, then shows one box: the agent proposes, you
+// confirm. Every other command still exists — it just lives behind the box.
+
+function boxPalette(): BoxPalette {
+  return { reset: c.reset, bold: c.bold, dim: c.dim, green: c.green, red: c.red, cyan: c.cyan };
+}
+
+function printBoxHelp(): void {
+  console.log("");
+  console.log(`  ${clrBold("buccet box")}  ${clrDim("· the single compressed surface")}`);
+  console.log("");
+  console.log("  Opens one box: the agent proposes an action, you allow or deny it.");
+  console.log("  Auto-arms the hooks and points MCP at the same surface. Nothing else");
+  console.log("  to learn — minimize it and forget it.");
+  console.log("");
+  console.log(`  ${clrDim("Flags")}`);
+  console.log(
+    `    --wire <host>     write the buccet MCP config into a host ${clrDim("(cursor|claude-code|claude-desktop|vscode)")}`,
+  );
+  console.log(
+    `    --render <file>   mirror the live box to a specific HTML file ${clrDim("(the visual, bound to the box)")}`,
+  );
+  console.log("    --no-visual       do not mirror the box to an HTML file");
+  console.log("");
+  console.log(`  ${clrDim("In the box")}  1 yes · 2 always · 3 no · 4 never · q quit`);
+  console.log("");
+}
+
+async function handleBox(rest: string[]) {
+  let renderPath: string | undefined;
+  let wireHost: string | undefined;
+  let visual = true;
+  for (let i = 0; i < rest.length; i += 1) {
+    const t = rest[i];
+    if (t === "--render") {
+      renderPath = rest[i + 1];
+      i += 1;
+      continue;
+    }
+    if (t === "--wire") {
+      wireHost = rest[i + 1];
+      i += 1;
+      continue;
+    }
+    if (t === "--no-visual") {
+      visual = false;
+      continue;
+    }
+    if (t === "--help" || t === "-h") {
+      printBoxHelp();
+      return;
+    }
+  }
+
+  const homePath = resolveHome();
+  const home = resolveHomePaths(homePath);
+  let config = await loadConfig(home.configPath);
+  if (!config) {
+    // One box, zero setup: bring the machine up the first time it is opened.
+    await handleInit(["--arm-now"]);
+    config = await loadConfig(home.configPath);
+    if (!config) {
+      console.error("Agent Buccet could not initialize. Run 'buccet init' first.");
+      process.exit(1);
+    }
+  }
+
+  // Capture non-null config fields the async closures below depend on.
+  const actorId = config.actorId;
+  const boundary = await importBoundary(homePath);
+  await ensureRuntimeUplAutoSync({ boundary, home, config });
+  const interceptTarget = { socketPath: home.interceptSocketPath };
+  const palette = boxPalette();
+  const visualPath = visual ? (renderPath ?? path.join(homePath, "box.html")) : undefined;
+
+  // ── connect: the box arms the hooks and points MCP at the same surface ──
+  if (isTTY) process.stdout.write("\x1b[2J\x1b[H");
+  console.log("");
+  console.log(`  ${c.blueBright}${c.bold}▟ Agent Buccet${c.reset}  ${clrDim("the box")}`);
+  console.log("");
+  process.stdout.write(`  ${clrDim("connecting hooks…")}`);
+  let hooksArmed = false;
+  try {
+    if (!(await pathExists(home.nativeLibraryPath))) {
+      await handleHook(["build", "--quiet"]);
+    }
+    const health = await getHookRuntimeHealth(boundary, home);
+    if (!health.healthy) {
+      await handleHook(["start", "--quiet"]);
+    }
+    await waitForHookRuntimeHealthy(boundary, home);
+    hooksArmed = true;
+  } catch {
+    hooksArmed = false;
+  }
+  console.log(
+    `\r  ${hooksArmed ? clrOk("hooks armed") : clrWarn("hooks unavailable — MCP path still live")}                     `,
+  );
+
+  if (wireHost) {
+    try {
+      await handleHost(["attach", wireHost, "--write"]);
+      console.log(`  ${clrOk(`MCP wired into ${wireHost}`)}`);
+    } catch (error) {
+      console.log(
+        `  ${clrWarn(`could not wire ${wireHost}: ${error instanceof Error ? error.message : String(error)}`)}`,
+      );
+    }
+  } else {
+    console.log(`  ${clrDim("connect your agent — paste once into your MCP host:")}`);
+    console.log(
+      `    ${clrDim(`{ "mcpServers": { "buccet": { "command": "buccet", "args": ["mcp"] } } }`)}`,
+    );
+    console.log(
+      `    ${clrDim("or auto-wire:")} ${clrBold("buccet box --wire cursor")} ${clrDim("(claude-code · claude-desktop · vscode)")}`,
+    );
+  }
+  const shieldLabel = hooksArmed ? "strong · armed" : "compat · armed";
+  if (visualPath) {
+    console.log(
+      `  ${clrDim("visual box mirrored to:")} ${visualPath} ${clrDim("(open in a browser)")}`,
+    );
+  }
+  console.log("");
+
+  // ── the loop: one proposal at a time, one question ──
+  let lastVerdict: BoxVerdict | null = null;
+  let lastRenderKey = "";
+  let currentGroups: BoxGroupInput[] = [];
+  let painted = false;
+
+  const buildState = (): BoxState =>
+    reduceStatusToBox({
+      groups: currentGroups,
+      connected: true,
+      shield: shieldLabel,
+      lastVerdict,
+    });
+
+  async function writeVisual(state: BoxState) {
+    if (!visualPath) return;
+    try {
+      await fs.writeFile(visualPath, renderBoxStandaloneHtml(state, { refreshSeconds: 1 }), "utf8");
+    } catch {
+      // Best-effort mirror; the terminal box is the source of truth.
+    }
+  }
+
+  function renderKeyFor(state: BoxState): string {
+    if (state.pending) return `p:${state.pending.groupId}:${state.queued}`;
+    const v = state.lastVerdict;
+    return `idle:${v ? `${v.verb}:${v.target}:${v.allow}:${v.asLaw}` : "none"}`;
+  }
+
+  async function paint(force = false) {
+    const state = buildState();
+    const key = renderKeyFor(state);
+    if (!force && painted && key === lastRenderKey) return;
+    lastRenderKey = key;
+    painted = true;
+    console.log(renderBoxText(state, palette));
+    console.log(
+      state.pending
+        ? `  ${clrDim("> 1 / 2 / 3 / 4   or   y / n   ·   q to quit")}`
+        : `  ${clrDim("watching · q to quit")}`,
+    );
+    await writeVisual(state);
+  }
+
+  async function poll() {
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: { command: "swarm_status" },
+      });
+      if (out.type === "swarm_status") {
+        currentGroups = out.groups as unknown as BoxGroupInput[];
+        await paint();
+      }
+    } catch {
+      // Intercept daemon offline — the box stays quiet.
+    }
+  }
+
+  async function resolve(choiceKey: string) {
+    const state = buildState();
+    if (!state.pending) return;
+    const choice = choiceFromKey(choiceKey);
+    if (!choice) return;
+    const groupId = state.pending.groupId;
+    const input = choice.allow
+      ? {
+          command: "swarm_approve",
+          groupId,
+          issuedBy: actorId,
+          reason: `box: ${choice.hint}`,
+          asLaw: choice.asLaw,
+        }
+      : {
+          command: "swarm_deny",
+          groupId,
+          deniedBy: actorId,
+          reason: `box: ${choice.hint}`,
+          asLaw: choice.asLaw,
+        };
+    try {
+      const out = await boundary.sendBoundaryInterceptServerInput({
+        target: interceptTarget,
+        input: input as Parameters<typeof boundary.sendBoundaryInterceptServerInput>[0]["input"],
+      });
+      if (out.type === "error") {
+        console.log(`  ${clrFail(out.error)}`);
+        return;
+      }
+      lastVerdict = {
+        verb: state.pending.verb,
+        target: state.pending.target,
+        allow: choice.allow,
+        asLaw: choice.asLaw,
+      };
+      // Drop the resolved group locally so the next proposal (or the idle
+      // verdict) surfaces at once; the interval poll reconciles with the server.
+      currentGroups = currentGroups.filter((g) => g.groupId !== groupId);
+      await paint(true);
+    } catch (error) {
+      console.log(`  ${clrFail(error instanceof Error ? error.message : String(error))}`);
+    }
+  }
+
+  // Paint the idle box immediately, then let polling update it in place.
+  await paint(true);
+  const pollHandle = setInterval(() => {
+    void poll();
+  }, 700);
+  await poll();
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: Boolean(process.stdin.isTTY && process.stdout.isTTY),
+  });
+  readline.emitKeypressEvents(process.stdin, rl);
+  const rawModeSupported = process.stdin.isTTY && typeof process.stdin.setRawMode === "function";
+  if (rawModeSupported) {
+    process.stdin.setRawMode(true);
+  }
+
+  const quit = () => {
+    clearInterval(pollHandle);
+    if (rawModeSupported) {
+      try {
+        process.stdin.setRawMode(false);
+      } catch {
+        // ignore
+      }
+    }
+    rl.close();
+    console.log("");
+    console.log(`  ${clrDim("box closed — the boundary stays armed.")}`);
+    process.exit(0);
+  };
+
+  const onKeypress = (input: string, key: { name?: string; ctrl?: boolean; sequence?: string }) => {
+    if (!rawModeSupported) return;
+    if (key.ctrl && key.name === "c") {
+      quit();
+      return;
+    }
+    const token = (input ?? key.sequence ?? "").toLowerCase();
+    if (token === "q") {
+      quit();
+      return;
+    }
+    if (choiceFromKey(token)) {
+      void resolve(token);
+    }
+  };
+  process.stdin.on("keypress", onKeypress);
+
+  // Fallback for terminals without raw mode: typed lines.
+  rl.on("line", (raw) => {
+    const line = raw.trim().toLowerCase();
+    if (line === "q" || line === "quit" || line === "exit") {
+      quit();
+      return;
+    }
+    if (choiceFromKey(line)) {
+      void resolve(line);
+    }
+  });
+  rl.on("close", () => {
+    clearInterval(pollHandle);
+  });
+}
+
 // ─── buccet console ────────────────────────────────────────────────────────
 
 async function handleConsole() {
@@ -11627,7 +11936,9 @@ async function handleConsole() {
             "  24/7 no-questions mode active — UPL is now resolving pending action groups. Press Esc to return to interactive mode.",
           );
         } else {
-          console.log("  Interactive mode restored — the operator CLI will ask the 4 choices again.");
+          console.log(
+            "  Interactive mode restored — the operator CLI will ask the 4 choices again.",
+          );
         }
         console.log(`  reason: ${reason}`);
       }
@@ -13012,6 +13323,10 @@ async function main() {
   }
   if (parsed.command === "init") {
     await handleInit(parsed.rest);
+    return;
+  }
+  if (parsed.command === "box") {
+    await handleBox(parsed.rest);
     return;
   }
   if (parsed.command === "console") {

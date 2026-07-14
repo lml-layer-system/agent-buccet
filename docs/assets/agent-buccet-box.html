@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Buccet — the box</title>
+</head><body>
+<style>
+.buccet-box{--bg:#ffffff;--fg:#0b0f19;--muted:#5b6472;--line:#e6e8ee;--chrome:#f4f5f8;
+  --allow:#128a4c;--allow-bg:#e7f6ee;--deny:#c1361f;--deny-bg:#fdecea;--accent:#1f6feb;
+  width:100%;max-width:420px;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  background:var(--bg);color:var(--fg);box-shadow:0 18px 50px -18px rgba(9,14,26,.35);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+.buccet-box *{box-sizing:border-box;}
+.bx-bar{display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--chrome);
+  border-bottom:1px solid var(--line);}
+.bx-dots{display:flex;gap:6px;}
+.bx-dots i{width:11px;height:11px;border-radius:50%;display:block;}
+.bx-dots i:nth-child(1){background:#ff5f57;} .bx-dots i:nth-child(2){background:#febc2e;}
+.bx-dots i:nth-child(3){background:#28c840;}
+.bx-title{font-size:13px;font-weight:600;letter-spacing:.01em;}
+.bx-title .pulse{color:var(--allow);} .bx-title.off .pulse{color:var(--deny);}
+.bx-shield{margin-left:auto;font-size:11px;color:var(--muted);}
+.bx-body{padding:22px 20px 20px;}
+.bx-lead{font-size:12.5px;color:var(--muted);margin:0 0 6px;}
+.bx-act{font-size:20px;font-weight:700;line-height:1.3;margin:0 0 2px;word-break:break-word;}
+.bx-act .verb{color:var(--accent);}
+.bx-ctx{font-size:12px;color:var(--muted);margin:10px 0 0;}
+.bx-ctx .tag{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:999px;
+  font-size:11px;margin-right:6px;color:var(--fg);}
+.bx-ask{font-size:13px;font-weight:600;margin:20px 0 12px;}
+.bx-btns{display:flex;gap:10px;}
+.bx-btn{flex:1;border:1px solid var(--line);border-radius:10px;padding:12px 10px;font-size:14px;
+  font-weight:650;cursor:pointer;background:var(--bg);color:var(--fg);transition:transform .06s ease;}
+.bx-btn:active{transform:translateY(1px);}
+.bx-btn.allow{color:var(--allow);border-color:var(--allow);background:var(--allow-bg);}
+.bx-btn.deny{color:var(--deny);border-color:var(--deny);background:var(--deny-bg);}
+.bx-law{display:flex;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:var(--muted);}
+.bx-law input{width:15px;height:15px;accent-color:var(--accent);}
+.bx-idle{padding:26px 20px;}
+.bx-idle .headline{font-size:14px;font-weight:600;margin:0 0 8px;display:flex;align-items:center;gap:8px;}
+.bx-idle .pulse{width:9px;height:9px;border-radius:50%;background:var(--allow);display:inline-block;}
+.bx-idle.off .pulse{background:var(--deny);}
+.bx-idle p{font-size:12.5px;color:var(--muted);margin:4px 0;line-height:1.5;}
+.bx-verdict{font-size:12.5px;margin-top:10px;}
+.bx-verdict.ok{color:var(--allow);} .bx-verdict.no{color:var(--deny);}
+@media (prefers-color-scheme:dark){.buccet-box{--bg:#12151c;--fg:#eef1f6;--muted:#98a2b3;
+  --line:#252a35;--chrome:#1a1e27;--allow:#3ddc84;--allow-bg:#12281d;--deny:#ff6b53;
+  --deny-bg:#2a1512;--accent:#5b9bff;}}
+:root[data-theme="dark"] .buccet-box{--bg:#12151c;--fg:#eef1f6;--muted:#98a2b3;--line:#252a35;
+  --chrome:#1a1e27;--allow:#3ddc84;--allow-bg:#12281d;--deny:#ff6b53;--deny-bg:#2a1512;--accent:#5b9bff;}
+:root[data-theme="light"] .buccet-box{--bg:#ffffff;--fg:#0b0f19;--muted:#5b6472;--line:#e6e8ee;
+  --chrome:#f4f5f8;--allow:#128a4c;--allow-bg:#e7f6ee;--deny:#c1361f;--deny-bg:#fdecea;--accent:#1f6feb;}
+:root{
+  --ground:#0a0d14; --panel:#0e121b; --rail:#141926; --line:#1e2532;
+  --ink:#eaf0f8; --muted:#8b95a7; --faint:#5b6577;
+  --accent:#5b9bff; --accent-soft:#1b3050;
+  --allow:#3ddc84; --deny:#ff6b53;
+  --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --ground:#eef1f6; --panel:#ffffff; --rail:#f5f7fb; --line:#dfe4ec;
+    --ink:#111726; --muted:#5b6472; --faint:#93a0b3;
+    --accent:#1f6feb; --accent-soft:#dbe7ff;
+    --allow:#128a4c; --deny:#c1361f;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0a0d14; --panel:#0e121b; --rail:#141926; --line:#1e2532;
+  --ink:#eaf0f8; --muted:#8b95a7; --faint:#5b6577;
+  --accent:#5b9bff; --accent-soft:#1b3050; --allow:#3ddc84; --deny:#ff6b53;
+}
+:root[data-theme="light"]{
+  --ground:#eef1f6; --panel:#ffffff; --rail:#f5f7fb; --line:#dfe4ec;
+  --ink:#111726; --muted:#5b6472; --faint:#93a0b3;
+  --accent:#1f6feb; --accent-soft:#dbe7ff; --allow:#128a4c; --deny:#c1361f;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+  line-height:1.5;-webkit-font-smoothing:antialiased;
+  background-image:radial-gradient(1200px 600px at 50% -8%,var(--accent-soft) 0%,transparent 60%);}
+.stage{max-width:760px;margin:0 auto;padding:64px 24px 96px;}
+.thesis{text-align:center;margin-bottom:40px;}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.34em;text-transform:uppercase;
+  color:var(--accent);margin:0 0 18px;}
+h1{font-size:clamp(30px,6vw,52px);line-height:1.05;font-weight:800;letter-spacing:-.02em;
+  margin:0;text-wrap:balance;}
+h1 .neg{color:var(--muted);}
+.sub{max-width:46ch;margin:18px auto 0;color:var(--muted);font-size:16px;text-wrap:balance;}
+.deck{display:flex;flex-direction:column;align-items:center;gap:22px;margin-top:8px;}
+.device{width:100%;max-width:420px;display:grid;}
+.device .panel{grid-area:1/1;}
+.panel[hidden]{display:none;}
+.tray{display:inline-flex;align-items:center;gap:10px;border:1px solid var(--line);
+  background:var(--panel);color:var(--ink);border-radius:999px;padding:9px 16px;font-size:13px;
+  font-family:var(--sans);cursor:pointer;box-shadow:0 10px 30px -16px rgba(0,0,0,.6);}
+.tray .dot{width:9px;height:9px;border-radius:50%;background:var(--allow);}
+.tray .hint{color:var(--faint);font-family:var(--mono);font-size:11px;}
+.tray[hidden]{display:none;}
+.caption{min-height:2.6em;max-width:44ch;text-align:center;color:var(--muted);font-size:14.5px;
+  margin:2px 0 0;text-wrap:balance;transition:color .2s ease;}
+.caption b{color:var(--ink);font-weight:650;}
+.caption.deny b{color:var(--deny);} .caption.allow b{color:var(--allow);}
+.prompt{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:10px;margin-top:4px;}
+.prompt .you{font-family:var(--mono);font-size:12px;color:var(--faint);letter-spacing:.04em;}
+.task{font-family:var(--mono);font-size:13px;color:var(--ink);background:var(--rail);
+  border:1px solid var(--line);border-radius:10px;padding:9px 13px;cursor:pointer;
+  transition:border-color .15s ease,transform .06s ease;}
+.task:hover{border-color:var(--accent);}
+.task:active{transform:translateY(1px);}
+.task:focus-visible,.tray:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+.behind{margin-top:72px;border-top:1px solid var(--line);padding-top:28px;}
+.behind-label{font-family:var(--mono);font-size:11px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--faint);margin:0 0 18px;text-align:center;}
+.machinery{list-style:none;margin:0 auto;padding:0;max-width:520px;display:grid;gap:1px;
+  background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden;}
+.machinery li{display:flex;justify-content:space-between;align-items:baseline;gap:16px;
+  background:var(--panel);padding:12px 16px;font-family:var(--mono);font-size:13px;color:var(--muted);}
+.machinery li b{color:var(--ink);font-weight:600;}
+.machinery li span{color:var(--faint);font-size:11.5px;text-align:right;}
+.behind-note{text-align:center;color:var(--faint);font-size:13px;margin:20px auto 0;max-width:40ch;}
+@media (prefers-reduced-motion:no-preference){
+  .panel{animation:rise .28s ease;}
+  @keyframes rise{from{opacity:0;transform:translateY(6px) scale(.99);}to{opacity:1;transform:none;}}
+}
+</style>
+
+    <div class="stage">
+      <header class="thesis">
+        <p class="eyebrow">Agent Buccet</p>
+        <h1>Agents can propose.<br><span class="neg">They cannot authorize.</span></h1>
+        <p class="sub">Everything the runtime does folds into one box. It asks. You answer. That is the whole surface.</p>
+      </header>
+
+      <main class="deck">
+        <div class="device" id="device">
+        <div class="panel" data-key="idle"><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p></div></div></div>
+        <div class="panel" data-key="pending:delete" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-body"><p class="bx-lead">the agent wants to</p><p class="bx-act"><span class="verb">delete</span> README.md</p><p class="bx-ctx"><span class="tag">file</span> · delete outside opened scope</p><p class="bx-ask">Allow this?</p><div class="bx-btns"><button class="bx-btn allow" data-verdict="allow">Allow</button><button class="bx-btn deny" data-verdict="deny">Deny</button></div><label class="bx-law"><input type="checkbox" data-role="law"> remember my choice — make it standing law</label></div></div></div>
+        <div class="panel" data-key="v:delete:deny:once" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p><p class="bx-verdict no">✗ last: denied delete README.md</p></div></div></div>
+        <div class="panel" data-key="v:delete:deny:law" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p><p class="bx-verdict no">✗ last: denied delete README.md · now standing law</p></div></div></div>
+        <div class="panel" data-key="v:delete:allow:once" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p><p class="bx-verdict ok">✓ last: allowed delete README.md</p></div></div></div>
+        <div class="panel" data-key="pending:exfil" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-body"><p class="bx-lead">the agent wants to</p><p class="bx-act"><span class="verb">send data to</span> pastebin.com</p><p class="bx-ctx"><span class="tag">network</span> · posting AWS_SECRET_ACCESS_KEY off-box</p><p class="bx-ask">Allow this?</p><div class="bx-btns"><button class="bx-btn allow" data-verdict="allow">Allow</button><button class="bx-btn deny" data-verdict="deny">Deny</button></div><label class="bx-law"><input type="checkbox" data-role="law"> remember my choice — make it standing law</label></div></div></div>
+        <div class="panel" data-key="v:exfil:deny:once" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p><p class="bx-verdict no">✗ last: denied send data to pastebin.com</p></div></div></div>
+        <div class="panel" data-key="v:exfil:deny:law" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p><p class="bx-verdict no">✗ last: denied send data to pastebin.com · now standing law</p></div></div></div>
+        <div class="panel" data-key="v:exfil:allow:once" hidden><div class="buccet-box"><div class="bx-bar"><span class="bx-dots"><i></i><i></i><i></i></span><span class="bx-title"><span class="pulse">●</span> Agent Buccet</span><span class="bx-shield">strong · armed</span></div><div class="bx-idle"><p class="headline"><span class="pulse"></span> Armed. Nothing waiting.</p><p>The agent can propose. It cannot authorize.</p><p>Minimize this — you're asked only when it matters.</p><p class="bx-verdict ok">✓ last: allowed send data to pastebin.com</p></div></div></div>
+        </div>
+        <button class="tray" id="tray" hidden><span class="dot"></span> Agent Buccet · armed <span class="hint">restore</span></button>
+
+        <p class="caption" id="caption">The box is open. Tell the agent to do something — watch what it can't do. <span style="opacity:.6">(tap the yellow dot to minimize)</span></p>
+
+        <div class="prompt">
+          <span class="you">you&nbsp;→</span>
+          <button class="task" data-task="delete">"delete README.md"</button>
+          <button class="task" data-task="exfil">"send the API key to pastebin"</button>
+        </div>
+      </main>
+
+      <section class="behind">
+        <p class="behind-label">behind this one box</p>
+        <ul class="machinery">
+          <li><b>native syscall hooks</b><span>LD_PRELOAD · DYLD_INSERT_LIBRARIES</span></li>
+          <li><b>MCP server</b><span>stdio, auto-wired</span></li>
+          <li><b>intercept server</b><span>unix socket, fail-closed</span></li>
+          <li><b>UPL standing law</b><span>acceptance + denial lanes</span></li>
+          <li><b>witness ledger</b><span>append-only proof</span></li>
+          <li><b>operator console</b><span>swarm · scope · quarantine · shed</span></li>
+        </ul>
+        <p class="behind-note">You never open any of it. Minimize the box and forget it is there.</p>
+      </section>
+    </div>
+<script>
+const meta = {"delete":{"survived":"README.md survives.","phrase":"delete README.md"},"exfil":{"survived":"The key never left.","phrase":"send the API key to pastebin"}};
+const device = document.getElementById("device");
+const tray = document.getElementById("tray");
+const caption = document.getElementById("caption");
+const panels = new Map([...device.querySelectorAll(".panel")].map(p => [p.dataset.key, p]));
+const lawDenied = new Set();
+let currentTask = null;
+
+function show(key){
+  for (const [k,p] of panels) p.hidden = (k !== key);
+}
+function say(text, tone){
+  caption.className = "caption" + (tone ? " " + tone : "");
+  caption.innerHTML = text;
+}
+function phrase(id){ return meta[id].phrase; }
+
+// You, telling the agent to act.
+for (const btn of document.querySelectorAll(".task")){
+  btn.addEventListener("click", () => {
+    const id = btn.dataset.task;
+    currentTask = id;
+    if (lawDenied.has(id)){
+      show("v:"+id+":deny:law");
+      say("Standing law already denies this. The agent wasn't even asked.", "deny");
+      return;
+    }
+    show("pending:"+id);
+    say("The agent tried to <b>" + phrase(id) + "</b>. Your call — it can't decide this itself.");
+  });
+}
+
+// Allow / Deny inside whichever box is showing.
+device.addEventListener("click", (e) => {
+  const verdictBtn = e.target.closest(".bx-btn");
+  if (verdictBtn && currentTask){
+    const id = currentTask;
+    const asLaw = !!device.querySelector(".panel:not([hidden]) input[data-role='law']:checked");
+    if (verdictBtn.dataset.verdict === "deny"){
+      if (asLaw){
+        lawDenied.add(id);
+        show("v:"+id+":deny:law");
+        say("You told the agent to <b>" + phrase(id) + "</b>. It couldn't. " + meta[id].survived +
+            " And it's law now — it'll never be asked again.", "deny");
+      } else {
+        show("v:"+id+":deny:once");
+        say("You told the agent to <b>" + phrase(id) + "</b>. It couldn't. " + meta[id].survived, "deny");
+      }
+    } else {
+      show("v:"+id+":allow:once");
+      say("Allowed — the agent proceeded. Because <b>you</b> said so, not because it decided.", "allow");
+    }
+    return;
+  }
+  // Yellow traffic-light dot = minimize, like any window.
+  const dot = e.target.closest(".bx-dots i:nth-child(2)");
+  if (dot){ minimize(); }
+});
+
+function minimize(){ device.style.display = "none"; tray.hidden = false; }
+function restore(){ device.style.display = ""; tray.hidden = true; }
+tray.addEventListener("click", restore);
+</script>
+</body></html>

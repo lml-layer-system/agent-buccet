@@ -52,6 +52,7 @@ export * from "./boundaries/quarantine.ts";
 export * from "./runtime/wrapper.ts";
 export * from "./integrations/index.ts";
 export * from "./runtime/admission.ts";
+export * from "./runtime/box/box-view.ts";
 export * from "./context/path-memory.ts";
 export {
   BuccetSubstrate as BuccetRustSubstrate,

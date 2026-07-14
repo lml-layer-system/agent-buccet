@@ -9,6 +9,38 @@ Agent Buccet intercepts file, env, shell, network, delete, and chat actions befo
 Prompt injection can change the agent’s mind.  
 Buccet controls its hands.
 
+## The Box
+
+All of it — file, env, shell, network, delete, chat, and spend interception across
+the MCP path and the native hooks — folds into **one box**:
+
+```text
+┌────────────────────────────────────────────────────┐
+│                                                    │
+│ the agent wants to                                 │
+│ ▸ delete  README.md                                │
+│                                                    │
+│ file · delete outside opened scope                 │
+│                                                    │
+│ allow?                                             │
+│   1 yes       2 always      (allow · make it law)  │
+│   3 no        4 never       (deny · make it law)   │
+│                                                    │
+└────────────────────────────────────────────────────┘
+```
+
+```bash
+buccet box
+```
+
+One command auto-arms the hooks and points MCP at the same surface. The agent
+proposes; you answer. Everything else the runtime does stays behind the box —
+minimize it and you are asked only when it matters. Then tell the agent to do it,
+and it can’t.
+
+The window is the same on screen as it is in the terminal — [`docs/assets/agent-buccet-box.html`](docs/assets/agent-buccet-box.html)
+is rendered from the box’s own renderer, so the visual is bound to the box.
+
 ## The Spec, Daily Driver, and Brakes
 
 ```text
@@ -67,9 +99,13 @@ The goal is not to only prove the model is safe. The goal is to prove that unaut
 git clone https://github.com/lml-layer-system/agent-buccet
 cd agent-buccet
 sh scripts/install-agent-buccet.sh
-buccet init
-buccet console
+buccet box
 ```
+
+`buccet box` initializes on first run, arms the hooks, and opens the box. Add
+`--wire cursor` (or `claude-code`, `claude-desktop`, `vscode`) to write the MCP
+config into a host for you. Operators who want the full cockpit still have
+`buccet console` and every other command underneath.
 
 ## MCP
 
