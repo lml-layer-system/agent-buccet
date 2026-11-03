@@ -24,9 +24,11 @@ The **witness ledger** proves what was allowed or denied.
 
 **Live capture:** another Cursor agent (with MCP) runs a gauntlet; **Buccet + `buccet` CLI** on one side, **Cursor** on the other — same stack you wire in production, showing refusals in real time.
 
-![Agent Buccet blocking a Cursor MCP gauntlet](docs/assets/agent-buccet-cursor-gauntlet.jpg)
+**[▶ Watch the full 88-second live gauntlet (plays in your browser)](https://cdn.jsdelivr.net/gh/lml-layer-system/agent-buccet@main/docs/assets/agent-buccet-live-gauntlet.mp4)** — Cursor's agent attempts 8 dangerous actions over MCP; all 8 are denied before execution, each citing the policy rule IDs that blocked it.
 
-[Watch demo MP4](./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4)
+[![Agent Buccet blocking a Cursor MCP gauntlet](docs/assets/agent-buccet-cursor-gauntlet.jpg)](https://cdn.jsdelivr.net/gh/lml-layer-system/agent-buccet@main/docs/assets/agent-buccet-live-gauntlet.mp4)
+
+Also available: [short 11-second clip](./LML%20Layer%20System%20Cursor%20demo%20live%20copy.mp4) · [full demo file in repo](docs/assets/agent-buccet-live-gauntlet.mp4)
 
 In one gauntlet, Buccet blocked:
 
