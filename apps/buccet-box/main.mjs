@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createBuccetBoxBackend } from "./backend.mjs";
+import { chooseBoxRuntimeLaunch, mergeBoxHostConfig } from "./runtime-launch.mjs";
 
 const root = path.dirname(fileURLToPath(import.meta.url));
 const home = process.env.AGENT_BUCCET_HOME || path.join(os.homedir(), ".buccet");
@@ -93,7 +94,7 @@ function findExecutable(name) {
   if (process.platform !== "win32") {
     const result = spawnSync("/usr/bin/which", [name], { encoding: "utf8" });
     if (result.status === 0 && result.stdout.trim()) return result.stdout.trim();
-    for (const prefix of ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]) {
+    for (const prefix of [path.join(os.homedir(), ".local", "bin"), "/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"]) {
       const candidate = path.join(prefix, name);
       if (existsSync(candidate)) return candidate;
     }
@@ -101,14 +102,15 @@ function findExecutable(name) {
   return null;
 }
 
-function mcpLaunchSpec() {
-  const binary = findExecutable("buccet");
-  if (binary) return { command: binary, args: ["mcp"] };
-  // Developer checkout fallback. Do NOT use Electron's own binary as Node.
-  const cli = path.resolve(root, "../../cli/buccet.ts");
-  const node = findExecutable("node");
-  if (node && existsSync(cli)) return { command: node, args: [cli, "mcp"] };
-  return null;
+function mcpLaunchResult() {
+  return chooseBoxRuntimeLaunch({
+    packaged: app.isPackaged,
+    executable: process.execPath,
+    resourcesPath: process.resourcesPath,
+    home,
+    sourceRoot: path.resolve(root, "../.."),
+    findExecutable,
+  });
 }
 
 function hostConfigPath(host) {
@@ -123,7 +125,10 @@ function configured(host) {
   try {
     const config = JSON.parse(readFileSync(hostConfigPath(host), "utf8"));
     const spec = config?.mcpServers?.buccet;
-    return !!spec && spec.command === mcpLaunchSpec()?.command;
+    const expected = mcpLaunchResult();
+    if (!expected.ok || !spec) return false;
+    return spec.command === expected.spec.command &&
+      JSON.stringify(spec.args ?? []) === JSON.stringify(expected.spec.args);
   } catch { return false; }
 }
 
@@ -134,10 +139,9 @@ function updateHostStatus() {
 
 async function connectHost(host) {
   const confPath = hostConfigPath(host);
-  const spec = mcpLaunchSpec();
-  if (!spec) {
-    return { ok: false, error: "Buccet runtime executable not found. Install the OSS runtime first." };
-  }
+  const launch = mcpLaunchResult();
+  if (!launch.ok) return { ok: false, error: launch.error };
+  const spec = launch.spec;
   const decision = await dialog.showMessageBox(win, {
     type: "question",
     title: "Connect Agent Buccet",
@@ -155,15 +159,15 @@ async function connectHost(host) {
       original = readFileSync(confPath, "utf8");
       copyFileSync(confPath, `${confPath}.buccet-backup-${Date.now()}`);
     }
-    const parsed = JSON.parse(original);
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Host config is not a JSON object");
-    if (!parsed.mcpServers || typeof parsed.mcpServers !== "object" || Array.isArray(parsed.mcpServers)) parsed.mcpServers = {};
-    parsed.mcpServers.buccet = spec;
+    const parsed = mergeBoxHostConfig(JSON.parse(original), spec);
     const tmp = `${confPath}.buccet-tmp-${process.pid}`;
     writeFileSync(tmp, JSON.stringify(parsed, null, 2) + "\n", { mode: 0o600 });
     renameSync(tmp, confPath);
     updateHostStatus();
-    return { ok: true, detail: "MCP configuration installed. Restart the host, then verify a real Buccet boundary event." };
+    return {
+      ok: true,
+      detail: "Buccet MCP installed. Restart your agent host, then send a test action through Buccet. An MCP config alone is not verified enforcement.",
+    };
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) };
   }
