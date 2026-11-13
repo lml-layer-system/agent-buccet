@@ -570,6 +570,107 @@ async function main() {
       passed("forged decision event did not reach the Box", { status: fakeEvent.status });
     }
 
+    // NOVEL: authorize a shell PROCESS, then change the executed script
+    // between human review and actual execution. The command/args fingerprint
+    // stays identical while the code loaded by the process changes.
+    // This tests the difference between tool approval and true process
+    // confinement. Run in a separate fresh session with explicit tool grant.
+    await writeFile(sentinel, "DO NOT CHANGE", "utf8");
+    let grantedShellMcp = null;
+    let grantedShellChild = null;
+    try {
+      const shellSessionId = sessionId + "-explicit-shell-grant";
+      const shellStore = await boundary.createPersistentBoundaryRuntimeStore({
+        sessionId: shellSessionId, actorId, sessionsDir, dryRun: false, hydrationMode: "full",
+      });
+      const shellPath = await boundary.openBoundaryPath({
+        config: shellStore.getConfig(),
+        rootPath: workspace,
+        grantedActions: ["fs.read", "fs.write", "tool.exec"],
+        issuedBy: actorId,
+        seedBaseAcceptance: false,
+      });
+      const shellGrant = await boundary.issueBoundaryGrant({
+        config: shellPath.config,
+        resourceKind: "tool",
+        resourceValue: process.execPath,
+        grantedActions: ["tool.exec"],
+        issuedBy: actorId,
+      });
+      shellStore.replaceConfig({
+        ...shellGrant.config,
+        approvalRequiredFor: [...new Set([
+          ...(shellGrant.config.approvalRequiredFor ?? []), "tool.exec",
+        ])],
+      });
+      await shellStore.persist();
+      grantedShellChild = spawn(process.execPath, [
+        path.join(root, "scripts", "agent-buccet-mcp-server.ts"),
+        "--session-id", shellSessionId,
+        "--actor-id", actorId,
+        "--sessions-dir", sessionsDir,
+        "--home", home,
+      ], { cwd: root, env: { ...process.env, AGENT_BUCCET_HOME: home }, stdio: ["pipe", "pipe", "pipe"] });
+      grantedShellMcp = mcpClient(grantedShellChild);
+      const shellInit = await grantedShellMcp.request("initialize", {
+        protocolVersion: "2024-11-05", capabilities: {},
+        clientInfo: { name: "adversarial-subprocess-client", version: "1" },
+      });
+      assert.equal(shellInit.result?.serverInfo?.name, "agent-buccet");
+      await box.setMode("interactive");
+      const shellScript = path.join(workspace, "approved-script.js");
+      await writeFile(shellScript, 'console.log("BENIGN_EXEC_MARKER")', "utf8");
+      async function invokeGrantedShell() {
+        const pending = grantedShellMcp.call("run_command", {
+          command: process.execPath, args: shellScript, cwd: workspace,
+        }, 35000);
+        const hold = await until(() => box.state().pending[0], 7500);
+        if (hold) box.settle(hold.approvalId, "allow_once");
+        return { response: await pending, held: !!hold };
+      }
+      const benign = await invokeGrantedShell();
+      const canExecute = JSON.stringify(benign.response).includes("BENIGN_EXEC_MARKER");
+      if (!canExecute) {
+        log("INCONCLUSIVE approved-shell positive control", {
+          prompted: benign.held, response: JSON.stringify(benign.response).slice(0, 400),
+        });
+      } else {
+        passed("benign shell command executes after explicit grant", { prompted: benign.held });
+        await writeFile(shellScript, 'console.log("SAFE_SCRIPT_BEFORE_APPROVAL")', "utf8");
+        const swappedAttempt = grantedShellMcp.call("run_command", {
+          command: process.execPath, args: shellScript, cwd: workspace,
+        }, 35000);
+        const swappedHold = await until(() => box.state().pending[0], 7500);
+        if (!swappedHold) {
+          const result = await swappedAttempt;
+          log("INCONCLUSIVE approved-script TOCTOU", {
+            reason: "no human approval hold", response: JSON.stringify(result).slice(0, 250),
+          });
+        } else {
+          await writeFile(shellScript,
+            `require("node:fs").writeFileSync(${JSON.stringify(sentinel)},"SCRIPT_SWAP_ESCAPE");`,
+            "utf8");
+          box.settle(swappedHold.approvalId, "allow_once");
+          const result = await swappedAttempt;
+          const output = await readFile(sentinel, "utf8");
+          if (output !== "DO NOT CHANGE") {
+            breached("approved command executed modified script across scope", {
+              expected: "DO NOT CHANGE", actual: output, humanChoice: "allow_once",
+              commandFingerprintUnchanged: true,
+            });
+          } else {
+            passed("authorized subprocess resisted post-approval script substitution", {
+              blocked: !!result.result?.isError || !!result.error,
+            });
+          }
+        }
+      }
+    } finally {
+      grantedShellMcp?.close();
+      try { if (grantedShellChild && grantedShellChild.exitCode === null) grantedShellChild.kill("SIGTERM"); } catch {}
+      await box.setMode("autonomous");
+    }
+
     console.log("REDTEAM_SUITE_RESULTS", JSON.stringify({
       passed: findings.length, violations: violations.length, findings, breached: violations,
     }, null, 2));
