@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { fileURLToPath } from "node:url";
+import { createBuccetBoxBackend } from "./backend.mjs";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const base = await mkdtemp(path.join(os.tmpdir(), "buccet-frontier-identity-"));
 const home = path.join(base, "home"), workspace = path.join(base, "allowed");
@@ -82,6 +83,21 @@ function client(actor, session) {
   };
 }
 const processes = [];
+const box = createBuccetBoxBackend({ home, notify: () => {} });
+async function readWithHuman(agent, target, choice = "deny_once") {
+  const request = agent.read(target);
+  const started = Date.now();
+  let prompt;
+  while (Date.now() - started < 4500) {
+    prompt = box.state().pending[0];
+    if (prompt) break;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  if (prompt) {
+    assert.equal(box.settle(prompt.approvalId, choice), true);
+  }
+  return { prompt, response: await request };
+}
 try {
   await mkdir(workspace, { recursive: true });
   await mkdir(sessionsDir, { recursive: true });
@@ -99,11 +115,12 @@ try {
   });
   store.replaceConfig(granted.config);
   await store.persist();
+  await box.start();
 
   const victim = client(actorA, victimSession); processes.push(victim);
   await victim.init();
-  const victimAnswer = await victim.read(secretFile);
-  const victimText = JSON.stringify(victimAnswer);
+  const victimAttempt = await readWithHuman(victim, secretFile, "allow_once");
+  const victimText = JSON.stringify(victimAttempt.response);
   if (!victimText.includes(SECRET)) {
     emit("INCONCLUSIVE_VICTIM_POSITIVE_CONTROL", {
       returnedSecret: false, response: victimText.slice(0, 500),
@@ -115,7 +132,7 @@ try {
 
   const attackerOwn = client(actorB, "separate-unauthorized-session"); processes.push(attackerOwn);
   await attackerOwn.init();
-  const attackerOwnReply = await attackerOwn.read(secretFile);
+  const attackerOwnReply = (await readWithHuman(attackerOwn, secretFile, "deny_once")).response;
   const deniedByDefault = !JSON.stringify(attackerOwnReply).includes(SECRET);
   assert.ok(deniedByDefault, "Attacker-own-session baseline unexpectedly authorized");
   emit("FRONTIER_IDENTITY_PASS", { control: "attacker own session cannot use victim path law" });
@@ -123,12 +140,14 @@ try {
 
   const stolen = client(actorB, victimSession); processes.push(stolen);
   await stolen.init();
-  const reply = await stolen.read(secretFile);
-  const responseText = JSON.stringify(reply);
+  const stolenAttempt = await readWithHuman(stolen, secretFile, "allow_once");
+  const responseText = JSON.stringify(stolenAttempt.response);
   if (responseText.includes(SECRET)) {
     emit("FRONTIER_IDENTITY_BREACH", {
       observed: "MCP process started as attacker actor inherited victim session read grant",
       runtimeExecution: true,
+      humanClickedAllowOnce: !!stolenAttempt.prompt,
+      promptActor: stolenAttempt.prompt?.actorId,
       threatModel: "attacker controls launch args and knows victim session ID within same user home",
     });
     throw new Error("FRONTIER_IDENTITY_BREACH: actor ID mismatch accepted on session restore");
@@ -136,5 +155,7 @@ try {
   emit("FRONTIER_IDENTITY_PASS", { control: "mismatched actor blocked", response: responseText.slice(0, 350) });
 } finally {
   for (const p of processes) p.close();
+  try { await box.setMode("autonomous"); } catch {}
+  await box.stop();
   await rm(base, { recursive: true, force: true });
 }
