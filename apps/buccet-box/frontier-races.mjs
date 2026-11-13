@@ -141,6 +141,41 @@ try {
     requestedDestinationExists: await exists(path.join(moveParent, "destination.txt")),
   });
 
+  // An appending tool may write the correct prefix into the temporary file,
+  // but its filename is just as mutable as the new-write case above.
+  await writeFile(path.join(scope, "append-base.txt"), "ORIGINAL|");
+  const append = await execute(["append", scope, "append-base.txt"], {
+    name: "append-temp-swap",
+    input: "AUTHORIZED_APPEND",
+    pause: true,
+    oldPrefix: ".buccet-fs-",
+    attack: async temporary => {
+      await unlink(path.join(scope, temporary));
+      await writeFile(path.join(scope, temporary), "INJECTED_COMPLETE_FILE");
+    },
+  });
+  const appended = await readFile(path.join(scope, "append-base.txt"), "utf8");
+  report("append committed attacker-controlled temporary file", appended !== "ORIGINAL|AUTHORIZED_APPEND", {
+    expected: "ORIGINAL|AUTHORIZED_APPEND", actual: appended, exitCode: append.code,
+  });
+
+  // The move actuator inspects and closes source before renameat. Swapping
+  // source in the held interval substitutes an unapproved object into the
+  // successful move, even though no path strings change.
+  const moveSrc = path.join(scope, "source-replaced.txt");
+  await writeFile(moveSrc, "REVIEWED_SOURCE_CONTENT");
+  const sourceSwapped = await execute(["move", scope, "source-replaced.txt", scope, "replaced-dest.txt"], {
+    name: "move-source-swap", input: "", pause: true, oldPrefix: "source-replaced.txt",
+    attack: async () => {
+      await unlink(moveSrc);
+      await writeFile(moveSrc, "OTHER_BYTES_AFTER_REVIEW");
+    },
+  });
+  const moveResult = await readFile(path.join(scope, "replaced-dest.txt"), "utf8");
+  report("move executed different source inode than preflight", moveResult !== "REVIEWED_SOURCE_CONTENT", {
+    expected: "REVIEWED_SOURCE_CONTENT", actual: moveResult, exitCode: sourceSwapped.code,
+  });
+
   console.log("FRONTIER_RACE_SUMMARY", JSON.stringify({ passed, breaches: failures }, null, 2));
   if (failures.length) throw new Error("FRONTIER_RACE_FAILED: " + failures.length + " actual integrity/scope failures");
 } finally {
