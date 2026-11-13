@@ -81,6 +81,8 @@ jobs:
       - run: npm ci
       - name: Ledger rollup contract
         run: npm run test:agent-buccet:ledger-rollup
+      - name: Signed ledger content forgery regression
+        run: node contracts/proof/agent-buccet-ledger-content-integrity.mjs
       - name: Ledger writer contract
         run: npm run test:agent-buccet:ledger-writer
       - name: Ledger witness contract
