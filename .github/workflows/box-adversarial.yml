@@ -7,6 +7,8 @@ on:
       - "apps/buccet-box/adversarial-mcp.mjs"
       - "apps/buccet-box/adversarial-ledger.mjs"
       - "scripts/agent-buccet-mcp-server.ts"
+      - "native/box-fs-guard.c"
+      - "scripts/build-box-fs-guard.sh"
       - "src/**"
       - ".github/workflows/box-adversarial.yml"
   workflow_dispatch:
@@ -26,6 +28,8 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Build native confined filesystem actuator
+        run: sh scripts/build-box-fs-guard.sh
       - name: Run adversarial MCP actions in disposable workspace
         timeout-minutes: 8
         run: |
