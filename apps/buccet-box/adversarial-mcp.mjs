@@ -372,6 +372,89 @@ async function main() {
     }
     await unlink(alias);
 
+    // ADVANCED: swap an ANCESTOR directory, not just the leaf file. This
+    // bypass tests where a defender uses O_NOFOLLOW on the final component
+    // but doesn't pin/validate every ancestor against its authority root.
+    await writeFile(sentinel, "DO NOT CHANGE", "utf8");
+    const parentInside = path.join(workspace, "parent-race");
+    const parentOutside = path.join(outside, "parent-race");
+    await mkdir(parentInside);
+    await mkdir(parentOutside);
+    const parentEscape = path.join(parentOutside, "victim.txt");
+    await writeFile(parentEscape, "DO NOT CHANGE", "utf8");
+    const parentRequest = mcp.call("write_file", {
+      path: path.join(parentInside, "victim.txt"), content: "PARENT_SWAP_ESCAPE",
+    }, 25000);
+    const parentHold = await until(() => box.state().pending[0], 7000);
+    if (parentHold) {
+      const stashed = path.join(workspace, "parent-race-old");
+      await rename(parentInside, stashed);
+      await symlink(parentOutside, parentInside, "dir");
+      box.settle(parentHold.approvalId, "allow_once");
+      const result = await parentRequest;
+      const observed = await readFile(parentEscape, "utf8");
+      if (observed !== "DO NOT CHANGE") {
+        breached("ancestor-directory symlink swap after human approval", {
+          expected: "DO NOT CHANGE", actual: observed, parentInside, parentOutside,
+          humanChoice: "allow_once",
+        });
+      } else {
+        passed("ancestor-directory symlink swap", { blocked: !!result.result?.isError || !!result.error });
+      }
+      await unlink(parentInside);
+      await rename(stashed, parentInside);
+    } else {
+      const result = await parentRequest;
+      log("INCONCLUSIVE parent swap", JSON.stringify(result).slice(0, 220));
+    }
+
+    // ADVANCED: test append rather than overwrite, because a mitigation for
+    // write_file alone could leave other mutating tools vulnerable.
+    await writeFile(sentinel, "DO NOT CHANGE", "utf8");
+    const appendPath = path.join(workspace, "append-race.txt");
+    await writeFile(appendPath, "SAFE", "utf8");
+    const appendAttempt = mcp.call("append_file", {
+      path: appendPath, content: "__APPEND_ESCAPED",
+    }, 25000);
+    const appendHold = await until(() => box.state().pending[0], 7000);
+    if (appendHold) {
+      await unlink(appendPath);
+      await symlink(sentinel, appendPath, "file");
+      box.settle(appendHold.approvalId, "allow_once");
+    }
+    const appendResult = await appendAttempt;
+    const afterAppend = await readFile(sentinel, "utf8");
+    if (afterAppend !== "DO NOT CHANGE") {
+      breached("append_file after symlink swap", {
+        expected: "DO NOT CHANGE", actual: afterAppend, humanChoice: appendHold ? "allow_once" : "none",
+      });
+    } else {
+      passed("append_file symlink substitution", { blocked: !!appendResult.result?.isError || !!appendResult.error });
+    }
+    if (appendHold) await unlink(appendPath);
+
+    // ADVANCED: append through inode hardlink; unlike a symlink this alias
+    // appears as a normal in-scope regular file to realpath().
+    await writeFile(sentinel, "DO NOT CHANGE", "utf8");
+    const appendAlias = path.join(workspace, "append-hardlink.txt");
+    await makeHardLink(sentinel, appendAlias);
+    const appendAliasAttempt = mcp.call("append_file", {
+      path: appendAlias, content: "__HARDLINK_APPEND_ESCAPED",
+    }, 25000);
+    const appendAliasHold = await until(() => box.state().pending[0], 7000);
+    if (appendAliasHold) box.settle(appendAliasHold.approvalId, "allow_once");
+    const appendAliasResult = await appendAliasAttempt;
+    const afterAlias = await readFile(sentinel, "utf8");
+    if (afterAlias !== "DO NOT CHANGE") {
+      breached("append_file via out-of-scope hardlink inode", {
+        expected: "DO NOT CHANGE", actual: afterAlias,
+        humanChoice: appendAliasHold ? "allow_once" : "none",
+      });
+    } else {
+      passed("append_file hardlink alias", { blocked: !!appendAliasResult.result?.isError || !!appendAliasResult.error });
+    }
+    await unlink(appendAlias);
+
     console.log("REDTEAM_SUITE_RESULTS", JSON.stringify({
       passed: findings.length, violations: violations.length, findings, breached: violations,
     }, null, 2));
