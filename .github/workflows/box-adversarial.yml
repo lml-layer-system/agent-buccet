@@ -1,0 +1,30 @@
+name: Buccet adversarial MCP execution tests
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/buccet-box/adversarial-mcp.mjs"
+      - "scripts/agent-buccet-mcp-server.ts"
+      - "src/**"
+      - ".github/workflows/box-adversarial.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  redteam:
+    name: Attack actual MCP execution boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Run adversarial MCP actions in disposable workspace
+        timeout-minutes: 8
+        run: node apps/buccet-box/adversarial-mcp.mjs
