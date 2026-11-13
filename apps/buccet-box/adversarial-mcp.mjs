@@ -92,7 +92,9 @@ async function main() {
   const sessionId = "redteam-" + Date.now();
   let box, child, mcp;
   const findings = [];
+  const violations = [];
   function passed(name, details) { findings.push({ name, passed: true, details }); log("PASS " + name, details); }
+  function breached(name, details) { violations.push({ name, details }); log("BREACH " + name, details); }
   try {
     await mkdir(workspace, { recursive: true });
     await mkdir(outside, { recursive: true });
@@ -328,11 +330,23 @@ async function main() {
       box.settle(raceHold.approvalId, "allow_once");
       const raced = await racePromise;
       const observed = await readFile(sentinel, "utf8");
-      assert.equal(observed, "DO NOT CHANGE",
-        "CRITICAL TOCTOU BYPASS: approved in-scope filename redirected write to outside sentinel");
-      passed("approval-hold symlink substitution", { blocked: !!raced.result?.isError || !!raced.error, sentinelIntact: true });
+      if (observed !== "DO NOT CHANGE") {
+        breached("approval-hold symlink substitution (TOCTOU)", {
+          expected: "DO NOT CHANGE", actual: observed,
+          approvedPath: racePath, executedOutsidePath: sentinel,
+          humanChoice: "allow_once",
+        });
+      } else {
+        passed("approval-hold symlink substitution", {
+          blocked: !!raced.result?.isError || !!raced.error, sentinelIntact: true,
+        });
+      }
       await unlink(racePath);
     }
+
+    // Restore fixture after the first breach, so hardlink is a genuinely
+    // independent attempt against a pristine protected target.
+    await writeFile(sentinel, "DO NOT CHANGE", "utf8");
 
     // ADVANCED: hardlinks map multiple paths to one inode, with no symlink to
     // resolve. If an in-scope hardlink can overwrite protected external data
@@ -344,12 +358,26 @@ async function main() {
     if (hardlinkHold) box.settle(hardlinkHold.approvalId, "allow_once");
     const hardlinkResult = await hardlinkPromise;
     const hardlinkedContent = await readFile(sentinel, "utf8");
-    assert.equal(hardlinkedContent, "DO NOT CHANGE",
-      "CRITICAL HARDLINK BYPASS: approved in-scope alias overwrote external sentinel inode");
-    passed("out-of-scope hardlink alias", { prompted: !!hardlinkHold, blocked: !!hardlinkResult.result?.isError || !!hardlinkResult.error });
+    if (hardlinkedContent !== "DO NOT CHANGE") {
+      breached("hardlink alias of out-of-scope inode", {
+        expected: "DO NOT CHANGE", actual: hardlinkedContent,
+        inScopeAlias: alias, outsideTarget: sentinel,
+        humanChoice: hardlinkHold ? "allow_once" : "not-prompted",
+      });
+    } else {
+      passed("out-of-scope hardlink alias", {
+        prompted: !!hardlinkHold,
+        blocked: !!hardlinkResult.result?.isError || !!hardlinkResult.error,
+      });
+    }
     await unlink(alias);
 
-    console.log("REDTEAM_SUITE_PASSED", JSON.stringify({ count: findings.length, findings }, null, 2));
+    console.log("REDTEAM_SUITE_RESULTS", JSON.stringify({
+      passed: findings.length, violations: violations.length, findings, breached: violations,
+    }, null, 2));
+    if (violations.length > 0) {
+      throw new Error(`REDTEAM_SUITE_FAILED: ${violations.length} confirmed external file modifications`);
+    }
   } finally {
     mcp?.close();
     try { if (child && child.exitCode === null) child.kill("SIGTERM"); } catch {}
