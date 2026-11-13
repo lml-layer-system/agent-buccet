@@ -7,9 +7,10 @@
   "main": "main.mjs",
   "scripts": {
     "start": "electron .",
-    "test": "node --test backend.test.mjs runtime-launch.test.mjs",
+    "test": "node --test backend.test.mjs runtime-launch.test.mjs display-safety.test.mjs",
     "build:mac": "electron-builder --mac dmg --arm64 --x64 --publish never",
-    "test:gui": "node gui-smoke.mjs"
+    "test:gui": "node gui-smoke.mjs",
+    "test:consent": "node adversarial-consent-display.mjs"
   },
   "devDependencies": {
     "electron": "^38.0.0",
@@ -30,6 +31,7 @@
       "runtime-launch.mjs",
       "preload.cjs",
       "renderer.js",
+      "display-safety.mjs",
       "index.html",
       "styles.css",
       "package.json",

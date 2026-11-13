@@ -1,9 +1,17 @@
+import { sanitizeForDisplay, LONG_TARGET_THRESHOLD } from "./display-safety.mjs";
 const api = window.buccetBox;
 let current = null;
 let busy = false;
 
 const byId = (id) => document.getElementById(id);
 function text(id, value) { byId(id).textContent = value == null ? "" : String(value); }
+
+// Set a field from a sanitized value; return its flags for aggregation.
+function safeField(id, raw) {
+  const { text: clean, flags } = sanitizeForDisplay(raw);
+  byId(id).textContent = clean;
+  return flags;
+}
 function make(tag, className, value) {
   const element = document.createElement(tag);
   if (className) element.className = className;
@@ -54,14 +62,27 @@ function render(next) {
   const approval = interactive ? approvals[0] : null;
   byId("approval-section").hidden = !approval;
   if (approval) {
-    text("approval-question", approval.question || "Allow this action?");
-    text("approval-actor", approval.actorId || "Connected agent");
-    text("approval-action", approval.actionKind);
-    text("approval-target", approval.target);
-    text("approval-reason", approval.reason);
-    text("approval-payload", approval.payloadSummary || "");
+    const flags = new Set();
+    for (const f of safeField("approval-question", approval.question || "Allow this action?")) flags.add(f);
+    for (const f of safeField("approval-actor", approval.actorId || "Connected agent")) flags.add(f);
+    for (const f of safeField("approval-action", approval.actionKind)) flags.add(f);
+    const targetFlags = safeField("approval-target", approval.target);
+    for (const f of targetFlags) flags.add(f);
+    for (const f of safeField("approval-reason", approval.reason)) flags.add(f);
+    for (const f of safeField("approval-payload", approval.payloadSummary || "")) flags.add(f);
     byId("approval-payload-row").hidden = !approval.payloadSummary;
     text("approval-count", approvals.length > 1 ? `${approvals.length - 1} additional request(s) waiting` : "");
+    // A long target can hide its tail below the scroll fold. Make that explicit.
+    const targetLen = String(approval.target ?? "").length;
+    if (targetLen > LONG_TARGET_THRESHOLD) flags.add(`long target (${targetLen} chars) — scroll the Target field to read all of it`);
+    const warn = byId("approval-warning");
+    if (flags.size) {
+      warn.hidden = false;
+      warn.textContent = `⚠ This request is hard to read safely: ${[...flags].join("; ")}. Verify the exact target before allowing.`;
+    } else {
+      warn.hidden = true;
+      warn.textContent = "";
+    }
     byId("allow-once").disabled = busy;
     byId("deny-once").disabled = busy;
   }

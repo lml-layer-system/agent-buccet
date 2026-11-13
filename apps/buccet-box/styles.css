@@ -32,7 +32,7 @@ h2 { font-size:14px; margin:12px 0; letter-spacing:-.18px; }
 .detail-list { display:flex; flex-direction:column; gap:8px; margin:12px 0; }
 .detail-list > div { display:grid; grid-template-columns:63px minmax(0,1fr); gap:7px; font-size:11px; }
 .detail-list span { color:var(--muted); }
-.detail-list strong { font-weight:600; overflow-wrap:anywhere; max-height:55px; overflow:auto; }
+.detail-list strong { font-weight:600; overflow-wrap:anywhere; word-break:break-all; white-space:pre-wrap; unicode-bidi:isolate; max-height:132px; overflow:auto; background:#0c1726; border:1px solid #1d3047; border-radius:5px; padding:4px 6px; }
 .actions { display:flex; gap:8px; }
 .btn { border:1px solid transparent; border-radius:8px; cursor:pointer; font-family:inherit; font-weight:700; font-size:11px; padding:9px 12px; transition:filter .13s; }
 .btn:hover { filter:brightness(1.13); }
@@ -64,3 +64,6 @@ footer { display:flex; justify-content:space-between; padding:12px 18px 19px; bo
 .text-button { color:var(--muted); background:transparent; border:0; padding:3px; cursor:pointer; font-size:11px; }
 .text-button:hover { color:var(--ink); }
 button:focus-visible { outline:2px solid #9fbdfd; outline-offset:3px; }
+
+.approval-warning { color:#ffd9a3; background:#3a2a12; border:1px solid #7a5a22; border-radius:7px; padding:7px 9px; font-size:10px; line-height:1.45; margin:10px 0 0; }
+.approval-card h2 { unicode-bidi:isolate; overflow-wrap:anywhere; word-break:break-word; }
