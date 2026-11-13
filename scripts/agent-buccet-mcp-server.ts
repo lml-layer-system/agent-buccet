@@ -467,7 +467,6 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
       recordBoundaryApprovalRequested,
       recordBoundaryBlockedAction,
       recordBoundaryDecisionReturned,
-      recordBoundaryExecutedAction,
       recordBoundaryProposedAction,
     } = boundary;
     // Restore or start the boundary session.
@@ -488,6 +487,7 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
 
     let config = store.getConfig();
     let initialized = false;
+    let actionQueue: Promise<void> = Promise.resolve();
     const inFlight = new Set<Promise<void>>();
 
     function track(p: Promise<void>): void {
@@ -596,7 +596,19 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         // The box is transport, not law. The intercept verdict is the first
         // gate; the canonical action runner is a second, deny-wins gate.
         // The agent cannot authorize itself by calling a separate MCP tool.
-        const box = await loadBuccetBoxBridge();
+        let box: Awaited<ReturnType<typeof loadBuccetBoxBridge>>;
+        try {
+          box = await loadBuccetBoxBridge();
+        } catch {
+          await recordBoundaryBlockedAction(
+            config, boundaryRequest, "Invalid local Box bridge configuration", result.lawIds,
+          );
+          respondResult(id, {
+            content: [{ type: "text", text: "Buccet Box configuration invalid; action blocked." }],
+            isError: true,
+          });
+          return;
+        }
         async function report(decision: "allow" | "deny", reason: string) {
           await box?.record({
             requestId,
@@ -805,13 +817,25 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           return;
         }
 
-        track(
-          handleRequest(req).catch((err) => {
+        // Serialize consequence-bearing calls so concurrent agent requests
+        // cannot race session-law updates or single-use approvals.
+        const run = async () => {
+          try {
+            await handleRequest(req);
+          } catch (err) {
             process.stderr.write(
               `[buccet-mcp] request error: ${err instanceof Error ? err.message : String(err)}\n`,
             );
-          }),
-        );
+            respondError(req.id, -32000, "Buccet enforcement failed closed");
+          }
+        };
+        if (req.method === "tools/call") {
+          const work = actionQueue.then(run);
+          actionQueue = work.catch(() => undefined);
+          track(work);
+        } else {
+          track(run());
+        }
       });
 
       rl.on("close", () => {
