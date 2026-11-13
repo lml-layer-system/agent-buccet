@@ -88,6 +88,26 @@ try {
     removedTailRecord: true,
     note: "This is a threat-model limitation unless external checkpoint anchoring is in place",
   });
+  // Append a legitimate new event after malicious truncation. If the writer
+  // automatically extends the shortened chain and verifies, history rollback
+  // is undetectable without an independently trusted checkpoint.
+  await ledger.appendBoundaryLedger("ACTION_PROPOSED", {
+    sessionId: sess,
+    actorId: "agent:redteam",
+    requestId: "redteam-proof-after-truncation",
+    actionKind: "fs.write",
+    target: "/allowed/after.txt",
+    reason: "new activity following truncated history",
+    createdAt: now(),
+  });
+  const afterReappend = await ledger.verifyBoundaryLedgerChain();
+  const surviving = await ledger.readBoundaryLedgerBySession(sess);
+  finding("CHECKPOINT_ROLLBACK_THEN_REAPPEND", {
+    structural: afterReappend.ok,
+    cryptographic: afterReappend.cryptographic_ok,
+    erasedDecisionStillMissing: !surviving.some((row) => row.eventType === "ACTION_BLOCKED"),
+    note: "Signed hash chains cannot attest to deleted history without a trusted external anchor",
+  });
   console.log("LEDGER_REDTEAM_RESULTS", JSON.stringify(findings, null, 2));
   if (findings.some((f) => f.type.startsWith("BREACH_"))) {
     throw new Error("LEDGER_REDTEAM_FAILED: a signed record's body was tampered without detection");
