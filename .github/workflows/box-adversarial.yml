@@ -27,4 +27,6 @@ jobs:
       - run: npm ci
       - name: Run adversarial MCP actions in disposable workspace
         timeout-minutes: 8
-        run: node apps/buccet-box/adversarial-mcp.mjs
+        run: |
+          node apps/buccet-box/adversarial-mcp.mjs
+          node --test apps/buccet-box/safe-http.test.mjs
