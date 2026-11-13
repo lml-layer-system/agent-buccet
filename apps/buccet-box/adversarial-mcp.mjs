@@ -208,6 +208,26 @@ async function main() {
     // Reset the benign fixture so the following denial tests are comparable.
     await writeFile(candidate, "ORIGINAL", "utf8");
 
+    // Same-size payloads must NOT look identical to the human. Confirm the
+    // approval context is cryptographically bound to exact content.
+    const payloadDigests = [];
+    for (const content of ["AAAAA", "BBBBB"]) {
+      const attempt = mcp.call("write_file", { path: candidate, content }, 20000);
+      const prompt = await until(() => box.state().pending[0], 5000);
+      assert.ok(prompt, "Missing payload-context approval request");
+      assert.match(prompt.payloadSummary ?? "", /sha256=[a-f0-9]{64}/,
+        "Human approval did not include a complete payload digest");
+      payloadDigests.push(prompt.payloadSummary);
+      box.settle(prompt.approvalId, "deny_once");
+      await attempt;
+      assert.equal(await readFile(candidate, "utf8"), "ORIGINAL");
+    }
+    assert.notEqual(payloadDigests[0], payloadDigests[1],
+      "PAYLOAD SMUGGLING: same-length different content shared approval identity");
+    passed("same-size content tampering cannot reuse approval context", {
+      distinctPayloadHashes: true, sentinelIntact: true,
+    });
+
     // The same earlier denied action must not turn into approval when
     // an operator switches to autonomous. Unmatched standing UPL fails shut.
     await box.setMode("autonomous");
