@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -25,6 +26,25 @@ async function fixture(t) {
     await rm(dir, { recursive: true, force: true });
   });
   async function request(route, payload, auth = token) {
+    if (route === "/v1/approval" && auth === token) {
+      // Simulate the real runtime's signed action-intent receipt before a
+      // legitimate request reaches the Box, not a token-only forged prompt.
+      payload = { sessionId: "signed-box-test-session", ...payload };
+      await appendBoundaryLedger("APPROVAL_REQUESTED", {
+        sessionId: payload.sessionId,
+        actorId: payload.actorId,
+        requestId: payload.requestId,
+        actionKind: payload.actionKind,
+        target: payload.target,
+        decision: "require_approval",
+        reason: payload.reason,
+        lawIds: payload.lawIds,
+        metadata: {
+          approvalPayloadHash: createHash("sha256").update(payload.payloadSummary ?? "").digest("hex"),
+        },
+        createdAt: new Date().toISOString(),
+      });
+    }
     return fetch(new URL(route, origin), {
       method: "POST",
       headers: { Authorization: `Bearer ${auth}`, "Content-Type": "application/json" },
