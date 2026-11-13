@@ -8,11 +8,13 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test backend.test.mjs runtime-launch.test.mjs",
-    "build:mac": "electron-builder --mac dmg --arm64 --x64 --publish never"
+    "build:mac": "electron-builder --mac dmg --arm64 --x64 --publish never",
+    "test:gui": "node gui-smoke.mjs"
   },
   "devDependencies": {
     "electron": "^38.0.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "playwright": "^1.58.2"
   },
   "productName": "Agent Buccet Box",
   "build": {
