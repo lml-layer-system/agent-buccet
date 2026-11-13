@@ -32,7 +32,8 @@
       "renderer.js",
       "index.html",
       "styles.css",
-      "package.json"
+      "package.json",
+      "verified-events.mjs"
     ],
     "extraResources": [
       {
