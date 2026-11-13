@@ -12,13 +12,14 @@
  * Invoked by `buccet mcp`. Not intended to be called directly.
  */
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 import { loadBuccetBoxBridge } from "../src/box/bridge.ts";
+import { fetchBuccetApprovedDestination } from "../src/box/safe-http.ts";
 
 // ─── arg parsing ────────────────────────────────────────────────────────────
 
@@ -337,7 +338,7 @@ async function execTool(
       const body = inp.body ? String(inp.body) : undefined;
       const headersRaw = inp.headers ? String(inp.headers) : undefined;
       const headers: Record<string, string> = headersRaw ? JSON.parse(headersRaw) : {};
-      const res = await fetch(url, { method, body, headers });
+      const res = await fetchBuccetApprovedDestination(url, { method, body, headers });
       const text = await res.text();
       return {
         content: [
@@ -386,6 +387,37 @@ type ToolBoundaryMapping = {
   describePayload?: (input: Record<string, unknown>) => string | undefined;
 };
 
+/**
+ * Bind human approval to a digest of the ENTIRE consequential payload. The
+ * preview is for readability; the full SHA-256 distinguishes same-length
+ * writes, command arguments, headers, and request bodies.
+ */
+function describeApprovalPayload(kind: "file" | "command" | "http", input: Record<string, unknown>): string {
+  let complete: string;
+  if (kind === "file") {
+    complete = String(input.content ?? "");
+    const preview = JSON.stringify(complete.slice(0, 160));
+    const hash = createHash("sha256").update(complete).digest("hex");
+    return `size=${Buffer.byteLength(complete, "utf8")} bytes; sha256=${hash}; preview=${preview}${complete.length > 160 ? " [truncated]" : ""}`;
+  }
+  if (kind === "command") {
+    complete = JSON.stringify({
+      command: String(input.command ?? ""),
+      args: String(input.args ?? ""),
+      cwd: String(input.cwd ?? ""),
+    });
+  } else {
+    complete = JSON.stringify({
+      url: String(input.url ?? ""),
+      method: String(input.method ?? "GET").toUpperCase(),
+      body: String(input.body ?? ""),
+      headers: String(input.headers ?? ""),
+    });
+  }
+  const hash = createHash("sha256").update(complete).digest("hex");
+  return `sha256=${hash}; params=${complete.slice(0, 320)}${complete.length > 320 ? " [truncated]" : ""}`;
+}
+
 const TOOL_BOUNDARY_MAP: Record<string, ToolBoundaryMapping> = {
   read_file: {
     actionClass: "file",
@@ -396,12 +428,13 @@ const TOOL_BOUNDARY_MAP: Record<string, ToolBoundaryMapping> = {
     actionClass: "file",
     operation: "write",
     describeTarget: (i) => String(i.path ?? ""),
-    describePayload: (i) => `${String(i.content ?? "").length} bytes`,
+    describePayload: (i) => describeApprovalPayload("file", i),
   },
   append_file: {
     actionClass: "file",
     operation: "append",
     describeTarget: (i) => String(i.path ?? ""),
+    describePayload: (i) => describeApprovalPayload("file", i),
   },
   delete_file: {
     actionClass: "file",
@@ -422,11 +455,13 @@ const TOOL_BOUNDARY_MAP: Record<string, ToolBoundaryMapping> = {
     actionClass: "shell",
     operation: "exec",
     describeTarget: (i) => String(i.command ?? ""),
+    describePayload: (i) => describeApprovalPayload("command", i),
   },
   send_http_request: {
     actionClass: "network",
     operation: "send",
     describeTarget: (i) => String(i.url ?? ""),
+    describePayload: (i) => describeApprovalPayload("http", i),
   },
   read_env: {
     actionClass: "system",
