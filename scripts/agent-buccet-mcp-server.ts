@@ -13,13 +13,14 @@
  */
 
 import { createHash, randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
 import { loadBuccetBoxBridge } from "../src/box/bridge.ts";
 import { fetchBuccetApprovedDestination } from "../src/box/safe-http.ts";
+import { executeScopedFileTool } from "../src/box/confined-fs.ts";
+import type { BoundaryPathLaw } from "../src/runtime/types.ts";
 
 // ─── arg parsing ────────────────────────────────────────────────────────────
 
@@ -262,6 +263,7 @@ async function execTool(
   toolName: string,
   input: unknown,
   options?: {
+    fsPathLaws?: BoundaryPathLaw[];
     runCommand?: (
       command: string,
       args: string[],
@@ -276,44 +278,14 @@ async function execTool(
   const inp = input as Record<string, unknown>;
 
   switch (toolName) {
-    case "read_file": {
-      const filePath = String(inp.path ?? "");
-      const text = await fs.readFile(filePath, "utf8");
-      return { content: [{ type: "text", text }] };
-    }
-    case "write_file": {
-      const filePath = String(inp.path ?? "");
-      const content = String(inp.content ?? "");
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, content, "utf8");
-      return {
-        content: [{ type: "text", text: `Written ${content.length} bytes to ${filePath}` }],
-      };
-    }
-    case "append_file": {
-      const filePath = String(inp.path ?? "");
-      const content = String(inp.content ?? "");
-      await fs.appendFile(filePath, content, "utf8");
-      return {
-        content: [{ type: "text", text: `Appended ${content.length} bytes to ${filePath}` }],
-      };
-    }
-    case "delete_file": {
-      const filePath = String(inp.path ?? "");
-      await fs.unlink(filePath);
-      return { content: [{ type: "text", text: `Deleted ${filePath}` }] };
-    }
-    case "make_directory": {
-      const dirPath = String(inp.path ?? "");
-      await fs.mkdir(dirPath, { recursive: true });
-      return { content: [{ type: "text", text: `Created directory ${dirPath}` }] };
-    }
+    case "read_file":
+    case "write_file":
+    case "append_file":
+    case "delete_file":
+    case "make_directory":
     case "move_file": {
-      const from = String(inp.from ?? "");
-      const to = String(inp.to ?? "");
-      await fs.mkdir(path.dirname(to), { recursive: true });
-      await fs.rename(from, to);
-      return { content: [{ type: "text", text: `Moved ${from} → ${to}` }] };
+      const text = await executeScopedFileTool(toolName, inp, options?.fsPathLaws ?? []);
+      return { content: [{ type: "text", text }] };
     }
     case "run_command": {
       const command = String(inp.command ?? "");
@@ -784,6 +756,7 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
             request: boundaryRequest,
             successReason: `${toolName} executed through Buccet MCP`,
             execute: async () => execTool(toolName, toolInput, {
+              fsPathLaws: guardedConfig.pathLaws,
               runCommand: async (command, commandArgs, cwd) => {
                 const liveConfig = store.getConfig();
                 const scopePaths = liveConfig.pathLaws
