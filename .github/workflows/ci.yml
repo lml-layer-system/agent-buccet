@@ -20,8 +20,11 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
+      - run: npm ci
       - name: Desktop bridge interaction contract
         run: node --test apps/buccet-box/backend.test.mjs
+      - name: MCP-side Box bridge contract
+        run: node --import tsx --test apps/buccet-box/bridge.test.mjs
       - name: Desktop source syntax
         run: |
           node --check apps/buccet-box/backend.mjs
