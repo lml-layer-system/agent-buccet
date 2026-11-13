@@ -6,6 +6,8 @@ on:
     paths:
       - "apps/buccet-box/adversarial-mcp.mjs"
       - "apps/buccet-box/adversarial-ledger.mjs"
+      - "apps/buccet-box/approval-flood.test.mjs"
+      - "apps/buccet-box/backend.mjs"
       - "scripts/agent-buccet-mcp-server.ts"
       - "native/box-fs-guard.c"
       - "scripts/build-box-fs-guard.sh"
@@ -35,6 +37,18 @@ jobs:
         run: |
           node apps/buccet-box/adversarial-mcp.mjs
           node --test apps/buccet-box/safe-http.test.mjs
+
+  box-approval-pressure:
+    name: Attack Box approval capacity and cancellation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Run real local HTTP approval flood in isolated home
+        run: node --test apps/buccet-box/approval-flood.test.mjs
 
   proof-integrity:
     name: Attack signed proof contents
