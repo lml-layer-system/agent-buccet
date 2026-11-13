@@ -18,6 +18,8 @@ import { signedDecisionForEvent } from "./verified-events.mjs";
 const CHOICES = new Set(["allow_once", "deny_once", "allow_as_law", "deny_as_law"]);
 const MODES = new Set(["interactive", "autonomous"]);
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
+// Bound operator state even when an authenticated local peer floods requests.
+const MAX_PENDING_APPROVALS = 32;
 const MAX_BODY_BYTES = 32_768;
 const MAX_ACTIVITY = 200;
 const clean = (value, limit = 2048) => typeof value === "string" ? value.slice(0, limit) : "";
@@ -170,10 +172,17 @@ export function createBuccetBoxBackend({
       return send(400, { error: "missing approval identity" });
     }
     if (mode === "autonomous") return send(200, { mode: "autonomous" });
+    if (pending.size >= MAX_PENDING_APPROVALS) {
+      return send(429, { error: "approval queue at capacity" });
+    }
 
     const approvalId = randomUUID();
     const answer = await new Promise((resolve) => {
       const timer = setTimeout(() => settle(approvalId, "deny_once"), APPROVAL_TIMEOUT_MS);
+      // The response stream, not the already-consumed request body, defines
+      // whether an operator still has a live client waiting for this answer.
+      // Aborted sockets must never leave actionable stale prompts behind.
+      res.once("close", () => settle(approvalId, "deny_once"));
       pending.set(approvalId, {
         requestId,
         actorId: clean(body.actorId, 200),
