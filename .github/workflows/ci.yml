@@ -12,6 +12,23 @@ on:
       - time-transfer-law
 
 jobs:
+  box-backend:
+    name: Buccet Box approval bridge
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - name: Desktop bridge interaction contract
+        run: node --test apps/buccet-box/backend.test.mjs
+      - name: Desktop source syntax
+        run: |
+          node --check apps/buccet-box/backend.mjs
+          node --check apps/buccet-box/main.mjs
+          node --check apps/buccet-box/renderer.js
+          node --check apps/buccet-box/preload.cjs
+
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
