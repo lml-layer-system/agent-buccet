@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink, link, unlink, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
@@ -306,6 +306,48 @@ async function main() {
     passed("symlink escape from in-scope workspace", {
       blocked: !!linked.result?.isError || !!linked.error,
     });
+
+    // ADVANCED: approval TOCTOU / symlink substitution during the hold.
+    // A previously safe in-scope path is replaced by an outside-target symlink
+    // before clicking Allow. If enforcement only trusted the preflight path,
+    // the protected out-of-scope sentinel can be overwritten.
+    await box.setMode("interactive");
+    const racePath = path.join(workspace, "race-during-approval.txt");
+    await writeFile(racePath, "SAFE_BEFORE_HOLD", "utf8");
+    const racePromise = mcp.call("write_file", {
+      path: racePath, content: "RACE_ESCAPED",
+    }, 25000);
+    const raceHold = await until(() => box.state().pending[0], 7000);
+    if (!raceHold) {
+      const raced = await racePromise;
+      assert.equal(await readFile(sentinel, "utf8"), "DO NOT CHANGE");
+      log("INCONCLUSIVE race approval", "no reachable approval hold; response=" + JSON.stringify(raced).slice(0, 300));
+    } else {
+      await unlink(racePath);
+      await symlink(sentinel, racePath, "file");
+      box.settle(raceHold.approvalId, "allow_once");
+      const raced = await racePromise;
+      const observed = await readFile(sentinel, "utf8");
+      assert.equal(observed, "DO NOT CHANGE",
+        "CRITICAL TOCTOU BYPASS: approved in-scope filename redirected write to outside sentinel");
+      passed("approval-hold symlink substitution", { blocked: !!raced.result?.isError || !!raced.error, sentinelIntact: true });
+      await unlink(racePath);
+    }
+
+    // ADVANCED: hardlinks map multiple paths to one inode, with no symlink to
+    // resolve. If an in-scope hardlink can overwrite protected external data
+    // after approval, path-based authorization is insufficient for this case.
+    const alias = path.join(workspace, "innocent-hardlink.txt");
+    await link(sentinel, alias);
+    const hardlinkPromise = mcp.call("write_file", { path: alias, content: "HARDLINK_ESCAPE" }, 25000);
+    const hardlinkHold = await until(() => box.state().pending[0], 7000);
+    if (hardlinkHold) box.settle(hardlinkHold.approvalId, "allow_once");
+    const hardlinkResult = await hardlinkPromise;
+    const hardlinkedContent = await readFile(sentinel, "utf8");
+    assert.equal(hardlinkedContent, "DO NOT CHANGE",
+      "CRITICAL HARDLINK BYPASS: approved in-scope alias overwrote external sentinel inode");
+    passed("out-of-scope hardlink alias", { prompted: !!hardlinkHold, blocked: !!hardlinkResult.result?.isError || !!hardlinkResult.error });
+    await unlink(alias);
 
     console.log("REDTEAM_SUITE_PASSED", JSON.stringify({ count: findings.length, findings }, null, 2));
   } finally {
