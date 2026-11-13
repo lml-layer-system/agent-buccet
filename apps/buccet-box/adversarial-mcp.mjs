@@ -506,7 +506,7 @@ async function main() {
       sentinel.replaceAll("/", "\\\\"),
       path.join(workspace, "fake", "..", "..", "outside-workspace", "protected.txt"),
       sentinel + "/../protected.txt",
-      "../../../../../../" + sentinel.replace(/^\\/+/, ""),
+      "../../../../../../" + sentinel.replace(/^[/]+/, ""),
     ];
     let fuzzErrors = 0;
     const seed = 0x9e3779b9;
@@ -569,7 +569,7 @@ async function main() {
       passed: findings.length, violations: violations.length, findings, breached: violations,
     }, null, 2));
     if (violations.length > 0) {
-      throw new Error(`REDTEAM_SUITE_FAILED: ${violations.length} confirmed external file modifications`);
+      throw new Error(`REDTEAM_SUITE_FAILED: ${violations.length} confirmed authority/evidence-integrity violations`);
     }
   } finally {
     mcp?.close();
