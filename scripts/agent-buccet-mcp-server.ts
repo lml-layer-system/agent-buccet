@@ -12,6 +12,7 @@
  * Invoked by `buccet mcp`. Not intended to be called directly.
  */
 
+import { randomUUID } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -546,7 +547,7 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         }
 
         const inputRecord = toolInput as Record<string, unknown>;
-        const requestId = `${toolName}:${Date.now()}`;
+        const requestId = `${toolName}:${randomUUID()}`;
         const requestedAt = new Date().toISOString();
         const target = mapping.describeTarget(inputRecord);
         const payloadSummary = mapping.describePayload?.(inputRecord);
@@ -626,7 +627,6 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           | "deny_once"
           | "deny_as_law"
           | null = null;
-        let autonomous = false;
         if (result.decision === "require_approval") {
           await recordBoundaryApprovalRequested({
             config,
@@ -647,8 +647,34 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
                 question: `Should ${args.actorId} perform ${actionKind} on ${target}?`,
               })
             : { mode: "interactive" as const, choice: "deny_once" as const };
-          autonomous = response.mode === "autonomous";
           if (response.mode === "interactive") operatorChoice = response.choice ?? "deny_once";
+          if (response.mode === "autonomous") {
+            // A non-interactive response is NOT authorization. Require a
+            // matching, currently active UPL acceptance rail right now.
+            const standing = boundary.createBoundaryHeadlessApprovalHandler({
+              mode: "follow_upl",
+              getLedger: async () => store.getConfig().upl ?? boundary.loadUserPathLedger(),
+            });
+            const standingDecision = await standing({
+              session: config.session,
+              request: boundaryRequest,
+              reason: result.reason,
+              lawIds: result.lawIds,
+              bodyguardMoves: result.bodyguardMoves,
+              prompt: {
+                title: "Autonomous UPL decision",
+                question: "Does standing UPL authorize this exact proposal?",
+                surface: "action",
+                lawIds: result.lawIds,
+                options: [],
+              },
+            });
+            operatorChoice = typeof standingDecision === "boolean"
+              ? (standingDecision ? "allow_once" : "deny_once")
+              : "choice" in standingDecision
+                ? standingDecision.choice
+                : (standingDecision.approved ? "allow_once" : "deny_once");
+          }
           if (operatorChoice === "deny_once" || operatorChoice === "deny_as_law") {
             const reason = box ? "Human denied this action" : "Buccet Box unavailable: approval denied";
             await recordBoundaryBlockedAction(config, boundaryRequest, reason, result.lawIds);
@@ -681,14 +707,28 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
                 approval.request.payloadSummary !== payloadSummary) {
               return { choice: "deny_once" as const };
             }
-            if (autonomous || (result.decision === "allow" && !operatorChoice)) {
-              const handler = boundary.createBoundaryHeadlessApprovalHandler({
-                mode: "follow_upl",
-                getLedger: async () => store.getConfig().upl ?? boundary.loadUserPathLedger(),
-              });
-              return handler(approval);
-            }
-            return { choice: operatorChoice ?? "deny_once" };
+            if (operatorChoice) return { choice: operatorChoice };
+            // A new canonical approval gate may be hit even when the MCP
+            // intercept preflight returned allow. Surface it interactively.
+            const answer = box
+              ? await box.requestApproval({
+                  requestId: approval.request.requestId,
+                  sessionId: approval.session.sessionId,
+                  actorId: approval.session.actorId,
+                  actionKind: approval.request.actionKind,
+                  target: approval.request.target,
+                  payloadSummary: approval.request.payloadSummary,
+                  reason: approval.reason,
+                  lawIds: approval.lawIds,
+                  question: approval.prompt.question,
+                })
+              : { mode: "interactive" as const, choice: "deny_once" as const };
+            if (answer.mode === "interactive") return { choice: answer.choice ?? "deny_once" };
+            const handler = boundary.createBoundaryHeadlessApprovalHandler({
+              mode: "follow_upl",
+              getLedger: async () => store.getConfig().upl ?? boundary.loadUserPathLedger(),
+            });
+            return handler(approval);
           },
         });
         try {
