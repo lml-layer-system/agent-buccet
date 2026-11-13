@@ -160,6 +160,9 @@ export function createBuccetBoxBackend({
   }
 
   async function handle(req, res) {
+    // An in-flight request is bound to the exact Box server generation.
+    // A restart or mode transition must not resurrect approval authority.
+    const requestServer = server;
     const send = (code, body) => {
       if (res.writableEnded || res.destroyed) return;
       res.writeHead(code, {
@@ -214,6 +217,12 @@ export function createBuccetBoxBackend({
     if (!verified) {
       return send(422, { error: "no verified pending action for approval" });
     }
+    // Verification may have taken time. A changed mode or Box generation
+    // invalidates the original interactive hold before any claim is created.
+    if (server !== requestServer || !server?.listening || res.destroyed) {
+      return send(503, { error: "approval bridge no longer active" });
+    }
+    if (mode !== "interactive") return send(200, { mode: "autonomous" });
     const { requestId, actionKind, target } = verified;
     // The signed ledger proves the proposal existed, but cannot prove its
     // receipt is being presented for the first time. Claim its identity once,
@@ -234,7 +243,8 @@ export function createBuccetBoxBackend({
       console.error("[buccet-box] approval claim persistence failure:", error);
       return send(503, { error: "approval claim storage unavailable" });
     }
-    if (res.destroyed) return;
+    if (res.destroyed || server !== requestServer || !server?.listening) return;
+    if (mode !== "interactive") return send(200, { mode: "autonomous" });
 
     const approvalId = randomUUID();
     const answer = await new Promise((resolve) => {
