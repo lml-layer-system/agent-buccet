@@ -720,6 +720,22 @@ async function writeStandaloneReadme() {
   await fs.writeFile(path.join(outDir, "README.md"), sourceReadme, "utf8");
 }
 
+async function writePrebuiltConfinedFileGuard() {
+  if (process.platform === "win32") {
+    // Windows filesystem enforcement requires a separate native backend.
+    // The public MCP filesystem executor fails closed without that backend.
+    return;
+  }
+  const targetDir = path.join(outDir, "native", "build");
+  await mkdirp(targetDir);
+  await runCommand(process.env.CC || "cc", [
+    "-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+    "-D_FILE_OFFSET_BITS=64",
+    path.join(outDir, "native", "box-fs-guard.c"),
+    "-o", path.join(targetDir, "box-fs-guard"),
+  ], repoRoot);
+}
+
 async function writePrebuiltNativeHook() {
   const deepInterceptDir = path.join(outDir, "native", "deep-intercept");
   const buildScriptPath = path.join(deepInterceptDir, "build.sh");
@@ -1070,6 +1086,7 @@ async function main() {
     );
   }
   await copyDir(sourceNativeDir, path.join(outDir, "native"));
+  await writePrebuiltConfinedFileGuard();
   await writePrebuiltNativeHook();
   await writeStandaloneExample();
   await writeStandaloneWrapper();
