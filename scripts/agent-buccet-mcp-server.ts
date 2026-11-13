@@ -17,6 +17,7 @@ import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
 import { pathToFileURL } from "node:url";
+import { loadBuccetBoxBridge } from "../src/box/bridge.ts";
 
 // ─── arg parsing ────────────────────────────────────────────────────────────
 
@@ -484,7 +485,7 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         hydrationMode: "full",
       }));
 
-    const config = store.getConfig();
+    let config = store.getConfig();
     let initialized = false;
     const inFlight = new Set<Promise<void>>();
 
@@ -591,25 +592,41 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           result.lawIds,
         );
 
+        // The box is transport, not law. The intercept verdict is the first
+        // gate; the canonical action runner is a second, deny-wins gate.
+        // The agent cannot authorize itself by calling a separate MCP tool.
+        const box = await loadBuccetBoxBridge();
+        async function report(decision: "allow" | "deny", reason: string) {
+          await box?.record({
+            requestId,
+            actorId: args.actorId,
+            actionKind,
+            target,
+            decision,
+            reason,
+          });
+        }
         if (result.decision === "deny") {
           await recordBoundaryBlockedAction(config, boundaryRequest, result.reason, result.lawIds);
+          await report("deny", result.reason);
           respondResult(id, {
-            content: [
-              {
-                type: "text",
-                text: [
-                  `Boundary denied: ${result.reason}`,
-                  result.lawIds.length > 0 ? `lawIds: ${result.lawIds.join(", ")}` : "",
-                ]
-                  .filter(Boolean)
-                  .join("\n"),
-              },
-            ],
+            content: [{ type: "text", text: `Boundary denied: ${result.reason}` }],
             isError: true,
           });
           return;
         }
 
+        // A require_approval verdict MUST obtain standing UPL approval or a
+        // human answer before any action can enter the executor.
+        // In autonomous mode, standing UPL is consulted without asking.
+        // In interactive mode, an unanswered or disconnected box denies.
+        let operatorChoice:
+          | "allow_once"
+          | "allow_as_law"
+          | "deny_once"
+          | "deny_as_law"
+          | null = null;
+        let autonomous = false;
         if (result.decision === "require_approval") {
           await recordBoundaryApprovalRequested({
             config,
@@ -617,62 +634,110 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
             reason: result.reason,
             lawIds: result.lawIds,
           });
-          respondResult(id, {
-            content: [
-              {
-                type: "text",
-                text: [
-                  `Boundary requires approval: ${result.reason}`,
-                  result.lawIds.length > 0 ? `lawIds: ${result.lawIds.join(", ")}` : "",
-                  "Approve via: buccet console",
-                ]
-                  .filter(Boolean)
-                  .join("\n"),
-              },
-            ],
-            isError: true,
-          });
-          return;
+          const response = box
+            ? await box.requestApproval({
+                requestId,
+                sessionId: args.sessionId,
+                actorId: args.actorId,
+                actionKind,
+                target,
+                payloadSummary,
+                reason: result.reason,
+                lawIds: result.lawIds,
+                question: `Should ${args.actorId} perform ${actionKind} on ${target}?`,
+              })
+            : { mode: "interactive" as const, choice: "deny_once" as const };
+          autonomous = response.mode === "autonomous";
+          if (response.mode === "interactive") operatorChoice = response.choice ?? "deny_once";
+          if (operatorChoice === "deny_once" || operatorChoice === "deny_as_law") {
+            const reason = box ? "Human denied this action" : "Buccet Box unavailable: approval denied";
+            await recordBoundaryBlockedAction(config, boundaryRequest, reason, result.lawIds);
+            await report("deny", reason);
+            respondResult(id, {
+              content: [{ type: "text", text: `Boundary denied: ${reason}` }],
+              isError: true,
+            });
+            return;
+          }
         }
 
-        try {
-          const execResult = await execTool(toolName, toolInput, {
-            runCommand: async (command, commandArgs, cwd) => {
-              const activeConfig = store.getConfig();
-              const scopePaths = activeConfig.pathLaws
-                .filter((law: { revokedAt?: unknown; rootPath: string }) => !law.revokedAt)
-                .map((law: { revokedAt?: unknown; rootPath: string }) => law.rootPath);
-              const launched = await boundary.runBoundaryProcess({
-                config: activeConfig,
-                command,
-                commandArgs,
-                scopePaths,
-                requestedCwd: cwd,
-                allowedCommandTargets: [path.basename(command.trim())],
-                ioMode: "capture",
+        // The action must still pass the existing Bodyguard/UPL runtime, even
+        // after the Box supplies a decision. Only the frozen proposal may use
+        // its one-time choice. A second approval request fails closed.
+        const activeConfig = store.getConfig();
+        let decisionUsed = false;
+        const guardedConfig = enableBodyguardControl({
+          ...activeConfig,
+          // Force a canonical approval check if the intercept gate required one.
+          approvalRequiredFor:
+            result.decision === "require_approval"
+              ? [...new Set([...(activeConfig.approvalRequiredFor ?? []), actionKind])]
+              : activeConfig.approvalRequiredFor,
+          approvalHandler: async (approval) => {
+            if (decisionUsed) return { choice: "deny_once" as const };
+            decisionUsed = true;
+            if (approval.request.actionKind !== actionKind ||
+                approval.request.target !== target ||
+                approval.request.payloadSummary !== payloadSummary) {
+              return { choice: "deny_once" as const };
+            }
+            if (autonomous || (result.decision === "allow" && !operatorChoice)) {
+              const handler = boundary.createBoundaryHeadlessApprovalHandler({
+                mode: "follow_upl",
+                getLedger: async () => store.getConfig().upl ?? boundary.loadUserPathLedger(),
               });
-              return {
-                stdout: launched.stdout,
-                stderr: launched.stderr,
-                exitCode: launched.exitCode,
-              };
-            },
-          });
-          await recordBoundaryExecutedAction(
-            config,
-            boundaryRequest,
-            `${toolName} executed through Buccet MCP`,
-            { adapter: "mcp" },
-          );
-          respondResult(id, execResult);
-        } catch (err) {
-          respondResult(id, {
-            content: [
-              {
-                type: "text",
-                text: `Execution error: ${err instanceof Error ? err.message : String(err)}`,
+              return handler(approval);
+            }
+            return { choice: operatorChoice ?? "deny_once" };
+          },
+        });
+        try {
+          const final = await boundary.runBoundaryControlledAction({
+            config: guardedConfig,
+            request: boundaryRequest,
+            successReason: `${toolName} executed through Buccet MCP`,
+            execute: async () => execTool(toolName, toolInput, {
+              runCommand: async (command, commandArgs, cwd) => {
+                const liveConfig = store.getConfig();
+                const scopePaths = liveConfig.pathLaws
+                  .filter((law: { revokedAt?: unknown; rootPath: string }) => !law.revokedAt)
+                  .map((law: { rootPath: string }) => law.rootPath);
+                const launched = await boundary.runBoundaryProcess({
+                  config: liveConfig,
+                  command,
+                  commandArgs,
+                  scopePaths,
+                  requestedCwd: cwd,
+                  allowedCommandTargets: [path.basename(command.trim())],
+                  ioMode: "capture",
+                });
+                return {
+                  stdout: launched.stdout,
+                  stderr: launched.stderr,
+                  exitCode: launched.exitCode,
+                };
               },
-            ],
+            }),
+          });
+          // Persist updated UPL from canonical approvals for subsequent calls.
+          config = final.config;
+          store.replaceConfig(final.config);
+          if (!final.allowed || !final.executed) {
+            const reason = final.reason || "Boundary held or denied execution";
+            await report("deny", reason);
+            respondResult(id, {
+              content: [{ type: "text", text: `Boundary held: ${reason}` }],
+              isError: true,
+            });
+            return;
+          }
+          await report("allow", final.reason);
+          respondResult(id, final.value);
+        } catch (err) {
+          const reason = `Execution error: ${err instanceof Error ? err.message : String(err)}`;
+          await report("deny", reason);
+          respondResult(id, {
+            content: [{ type: "text", text: reason }],
             isError: true,
           });
         }
