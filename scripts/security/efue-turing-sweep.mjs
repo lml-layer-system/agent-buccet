@@ -92,6 +92,26 @@ for (let initial = 0; initial <= all; initial++) {
 assert.equal(unsafe, 0, "Bounded consequence model violated monotonic denial");
 assert.equal(checked, 512 * 9 * 9);
 
+// Mutation testing prevents a vacuous all-deny proof and ensures the
+// specified invariants actually distinguish unsafe implementations.
+const mutants = [
+  { id: "cached-approval-pre-event", decision: (before, after) => mayCommit(before), minimumCounterexamples: 9 },
+  { id: "actor-string-treated-as-identity", decision: (_, after) => mayCommit(after | 1), minimumCounterexamples: 1 },
+  { id: "pinned-fd-treated-as-namespace-authority", decision: (_, after) => mayCommit(after | (1 << 6)), minimumCounterexamples: 1 },
+  { id: "staging-name-treated-as-content-identity", decision: (_, after) => mayCommit(after | (1 << 5)), minimumCounterexamples: 1 },
+  { id: "cancellation-ignored", decision: (_, after) => mayCommit(after | (1 << 4)), minimumCounterexamples: 1 },
+  { id: "ledger-signature-without-trusted-anchor", decision: (_, after) => mayCommit(after | (1 << 7)), minimumCounterexamples: 1 },
+];
+const mutantCounterexamples = mutants.map((mutant) => {
+  const examples = events.filter((event) => {
+    const after = transition(all, event);
+    return mutant.decision(all, after) && !mayCommit(after);
+  }).map((event) => event.name);
+  assert.ok(examples.length >= mutant.minimumCounterexamples,
+    "Security model must reject known-bad mutant: " + mutant.id);
+  return { mutant: mutant.id, caught: examples.length, counterexamples: examples };
+});
+
 // Source checks are heuristics, never an attestation or a formal proof.
 const evidence = [
   { id: "approval-signed-intent", file: "apps/buccet-box/backend.mjs",
@@ -150,7 +170,8 @@ const report = {
   sinkCounts: counts,
   model: { stateBits: dimensions.length, worlds: 512, eventTypes: events.length,
     orderedTwoEventSequences: checked, specificationViolations: unsafe,
-    scope: "bounded abstract model; NOT production proof" },
+    scope: "bounded abstract model; NOT production proof",
+    mutantCounterexamples },
   sourceIndicators: checks,
   architecturalBlockers: blockers,
   unverifiedDimensions: Object.fromEntries(Object.entries(filesByDimension)
@@ -168,6 +189,7 @@ const summary = [
   "Potential effect/authority sinks: " + sinks.length,
   "Bounded abstract transition sequences: " + checked,
   "Specification violations: " + unsafe,
+  "Known-bad policy mutants detected: " + mutantCounterexamples.length,
   "",
   "## Source indicators",
   ...checks.map((c) => "- " + c.id + ": " + c.status + " (" + c.file + ")"),
@@ -184,6 +206,10 @@ const summary = [
 ];
 writeFileSync(path.join(out, "summary.md"), summary.join("\n") + "\n");
 process.stdout.write(summary.join("\n") + "\n");
+if (checks.some((c) => c.status === "missing")) {
+  process.stderr.write("BUCCET_SWEEP_SOURCE_INDICATOR_MISSING: inspect changed trusted code.\\n");
+  process.exitCode = 1;
+}
 if (gate && (blockers.length || checks.some((c) => c.status === "missing"))) {
   process.stderr.write("BUCCET_SWEEP_BLOCKED: unresolved architecture or missing source indicators\n");
   process.exitCode = 2;
