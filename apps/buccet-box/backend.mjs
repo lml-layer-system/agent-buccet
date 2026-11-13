@@ -13,7 +13,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { signedDecisionForEvent } from "./verified-events.mjs";
+import { signedApprovalForRequest, signedDecisionForEvent } from "./verified-events.mjs";
 
 const CHOICES = new Set(["allow_once", "deny_once", "allow_as_law", "deny_as_law"]);
 const MODES = new Set(["interactive", "autonomous"]);
@@ -165,13 +165,18 @@ export function createBuccetBoxBackend({
       return send(200, { recorded: true });
     }
 
-    const requestId = clean(body.requestId, 200);
-    const actionKind = clean(body.actionKind, 100);
-    const target = clean(body.target);
-    if (!requestId || !actionKind || !target) {
-      return send(400, { error: "missing approval identity" });
-    }
     if (mode === "autonomous") return send(200, { mode: "autonomous" });
+    // A same-user bearer-token holder is not automatically a genuine MCP
+    // runtime. Require signed proof that the real runtime proposed this exact
+    // action, with the approved payload fingerprint.
+    const verified = await signedApprovalForRequest(home, body);
+    if (!verified) {
+      return send(422, { error: "no verified pending action for approval" });
+    }
+    const { requestId, actionKind, target } = verified;
+    if ([...pending.values()].some((row) => row.requestId === requestId)) {
+      return send(409, { error: "approval already pending" });
+    }
     if (pending.size >= MAX_PENDING_APPROVALS) {
       return send(429, { error: "approval queue at capacity" });
     }
@@ -185,13 +190,13 @@ export function createBuccetBoxBackend({
       res.once("close", () => settle(approvalId, "deny_once"));
       pending.set(approvalId, {
         requestId,
-        actorId: clean(body.actorId, 200),
+        actorId: clean(verified.actorId, 200),
         actionKind,
         target,
-        reason: clean(body.reason),
-        lawIds: Array.isArray(body.lawIds) ? body.lawIds.filter((x) => typeof x === "string").slice(0, 32) : [],
-        payloadSummary: clean(body.payloadSummary, 512),
-        question: clean(body.question, 1024),
+        reason: clean(verified.reason),
+        lawIds: verified.lawIds.slice(0, 32),
+        payloadSummary: clean(verified.payloadSummary, 512),
+        question: clean(verified.question, 1024),
         createdAt: new Date().toISOString(),
         timer,
         resolve,
