@@ -31,7 +31,8 @@ int renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpat
         snprintf(release, sizeof(release), "%s/release", gate) >= (int)sizeof(release)) _exit(89);
     int marker = open(ready, O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
     if (marker >= 0) {
-      (void)write(marker, oldpath, strlen(oldpath));
+      ssize_t bytes = write(marker, oldpath, strlen(oldpath));
+      if (bytes < 0) _exit(92);
       close(marker);
     } else if (errno != EEXIST) {
       _exit(90);
