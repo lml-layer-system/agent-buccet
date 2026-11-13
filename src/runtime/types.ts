@@ -730,6 +730,8 @@ export type BoundaryLedgerMeta = {
   id: string;
   timestamp: string;
   hash: string;
+  /** v2 is computed from the exact JSON-serialized receipt body. */
+  hash_version?: "json-v2";
   prev_hash: string;
   session_id: string;
   depth: number;
