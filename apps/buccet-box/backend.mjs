@@ -13,6 +13,7 @@ import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { signedDecisionForEvent } from "./verified-events.mjs";
 
 const CHOICES = new Set(["allow_once", "deny_once", "allow_as_law", "deny_as_law"]);
 const MODES = new Set(["interactive", "autonomous"]);
@@ -141,14 +142,17 @@ export function createBuccetBoxBackend({
       if (body.decision !== "allow" && body.decision !== "deny") {
         return send(400, { error: "invalid verdict" });
       }
+      // A bearer token only authorizes access to this local endpoint.
+      // It cannot mint evidence of an action. Read the signed receipt
+      // and derive ALL displayed decision fields from the verified ledger.
+      const verified = await signedDecisionForEvent(home, body);
+      if (!verified) return send(422, { error: "no verified ledger receipt for this event" });
+      if (activity.some((row) => row.requestId === verified.requestId &&
+            row.decision === verified.decision)) {
+        return send(409, { error: "duplicate signed decision" });
+      }
       const entry = {
-        id: randomUUID(),
-        requestId: clean(body.requestId, 200),
-        actorId: clean(body.actorId, 200),
-        actionKind: clean(body.actionKind, 100),
-        target: clean(body.target),
-        decision: body.decision,
-        reason: clean(body.reason),
+        id: randomUUID(), ...verified,
         occurredAt: new Date().toISOString(),
       };
       activity = [entry, ...activity].slice(0, MAX_ACTIVITY);
@@ -198,7 +202,16 @@ export function createBuccetBoxBackend({
     } catch { mode = "interactive"; }
     try {
       const saved = JSON.parse(await fs.readFile(activityPath, "utf8"));
-      activity = Array.isArray(saved) ? saved.slice(0, MAX_ACTIVITY) : [];
+      activity = [];
+      if (Array.isArray(saved)) {
+        for (const row of saved.slice(0, MAX_ACTIVITY)) {
+          if (row?.verified !== true || typeof row.receiptHash !== "string") continue;
+          const verified = await signedDecisionForEvent(home, row, { maxAgeMs: Infinity });
+          if (verified && verified.receiptHash === row.receiptHash) {
+            activity.push({ id: clean(row.id, 200), ...verified, occurredAt: row.occurredAt });
+          }
+        }
+      }
     } catch { activity = []; }
 
     token = randomBytes(32).toString("hex");
