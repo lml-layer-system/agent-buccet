@@ -40,6 +40,7 @@ jobs:
           test -f dist/agent-buccet/bin/agent-buccet-mcp-server.ts
           test -f dist/agent-buccet/src/box/bridge.ts
           test -d dist/agent-buccet/native
+          test -x dist/agent-buccet/native/build/box-fs-guard
       - name: Install desktop dependencies
         run: npm install --prefix apps/buccet-box --no-audit --no-fund
       - name: Run Box unit contracts
@@ -68,6 +69,29 @@ jobs:
           ELECTRON_RUN_AS_NODE=1 "$EXE" -e \
             "import(require('node:url').pathToFileURL(process.argv[1]).href).then(m => { if (typeof m.loadBuccetBoxBridge !== 'function') process.exitCode = 2; }).catch(err => { console.error(err); process.exitCode = 3; })" \
             "$BUNDLED/src/box/bridge.ts"
+      - name: Exercise bundled macOS confined actuator
+        shell: bash
+        run: |
+          GUARD="dist/agent-buccet/native/build/box-fs-guard"
+          test -x "$GUARD"
+          TEMP="$(mktemp -d)"
+          mkdir -p "$TEMP/scope" "$TEMP/outside"
+          printf 'unchanged' > "$TEMP/outside/protected"
+          printf 'allowed' | "$GUARD" write "$TEMP/scope" candidate
+          test "$(cat "$TEMP/scope/candidate")" = allowed
+          ln -s "$TEMP/outside/protected" "$TEMP/scope/substituted"
+          if printf 'escaped' | "$GUARD" write "$TEMP/scope" substituted; then
+            echo "SECURITY FAILURE: symlink write permitted" >&2
+            exit 1
+          fi
+          test "$(cat "$TEMP/outside/protected")" = unchanged
+          ln "$TEMP/outside/protected" "$TEMP/scope/hardlink"
+          if printf 'escaped' | "$GUARD" append "$TEMP/scope" hardlink; then
+            echo "SECURITY FAILURE: hardlink append permitted" >&2
+            exit 1
+          fi
+          test "$(cat "$TEMP/outside/protected")" = unchanged
+          rm -rf "$TEMP"
       - name: Upload unsigned preview for review
         uses: actions/upload-artifact@v4
         with:
