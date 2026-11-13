@@ -1,5 +1,11 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
+/* Darwin hides O_NOFOLLOW/O_DIRECTORY under strict POSIX feature macros.
+ * Explicitly opt in to those required system interfaces; never fall back
+ * to following symlinks if the platform does not offer them. */
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE 1
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
