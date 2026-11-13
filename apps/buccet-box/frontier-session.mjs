@@ -232,20 +232,37 @@ try {
   cancelled.close();
 
   const stolen = client(actorB, victimSession); processes.push(stolen);
-  await stolen.init();
-  const stolenAttempt = await readWithHuman(stolen, secretFile, "allow_once");
-  const responseText = JSON.stringify(stolenAttempt.response);
-  if (responseText.includes(SECRET)) {
-    emit("FRONTIER_IDENTITY_BREACH", {
-      observed: "MCP process started as attacker actor inherited victim session read grant",
-      runtimeExecution: true,
-      humanClickedAllowOnce: !!stolenAttempt.prompt,
-      promptActor: stolenAttempt.prompt?.actorId,
-      threatModel: "attacker controls launch args and knows victim session ID within same user home",
-    });
-    throw new Error("FRONTIER_IDENTITY_BREACH: actor ID mismatch accepted on session restore");
+  let startupDenied = "";
+  try {
+    await stolen.init();
+  } catch (error) {
+    startupDenied = String(error);
   }
-  emit("FRONTIER_IDENTITY_PASS", { control: "mismatched actor blocked", response: responseText.slice(0, 350) });
+  if (startupDenied) {
+    assert.match(startupDenied, /BUCCET_IDENTITY_DENIED|actor mismatch/,
+      "startup failed for an unrelated reason, not actor/session binding");
+    emit("FRONTIER_IDENTITY_PASS", {
+      control: "mismatched actor rejected before MCP initialization",
+      cause: "BUCCET_IDENTITY_DENIED",
+    });
+  } else {
+    // Unchanged attack: the mismatched actor attempts the victim-secret read.
+    const stolenAttempt = await readWithHuman(stolen, secretFile, "allow_once");
+    const responseText = JSON.stringify(stolenAttempt.response);
+    if (responseText.includes(SECRET)) {
+      emit("FRONTIER_IDENTITY_BREACH", {
+        observed: "MCP process started as attacker actor inherited victim session read grant",
+        runtimeExecution: true,
+        humanClickedAllowOnce: !!stolenAttempt.prompt,
+        promptActor: stolenAttempt.prompt?.actorId,
+        threatModel: "attacker controls launch args and knows victim session ID within same user home",
+      });
+      throw new Error("FRONTIER_IDENTITY_BREACH: actor ID mismatch accepted on session restore");
+    }
+    emit("FRONTIER_IDENTITY_PASS", {
+      control: "mismatched actor blocked", response: responseText.slice(0, 350),
+    });
+  }
 } finally {
   for (const p of processes) p.close();
   try { await box.setMode("autonomous"); } catch {}
