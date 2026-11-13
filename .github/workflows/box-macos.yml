@@ -56,6 +56,18 @@ jobs:
           test -n "$(find dist/buccet-box -maxdepth 2 -name 'Agent Buccet Box.app' -print -quit)"
           find dist/buccet-box -name 'Agent Buccet Box.app' -maxdepth 2 -print
           find dist/buccet-box -name '*.dmg' -maxdepth 1 -print
+      - name: Smoke test embedded runtime inside packaged app
+        shell: bash
+        run: |
+          APP="dist/buccet-box/mac-arm64/Agent Buccet Box.app"
+          EXE="$APP/Contents/MacOS/Agent Buccet Box"
+          BUNDLED="$APP/Contents/Resources/agent-buccet"
+          test -x "$EXE"
+          test -f "$BUNDLED/bin/buccet.ts"
+          test -f "$BUNDLED/src/box/bridge.ts"
+          ELECTRON_RUN_AS_NODE=1 "$EXE" -e \
+            "import(require('node:url').pathToFileURL(process.argv[1]).href).then(m => { if (typeof m.loadBuccetBoxBridge !== 'function') process.exitCode = 2; }).catch(err => { console.error(err); process.exitCode = 3; })" \
+            "$BUNDLED/src/box/bridge.ts"
       - name: Upload unsigned preview for review
         uses: actions/upload-artifact@v4
         with:
