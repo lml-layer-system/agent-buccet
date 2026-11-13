@@ -44,7 +44,7 @@ function canonicalHash(record) {
  * Returns the trusted event from the signed ledger, or null.
  * Caller-supplied fields only locate/match the signed receipt.
  */
-export async function signedDecisionForEvent(home, body) {
+export async function signedDecisionForEvent(home, body, { maxAgeMs = MAX_EVENT_AGE_MS } = {}) {
   if (!body || !["allow", "deny"].includes(body.decision) ||
       typeof body.requestId !== "string" || !body.requestId ||
       typeof body.actorId !== "string" || typeof body.actionKind !== "string" ||
@@ -91,7 +91,7 @@ export async function signedDecisionForEvent(home, body) {
       record.payload.decision === body.decision);
     if (!receipt) return null;
     const when = Date.parse(receipt.META.timestamp);
-    if (!Number.isFinite(when) || Math.abs(Date.now() - when) > MAX_EVENT_AGE_MS) {
+    if (!Number.isFinite(when) || Math.abs(Date.now() - when) > maxAgeMs) {
       return null;
     }
     return {
