@@ -9,6 +9,7 @@
  * desktop surface and bridge behavior only, not complete host interception.
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import os from "node:os";
@@ -121,6 +122,32 @@ async function main() {
       }
     }
 
+    async function signFixtureApproval(item) {
+      // Match the real runtime: cryptographically bind the prompt and payload
+      // before the local UI is allowed to display it.
+      const previous = process.env.AGENT_BUCCET_HOME;
+      process.env.AGENT_BUCCET_HOME = home;
+      try {
+        await appendBoundaryLedger("APPROVAL_REQUESTED", {
+          sessionId: item.sessionId,
+          actorId: item.actorId,
+          requestId: item.requestId,
+          actionKind: item.actionKind,
+          target: item.target,
+          reason: item.reason,
+          decision: "require_approval",
+          lawIds: item.lawIds,
+          metadata: {
+            approvalPayloadHash: createHash("sha256").update(item.payloadSummary ?? "").digest("hex"),
+          },
+          createdAt: new Date().toISOString(),
+        });
+      } finally {
+        if (previous === undefined) delete process.env.AGENT_BUCCET_HOME;
+        else process.env.AGENT_BUCCET_HOME = previous;
+      }
+    }
+
     // Automatic mode is deliberately notification-only.
     await page.locator("#autonomous-btn").click();
     await poll(async () => (await page.locator("#mode-badge").textContent()) === "Notification only");
@@ -148,7 +175,9 @@ async function main() {
     // the request, pauses the bridge, and sends the clicked choice.
     await page.locator("#interactive-btn").click();
     await poll(async () => (await page.locator("#mode-badge").textContent()) === "Asks you");
-    const allowRequest = api("/v1/approval", proposal("gui-allow-1"));
+    const allowProposal = proposal("gui-allow-1");
+    await signFixtureApproval(allowProposal);
+    const allowRequest = api("/v1/approval", allowProposal);
     await page.locator("#approval-section").waitFor({ state: "visible" });
     assert.equal(await page.locator("#approval-actor").textContent(), "test-agent");
     assert.equal(await page.locator("#approval-action").textContent(), "network.send");
@@ -159,7 +188,9 @@ async function main() {
     await page.locator("#approval-section").waitFor({ state: "hidden" });
     assertions.push("Actual Allow Once click resolved the held request with correct identity");
 
-    const denyRequest = api("/v1/approval", proposal("gui-deny-1", "fs.delete"));
+    const denyProposal = proposal("gui-deny-1", "fs.delete");
+    await signFixtureApproval(denyProposal);
+    const denyRequest = api("/v1/approval", denyProposal);
     await page.locator("#approval-section").waitFor({ state: "visible" });
     assert.equal(await page.locator("#approval-action").textContent(), "fs.delete");
     await page.locator("#deny-once").click();
