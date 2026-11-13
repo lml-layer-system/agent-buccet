@@ -15,6 +15,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { _electron as electron } from "playwright";
+import { appendBoundaryLedger } from "../../src/proof/ledger.ts";
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(appDir, "../..");
@@ -95,20 +96,49 @@ async function main() {
       return response.json();
     }
 
+    async function signFixtureEvent(event) {
+      // Renderer tests use signed synthetic ledger receipts, not invented
+      // allow/deny claims. The Box must verify before displaying them.
+      const previous = process.env.AGENT_BUCCET_HOME;
+      process.env.AGENT_BUCCET_HOME = home;
+      try {
+        await appendBoundaryLedger(
+          event.decision === "allow" ? "ACTION_EXECUTED" : "ACTION_BLOCKED",
+          {
+            sessionId: "gui-verification-fixture",
+            actorId: event.actorId,
+            requestId: event.requestId,
+            actionKind: event.actionKind,
+            target: event.target,
+            decision: event.decision,
+            reason: event.reason,
+            createdAt: new Date().toISOString(),
+          },
+        );
+      } finally {
+        if (previous === undefined) delete process.env.AGENT_BUCCET_HOME;
+        else process.env.AGENT_BUCCET_HOME = previous;
+      }
+    }
+
     // Automatic mode is deliberately notification-only.
     await page.locator("#autonomous-btn").click();
     await poll(async () => (await page.locator("#mode-badge").textContent()) === "Notification only");
     const autonomousResponse = await api("/v1/approval", proposal("gui-auto-1"));
     assert.deepEqual(autonomousResponse, { mode: "autonomous" });
     assert.equal(await page.locator("#approval-section").isVisible(), false);
-    await api("/v1/event", {
+    const allowedEvent = {
       requestId: "gui-event-allow", actorId: "test-agent", actionKind: "fs.read",
-      target: "/workspace/authorized.txt", decision: "allow", reason: "Existing UPL acceptance",
-    });
-    await api("/v1/event", {
+      target: "/workspace/authorized.txt", decision: "allow", reason: "Verified synthetic approval",
+    };
+    const deniedEvent = {
       requestId: "gui-event-deny", actorId: "test-agent", actionKind: "network.send",
-      target: "https://blocked.example.test", decision: "deny", reason: "Outside allowed scope",
-    });
+      target: "https://blocked.example.test", decision: "deny", reason: "Verified synthetic denial",
+    };
+    await signFixtureEvent(allowedEvent);
+    await signFixtureEvent(deniedEvent);
+    await api("/v1/event", allowedEvent);
+    await api("/v1/event", deniedEvent);
     await poll(async () => (await page.locator("#activity-list .event").count()) >= 2);
     assert.equal(await page.locator("#activity-list .event.denied").count(), 1);
     assertions.push("Autonomous GUI skipped approval prompts and displayed real allow/deny bridge events");
