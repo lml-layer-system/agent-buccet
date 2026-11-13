@@ -7,7 +7,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
@@ -76,6 +76,12 @@ function client(actor, session) {
     async read(filename) {
       return this.ask("tools/call", { name: "read_file", arguments: { path: filename } });
     },
+    cancel(requestId) {
+      child.stdin.write(JSON.stringify({
+        jsonrpc: "2.0", method: "notifications/cancelled",
+        params: { requestId, reason: "user cancelled pending action" },
+      }) + "\n");
+    },
     close() {
       child.stdin.end();
       setTimeout(() => { if (child.exitCode === null) child.kill("SIGKILL"); }, 1000).unref();
@@ -111,7 +117,7 @@ try {
   });
   const granted = await boundary.openBoundaryPath({
     config: store.getConfig(), rootPath: workspace,
-    grantedActions: ["fs.read"], issuedBy: actorA, seedBaseAcceptance: false,
+    grantedActions: ["fs.read", "fs.write"], issuedBy: actorA, seedBaseAcceptance: false,
   });
   store.replaceConfig(granted.config);
   await store.persist();
@@ -137,6 +143,48 @@ try {
   assert.ok(deniedByDefault, "Attacker-own-session baseline unexpectedly authorized");
   emit("FRONTIER_IDENTITY_PASS", { control: "attacker own session cannot use victim path law" });
   attackerOwn.close();
+
+  // MCP transport cancellation: once a tool call is cancelled, a human
+  // clicking an old prompt must not execute its side effect.
+  const cancelled = client(actorA, victimSession); processes.push(cancelled);
+  await cancelled.init();
+  const cancelledFile = path.join(workspace, "cancelled-action.txt");
+  const stillPending = cancelled.ask("tools/call", {
+    name: "write_file",
+    arguments: { path: cancelledFile, content: "LATE_EXECUTION_AFTER_CANCEL" },
+  }, 15000);
+  const startedCancel = Date.now();
+  let cancelledHold;
+  while (Date.now() - startedCancel < 4200) {
+    cancelledHold = box.state().pending[0];
+    if (cancelledHold) break;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  if (cancelledHold) {
+    // First non-initialize request in this new MCP process has JSON-RPC id 2.
+    cancelled.cancel(2);
+    await new Promise(resolve => setTimeout(resolve, 150));
+    box.settle(cancelledHold.approvalId, "allow_once");
+  }
+  const cancelledResponse = await stillPending;
+  let executedCancelled = false;
+  try {
+    executedCancelled = (await readFile(cancelledFile, "utf8")) === "LATE_EXECUTION_AFTER_CANCEL";
+  } catch {}
+  if (executedCancelled) {
+    emit("FRONTIER_CANCELLATION_BREACH", {
+      observed: "cancelled MCP request executed after stale approval was clicked",
+      cancellationSent: !!cancelledHold, requestId: 2,
+      executed: true, response: JSON.stringify(cancelledResponse).slice(0, 200),
+    });
+  } else {
+    emit("FRONTIER_CANCELLATION_PASS", {
+      cancellationSent: !!cancelledHold,
+      executed: false,
+      response: JSON.stringify(cancelledResponse).slice(0, 200),
+    });
+  }
+  cancelled.close();
 
   const stolen = client(actorB, victimSession); processes.push(stolen);
   await stolen.init();
