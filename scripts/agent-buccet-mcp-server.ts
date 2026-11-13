@@ -771,9 +771,17 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
               },
             }),
           });
-          // Persist updated UPL from canonical approvals for subsequent calls.
-          config = final.config;
-          store.replaceConfig(final.config);
+          // Persist the *law changes*, not the per-request approval callback
+          // or its temporary action-kind approval gate. Otherwise a single
+          // held action could make every subsequent action of its kind ask
+          // again (or carry a stale human answer into the next proposal).
+          const durableConfig = {
+            ...final.config,
+            approvalRequiredFor: activeConfig.approvalRequiredFor,
+            approvalHandler: activeConfig.approvalHandler,
+          };
+          config = durableConfig;
+          store.replaceConfig(durableConfig);
           if (!final.allowed || !final.executed) {
             const reason = final.reason || "Boundary held or denied execution";
             await report("deny", reason);
