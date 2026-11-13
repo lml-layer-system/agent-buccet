@@ -1183,6 +1183,40 @@ export async function verifyBoundaryLedgerChain(): Promise<{
       };
     }
 
+    // Verify the actual stored receipt body, not merely a signature over
+    // META.hash. A malicious file editor could otherwise rewrite the decision
+    // and target while leaving the signed hash unchanged.
+    const calculatedHash = computeEntryHash({
+      index: record.index,
+      eventType: record.eventType,
+      payload: record.payload,
+      INPUT: record.INPUT,
+      DECISION: record.DECISION,
+      PATH: record.PATH,
+      NEXT: record.NEXT,
+      OPTIONS: record.OPTIONS,
+      META: {
+        id: record.META.id,
+        timestamp: record.META.timestamp,
+        prev_hash: record.META.prev_hash,
+        session_id: record.META.session_id,
+        depth: record.META.depth,
+        event_type: record.META.event_type,
+      },
+    });
+    if (calculatedHash !== record.META.hash) {
+      return {
+        ok: false,
+        cryptographic_ok: false,
+        brokenAt: record.META.id,
+        reason: "signed receipt content hash mismatch detected",
+        checkedFrom: records[firstCanonicalIndex].META.id,
+        signed_records: signedRecords,
+        unsigned_records: unsignedRecords,
+        signer_ids: [...signerIds],
+      };
+    }
+
     prevHash = record.META.hash;
     expectedIndex += 1;
 
