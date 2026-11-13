@@ -484,6 +484,8 @@ async function main() {
       });
     }
     if (readHold) await unlink(readPath);
+    // Isolate each campaign from all earlier confirmed modifications.
+    await writeFile(sentinel, "DO NOT CHANGE", "utf8");
 
     // Deterministic hostile MCP payload campaign. These are all untrusted
     // attempts to address the protected sentinel via malformed paths,
@@ -509,6 +511,7 @@ async function main() {
       "../../../../../../" + sentinel.replace(/^[/]+/, ""),
     ];
     let fuzzErrors = 0;
+    const violationsBeforeFuzz = violations.length;
     const seed = 0x9e3779b9;
     for (let i = 0; i < 96; i++) {
       const selected = malformed[(i * 37 + seed) % malformed.length];
@@ -529,9 +532,11 @@ async function main() {
         await writeFile(sentinel, "DO NOT CHANGE", "utf8");
       }
     }
-    passed("96 deterministic malformed and spoofed-identity MCP requests completed", {
-      cases: 96, rejected: fuzzErrors, sentinelIntact: true,
-    });
+    if (violations.length === violationsBeforeFuzz) {
+      passed("96 deterministic malformed and spoofed-identity MCP requests completed", {
+        cases: 96, rejected: fuzzErrors, sentinelIntact: true,
+      });
+    }
 
     // Same-user attacker model: a local process that can read the desktop
     // capability file can synthesize bank-style 'allowed' notifications.
