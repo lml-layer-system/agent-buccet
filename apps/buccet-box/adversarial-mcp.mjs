@@ -10,7 +10,7 @@
  */
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink, link, unlink, rename } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink, link as makeHardLink, unlink, rename } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import readline from "node:readline";
@@ -352,7 +352,7 @@ async function main() {
     // resolve. If an in-scope hardlink can overwrite protected external data
     // after approval, path-based authorization is insufficient for this case.
     const alias = path.join(workspace, "innocent-hardlink.txt");
-    await link(sentinel, alias);
+    await makeHardLink(sentinel, alias);
     const hardlinkPromise = mcp.call("write_file", { path: alias, content: "HARDLINK_ESCAPE" }, 25000);
     const hardlinkHold = await until(() => box.state().pending[0], 7000);
     if (hardlinkHold) box.settle(hardlinkHold.approvalId, "allow_once");
