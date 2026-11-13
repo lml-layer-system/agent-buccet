@@ -122,6 +122,7 @@ async function main() {
     await page.locator("#approval-section").waitFor({ state: "visible" });
     assert.equal(await page.locator("#approval-actor").textContent(), "test-agent");
     assert.equal(await page.locator("#approval-action").textContent(), "network.send");
+    assert.match(await page.locator("#approval-payload").textContent(), /test-file.csv/);
     await page.screenshot({ path: path.join(evidenceDir, "03-real-human-approval-question.png") });
     await page.locator("#allow-once").click();
     assert.deepEqual(await allowRequest, { mode: "interactive", choice: "allow_once" });
