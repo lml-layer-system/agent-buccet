@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/buccet-box/adversarial-mcp.mjs"
+      - "apps/buccet-box/adversarial-ledger.mjs"
       - "scripts/agent-buccet-mcp-server.ts"
       - "src/**"
       - ".github/workflows/box-adversarial.yml"
@@ -30,3 +31,17 @@ jobs:
         run: |
           node apps/buccet-box/adversarial-mcp.mjs
           node --test apps/buccet-box/safe-http.test.mjs
+
+  proof-integrity:
+    name: Attack signed proof contents
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Mutate signed receipts in isolated ledger
+        run: node apps/buccet-box/adversarial-ledger.mjs
