@@ -1,0 +1,249 @@
+/**
+ * Agent Buccet Box local transport.
+ *
+ * A small local operator surface. It does not evaluate law and cannot execute
+ * MCP tools. Only the public runtime/Bodyguard determines whether action lands.
+ *
+ * SECURITY: The token is a same-user capability, not a sandbox boundary.
+ * Another process running as the same OS user can potentially access local
+ * session files. Host runtime protection requires genuine intercept coverage.
+ */
+import http from "node:http";
+import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+
+const CHOICES = new Set(["allow_once", "deny_once", "allow_as_law", "deny_as_law"]);
+const MODES = new Set(["interactive", "autonomous"]);
+const APPROVAL_TIMEOUT_MS = 5 * 60_000;
+const MAX_BODY_BYTES = 32_768;
+const MAX_ACTIVITY = 200;
+const clean = (value, limit = 2048) => typeof value === "string" ? value.slice(0, limit) : "";
+const normalizeMode = (value) => MODES.has(value) ? value : "interactive";
+
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > MAX_BODY_BYTES) {
+        reject(new Error("request exceeds the local bridge limit"));
+        req.destroy();
+      } else {
+        chunks.push(chunk);
+      }
+    });
+    req.once("end", () => {
+      try {
+        const parsed = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+          throw new Error("expected an object");
+        }
+        resolve(parsed);
+      } catch (error) { reject(error); }
+    });
+    req.once("error", reject);
+  });
+}
+
+function authenticated(req, token) {
+  const header = req.headers.authorization;
+  if (typeof header !== "string" || !header.startsWith("Bearer ")) return false;
+  const supplied = Buffer.from(header.slice(7), "utf8");
+  const expected = Buffer.from(token, "utf8");
+  return supplied.length === expected.length && timingSafeEqual(supplied, expected);
+}
+
+export function createBuccetBoxBackend({
+  home = process.env.AGENT_BUCCET_HOME || path.join(os.homedir(), ".buccet"),
+  onChange = () => {},
+  notify = () => {},
+} = {}) {
+  const dir = path.join(home, "box");
+  const bridgePath = path.join(dir, "bridge.json");
+  const modePath = path.join(dir, "mode.json");
+  const activityPath = path.join(dir, "activity.json");
+  let mode = "interactive";
+  let server = null;
+  let token = "";
+  let activity = [];
+  const pending = new Map();
+
+  function state() {
+    return {
+      mode,
+      running: server !== null && server.listening,
+      pending: [...pending].map(([approvalId, row]) => ({
+        approvalId, requestId: row.requestId, actorId: row.actorId,
+        actionKind: row.actionKind, target: row.target, reason: row.reason,
+        lawIds: row.lawIds, payloadSummary: row.payloadSummary,
+        question: row.question, createdAt: row.createdAt,
+      })),
+      activity: activity.map((entry) => ({ ...entry })),
+    };
+  }
+
+  function emit() { onChange(state()); }
+
+  async function persistActivity() {
+    const file = `${activityPath}.tmp-${process.pid}-${Date.now()}`;
+    await fs.writeFile(file, JSON.stringify(activity), { mode: 0o600 });
+    await fs.rename(file, activityPath);
+  }
+
+  function settle(approvalId, choice) {
+    const row = pending.get(approvalId);
+    if (!row || !CHOICES.has(choice)) return false;
+    pending.delete(approvalId);
+    clearTimeout(row.timer);
+    row.resolve({ mode: "interactive", choice });
+    emit();
+    return true;
+  }
+
+  async function setMode(next) {
+    if (!MODES.has(next)) throw new Error("invalid mode");
+    // Switching modes never silently authorizes an already-frozen proposal.
+    if (mode !== next) {
+      for (const id of [...pending.keys()]) settle(id, "deny_once");
+    }
+    mode = next;
+    await fs.writeFile(modePath, JSON.stringify({ mode }), { mode: 0o600 });
+    emit();
+    return state();
+  }
+
+  async function handle(req, res) {
+    const send = (code, body) => {
+      if (res.writableEnded || res.destroyed) return;
+      res.writeHead(code, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff",
+      });
+      res.end(JSON.stringify(body));
+    };
+
+    if (!authenticated(req, token)) return send(401, { error: "unauthorized" });
+    if (req.method !== "POST") return send(405, { error: "method not allowed" });
+    const route = new URL(req.url || "/", "http://127.0.0.1").pathname;
+    if (route !== "/v1/approval" && route !== "/v1/event") {
+      return send(404, { error: "not found" });
+    }
+
+    let body;
+    try { body = await readBody(req); }
+    catch { return send(400, { error: "invalid input" }); }
+
+    if (route === "/v1/event") {
+      if (body.decision !== "allow" && body.decision !== "deny") {
+        return send(400, { error: "invalid verdict" });
+      }
+      const entry = {
+        id: randomUUID(),
+        requestId: clean(body.requestId, 200),
+        actorId: clean(body.actorId, 200),
+        actionKind: clean(body.actionKind, 100),
+        target: clean(body.target),
+        decision: body.decision,
+        reason: clean(body.reason),
+        occurredAt: new Date().toISOString(),
+      };
+      activity = [entry, ...activity].slice(0, MAX_ACTIVITY);
+      try { await persistActivity(); }
+      catch (error) { console.error("[buccet-box] activity persistence failed:", error); }
+      notify({ type: "decision", ...entry });
+      emit();
+      return send(200, { recorded: true });
+    }
+
+    const requestId = clean(body.requestId, 200);
+    const actionKind = clean(body.actionKind, 100);
+    const target = clean(body.target);
+    if (!requestId || !actionKind || !target) {
+      return send(400, { error: "missing approval identity" });
+    }
+    if (mode === "autonomous") return send(200, { mode: "autonomous" });
+
+    const approvalId = randomUUID();
+    const answer = await new Promise((resolve) => {
+      const timer = setTimeout(() => settle(approvalId, "deny_once"), APPROVAL_TIMEOUT_MS);
+      pending.set(approvalId, {
+        requestId,
+        actorId: clean(body.actorId, 200),
+        actionKind,
+        target,
+        reason: clean(body.reason),
+        lawIds: Array.isArray(body.lawIds) ? body.lawIds.filter((x) => typeof x === "string").slice(0, 32) : [],
+        payloadSummary: clean(body.payloadSummary, 512),
+        question: clean(body.question, 1024),
+        createdAt: new Date().toISOString(),
+        timer,
+        resolve,
+      });
+      notify({ type: "approval", actionKind, target });
+      emit();
+    });
+    return send(200, answer);
+  }
+
+  async function start() {
+    if (server) throw new Error("box already started");
+    await fs.mkdir(dir, { recursive: true, mode: 0o700 });
+    try {
+      const saved = JSON.parse(await fs.readFile(modePath, "utf8"));
+      mode = normalizeMode(saved.mode);
+    } catch { mode = "interactive"; }
+    try {
+      const saved = JSON.parse(await fs.readFile(activityPath, "utf8"));
+      activity = Array.isArray(saved) ? saved.slice(0, MAX_ACTIVITY) : [];
+    } catch { activity = []; }
+
+    token = randomBytes(32).toString("hex");
+    server = http.createServer((req, res) => {
+      handle(req, res).catch((error) => {
+        console.error("[buccet-box] local bridge error:", error);
+        if (!res.headersSent) {
+          res.writeHead(500, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: "bridge failure" }));
+        } else {
+          res.end();
+        }
+      });
+    });
+    try {
+      await new Promise((resolve, reject) => {
+        server.once("error", reject);
+        server.listen(0, "127.0.0.1", resolve);
+      });
+      const addr = server.address();
+      if (!addr || typeof addr === "string") throw new Error("missing TCP port");
+      const origin = `http://127.0.0.1:${addr.port}/`;
+      await fs.writeFile(bridgePath, JSON.stringify({ version: 1, origin, token }), { mode: 0o600 });
+      emit();
+      return { origin, bridgePath };
+    } catch (error) {
+      server?.close();
+      server = null;
+      throw error;
+    }
+  }
+
+  async function stop() {
+    for (const id of [...pending.keys()]) settle(id, "deny_once");
+    if (server) {
+      const active = server;
+      server = null;
+      await new Promise((resolve) => active.close(resolve));
+    }
+    try {
+      const settings = JSON.parse(await fs.readFile(bridgePath, "utf8"));
+      if (settings.token === token) await fs.unlink(bridgePath);
+    } catch { /* bridge removed or superseded */ }
+    emit();
+  }
+
+  return { start, stop, state, settle, setMode };
+}
