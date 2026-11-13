@@ -263,6 +263,30 @@ try {
       control: "mismatched actor blocked", response: responseText.slice(0, 350),
     });
   }
+
+  // ID-02: stronger adaptive attack. The adversary can choose CLI arguments,
+  // so merely comparing the supplied actorId string with the restored actor
+  // is not process authentication. Re-run from a different process with BOTH
+  // the victim session ID and claimed victim actor ID. All data is synthetic.
+  const impersonator = client(actorA, victimSession);
+  processes.push(impersonator);
+  await impersonator.init();
+  const impersonated = await readWithHuman(impersonator, secretFile, "allow_once");
+  const impersonatedResponse = JSON.stringify(impersonated.response);
+  if (impersonatedResponse.includes(SECRET)) {
+    emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_BREACH", {
+      observed: "different MCP process copied the victim actorId and sessionId",
+      sameProcessIdentityEstablished: false,
+      humanClickedAllowOnce: !!impersonated.prompt,
+      syntheticSecretDisclosed: true,
+      note: "string equality is not authentication; needs trusted process/host identity",
+    });
+    throw new Error("FRONTIER_ACTOR_LABEL_IMPERSONATION_BREACH");
+  }
+  emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_PASS", {
+    authorizedVictimSessionNotInherited: true,
+    response: impersonatedResponse.slice(0, 350),
+  });
 } finally {
   for (const p of processes) p.close();
   try { await box.setMode("autonomous"); } catch {}
