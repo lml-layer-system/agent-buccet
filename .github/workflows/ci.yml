@@ -25,6 +25,8 @@ jobs:
         run: node --test apps/buccet-box/backend.test.mjs
       - name: MCP-side Box bridge contract
         run: node --test apps/buccet-box/bridge.test.mjs
+      - name: Redirect hop regression
+        run: node --test apps/buccet-box/safe-http.test.mjs
       - name: Desktop source syntax
         run: |
           node --check apps/buccet-box/backend.mjs
