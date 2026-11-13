@@ -736,6 +736,39 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         // after the Box supplies a decision. Only the frozen proposal may use
         // its one-time choice. A second approval request fails closed.
         const activeConfig = store.getConfig();
+        // Durable revocations can arrive from another Buccet process while
+        // this one is held at a human approval prompt. Compare the exact
+        // persisted path authority before using this process's cached grant.
+        // This closes the demonstrated revocation-during-approval window,
+        // but is not a cross-process atomic transaction with the later syscall.
+        const pathAuthoritySnapshot = (laws: typeof activeConfig.pathLaws) =>
+          JSON.stringify(laws.map((law) => ({
+            lawId: law.lawId,
+            sessionId: law.sessionId,
+            rootPath: law.rootPath,
+            grantedActions: [...law.grantedActions].sort(),
+            revokedAt: law.revokedAt ?? null,
+            expiresAt: law.expiresAt ?? null,
+          })).sort((a, b) => a.lawId.localeCompare(b.lawId)));
+        const currentStore = await boundary.restoreBoundaryRuntimeStore({
+          sessionId: args.sessionId,
+          sessionsDir: args.sessionsDir,
+          hydrationMode: "full",
+        });
+        const currentConfig = currentStore?.getConfig();
+        if (!currentConfig ||
+            currentConfig.session.actorId !== args.actorId ||
+            pathAuthoritySnapshot(currentConfig.pathLaws) !==
+              pathAuthoritySnapshot(activeConfig.pathLaws)) {
+          const reason = "Path authority changed or was revoked while action awaited approval";
+          await recordBoundaryBlockedAction(config, boundaryRequest, reason, result.lawIds);
+          await report("deny", reason);
+          respondResult(id, {
+            content: [{ type: "text", text: `Boundary denied: ${reason}` }],
+            isError: true,
+          });
+          return;
+        }
         let decisionUsed = false;
         const guardedConfig = enableBodyguardControl({
           ...activeConfig,
@@ -784,6 +817,17 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
             execute: async () => {
               if (cancelledCalls.has(cancellationKey(id))) {
                 throw new Error("BUCCET_MCP_CANCELLED: request cancelled before effect");
+              }
+              const finalStore = await boundary.restoreBoundaryRuntimeStore({
+                sessionId: args.sessionId,
+                sessionsDir: args.sessionsDir,
+                hydrationMode: "full",
+              });
+              if (!finalStore ||
+                  finalStore.getConfig().session.actorId !== args.actorId ||
+                  pathAuthoritySnapshot(finalStore.getConfig().pathLaws) !==
+                    pathAuthoritySnapshot(activeConfig.pathLaws)) {
+                throw new Error("BUCCET_REVOKED: durable path authority changed before effect");
               }
               return execTool(toolName, toolInput, {
               fsPathLaws: guardedConfig.pathLaws,
