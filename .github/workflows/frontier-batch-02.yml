@@ -1,0 +1,54 @@
+name: Frontier adversarial proving ground — batch 02
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/buccet-box/frontier-*"
+      - ".github/workflows/frontier-batch-02.yml"
+      - "native/box-fs-guard.c"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-races:
+    name: Deterministic native guard attacks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Attack real native guard at exact commit boundary
+        run: node apps/buccet-box/frontier-races.mjs
+
+  control-plane:
+    name: Compromised-token approval control-plane attacks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Attack real Box operator approval bridge
+        run: node apps/buccet-box/frontier-control.mjs
+
+  cross-agent-identity:
+    name: Session-ID actor confusion against real MCP server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Build native filesystem actuator
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Attempt to restore a different agent identity's grants
+        run: node apps/buccet-box/frontier-session.mjs
