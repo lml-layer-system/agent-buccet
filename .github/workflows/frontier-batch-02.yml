@@ -1,0 +1,26 @@
+name: Frontier adversarial proving ground — batch 02
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/buccet-box/frontier-*"
+      - ".github/workflows/frontier-batch-02.yml"
+      - "native/box-fs-guard.c"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-races:
+    name: Deterministic native guard attacks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Attack real native guard at exact commit boundary
+        run: node apps/buccet-box/frontier-races.mjs
