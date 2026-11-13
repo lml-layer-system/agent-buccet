@@ -134,6 +134,51 @@ try {
     throw new Error("Victim positive control failed; cannot assess identity swap");
   }
   emit("FRONTIER_IDENTITY_PASS", { control: "victim can use its grant" });
+
+  // Authority lifecycle: while the real server is frozen at the human
+  // approval boundary, the operator revokes the underlying path grant in
+  // durable storage. Execution must not use a stale in-memory snapshot.
+  const revokedTarget = path.join(workspace, "after-revocation.txt");
+  const revocationRequest = victim.ask("tools/call", {
+    name: "write_file",
+    arguments: { path: revokedTarget, content: "EXECUTED_WITH_REVOKED_AUTHORITY" },
+  }, 17000);
+  let revocationPrompt;
+  const revocationStart = Date.now();
+  while (Date.now() - revocationStart < 5000) {
+    revocationPrompt = box.state().pending[0];
+    if (revocationPrompt) break;
+    await new Promise(resolve => setTimeout(resolve, 25));
+  }
+  if (revocationPrompt) {
+    const oldConfig = store.getConfig();
+    store.replaceConfig({ ...oldConfig, pathLaws: (oldConfig.pathLaws ?? []).map(law => ({
+      ...law, revokedAt: new Date().toISOString(),
+    })) });
+    await store.persist();
+    box.settle(revocationPrompt.approvalId, "allow_once");
+  }
+  const staleResponse = await revocationRequest;
+  let revokedExecuted = false;
+  try {
+    revokedExecuted = (await readFile(revokedTarget, "utf8")) ===
+      "EXECUTED_WITH_REVOKED_AUTHORITY";
+  } catch {}
+  if (revokedExecuted) {
+    emit("FRONTIER_REVOCATION_BREACH", {
+      observed: "stale running MCP process used revoked path law after approval",
+      revokedOnDiskBeforeAllow: !!revocationPrompt,
+      actualWrite: true, response: JSON.stringify(staleResponse).slice(0, 220),
+    });
+  } else {
+    emit("FRONTIER_REVOCATION_PASS", {
+      executionBlocked: true, revokedBeforeAllow: !!revocationPrompt,
+      response: JSON.stringify(staleResponse).slice(0, 220),
+    });
+  }
+  // Restore the test session for independent identity and cancellation cases.
+  store.replaceConfig(granted.config);
+  await store.persist();
   victim.close();
 
   const attackerOwn = client(actorB, "separate-unauthorized-session"); processes.push(attackerOwn);
