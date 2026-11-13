@@ -14,7 +14,7 @@
 - Autonomous mode without standing UPL did not authorize a held write.
 - Five concurrent hostile out-of-scope writes did not change the protected sentinel.
 - Direct `move_file` crossing the workspace boundary did not succeed.
-- A shell-tool bypass attempt was blocked **before approval**, which does *not* verify confinement of explicitly granted subprocesses.
+- A shell-tool bypass attempt was blocked **before approval**. A separate explicit tool-grant test also failed its benign-execution positive control with `Boundary denied: tool execution is denied by default`; therefore **approved subprocess confinement remains untested**, not passed.
 - The HTTP executor denied unapproved redirect hops while retaining successful direct requests.
 - A 96-case deterministic malformed/spoofed MCP input campaign returned 96 rejections and caused no protected-file modification (after isolated-fixture reset).
 - The real Electron window, allowed/denied notification surface, approval click, denial click, and hidden-background bridge passed separate Xvfb GUI tests.
@@ -50,7 +50,7 @@ This is **not** evidence that the attacker authorized execution in the runtime. 
 |---|---|---|
 | LEDGER-01 | Alter signed receipt verdict from DENY to ALLOW and target from authorized to outside, leaving original signature/hash untouched | **Previously verified** as cryptographically valid — confirmed verifier defect |
 | LEDGER-01 fix | Recompute hash from actual JSON-serialized content, sign new `json-v2` canonical records, mark legacy unreconstructable records unverified | **Retested:** tamper now fails with `signed receipt content hash mismatch detected` |
-| LEDGER-02 | Delete signed last record, then extend valid shortened prefix | **Residual limitation:** a valid shortened history remains verifiable without a separately trusted checkpoint |
+| LEDGER-02 | Delete a signed final record, then append a new legitimately signed event | **Confirmed residual rollback limitation:** the shortened and re-extended history still verified; the removed decision was absent |
 
 Treat `ok` and `cryptographic_ok` as distinct results. Do not claim that historical v1 records offer the same body-integrity guarantee as the new v2 format. **Ledger v2 fixes are committed to the feature branch, not released.**
 
