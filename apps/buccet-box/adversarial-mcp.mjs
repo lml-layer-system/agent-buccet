@@ -189,6 +189,25 @@ async function main() {
       });
     }
 
+    // Positive control: the same authorized workspace must be writable with
+    // a genuine fresh human Allow once. Otherwise a deny-everything implementation
+    // would wrongly look secure despite being unusable.
+    const permitted = mcp.call("write_file", {
+      path: candidate,
+      content: "PERMITTED-ONCE",
+    }, 20000);
+    const permittedHold = await until(() => box.state().pending[0], 6000);
+    assert.ok(permittedHold, "POSITIVE CONTROL: an in-scope write should reach the Box");
+    assert.equal(permittedHold.target, candidate);
+    assert.equal(box.settle(permittedHold.approvalId, "allow_once"), true);
+    const permittedResponse = await permitted;
+    assert.equal(await readFile(candidate, "utf8"), "PERMITTED-ONCE",
+      "POSITIVE CONTROL FAILED: a human-approved in-scope write did not execute");
+    assert.equal(permittedResponse.result?.isError, undefined);
+    passed("real human approval permits an in-scope write", "file changed only after a fresh Allow once");
+    // Reset the benign fixture so the following denial tests are comparable.
+    await writeFile(candidate, "ORIGINAL", "utf8");
+
     // The same earlier denied action must not turn into approval when
     // an operator switches to autonomous. Unmatched standing UPL fails shut.
     await box.setMode("autonomous");
