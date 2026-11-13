@@ -486,7 +486,10 @@ function stableStringify(value: unknown): string {
 }
 
 function computeEntryHash(entry: Omit<BoundaryLedgerRecord, "META"> & { META: Omit<BoundaryLedgerRecord["META"], "hash"> }): string {
-  const canonical = stableStringify(entry);
+  // Mirror the persisted JSON data. Legacy v1 hashes included undefined
+  // properties that JSON serialization subsequently erased, making their
+  // original content hash impossible to reconstruct reliably.
+  const canonical = stableStringify(JSON.parse(JSON.stringify(entry)));
   return `sha256:${createHash("sha256").update(canonical).digest("hex")}`;
 }
 
@@ -824,6 +827,7 @@ function buildBoundaryLedgerRecord(args: {
     session_id: args.payload.sessionId,
     depth: typeof args.payload.metadata?.depth === "number" ? Number(args.payload.metadata.depth) : 0,
     event_type: args.eventType,
+    hash_version: "json-v2" as const,
   };
 
   const hash = computeEntryHash({
@@ -1161,6 +1165,7 @@ export async function verifyBoundaryLedgerChain(): Promise<{
   let expectedIndex = records[firstCanonicalIndex].index;
   let signedRecords = 0;
   let unsignedRecords = 0;
+  let legacyUnverifiable = false;
   const signerIds = new Set<string>();
 
   for (let index = firstCanonicalIndex; index < records.length; index += 1) {
@@ -1183,6 +1188,48 @@ export async function verifyBoundaryLedgerChain(): Promise<{
       };
     }
 
+    // Prior v1 signatures used a non-JSON canonical form that is not
+    // reproducible from the serialized record. Never claim those old
+    // signatures independently authenticate their stored content.
+    if (record.META.hash_version !== "json-v2") {
+      legacyUnverifiable = true;
+    } else {
+    // Verify the actual stored receipt body, not merely a signature over
+    // META.hash. A malicious file editor could otherwise rewrite the decision
+    // and target while leaving the signed hash unchanged.
+    const calculatedHash = computeEntryHash({
+      index: record.index,
+      eventType: record.eventType,
+      payload: record.payload,
+      INPUT: record.INPUT,
+      DECISION: record.DECISION,
+      PATH: record.PATH,
+      NEXT: record.NEXT,
+      OPTIONS: record.OPTIONS,
+      META: {
+        id: record.META.id,
+        timestamp: record.META.timestamp,
+        prev_hash: record.META.prev_hash,
+        session_id: record.META.session_id,
+        depth: record.META.depth,
+        event_type: record.META.event_type,
+        hash_version: record.META.hash_version,
+      },
+    });
+    if (calculatedHash !== record.META.hash) {
+      return {
+        ok: false,
+        cryptographic_ok: false,
+        brokenAt: record.META.id,
+        reason: "signed receipt content hash mismatch detected",
+        checkedFrom: records[firstCanonicalIndex].META.id,
+        signed_records: signedRecords,
+        unsigned_records: unsignedRecords,
+        signer_ids: [...signerIds],
+      };
+    }
+    }
+
     prevHash = record.META.hash;
     expectedIndex += 1;
 
@@ -1192,7 +1239,7 @@ export async function verifyBoundaryLedgerChain(): Promise<{
       const verified = await verifyBoundaryLedgerRecordSignature(record);
       if (!verified.ok) {
         return {
-          ok: true,
+          ok: false,
           cryptographic_ok: false,
           brokenAt: record.META.id,
           reason: verified.reason,
@@ -1208,9 +1255,13 @@ export async function verifyBoundaryLedgerChain(): Promise<{
   }
   return {
     ok: true,
-    reason: firstCanonicalIndex > 0 ? "legacy prefix skipped; canonical chain verified" : undefined,
+    reason: legacyUnverifiable
+      ? "legacy v1 receipt hashes cannot be independently verified from serialized content"
+      : firstCanonicalIndex > 0
+        ? "legacy prefix skipped; canonical chain verified"
+        : undefined,
     checkedFrom: records[firstCanonicalIndex].META.id,
-    cryptographic_ok: unsignedRecords === 0 && signedRecords > 0,
+    cryptographic_ok: !legacyUnverifiable && unsignedRecords === 0 && signedRecords > 0,
     signed_records: signedRecords,
     unsigned_records: unsignedRecords,
     signer_ids: [...signerIds],
