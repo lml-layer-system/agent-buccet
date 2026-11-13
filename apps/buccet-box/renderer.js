@@ -59,6 +59,8 @@ function render(next) {
     text("approval-action", approval.actionKind);
     text("approval-target", approval.target);
     text("approval-reason", approval.reason);
+    text("approval-payload", approval.payloadSummary || "");
+    byId("approval-payload-row").hidden = !approval.payloadSummary;
     text("approval-count", approvals.length > 1 ? `${approvals.length - 1} additional request(s) waiting` : "");
     byId("allow-once").disabled = busy;
     byId("deny-once").disabled = busy;
