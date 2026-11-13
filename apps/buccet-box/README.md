@@ -39,10 +39,36 @@ approve the native confirmation, and restart the host. This preview looks for
 an installed `buccet` executable, then falls back to the local repo's CLI
 with Node.
 
-Once packaged for distribution, normal users should launch the app without
-typing commands. **The packaged installer and automatic runtime bootstrap are
-not implemented in this preview.** Host configuration may need extra approval
-and host restarts.
+### macOS preview DMG (no terminal for end users)
+
+The [Buccet Box macOS preview workflow](../../.github/workflows/box-macos.yml)
+produces **unsigned** Intel and Apple Silicon DMGs, available as GitHub Actions
+artifacts on the public PR. The packaged app includes the existing OSS
+Agent Buccet CLI and runtime; its Connect buttons write MCP host configuration
+for that bundled runtime. There is no separate CLI installation step in this
+packaged flow.
+
+For this preview:
+
+1. Download the appropriate DMG artifact from the workflow run.
+2. Move **Agent Buccet Box.app** into **Applications** before connecting your
+   agent. Moving the app later changes its executable path and invalidates
+   the host's saved MCP command until you reconnect.
+3. Open the app, choose a supported MCP host, accept the native confirmation,
+   and restart that host.
+4. Test an action routed through Buccet. Do not treat "MCP configured" as proof
+   that the host's other tools or arbitrary operating-system processes are
+   intercepted.
+
+**Unsigned preview warning:** macOS Gatekeeper may block the application.
+This unsigned test artifact is for trusted developer testing only, **not a
+notarized consumer release**. Proper Developer ID signing, notarization, and
+on-device host/hook bypass tests are still required before production shipping.
+
+The shipped app is not an always-on system service. Closing the window
+minimizes it; quitting the process shuts down the bridge. Automatic login
+startup and full host hook-coverage verification are not yet implemented.
+
 
 ## Enforcement versus UI
 
