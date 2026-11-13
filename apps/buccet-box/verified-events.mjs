@@ -41,16 +41,10 @@ function canonicalHash(record) {
 }
 
 /**
- * Returns the trusted event from the signed ledger, or null.
- * Caller-supplied fields only locate/match the signed receipt.
+ * One independent signed-chain verifier for both decisions and operator prompts.
+ * A bearer token never grants permission to invent either kind of event.
  */
-export async function signedDecisionForEvent(home, body, { maxAgeMs = MAX_EVENT_AGE_MS } = {}) {
-  if (!body || !["allow", "deny"].includes(body.decision) ||
-      typeof body.requestId !== "string" || !body.requestId ||
-      typeof body.actorId !== "string" || typeof body.actionKind !== "string" ||
-      typeof body.target !== "string") {
-    return null;
-  }
+async function readVerifiedLedgerRecords(home) {
   try {
     const folder = path.join(home, "data", "ledger");
     const [publicPem, stat] = await Promise.all([
@@ -81,6 +75,26 @@ export async function signedDecisionForEvent(home, body, { maxAgeMs = MAX_EVENT_
       expectedIndex += 1;
       expectedPrev = meta.hash;
     }
+    return records;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Returns the trusted event from the signed ledger, or null.
+ * Caller-supplied fields only locate/match the signed receipt.
+ */
+export async function signedDecisionForEvent(home, body, { maxAgeMs = MAX_EVENT_AGE_MS } = {}) {
+  if (!body || !["allow", "deny"].includes(body.decision) ||
+      typeof body.requestId !== "string" || !body.requestId ||
+      typeof body.actorId !== "string" || typeof body.actionKind !== "string" ||
+      typeof body.target !== "string") {
+    return null;
+  }
+  try {
+    const records = await readVerifiedLedgerRecords(home);
+    if (!records) return null;
     const expectedEventType = body.decision === "allow" ? "ACTION_EXECUTED" : "ACTION_BLOCKED";
     const receipt = records.findLast((record) =>
       record.eventType === expectedEventType &&
@@ -109,4 +123,57 @@ export async function signedDecisionForEvent(home, body, { maxAgeMs = MAX_EVENT_
     // Missing, tampered, unsigned or unreadable audit evidence => no decision.
     return null;
   }
+}
+
+/**
+ * Signed, recent APPROVAL_REQUESTED receipt is required before the Box
+ * displays a decision prompt. All visible facts come from the signed ledger;
+ * payloadSummary is shown only if its exact SHA-256 matches the signed hash.
+ *
+ * This protects against stolen-Bearer-only spoofed prompts, NOT a same-OS-user
+ * process that can steal the ledger private signing key.
+ */
+export async function signedApprovalForRequest(home, body) {
+  if (!body || typeof body.requestId !== "string" || !body.requestId ||
+      typeof body.sessionId !== "string" || typeof body.actorId !== "string" ||
+      typeof body.actionKind !== "string" || typeof body.target !== "string" ||
+      (body.payloadSummary !== undefined && typeof body.payloadSummary !== "string")) {
+    return null;
+  }
+  const records = await readVerifiedLedgerRecords(home);
+  if (!records) return null;
+  const payloadSummary = body.payloadSummary ?? "";
+  const payloadHash = createHash("sha256").update(payloadSummary).digest("hex");
+  const receipt = records.findLast((record) => {
+    const p = record.payload;
+    return record.eventType === "APPROVAL_REQUESTED" &&
+      p?.requestId === body.requestId &&
+      p?.sessionId === body.sessionId &&
+      p?.actorId === body.actorId &&
+      p?.actionKind === body.actionKind &&
+      p?.target === body.target &&
+      p?.decision === "require_approval" &&
+      p?.metadata?.approvalPayloadHash === payloadHash;
+  });
+  if (!receipt) return null;
+  const when = Date.parse(receipt.META.timestamp);
+  if (!Number.isFinite(when) || Math.abs(Date.now() - when) > MAX_EVENT_AGE_MS) {
+    return null;
+  }
+  // Do not resurrect an already-decided request by replaying its signed proof.
+  const finished = records.some((record) => record.index > receipt.index &&
+    ["ACTION_EXECUTED", "ACTION_BLOCKED", "APPROVAL_DENIED"].includes(record.eventType) &&
+    record.payload?.requestId === body.requestId);
+  if (finished) return null;
+  return {
+    requestId: receipt.payload.requestId,
+    sessionId: receipt.payload.sessionId,
+    actorId: receipt.payload.actorId,
+    actionKind: receipt.payload.actionKind,
+    target: receipt.payload.target,
+    reason: receipt.payload.reason || "Buccet requires operator approval",
+    lawIds: receipt.payload.lawIds ?? [],
+    payloadSummary,
+    question: `Should ${receipt.payload.actorId} perform ${receipt.payload.actionKind} on ${receipt.payload.target}?`,
+  };
 }
