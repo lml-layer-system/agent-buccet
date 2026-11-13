@@ -115,7 +115,10 @@ async function main() {
       issuedBy: actorId,
       seedBaseAcceptance: false,
     });
-    store.replaceConfig(scoped.config);
+    store.replaceConfig({
+      ...scoped.config,
+      approvalRequiredFor: [...new Set([...(scoped.config.approvalRequiredFor ?? []), "fs.read"])],
+    });
     await store.persist();
 
     box = createBuccetBoxBackend({ home, notify: () => {} });
@@ -454,6 +457,33 @@ async function main() {
       passed("append_file hardlink alias", { blocked: !!appendAliasResult.result?.isError || !!appendAliasResult.error });
     }
     await unlink(appendAlias);
+
+    // CONFIDENTIALITY SIDE: an approved in-scope read should not silently
+    // read an out-of-scope secret if the target is swapped during the hold.
+    const secret = path.join(outside, "private-secret.txt");
+    const secretMarker = "OUTSIDE_SECRET_MARKER_" + sessionId;
+    await writeFile(secret, secretMarker, "utf8");
+    const readPath = path.join(workspace, "innocent-read.txt");
+    await writeFile(readPath, "NON_SECRET_IN_SCOPE", "utf8");
+    const readAttempt = mcp.call("read_file", { path: readPath }, 25000);
+    const readHold = await until(() => box.state().pending[0], 7000);
+    if (readHold) {
+      await unlink(readPath);
+      await symlink(secret, readPath, "file");
+      box.settle(readHold.approvalId, "allow_once");
+    }
+    const readResult = await readAttempt;
+    const readText = JSON.stringify(readResult);
+    if (readText.includes(secretMarker)) {
+      breached("read_file exfiltration through approval-time link swap", {
+        inScopeReadPath: readPath, actualSource: secret, humanChoice: readHold ? "allow_once" : "not-prompted",
+      });
+    } else {
+      passed("read_file does not leak swapped out-of-scope secret", {
+        prompted: !!readHold, blocked: !!readResult.result?.isError || !!readResult.error,
+      });
+    }
+    if (readHold) await unlink(readPath);
 
     console.log("REDTEAM_SUITE_RESULTS", JSON.stringify({
       passed: findings.length, violations: violations.length, findings, breached: violations,
