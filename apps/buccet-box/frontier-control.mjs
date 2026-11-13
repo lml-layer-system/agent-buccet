@@ -7,6 +7,8 @@
  * whether malicious local peers can abuse the operator's approval surface.
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { appendBoundaryLedger } from "../../src/proof/ledger.ts";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import os from "node:os";
@@ -14,6 +16,8 @@ import { createBuccetBoxBackend } from "./backend.mjs";
 
 const home = await mkdtemp(path.join(os.tmpdir(), "buccet-frontier-control-"));
 const box = createBuccetBoxBackend({ home, notify: () => {} });
+const formerHome = process.env.AGENT_BUCCET_HOME;
+process.env.AGENT_BUCCET_HOME = home;
 const failures = [], passed = [];
 function log(attack, failed, evidence) {
   console.log(failed ? "FRONTIER_CONTROL_EXPOSURE" : "FRONTIER_CONTROL_PASS", attack, JSON.stringify(evidence));
@@ -51,12 +55,31 @@ try {
       signal,
     });
   }
+  async function signLegitimateApproval(body) {
+    await appendBoundaryLedger("APPROVAL_REQUESTED", {
+      sessionId: body.sessionId,
+      actorId: body.actorId,
+      requestId: body.requestId,
+      actionKind: body.actionKind,
+      target: body.target,
+      decision: "require_approval",
+      reason: body.reason,
+      metadata: {
+        approvalPayloadHash: createHash("sha256").update(body.payloadSummary ?? "").digest("hex"),
+      },
+      createdAt: new Date().toISOString(),
+    });
+  }
+  async function postLegitimate(body, customToken = token, signal) {
+    await signLegitimateApproval(body);
+    return post(body, customToken, signal);
+  }
 
   // Positive controls: unauthenticated peers do not get to create requests;
   // an authenticated pending item can still be explicitly denied.
   assert.equal((await post(proposal("unauthorized"), "bad")).status, 401);
   log("unauthenticated approval injection rejected", false, { status: 401 });
-  const legitimate = post(proposal("legitimate"));
+  const legitimate = postLegitimate(proposal("legitimate"));
   assert.equal(await waitFor(() => box.state().pending.length === 1), true);
   const [held] = box.state().pending;
   assert.equal(box.settle(held.approvalId, "deny_once"), true);
@@ -74,29 +97,36 @@ try {
     reason: "claimed urgent system maintenance",
     target: "https://example.invalid/fake-urgent-prompt",
   }), token, fakeController.signal).catch(() => null);
-  assert.equal(await waitFor(() => box.state().pending.length === 1), true);
+  // Preserve the identical malicious payload. The fixed Box should return
+  // 422 without displaying it, rather than the old test assuming a prompt.
+  await waitFor(() => box.state().pending.length > 0, 300);
   const spoofed = box.state().pending[0];
-  const successfullySpoofed = spoofed.actorId === "admin:security-update" &&
-    spoofed.question.includes("ALLOW this action now");
+  const successfullySpoofed = !!spoofed && spoofed.actorId === "admin:security-update";
   log("same-user capability injects a forged high-priority approval prompt",
     successfullySpoofed, {
-      displayedActor: spoofed.actorId,
-      requestId: spoofed.requestId,
+      displayedActor: spoofed?.actorId ?? null,
+      requestId: spoofed?.requestId ?? null,
       requiresCompromisedBearer: true,
       runtimeExecutionAuthorityGranted: false,
     });
-  box.settle(spoofed.approvalId, "deny_once");
-  await injected;
+  if (spoofed) box.settle(spoofed.approvalId, "deny_once");
+  const injectionReply = await injected;
+  assert.equal(injectionReply?.status, 422,
+    "token-only forged operator prompt must fail without a signed intent receipt");
 
   // Flood: 128 independently held requests, then every client disconnects.
   // A well-contained operator surface should bound queued work and release
   // orphaned prompts promptly, not hold 5-min timers for departed clients.
   const COUNT = 128;
   const clients = [];
-  for (let i = 0; i < COUNT; i++) {
+  // Give every flood request genuine signed runtime intent. Without this
+  // positive control, provenance rejection alone could mask queue exhaustion.
+  const flood = Array.from({ length: COUNT }, (_, i) => proposal("orphan-" + i));
+  for (const item of flood) await signLegitimateApproval(item);
+  for (const item of flood) {
     const controller = new AbortController();
     aborts.push(controller);
-    clients.push(post(proposal("orphan-" + i), token, controller.signal).catch(() => null));
+    clients.push(post(item, token, controller.signal).catch(() => null));
   }
   const acceptedFlood = await waitFor(() => box.state().pending.length >= COUNT, 8000);
   const before = box.state().pending.length;
@@ -122,5 +152,7 @@ try {
   for (const controller of aborts) controller.abort();
   try { await box.setMode("autonomous"); } catch {}
   await box.stop();
+  if (formerHome === undefined) delete process.env.AGENT_BUCCET_HOME;
+  else process.env.AGENT_BUCCET_HOME = formerHome;
   await rm(home, { recursive: true, force: true });
 }
