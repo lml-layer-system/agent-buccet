@@ -24,3 +24,15 @@ jobs:
           node-version: "22"
       - name: Attack real native guard at exact commit boundary
         run: node apps/buccet-box/frontier-races.mjs
+
+  control-plane:
+    name: Compromised-token approval control-plane attacks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Attack real Box operator approval bridge
+        run: node apps/buccet-box/frontier-control.mjs
