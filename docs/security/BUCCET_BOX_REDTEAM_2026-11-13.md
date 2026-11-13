@@ -2,8 +2,17 @@
 
 **Date:** 2026-11-13  
 **Scope:** Public `lml-layer-system/agent-buccet` feature branch `feat/buccet-box-interactive-autonomous`  
-**Status:** **DO NOT RELEASE.** The red-team execution job is expected to fail while confirmed boundary escapes remain unresolved.  
+**Status:** **LINUX RED-TEAM REGRESSIONS GREEN ON FEATURE BRANCH. NOT YET PRODUCTION RELEASE-READY.** Original vulnerabilities are retained below as evidence. Separate host-native, subprocess and platform security claims remain unverified.  
 **Environment:** Linux GitHub Actions runner, disposable Buccet home, temporary files, real public JSON-RPC MCP server, real Bodyguard runtime, actual filesystem side-effect verification. This is not an independently run Hermes/Cursor or macOS host bypass study.
+
+## Root-remediation verification — same attack suite, November 13, 2026
+
+- [**Full original MCP adversarial suite: green**](https://github.com/lml-layer-system/agent-buccet/actions/runs/43482154121). All six previously successful filesystem escapes now blocked, with the same test inputs and actual external-file/synthetic-secret assertions. The approved in-scope write **still executed**, ruling out a deny-all false positive.
+- The MCP executor no longer performs raw `node:fs` file operations. It delegates through `src/box/confined-fs.ts` to `native/box-fs-guard.c` **only after the existing Bodyguard authorizes the action**. The guard uses no-follow, descriptor-relative directory traversal, unique-inode checks and atomic replacement for writes/append. It fails closed if the native helper is missing.
+- **Notification replay/forgery:** the Box now requires matching canonical signed `ACTION_EXECUTED` / `ACTION_BLOCKED` ledger receipts and takes its visible facts from those receipts. The same previously successful token-only forged “Allowed” event returned **422**, with no fabricated event shown.
+- **96/96** malformed and identity-spoofed MCP requests rejected. The separate signed-ledger tampering regression passed. The Linux real Electron GUI still passed with verified synthetic receipts.
+- **Remaining scope boundary:** this does not establish sandbox protection from a malicious process that can alter the Box, its executable, the native helper, or the ledger-signing private key under the same OS identity. A stronger service-level or kernel-enforced identity separation is needed for that threat model.
+- macOS app packaging and the source-installed native helper require their own platform tests; Linux Xvfb does not prove macOS filesystem semantics.
 
 ## What passed
 
@@ -34,7 +43,7 @@ These all used synthetic test data and the ordinary public MCP executor. An adve
 
 **Root cause:** A decision authorizes a logical path, but the direct filesystem executor resolves that path again at execution. The underlying inode, ancestor directory, or link may have changed. The authorization was not bound to a safely opened object, and a writable hardlink can alias protected storage.
 
-**Do not claim this has been fixed.** The right remediation needs execution-time object authority and kernel/handle-backed path confinement, not merely a `realpath()` check that itself can race. Evaluate Linux `openat2` / Landlock and macOS descriptor-relative operations or sandboxing. Re-test ancestor swaps, hardlinks, append, read, move, rename, symlink chains, process spawning, and platform-specific behavior.
+**Now remediated for the six demonstrated Linux MCP filesystem cases:** descriptor-relative operations, hardened leaf handling, unique-file checks, and atomic writes. The exact six cases passed the same real-MCP assertions. This is not proof of general host sandboxing, hostile-code containment, or full macOS parity. Further kernel-level isolation, resource exhaustion and native host-tool bypass testing are still required.
 
 ## Notification trust finding
 
@@ -42,7 +51,7 @@ These all used synthetic test data and the ordinary public MCP executor. An adve
 |---|---|---|---|
 | BOX-01 | A same-user local process reads `~/.buccet/box/bridge.json` and submits an authenticated `/v1/event` | A fabricated `allow` event appeared in the bank-style feed without any MCP execution | Local process has access to the same user's token file |
 
-This is **not** evidence that the attacker authorized execution in the runtime. It is an **operator notification provenance flaw** under a same-user local threat model. The bridge explicitly documents that its bearer token is a same-user capability, not an OS security boundary. Do not show unsigned local notification messages as independently verified proof receipts.
+**Fix retested in Linux:** bearer-token-only forged events now fail (HTTP 422); the operator UI only accepts events backed by locally verifiable Ed25519-signed ledger records. This is **not** evidence that the attacker authorized execution. A malicious same-user process that can access signing keys or replace the Box/native binary can still compromise local trust; that broader threat model needs stronger privilege separation.
 
 ## Proof ledger finding and retest
 
@@ -76,7 +85,7 @@ node apps/buccet-box/adversarial-ledger.mjs
 
 ## Required release gates
 
-1. **Filesystem:** all six demonstrated FS escapes blocked under a real positive-control Allow once; no accidental regression into deny-all.
+1. **Filesystem:** **PASSED on Linux public MCP tests** — all six demonstrated FS escapes blocked, real positive-control Allow once succeeds. Extend to native macOS and host-hook integration before release.
 2. **Subprocesses:** separately grant a benign command and verify execution, then test modified executable/script, filesystem access, environment inheritance, shell escapes, native hook bypass, process restart, and child processes.
 3. **Agent pathways:** Cursor/Hermes/other supported host native tool inventory and bypass matrix, including non-MCP actions. Never display `Protected` for unobserved routes.
 4. **Identity:** secure action provenance and local event origin; no forged decision notices under a defined threat model. Explicitly document same-user limitations where unresolved.
