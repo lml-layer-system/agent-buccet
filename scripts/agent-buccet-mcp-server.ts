@@ -493,8 +493,16 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         hydrationMode: "full",
       }));
 
+    // A restored session is authority belonging to its original actor.
+    // A caller may name a session, but may not inherit another actor's grants.
+    if (store.getConfig().session.actorId !== args.actorId) {
+      throw new Error("BUCCET_IDENTITY_DENIED: restored session actor mismatch");
+    }
+
     let config = store.getConfig();
     let initialized = false;
+    const cancelledCalls = new Set<string>();
+    const cancellationKey = (id: unknown) => JSON.stringify(id);
     let actionQueue: Promise<void> = Promise.resolve();
     const inFlight = new Set<Promise<void>>();
 
@@ -536,6 +544,10 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
       }
 
       if (method === "tools/call") {
+        if (cancelledCalls.has(cancellationKey(id))) {
+          respondError(id, -32800, "Buccet MCP request cancelled before execution");
+          return;
+        }
         const callParams = params as { name?: string; arguments?: unknown } | undefined;
         const toolName = callParams?.name ?? "";
         const toolInput = callParams?.arguments ?? {};
@@ -707,6 +719,19 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           }
         }
 
+        // The host may cancel while the human approval prompt is held.
+        // A stale approval click is never authority to execute a cancelled call.
+        if (cancelledCalls.has(cancellationKey(id))) {
+          await recordBoundaryBlockedAction(config, boundaryRequest,
+            "MCP host cancelled this request", result.lawIds);
+          await report("deny", "MCP host cancelled this request");
+          respondResult(id, {
+            content: [{ type: "text", text: "Buccet denied: MCP request cancelled" }],
+            isError: true,
+          });
+          return;
+        }
+
         // The action must still pass the existing Bodyguard/UPL runtime, even
         // after the Box supplies a decision. Only the frozen proposal may use
         // its one-time choice. A second approval request fails closed.
@@ -756,7 +781,11 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
             config: guardedConfig,
             request: boundaryRequest,
             successReason: `${toolName} executed through Buccet MCP`,
-            execute: async () => execTool(toolName, toolInput, {
+            execute: async () => {
+              if (cancelledCalls.has(cancellationKey(id))) {
+                throw new Error("BUCCET_MCP_CANCELLED: request cancelled before effect");
+              }
+              return execTool(toolName, toolInput, {
               fsPathLaws: guardedConfig.pathLaws,
               runCommand: async (command, commandArgs, cwd) => {
                 const liveConfig = store.getConfig();
@@ -778,7 +807,8 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
                   exitCode: launched.exitCode,
                 };
               },
-            }),
+              });
+            },
           });
           // Persist the *law changes*, not the per-request approval callback
           // or its temporary action-kind approval gate. Otherwise a single
@@ -834,6 +864,16 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           return;
         }
 
+        // Cancellation is out-of-band: never queue it behind the action whose
+        // approval is awaiting a human. IDs are scoped to this transport.
+        if (req.method === "notifications/cancelled") {
+          const cancelledId = (req.params as { requestId?: unknown } | undefined)?.requestId;
+          if (typeof cancelledId === "string" || typeof cancelledId === "number") {
+            cancelledCalls.add(cancellationKey(cancelledId));
+          }
+          return;
+        }
+
         // Serialize consequence-bearing calls so concurrent agent requests
         // cannot race session-law updates or single-use approvals.
         const run = async () => {
@@ -844,6 +884,10 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
               `[buccet-mcp] request error: ${err instanceof Error ? err.message : String(err)}\n`,
             );
             respondError(req.id, -32000, "Buccet enforcement failed closed");
+          } finally {
+            if (req.method === "tools/call") {
+              cancelledCalls.delete(cancellationKey(req.id));
+            }
           }
         };
         if (req.method === "tools/call") {
