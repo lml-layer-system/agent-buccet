@@ -86,9 +86,19 @@ The Box is a local approval and activity **surface**, not an OS sandbox.
   already-compromised user account.
 - The Box cannot expand law autonomously. In autonomous mode, a held action
   with no matching standing acceptance is denied.
-- The local activity feed shows **observed runtime decisions**, not an
-  independent claim that all possible actions were intercepted. Proof remains
-  in Agent Buccet's signed ledger.
+- The activity feed accepts only **decisions with matching, locally
+  verified Ed25519-signed canonical ledger receipts**; possessing the local
+  bridge token alone cannot fabricate an Allowed event. This still does not
+  prove every host-native action was intercepted, or protect against a
+  malicious same-user process with access to the ledger signing key.
+- Filesystem tool execution uses the POSIX confined native actuator
+  (`native/box-fs-guard.c`) after the existing Bodyguard/UPL decision:
+  descriptor-relative traversal, no-follow directory operations, and atomic
+  file replacement. Missing native guard = deny (no unsafe JavaScript fallback).
+  Windows does not yet have an equivalent backend and fails closed.
+- The six previously successful Linux symlink, parent-swap, hardlink, append,
+  and secret-read boundary escapes now pass the **same** real-MCP tests.
+  This is not a general OS sandbox or proof of macOS hook coverage.
 - Closing the window leaves the Box's bridge running. Closing the process,
   bridge timeout, or inability to reach the Box denies any unresolved
   interactive request; it does not auto-approve.
@@ -100,6 +110,9 @@ The Box is a local approval and activity **surface**, not an OS sandbox.
 
 ```bash
 node --test apps/buccet-box/backend.test.mjs
+sh scripts/build-box-fs-guard.sh
+node apps/buccet-box/adversarial-mcp.mjs
+node apps/buccet-box/adversarial-ledger.mjs
 npm run typecheck
 npm run test:agent-buccet:mcp
 ```
@@ -108,3 +121,5 @@ The tests exercise the bridge and existing runtime contracts; a complete
 on-device Hermes/Cursor adversarial demonstration and signed installer still
 need separate validation. Do not represent a passing UI/backend test as proof
 that every host-native capability is intercepted.
+
+See the [November 13 independent attack reproduction and remediation notes](../../docs/security/BUCCET_BOX_REDTEAM_2026-11-13.md). Signed-ledger tail truncation without trusted external checkpoint, same-user signing-key compromise, executable tampering, approved subprocess confinement, macOS host-native bypass, and broad platform coverage remain separate security acceptance criteria.
