@@ -5,6 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import { createBuccetBoxBackend } from "./backend.mjs";
 import { loadBuccetBoxBridge } from "../../src/box/bridge.ts";
+import { appendBoundaryLedger } from "../../src/proof/ledger.ts";
 
 async function fixture(t) {
   const home = await mkdtemp(path.join(os.tmpdir(), "buccet-box-bridge-"));
@@ -12,10 +13,14 @@ async function fixture(t) {
   const bridgeFile = path.join(home, "box", "bridge.json");
   const { origin } = await box.start();
   const former = process.env.BUCCET_BOX_BRIDGE_FILE;
+  const formerHome = process.env.AGENT_BUCCET_HOME;
   process.env.BUCCET_BOX_BRIDGE_FILE = bridgeFile;
+  process.env.AGENT_BUCCET_HOME = home;
   t.after(async () => {
     if (former === undefined) delete process.env.BUCCET_BOX_BRIDGE_FILE;
     else process.env.BUCCET_BOX_BRIDGE_FILE = former;
+    if (formerHome === undefined) delete process.env.AGENT_BUCCET_HOME;
+    else process.env.AGENT_BUCCET_HOME = formerHome;
     await box.stop();
     await rm(home, { recursive: true, force: true });
   });
@@ -65,6 +70,16 @@ test("autonomous mode is notification-only and bridge does not mint approval", a
   const response = await bridge.requestApproval(proposal);
   assert.deepEqual(response, { mode: "autonomous" });
   assert.equal(box.state().pending.length, 0);
+  await appendBoundaryLedger("ACTION_BLOCKED", {
+    sessionId: proposal.sessionId,
+    actorId: proposal.actorId,
+    requestId: proposal.requestId,
+    actionKind: proposal.actionKind,
+    target: proposal.target,
+    decision: "deny",
+    reason: "standing UPL has no matching acceptance",
+    createdAt: new Date().toISOString(),
+  });
   await bridge.record({
     requestId: proposal.requestId,
     actorId: proposal.actorId,
