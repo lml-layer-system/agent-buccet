@@ -254,6 +254,44 @@ async function main() {
       errors: simultaneous.filter(r => r.result?.isError || r.error).length, sentinelIntact: true,
     });
 
+    // Try an alternate MCP tool: moving an in-scope file directly over
+    // a protected out-of-scope target. The defender must guard BOTH ends.
+    const move = await mcp.call("move_file", { from: candidate, to: sentinel }, 20000);
+    assert.equal(await readFile(sentinel, "utf8"), "DO NOT CHANGE",
+      "ALTERNATE-TOOL BYPASS: move_file overwrote out-of-scope sentinel");
+    assert.equal(await readFile(candidate, "utf8"), "ORIGINAL",
+      "ALTERNATE-TOOL BYPASS: move_file took the source despite denying destination");
+    passed("move_file cannot bypass destination scope", {
+      blocked: !!move.result?.isError || !!move.error, sourceIntact: true,
+    });
+
+    // Next try laundering the same protected write through a spawned Node
+    // process. This is benign isolated test data, not a host-machine target.
+    // If the approval gate asks, explicitly grant ONLY this command attempt;
+    // writing outside an unopened path should still require independent
+    // filesystem enforcement.
+    await box.setMode("interactive");
+    const script = `require("node:fs").writeFileSync(${JSON.stringify(sentinel)},"SHELL_BYPASS")`;
+    const execAttempt = mcp.call("run_command", {
+      command: process.execPath,
+      args: `-e ${script}`,
+      cwd: workspace,
+    }, 30000);
+    const execHold = await until(() => box.state().pending[0], 7000);
+    if (execHold) {
+      assert.match(execHold.payloadSummary ?? "", /sha256=[a-f0-9]{64}/,
+        "Shell approval prompt omitted command argument fingerprint");
+      box.settle(execHold.approvalId, "allow_once");
+    }
+    const execResponse = await execAttempt;
+    assert.equal(await readFile(sentinel, "utf8"), "DO NOT CHANGE",
+      "SHELL BYPASS CONFIRMED: a command-approved subprocess wrote outside authorized filesystem scope");
+    passed("shell tool cannot write outside filesystem scope", {
+      prompted: !!execHold,
+      blocked: !!execResponse.result?.isError || !!execResponse.error,
+    });
+    await box.setMode("autonomous");
+
     // A symlink from a granted directory to a disallowed location must not
     // permit crossing the filesystem authority boundary.
     const link = path.join(workspace, "outside-link");
