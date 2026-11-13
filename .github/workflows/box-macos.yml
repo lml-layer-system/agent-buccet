@@ -1,0 +1,101 @@
+name: Buccet Box macOS preview
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/buccet-box/**"
+      - "src/**"
+      - "cli/**"
+      - "scripts/agent-buccet-mcp-server.ts"
+      - "scripts/prepare-agent-buccet-package.ts"
+      - ".github/workflows/box-macos.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos-preview:
+    name: Unsigned macOS DMG (not a release)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      ELECTRON_BUILDER_ALLOW_UNRESOLVED_DEPENDENCIES: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install OSS runtime dependencies
+        run: npm ci
+      - name: Build standalone Agent Buccet runtime
+        run: npm run build:agent-buccet:fast
+      - name: Validate bundled runtime exists
+        shell: bash
+        run: |
+          test -f dist/agent-buccet/bin/buccet.ts
+          test -f dist/agent-buccet/bin/agent-buccet-mcp-server.ts
+          test -f dist/agent-buccet/src/box/bridge.ts
+          test -d dist/agent-buccet/native
+          test -x dist/agent-buccet/native/build/box-fs-guard
+      - name: Install desktop dependencies
+        run: npm install --prefix apps/buccet-box --no-audit --no-fund
+      - name: Run Box unit contracts
+        run: |
+          node --test apps/buccet-box/backend.test.mjs
+          node --test apps/buccet-box/runtime-launch.test.mjs
+          node --test apps/buccet-box/bridge.test.mjs
+      - name: Package unsigned macOS preview
+        run: npm --prefix apps/buccet-box run build:mac
+      - name: Inspect bundled app and DMG
+        shell: bash
+        run: |
+          test -n "$(find dist/buccet-box -maxdepth 1 -name '*.dmg' -print -quit)"
+          test -n "$(find dist/buccet-box -maxdepth 2 -name 'Agent Buccet Box.app' -print -quit)"
+          find dist/buccet-box -name 'Agent Buccet Box.app' -maxdepth 2 -print
+          find dist/buccet-box -name '*.dmg' -maxdepth 1 -print
+      - name: Smoke test embedded runtime inside packaged app
+        shell: bash
+        run: |
+          APP="dist/buccet-box/mac-arm64/Agent Buccet Box.app"
+          EXE="$APP/Contents/MacOS/Agent Buccet Box"
+          BUNDLED="$APP/Contents/Resources/agent-buccet"
+          test -x "$EXE"
+          test -f "$BUNDLED/bin/buccet.ts"
+          test -f "$BUNDLED/src/box/bridge.ts"
+          ELECTRON_RUN_AS_NODE=1 "$EXE" -e \
+            "import(require('node:url').pathToFileURL(process.argv[1]).href).then(m => { if (typeof m.loadBuccetBoxBridge !== 'function') process.exitCode = 2; }).catch(err => { console.error(err); process.exitCode = 3; })" \
+            "$BUNDLED/src/box/bridge.ts"
+      - name: Exercise bundled macOS confined actuator
+        shell: bash
+        run: |
+          GUARD="dist/agent-buccet/native/build/box-fs-guard"
+          test -x "$GUARD"
+          TEMP="$(mktemp -d)"
+          mkdir -p "$TEMP/scope" "$TEMP/outside"
+          printf 'unchanged' > "$TEMP/outside/protected"
+          printf 'allowed' | "$GUARD" write "$TEMP/scope" candidate
+          test "$(cat "$TEMP/scope/candidate")" = allowed
+          ln -s "$TEMP/outside/protected" "$TEMP/scope/substituted"
+          if printf 'escaped' | "$GUARD" write "$TEMP/scope" substituted; then
+            echo "SECURITY FAILURE: symlink write permitted" >&2
+            exit 1
+          fi
+          test "$(cat "$TEMP/outside/protected")" = unchanged
+          ln "$TEMP/outside/protected" "$TEMP/scope/hardlink"
+          if printf 'escaped' | "$GUARD" append "$TEMP/scope" hardlink; then
+            echo "SECURITY FAILURE: hardlink append permitted" >&2
+            exit 1
+          fi
+          test "$(cat "$TEMP/outside/protected")" = unchanged
+          rm -rf "$TEMP"
+      - name: Upload unsigned preview for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-buccet-box-macos-unsigned-preview
+          path: dist/buccet-box/*.dmg
+          if-no-files-found: error
+          retention-days: 7

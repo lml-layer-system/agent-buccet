@@ -1,0 +1,42 @@
+name: Buccet Box real Linux GUI test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/buccet-box/**"
+      - ".github/workflows/box-gui.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  virtual-desktop:
+    name: Boot real Electron UI and click it
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install virtual display and native Electron dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb libgtk-3-0 libnss3 libasound2t64 libgbm1 libxss1
+      - name: Install actual Electron app and Playwright driver
+        run: npm install --prefix apps/buccet-box --no-audit --no-fund
+      - name: Drive real Agent Buccet desktop window under Xvfb
+        env:
+          BUCCET_BOX_EVIDENCE_DIR: ${{ github.workspace }}/dist/box-gui-evidence
+        run: |
+          xvfb-run -a -s "-screen 0 1280x900x24" node apps/buccet-box/gui-smoke.mjs
+      - name: Upload actual GUI screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: buccet-box-real-electron-gui-screenshots
+          path: dist/box-gui-evidence/*.png
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,0 +1,59 @@
+{
+  "name": "agent-buccet-box",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Agent Buccet's minimal human authority surface",
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test backend.test.mjs runtime-launch.test.mjs",
+    "build:mac": "electron-builder --mac dmg --arm64 --x64 --publish never",
+    "test:gui": "node gui-smoke.mjs"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.12",
+    "playwright": "^1.58.2"
+  },
+  "productName": "Agent Buccet Box",
+  "build": {
+    "appId": "com.lmlsystemlayer.agentbuccet.box",
+    "productName": "Agent Buccet Box",
+    "asar": true,
+    "directories": {
+      "output": "../../dist/buccet-box"
+    },
+    "files": [
+      "main.mjs",
+      "backend.mjs",
+      "runtime-launch.mjs",
+      "preload.cjs",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "package.json",
+      "verified-events.mjs"
+    ],
+    "extraResources": [
+      {
+        "from": "../../dist/agent-buccet",
+        "to": "agent-buccet",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "identity": null,
+      "hardenedRuntime": false,
+      "target": [
+        "dmg"
+      ]
+    },
+    "dmg": {
+      "title": "Agent Buccet Box Preview"
+    }
+  }
+}

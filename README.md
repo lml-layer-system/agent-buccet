@@ -6,6 +6,22 @@ Agent Buccet intercepts file, env, shell, network, delete, and chat actions befo
 
 **Agents can propose. They cannot authorize.**
 
+## Buccet Box — desktop preview
+
+**One box in front. The full enforcement system behind it.**
+
+The [Buccet Box](apps/buccet-box/README.md) is the new compact desktop
+operator surface: connect supported agents through MCP, minimize it, and
+respond only when human authority is required. In **interactive mode**, held
+actions generate real UPL questions with Allow once / Deny controls. In
+**autonomous mode**, existing UPL authorizes or blocks silently, with activity
+notifications like a bank transaction feed.
+
+The app is currently a **source-level engineering preview**, not a signed
+installer or an assertion that every host-native action is intercepted. The
+runtime, hooks, and ledger remain unchanged as the authority source.
+
+
 Prompt injection can change the agent’s mind.  
 Buccet controls its hands.
 
