@@ -134,6 +134,30 @@ try {
   assert.notEqual(untrusted.status, 0, "G02: unprivileged installer obtained root authority");
   console.log("F03_G02_PASS unprivileged installer refused");
 
+  // G02 adversarial partial-install fault: a root-owned trusted command
+  // injects EIO after the managed directory exists, just as real disk errors
+  // can happen after a series of successful privileged filesystem effects.
+  // A failed privileged install MUST NOT leave an orphaned protected root.
+  const faultRoot = stage + "/fault-bin";
+  must("/usr/bin/install", ["-d", "-o", "root", "-g", "root", "-m", "0700", faultRoot]);
+  const faultScript = path.join(tmp, "fault-install.sh");
+  await writeFile(faultScript,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'case "$last" in */box-fs-guard) exit 74;; esac\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    faultScript, faultRoot + "/install"]);
+  const interrupted = privileged("env", [
+    "PATH=" + faultRoot + ":/usr/bin:/bin",
+    ...brokerEnv, "sh", ...brokerArgs,
+  ]);
+  assert.notEqual(interrupted.status, 0, "G02 injected install EIO did not abort");
+  deny("test", ["-e", root],
+    "G02: interrupted installation left orphaned privileged root (rollback missing)");
+  deny("test", ["-e", "/etc/systemd/system/" + brokerUnit],
+    "G02: interrupted installation created a live service unit");
+  console.log("F03_G02_PASS injected partial native install rolled back without root residue");
+
   const installed = privileged("env", [...brokerEnv, "sh", ...brokerArgs]);
   brokerInstalled = true;
   assert.equal(installed.status, 0, "G01 full broker service installation failed: " +
@@ -170,6 +194,34 @@ try {
   ];
   const gateArgs = [stage + "/install-gate.sh", id, sources.gate,
     h.gate, sources.reviewer, h.reviewer];
+  // G02 second fault point: native broker must survive a failed gate
+  // installation, but partial reviewer code/host registry/public directory
+  // may not be left active or registered with any privilege.
+  const gateFaultBin = stage + "/gate-fault-bin";
+  must("/usr/bin/install", ["-d", "-o", "root", "-g", "root",
+    "-m", "0700", gateFaultBin]);
+  const gateFaultSource = path.join(tmp, "fault-gate-install.sh");
+  await writeFile(gateFaultSource,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'case "$last" in */approval-gate.mjs) exit 75;; esac\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    gateFaultSource, gateFaultBin + "/install"]);
+  const gateFault = privileged("env", [
+    "PATH=" + gateFaultBin + ":/usr/bin:/bin",
+    ...gateEnv, "sh", ...gateArgs,
+  ]);
+  assert.notEqual(gateFault.status, 0, "G02 injected gate install EIO did not abort");
+  deny("test", ["-e", root + "/approval-gate.mjs"],
+    "G02: failed gate install left privileged executable residue");
+  deny("test", ["-e", root + "/host-identities.json"],
+    "G02: failed gate install left an unintended registration");
+  deny("test", ["-e", gateRun],
+    "G02: failed gate install left a public request namespace");
+  assert.equal(mustBroker("read", "allowed/ready.txt"),"AUTHORIZED_BEFORE_CRASH",
+    "G02: failed gate installation damaged the running protected broker");
+  console.log("F03_G02_PASS interrupted gate install rolled back without harming broker");
+
   const gateSetup = privileged("env", [...gateEnv, "sh", ...gateArgs]);
   gateInstalled = true;
   assert.equal(gateSetup.status, 0, "G01 full gate systemd installation failed: " +
