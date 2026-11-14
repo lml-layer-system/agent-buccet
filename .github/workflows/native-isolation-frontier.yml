@@ -27,6 +27,8 @@ on:
       - "src/box/confined-fs.ts"
       - "src/box/protected-fs-broker.ts"
       - "src/box/protected-fs-gate.ts"
+      - "src/box/host-attestation.ts"
+      - "scripts/agent-buccet-mcp-server.ts"
       - "apps/buccet-box/native-operator-gate.test.mjs"
       - ".github/workflows/native-isolation-frontier.yml"
   pull_request:
@@ -53,6 +55,8 @@ on:
       - "src/box/confined-fs.ts"
       - "src/box/protected-fs-broker.ts"
       - "src/box/protected-fs-gate.ts"
+      - "src/box/host-attestation.ts"
+      - "scripts/agent-buccet-mcp-server.ts"
       - "apps/buccet-box/native-operator-gate.test.mjs"
       - ".github/workflows/native-isolation-frontier.yml"
 
