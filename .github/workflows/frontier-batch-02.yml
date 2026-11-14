@@ -71,5 +71,7 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
+      - name: Build the actual confined filesystem actuator
+        run: sh scripts/build-box-fs-guard.sh
       - name: Run actual MCP host-integration contract with independent process and FD proof
         run: npm run test:agent-buccet:mcp
