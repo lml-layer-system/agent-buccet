@@ -9,6 +9,7 @@
 #define _DARWIN_C_SOURCE
 #include <errno.h>
 #include <fcntl.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -59,9 +60,23 @@ static void copy_stream(int from, int to) {
 }
 static int directory_root(const char *absolute) {
   if (!absolute || absolute[0] != '/') { errno = EINVAL; fail("root must be absolute"); }
+  /*
+   * The authorized root is the trust boundary and may legitimately be reached
+   * through symlinked system directories (notably on macOS, where /tmp, /var
+   * and /etc are symlinks into /private, so every mktemp/app temp scope lives
+   * under a symlinked ancestor). Canonicalize the root once, then re-verify
+   * every component of the RESOLVED path with O_NOFOLLOW below.
+   *
+   * This only resolves symlinks on the path TO the operator-authorized root.
+   * Confinement of the attacker-controlled relative path (parent_from_root) is
+   * unchanged and still refuses to follow any symlink inside the scope, so the
+   * leaf/hardlink/ancestor-substitution defenses are untouched.
+   */
+  char resolved[PATH_MAX];
+  if (!realpath(absolute, resolved)) fail("scope root missing or unreadable");
   int fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0) fail("cannot open filesystem root");
-  char *copy = strdup(absolute + 1);
+  char *copy = strdup(resolved + 1);
   if (!copy) fail("out of memory");
   char *save = NULL;
   for (char *piece = strtok_r(copy, "/", &save); piece; piece = strtok_r(NULL, "/", &save)) {
