@@ -388,25 +388,74 @@ export async function evaluateSpendBoundaryActionRuntime(args: {
     });
   }
 
-  if (
-    args.request.spendIntent.periodCapNormalized !== undefined &&
-    args.request.spendIntent.periodWindow
-  ) {
+  // Every cumulative bound that applies to this principal+bucket: the one the
+  // request declares, plus every standing spend corridor's period bound. The
+  // agent cannot shed a standing bound by simply not declaring a cap.
+  const bounds = periodBoundsFor(args.config, args.request.spendIntent);
+  for (const bound of bounds) {
     const aggregate = await sumAggregateSpend({
       spendIntent: args.request.spendIntent,
-      periodWindow: args.request.spendIntent.periodWindow,
+      periodWindow: bound.window,
     });
     const projected = aggregate + args.request.spendIntent.amountNormalized;
-    if (projected > args.request.spendIntent.periodCapNormalized) {
+    if (projected > bound.cap) {
       return buildBoundaryResult({
         decision: "require_approval",
         reason:
           `rolling spend cap would be exceeded for principal '${args.request.spendIntent.principal}' ` +
-          `bucket '${args.request.spendIntent.bucketId}' (${aggregate} + ${args.request.spendIntent.amountNormalized} > ${args.request.spendIntent.periodCapNormalized})`,
+          `bucket '${args.request.spendIntent.bucketId}' (${aggregate} + ${args.request.spendIntent.amountNormalized} > ${bound.cap} per ${bound.window}, ${bound.source})`,
         lawId: "BOUNDARY.SPEND.AGGREGATE.01",
       });
     }
   }
 
   return null;
+}
+
+type SpendPeriodBound = { cap: number; window: BoundarySpendPeriodWindow; source: string };
+
+/**
+ * Cumulative bounds for a spend: the request's declared period cap (if any)
+ * and the period bound of every ACTIVE standing spend corridor that covers the
+ * same principal and bucket. Most-restrictive wins because each is enforced.
+ */
+function periodBoundsFor(
+  config: BoundaryRuntimeConfig,
+  spendIntent: BoundarySpendIntent,
+): SpendPeriodBound[] {
+  const bounds: SpendPeriodBound[] = [];
+  if (spendIntent.periodCapNormalized !== undefined && spendIntent.periodWindow) {
+    bounds.push({
+      cap: spendIntent.periodCapNormalized,
+      window: spendIntent.periodWindow,
+      source: "declared",
+    });
+  }
+  for (const entry of config.upl?.userApprovedLawPaths ?? []) {
+    const c = entry.trackConstraint;
+    if (entry.status !== "ACTIVE" || !c) continue;
+    if (entry.scope === "SESSION" && entry.sessionId !== config.session.sessionId) continue;
+    if (!c.allowedActionKinds.includes("agent.spend")) continue;
+    if (
+      c.spendAllowedPrincipals?.length &&
+      !c.spendAllowedPrincipals.includes(spendIntent.principal)
+    )
+      continue;
+    if (c.spendAllowedBucketIds?.length && !c.spendAllowedBucketIds.includes(spendIntent.bucketId))
+      continue;
+    // Corridors written before standing spend law always carried a period
+    // bound have none: bound them by their own per-spend max per 24h, so an
+    // existing ledger is not left drainable until every law is re-approved.
+    const cap = c.spendMaxPeriodAmountNormalized ?? c.spendMaxAmountNormalized;
+    if (cap === undefined) continue;
+    bounds.push({
+      cap,
+      window: c.spendPeriodWindow ?? "24h",
+      source:
+        c.spendMaxPeriodAmountNormalized === undefined
+          ? `legacy uncapped standing law ${entry.id}`
+          : `standing law ${entry.id}`,
+    });
+  }
+  return bounds;
 }
