@@ -1,0 +1,33 @@
+name: Native filesystem isolation frontier
+
+on:
+  push:
+    branches:
+      - "security/frontier-rebased-main-20261113"
+    paths:
+      - "native/box-fs-guard.c"
+      - "apps/buccet-box/frontier-races.mjs"
+      - "apps/buccet-box/frontier-rename-barrier.c"
+      - ".github/workflows/native-isolation-frontier.yml"
+  pull_request:
+    paths:
+      - "native/box-fs-guard.c"
+      - "apps/buccet-box/frontier-races.mjs"
+      - "apps/buccet-box/frontier-rename-barrier.c"
+      - ".github/workflows/native-isolation-frontier.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  native-commit-isolation:
+    name: Attack actual native commit after hostile mutation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify original five races and real allowed write
+        run: node apps/buccet-box/frontier-races.mjs
