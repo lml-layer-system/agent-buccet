@@ -184,6 +184,7 @@ export function createBoundaryRuntimeStore(
 export async function createPersistentBoundaryRuntimeStore(args: {
   sessionId: string;
   actorId: string;
+  mcpOwnerProof?: string;
   dryRun?: boolean;
   expiresAt?: string;
   teamSlug?: string;
