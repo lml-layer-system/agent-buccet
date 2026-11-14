@@ -54,17 +54,26 @@ function scopedPath(target: string, action: BoundaryActionKind, laws: BoundaryPa
 function runGuard(args: string[], content?: string): Promise<string> {
   const brokerSocket = process.env.AGENT_BUCCET_FS_BROKER_SOCKET;
   const brokerRoot = process.env.AGENT_BUCCET_FS_BROKER_ROOT;
+  // Safe by default. Absence of a configured broker never authorizes a
+  // same-UID direct native operation; an agent can control its own environment
+  // but cannot obtain access to a separately protected broker workspace.
   const isolationRequired = process.env.AGENT_BUCCET_REQUIRE_ISOLATED_FS === "1";
   if (isolationRequired || brokerSocket || brokerRoot) {
     if (!brokerSocket || !brokerRoot) {
-      throw new Error("BUCCET_FS_DENIED: trusted filesystem broker required but unavailable");
+      throw new Error("BUCCET_FS_DENIED: isolated filesystem broker required but unavailable");
     }
-    // No direct-execution fallback after a broker was requested. A failed
-    // credential check, unsupported OS or missing daemon is a denial.
+    // Once protected mode is selected, never downgrade after an error.
     return runProtectedFilesystemBroker(args, content, brokerSocket, brokerRoot);
   }
-  // Compatibility-only legacy path. This is NOT the final security boundary
-  // against an adversarial process sharing the executor's OS identity.
+  // Legacy mode is a conscious INSECURE compatibility choice, not the
+  // default. It is forbidden when the host explicitly requires isolation.
+  // This opt-in does NOT establish a trust boundary against an attacker who
+  // controls the same process environment; protected roots must be owned by
+  // an independently enforced OS principal regardless of this switch.
+  if (process.env.AGENT_BUCCET_ALLOW_UNISOLATED_FS !== "1") {
+    throw new Error("BUCCET_FS_DENIED: isolated filesystem broker required by default; direct actuator disabled");
+  }
+  // Unsafe legacy diagnostic: never claim same-UID race resistance here.
   if (process.platform === "win32" || !existsSync(guardBinary)) {
     throw new Error("BUCCET_FS_DENIED: native filesystem guard unavailable");
   }
