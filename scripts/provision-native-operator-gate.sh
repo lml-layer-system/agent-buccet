@@ -73,6 +73,18 @@ install -o root -g root -m 0400 "$GATE_SRC" "$ROOT/approval-gate.mjs" ||
   fail "cannot install protected gate"
 install -o root -g root -m 0400 "$REVIEW_SRC" "$ROOT/operator-review.mjs" ||
   fail "cannot install protected reviewer"
+# Root-held host registry is a distinct trust root from user-controlled
+# sessions and Box tokens. Fresh installations DENY all host requests until
+# a privileged operator registers a separate OS-isolated launch identity.
+REGISTRY=$ROOT/host-identities.json
+[ ! -e "$REGISTRY" ] && [ ! -L "$REGISTRY" ] ||
+  fail "refusing preexisting host registration"
+umask 077
+printf '{"schema":1,"root":"%s","allowed":[]}\n' "$ROOT" > "$REGISTRY"
+chmod 0400 "$REGISTRY"
+chown root:root "$REGISTRY"
+[ "$(stat -c '%u:%a' "$REGISTRY")" = "0:400" ] ||
+  fail "host identity registry must be root-exclusive"
 [ "$(sha256sum "$ROOT/approval-gate.mjs" | cut -d' ' -f1)" = "$GATE_HASH" ] &&
 [ "$(sha256sum "$ROOT/operator-review.mjs" | cut -d' ' -f1)" = "$REVIEW_HASH" ] ||
   fail "privileged operator gate changed during installation"
