@@ -518,7 +518,7 @@ try {
       "cross-session operator request was rebound to another host");
     assert.equal(row.host?.actorId, item.credential.actorId,
       "cross-actor operator request was rebound to another principal");
-    const n = Number(item.pathName.match(/(\\d+)\\.txt$/)[1]);
+    const n = Number(item.pathName.match(/([0-9]+)[.]txt$/)[1]);
     const command = n % 4 === 2 ? "deny" : "approve";
     const decision = operator({ command, requestId: row.requestId, sha256: row.sha256 });
     assert.equal(decision[command === "approve" ? "approved" : "denied"], true,
