@@ -127,12 +127,16 @@ async function waitReady(gate, pending) {
     }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  let wrapperArmed = false, interposerLoaded = false, renameSeen = "none";
+  let wrapperArmed = false, interposerLoaded = false,
+    renameSeen = "none", conditionTrue = false, markerResult = "none";
   try { await access(path.join(gate, "wrapper-armed")); wrapperArmed = true; } catch {}
   try { await access(path.join(gate, "interposer-loaded")); interposerLoaded = true; } catch {}
   try { renameSeen = await readFile(path.join(gate, "rename-seen"), "utf8"); } catch {}
+  try { await access(path.join(gate, "matched-rename")); conditionTrue = true; } catch {}
+  try { markerResult = await readFile(path.join(gate, "marker-result"), "utf8"); } catch {}
   throw new Error("actual native renameat barrier not reached; wrapperArmed=" +
-    wrapperArmed + ", interposerLoaded=" + interposerLoaded + ", renameSeen=" + renameSeen);
+    wrapperArmed + ", interposerLoaded=" + interposerLoaded + ", renameSeen=" +
+    renameSeen + ", conditionTrue=" + conditionTrue + ", markerResult=" + markerResult);
 }
 function record(label, details) {
   console.log("FRONTIER_PROTECTED_PASS", label, JSON.stringify(details));
@@ -225,11 +229,23 @@ try {
     splice,
     '  if(gate && *gate){char seen[8192];',
     '  if(snprintf(seen,sizeof(seen),"%s/rename-seen",gate)<(int)sizeof(seen)){',
-    '  FILE *log=fopen(seen,"w");if(log){fprintf(log,"%s|%s",oldpath,prefix?prefix:"");fclose(log);}',
+    '  FILE *log=fopen(seen,"w");if(log){fprintf(log,"%s|%s|cmp=%d|length=%zu",oldpath,',
+    '    prefix?prefix:"",prefix?strncmp(oldpath,prefix,strlen(prefix)):-1,',
+    '    prefix?strlen(prefix):0);fclose(log);}',
     '  }}',
   ].join("\n");
   const instrumentedSource = path.join(local, "instrumented-interposer.c");
-  await writeFile(instrumentedSource, interposerOriginal.replace(splice, diagnostic));
+  const condition = '    char ready[4096], release[4096];';
+  assert.ok(interposerOriginal.includes(condition));
+  const instrumentedBarrier = interposerOriginal.replace(splice, diagnostic).replace(
+    condition,
+    [
+      '    char matchPath[8192];snprintf(matchPath,sizeof(matchPath),"%s/matched-rename",gate);',
+      '    FILE *match=fopen(matchPath,"w");if(match){fputs("matched",match);fclose(match);}',
+      condition,
+    ].join("\n"),
+  );
+  await writeFile(instrumentedSource, instrumentedBarrier);
   required("cc", ["-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
     instrumentedSource, constructor, "-o", compiledInterposer, "-ldl"]);
   const wrapperSource = path.join(local, "frontier-wrapper.c");
