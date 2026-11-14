@@ -142,9 +142,21 @@ chown root:root "$UNIT"
 systemctl daemon-reload || fail "cannot reload protected gate service"
 systemctl enable --now "buccet-operator-gate-$INSTANCE.service" ||
   fail "operator gate service activation failed"
+# The gate binds two sockets asynchronously after systemd Type=simple
+# activation. Require both actual sockets and their kernel ownership/modes.
+attempt=0
+while [ "$attempt" -lt 100 ]; do
+  if [ -S "$RUN/request.sock" ] && [ -S "$RUN/operator.sock" ]; then
+    [ "$(stat -c '%u:%a' "$RUN/request.sock")" = "0:666" ] &&
+    [ "$(stat -c '%u:%a' "$RUN/operator.sock")" = "0:600" ] ||
+      fail "operator socket separation failed"
+    break
+  fi
+  systemctl is-active --quiet "buccet-operator-gate-$INSTANCE.service" ||
+    fail "operator gate service exited before becoming ready"
+  attempt=$((attempt + 1))
+  sleep 0.1
+done
 [ -S "$RUN/request.sock" ] && [ -S "$RUN/operator.sock" ] ||
-  fail "operator gate sockets unavailable"
-[ "$(stat -c '%u:%a' "$RUN/request.sock")" = "0:666" ] &&
-[ "$(stat -c '%u:%a' "$RUN/operator.sock")" = "0:600" ] ||
-  fail "operator socket separation failed"
+  fail "operator gate sockets unavailable within bounded readiness window"
 printf 'BUCCET_GATE_PROVISIONED_PROTECTED request=%s operator=%s\n' "$RUN/request.sock" "$RUN/operator.sock"
