@@ -424,12 +424,44 @@ function makeEntryId(ledger: BoundaryUserPathLedger): string {
   return `UPL-${String(total).padStart(6, "0")}`;
 }
 
+const DEFAULT_SESSION_ALLOW_TTL_HOURS = 12;
+
+/**
+ * How long a human-granted "allow for this session" stays in force.
+ *
+ * Session laws are pruned only when a session is explicitly ended, and the CLI
+ * uses a fixed default session id ("agent-buccet-default") that persists across
+ * restarts — so without a bound, "allow for this session" quietly became
+ * "allow until someone runs `buccet session end`", possibly weeks later.
+ * AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS overrides the default; 0 disables expiry.
+ */
+export function sessionAllowTtlMs(): number {
+  const raw = process.env.AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS?.trim();
+  const hours = raw ? Number(raw) : DEFAULT_SESSION_ALLOW_TTL_HOURS;
+  if (!Number.isFinite(hours) || hours < 0) return DEFAULT_SESSION_ALLOW_TTL_HOURS * 3_600_000;
+  return hours * 3_600_000;
+}
+
+/**
+ * A human-granted SESSION-scoped ALLOW older than the TTL no longer applies.
+ * Denies never expire (fail-closed), and system-seeded session entries (base
+ * acceptance, re-seeded every time a path is opened) are not human grants.
+ */
+function isExpiredSessionAllow(entry: BoundaryUplEntry, nowMs: number): boolean {
+  if (entry.scope !== "SESSION" || entry.type !== "APPROVED") return false;
+  if (entry.id.startsWith(SESSION_UPL_ENTRY_ID_PREFIX)) return false;
+  const ttl = sessionAllowTtlMs();
+  if (ttl === 0) return false;
+  const created = Date.parse(entry.createdAt);
+  return Number.isFinite(created) && nowMs - created > ttl;
+}
+
 function isEntryActiveForSession(entry: BoundaryUplEntry, session: BoundarySession): boolean {
   if (entry.status !== "ACTIVE") {
     return false;
   }
   if (entry.scope === "SESSION") {
-    return entry.sessionId === session.sessionId;
+    return entry.sessionId === session.sessionId && !isExpiredSessionAllow(entry, Date.now());
   }
   return true;
 }
