@@ -11,6 +11,7 @@ on:
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
       - "apps/buccet-box/frontier03-test-guard-wrapper.c"
       - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
+      - "apps/buccet-box/frontier03-broker-concurrent-append.mjs"
       - "native/box-fs-guard.c"
       - "scripts/provision-native-broker.sh"
       - "scripts/provision-native-operator-gate.sh"
@@ -24,6 +25,7 @@ on:
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
       - "apps/buccet-box/frontier03-test-guard-wrapper.c"
       - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
+      - "apps/buccet-box/frontier03-broker-concurrent-append.mjs"
       - "native/box-fs-guard.c"
       - "scripts/provision-native-broker.sh"
       - "scripts/provision-native-operator-gate.sh"
@@ -53,5 +55,7 @@ jobs:
         run: node apps/buccet-box/frontier03-native-commit-faults.mjs
       - name: Verify real broker denial versus uncertain receipts under native faults
         run: node apps/buccet-box/frontier03-broker-uncertain-receipts.mjs
+      - name: Expose live protected-broker concurrent append lost-update race
+        run: node apps/buccet-box/frontier03-broker-concurrent-append.mjs
       - name: Attack actual broker and gate service death; test kernel isolation and authorized effects
         run: node apps/buccet-box/frontier03-service-lifecycle.mjs
