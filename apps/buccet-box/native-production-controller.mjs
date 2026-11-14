@@ -8,10 +8,10 @@
  */
 import { executeScopedFileTool } from "../../src/box/confined-fs.ts";
 
-if (process.geteuid?.() !== 0 || process.env.BUCCET_FS_BACKEND !== "broker") {
+if (process.geteuid?.() !== 0 || process.env.AGENT_BUCCET_REQUIRE_ISOLATED_FS !== "1") {
   throw new Error("BUCCET_CONTROLLER_DENIED: protected trusted controller required");
 }
-const root = process.env.BUCCET_FS_BROKER_ROOT;
+const root = process.env.AGENT_BUCCET_FS_BROKER_ROOT;
 if (!root || !root.startsWith("/") || root === "/") {
   throw new Error("BUCCET_CONTROLLER_DENIED: managed root unavailable");
 }
