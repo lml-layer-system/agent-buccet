@@ -309,7 +309,7 @@ function createBuccetLawBodySeeds(): BaseHeadlessDenialSeed[] {
   }));
 }
 
-const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
+const DECLARED_BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
   {
     id: "DENY.PERSISTENCE.001A",
     denialClass: "persistence",
@@ -1762,6 +1762,36 @@ const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] = [
     requestBasisTarget: "base-headless-denials:destructive-delete-default",
   },
 ];
+
+/**
+ * A path wall must cover every way of reaching the walled path, not only the
+ * one verb it was written for.
+ *
+ * - A wall that blocks WRITING a path (persistence rc files, /etc, kernel and
+ *   firmware nodes, autorun propagation, …) also blocks APPENDING to it, and
+ *   MOVING onto it — gravity reports rename/link/symlink as fs.move evaluated
+ *   on both the source and the destination. Without this, the persistence wall
+ *   stopped `fs.write ~/.bashrc` but an autonomous `fs.append ~/.bashrc` of a
+ *   `curl … | sh` line went straight through.
+ * - A wall that blocks READING a path (secrets, keys, credentials, kernel
+ *   memory) also blocks MOVING it: renaming ~/.ssh/id_rsa to an innocuous name
+ *   launders it past the read wall.
+ */
+function withEquivalentPathActions(seed: BaseHeadlessDenialSeed): BaseHeadlessDenialSeed {
+  if (!seed.targetPatterns?.length) return seed;
+  const kinds = new Set<BoundaryActionKind>(seed.actionKinds);
+  if (kinds.has("fs.write")) {
+    kinds.add("fs.append");
+    kinds.add("fs.move");
+  }
+  if (kinds.has("fs.read")) {
+    kinds.add("fs.move");
+  }
+  return kinds.size === seed.actionKinds.length ? seed : { ...seed, actionKinds: [...kinds] };
+}
+
+const BASE_HEADLESS_DENIAL_SEEDS: readonly BaseHeadlessDenialSeed[] =
+  DECLARED_BASE_HEADLESS_DENIAL_SEEDS.map(withEquivalentPathActions);
 
 function lower(value: string | undefined): string {
   return (value ?? "").toLowerCase();
