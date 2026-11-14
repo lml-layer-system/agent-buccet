@@ -35,7 +35,8 @@ ENROLLER_HASH=${BUCCET_HOST_ENROLLER_SHA256:-}
   fail "verified host enrollment program and release digest are required"
 case "$INSTANCE" in ""|*[!a-z0-9-]*|-*|*-) fail "invalid instance identifier" ;; esac
 [ "${#INSTANCE}" -ge 4 ] && [ "${#INSTANCE}" -le 32 ] || fail "invalid instance length"
-[ -z "$OPTION" ] || [ "$OPTION" = "--files-only" ] || fail "unknown option"
+[ -z "$OPTION" ] || [ "$OPTION" = "--files-only" ] ||
+  [ "$OPTION" = "--recover-incomplete" ] || fail "unknown option"
 [ "$(uname -s)" = Linux ] && [ "$(id -u)" -eq 0 ] ||
   fail "trusted Linux administrator required"
 for hash in "$GATE_HASH" "$REVIEW_HASH" "$ENROLLER_HASH"; do
@@ -70,12 +71,116 @@ for item in "$ROOT/box-fs-guard" "$ROOT/broker.mjs" "$ROOT/policy-controller.mjs
     [ -z "$(find "$item" -maxdepth 0 -perm /022 -print)" ] ||
     fail "protected broker policy or code not installed"
 done
+if [ "$OPTION" != "--recover-incomplete" ]; then
+  [ ! -e "$ROOT/approval-gate.mjs" ] && [ ! -e "$ROOT/operator-review.mjs" ] &&
+  [ ! -e "$ROOT/host-enroll.mjs" ] &&
+  [ ! -e "$ROOT/host-identities.json" ] ||
+    fail "refusing to overwrite an existing privileged gate installation"
+fi
+[ ! -L /run/buccet-native-gates ] && [ ! -L "$RUN" ] &&
+{ [ ! -e "$RUN" ] || [ "$OPTION" = "--recover-incomplete" ]; } ||
+  fail "request namespace is linked or already exists"
+UNIT=/etc/systemd/system/buccet-operator-gate-$INSTANCE.service
+TXN=$ROOT/.buccet-gate-install.incomplete
+[ ! -L "$UNIT" ] &&
+{ [ ! -e "$UNIT" ] || [ "$OPTION" = "--recover-incomplete" ]; } ||
+  fail "refusing an existing operator gate unit"
+RUN_CREATED=0
+UNIT_CREATED=0
+TXN_CLAIMED=0
+INSTALL_COMMITTED=0
+rollback_if_uncommitted() {
+  status=$?
+  trap - EXIT
+  if [ "$INSTALL_COMMITTED" -ne 1 ]; then
+    if [ "$UNIT_CREATED" -eq 1 ]; then
+      systemctl stop "buccet-operator-gate-$INSTANCE.service" >/dev/null 2>&1 || :
+      systemctl disable "buccet-operator-gate-$INSTANCE.service" >/dev/null 2>&1 || :
+      /usr/bin/rm -f -- "$UNIT"
+      systemctl daemon-reload >/dev/null 2>&1 || :
+    fi
+    /usr/bin/rm -f -- "$ROOT/approval-gate.mjs" "$ROOT/operator-review.mjs" \
+      "$ROOT/host-enroll.mjs" "$ROOT/host-identities.json"
+    if [ "$RUN_CREATED" -eq 1 ]; then
+      /usr/bin/rm -rf -- "$RUN"
+    fi
+    if [ "$TXN_CLAIMED" -eq 1 ]; then
+      /usr/bin/rm -f -- "$TXN"
+    fi
+  fi
+  exit "$status"
+}
+install -d -o root -g root -m 0755 /run/buccet-native-gates ||
+  fail "cannot install root-controlled request base"
+[ "$(stat -c '%u:%a' /run/buccet-native-gates)" = "0:755" ] ||
+  fail "request base ownership or permissions invalid"
+# An independent OS flock survives parallel installer processes but is
+# automatically released on crash; a stale lock pathname is never trusted.
+exec 9< /run/buccet-native-gates || fail "cannot open operator install lock"
+flock -n 9 || fail "another privileged gate installation is active"
+if [ "$OPTION" = "--recover-incomplete" ]; then
+  [ -f "$TXN" ] && [ ! -L "$TXN" ] &&
+    [ "$(stat -c '%u:%a:%h:%F' "$TXN")" = "0:600:1:regular file" ] &&
+    [ "$(cat "$TXN")" = "BUCCET_GATE_INCOMPLETE_V1:$INSTANCE" ] ||
+    fail "no verified root-only incomplete gate witness; manual review required"
+  if systemctl is-active --quiet "buccet-operator-gate-$INSTANCE.service"; then
+    fail "operator gate is running; preserve approval state"
+  fi
+  [ ! -S "$RUN/request.sock" ] && [ ! -S "$RUN/operator.sock" ] ||
+    fail "operator sockets still present; manual recovery required"
+  if [ -e "$UNIT" ]; then
+    [ "$(stat -c '%u:%F' "$UNIT")" = "0:regular file" ] &&
+      [ -z "$(find "$UNIT" -maxdepth 0 -perm /022 -print)" ] ||
+      fail "untrusted operator service unit; refuse recovery"
+  fi
+  if [ -e "$RUN" ]; then
+    [ "$(stat -c '%u:%a:%F' "$RUN")" = "0:755:directory" ] ||
+      fail "untrusted public request namespace; refuse deletion"
+    for item in "$RUN"/* "$RUN"/.[!.]* "$RUN"/..?*; do
+      [ -e "$item" ] || [ -L "$item" ] || continue
+      fail "unexpected request namespace entry; refuse recovery"
+    done
+  fi
+  if [ -e "$ROOT/host-identities.json" ]; then
+    [ "$(cat "$ROOT/host-identities.json")" =       "{\"schema\":1,\"root\":\"$ROOT\",\"allowed\":[]}" ] ||
+      fail "nonempty root host registry; preserve registration"
+  fi
+  for item in "$ROOT/approval-gate.mjs" "$ROOT/operator-review.mjs"               "$ROOT/host-enroll.mjs" "$ROOT/host-identities.json"; do
+    [ ! -L "$item" ] || fail "linked protected gate file; refuse recovery"
+    if [ -e "$item" ]; then
+      [ "$(stat -c '%u:%F' "$item")" = "0:regular file" ] ||
+        fail "untrusted gate recovery file"
+    fi
+  done
+  systemctl stop "buccet-operator-gate-$INSTANCE.service" >/dev/null 2>&1 || :
+  systemctl disable "buccet-operator-gate-$INSTANCE.service" >/dev/null 2>&1 || :
+  /usr/bin/rm -f -- "$UNIT"
+  systemctl daemon-reload >/dev/null 2>&1 || fail "cannot reload systemd after gate recovery"
+  /usr/bin/rm -f -- "$ROOT/approval-gate.mjs" "$ROOT/operator-review.mjs"     "$ROOT/host-enroll.mjs" "$ROOT/host-identities.json" ||
+    fail "cannot clean verified uncommitted gate files"
+  if [ -e "$RUN" ]; then /usr/bin/rm -rf -- "$RUN" || fail "cannot clean request namespace"; fi
+  /usr/bin/rm -f -- "$TXN" || fail "cannot remove gate recovery witness"
+  printf 'BUCCET_GATE_INCOMPLETE_RECOVERED instance=%s\n' "$INSTANCE"
+  exit 0
+fi
+[ ! -e "$RUN" ] && [ ! -L "$RUN" ] &&
+[ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] &&
+[ ! -e "$TXN" ] && [ ! -L "$TXN" ] &&
 [ ! -e "$ROOT/approval-gate.mjs" ] && [ ! -e "$ROOT/operator-review.mjs" ] &&
-[ ! -e "$ROOT/host-enroll.mjs" ] ||
-  fail "refusing to overwrite a privileged gate installation"
-[ ! -L /run/buccet-native-gates ] && [ ! -L "$RUN" ] ||
-  fail "request namespace is symlinked"
-install -d -o root -g root -m 0755 /run/buccet-native-gates "$RUN" ||
+[ ! -e "$ROOT/host-enroll.mjs" ] && [ ! -e "$ROOT/host-identities.json" ] ||
+  fail "operator installation appeared concurrently; refuse overwrite"
+trap rollback_if_uncommitted EXIT
+TXN_CLAIMED=1
+umask 077
+( set -C; printf 'BUCCET_GATE_INCOMPLETE_V1:%s\n' "$INSTANCE" > "$TXN" ) ||
+  fail "cannot create exclusive root-only gate recovery witness"
+[ "$(stat -c '%u:%a:%h:%F' "$TXN")" = "0:600:1:regular file" ] ||
+  fail "gate recovery witness permissions invalid"
+/usr/bin/sync -d "$TXN" || fail "cannot sync gate recovery witness"
+/usr/bin/sync -f "$ROOT" || fail "cannot sync protected gate recovery directory"
+# A failed command can create the namespace before returning EIO.
+RUN_CREATED=1
+install -d -o root -g root -m 0755 "$RUN" ||
   fail "cannot install root-controlled request namespace"
 [ "$(stat -c '%u:%a' "$RUN")" = "0:755" ] ||
   fail "untrusted public request directory"
@@ -102,13 +207,14 @@ chown root:root "$REGISTRY"
 [ "$(sha256sum "$ROOT/host-enroll.mjs" | cut -d' ' -f1)" = "$ENROLLER_HASH" ] ||
   fail "privileged operator gate or host issuer changed during installation"
 if [ "$OPTION" = "--files-only" ]; then
+  /usr/bin/rm -f -- "$TXN" || fail "cannot finalize gate recovery witness"
+  INSTALL_COMMITTED=1
   printf 'BUCCET_GATE_PROVISIONED_FILES_ONLY root=%s request=%s\n' "$ROOT" "$RUN/request.sock"
   exit 0
 fi
 command -v systemctl >/dev/null 2>&1 || fail "systemd unavailable"
-UNIT=/etc/systemd/system/buccet-operator-gate-$INSTANCE.service
-[ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] || fail "refusing existing gate service unit"
 umask 077
+UNIT_CREATED=1
 cat > "$UNIT" <<EOF
 [Unit]
 Description=Agent Buccet independent operator approval gate ($INSTANCE)
@@ -142,9 +248,36 @@ chown root:root "$UNIT"
 systemctl daemon-reload || fail "cannot reload protected gate service"
 systemctl enable --now "buccet-operator-gate-$INSTANCE.service" ||
   fail "operator gate service activation failed"
+# The gate binds two sockets asynchronously after systemd Type=simple
+# activation. Require both actual sockets and their kernel ownership/modes.
+attempt=0
+while [ "$attempt" -lt 100 ]; do
+  if [ -S "$RUN/request.sock" ] && [ -S "$RUN/operator.sock" ]; then
+    [ "$(stat -c '%u:%a' "$RUN/request.sock")" = "0:666" ] &&
+    [ "$(stat -c '%u:%a' "$RUN/operator.sock")" = "0:600" ] ||
+      fail "operator socket separation failed"
+    # Kernel socket inodes can be stale after SIGKILL, even while systemd
+    # advertises the replacement Type=simple service as active. Verify both
+    # distinct sockets accept connections before reporting provisioned.
+    probe='
+      const net=require("node:net");
+      const s=net.createConnection({path:process.argv[1]});
+      s.once("connect",()=>{s.destroy();process.exit(0)});
+      s.once("error",()=>process.exit(1));
+      s.setTimeout(750,()=>process.exit(1));
+    '
+    if "$NODE" -e "$probe" "$RUN/request.sock" >/dev/null 2>&1 &&
+       "$NODE" -e "$probe" "$RUN/operator.sock" >/dev/null 2>&1; then
+      break
+    fi
+  fi
+  systemctl is-active --quiet "buccet-operator-gate-$INSTANCE.service" ||
+    fail "operator gate service exited before becoming ready"
+  attempt=$((attempt + 1))
+  sleep 0.1
+done
 [ -S "$RUN/request.sock" ] && [ -S "$RUN/operator.sock" ] ||
-  fail "operator gate sockets unavailable"
-[ "$(stat -c '%u:%a' "$RUN/request.sock")" = "0:666" ] &&
-[ "$(stat -c '%u:%a' "$RUN/operator.sock")" = "0:600" ] ||
-  fail "operator socket separation failed"
+  fail "operator gate sockets unavailable within bounded readiness window"
+/usr/bin/rm -f -- "$TXN" || fail "cannot finalize gate recovery witness"
+INSTALL_COMMITTED=1
 printf 'BUCCET_GATE_PROVISIONED_PROTECTED request=%s operator=%s\n' "$RUN/request.sock" "$RUN/operator.sock"

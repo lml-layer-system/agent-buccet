@@ -12,7 +12,7 @@
  */
 import net from "node:net";
 import path from "node:path";
-import { lstatSync, existsSync, statSync } from "node:fs";
+import { lstatSync, statSync, unlinkSync } from "node:fs";
 import { chmod, readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 
@@ -48,9 +48,58 @@ if (!executable.isFile() || executable.uid !== 0 || (executable.mode & 0o022) !=
     (executable.mode & 0o111) === 0) {
   throw new Error("BUCCET_BROKER_DENIED: untrusted native executable");
 }
-if (existsSync(socketPath)) {
-  throw new Error("BUCCET_BROKER_DENIED: socket already exists (refuse unlink)");
+/**
+ * A SIGKILL leaves a pathname behind after the kernel closes the listener.
+ * Never unlink a live or untrusted object. Only the protected root principal
+ * can modify this directory, and we verify both the socket identity AND
+ * lack of a live listener before reclaiming the exact same inode.
+ */
+async function reclaimDeadBrokerSocket(candidate) {
+  let observed;
+  try { observed = lstatSync(candidate); }
+  catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+  if (!observed.isSocket() || observed.isSymbolicLink() || observed.uid !== 0) {
+    throw new Error("BUCCET_BROKER_DENIED: existing socket is not independently root-owned");
+  }
+  const listener = await new Promise((resolve, reject) => {
+    const probe = net.createConnection({ path: candidate });
+    let done = false;
+    const finish = (err, state) => {
+      if (done) return;
+      done = true;
+      probe.destroy();
+      if (err) reject(err); else resolve(state);
+    };
+    probe.setTimeout(700, () =>
+      finish(new Error("BUCCET_BROKER_DENIED: socket liveness indeterminate")));
+    probe.once("connect", () => finish(undefined, "live"));
+    probe.once("error", error => {
+      if (error.code === "ECONNREFUSED") finish(undefined, "dead");
+      else if (error.code === "ENOENT") finish(undefined, "missing");
+      else finish(error);
+    });
+  });
+  if (listener === "live") {
+    throw new Error("BUCCET_BROKER_DENIED: protected listener already active");
+  }
+  if (listener === "missing") return;
+  let current;
+  try { current = lstatSync(candidate); }
+  catch (error) {
+    if (error?.code === "ENOENT") return;
+    throw error;
+  }
+  if (!current.isSocket() || current.uid !== 0 ||
+      current.ino !== observed.ino || current.dev !== observed.dev) {
+    throw new Error("BUCCET_BROKER_DENIED: socket identity changed during recovery");
+  }
+  unlinkSync(candidate);
+  console.log("BUCCET_BROKER_STALE_ROOT_SOCKET_RECLAIMED");
 }
+await reclaimDeadBrokerSocket(socketPath);
 function relativePath(p) {
   if (typeof p !== "string" || !p || Buffer.byteLength(p) > 4096 ||
       p.includes("\0") || p.startsWith("/") ||
@@ -123,10 +172,21 @@ async function runGuard(body) {
     });
     proc.stderr.on("data", chunk => { error += chunk.toString("utf8").slice(0, 512); });
     proc.on("error", reject);
-    proc.on("close", code => {
+    proc.on("close", (code, signal) => {
       clearTimeout(timeout);
       if (failed || code !== 0) {
-        reject(new Error("BUCCET_BROKER_DENIED: " + (error.slice(0, 768) || "native guard unavailable")));
+        // A killed/missing native guard could have crossed renameat before
+        // its receipt; exit 74 explicitly means a post-mutation fsync failed.
+        // Never tell clients their mutating effect was definitively denied.
+        const uncertain = operation !== "read" &&
+          (failed || signal !== null || code === 74 ||
+            error.includes("BUCCET_FS_COMMIT_UNCERTAIN"));
+        const reason = uncertain
+          ? "BUCCET_BROKER_COMMIT_UNCERTAIN: inspect protected state before retry"
+          : "BUCCET_BROKER_DENIED: " + (error.slice(0, 768) || "native guard unavailable");
+        const failure = new Error(reason);
+        failure.uncertain = uncertain;
+        reject(failure);
       } else {
         resolve(output);
       }
@@ -134,6 +194,21 @@ async function runGuard(body) {
     proc.stdin.end(content);
     proc.stdin.on("error", () => {});
   });
+}
+// Kernel renameat is atomic per entry, but append is READ + COPY + RENAME.
+// Overlapping privileged append processes can all report success while each
+// publishes an inode copied from the same original bytes. Make EVERY native
+// mutation a single-file-system transaction at this broker's effect boundary;
+// read operations remain permitted in parallel because rename is atomic.
+// Run the independent root-owned policy check INSIDE the queue, so a revoked
+// grant cannot be cached while an operation waits its turn.
+let mutationTail = Promise.resolve();
+function executeGuard(request) {
+  if (request?.op === "read") return runGuard(request);
+  const next = mutationTail.then(() => runGuard(request));
+  // A denied request must not block unrelated later authorized effects.
+  mutationTail = next.then(() => undefined, () => undefined);
+  return next;
 }
 const server = net.createServer((client) => {
   let body = "";
@@ -151,11 +226,12 @@ const server = net.createServer((client) => {
     complete = true;
     try {
       const request = JSON.parse(body.slice(0, boundary));
-      const output = await runGuard(request);
+      const output = await executeGuard(request);
       client.end(JSON.stringify({ ok: true, output }) + "\n");
     } catch (error) {
       client.end(JSON.stringify({
-        ok: false, error: String(error?.message || "BUCCET_BROKER_DENIED").slice(0, 900),
+        ok: false, uncertain: error?.uncertain === true,
+        error: String(error?.message || "BUCCET_BROKER_DENIED").slice(0, 900),
       }) + "\n");
     }
   });

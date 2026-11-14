@@ -8,6 +8,7 @@
  */
 #define _DARWIN_C_SOURCE
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -15,6 +16,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 /*
@@ -28,11 +30,86 @@
  *
  * This is an actuator, not a second policy engine or system-wide sandbox.
  */
+/*
+ * Staged writes are not published until renameat. Failures before that point
+ * must remove the private inode, including its sensitive staged bytes.
+ * The parent descriptor remains pinned and root-locked for this entire phase.
+ * SIGKILL cannot run this handler; orphaned crash-state cleanup is a separate
+ * recovery obligation, not falsely claimed here.
+ */
+static int staged_parent = -1;
+static char staged_name[96];
+/*
+ * Only freshly created MOVE destination parents are owned by this tentative
+ * transaction. Keep their pinned parent fds and exact entry names, reverse
+ * ordered; a precommit native failure can then remove only empty directories
+ * allocated by THIS move. Never delete unknown or nonempty directories.
+ * SIGKILL still needs separate durable recovery; it cannot invoke handlers.
+ */
+struct move_created_parent {
+  int parent;
+  char *name;
+  struct move_created_parent *previous;
+};
+static struct move_created_parent *move_created = NULL;
+static int track_move_parents = 0;
+static int move_published = 0;
+static int rollback_uncommitted_move_parents(void) {
+  if (move_published) return 0;
+  while (move_created) {
+    struct move_created_parent *entry = move_created;
+    if (unlinkat(entry->parent, entry->name, AT_REMOVEDIR) < 0 &&
+        errno != ENOENT) return -1;
+    if (fsync(entry->parent) < 0) return -1;
+    move_created = entry->previous;
+    close(entry->parent);
+    free(entry->name);
+    free(entry);
+  }
+  return 0;
+}
+static int cleanup_failed_stage(void) {
+  if (staged_parent < 0 || !staged_name[0]) return 0;
+  if (unlinkat(staged_parent, staged_name, 0) < 0 && errno != ENOENT) return -1;
+  staged_name[0] = '\0';
+  if (fsync(staged_parent) < 0) return -1;
+  staged_parent = -1;
+  return 0;
+}
 static void fail(const char *message) {
   int saved = errno;
+  int cleanup_error = 0;
+  if (cleanup_failed_stage() < 0) cleanup_error = errno;
+  if (rollback_uncommitted_move_parents() < 0 && !cleanup_error)
+    cleanup_error = errno;
+  if (cleanup_error) {
+    fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: tentative resource rollback not durable (%s)\n",
+      strerror(cleanup_error));
+    exit(74);
+  }
   if (saved) fprintf(stderr, "BUCCET_FS_DENIED: %s (%s)\n", message, strerror(saved));
   else fprintf(stderr, "BUCCET_FS_DENIED: %s\n", message);
   exit(73);
+}
+/*
+ * Once a directory entry has changed, an I/O error cannot safely be
+ * represented as "denied/no effect". The effect may exist but may not survive
+ * power loss. The caller must receive an explicit UNCERTAIN outcome and must
+ * not blindly retry a non-idempotent operation.
+ */
+static void commit_uncertain(const char *message) {
+  int saved = errno;
+  // An EIO while synchronizing newly allocated destination ancestry occurs
+  // before native rename. Attempt precise rollback, but keep the receipt
+  // UNCERTAIN: the kernel may not have persisted either metadata transition.
+  if (track_move_parents && !move_published)
+    (void)rollback_uncommitted_move_parents();
+  if (saved) fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s (%s)\n", message, strerror(saved));
+  else fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s\n", message);
+  exit(74);
+}
+static void sync_directory_after_mutation(int fd) {
+  if (fsync(fd) < 0) commit_uncertain("cannot durably sync changed directory");
 }
 /*
  * Structural boundary: this native helper must never run as a same-UID agent
@@ -74,6 +151,33 @@ static void check_component(const char *piece) {
   if (!piece || !piece[0] || !strcmp(piece, ".") || !strcmp(piece, "..") || strchr(piece, '/')) {
     errno = EINVAL; fail("invalid path component");
   }
+  // Internal private temp names are never valid agent/operator path targets.
+  // This reservation makes crash-recovery sweeping unambiguous.
+  if (strncmp(piece, ".buccet-fs-", 11) == 0 ||
+      strcmp(piece, ".buccet-host-nonces") == 0) {
+    errno = EINVAL; fail("reserved private native or host-replay component");
+  }
+}
+/*
+ * A rejected relative path must have ZERO native effects. Parsing and
+ * validating one component at a time while mkdirat(create=1) runs can create
+ * a protected intermediate directory before a later ".." or reserved
+ * component fails. Preflight EVERY component before opening or creating
+ * ANY part of the requested path.
+ */
+static void preflight_relative_path(const char *relative) {
+  if (!relative || !relative[0] || relative[0] == '/' ||
+      strstr(relative, "//") || relative[strlen(relative) - 1] == '/') {
+    errno = EINVAL; fail("invalid relative path");
+  }
+  char *copy = strdup(relative);
+  if (!copy) fail("out of memory");
+  char *save = NULL;
+  for (char *piece = strtok_r(copy, "/", &save); piece;
+       piece = strtok_r(NULL, "/", &save)) {
+    check_component(piece);
+  }
+  free(copy);
 }
 static void write_all(int fd, const void *data, size_t length) {
   const char *buf = (const char *)data;
@@ -126,11 +230,30 @@ static int directory_root(const char *absolute) {
   free(copy);
   return fd;
 }
+static struct move_created_parent *prepare_move_parent(int parent, const char *name) {
+  if (!track_move_parents) return NULL;
+  struct move_created_parent *entry = calloc(1, sizeof(*entry));
+  if (!entry) fail("cannot allocate move rollback record");
+  entry->parent = dup(parent);
+  if (entry->parent < 0) {
+    free(entry); fail("cannot pin move destination rollback parent");
+  }
+  entry->name = strdup(name);
+  if (!entry->name) {
+    close(entry->parent); free(entry);
+    fail("cannot retain exact created destination directory name");
+  }
+  return entry;
+}
+static void discard_move_parent(struct move_created_parent *entry) {
+  if (!entry) return;
+  close(entry->parent);
+  free(entry->name);
+  free(entry);
+}
 /* Caller owns returned parent fd and leaf name. */
 static int parent_from_root(int rootfd, const char *relative, int create, char **leaf) {
-  if (!relative || !relative[0] || relative[0] == '/' || strstr(relative, "//") || relative[strlen(relative)-1] == '/') {
-    errno = EINVAL; fail("invalid relative path");
-  }
+  preflight_relative_path(relative);
   int fd = dup(rootfd);
   if (fd < 0) fail("cannot pin authorized root");
   require_protected_directory(fd);
@@ -144,7 +267,20 @@ static int parent_from_root(int rootfd, const char *relative, int create, char *
     if (!nextPiece) { *leaf = strdup(piece); if (!*leaf) fail("out of memory"); free(copy); return fd; }
     int next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (next < 0 && errno == ENOENT && create) {
-      if (mkdirat(fd, piece, 0700) < 0 && errno != EEXIST) fail("cannot create authorized subdirectory");
+      struct move_created_parent *owned = prepare_move_parent(fd, piece);
+      int made = mkdirat(fd, piece, 0700);
+      int create_error = errno;
+      if (made == 0 && owned) {
+        owned->previous = move_created;
+        move_created = owned;
+      } else {
+        discard_move_parent(owned);
+      }
+      if (made < 0 && create_error != EEXIST) {
+        errno = create_error;
+        fail("cannot create authorized subdirectory");
+      }
+      if (made == 0) sync_directory_after_mutation(fd);
       next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     }
     if (next < 0) fail("symlinked, missing, or inaccessible parent directory");
@@ -172,6 +308,54 @@ static void check_existing_target(int parent, const char *leaf) {
   }
   require_protected_regular_file(&st);
 }
+/*
+ * A SIGKILL bypasses error handlers and leaves uncommitted private inodes.
+ * The root-level kernel flock excludes concurrent cooperating native guards,
+ * including old broker generations, so staged files in the pinned parent
+ * matching this exact internal name grammar are abandoned by definition.
+ * Never touch a nonregular, non-root-owned, linked or permissive entry.
+ */
+static int stage_name(const char *n) {
+  const char *p = n;
+  if (strncmp(p, ".buccet-fs-", 11) != 0) return 0;
+  p += 11;
+  if (*p < '0' || *p > '9') return 0;
+  while (*p >= '0' && *p <= '9') p++;
+  if (*p++ != '-') return 0;
+  if (*p < '0' || *p > '9') return 0;
+  while (*p >= '0' && *p <= '9') p++;
+  return *p == '\0';
+}
+static void recover_crashed_staging(int parent) {
+  int scanfd = dup(parent);
+  if (scanfd < 0) fail("cannot inspect protected staging directory");
+  DIR *d = fdopendir(scanfd);
+  if (!d) { close(scanfd); fail("cannot open protected staging directory"); }
+  struct dirent *entry;
+  int removed = 0;
+  errno = 0;
+  while ((entry = readdir(d)) != NULL) {
+    if (stage_name(entry->d_name)) {
+      struct stat st;
+      if (fstatat(parent, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+        if (errno != ENOENT) fail("cannot inspect stale stage inode");
+      } else {
+        if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
+            (st.st_mode & 0777) != 0600) {
+          errno = EPERM; fail("unsafe private stage recovery candidate");
+        }
+        if (unlinkat(parent, entry->d_name, 0) < 0)
+          fail("cannot remove abandoned root-only staging inode");
+        removed++;
+      }
+    }
+    errno = 0;
+  }
+  if (errno != 0) fail("cannot complete private staging scan");
+  closedir(d);
+  if (removed && fsync(parent) < 0)
+    commit_uncertain("cannot durably reconcile crashed private staging");
+}
 static int private_temp(int parent, char *name, size_t nameSize) {
   for (unsigned int attempt = 0; attempt < 10000; attempt++) {
     snprintf(name, nameSize, ".buccet-fs-%ld-%u", (long)getpid(), attempt);
@@ -188,15 +372,30 @@ static void move_regular(int srcParent, const char *srcLeaf, int dstParent, cons
   close(src);
   check_existing_target(dstParent, dstLeaf);
   if (renameat(srcParent, srcLeaf, dstParent, dstLeaf) < 0) fail("confined rename failed");
+  move_published = 1; // never roll back directories after publication
+  /* A cross-directory move mutates TWO directory entries. */
+  sync_directory_after_mutation(dstParent);
+  sync_directory_after_mutation(srcParent);
 }
 int main(int argc, char **argv) {
   if (argc < 4 || argc > 6) { errno = EINVAL; fail("usage: guard OP ROOT RELATIVE [DEST_ROOT DEST_RELATIVE]"); }
   require_protected_executor();
   const char *op = argv[1];
   int root = directory_root(argv[2]);
+  /*
+   * A broker-local queue does not survive SIGKILL: its already-spawned C
+   * guard can outlive the daemon and race a new daemon generation. Use an
+   * inode-scoped KERNEL flock, shared by all native guard processes for this
+   * root, from BEFORE reading the append base until AFTER durable commit.
+   * This is advisory against root peers; the untrusted agent cannot mutate
+   * this independently root-owned namespace or start the privileged guard.
+   */
+  if (flock(root, LOCK_EX) < 0) fail("cannot acquire protected root transaction lock");
   char *leaf = NULL;
   int parent = parent_from_root(root, argv[3], !strcmp(op,"write") || !strcmp(op,"mkdir"), &leaf);
-  close(root);
+  /* A post-crash read/write is a recovery entrypoint, not merely a lookup. */
+  recover_crashed_staging(parent);
+  /* Keep root fd and its kernel lock open across the entire native effect. */
   if (!strcmp(op,"read")) {
     int input = openat(parent, leaf, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
     if (input < 0) fail("read target missing or symlinked");
@@ -213,31 +412,63 @@ int main(int argc, char **argv) {
     check_existing_target(parent, leaf);
     char tmp[96];
     int destination = private_temp(parent, tmp, sizeof(tmp));
+    staged_parent = parent;
+    snprintf(staged_name, sizeof(staged_name), "%s", tmp);
     if (append) { copy_stream(original, destination); close(original); }
     copy_stream(STDIN_FILENO, destination);
     if (fsync(destination) < 0) fail("cannot fsync confined output");
-    close(destination);
+    if (close(destination) < 0) fail("cannot close confined output");
     /* Rename changes ONLY this pinned directory entry; it does not write
        through any substituted symlink or hardlink inode. */
     if (renameat(parent, tmp, parent, leaf) < 0) fail("cannot commit confined output");
+    // From here the file may be published. Never "roll back" by removing
+    // a name whose inode was already renamed into the authorized destination.
+    staged_name[0] = '\0';
+    staged_parent = -1;
+    sync_directory_after_mutation(parent);
   } else if (!strcmp(op,"delete")) {
     check_existing_target(parent, leaf);
     if (unlinkat(parent, leaf, 0) < 0) fail("cannot unlink confined entry");
+    sync_directory_after_mutation(parent);
   } else if (!strcmp(op,"mkdir")) {
-    if (mkdirat(parent, leaf, 0700) < 0 && errno != EEXIST) fail("cannot mkdir under confined root");
+    int created = mkdirat(parent, leaf, 0700);
+    if (created < 0 && errno != EEXIST) fail("cannot mkdir under confined root");
+    if (created == 0) sync_directory_after_mutation(parent);
     int opened = openat(parent, leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (opened < 0) fail("created directory was substituted");
+    // mkdirat(...)=EEXIST is not proof that the leaf is independently
+    // protected: a preexisting 0777 or non-root-owned directory must NEVER
+    // be blessed with a success receipt. Apply the same inode/rights check
+    // used for every traversed protected parent, including on idempotent
+    // mkdir operations.
+    require_protected_directory(opened);
     close(opened);
   } else if (!strcmp(op,"move")) {
     if (argc != 6) { errno = EINVAL; fail("move requires destination root and relative path"); }
+    /*
+     * G06 prepare-before-allocation: parent_from_root(..., create=1) can
+     * durably mkdir destination ancestry. Verify the source exists, is
+     * nonsymlinked, root-owned and uniquely linked BEFORE that irreversible
+     * preparatory effect. move_regular() re-verifies after destination
+     * resolution; the root flock excludes cooperating broker generations.
+     */
+    preflight_relative_path(argv[5]);
+    int verifiedSource = openat(parent, leaf,
+      O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (verifiedSource < 0) fail("move source missing or symlinked");
+    regular_unique(verifiedSource);
+    close(verifiedSource);
     int dstRoot = directory_root(argv[4]);
     char *dstLeaf = NULL;
+    track_move_parents = 1;
     int dstParent = parent_from_root(dstRoot, argv[5], 1, &dstLeaf);
     move_regular(parent, leaf, dstParent, dstLeaf);
+    track_move_parents = 0;
     close(dstRoot); close(dstParent); free(dstLeaf);
   } else {
     errno = EINVAL; fail("unrecognized operation");
   }
   close(parent); free(leaf);
+  close(root); /* release kernel lock only after the operation has finished */
   return 0;
 }
