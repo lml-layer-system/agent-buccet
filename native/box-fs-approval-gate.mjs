@@ -197,7 +197,13 @@ async function callBroker(socketPath, request) {
   });
 }
 function send(socket, value) {
-  if (!socket.destroyed && socket.writable) socket.end(JSON.stringify(value) + "\n");
+  if (socket.destroyed || !socket.writable) return;
+  // The untrusted request side never promises to half-close its write stream.
+  // socket.end() alone can leave a reply-complete server socket occupying
+  // MAX_REQUEST_CONNECTIONS indefinitely, turning a one-off flood into a
+  // permanent denial of service. Destroy AFTER the receipt bytes drain.
+  socket.end(JSON.stringify(value) + "\n");
+  socket.destroySoon();
 }
 // Track every live transport so SIGTERM can stop even when a client
 // connected without finishing a JSON request, or after a canceled action.
