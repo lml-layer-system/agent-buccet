@@ -680,7 +680,7 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
           await recordBoundaryBlockedAction(config, boundaryRequest, result.reason, result.lawIds);
           await report("deny", result.reason);
           respondResult(id, {
-            content: [{ type: "text", text: `Boundary denied: ${result.reason}` }],
+            content: [{ type: "text", text: `Boundary denied: ${result.reason}\n\nlawIds: ${result.lawIds.join(",") || "BOUNDARY.UNSPECIFIED"}` }],
             isError: true,
           });
           return;
