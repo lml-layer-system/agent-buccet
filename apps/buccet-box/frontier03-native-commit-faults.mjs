@@ -169,10 +169,10 @@ try {
   // post-rename directory fsync and prove it falsely returns success despite
   // the same EIO injection. Never install this mutant as the real broker guard.
   const src = await readFile(path.join(repo, "native/box-fs-guard.c"), "utf8");
-  const original = 'if (renameat(parent, tmp, parent, leaf) < 0) fail("cannot commit confined output");\n    sync_directory_after_mutation(parent);';
+  const original = '    staged_parent = -1;\n    sync_directory_after_mutation(parent);';
   assert.equal(src.split(original).length, 2, "mutant fixture requires exact real guard statement");
   const mutantText = src.replace(original,
-    'if (renameat(parent, tmp, parent, leaf) < 0) fail("cannot commit confined output");\n    /* MUTANT ONLY: removed directory fsync */');
+    '    staged_parent = -1;\n    /* MUTANT ONLY: removed directory fsync */');
   const mutantSrc = path.join(temp, "mutant.c");
   const mutantExe = path.join(temp, "mutant");
   await writeFile(mutantSrc, mutantText);
