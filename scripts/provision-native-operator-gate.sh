@@ -256,7 +256,20 @@ while [ "$attempt" -lt 100 ]; do
     [ "$(stat -c '%u:%a' "$RUN/request.sock")" = "0:666" ] &&
     [ "$(stat -c '%u:%a' "$RUN/operator.sock")" = "0:600" ] ||
       fail "operator socket separation failed"
-    break
+    # Kernel socket inodes can be stale after SIGKILL, even while systemd
+    # advertises the replacement Type=simple service as active. Verify both
+    # distinct sockets accept connections before reporting provisioned.
+    probe='
+      const net=require("node:net");
+      const s=net.createConnection({path:process.argv[1]});
+      s.once("connect",()=>{s.destroy();process.exit(0)});
+      s.once("error",()=>process.exit(1));
+      s.setTimeout(750,()=>process.exit(1));
+    '
+    if "$NODE" -e "$probe" "$RUN/request.sock" >/dev/null 2>&1 &&
+       "$NODE" -e "$probe" "$RUN/operator.sock" >/dev/null 2>&1; then
+      break
+    fi
   fi
   systemctl is-active --quiet "buccet-operator-gate-$INSTANCE.service" ||
     fail "operator gate service exited before becoming ready"
