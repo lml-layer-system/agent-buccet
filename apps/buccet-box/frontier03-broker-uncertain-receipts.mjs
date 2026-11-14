@@ -1,11 +1,12 @@
 /**
  * Frontier03: actual privileged broker -> test-only wrapper -> unchanged
  * production C guard -> real kernel renameat, with injected fsync faults.
- * Proves that the BROKER receipt differentiates an explicit no-commit from an
- * unknown postcommit outcome. Does not claim an operator-gate acceptance pass.
+ * Proves that the BROKER and signed operator-gate receipts distinguish
+ * definite denial from uncertain effects at the real native commit.
  */
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { randomBytes, createHmac } from "node:crypto";
+import net from "node:net";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
@@ -22,6 +23,9 @@ const socket = root + "/broker.sock";
 const trace = root + "/trace.txt";
 const preload = root + "/fault.so";
 const wrapper = root + "/guard-test-wrapper";
+const gateDir = "/run/buccet-native-gates/f03-receipt-" + randomBytes(6).toString("hex");
+const gateRequestSocket = gateDir + "/request.sock";
+const gateOperatorSocket = gateDir + "/operator.sock";
 const env = { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C" };
 function run(bin, args, input = "") {
   const result = spawnSync(bin, args, { env, encoding: "utf8", input, timeout: 25000 });
@@ -52,7 +56,7 @@ function actualRead(rel) {
 function compileDefinition(name, value) {
   return "-D" + name + "=" + JSON.stringify(value);
 }
-let daemon;
+let daemon, gateDaemon;
 try {
   must(sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0700",
     "/var/lib/buccet-native", root, root + "/files"]), "make protected disposable root");
@@ -135,15 +139,160 @@ try {
   console.log("F03_BROKER_RECEIPT_PASS postcommit-SIGKILL-explicit-uncertain-receipt");
 
   assert.equal(brokerCall({ op: "read", path: "files/ok.txt" }).ok, true);
+
+  // The operator path below uses the actual root approval gate and correctly
+  // HMAC-signed host requests; NO test-only host authentication bypass.
+  must(sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0755",
+    "/run/buccet-native-gates", gateDir]), "create separate root gate namespace");
+  const who = {
+    sessionId: "host_" + randomBytes(8).toString("hex"),
+    actorId: "operator_" + randomBytes(8).toString("hex"),
+    secretHex: randomBytes(32).toString("hex"),
+  };
+  const registryFile = path.join(tmp, "host-identities.json");
+  await writeFile(registryFile, JSON.stringify({
+    schema: 1, root, allowed: [who],
+  }) + "\n");
+  must(sudo("install", ["-o", "root", "-g", "root", "-m", "0400",
+    registryFile, root + "/host-identities.json"]), "root-enroll host proof");
+  const operatorCode = [
+    'const net=require("node:net");',
+    'const s=net.createConnection({path:process.argv[1]});',
+    'let data="";',
+    's.once("connect",()=>s.write(process.argv[2]+"\\n"));',
+    's.on("data",v=>data+=String(v));',
+    's.once("end",()=>process.stdout.write(data));',
+    's.once("error",e=>{console.error(e.message);process.exitCode=73});',
+  ].join("");
+  function operator(command) {
+    const res = sudo(process.execPath, ["-e", operatorCode,
+      gateOperatorSocket, JSON.stringify(command)]);
+    must(res, "root-only operator command");
+    return JSON.parse(res.stdout.trim());
+  }
+  function hostSigned(request) {
+    const issuedAt = new Date().toISOString();
+    const nonce = randomBytes(16).toString("hex");
+    const mac = createHmac("sha256", Buffer.from(who.secretHex, "hex"))
+      .update(JSON.stringify(["agent-buccet-protected-host-v1",
+        who.sessionId, who.actorId, issuedAt, nonce, request])).digest("hex");
+    return { ...request, host: {
+      sessionId: who.sessionId, actorId: who.actorId, issuedAt, nonce, mac,
+    } };
+  }
+  async function submit(request) {
+    const socket = net.createConnection({ path: gateRequestSocket });
+    let raw = "", settled = false;
+    const response = new Promise(resolve => {
+      const finish = value => {
+        if (settled) return;
+        settled = true;
+        resolve(value);
+      };
+      socket.on("data", chunk => { raw += String(chunk); });
+      socket.once("end", () => {
+        try { finish(JSON.parse(raw.split("\n", 1)[0])); }
+        catch { finish({ ok: false, error: "incomplete gate receipt" }); }
+      });
+      socket.once("error", error => finish({ ok: false, error: error.message }));
+      socket.once("close", () => finish({ ok: false, error: "closed without receipt" }));
+    });
+    await new Promise((resolve, reject) => {
+      socket.once("connect", () => {
+        socket.write(JSON.stringify(hostSigned(request)) + "\n");
+        resolve();
+      });
+      socket.once("error", reject);
+    });
+    return response;
+  }
+  const gatePath = path.join(repo, "native/box-fs-approval-gate.mjs");
+  gateDaemon = spawn("sudo", ["-n", process.execPath, gatePath,
+    root, socket, gateRequestSocket, gateOperatorSocket], {
+    env, stdio: ["ignore", "pipe", "pipe"],
+  });
+  let gateLogs = "";
+  gateDaemon.stdout.on("data", chunk => { gateLogs += String(chunk); });
+  gateDaemon.stderr.on("data", chunk => { gateLogs += String(chunk); });
+  let gateReady = false;
+  for (let i = 0; i < 100; i++) {
+    const req = sudo("stat", ["-c", "%u:%a:%F", gateRequestSocket]);
+    const op = sudo("stat", ["-c", "%u:%a:%F", gateOperatorSocket]);
+    if (req.status === 0 && req.stdout.trim() === "0:666:socket" &&
+        op.status === 0 && op.stdout.trim() === "0:600:socket") {
+      gateReady = true; break;
+    }
+    if (gateDaemon.exitCode !== null) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.equal(gateReady, true, "real signed operator gate not ready: " + gateLogs);
+  async function approveAndReceive(proposal) {
+    const response = await submit(proposal);
+    let row;
+    for (let n = 0; n < 60; n++) {
+      row = operator({ command: "list" }).pending?.find(p => p.path === proposal.path);
+      if (row) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    assert.ok(row, "root gate did not queue signed request " + proposal.path);
+    assert.equal(row.host?.verified, true, "host HMAC not validated");
+    const decision = operator({
+      command: "approve", requestId: row.requestId, sha256: row.sha256,
+    });
+    assert.equal(decision.approved, true, "root operator approval failed");
+    return response;
+  }
+  const gateGood = await approveAndReceive({
+    op: "write", path: "files/gate-success.txt", content: "SIGNED_APPROVED_EXACT",
+  });
+  assert.equal(gateGood.ok, true);
+  assert.equal(actualRead("files/gate-success.txt"), "SIGNED_APPROVED_EXACT");
+  console.log("F03_GATE_RECEIPT_PASS legitimate-signed-root-approved-positive");
+
+  const gatePost = await approveAndReceive({
+    op: "write", path: "files/post-eio.txt", content: "GATE_PUBLISHED_UNCERTAIN",
+  });
+  assert.equal(gatePost.ok, false);
+  assert.equal(gatePost.uncertain, true);
+  assert.match(gatePost.error, /BUCCET_GATE_COMMIT_UNCERTAIN/);
+  assert.equal(actualRead("files/post-eio.txt"), "GATE_PUBLISHED_UNCERTAIN");
+  console.log("F03_GATE_RECEIPT_PASS signed-postcommit-EIO-uncertain-not-denied");
+
+  const gateKill = await approveAndReceive({
+    op: "write", path: "files/post-crash.txt", content: "GATE_PUBLISHED_KILLED",
+  });
+  assert.equal(gateKill.ok, false);
+  assert.equal(gateKill.uncertain, true);
+  assert.match(gateKill.error, /BUCCET_GATE_COMMIT_UNCERTAIN/);
+  assert.equal(actualRead("files/post-crash.txt"), "GATE_PUBLISHED_KILLED");
+  console.log("F03_GATE_RECEIPT_PASS signed-postcommit-SIGKILL-uncertain-not-denied");
+
+  const gateDenied = await approveAndReceive({
+    op: "write", path: "denied/nope.txt", content: "NOPE",
+  });
+  assert.equal(gateDenied.ok, false);
+  assert.equal(gateDenied.uncertain, false);
+  assert.notEqual(sudo("test", ["-e", root + "/denied/nope.txt"]).status, 0);
+  console.log("F03_GATE_RECEIPT_PASS signed-policy-denial-definitive");
+
   console.log("FRONTIER03_BROKER_RECEIPT_SUMMARY", JSON.stringify({
     actualRootBroker: true, productionCGuardExecuted: true,
     deniedVersusUncertainDistinguished: true, actualPublishedBytesVerified: true,
-    signedOperatorGateCovered: false,
+    signedOperatorGateCovered: true,
   }));
 } catch (error) {
   console.error("FRONTIER03_BROKER_RECEIPT_RED", error?.stack ?? String(error));
   process.exitCode = 1;
 } finally {
+  if (gateDaemon && gateDaemon.exitCode === null) {
+    gateDaemon.kill("SIGTERM");
+    await Promise.race([
+      new Promise(resolve => gateDaemon.once("close", resolve)),
+      new Promise(resolve => setTimeout(resolve, 4000)),
+    ]);
+    if (gateDaemon.exitCode === null) gateDaemon.kill("SIGKILL");
+  }
+  sudo("rm", ["-rf", "--", gateDir]);
   if (daemon && daemon.exitCode === null) {
     daemon.kill("SIGTERM");
     await Promise.race([
