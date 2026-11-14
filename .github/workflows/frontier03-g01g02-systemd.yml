@@ -9,6 +9,8 @@ on:
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
       - "apps/buccet-box/frontier03-native-commit-faults.mjs"
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
+      - "apps/buccet-box/frontier03-test-guard-wrapper.c"
+      - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
       - "native/box-fs-guard.c"
       - "scripts/provision-native-broker.sh"
       - "scripts/provision-native-operator-gate.sh"
@@ -20,6 +22,8 @@ on:
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
       - "apps/buccet-box/frontier03-native-commit-faults.mjs"
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
+      - "apps/buccet-box/frontier03-test-guard-wrapper.c"
+      - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
       - "native/box-fs-guard.c"
       - "scripts/provision-native-broker.sh"
       - "scripts/provision-native-operator-gate.sh"
@@ -47,5 +51,7 @@ jobs:
           sudo systemctl list-unit-files --type service --no-pager >/dev/null
       - name: Force actual native commit-window SIGKILL, fsync EIO and unsafe mutant detection
         run: node apps/buccet-box/frontier03-native-commit-faults.mjs
+      - name: Verify real broker denial versus uncertain receipts under native faults
+        run: node apps/buccet-box/frontier03-broker-uncertain-receipts.mjs
       - name: Attack actual broker and gate service death; test kernel isolation and authorized effects
         run: node apps/buccet-box/frontier03-service-lifecycle.mjs
