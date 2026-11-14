@@ -711,12 +711,20 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
         // after the Box supplies a decision. Only the frozen proposal may use
         // its one-time choice. A second approval request fails closed.
         const activeConfig = store.getConfig();
+        // A protected native request is an independently privileged effect.
+        // Even a standing path law does not bypass the ordinary Box review:
+        // the canonical action must receive a fresh operator decision before
+        // the additional root-only filesystem gate can see any proposal.
+        // This is a user-side approval, NOT a host identity credential.
+        const requiresBoxBeforeProtectedFs =
+          mapping.actionClass === "file" &&
+          Boolean(process.env.AGENT_BUCCET_FS_REQUEST_SOCKET);
         let decisionUsed = false;
         const guardedConfig = enableBodyguardControl({
           ...activeConfig,
           // Force a canonical approval check if the intercept gate required one.
           approvalRequiredFor:
-            result.decision === "require_approval"
+            result.decision === "require_approval" || requiresBoxBeforeProtectedFs
               ? [...new Set([...(activeConfig.approvalRequiredFor ?? []), actionKind])]
               : activeConfig.approvalRequiredFor,
           approvalHandler: async (approval) => {
