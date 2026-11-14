@@ -6,6 +6,7 @@
  * This is an application/session identity boundary, not an OS-user sandbox.
  */
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
@@ -21,17 +22,20 @@ const SECRET = "SYNTHETIC_VICTIM_SECRET_97A";
 const actorA = "victim:privileged-agent";
 const actorB = "attacker:untrusted-agent";
 const victimSession = "victim-session-frontier";
+const legitimateHostProof = randomBytes(32).toString("hex");
 const findings = [];
 function emit(type, detail) { console.log(type, JSON.stringify(detail)); findings.push({ type, detail }); }
-function client(actor, session) {
+function client(actor, session, hostProof) {
   const child = spawn(process.execPath, [
     path.join(root, "scripts/agent-buccet-mcp-server.ts"),
     "--home", home, "--sessions-dir", sessionsDir,
     "--session-id", session, "--actor-id", actor,
+    ...(hostProof ? ["--session-owner-fd", "3"] : []),
   ], {
     cwd: root, env: { ...process.env, AGENT_BUCCET_HOME: home },
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: hostProof ? ["pipe", "pipe", "pipe", "pipe"] : ["pipe", "pipe", "pipe"],
   });
+  if (hostProof) child.stdio[3].end(hostProof + "\n");
   const requests = new Map();
   let id = 0, errors = "";
   child.stderr.on("data", chunk => { errors += chunk.toString().slice(0, 1200); });
@@ -113,6 +117,7 @@ try {
   const boundary = await import("../../src/index.ts");
   const store = await boundary.createPersistentBoundaryRuntimeStore({
     sessionId: victimSession, actorId: actorA, sessionsDir,
+    mcpOwnerProof: legitimateHostProof,
     dryRun: false, hydrationMode: "full",
   });
   const granted = await boundary.openBoundaryPath({
@@ -123,7 +128,7 @@ try {
   await store.persist();
   await box.start();
 
-  const victim = client(actorA, victimSession); processes.push(victim);
+  const victim = client(actorA, victimSession, legitimateHostProof); processes.push(victim);
   await victim.init();
   const victimAttempt = await readWithHuman(victim, secretFile, "allow_once");
   const victimText = JSON.stringify(victimAttempt.response);
@@ -191,7 +196,7 @@ try {
 
   // MCP transport cancellation: once a tool call is cancelled, a human
   // clicking an old prompt must not execute its side effect.
-  const cancelled = client(actorA, victimSession); processes.push(cancelled);
+  const cancelled = client(actorA, victimSession, legitimateHostProof); processes.push(cancelled);
   await cancelled.init();
   const cancelledFile = path.join(workspace, "cancelled-action.txt");
   const stillPending = cancelled.ask("tools/call", {
@@ -270,23 +275,45 @@ try {
   // the victim session ID and claimed victim actor ID. All data is synthetic.
   const impersonator = client(actorA, victimSession);
   processes.push(impersonator);
-  await impersonator.init();
-  const impersonated = await readWithHuman(impersonator, secretFile, "allow_once");
-  const impersonatedResponse = JSON.stringify(impersonated.response);
-  if (impersonatedResponse.includes(SECRET)) {
-    emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_BREACH", {
-      observed: "different MCP process copied the victim actorId and sessionId",
-      sameProcessIdentityEstablished: false,
-      humanClickedAllowOnce: !!impersonated.prompt,
-      syntheticSecretDisclosed: true,
-      note: "string equality is not authentication; needs trusted process/host identity",
+  let impersonatorDenied = "";
+  try { await impersonator.init(); }
+  catch (error) { impersonatorDenied = String(error); }
+  if (impersonatorDenied) {
+    assert.match(impersonatorDenied, /BUCCET_SESSION_PROOF_DENIED/,
+      "startup must fail because of absent owner capability, not a test error");
+    emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_PASS", {
+      control: "copied actor and session labels have no owner capability",
+      authorizedVictimSessionNotInherited: true,
     });
-    throw new Error("FRONTIER_ACTOR_LABEL_IMPERSONATION_BREACH");
+  } else {
+    // Same real attack and synthetic victim file, no weaker success condition.
+    const impersonated = await readWithHuman(impersonator, secretFile, "allow_once");
+    const impersonatedResponse = JSON.stringify(impersonated.response);
+    if (impersonatedResponse.includes(SECRET)) {
+      emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_BREACH", {
+        observed: "different MCP process copied the victim actorId and sessionId",
+        sameProcessIdentityEstablished: false,
+        humanClickedAllowOnce: !!impersonated.prompt,
+        syntheticSecretDisclosed: true,
+      });
+      throw new Error("FRONTIER_ACTOR_LABEL_IMPERSONATION_BREACH");
+    }
+    emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_PASS", {
+      authorizedVictimSessionNotInherited: true,
+      response: impersonatedResponse.slice(0, 350),
+    });
   }
-  emit("FRONTIER_ACTOR_LABEL_IMPERSONATION_PASS", {
-    authorizedVictimSessionNotInherited: true,
-    response: impersonatedResponse.slice(0, 350),
-  });
+
+  // Extra negative control: an attacker who can open their own fd 3 still
+  // cannot invent the owner's proof by choosing an arbitrary 32-byte token.
+  const forgedProof = client(actorA, victimSession, randomBytes(32).toString("hex"));
+  processes.push(forgedProof);
+  let forgedDenied = "";
+  try { await forgedProof.init(); }
+  catch (error) { forgedDenied = String(error); }
+  assert.match(forgedDenied, /BUCCET_SESSION_PROOF_DENIED/,
+    "a wrong but correctly shaped host proof must not restore the victim session");
+  emit("FRONTIER_RANDOM_CAPABILITY_PASS", { forgedTokenRejected: true });
 } finally {
   for (const p of processes) p.close();
   try { await box.setMode("autonomous"); } catch {}
