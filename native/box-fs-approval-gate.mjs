@@ -184,11 +184,18 @@ async function callBroker(socketPath, request) {
 function send(socket, value) {
   if (!socket.destroyed && socket.writable) socket.end(JSON.stringify(value) + "\n");
 }
+// Track every live transport so SIGTERM can stop even when a client
+// connected without finishing a JSON request, or after a canceled action.
+const liveConnections = new Set();
 function serveJSON(server, handler, maxBytes, maxConnections) {
   let connected = 0;
   server.on("connection", socket => {
+    liveConnections.add(socket);
     connected++;
-    socket.once("close", () => { connected--; });
+    socket.once("close", () => {
+      connected--;
+      liveConnections.delete(socket);
+    });
     if (connected > maxConnections) {
       send(socket, { ok: false, error: "connection capacity reached" });
       return;
@@ -385,14 +392,25 @@ async function main() {
   if (pub.uid !== 0 || (pub.mode & 0o777) !== 0o666 ||
       priv.uid !== 0 || (priv.mode & 0o077)) deny("failed to establish independent operator socket");
   console.log("BUCCET_APPROVAL_GATE_READY");
+  let shuttingDown = false;
   const shutdown = async () => {
-    for (const id of pending.keys()) retire(id, "approval gate shutting down");
+    if (shuttingDown) return;
+    shuttingDown = true;
+    // Stop intake first, invalidate all pending approvals, and terminate
+    // client transports so systemd does not wait forever for a stuck peer.
     requestServer.close();
     operatorServer.close();
+    for (const id of [...pending.keys()]) retire(id, "approval gate shutting down");
+    for (const socket of [...liveConnections]) socket.destroy();
     await rm(requestSocket, { force: true }).catch(() => {});
     await rm(controlSocket, { force: true }).catch(() => {});
   };
-  process.once("SIGTERM", () => { void shutdown(); });
+  process.once("SIGTERM", () => {
+    void shutdown().catch(error => {
+      console.error("BUCCET_GATE_SHUTDOWN_DENIED:", error?.message ?? error);
+      process.exitCode = 73;
+    });
+  });
 }
 main().catch(error => {
   console.error("BUCCET_GATE_DENIED:", error?.message ?? "startup failed");
