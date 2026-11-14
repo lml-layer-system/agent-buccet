@@ -127,9 +127,11 @@ async function waitReady(gate, pending) {
     }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  let wrapperArmed = false;
+  let wrapperArmed = false, interposerLoaded = false;
   try { await access(path.join(gate, "wrapper-armed")); wrapperArmed = true; } catch {}
-  throw new Error("actual native renameat barrier not reached; wrapperArmed=" + wrapperArmed);
+  try { await access(path.join(gate, "interposer-loaded")); interposerLoaded = true; } catch {}
+  throw new Error("actual native renameat barrier not reached; wrapperArmed=" +
+    wrapperArmed + ", interposerLoaded=" + interposerLoaded);
 }
 function record(label, details) {
   console.log("FRONTIER_PROTECTED_PASS", label, JSON.stringify(details));
@@ -200,9 +202,23 @@ let server;
 try {
   required("cc", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
     path.join(repository, "native/box-fs-guard.c"), "-o", compiledGuard]);
+  // Preserve the real renameat interposer while adding only a loader marker
+  // to distinguish a missing preload from a missed renameat interception.
+  const constructor = path.join(local, "preload-loaded.c");
+  await writeFile(constructor, [
+    "#define _GNU_SOURCE",
+    "#include <stdlib.h>",
+    "#include <stdio.h>",
+    '#include <limits.h>',
+    'static void __attribute__((constructor)) witness(void){',
+    'const char *gate=getenv("BUCCET_TEST_RENAME_GATE");',
+    'if(gate){char name[PATH_MAX*2];',
+    'snprintf(name,sizeof(name),"%s/interposer-loaded",gate);',
+    'FILE *out=fopen(name,"w");if(out){fputs("loaded",out);fclose(out);}}}',
+  ].join("\n"));
   required("cc", ["-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
     path.join(repository, "apps/buccet-box/frontier-rename-barrier.c"),
-    "-o", compiledInterposer, "-ldl"]);
+    constructor, "-o", compiledInterposer, "-ldl"]);
   const wrapperSource = path.join(local, "frontier-wrapper.c");
   await writeFile(wrapperSource, nativeWrapper);
   required("cc", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
