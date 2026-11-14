@@ -261,7 +261,15 @@ while [ "$attempt" -lt 100 ]; do
   if [ -S "$SOCKET" ]; then
     [ "$(stat -c '%u:%a' "$SOCKET")" = "0:600" ] ||
       fail "broker socket permissions invalid"
-    break
+    # A stale root-owned pathname may survive daemon death; Type=simple
+    # readiness is not enough. Connect to the ACTUAL listener before success.
+    if "$NODE" -e '
+      const net=require("node:net");
+      const s=net.createConnection({path:process.argv[1]});
+      s.once("connect",()=>{s.destroy();process.exit(0)});
+      s.once("error",()=>process.exit(1));
+      s.setTimeout(750,()=>process.exit(1));
+    ' "$SOCKET" >/dev/null 2>&1; then break; fi
   fi
   systemctl is-active --quiet "buccet-native-$INSTANCE.service" ||
     fail "broker service exited before becoming ready"
