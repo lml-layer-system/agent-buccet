@@ -44,9 +44,9 @@ function trusted(op, relativePath, extra) {
     : { path: path.join(managedRoot, relativePath),
       ...(op === "write" || op === "append" ? { content: extra ?? "" } : {}) };
   const runArgs = ["-n", "env",
-    "BUCCET_FS_BACKEND=broker",
-    "BUCCET_FS_BROKER_ROOT=" + managedRoot,
-    "BUCCET_FS_BROKER_SOCKET=" + socket,
+    "AGENT_BUCCET_REQUIRE_ISOLATED_FS=1",
+    "AGENT_BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "AGENT_BUCCET_FS_BROKER_SOCKET=" + socket,
     process.execPath, productionController, JSON.stringify({ tool, args })];
   const r = run("sudo", runArgs);
   assert.equal(r.status, 0, "actual protected executor failed: " + r.stderr + r.stdout);
@@ -151,9 +151,9 @@ try {
   // helper, but its separate untrusted UID cannot become the controller.
   const agentAttempt = run("sudo", [
     "-n", "setpriv", "--reuid=65534", "--regid=65534", "--clear-groups",
-    "env", "BUCCET_FS_BACKEND=broker",
-    "BUCCET_FS_BROKER_ROOT=" + managedRoot,
-    "BUCCET_FS_BROKER_SOCKET=" + socket,
+    "env", "AGENT_BUCCET_REQUIRE_ISOLATED_FS=1",
+    "AGENT_BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "AGENT_BUCCET_FS_BROKER_SOCKET=" + socket,
     process.execPath, productionController, JSON.stringify({
       tool: "write_file",
       args: { path: path.join(managedRoot, "move-parent/moved.txt"), content: "UNAUTHORIZED" },
@@ -166,9 +166,9 @@ try {
   // A missing broker never causes the real executor to fall back to the
   // same-UID native guard. Even trusted callers must fail closed.
   const missingBroker = run("sudo", [
-    "-n", "env", "BUCCET_FS_BACKEND=broker",
-    "BUCCET_FS_BROKER_ROOT=" + managedRoot,
-    "BUCCET_FS_BROKER_SOCKET=" + path.join(managedRoot, "missing.sock"),
+    "-n", "env", "AGENT_BUCCET_REQUIRE_ISOLATED_FS=1",
+    "AGENT_BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "AGENT_BUCCET_FS_BROKER_SOCKET=" + path.join(managedRoot, "missing.sock"),
     process.execPath, productionController, JSON.stringify({
       tool: "write_file",
       args: { path: path.join(managedRoot, "move-parent/moved.txt"), content: "FALLBACK_BREACH" },
