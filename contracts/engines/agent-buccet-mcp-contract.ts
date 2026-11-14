@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -58,13 +59,14 @@ function makeEnv(args: {
   };
 }
 
-function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<CliResult> {
+function runCli(args: string[], env: NodeJS.ProcessEnv, ownerProof?: string): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn("buccet", args, {
       cwd: repoRoot,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ownerProof ? ["ignore", "pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"],
     });
+    if (ownerProof) child.stdio[3]?.end(ownerProof + "\n");
 
     let stdout = "";
     let stderr = "";
@@ -376,12 +378,14 @@ async function startMcp(args: {
   env: NodeJS.ProcessEnv;
   command: string;
   args: string[];
+  ownerProof?: string;
 }) {
   const child = spawn(args.command, args.args, {
     cwd: repoRoot,
     env: args.env,
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: args.ownerProof ? ["pipe", "pipe", "pipe", "pipe"] : ["pipe", "pipe", "pipe"],
   });
+  if (args.ownerProof) child.stdio[3]?.end(args.ownerProof + "\n");
   const client = new McpClient(child);
   await client.waitForStderr(/\[buccet-mcp\] ready\./, 60_000);
 
@@ -419,6 +423,7 @@ async function main() {
   const ledgerPath = path.join(homePath, "data", "ledger", "agent-boundary-ledger.jsonl");
   const sessionId = `agent-buccet-mcp-contract-${Date.now()}`;
   const actorId = "user:mcp-contract";
+  const ownerProof = randomBytes(32).toString("hex");
   const allowedReadPath = path.join(workspacePath, "allowed.txt");
   const approvalWritePath = path.join(workspacePath, "approval.txt");
   const shutdownReadPath = path.join(workspacePath, "shutdown-proof.txt");
@@ -435,7 +440,8 @@ async function main() {
     launcherDir,
   });
 
-  const init = await runCli(["init", "--session-id", sessionId, "--actor-id", actorId], env);
+  const init = await runCli(["init", "--session-id", sessionId, "--actor-id", actorId,
+    "--session-owner-fd", "3"], env, ownerProof);
   assert.equal(init.code, 0, init.stderr);
   await writeStandingLawLedger({
     uplLedgerPath,
@@ -446,12 +452,12 @@ async function main() {
     mcpServers: {
       buccet: {
         command: "buccet",
-        args: ["mcp"],
+        args: ["mcp", "--session-owner-fd", "3"],
       },
     },
   };
   assert.equal(hostConfig.mcpServers.buccet.command, "buccet");
-  assert.deepEqual(hostConfig.mcpServers.buccet.args, ["mcp"]);
+  assert.deepEqual(hostConfig.mcpServers.buccet.args, ["mcp", "--session-owner-fd", "3"]);
 
   await clearSessionStandingLaw({
     sessionsDir,
@@ -462,6 +468,7 @@ async function main() {
     env,
     command: hostConfig.mcpServers.buccet.command,
     args: hostConfig.mcpServers.buccet.args,
+    ownerProof,
   });
 
   const list = await client.request("tools/list");
