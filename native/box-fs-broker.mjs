@@ -195,6 +195,21 @@ async function runGuard(body) {
     proc.stdin.on("error", () => {});
   });
 }
+// Kernel renameat is atomic per entry, but append is READ + COPY + RENAME.
+// Overlapping privileged append processes can all report success while each
+// publishes an inode copied from the same original bytes. Make EVERY native
+// mutation a single-file-system transaction at this broker's effect boundary;
+// read operations remain permitted in parallel because rename is atomic.
+// Run the independent root-owned policy check INSIDE the queue, so a revoked
+// grant cannot be cached while an operation waits its turn.
+let mutationTail = Promise.resolve();
+function executeGuard(request) {
+  if (request?.op === "read") return runGuard(request);
+  const next = mutationTail.then(() => runGuard(request));
+  // A denied request must not block unrelated later authorized effects.
+  mutationTail = next.then(() => undefined, () => undefined);
+  return next;
+}
 const server = net.createServer((client) => {
   let body = "";
   let complete = false;
@@ -211,7 +226,7 @@ const server = net.createServer((client) => {
     complete = true;
     try {
       const request = JSON.parse(body.slice(0, boundary));
-      const output = await runGuard(request);
+      const output = await executeGuard(request);
       client.end(JSON.stringify({ ok: true, output }) + "\n");
     } catch (error) {
       client.end(JSON.stringify({
