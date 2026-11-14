@@ -387,6 +387,16 @@ export function checkTrackConstraint(
       constraint.actionCorridor?.targetMatchMode ??
       constraint.targetMatchMode ??
       (isPathLike ? "prefix" : "exact");
+    // Resolve '.'/'..' lexically for filesystem-style targets so the corridor
+    // rail agrees with the confined-fs executor. Without this, a corridor for
+    // "/ws/project" accepts "/ws/project/../../etc/shadow" (the raw string still
+    // starts with the pattern) even though it resolves OUTSIDE the corridor —
+    // an allow-rail / executor disagreement that leans on the executor as the
+    // only backstop. Normalizing the path makes the rail reject the escape.
+    const lexicalPrefix = (value: string): string =>
+      value.startsWith("/")
+        ? path.posix.normalize(normalizeTrackTarget(value)).replace(/\/+$/, "") || "/"
+        : value;
     const matches = targetPatterns.some((pattern) => {
       if (matchMode === "regex") {
         return matchesTrackPattern(normalizedTarget, pattern);
@@ -394,11 +404,9 @@ export function checkTrackConstraint(
       if (matchMode === "exact") {
         return target === pattern;
       }
-      return (
-        target === pattern ||
-        target.startsWith(pattern + path.sep) ||
-        target.startsWith(`${pattern}/`)
-      );
+      const t = lexicalPrefix(target);
+      const p = lexicalPrefix(pattern);
+      return t === p || t.startsWith(`${p}/`);
     });
 
     if (!matches) {

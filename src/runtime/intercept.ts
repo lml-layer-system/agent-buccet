@@ -4,6 +4,7 @@ import {
   createBoundaryActionRequest,
 } from "./../boundaries/bodyguard.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./../boundaries/secrets-boundary.ts";
+import { isSensitiveMutationTarget } from "./../law/sensitive-target.ts";
 import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
 import { admitBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
@@ -673,6 +674,31 @@ export function mapInterceptToBoundaryAction(
   }
 }
 
+/**
+ * AUTH-01 least-privilege: a broad standing scope/corridor that allows a
+ * directory also silently allows every secret/credential file beneath it, in
+ * every mode (the intercept gate returns `allow`, so the Box is never even
+ * consulted). Downgrade such an `allow` for a sensitive MUTATION to
+ * `require_approval`, so a human always authorizes credential changes
+ * explicitly. In interactive mode that surfaces a prompt; in autonomous mode it
+ * flows to the follow_upl handler, which holds it closed. An explicit per-file
+ * user law still lands as its own exact decision upstream of this.
+ */
+function holdSensitiveAllow(
+  decision: "allow" | "deny" | "require_approval",
+  reason: string,
+  actionKind: BoundaryActionKind,
+  target: string,
+): { decision: "allow" | "deny" | "require_approval"; reason: string } {
+  if (decision === "allow" && isSensitiveMutationTarget(actionKind, target)) {
+    return {
+      decision: "require_approval",
+      reason: `sensitive target requires explicit human authorization and is not auto-allowed by standing scope: ${target}`,
+    };
+  }
+  return { decision, reason };
+}
+
 export async function evaluateBoundaryIntercept(args: {
   config: BoundaryRuntimeConfig;
   request: BoundaryInterceptRequest;
@@ -799,9 +825,15 @@ export async function evaluateBoundaryIntercept(args: {
       request: boundaryRequest,
     });
 
+    const verdict = holdSensitiveAllow(
+      adjudication.result.decision,
+      adjudication.result.reason,
+      adjudication.request.actionKind,
+      request.target,
+    );
     return {
-      decision: adjudication.result.decision,
-      reason: adjudication.result.reason,
+      decision: verdict.decision,
+      reason: verdict.reason,
       lawIds: adjudication.result.triggeredLawIds,
       bodyguardMoves: adjudication.bodyguardMoves,
       requestId: adjudication.request.requestId,
@@ -859,9 +891,15 @@ export async function evaluateBoundaryIntercept(args: {
     request: boundaryRequest,
   });
 
+  const verdict = holdSensitiveAllow(
+    adjudication.result.decision,
+    adjudication.result.reason,
+    adjudication.request.actionKind,
+    request.target,
+  );
   return {
-    decision: adjudication.result.decision,
-    reason: adjudication.result.reason,
+    decision: verdict.decision,
+    reason: verdict.reason,
     lawIds: adjudication.result.triggeredLawIds,
     bodyguardMoves: adjudication.bodyguardMoves,
     requestId: adjudication.request.requestId,
