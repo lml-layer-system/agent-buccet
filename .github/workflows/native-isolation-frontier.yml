@@ -9,6 +9,9 @@ on:
       - "apps/buccet-box/frontier-races.mjs"
       - "apps/buccet-box/frontier-rename-barrier.c"
       - "apps/buccet-box/native-isolation-probe.mjs"
+      - "native/box-fs-broker.mjs"
+      - "native/box-fs-broker-client.mjs"
+      - "apps/buccet-box/native-broker-probe.mjs"
       - ".github/workflows/native-isolation-frontier.yml"
   pull_request:
     paths:
@@ -46,3 +49,17 @@ jobs:
         run: sh scripts/build-box-fs-guard.sh
       - name: Exercise protected principal and legitimate write/append/move
         run: node apps/buccet-box/native-isolation-probe.mjs
+
+  protected-broker-integration:
+    name: Trusted filesystem broker + hostile socket/namespace exclusion
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build native filesystem actuator
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Exercise real guarded file effects through protected broker
+        run: node apps/buccet-box/native-broker-probe.mjs
