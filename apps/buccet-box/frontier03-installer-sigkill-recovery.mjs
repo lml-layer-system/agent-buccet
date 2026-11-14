@@ -120,6 +120,38 @@ try {
   assert.equal(active(brokerUnit),false);
   console.log("F03_G02_PASS SIGKILL broker install recovered without orphan authority");
 
+  // A later crash can strand a real root-owned systemd unit after creation,
+  // before daemon activation. The recovery transaction must clean BOTH the
+  // protected executable root AND the privileged systemd unit.
+  const unitKillDir = stage + "/unit-kill-bin";
+  good(sudo("install", ["-d","-o","root","-g","root","-m","0700",unitKillDir]),
+    "prepare post-unit SIGKILL fixture");
+  const unitKillSrc = path.join(tmp,"kill-post-unit.sh");
+  await writeFile(unitKillSrc,
+    '#!/bin/sh\n' +
+    'if [ "$1" = daemon-reload ]; then\n' +
+    '  /usr/bin/systemctl "$@" || exit $?\n' +
+    '  /bin/kill -KILL "$PPID"\n' +
+    '  exit 137\n' +
+    'fi\nexec /usr/bin/systemctl "$@"\n');
+  good(sudo("install",["-o","root","-g","root","-m","0500",
+    unitKillSrc,unitKillDir+"/systemctl"]), "pin unit activation fault");
+  const killedPostUnit = sudo("env",["PATH="+unitKillDir+":/usr/bin:/bin",
+    ...benv,...bargs]);
+  assert.notEqual(killedPostUnit.status,0,
+    "systemd unit-created broker SIGKILL did not interrupt installer");
+  assert.equal(sudo("test",["-f","/etc/systemd/system/"+brokerUnit]).status,0,
+    "unit creation was not reached before killing broker installer");
+  assert.equal(active(brokerUnit),false,"unit was activated before test crash boundary");
+  const recoverUnit = sudo("env",[...benv,...bargs,"--recover-incomplete"]);
+  good(recoverUnit,"broker recovery after unit was created but before activation");
+  absent(root,"broker unit-created SIGKILL left protected root");
+  absent(brokerMarker,"broker unit-created SIGKILL left protected witness");
+  absent("/etc/systemd/system/"+brokerUnit,
+    "broker unit-created SIGKILL left systemd privilege descriptor");
+  console.log("F03_G02_PASS SIGKILL after broker systemd unit creation rolled back");
+
+
   good(sudo("env",[...benv,...bargs]), "clean real broker install after SIGKILL recovery");
   brokerBooted = true;
   assert.equal(active(brokerUnit),true,"broker service did not boot after crash recovery");
@@ -158,6 +190,28 @@ try {
     root+"/broker.sock","read","allowed/ready.txt"]),"post-gate-crash broker read"),
     "PRESERVE_BROKER_DATA");
   console.log("F03_G02_PASS SIGKILL gate install rollback preserved legitimate broker data");
+
+  const killedGatePostUnit = sudo("env",["PATH="+unitKillDir+":/usr/bin:/bin",
+    ...genv,...gargs]);
+  assert.notEqual(killedGatePostUnit.status,0,
+    "gate service unit-created SIGKILL did not interrupt installer");
+  assert.equal(sudo("test",["-f","/etc/systemd/system/"+gateUnit]).status,0,
+    "gate unit creation did not occur before the injected kill");
+  assert.equal(active(gateUnit),false,
+    "gate should not activate before simulated post-unit crash");
+  good(sudo("env",[...genv,...gargs,"--recover-incomplete"]),
+    "gate recovery after unit was created but before activation");
+  absent(root+"/approval-gate.mjs","gate unit-created SIGKILL left privileged code");
+  absent(gateMarker,"gate unit-created SIGKILL left durable witness");
+  absent(runDir,"gate unit-created SIGKILL left public request namespace");
+  absent("/etc/systemd/system/"+gateUnit,
+    "gate unit-created SIGKILL left privileged systemd descriptor");
+  assert.equal(active(brokerUnit),true,"recovering crashed gate unit damaged broker");
+  assert.equal(good(sudo(stage+"/node",[stage+"/broker-client.mjs",
+    root+"/broker.sock","read","allowed/ready.txt"]),"post-unit gate recovery data"),
+    "PRESERVE_BROKER_DATA");
+  console.log("F03_G02_PASS SIGKILL after gate unit creation preserved broker and removed unit");
+
   good(sudo("env",[...genv,...gargs]),"real gate install after interrupted recovery");
   gateBooted = true;
   assert.equal(active(gateUnit),true,"gate not active after recovered installation");
