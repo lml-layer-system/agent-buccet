@@ -127,11 +127,12 @@ async function waitReady(gate, pending) {
     }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  let wrapperArmed = false, interposerLoaded = false;
+  let wrapperArmed = false, interposerLoaded = false, renameSeen = "none";
   try { await access(path.join(gate, "wrapper-armed")); wrapperArmed = true; } catch {}
   try { await access(path.join(gate, "interposer-loaded")); interposerLoaded = true; } catch {}
+  try { renameSeen = await readFile(path.join(gate, "rename-seen"), "utf8"); } catch {}
   throw new Error("actual native renameat barrier not reached; wrapperArmed=" +
-    wrapperArmed + ", interposerLoaded=" + interposerLoaded);
+    wrapperArmed + ", interposerLoaded=" + interposerLoaded + ", renameSeen=" + renameSeen);
 }
 function record(label, details) {
   console.log("FRONTIER_PROTECTED_PASS", label, JSON.stringify(details));
@@ -216,9 +217,21 @@ try {
     'snprintf(name,sizeof(name),"%s/interposer-loaded",gate);',
     'FILE *out=fopen(name,"w");if(out){fputs("loaded",out);fclose(out);}}}',
   ].join("\n"));
+  const interposerOriginal = await readFile(
+    path.join(repository, "apps/buccet-box/frontier-rename-barrier.c"), "utf8");
+  const splice = '  const char *prefix = getenv("BUCCET_TEST_OLD_PREFIX");';
+  assert.ok(interposerOriginal.includes(splice));
+  const diagnostic = [
+    splice,
+    '  if(gate && *gate){char seen[8192];',
+    '  if(snprintf(seen,sizeof(seen),"%s/rename-seen",gate)<(int)sizeof(seen)){',
+    '  FILE *log=fopen(seen,"w");if(log){fprintf(log,"%s|%s",oldpath,prefix?prefix:"");fclose(log);}',
+    '  }}',
+  ].join("\n");
+  const instrumentedSource = path.join(local, "instrumented-interposer.c");
+  await writeFile(instrumentedSource, interposerOriginal.replace(splice, diagnostic));
   required("cc", ["-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
-    path.join(repository, "apps/buccet-box/frontier-rename-barrier.c"),
-    constructor, "-o", compiledInterposer, "-ldl"]);
+    instrumentedSource, constructor, "-o", compiledInterposer, "-ldl"]);
   const wrapperSource = path.join(local, "frontier-wrapper.c");
   await writeFile(wrapperSource, nativeWrapper);
   required("cc", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
