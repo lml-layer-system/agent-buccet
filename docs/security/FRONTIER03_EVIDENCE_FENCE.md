@@ -6,13 +6,13 @@ Parent tracker: [#21](https://github.com/lml-layer-system/agent-buccet/issues/21
 
 ## What the fence enforces once installed on main
 
-- A **closed ten-gate inventory**: exactly G01–G10, pinned issue and OS coverage, unverified by default.
-- **No green without both attack AND authorized positive evidence** tied to the same completed successful GitHub run, pinned run attempt, source commit, exact job name, and unexpired cryptographically digested evidence artifacts.
+- A **closed ten-gate inventory**: exactly G01–G10, with each failure class, issue mapping, effort estimate, positive/negative obligations, named CI job, and OS coverage frozen independently inside the checker. All start UNVERIFIED.
+- **No green without both actual attack AND authorized positive-control evidence** at the same successful main-branch workflow run, source SHA, run attempt, exact job ID and OS runner labels. Require three unexpired GitHub artifacts (attack, authorized, detector-sensitivity) with exact artifact IDs and SHA-256 digest metadata.
 - **No platform-laundering**: macOS G07 requires macOS evidence, Windows G08 requires Windows evidence; G09/G10 require all three supported OS targets. A green packaging build is not an isolation proof.
 - **No baseline-laundering**: merged #18 evidence is a protected-native baseline, not proof of the new 10 gates.
 - **No silent skipped/waived** state or unsupported-OS label promoted to green.
 - **No hand-edited issue checkbox**: with CI credentials, the issue #21 checklist and acceptance manifest must agree.
-- **No premature tag publication**: the modified `.github/workflows/release.yml` runs the fence before publishing npm/packages. The `--release` mode requires 10/10 independently attested gates.
+- **No premature tag publication**: when merged, `.github/workflows/release.yml` invokes `--release` before publishing npm/packages. Release requires 10/10 and every evidence source SHA must equal the tag commit SHA.
 - **No attack execution in the fence script.** The script checks contract structure and authenticated evidence metadata; the actual attack/recovery suites are separate future work.
 
 ## Artifacts and contracts
@@ -25,14 +25,14 @@ Parent tracker: [#21](https://github.com/lml-layer-system/agent-buccet/issues/21
 ## Evidence contract, when tests are eventually authorized
 
 A gate may change from `UNVERIFIED` to `GREEN` only if `evidence` contains:
-- `threatModel`, `rootCause`, `structuralCorrection`: substantial, independently reviewed descriptions
+- `threatModel`, `rootCause`, `structuralCorrection`: specific and evidence-backed descriptions, not the words `PASS` or `GREEN`
 - `attackerReachedBoundary: true`
 - `actualEffectRejected: true`
 - `authorizedEffectSucceeded: true`
 - `legacyInsecureTestOnly: false`
-- `runs`: one attestation for each pinned OS, with `platform`, `sourceSha`, `runId`, `runAttempt` and the manifest's exact `jobName`
+- `runs`: one attestation per pinned OS with `platform`, `sourceSha`, `runId`, `runAttempt`, exact `jobName`, `jobId`, plus `artifacts.attack`, `.authorized`, `.sensitivity` each with `id` and `digest`
 
-Each run must be a completed successful GitHub Actions workflow whose name includes `Frontier03`, with that source commit/attempt and the corresponding successful job. It must contain three **unexpired SHA-256-digested artifacts** for that gate/platform:
+Each run must be a successful GitHub push workflow **on main** named exactly `Frontier03 real-effect acceptance`, sourced from `.github/workflows/frontier03-real-effects.yml` (not yet written). Its exact platform-labeled job must complete three named witness steps: `Observe actual attacker effect denied`, `Verify legitimate authorized commit`, `Prove mutant is detected by test`. It must contain three **unexpired SHA-256-digested artifacts** for that gate/platform:
 
 `frontier03-G01-linux-attack`, `frontier03-G01-linux-authorized`, and `frontier03-G01-linux-sensitivity` (replace gate/platform as appropriate).
 
@@ -46,7 +46,7 @@ Each run must be a completed successful GitHub Actions workflow whose name inclu
 4. **Run none of the G01–G10 attacks until explicitly authorized.** Evidence remains null and the release path deliberately rejects.
 5. Do not interpret a passing preflight as an actual security test; preflight can pass with **0/10** gate evidence, whereas `--release` cannot.
 
-**Current limitation:** GitHub repository rulesets were empty at inspection, and the connected integration could not read/edit branch protection. This branch is a prepared fence, NOT proof that the status check is currently required by the repository. Activate the required-check rule separately.
+**Current limitation:** GitHub ruleset enumeration returned empty; branch protection returned 403 to the connected integration, so protection could not be independently confirmed or modified. [Issue #28](https://github.com/lml-layer-system/agent-buccet/issues/28) tracks required-check/guardrail activation. This is a **prepared, inactive branch fence**, not proof of enforceable merge policy until the protected controls are installed on main.
 
 ## Threats this fence cannot magically eliminate
 
@@ -57,3 +57,23 @@ Each run must be a completed successful GitHub Actions workflow whose name inclu
 - A full system-security guarantee: 10/10 measures completion of the ten agreed contracts only.
 
 **This is an acceptance-control fence, not a substitute for runtime authorization and OS isolation.**
+
+## Contradictions filtered by the pretest comb (not runtime attack results)
+
+| Candidate assertion | Why the acceptance contract rejects it |
+| --- | --- |
+| "PR #18 passed, therefore G01–G10 pass" | Baseline SHA/PR cannot certify any new gate |
+| "Release macOS/Windows parity from a Linux or packaging job" | Pinned per-gate OS list and job runner labels are mandatory |
+| "A failed attack alone means correctness" | Real authorized control and detector mutation evidence must also pass |
+| "An old successful run remains enough after source changes" | Release requires exact tag SHA plus run ID, attempt, job and artifact matching |
+| "An issue checkbox creates evidence" | Manifest + authenticated issue #21 have to agree |
+| "Any CI workflow named similarly can issue proof" | Exact workflow name/path, main push, job ID, step names, artifact IDs and SHA-256 metadata pinned |
+| "A green workflow implies the evidence producer itself is unforgeable" | **Not established**: code ownership/rules and substantive trace checks are still necessary |
+
+## Explicit residual uncertainties
+
+- A GitHub artifact's digest proves immutable bytes only at the recorded provider boundary; it **does not independently prove those bytes record a genuine syscall effect**. Future evidence producers must emit detailed observed traces and make mutant tests go red.
+- The checker cannot prevent someone with permissions to modify itself, its workflows or branch protection from disabling it. Require repository-level status checks, file protection and a reviewed deployment path (tracked in #28).
+- Running only this preflight says nothing about whether G01–G10 runtime behavior is secure. No G01–G10 frontier attack has yet been launched.
+
+**No private analysis protocol or supplied PDF has been placed in this public guide.**
