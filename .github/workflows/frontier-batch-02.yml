@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "apps/buccet-box/frontier-*"
+      - "apps/buccet-box/frontier-comb.test.mjs"
       - ".github/workflows/frontier-batch-02.yml"
       - "native/box-fs-guard.c"
       - "src/box/session-authority.ts"
@@ -75,3 +76,17 @@ jobs:
         run: sh scripts/build-box-fs-guard.sh
       - name: Run actual MCP host-integration contract with independent process and FD proof
         run: npm run test:agent-buccet:mcp
+
+  preemptive-comb:
+    name: Preemptive boundary invariant comb (no exploit prerequisite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Sweep signed requests and owner capabilities with deterministic state mutations
+        run: node --test apps/buccet-box/frontier-comb.test.mjs
