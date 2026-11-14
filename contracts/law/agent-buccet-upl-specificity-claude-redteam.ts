@@ -43,11 +43,14 @@ function entry(
     trackConstraint: c,
   };
 }
-function req(target: string): BoundaryActionRequest {
+function req(
+  target: string,
+  actionKind: BoundaryActionRequest["actionKind"] = "fs.write",
+): BoundaryActionRequest {
   return {
     requestId: "r",
     sessionId: "s1",
-    actionKind: "fs.write",
+    actionKind,
     target,
     requestedAt: new Date().toISOString(),
     provenance: "mcp_host",
@@ -108,8 +111,40 @@ async function main() {
     "a genuinely narrower allow carve-out still beats a broader deny",
   );
 
+  // Sensitive-subset protection: a BROAD allow for a parent directory must NOT
+  // override a deny that protects a sensitive subset of it via a regex/glob
+  // scope (the base pack's `*/secrets/*`-style walls). A naive "longer target
+  // pattern wins" rule regressed exactly this, because the allow's long literal
+  // workspace prefix outscored the deny's short glob.
+  const workspaceAllow = entry("allow-ws-broad", "APPROVED", {
+    allowedActionKinds: ["fs.read"],
+    targetPattern: "/home/user/project/workspace",
+    description: "broad workspace read allow",
+  });
+  const secretsDeny = entry("deny-secrets-glob", "DENIED", {
+    allowedActionKinds: ["fs.read"],
+    targetPatterns: ["/^.*\\/secrets(\\/.*)?$/"],
+    targetMatchMode: "regex",
+    description: "protect secrets subtree (glob)",
+  });
+  const ledger3: BoundaryUserPathLedger = {
+    specVersion: 1,
+    userApprovedLawPaths: [workspaceAllow],
+    userDeniedLawPaths: [secretsDeny],
+  } as BoundaryUserPathLedger;
+  const d3 = lookupUserPathTrackDecision({
+    ledger: ledger3,
+    session,
+    request: req("/home/user/project/workspace/secrets/api.txt", "fs.read"),
+  });
+  assert.equal(
+    d3?.decision,
+    "deny",
+    "a broad parent-dir allow must NOT override a deny protecting a sensitive subset (regex/glob scope)",
+  );
+
   console.log(
-    "specificity: padded same-breadth allow no longer outranks a deny; real carve-out still wins",
+    "specificity: padded same-breadth allow no longer outranks a deny; real carve-out still wins; broad parent allow cannot pierce a sensitive-subset deny",
   );
 }
 

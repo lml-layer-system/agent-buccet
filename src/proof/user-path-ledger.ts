@@ -22,7 +22,7 @@ import {
   buildAutoTrackConstraint,
   checkTrackConstraint,
   isTrackSurface,
-  trackTargetMatchSpecificity,
+  trackAllowOverridesDeny,
 } from "./../law/upl-tracks.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
@@ -718,7 +718,11 @@ export function lookupUserPathTrackDecision(args: {
     if (!constraint) continue;
     if (!constraint.allowedActionKinds.includes(args.request.actionKind)) continue;
 
-    const violation = checkTrackConstraint(constraint, args.request);
+    const violation = checkTrackConstraint(constraint, args.request, {
+      // Fail-closed on an unsafe/malformed corridor regex: a deny rail still
+      // fires; an allow rail grants nothing and surfaces as a track_violation.
+      unsafeRegexInsideCorridor: polarity === "deny",
+    });
     if (!violation) {
       if (polarity === "deny") {
         denyMatches.push({
@@ -755,18 +759,22 @@ export function lookupUserPathTrackDecision(args: {
 
   if (bestDeny && bestAllow) {
     // Fail-closed tiebreak: a protective DENY is only overridden by an ALLOW
-    // that is genuinely more specific about the TARGET (a deeper carve-out), not
-    // one that merely carries more unrelated constraint fields. Ranking by raw
-    // field count let a same-breadth allow padded with metadata (e.g. an extra
-    // reviewInvariantLawId, or a duplicated target pattern) silently defeat a
-    // deny. On a target-specificity tie, deny wins.
-    const denyTarget = bestDeny.entry.trackConstraint
-      ? trackTargetMatchSpecificity(bestDeny.entry.trackConstraint, args.request)
-      : 0;
-    const allowTarget = bestAllow.entry.trackConstraint
-      ? trackTargetMatchSpecificity(bestAllow.entry.trackConstraint, args.request)
-      : 0;
-    if (allowTarget > denyTarget) {
+    // that is strictly more specific about the dimensions that actually gate
+    // THIS request. Ranking by raw field count let a same-breadth allow padded
+    // with inert metadata (an extra reviewInvariantLawId / reviewSurface on a
+    // request with no review context, or a duplicated target pattern) silently
+    // defeat a deny. Request-engaged specificity dedupes list dimensions and
+    // ignores surfaces the request never exercises, so padding earns nothing.
+    // On a tie, deny wins.
+    if (
+      bestDeny.entry.trackConstraint &&
+      bestAllow.entry.trackConstraint &&
+      trackAllowOverridesDeny(
+        bestDeny.entry.trackConstraint,
+        bestAllow.entry.trackConstraint,
+        args.request,
+      )
+    ) {
       return { entry: bestAllow.entry, decision: "allow" };
     }
     return { entry: bestDeny.entry, decision: "deny" };
