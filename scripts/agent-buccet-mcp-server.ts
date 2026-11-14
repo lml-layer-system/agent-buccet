@@ -21,6 +21,7 @@ import { pathToFileURL } from "node:url";
 import { loadBuccetBoxBridge } from "../src/box/bridge.ts";
 import { fetchBuccetApprovedDestination } from "../src/box/safe-http.ts";
 import { executeScopedFileTool } from "../src/box/confined-fs.ts";
+import { readMcpSessionOwnerProof, verifyMcpSessionOwner } from "../src/box/session-authority.ts";
 import type { BoundaryPathLaw } from "../src/runtime/types.ts";
 
 // ─── arg parsing ────────────────────────────────────────────────────────────
@@ -31,6 +32,8 @@ type ParsedArgs = {
   sessionsDir: string;
   home: string;
   dryRun: boolean;
+  /** Explicit host-provisioned FD; untrusted CLI actor/session strings are not credentials. */
+  mcpOwnerProofFd?: number;
 };
 
 function usage(): never {
@@ -42,6 +45,7 @@ function usage(): never {
       "    --actor-id <id>",
       "    --sessions-dir <path>",
       "    --home <path>",
+      "    [--session-owner-fd 3]  (trusted host pipe; required for restored grants)",
       "    [--dry-run]",
     ].join("\n")}\n`,
   );
@@ -54,6 +58,7 @@ function parseArgs(argv: string[]): ParsedArgs {
   let sessionsDir = "";
   let home = process.env.AGENT_BUCCET_HOME ?? path.join(os.homedir(), ".buccet");
   let dryRun = false;
+  let mcpOwnerProofFd: number | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const t = argv[i];
@@ -75,13 +80,20 @@ function parseArgs(argv: string[]): ParsedArgs {
     }
     if (t === "--dry-run") {
       dryRun = true;
+      continue;
+    }
+    if (t === "--session-owner-fd") {
+      const fd = Number(argv[++i] ?? usage());
+      if (!Number.isSafeInteger(fd) || fd < 3 || fd > 1024) usage();
+      mcpOwnerProofFd = fd;
+      continue;
     }
   }
 
   if (!sessionId || !actorId || !sessionsDir) {
     usage();
   }
-  return { sessionId, actorId, sessionsDir, home, dryRun };
+  return { sessionId, actorId, sessionsDir, home, dryRun, mcpOwnerProofFd };
 }
 
 // ─── MCP JSON-RPC 2.0 types ─────────────────────────────────────────────────
@@ -477,6 +489,13 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
       recordBoundaryDecisionReturned,
       recordBoundaryProposedAction,
     } = boundary;
+    // Only the trusted host launch channel can present a session capability.
+    // Neither --session-id nor --actor-id confers owner authority.
+    const ownerProof = args.mcpOwnerProofFd === undefined
+      ? null : readMcpSessionOwnerProof(args.mcpOwnerProofFd);
+    if (args.mcpOwnerProofFd !== undefined && !ownerProof) {
+      throw new Error("BUCCET_SESSION_PROOF_DENIED: invalid trusted host owner pipe");
+    }
     // Restore or start the boundary session.
     const restored = await boundary.restoreBoundaryRuntimeStore({
       sessionId: args.sessionId,
@@ -488,6 +507,7 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
       (await boundary.createPersistentBoundaryRuntimeStore({
         sessionId: args.sessionId,
         actorId: args.actorId,
+        ...(ownerProof ? { mcpOwnerProof: ownerProof } : {}),
         dryRun: args.dryRun,
         sessionsDir: args.sessionsDir,
         hydrationMode: "full",
@@ -497,6 +517,21 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
     // A caller may name a session, but may not inherit another actor's grants.
     if (store.getConfig().session.actorId !== args.actorId) {
       throw new Error("BUCCET_IDENTITY_DENIED: restored session actor mismatch");
+    }
+    // Preempt ID-02: matching the *labels* of victim actor/session does not
+    // confer the victim process' restored authority. Legacy sessions with
+    // path grants but no owner binding fail closed; operator must re-provision
+    // their host launch capability instead of silently trusting same-UID CLI.
+    const saved = store.getConfig();
+    const hasRestoredAuthority = restored !== null && (
+      saved.pathLaws.length > 0 ||
+      saved.grants.some((grant: { resourceKind: string }) => grant.resourceKind !== "chat")
+    );
+    if (restored && (hasRestoredAuthority || saved.session.mcpOwnerDigest)) {
+      if (!verifyMcpSessionOwner(args.sessionId, args.actorId,
+          saved.session.mcpOwnerDigest, ownerProof)) {
+        throw new Error("BUCCET_SESSION_PROOF_DENIED: restored authority requires host proof");
+      }
     }
 
     let config = store.getConfig();
