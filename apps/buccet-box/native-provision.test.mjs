@@ -48,12 +48,20 @@ try {
   sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0700", installerStage]);
   sudo("install", ["-o", "root", "-g", "root", "-m", "0500",
     sourceProvision, provision]);
-  const bad = run("sudo", ["-n","sh",provision,id,nativeGuard,sourceBroker,"0".repeat(64),brokerHash,"--files-only"]);
+  // CI runner's hosted Node toolcache is not an appropriate root service
+  // interpreter. Place this test-only Node binary into the protected root
+  // installer stage; the production installer rejects writable toolchains.
+  const trustedNode = path.join(installerStage, "node");
+  sudo("install", ["-o", "root", "-g", "root", "-m", "0500",
+    process.execPath, trustedNode]);
+  const nodeEnv = "BUCCET_BROKER_NODE=" + trustedNode;
+  const bad = run("sudo", ["-n","env",nodeEnv,"sh",provision,id,nativeGuard,
+    sourceBroker,"0".repeat(64),brokerHash,"--files-only"]);
   assert.notEqual(bad.status,0,"tampered artifact digest did not stop installation");
   const noPrivilege = run("sudo", ["-n","setpriv","--reuid=65534","--regid=65534",
-    "--clear-groups","sh",...args]);
+    "--clear-groups","env",nodeEnv,"sh",...args]);
   assert.notEqual(noPrivilege.status,0,"untrusted user managed to provision broker");
-  assert.match(sudo("sh",args),/BUCCET_PROVISIONED_FILES_ONLY/);
+  assert.match(sudo("env",[nodeEnv,"sh",...args]),/BUCCET_PROVISIONED_FILES_ONLY/);
   assert.equal(sudo("stat",["-c","%u:%a",root]),"0:700");
   assert.equal(sudo("stat",["-c","%u:%a",guard]),"0:500");
   assert.equal(sudo("stat",["-c","%u:%a",broker]),"0:400");
