@@ -206,6 +206,28 @@ try {
     "G02: interrupted installation created a live service unit");
   console.log("F03_G02_PASS injected partial native install rolled back without root residue");
 
+  // RED control: installation may create the root and then report I/O error
+  // BEFORE the caller records success. Rollback must still own that attempt.
+  const rootCreateSrc = path.join(tmp, "fault-root-create.sh");
+  await writeFile(rootCreateSrc,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'if [ "$last" = ' + JSON.stringify(root) +
+    ' ]; then /usr/bin/install "$@" || exit $?; exit 79; fi\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    rootCreateSrc, faultRoot + "/install"]);
+  const createThenError = privileged("env", [
+    "PATH=" + faultRoot + ":/usr/bin:/bin", ...brokerEnv, "sh", ...brokerArgs,
+  ]);
+  assert.notEqual(createThenError.status, 0,
+    "G02 injected post-create installer failure was not observed");
+  deny("test", ["-e", root],
+    "G02 post-create I/O failure left a root because rollback flag was set too late");
+  deny("test", ["-e", "/etc/systemd/system/" + brokerUnit],
+    "G02 post-create I/O failure left a service");
+  console.log("F03_G02_PASS root directory creation error still rolls back");
+
+
   // Inject failure after the broker has already written its systemd unit.
   // A transactional installer must remove the unit and protected root; a
   // path-only rollback would miss the privilege-bearing service descriptor.
@@ -295,6 +317,29 @@ try {
   assert.equal(mustBroker("read", "allowed/ready.txt"),"AUTHORIZED_BEFORE_CRASH",
     "G02: failed gate installation damaged the running protected broker");
   console.log("F03_G02_PASS interrupted gate install rolled back without harming broker");
+
+  // Second create-then-error checkpoint: the public request namespace can be
+  // created before the installation command returns failure.
+  const gateCreateSrc = path.join(tmp, "fault-gate-create.sh");
+  await writeFile(gateCreateSrc,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'if [ "$last" = ' + JSON.stringify(gateRun) +
+    ' ]; then /usr/bin/install "$@" || exit $?; exit 81; fi\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    gateCreateSrc, gateFaultBin + "/install"]);
+  const createGateThenError = privileged("env", [
+    "PATH=" + gateFaultBin + ":/usr/bin:/bin", ...gateEnv, "sh", ...gateArgs,
+  ]);
+  assert.notEqual(createGateThenError.status, 0,
+    "G02 injected post-create gate failure was not observed");
+  deny("test", ["-e", gateRun],
+    "G02 post-create gate failure left the public privileged request namespace");
+  deny("test", ["-e", root + "/approval-gate.mjs"],
+    "G02 post-create gate failure left a partial privileged script");
+  assert.equal(mustBroker("read", "allowed/ready.txt"), "AUTHORIZED_BEFORE_CRASH");
+  console.log("F03_G02_PASS gate namespace creation error rolls back");
+
 
   const gateUnitFault=privileged("env",[
     "PATH="+ctlFaultDir+":/usr/bin:/bin",...gateEnv,
