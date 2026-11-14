@@ -516,13 +516,9 @@ async function main() {
     }),
   );
   assert.equal(approvalRequired.isError, true, JSON.stringify(approvalRequired, null, 2));
-  assert.match(extractText(approvalRequired), /Boundary requires approval:/);
-  assert.match(
-    extractText(approvalRequired),
-    /self-originated Buccet motion re-enters through novelty before consequence/,
-  );
-  assert.match(extractText(approvalRequired), /META\.NOVELTY\.01/);
-  assert.match(extractText(approvalRequired), /Approve via: buccet console/);
+  // A missing Box is never a pending permit. The runtime now explicitly denies
+  // the effect, rather than returning an ambiguous "requires approval" message.
+  assert.match(extractText(approvalRequired), /Boundary denied: Buccet Box unavailable: approval denied/);
 
   client.endInput();
   const firstExit = await client.waitForExit();
@@ -562,13 +558,14 @@ async function main() {
       target: approvalWritePath,
       actionKind: "fs.write",
     }),
-    ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED"],
+    ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED", "ACTION_BLOCKED"],
   );
 
   const shutdownClient = await startMcp({
     env,
     command: hostConfig.mcpServers.buccet.command,
     args: hostConfig.mcpServers.buccet.args,
+    ownerProof,
   });
   const inFlightRead = shutdownClient.request("tools/call", {
     name: "read_file",
