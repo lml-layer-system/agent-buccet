@@ -28,6 +28,7 @@ export * from "./runtime/governor.ts";
 export * from "./proof/user-path-ledger.ts";
 export * from "./law/upl-tracks.ts";
 export * from "./law/upl-traffic.ts";
+export * from "./law/sensitive-target.ts";
 export * from "./boundaries/spend-boundary.ts";
 export * from "./proof/spend-boundary-proof.ts";
 export * from "./law/spend-law-packs.ts";

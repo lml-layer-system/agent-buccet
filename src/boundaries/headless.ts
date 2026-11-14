@@ -1,3 +1,4 @@
+import { isSensitiveMutationTarget } from "./../law/sensitive-target.ts";
 import { evaluateBoundaryUplTraffic } from "./../law/upl-traffic.ts";
 import type {
   BoundaryApprovalDecision,
@@ -124,6 +125,16 @@ export function createBoundaryHeadlessApprovalHandler(
           request: approval.request,
         });
         if (traffic.decision === "allow" && traffic.entry) {
+          // AUTH-01: a broad standing corridor also covers secret/credential
+          // files beneath it. Autonomous mode (no human) must not silently
+          // rewrite those just because the corridor allows the directory —
+          // hold them closed so a human has to authorize them explicitly.
+          if (isSensitiveMutationTarget(approval.request.actionKind, approval.request.target)) {
+            return {
+              choice: "deny_once",
+              notes: `headless:follow_upl — sensitive target held from autonomous auto-allow (${approval.request.target}); requires explicit human authorization`,
+            };
+          }
           return {
             choice: "allow_once",
             notes: `headless:follow_upl — traffic rail: ${traffic.entry.id}`,
