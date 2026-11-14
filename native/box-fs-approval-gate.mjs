@@ -13,8 +13,8 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import net from "node:net";
 import path from "node:path";
-import { lstatSync, unlinkSync } from "node:fs";
-import { chmod, readFile, rm } from "node:fs/promises";
+import { lstatSync, unlinkSync, constants } from "node:fs";
+import { chmod, readFile, rm, mkdir, readdir, open, unlink } from "node:fs/promises";
 
 const MAX_CONTENT = 8 * 1024 * 1024;
 const MAX_PENDING = 16;
@@ -80,7 +80,80 @@ function digest(request) {
 // Host identity is asserted ONLY by a root-owned registry, not by MCP CLI
 // names, mutable session files, or ordinary Box bearer-token evidence.
 // Test-only unbound fallback is deliberately outside the installed service.
+// A daemon-local replay Map is insufficient: SIGKILL clears it and lets the
+// exact same signed host request reenter the new operator queue. Persist each
+// consumed proof as an O_EXCL root-only witness BEFORE publishing the request.
+// Keep records for >2x max issuedAt skew (±120s): otherwise future-dated
+// signed proofs can replay after an in-memory 2-minute expiry.
+const HOST_NONCE_TTL_MS = 5 * 60_000;
+const HOST_NONCE_LIMIT = 4096;
 const usedHostNonces = new Map();
+let hostNonceTail = Promise.resolve();
+async function persistHostNonce(root, nonceKey) {
+  const action = hostNonceTail.then(async () => {
+    const home = path.join(root, ".buccet-host-nonces");
+    let made = false;
+    try {
+      await mkdir(home, { mode: 0o700 });
+      made = true;
+    } catch (error) {
+      if (error?.code !== "EEXIST") deny("cannot create protected nonce ledger");
+    }
+    const rights = lstatSync(home);
+    if (!rights.isDirectory() || rights.isSymbolicLink() ||
+        rights.uid !== 0 || (rights.mode & 0o777) !== 0o700) {
+      deny("host replay ledger lost root-exclusive ownership");
+    }
+    const dirFlags = constants.O_RDONLY | constants.O_DIRECTORY |
+      constants.O_NOFOLLOW | constants.O_CLOEXEC;
+    if (made) {
+      const parent = await open(root, dirFlags);
+      try { await parent.sync(); } finally { await parent.close(); }
+    }
+    const dir = await open(home, dirFlags);
+    try {
+      const names = await readdir(home);
+      let retained = 0, swept = false;
+      const now = Date.now();
+      for (const name of names) {
+        if (!/^[0-9a-f]{64}$/.test(name)) deny("unrecognized nonce ledger entry");
+        const entry = path.join(home, name);
+        const info = lstatSync(entry);
+        if (!info.isFile() || info.isSymbolicLink() || info.uid !== 0 ||
+            info.nlink !== 1 || (info.mode & 0o777) !== 0o600) {
+          deny("host nonce ledger entry has untrusted identity");
+        }
+        if (now - info.mtimeMs > HOST_NONCE_TTL_MS) {
+          await unlink(entry);
+          swept = true;
+        } else {
+          retained++;
+        }
+      }
+      if (swept) await dir.sync();
+      if (retained >= HOST_NONCE_LIMIT) deny("protected host replay ledger full");
+      const digest = createHash("sha256")
+        .update(JSON.stringify(["buccet-host-nonce-v1", nonceKey]))
+        .digest("hex");
+      let entryFile;
+      try {
+        entryFile = await open(path.join(home, digest), constants.O_WRONLY |
+          constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW |
+          constants.O_CLOEXEC, 0o600);
+      } catch (error) {
+        if (error?.code === "EEXIST") deny("host proof replay");
+        deny("cannot reserve durable host proof nonce");
+      }
+      try { await entryFile.sync(); } finally { await entryFile.close(); }
+      await dir.sync();
+    } finally {
+      await dir.close();
+    }
+  });
+  // Keep serialized ledger updates working after a rejected replay.
+  hostNonceTail = action.then(() => undefined, () => undefined);
+  return action;
+}
 async function verifyRegisteredHost(managedRoot, body, proposal, consumeNonce) {
   const file = path.join(managedRoot, "host-identities.json");
   let stat;
@@ -131,14 +204,21 @@ async function verifyRegisteredHost(managedRoot, body, proposal, consumeNonce) {
   if (supplied.length !== expected.length || !timingSafeEqual(expected, supplied)) {
     deny("host proof not bound to approved exact operation");
   }
-  const nonceKey = h.sessionId + "\u0000" + h.nonce;
+  const nonceKey = JSON.stringify([h.sessionId, h.nonce]);
   const now = Date.now();
   for (const [key, created] of usedHostNonces) {
-    if (now - created > 2 * 60_000) usedHostNonces.delete(key);
+    if (now - created > HOST_NONCE_TTL_MS) usedHostNonces.delete(key);
   }
   if (consumeNonce) {
-    if (usedHostNonces.size >= 4096) deny("host replay cache exhausted");
+    if (usedHostNonces.size >= HOST_NONCE_LIMIT) deny("host replay cache exhausted");
     if (usedHostNonces.has(nonceKey)) deny("host proof replay");
+    try {
+      await persistHostNonce(managedRoot, nonceKey);
+    } catch (error) {
+      // Never expose a pending operator request if the durable nonce witness
+      // could not be reserved. Unexpected ledger I/O is fail-closed.
+      deny(String(error?.message || "durable host replay ledger unavailable"));
+    }
     usedHostNonces.set(nonceKey, now);
   }
   return { sessionId: h.sessionId, actorId: h.actorId, verified: true };
