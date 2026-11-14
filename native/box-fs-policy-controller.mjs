@@ -46,7 +46,7 @@ function safeRelative(p) {
   }
   return p;
 }
-function approvedEntry(record, op, paths, now) {
+function approvedEntry(record, op, pathname, now) {
   if (!record || typeof record !== "object" ||
       record.op !== op || typeof record.prefix !== "string" ||
       !record.prefix || record.prefix.startsWith("/") ||
@@ -57,7 +57,7 @@ function approvedEntry(record, op, paths, now) {
       (typeof record.expiresAt !== "string" ||
        !Number.isFinite(Date.parse(record.expiresAt)) ||
        Date.parse(record.expiresAt) <= now)) return false;
-  return paths.every(p => p === record.prefix || p.startsWith(record.prefix + "/"));
+  return pathname === record.prefix || pathname.startsWith(record.prefix + "/");
 }
 async function readPolicy(root) {
   const file = path.join(root, "policy.json");
@@ -142,7 +142,8 @@ async function main() {
   const dst = op === "move" ? safeRelative(to) : undefined;
   const paths = dst ? [src, dst] : [src];
   const policy = await readPolicy(root);
-  if (!policy.some(entry => approvedEntry(entry, op, paths, Date.now()))) {
+  if (!paths.every(p =>
+    policy.some(entry => approvedEntry(entry, op, p, Date.now())))) {
     denied("no independent operator-approved path authority");
   }
   // The independent broker has root-only directory and socket permissions.
