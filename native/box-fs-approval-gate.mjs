@@ -13,7 +13,7 @@
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import net from "node:net";
 import path from "node:path";
-import { lstatSync } from "node:fs";
+import { lstatSync, unlinkSync } from "node:fs";
 import { chmod, readFile, rm } from "node:fs/promises";
 
 const MAX_CONTENT = 8 * 1024 * 1024;
@@ -229,9 +229,58 @@ async function main() {
       requestSocket === controlSocket ||
       path.basename(requestSocket) !== "request.sock" ||
       path.basename(controlSocket) !== "operator.sock") deny("invalid separated socket locations");
-  for (const p of [requestSocket, controlSocket]) {
-    try { lstatSync(p); deny("refusing existing socket"); }
-    catch (error) { if (error.code !== "ENOENT") throw error; }
+  // Recovery is a two-phase liveness/identity check. We never remove a
+  // listening root-controlled operator socket, and an untrusted UID cannot
+  // replace socket names inside the independently protected parent.
+  async function probeExisting(name) {
+    let observed;
+    try { observed = lstatSync(name); }
+    catch (error) {
+      if (error?.code === "ENOENT") return null;
+      throw error;
+    }
+    if (!observed.isSocket() || observed.isSymbolicLink() || observed.uid !== 0) {
+      deny("recovery refused non-root or non-socket entry");
+    }
+    const state = await new Promise((resolve, reject) => {
+      const probe = net.createConnection({ path: name });
+      let done = false;
+      const finish = (error, result) => {
+        if (done) return;
+        done = true;
+        probe.destroy();
+        if (error) reject(error); else resolve(result);
+      };
+      probe.setTimeout(700, () => finish(Error("operator socket liveness unknown")));
+      probe.once("connect", () => finish(undefined, "live"));
+      probe.once("error", error => {
+        if (error.code === "ECONNREFUSED") finish(undefined, "dead");
+        else if (error.code === "ENOENT") finish(undefined, "missing");
+        else finish(error);
+      });
+    });
+    if (state === "live") deny("another root-owned operator gate already listening");
+    if (state === "missing") return null;
+    return { name, ino: observed.ino, dev: observed.dev };
+  }
+  const abandoned = [];
+  for (const name of [requestSocket, controlSocket]) {
+    const state = await probeExisting(name);
+    if (state) abandoned.push(state);
+  }
+  for (const stale of abandoned) {
+    let current;
+    try { current = lstatSync(stale.name); }
+    catch (error) {
+      if (error?.code === "ENOENT") continue;
+      throw error;
+    }
+    if (!current.isSocket() || current.uid !== 0 ||
+        current.ino !== stale.ino || current.dev !== stale.dev) {
+      deny("operator socket identity changed during recovery");
+    }
+    unlinkSync(stale.name);
+    console.log("BUCCET_GATE_STALE_ROOT_SOCKET_RECLAIMED");
   }
   const pending = new Map();
   let serial = Promise.resolve();
