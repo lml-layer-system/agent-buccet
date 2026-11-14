@@ -172,7 +172,8 @@ try {
     "wrong digest must never approve an operation");
   assert.equal(operator({command:"list"}).pending.length,1);
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256}).approved,true);
-  assert.equal((await awaitAgent(first)).ok,true);
+  const firstReply=await awaitAgent(first);
+  assert.equal(firstReply.ok,true,JSON.stringify(firstReply));
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256}).ok,false,
     "approved request replay was possible");
 
@@ -184,13 +185,14 @@ try {
   assert.equal(item.bytes,Buffer.byteLength("APPROVED_CONTENT"));
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256.slice(1)+"0"}).ok,false);
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256}).approved,true);
-  assert.equal((await awaitAgent(write)).ok,true);
+  const writeReply=await awaitAgent(write);
+  assert.equal(writeReply.ok,true,JSON.stringify(writeReply));
 
   const read=agent("read_file",{path:managed+"/allowed/file.txt"});
   [item]=await waitPending();
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256}).approved,true);
   const readAnswer=await awaitAgent(read);
-  assert.equal(readAnswer.ok,true);
+  assert.equal(readAnswer.ok,true,JSON.stringify(readAnswer));
   assert.equal(readAnswer.output,"APPROVED_CONTENT");
 
   // Operator approval cannot override independent root-owned broker policy.
