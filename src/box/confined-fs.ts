@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BoundaryActionKind, BoundaryPathLaw } from "../runtime/types.ts";
+import { executeProtectedBroker, requireProtectedRoot, type ProtectedOperation } from "./protected-fs.ts";
 import { runProtectedFilesystemBroker } from "./protected-fs-broker.ts";
 
 const toolActions: Record<string, BoundaryActionKind> = {
@@ -119,6 +120,45 @@ function runGuard(args: string[], content?: string): Promise<string> {
   });
 }
 
+/**
+ * Protected execution explicitly switches the production actuator to the
+ * independent-root broker. No unprotected fallback exists in broker mode.
+ * The legacy direct mode is retained for backwards-compatible, non-isolated
+ * local deployments and does NOT defend against hostile same-UID mutations.
+ */
+function selectedExecutionBackend(): "direct" | "broker" {
+  const mode = process.env.BUCCET_FS_BACKEND ?? "direct";
+  if (mode !== "direct" && mode !== "broker") {
+    throw new Error("BUCCET_FS_DENIED: invalid filesystem execution backend");
+  }
+  return mode;
+}
+
+async function performScopedEffect(
+  op: ProtectedOperation,
+  source: { root: string; relative: string },
+  destination?: { root: string; relative: string },
+  content?: string,
+): Promise<string> {
+  if (selectedExecutionBackend() === "broker") {
+    const { socket } = requireProtectedRoot(source.root);
+    if (destination && destination.root !== source.root) {
+      throw new Error("BUCCET_FS_DENIED: protected broker move cannot cross managed roots");
+    }
+    return executeProtectedBroker(socket, {
+      op,
+      path: source.relative,
+      ...(destination ? { to: destination.relative } : {}),
+      ...(content === undefined ? {} : { content }),
+    });
+  }
+  // Legacy compatibility is intentionally not called when broker mode fails.
+  // Never swallow broker errors or fall back to this path automatically.
+  const args = [op, source.root, source.relative];
+  if (destination) args.push(destination.root, destination.relative);
+  return runGuard(args, content);
+}
+
 /** Called exclusively AFTER canonical Bodyguard authorizes execution. */
 export async function executeScopedFileTool(
   toolName: string, input: Record<string, unknown>, pathLaws: BoundaryPathLaw[],
@@ -131,21 +171,21 @@ export async function executeScopedFileTool(
     const to = takeString(input, "to");
     const source = scopedPath(from, action, pathLaws);
     const destination = scopedPath(to, action, pathLaws);
-    await runGuard(["move", source.root, source.relative, destination.root, destination.relative]);
+    await performScopedEffect("move", source, destination);
     return "Moved " + from + " → " + to;
   }
   const target = takeString(input, "path");
   const scope = scopedPath(target, action, pathLaws);
-  if (toolName === "read_file") return runGuard(["read", scope.root, scope.relative]);
+  if (toolName === "read_file") return performScopedEffect("read", scope);
   if (toolName === "write_file" || toolName === "append_file") {
     const content = input.content;
     if (typeof content !== "string") {
       throw new Error("BUCCET_FS_DENIED: file payload must be a string");
     }
-    await runGuard([toolName === "write_file" ? "write" : "append", scope.root, scope.relative], content);
+    await performScopedEffect(toolName === "write_file" ? "write" : "append", scope, undefined, content);
     return (toolName === "write_file" ? "Written " : "Appended ") +
       Buffer.byteLength(content) + " bytes to " + target;
   }
-  await runGuard([toolName === "delete_file" ? "delete" : "mkdir", scope.root, scope.relative]);
+  await performScopedEffect(toolName === "delete_file" ? "delete" : "mkdir", scope);
   return toolName === "delete_file" ? "Deleted " + target : "Created directory " + target;
 }
