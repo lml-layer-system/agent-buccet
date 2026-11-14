@@ -28,8 +28,14 @@ jobs:
           node-version: "22"
           cache: npm
       - run: npm ci
-      - name: Build native confined filesystem actuator
-        run: sh scripts/build-box-fs-guard.sh
+      - name: Build shipped native actuator and verify it denies same-user mutation
+        run: |
+          sh scripts/build-box-fs-guard.sh
+          node apps/buccet-box/native-guard-default-deny.mjs
+      - name: Compile explicitly UNSAFE disposable actuator only for legacy MCP behavioral controls
+        run: |
+          cc -std=c11 -O2 -Wall -Wextra -Werror -D_FILE_OFFSET_BITS=64 \
+            -DBUCCET_INSECURE_TEST_ONLY native/box-fs-guard.c -o native/build/box-fs-guard
       - name: Run adversarial MCP actions in disposable workspace
         timeout-minutes: 8
         run: |

@@ -78,16 +78,28 @@ jobs:
           TEMP="$(mktemp -d)"
           mkdir -p "$TEMP/scope" "$TEMP/outside"
           printf 'unchanged' > "$TEMP/outside/protected"
-          printf 'allowed' | "$GUARD" write "$TEMP/scope" candidate
+          # The packaged guard must NOT execute in an untrusted per-user
+          # namespace. macOS has no audited broker analogue yet: fail closed.
+          if printf 'allowed' | "$GUARD" write "$TEMP/scope" candidate; then
+            echo "SECURITY FAILURE: shipped macOS guard accepted mutable scope" >&2
+            exit 1
+          fi
+          test ! -e "$TEMP/scope/candidate"
+          # Separate test-only build retains the historical symlink/hardlink
+          # positive and negative controls; it is never added to the DMG.
+          TEST_GUARD="$TEMP/insecure-test-only-guard"
+          cc -std=c11 -O2 -Wall -Wextra -Werror -D_FILE_OFFSET_BITS=64 \
+            -DBUCCET_INSECURE_TEST_ONLY native/box-fs-guard.c -o "$TEST_GUARD"
+          printf 'allowed' | "$TEST_GUARD" write "$TEMP/scope" candidate
           test "$(cat "$TEMP/scope/candidate")" = allowed
           ln -s "$TEMP/outside/protected" "$TEMP/scope/substituted"
-          if printf 'escaped' | "$GUARD" write "$TEMP/scope" substituted; then
+          if printf 'escaped' | "$TEST_GUARD" write "$TEMP/scope" substituted; then
             echo "SECURITY FAILURE: symlink write permitted" >&2
             exit 1
           fi
           test "$(cat "$TEMP/outside/protected")" = unchanged
           ln "$TEMP/outside/protected" "$TEMP/scope/hardlink"
-          if printf 'escaped' | "$GUARD" append "$TEMP/scope" hardlink; then
+          if printf 'escaped' | "$TEST_GUARD" append "$TEMP/scope" hardlink; then
             echo "SECURITY FAILURE: hardlink append permitted" >&2
             exit 1
           fi

@@ -133,6 +133,10 @@ async function main() {
     ], { cwd: root, env: {
       ...process.env,
       AGENT_BUCCET_HOME: home,
+      // Test-only compatibility with the legacy direct guard in a disposable
+      // user-owned home. Secure production defaults to fail-closed; the
+      // separately privileged protected-commit tests are the release gate.
+      AGENT_BUCCET_ALLOW_UNISOLATED_FS: "1",
       // Native hook/host programs are deliberately not invoked by this test.
     }, stdio: ["pipe", "pipe", "pipe"] });
     mcp = mcpClient(child);
@@ -610,7 +614,10 @@ async function main() {
         "--actor-id", actorId,
         "--sessions-dir", sessionsDir,
         "--home", home,
-      ], { cwd: root, env: { ...process.env, AGENT_BUCCET_HOME: home }, stdio: ["pipe", "pipe", "pipe"] });
+      ], { cwd: root, env: {
+        ...process.env, AGENT_BUCCET_HOME: home,
+        AGENT_BUCCET_ALLOW_UNISOLATED_FS: "1",
+      }, stdio: ["pipe", "pipe", "pipe"] });
       grantedShellMcp = mcpClient(grantedShellChild);
       const shellInit = await grantedShellMcp.request("initialize", {
         protocolVersion: "2024-11-05", capabilities: {},
