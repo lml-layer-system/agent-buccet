@@ -68,7 +68,13 @@ async function execute(args, { name, input, pause, oldPrefix, attack } = {}) {
 }
 try {
   assert.equal(process.platform, "linux", "Linux runner required");
+  // The shipped guard is now fail-closed on same-UID mutable namespaces.
+  // Reproduce the historical code path ONLY with a separate explicitly
+  // insecure test build, preserving every original attack and its real effect.
+  // This file remains a vulnerability sentinel, not the release acceptance gate.
+  const testOnlyLegacy = process.argv.includes("--legacy-unsafe-control");
   compile(["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+    ...(testOnlyLegacy ? ["-DBUCCET_INSECURE_TEST_ONLY"] : []),
     path.join(root, "native/box-fs-guard.c"), "-o", helper]);
   compile(["-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
     path.join(root, "apps/buccet-box/frontier-rename-barrier.c"),
