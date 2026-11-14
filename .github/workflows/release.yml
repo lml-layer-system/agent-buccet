@@ -8,6 +8,8 @@ on:
 permissions:
   contents: write
   id-token: write
+  actions: read
+  issues: read
 
 jobs:
   release:
@@ -20,6 +22,11 @@ jobs:
           node-version: '22'
           cache: 'npm'
           registry-url: 'https://registry.npmjs.org'
+      - name: Block release until all ten frontier failure classes have attested evidence
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/security/frontier03-fence.mjs \
+          contracts/security/frontier03-acceptance.json --release
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest

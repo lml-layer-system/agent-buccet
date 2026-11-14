@@ -1,0 +1,244 @@
+{
+  "schema": "agent-buccet/frontier03-acceptance-v1",
+  "description": "Pre-test finite acceptance contract. Evidence states belong to real CI, not prose.",
+  "repo": "lml-layer-system/agent-buccet",
+  "baseline": {
+    "mergedPr": 18,
+    "mainCommitAtCreation": "3f04e7517ae0279e204083499eaaf4dcf1903a2b",
+    "baselineDoesNotProveNewGates": true
+  },
+  "targetGateCount": 10,
+  "weightedWorkPlan": {
+    "unit": "estimated engineering/test effort, NOT measured risk or probability",
+    "percentTotal": 100
+  },
+  "releasePolicy": {
+    "positiveAndNegativeEvidenceRequired": true,
+    "rejectUnknownSkippedOrUnsupportedAsPass": true,
+    "prohibitInheritedBaselineEvidence": true,
+    "requireExactSourceCommit": true,
+    "requireCurrentUnexpiredArtifactDigests": true,
+    "requireSameRunAttackAndPositiveControl": true,
+    "rejectTestOnlyInsecureBuildAsProductionProof": true,
+    "rejectUnboundStatusClaims": true,
+    "requireIssueCheckboxConsistency": true,
+    "requireVerifiedPrerequisiteClosure": true
+  },
+  "gates": [
+    {
+      "id": "G01",
+      "issue": 22,
+      "platform": "linux",
+      "failureClass": "Service lifecycle and crash recovery",
+      "estimatedEffortPct": 12,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "actual service boot/restart evidence",
+        "crash at protected commit",
+        "stale socket/replay exclusion",
+        "authorized post-recovery operation"
+      ],
+      "expectedJob": "Frontier03 / G01 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G02"
+      ]
+    },
+    {
+      "id": "G02",
+      "issue": 22,
+      "platform": "linux",
+      "failureClass": "Installation authority and rollback",
+      "estimatedEffortPct": 13,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "installed code and interpreter ownership",
+        "partial-install rollback after faults",
+        "untrusted UID denial",
+        "successful authorized effect"
+      ],
+      "expectedJob": "Frontier03 / G02 evidence",
+      "evidence": null,
+      "dependsOn": []
+    },
+    {
+      "id": "G03",
+      "issue": 23,
+      "platform": "linux",
+      "failureClass": "Registered host theft and impersonation",
+      "estimatedEffortPct": 12,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "dedicated host UID separation",
+        "credential and memory/FD theft attempts",
+        "replay/rotation/revocation",
+        "valid host execution"
+      ],
+      "expectedJob": "Frontier03 / G03 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G02"
+      ]
+    },
+    {
+      "id": "G04",
+      "issue": 23,
+      "platform": "linux",
+      "failureClass": "Approval concurrency and cancellation",
+      "estimatedEffortPct": 13,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "immutable exact-action consent binding",
+        "concurrent reordered decisions",
+        "cancel/revoke/timeout invalidation",
+        "correct parallel authorized effects"
+      ],
+      "expectedJob": "Frontier03 / G04 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G01",
+        "G03"
+      ]
+    },
+    {
+      "id": "G05",
+      "issue": 24,
+      "platform": "linux",
+      "failureClass": "Hostile workspace source import",
+      "estimatedEffortPct": 10,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "source inode and parent mutation",
+        "special file/symlink/mount escape denial",
+        "no out-of-scope read or write",
+        "authorized reviewed-byte import"
+      ],
+      "expectedJob": "Frontier03 / G05 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G02",
+        "G03"
+      ]
+    },
+    {
+      "id": "G06",
+      "issue": 24,
+      "platform": "linux",
+      "failureClass": "Transactional migration recovery",
+      "estimatedEffortPct": 10,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "crash/ENOSPC at every phase",
+        "durable atomic commit or verified old state",
+        "idempotent retries and cleanup",
+        "authorized migration positive control"
+      ],
+      "expectedJob": "Frontier03 / G06 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G01",
+        "G05"
+      ]
+    },
+    {
+      "id": "G07",
+      "issue": 25,
+      "platform": "macos",
+      "failureClass": "Native macOS isolation parity",
+      "estimatedEffortPct": 10,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "actual macOS privileged service identity",
+        "native commit race effects on macOS",
+        "launchd lifecycle and filesystem semantics",
+        "authorized macOS file effects"
+      ],
+      "expectedJob": "Frontier03 / G07 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G03",
+        "G04"
+      ]
+    },
+    {
+      "id": "G08",
+      "issue": 25,
+      "platform": "windows",
+      "failureClass": "Native Windows isolation parity",
+      "estimatedEffortPct": 10,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "actual Windows service/token/ACL boundary",
+        "junction/reparse/rename attack effects",
+        "service crash and recovery",
+        "authorized Windows file effects"
+      ],
+      "expectedJob": "Frontier03 / G08 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G03",
+        "G04"
+      ]
+    },
+    {
+      "id": "G09",
+      "issue": 26,
+      "platform": "cross-platform",
+      "failureClass": "Alternate actuator authority bypass",
+      "estimatedEffortPct": 5,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "enumerated reachable actuators and privileges",
+        "real-effect bypass attempts for each entrypoint",
+        "no direct/root fallback",
+        "legitimate intended actuator positive controls"
+      ],
+      "expectedJob": "Frontier03 / G09 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G08"
+      ]
+    },
+    {
+      "id": "G10",
+      "issue": 26,
+      "platform": "cross-platform",
+      "failureClass": "Novel adaptive failure discovery",
+      "estimatedEffortPct": 5,
+      "state": "UNVERIFIED",
+      "invariant": "No unauthorized real filesystem effect; valid scoped operation still succeeds.",
+      "mustProve": [
+        "stateful composition and metamorphic campaigns",
+        "bounded reproducible seeds and real effects",
+        "guard mutation must trigger red",
+        "legitimate progress and resource controls"
+      ],
+      "expectedJob": "Frontier03 / G10 evidence",
+      "evidence": null,
+      "dependsOn": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G08",
+        "G09"
+      ]
+    }
+  ]
+}
