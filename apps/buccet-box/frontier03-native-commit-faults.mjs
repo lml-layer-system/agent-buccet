@@ -102,6 +102,38 @@ try {
   ensureTrace("fsync:directory", 2);
   report("cross-directory-move-both-parent-fsync");
 
+  // G06: a syntactically valid destination is not permission to allocate
+  // directories while the SOURCE is still unknown. The native guard must
+  // validate and pin the source inode before any destination parent mkdir.
+  // Missing/symlink source are both definite denials with ZERO new effects.
+  const invalidMoves = [
+    ["src/does-not-exist.txt", "dst/missing-source-parent/moved.txt",
+      root + "/dst/missing-source-parent"],
+    ["src/untrusted-source-link.txt", "dst/symlink-source-parent/moved.txt",
+      root + "/dst/symlink-source-parent"],
+  ];
+  must(sudo("ln", ["-s", "/etc/passwd", root + "/src/untrusted-source-link.txt"]),
+    "stage non-followed source symlink");
+  for (const [source, dest, parent] of invalidMoves) {
+    assert.notEqual(sudo("test", ["-e", parent]).status, 0,
+      "move negative fixture parent already exists");
+    const deniedMove = act("move", source, dest);
+    assert.equal(deniedMove.status, 73,
+      "G06 unsupported move source must be denied " + source);
+    assert.notEqual(sudo("test", ["-e", parent]).status, 0,
+      "G06 denied move allocated privileged destination parent " + dest);
+    assert.notEqual(sudo("test", ["-e", root + "/" + dest]).status, 0,
+      "G06 denied move published a destination entry");
+  }
+  must(act("write", "src/move-positive.txt", "AUTHORIZED_CROSS_PARENT"),
+    "prepare legitimate cross-parent move control");
+  must(act("move", "src/move-positive.txt", "dst/move-positive-created/final.txt"),
+    "positive move requiring protected directory creation");
+  assert.equal(read("dst/move-positive-created/final.txt"),
+    "AUTHORIZED_CROSS_PARENT");
+  report("denied-source-move-does-not-create-privileged-destination-parent");
+
+
   resetTrace();
   must(act("delete", "dst/move.txt"), "durable native delete");
   assert.notEqual(sudo("test", ["-e", root + "/dst/move.txt"]).status, 0);
