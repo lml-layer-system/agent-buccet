@@ -334,7 +334,7 @@ try {
   assert.ok(queue.length > 0 && queue.length <= 16,
     "gate pending capacity leaked under >100 signed requests: " + queue.length);
   const indexed = new Map(burst.map(item => [item.pathName, item]));
-  const approved = [], denied = [], canceled = [];
+  const approved = [], operatorDenied = [], canceled = [];
   const approveCount = Math.min(8, queue.length);
   const denyCount = Math.min(4, queue.length - approveCount);
   for (let i = 0; i < queue.length; i++) {
@@ -364,7 +364,7 @@ try {
         command: "deny", requestId: row.requestId, sha256: row.sha256,
       });
       assert.equal(valid.denied, true, "valid deny not honored");
-      denied.push(item);
+      operatorDenied.push(item);
     } else {
       item.socket.destroy(); // cancellation before any approval
       canceled.push(item);
@@ -395,7 +395,7 @@ try {
     "pending queue leaked signed requests after denial and disconnection");
   console.log("FRONTIER03_SIGNED_GATE_128_STORM_PASS", JSON.stringify({
     submitted: COUNT, rootApproved: approved.length,
-    explicitlyDenied: denied.length, disconnected: canceled.length,
+    explicitlyDenied: operatorDenied.length, disconnected: canceled.length,
     capacityRejected: COUNT - queue.length, allExactEffects: true,
     staleApprovalReplaysRejected: true, digestSubstitutionRejected: true,
     signedHostProofVerified: true,
