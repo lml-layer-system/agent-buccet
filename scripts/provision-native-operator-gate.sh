@@ -26,16 +26,23 @@ GATE_HASH=$3
 REVIEW_SRC=$4
 REVIEW_HASH=$5
 OPTION=${6:-}
+# Registration code is part of the independently privileged trust root and
+# must be pinned like the broker and operator reviewer, never loaded from
+# a mutable agent checkout at execution time.
+ENROLLER_SRC=${BUCCET_HOST_ENROLLER_SRC:-}
+ENROLLER_HASH=${BUCCET_HOST_ENROLLER_SHA256:-}
+[ -n "$ENROLLER_SRC" ] && [ -n "$ENROLLER_HASH" ] ||
+  fail "verified host enrollment program and release digest are required"
 case "$INSTANCE" in ""|*[!a-z0-9-]*|-*|*-) fail "invalid instance identifier" ;; esac
 [ "${#INSTANCE}" -ge 4 ] && [ "${#INSTANCE}" -le 32 ] || fail "invalid instance length"
 [ -z "$OPTION" ] || [ "$OPTION" = "--files-only" ] || fail "unknown option"
 [ "$(uname -s)" = Linux ] && [ "$(id -u)" -eq 0 ] ||
   fail "trusted Linux administrator required"
-for hash in "$GATE_HASH" "$REVIEW_HASH"; do
+for hash in "$GATE_HASH" "$REVIEW_HASH" "$ENROLLER_HASH"; do
   case "$hash" in ""|*[!a-f0-9]*) fail "invalid release digest" ;; esac
   [ "${#hash}" -eq 64 ] || fail "release digest must be 64 hexadecimal characters"
 done
-for file in "$GATE_SRC" "$REVIEW_SRC"; do
+for file in "$GATE_SRC" "$REVIEW_SRC" "$ENROLLER_SRC"; do
   [ -f "$file" ] && [ -r "$file" ] && [ ! -L "$file" ] ||
     fail "missing or linked release source"
 done
@@ -43,6 +50,8 @@ done
   fail "approval gate digest mismatch"
 [ "$(sha256sum "$REVIEW_SRC" | cut -d' ' -f1)" = "$REVIEW_HASH" ] ||
   fail "operator reviewer digest mismatch"
+[ "$(sha256sum "$ENROLLER_SRC" | cut -d' ' -f1)" = "$ENROLLER_HASH" ] ||
+  fail "host enrollment issuer digest mismatch"
 INSTALLER=$(readlink -f "$0") || fail "cannot resolve privileged installer"
 trusted_ancestor_tree "$INSTALLER"
 NODE=${BUCCET_BROKER_NODE:-}
@@ -61,7 +70,8 @@ for item in "$ROOT/box-fs-guard" "$ROOT/broker.mjs" "$ROOT/policy-controller.mjs
     [ -z "$(find "$item" -maxdepth 0 -perm /022 -print)" ] ||
     fail "protected broker policy or code not installed"
 done
-[ ! -e "$ROOT/approval-gate.mjs" ] && [ ! -e "$ROOT/operator-review.mjs" ] ||
+[ ! -e "$ROOT/approval-gate.mjs" ] && [ ! -e "$ROOT/operator-review.mjs" ] &&
+[ ! -e "$ROOT/host-enroll.mjs" ] ||
   fail "refusing to overwrite a privileged gate installation"
 [ ! -L /run/buccet-native-gates ] && [ ! -L "$RUN" ] ||
   fail "request namespace is symlinked"
@@ -73,6 +83,8 @@ install -o root -g root -m 0400 "$GATE_SRC" "$ROOT/approval-gate.mjs" ||
   fail "cannot install protected gate"
 install -o root -g root -m 0400 "$REVIEW_SRC" "$ROOT/operator-review.mjs" ||
   fail "cannot install protected reviewer"
+install -o root -g root -m 0400 "$ENROLLER_SRC" "$ROOT/host-enroll.mjs" ||
+  fail "cannot install verified host issuer"
 # Root-held host registry is a distinct trust root from user-controlled
 # sessions and Box tokens. Fresh installations DENY all host requests until
 # a privileged operator registers a separate OS-isolated launch identity.
@@ -86,8 +98,9 @@ chown root:root "$REGISTRY"
 [ "$(stat -c '%u:%a' "$REGISTRY")" = "0:400" ] ||
   fail "host identity registry must be root-exclusive"
 [ "$(sha256sum "$ROOT/approval-gate.mjs" | cut -d' ' -f1)" = "$GATE_HASH" ] &&
-[ "$(sha256sum "$ROOT/operator-review.mjs" | cut -d' ' -f1)" = "$REVIEW_HASH" ] ||
-  fail "privileged operator gate changed during installation"
+[ "$(sha256sum "$ROOT/operator-review.mjs" | cut -d' ' -f1)" = "$REVIEW_HASH" ] &&
+[ "$(sha256sum "$ROOT/host-enroll.mjs" | cut -d' ' -f1)" = "$ENROLLER_HASH" ] ||
+  fail "privileged operator gate or host issuer changed during installation"
 if [ "$OPTION" = "--files-only" ]; then
   printf 'BUCCET_GATE_PROVISIONED_FILES_ONLY root=%s request=%s\n' "$ROOT" "$RUN/request.sock"
   exit 0
