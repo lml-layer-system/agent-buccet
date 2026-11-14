@@ -10,6 +10,9 @@ on:
       - "apps/buccet-box/frontier-rename-barrier.c"
       - "apps/buccet-box/native-isolation-probe.mjs"
       - "native/box-fs-broker.mjs"
+      - "apps/buccet-box/native-operator-install.test.mjs"
+      - "scripts/provision-native-operator-gate.sh"
+      - "native/box-fs-operator-review.mjs"
       - "native/box-fs-approval-gate.mjs"
       - "native/box-fs-policy-controller.mjs"
       - "native/box-fs-broker-client.mjs"
@@ -33,6 +36,9 @@ on:
       - "apps/buccet-box/frontier-rename-barrier.c"
       - "apps/buccet-box/native-isolation-probe.mjs"
       - "native/box-fs-broker.mjs"
+      - "apps/buccet-box/native-operator-install.test.mjs"
+      - "scripts/provision-native-operator-gate.sh"
+      - "native/box-fs-operator-review.mjs"
       - "native/box-fs-approval-gate.mjs"
       - "native/box-fs-policy-controller.mjs"
       - "native/box-fs-broker-client.mjs"
@@ -169,3 +175,17 @@ jobs:
         run: sh scripts/build-box-fs-guard.sh
       - name: Run normal scoped FS API as unprivileged agent with root-only manual operator approval
         run: node apps/buccet-box/native-operator-gate.test.mjs
+
+  privileged-operator-deployment:
+    name: Pinned root-owned human reviewer and operator gate installation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build shipped guarded actuator
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Verify release artifact digests, operator rights and installer replay denial
+        run: node apps/buccet-box/native-operator-install.test.mjs
