@@ -6,6 +6,7 @@
 import net from "node:net";
 import path from "node:path";
 import { lstatSync } from "node:fs";
+import { attestProtectedFilesystemRequest } from "./host-attestation.ts";
 
 const MAX_BYTES = 8 * 1024 * 1024;
 function deny(reason: string): never {
@@ -61,6 +62,10 @@ export async function runProtectedApprovalGate(
   const request: Record<string, string> = { op, path: relative };
   if (op === "move") request.to = toRelative!;
   if (op === "write" || op === "append") request.content = content ?? "";
+  const host = attestProtectedFilesystemRequest(request);
+  // The root gate verifies the HMAC against independently protected host
+  // registration. This optional field cannot grant authority on its own.
+  const envelope = host ? { ...request, host } : request;
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ path: socketPath });
     let settled = false, reply = "";
@@ -73,7 +78,7 @@ export async function runProtectedApprovalGate(
       socket.destroy();
       if (error) reject(error); else resolve(output ?? "");
     }
-    socket.once("connect", () => socket.write(JSON.stringify(request) + "\n"));
+    socket.once("connect", () => socket.write(JSON.stringify(envelope) + "\n"));
     socket.on("data", (chunk: Buffer) => {
       reply += chunk.toString("utf8");
       if (Buffer.byteLength(reply) > MAX_BYTES + 8192) {
