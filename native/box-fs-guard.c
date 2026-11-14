@@ -35,6 +35,21 @@ static void fail(const char *message) {
   exit(73);
 }
 /*
+ * Once a directory entry has changed, an I/O error cannot safely be
+ * represented as "denied/no effect". The effect may exist but may not survive
+ * power loss. The caller must receive an explicit UNCERTAIN outcome and must
+ * not blindly retry a non-idempotent operation.
+ */
+static void commit_uncertain(const char *message) {
+  int saved = errno;
+  if (saved) fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s (%s)\n", message, strerror(saved));
+  else fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s\n", message);
+  exit(74);
+}
+static void sync_directory_after_mutation(int fd) {
+  if (fsync(fd) < 0) commit_uncertain("cannot durably sync changed directory");
+}
+/*
  * Structural boundary: this native helper must never run as a same-UID agent
  * on an attacker-writable namespace. Only the independently privileged,
  * root-owned broker can enter the execution path. A valid fd alone does not
@@ -144,7 +159,9 @@ static int parent_from_root(int rootfd, const char *relative, int create, char *
     if (!nextPiece) { *leaf = strdup(piece); if (!*leaf) fail("out of memory"); free(copy); return fd; }
     int next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (next < 0 && errno == ENOENT && create) {
-      if (mkdirat(fd, piece, 0700) < 0 && errno != EEXIST) fail("cannot create authorized subdirectory");
+      int made = mkdirat(fd, piece, 0700);
+      if (made < 0 && errno != EEXIST) fail("cannot create authorized subdirectory");
+      if (made == 0) sync_directory_after_mutation(fd);
       next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     }
     if (next < 0) fail("symlinked, missing, or inaccessible parent directory");
@@ -188,6 +205,9 @@ static void move_regular(int srcParent, const char *srcLeaf, int dstParent, cons
   close(src);
   check_existing_target(dstParent, dstLeaf);
   if (renameat(srcParent, srcLeaf, dstParent, dstLeaf) < 0) fail("confined rename failed");
+  /* A cross-directory move mutates TWO directory entries. */
+  sync_directory_after_mutation(dstParent);
+  sync_directory_after_mutation(srcParent);
 }
 int main(int argc, char **argv) {
   if (argc < 4 || argc > 6) { errno = EINVAL; fail("usage: guard OP ROOT RELATIVE [DEST_ROOT DEST_RELATIVE]"); }
@@ -216,15 +236,19 @@ int main(int argc, char **argv) {
     if (append) { copy_stream(original, destination); close(original); }
     copy_stream(STDIN_FILENO, destination);
     if (fsync(destination) < 0) fail("cannot fsync confined output");
-    close(destination);
+    if (close(destination) < 0) fail("cannot close confined output");
     /* Rename changes ONLY this pinned directory entry; it does not write
        through any substituted symlink or hardlink inode. */
     if (renameat(parent, tmp, parent, leaf) < 0) fail("cannot commit confined output");
+    sync_directory_after_mutation(parent);
   } else if (!strcmp(op,"delete")) {
     check_existing_target(parent, leaf);
     if (unlinkat(parent, leaf, 0) < 0) fail("cannot unlink confined entry");
+    sync_directory_after_mutation(parent);
   } else if (!strcmp(op,"mkdir")) {
-    if (mkdirat(parent, leaf, 0700) < 0 && errno != EEXIST) fail("cannot mkdir under confined root");
+    int created = mkdirat(parent, leaf, 0700);
+    if (created < 0 && errno != EEXIST) fail("cannot mkdir under confined root");
+    if (created == 0) sync_directory_after_mutation(parent);
     int opened = openat(parent, leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (opened < 0) fail("created directory was substituted");
     close(opened);
