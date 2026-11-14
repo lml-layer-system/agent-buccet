@@ -66,7 +66,7 @@ function runCli(args: string[], env: NodeJS.ProcessEnv, ownerProof?: string): Pr
       env,
       stdio: ownerProof ? ["ignore", "pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"],
     });
-    if (ownerProof) child.stdio[3]?.end(ownerProof + "\n");
+    if (ownerProof) (child.stdio[3] as import("node:stream").Writable | null)?.end(ownerProof + "\n");
 
     let stdout = "";
     let stderr = "";
@@ -385,7 +385,7 @@ async function startMcp(args: {
     env: args.env,
     stdio: args.ownerProof ? ["pipe", "pipe", "pipe", "pipe"] : ["pipe", "pipe", "pipe"],
   });
-  if (args.ownerProof) child.stdio[3]?.end(args.ownerProof + "\n");
+  if (args.ownerProof) (child.stdio[3] as import("node:stream").Writable | null)?.end(args.ownerProof + "\n");
   const client = new McpClient(child);
   await client.waitForStderr(/\[buccet-mcp\] ready\./, 60_000);
 
