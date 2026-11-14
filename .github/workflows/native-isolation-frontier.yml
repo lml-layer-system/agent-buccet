@@ -13,6 +13,8 @@ on:
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
+      - "apps/buccet-box/native-production-controller.mjs"
+      - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
       - "src/box/protected-fs-broker.ts"
       - ".github/workflows/native-isolation-frontier.yml"
@@ -26,6 +28,8 @@ on:
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
+      - "apps/buccet-box/native-production-controller.mjs"
+      - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
       - "src/box/protected-fs-broker.ts"
       - ".github/workflows/native-isolation-frontier.yml"
@@ -73,3 +77,15 @@ jobs:
         run: sh scripts/build-box-fs-guard.sh
       - name: Exercise real guarded file effects through protected broker
         run: node apps/buccet-box/native-broker-probe.mjs
+
+  production-protected-races:
+    name: All five original commit races at protected production execution boundary
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Hold actual native renameat and attempt hostile mutation from untrusted UID
+        run: node apps/buccet-box/frontier-protected-races.mjs
