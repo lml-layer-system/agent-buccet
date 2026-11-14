@@ -28,6 +28,7 @@ const brokerCode = path.join(repo, "native/box-fs-broker.mjs");
 const gateCode = path.join(repo, "native/box-fs-approval-gate.mjs");
 const env = { PATH:"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG:"C" };
 const serverProcesses = [];
+let latestAgent = null;
 function run(cmd, args, input="") {
   const result = spawnSync(cmd, args, { input, encoding:"utf8", timeout: 25000, env });
   assert.equal(result.error, undefined, result.error?.message);
@@ -102,7 +103,9 @@ function agent(tool,args){
     child.on("error",reject);
     child.on("close",code=>resolve({code,stdout,stderr}));
   });
-  return {child,finished};
+  const result={child,finished,snapshot:()=>({stdout,stderr,exitCode:child.exitCode})};
+  latestAgent=result;
+  return result;
 }
 async function waitPending(count=1){
   for(let n=0;n<500;n++){
@@ -110,7 +113,9 @@ async function waitPending(count=1){
     if(list.ok&&list.pending.length===count)return list.pending;
     await new Promise(resolve=>setTimeout(resolve,10));
   }
-  throw Error("root operator did not receive exact pending proposal");
+  throw Error("root operator did not receive exact pending proposal; agent="+
+    JSON.stringify(latestAgent?.snapshot()) + "; server="+
+    JSON.stringify(serverProcesses.map(child=>({pid:child.pid,exitCode:child.exitCode}))));
 }
 async function awaitAgent(agentResult){
   const result=await agentResult.finished;
