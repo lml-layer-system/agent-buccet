@@ -121,6 +121,61 @@ try {
   assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
   assert.ok(!traceContent().includes("rename:after"));
   report("file-fsync-EIO-no-publication");
+  // A controlled pre-commit I/O failure must not accumulate root-only
+  // temporary payloads. The vulnerable guard leaves .buccet-fs-* here,
+  // eventually exhausting protected storage under repeated failed writes.
+  const leakedStage = must(sudo("find", [
+    root + "/files", "-maxdepth", "1", "-type", "f",
+    "-name", ".buccet-fs-*", "-print",
+  ]), "enumerate root-owned unpublished stages");
+  assert.equal(leakedStage.trim(), "",
+    "G01/G02: rejected precommit write left privileged temporary payload");
+  report("file-fsync-EIO-no-stage-residue");
+  // If cleanup's own directory fsync fails, the no-effect durability
+  // guarantee is not established. Propagate UNCERTAIN rather than DENIED.
+  resetTrace();
+  const cleanupSyncEio = act("write", "files/payload.txt", "NEVER_PUBLISHED",
+    { BUCCET_F03_FILE_FSYNC_EIO: 1, BUCCET_F03_DIR_FSYNC_EIO: 1 });
+  assert.equal(cleanupSyncEio.status, 74,
+    "failed staging cleanup durability must report uncertain, not denied");
+  assert.match(cleanupSyncEio.stderr,
+    /BUCCET_FS_COMMIT_UNCERTAIN: unable to sync staging cleanup/);
+  assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
+  assert.ok(!traceContent().includes("rename:after"));
+  ensureTrace("fsync:directory", 1);
+  report("staging-cleanup-fsync-EIO-explicit-uncertainty");
+
+  // A failed renameat also exits before publication; clean the same private
+  // staging inode and prove the authorized old bytes remain untouched.
+  resetTrace();
+  const renameEio = act("write", "files/payload.txt", "RENAME_REJECTED",
+    { BUCCET_F03_RENAME_EIO: 1 });
+  assert.equal(renameEio.status, 73, "precommit rename EIO must be a definite failure");
+  assert.match(renameEio.stderr, /BUCCET_FS_DENIED/);
+  assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
+  assert.match(traceContent(), /rename:before/);
+  assert.ok(!traceContent().includes("rename:after"));
+  const postRenameStage = must(sudo("find", [
+    root + "/files", "-maxdepth", "1", "-type", "f",
+    "-name", ".buccet-fs-*", "-print",
+  ]), "enumerate staged payloads after failed rename");
+  assert.equal(postRenameStage.trim(), "", "failed rename left secret staging residue");
+  report("rename-EIO-no-publication-or-stage-residue");
+
+  // Repeating a controlled error must not accumulate a privileged inode or
+  // mutate existing bytes. Cover append (copy-old + append-new) separately.
+  for (let attempt = 0; attempt < 24; attempt++) {
+    const denied = act("append", "files/payload.txt", "|REJECTED_" + attempt,
+      { BUCCET_F03_FILE_FSYNC_EIO: 1 });
+    assert.equal(denied.status, 73, "append precommit EIO unexpectedly succeeded");
+  }
+  assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
+  const repeatedStage = must(sudo("find", [
+    root + "/files", "-maxdepth", "1", "-type", "f",
+    "-name", ".buccet-fs-*", "-print",
+  ]), "enumerate repeat-failure staged payloads");
+  assert.equal(repeatedStage.trim(), "", "repeated append failure accumulated staging residue");
+  report("24-rejected-appends-no-privileged-stage-accumulation");
 
   resetTrace();
   const postcommit = act("write", "files/payload.txt", "EXISTS_BUT_DURABILITY_UNKNOWN",
