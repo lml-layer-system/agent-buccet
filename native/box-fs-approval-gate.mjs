@@ -18,6 +18,9 @@ import { chmod, readFile, rm } from "node:fs/promises";
 
 const MAX_CONTENT = 8 * 1024 * 1024;
 const MAX_PENDING = 16;
+const MAX_REQUEST_CONNECTIONS = 48;
+const MAX_OPERATOR_CONNECTIONS = 8;
+const MAX_PARTIAL_REQUEST_MS = 5_000;
 const APPROVAL_MS = 60_000;
 const VALID_OPS = new Set(["read", "write", "append", "delete", "mkdir", "move"]);
 
@@ -115,10 +118,18 @@ async function callBroker(socketPath, request) {
 function send(socket, value) {
   if (!socket.destroyed && socket.writable) socket.end(JSON.stringify(value) + "\n");
 }
-function serveJSON(server, handler, maxBytes) {
+function serveJSON(server, handler, maxBytes, maxConnections) {
+  let connected = 0;
   server.on("connection", socket => {
+    connected++;
+    socket.once("close", () => { connected--; });
+    if (connected > maxConnections) {
+      send(socket, { ok: false, error: "connection capacity reached" });
+      return;
+    }
     let done = false, text = "";
-    socket.setTimeout(APPROVAL_MS + 6000, () => socket.destroy());
+    // Untrusted clients cannot tie up arbitrary FDs by sending no newline.
+    socket.setTimeout(MAX_PARTIAL_REQUEST_MS, () => socket.destroy());
     socket.on("data", chunk => {
       if (done) return;
       text += chunk.toString("utf8");
@@ -178,9 +189,10 @@ async function main() {
     pending.set(requestId, { requestId, digest: digest(proposal),
       proposal, socket, timer });
     socket.once("close", () => retire(requestId));
+    socket.setTimeout(APPROVAL_MS + 6000, () => socket.destroy());
     // The untrusted client receives only the eventual approved response.
     // The root operator learns identity/digest over a private control socket.
-  }, MAX_CONTENT + 8192);
+  }, MAX_CONTENT + 8192, MAX_REQUEST_CONNECTIONS);
 
   const operatorServer = net.createServer();
   serveJSON(operatorServer, (socket, body) => {
@@ -210,6 +222,9 @@ async function main() {
     send(socket, { ok: true, approved: true });
     if (row.socket.destroyed || !row.socket.writable) return;
     const effect = async () => {
+      // Revocation by disconnect remains meaningful even if a previous
+      // approved effect is still occupying the single broker queue.
+      if (row.socket.destroyed || !row.socket.writable) return;
       // Re-check host-protected path policy at the time of effect in the
       // original privileged broker; this gate cannot expand that policy.
       try {
@@ -220,7 +235,7 @@ async function main() {
       }
     };
     serial = serial.then(effect, effect);
-  }, 2048);
+  }, 2048, MAX_OPERATOR_CONNECTIONS);
 
   await new Promise((resolve, reject) => {
     requestServer.once("error", reject);
