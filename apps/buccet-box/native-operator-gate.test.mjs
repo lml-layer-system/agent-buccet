@@ -32,7 +32,7 @@ const gateCode = path.join(managed,"approval-gate.mjs");
 const reviewerCode = path.join(managed,"operator-review.mjs");
 const env = { PATH:"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG:"C" };
 const serverProcesses = [];
-let latestAgent = null, boxServer = null, mcpProcess = null;
+let latestAgent = null, boxServer = null, mcpProcess = null, spoofProcess = null;
 function run(cmd, args, input="") {
   const result = spawnSync(cmd, args, { input, encoding:"utf8", timeout: 25000, env });
   assert.equal(result.error, undefined, result.error?.message);
@@ -426,6 +426,68 @@ try {
   assert.equal(rootDenied.result?.isError,true);
   assert.notEqual(run("sudo",["-n","test","-e",rootDeniedTarget]).status,0);
 
+  // Identity-adaptive red team: a different MCP process copies the exact
+  // victim session ID and actor label and even receives a fresh Box Allow.
+  // Its self-supplied FD secret does not match the root-owned host issuer.
+  spoofProcess = spawn(process.execPath,[
+    path.join(repo,"scripts/agent-buccet-mcp-server.ts"),
+    "--session-id",sessionId,"--actor-id",actorId,
+    "--sessions-dir",sessionsDir,"--home",boxHome,
+  ],{
+    cwd:repo,
+    env:{
+      ...process.env,AGENT_BUCCET_HOME:boxHome,
+      AGENT_BUCCET_REQUIRE_ISOLATED_FS:"1",
+      AGENT_BUCCET_FS_BROKER_ROOT:managed,
+      AGENT_BUCCET_FS_REQUEST_SOCKET:publicSock,
+      AGENT_BUCCET_FS_HOST_PROOF_FD:"3",
+    },
+    stdio:["pipe","pipe","pipe","pipe"],
+  });
+  spoofProcess.stdio[3].end(randomBytes(32).toString("hex")+"\n");
+  const fakeHost=mcpTransport(spoofProcess);
+  const fakeInit=await fakeHost.request("initialize",{
+    protocolVersion:"2024-11-05",capabilities:{},
+    clientInfo:{name:"forged-actor-test",version:"1"},
+  });
+  assert.equal(fakeInit.result?.serverInfo?.name,"agent-buccet");
+  const victimTarget=managed+"/allowed/actor-spoof-target.txt";
+  const spoofed=fakeHost.call("write_file",{
+    path:victimTarget,content:"COPIED_ACTOR_SESSION_SHOULD_NOT_WORK",
+  });
+  boxRow=await waitBox(boxServer,"copied host identity negative control");
+  assert.equal(boxRow.actorId,actorId);
+  assert.equal(boxServer.settle(boxRow.approvalId,"allow_once"),true);
+  const spoofAnswer=await spoofed;
+  assert.equal(spoofAnswer.result?.isError,true,
+    "forged 256-bit FD proof unexpectedly restored root host authority");
+  assert.equal(operator({command:"list"}).pending.length,0,
+    "copied actor/session labels reached privileged operator as authenticated");
+  assert.notEqual(run("sudo",["-n","test","-e",victimTarget]).status,0);
+
+  // Revocation is a root-only state change. A request admitted BEFORE host
+  // revocation may not run after the privileged operator clicks approve.
+  const revokedTarget=managed+"/allowed/revoked-registered-host.txt";
+  const toRevoke=mcp.call("write_file",{
+    path:revokedTarget,content:"SHOULD_NOT_SURVIVE_ROOT_REVOCATION",
+  });
+  boxRow=await waitBox(boxServer,"root-registered host revocation");
+  assert.equal(boxServer.settle(boxRow.approvalId,"allow_once"),true);
+  [item]=await waitPending();
+  assert.equal(item.host?.verified,true);
+  const denyAllHosts=path.join(local,"revoked-host-identities.json");
+  await writeFile(denyAllHosts,JSON.stringify({
+    schema:1,root:managed,allowed:[],
+  }),{mode:0o600});
+  sudo("install",["-o","root","-g","root","-m","0400",
+    denyAllHosts,path.join(managed,"host-identities.json")]);
+  assert.equal(operator({command:"approve",requestId:item.requestId,
+    sha256:item.sha256}).approved,true);
+  const revokedResponse=await toRevoke;
+  assert.equal(revokedResponse.result?.isError,true,
+    "root revocation failed to block an already reviewed action");
+  assert.notEqual(run("sudo",["-n","test","-e",revokedTarget]).status,0);
+
   await boxServer.stop();
   boxServer=null;
   const absentTarget=managed+"/allowed/mcp-box-absent.txt";
@@ -444,6 +506,8 @@ try {
     independentlyRegisteredHostProof:true,
     copiedActorLabelWithoutProofRejected:true,
     sameUIDMemoryTheftRequiresSeparateOSPrincipal:true,
+    copiedVictimActorSessionWithWrongFdRejected:true,
+    revocationAfterHostAdmissionBeforeEffectBlocked:true,
   }));
 
   console.log("FS_MCP_OPERATOR_GATE_PASS",JSON.stringify({
@@ -456,6 +520,15 @@ try {
     BoxApprovalRemainsAdditionalUntrustedUserSideGate:true,
   }));
 } finally {
+  if (spoofProcess && spoofProcess.exitCode === null) {
+    spoofProcess.stdin.end();
+    spoofProcess.kill("SIGTERM");
+    await Promise.race([
+      new Promise(resolve=>spoofProcess.once("close",resolve)),
+      new Promise(resolve=>setTimeout(resolve,2000)),
+    ]);
+    if (spoofProcess.exitCode===null) spoofProcess.kill("SIGKILL");
+  }
   if (mcpProcess && mcpProcess.exitCode === null) {
     mcpProcess.stdin.end();
     mcpProcess.kill("SIGTERM");
