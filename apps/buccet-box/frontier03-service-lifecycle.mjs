@@ -8,7 +8,8 @@
  * Never use --files-only as the successful lifecycle control.
  */
 import assert from "node:assert/strict";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import net from "node:net";
 import { spawnSync } from "node:child_process";
 import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
@@ -94,6 +95,53 @@ function socketStatus(file, expected) {
 function logs(unit) {
   const lines = privileged("journalctl", ["-u", unit, "--no-pager", "-n", "20"]).stdout;
   return lines.slice(-4200);
+}
+const operatorCode = [
+  'const net=require("node:net");',
+  'const s=net.createConnection({path:process.argv[1]});',
+  'let out="";',
+  's.once("connect",()=>s.write(process.argv[2]+"\\n"));',
+  's.on("data",x=>out+=x);',
+  's.once("end",()=>process.stdout.write(out));',
+  's.once("error",e=>{console.error(e.code);process.exitCode=73});',
+].join("");
+function operator(command) {
+  const r=privileged(stage+"/node",[
+    "-e",operatorCode,gateOperator,JSON.stringify(command)]);
+  assert.equal(r.status,0,"root-only operator socket unavailable: "+r.stderr);
+  return JSON.parse(r.stdout.trim());
+}
+function signedRequest(request,who){
+  const issuedAt=new Date().toISOString();
+  const nonce=randomBytes(16).toString("hex");
+  const mac=createHmac("sha256",Buffer.from(who.secretHex,"hex"))
+    .update(JSON.stringify(["agent-buccet-protected-host-v1",
+      who.sessionId,who.actorId,issuedAt,nonce,request])).digest("hex");
+  return {...request,host:{
+    sessionId:who.sessionId,actorId:who.actorId,issuedAt,nonce,mac,
+  }};
+}
+async function submitPending(request,who){
+  const socket=net.createConnection({path:gateRequest});
+  let raw="",settled=false;
+  const response=new Promise(resolve=>{
+    const finish=v=>{if(settled)return;settled=true;resolve(v);};
+    socket.on("data",x=>raw+=String(x));
+    socket.once("end",()=>{
+      try{finish(JSON.parse(raw.split("\n",1)[0]));}
+      catch{finish({ok:false,error:"no complete receipt"});}
+    });
+    socket.once("error",e=>finish({ok:false,error:e.code??"transport error"}));
+    socket.once("close",()=>finish({ok:false,error:"closed"}));
+  });
+  await new Promise((resolve,reject)=>{
+    socket.once("connect",()=>{
+      socket.write(JSON.stringify(signedRequest(request,who))+"\n");
+      resolve();
+    });
+    socket.once("error",reject);
+  });
+  return {socket,response};
 }
 let brokerInstalled = false, gateInstalled = false;
 try {
@@ -258,12 +306,68 @@ try {
     "root-owned gate failed to recover root-only socket after abrupt death", 12000);
   console.log("F03_G01_PASS killed gate recovered " + serviceEvidence(gateUnit));
 
+  // G01: signed request pending at the moment of SIGKILL is never reused
+  // by the new daemon generation. A fresh, separately approved request must
+  // still complete and commit its EXACT original bytes.
+  const who={
+    sessionId:"trustedhost_"+id.replaceAll("-",""),
+    actorId:"trustedoperator_"+id.replaceAll("-",""),
+    secretHex:randomBytes(32).toString("hex"),
+  };
+  const registry=path.join(tmp,"host-identities.json");
+  await writeFile(registry,JSON.stringify({
+    schema:1,root,allowed:[who],
+  })+"\n");
+  must("install",["-o","root","-g","root","-m","0400",
+    registry,root+"/host-identities.json"]);
+  const staleName="allowed/old-unapproved.txt";
+  const pending=await submitPending({
+    op:"write",path:staleName,content:"SHOULD_NOT_EXECUTE",
+  },who);
+  const stale=await wait(()=>{
+    const list=operator({command:"list"});
+    return list.pending?.find(x=>x.path===staleName);
+  },"root operator never saw signed pending attack");
+  assert.equal(stale.host?.verified,true);
+  must("systemctl",["kill","--kill-whom=main","-s","SIGKILL",gateUnit]);
+  console.log("F03_G01_ATTACK gate SIGKILL while exact request pending "+
+    JSON.stringify({requestId:stale.requestId,digest:stale.sha256}));
+  await wait(()=>serviceState(gateUnit) &&
+    socketStatus(gateRequest,"0:666:socket") &&
+    socketStatus(gateOperator,"0:600:socket"),
+    "gate failed to recover with pending request invalidation",12000);
+  const oldApproval=operator({
+    command:"approve",requestId:stale.requestId,sha256:stale.sha256,
+  });
+  assert.equal(oldApproval.ok,false,"stale operator approval replayed after restart");
+  const oldReceipt=await pending.response;
+  assert.notEqual(oldReceipt.ok,true,"stale pre-crash request reported success");
+  deny("test",["-e",root+"/"+staleName],
+    "stale unapproved request executed in protected root");
+
+  const newName="allowed/new-approved.txt";
+  const fresh=await submitPending({
+    op:"write",path:newName,content:"AUTHORIZED_AFTER_CRASH",
+  },who);
+  const current=await wait(()=>operator({command:"list"}).pending?.find(
+    x=>x.path===newName),
+    "new signed request failed to queue after restart");
+  assert.equal(operator({
+    command:"approve",requestId:current.requestId,sha256:current.sha256,
+  }).approved,true);
+  const receipt=await fresh.response;
+  assert.equal(receipt.ok,true,"legitimate freshly approved request was not executed");
+  assert.equal(mustBroker("read",newName),"AUTHORIZED_AFTER_CRASH");
+  console.log("F03_G01_PASS stale request denied and new operator approved correct bytes");
+
   mustBroker("write", "allowed/after-restart.txt", "GENUINE_AUTHORIZED_EFFECT");
   assert.equal(mustBroker("read", "allowed/after-restart.txt"), "GENUINE_AUTHORIZED_EFFECT");
   console.log("FRONTIER03_G01_G02_LIFECYCLE_PASS", JSON.stringify({
     fullSystemdBoot:true, realBrokerAndGate:true,
     kernelUntrustedUIDDenied:true, forgedDigestDenied:true,
     realBrokerKillRecovery:true, realGateKillRecovery:true,
+    crashedPendingApprovalInvalidated:true,
+    newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
   }));
 } catch (error) {
