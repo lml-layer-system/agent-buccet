@@ -484,7 +484,7 @@ async function main() {
       arguments: { path: allowedReadPath },
     }),
   );
-  assert.equal(allowedRead.isError, undefined);
+  assert.equal(allowedRead.isError, undefined, "legitimate host-proof read failed: " + JSON.stringify(allowedRead));
   assert.match(extractText(allowedRead), /allowed through standing law/);
 
   const outOfScope = assertMcpSuccess(
