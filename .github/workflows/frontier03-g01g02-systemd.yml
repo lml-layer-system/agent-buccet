@@ -9,6 +9,7 @@ on:
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
       - "apps/buccet-box/frontier03-installer-sigkill-recovery.mjs"
       - "apps/buccet-box/frontier03-native-commit-faults.mjs"
+      - "apps/buccet-box/frontier03-real-kernel-enospc.mjs"
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
       - "apps/buccet-box/frontier03-test-guard-wrapper.c"
       - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
@@ -25,6 +26,7 @@ on:
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
       - "apps/buccet-box/frontier03-installer-sigkill-recovery.mjs"
       - "apps/buccet-box/frontier03-native-commit-faults.mjs"
+      - "apps/buccet-box/frontier03-real-kernel-enospc.mjs"
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
       - "apps/buccet-box/frontier03-test-guard-wrapper.c"
       - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
@@ -69,6 +71,10 @@ jobs:
             native/box-fs-approval-gate.mjs scripts/provision-native-broker.sh \
             scripts/provision-native-operator-gate.sh \
             > "$RUNNER_TEMP/frontier03-observations/source-sha256.txt"
+      - name: Exhaust an actual isolated root-owned Linux filesystem and prove native ENOSPC rollback
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-real-kernel-enospc.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/true-kernel-enospc.log"
       - name: Force actual native commit-window SIGKILL, fsync EIO and unsafe mutant detection
         run: |
           set -o pipefail
