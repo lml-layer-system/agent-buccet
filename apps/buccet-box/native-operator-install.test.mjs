@@ -23,6 +23,7 @@ const installer=stage+"/install.sh";
 const nodeBinary=stage+"/node";
 const gateSrc=path.join(repo,"native/box-fs-approval-gate.mjs");
 const reviewSrc=path.join(repo,"native/box-fs-operator-review.mjs");
+const issuerSrc=path.join(repo,"native/box-fs-host-enroll.mjs");
 const guardSrc=path.join(repo,"native/build/box-fs-guard");
 const brokerSrc=path.join(repo,"native/box-fs-broker.mjs");
 const controllerSrc=path.join(repo,"native/box-fs-policy-controller.mjs");
@@ -60,17 +61,22 @@ try{
   sudo("install",["-o","root","-g","root","-m","0400",policySrc,managed+"/policy.json"]);
   const gateHash=await digest(gateSrc);
   const reviewerHash=await digest(reviewSrc);
+  const issuerHash=await digest(issuerSrc);
   const requestArgs=[installer,id,gateSrc,gateHash,reviewSrc,reviewerHash,"--files-only"];
   const nodeEnv="BUCCET_BROKER_NODE="+nodeBinary;
-  const wrong=run("sudo",["-n","env",nodeEnv,"sh",installer,id,
+  const issuerEnv="BUCCET_HOST_ENROLLER_SRC="+issuerSrc;
+  const issuerHashEnv="BUCCET_HOST_ENROLLER_SHA256="+issuerHash;
+  const installEnv=[nodeEnv,issuerEnv,issuerHashEnv];
+  const wrong=run("sudo",["-n","env",...installEnv,"sh",installer,id,
     gateSrc,"0".repeat(64),reviewSrc,reviewerHash,"--files-only"]);
   assert.notEqual(wrong.status,0,"tampered protected gate passed hash verification");
   const untrusted=run("sudo",["-n","setpriv","--reuid=65534","--regid=65534",
-    "--clear-groups","env",nodeEnv,"sh",...requestArgs]);
+    "--clear-groups","env",...installEnv,"sh",...requestArgs]);
   assert.notEqual(untrusted.status,0,"agent installed privileged approval gate");
-  assert.match(sudo("env",[nodeEnv,"sh",...requestArgs]),/BUCCET_GATE_PROVISIONED_FILES_ONLY/);
+  assert.match(sudo("env",[...installEnv,"sh",...requestArgs]),/BUCCET_GATE_PROVISIONED_FILES_ONLY/);
   assert.equal(sudo("stat",["-c","%u:%a",managed+"/approval-gate.mjs"]),"0:400");
   assert.equal(sudo("stat",["-c","%u:%a",managed+"/operator-review.mjs"]),"0:400");
+  assert.equal(sudo("stat",["-c","%u:%a",managed+"/host-enroll.mjs"]),"0:400");
   assert.equal(sudo("stat",["-c","%u:%a",managed+"/host-identities.json"]),"0:400");
   const emptyHosts=JSON.parse(sudo("cat",[managed+"/host-identities.json"]));
   assert.equal(emptyHosts.root,managed);
@@ -79,13 +85,14 @@ try{
   assert.equal(sudo("stat",["-c","%u:%a",runtime]),"0:755");
   assert.equal(sudo("sha256sum",[managed+"/approval-gate.mjs"]).split(" ")[0],gateHash);
   assert.equal(sudo("sha256sum",[managed+"/operator-review.mjs"]).split(" ")[0],reviewerHash);
-  const repeat=run("sudo",["-n","env",nodeEnv,"sh",...requestArgs]);
+  assert.equal(sudo("sha256sum",[managed+"/host-enroll.mjs"]).split(" ")[0],issuerHash);
+  const repeat=run("sudo",["-n","env",...installEnv,"sh",...requestArgs]);
   assert.notEqual(repeat.status,0,"privileged gate code was overwritten on repeat install");
   const agent=run("sudo",["-n","setpriv","--reuid=65534",
     "--regid=65534","--clear-groups","test","-r",managed+"/operator-review.mjs"]);
   assert.notEqual(agent.status,0,"untrusted user read the privileged reviewer");
   console.log("NATIVE_OPERATOR_INSTALL_PASS",JSON.stringify({
-    codeSHA256Pinned:true,untrustedInstallerDenied:true,
+    codeSHA256Pinned:true,hostIssuerCodePinned:true,untrustedInstallerDenied:true,
     privilegeOwnerRootOnly:true,exactOperatorReviewerRootOnly:true,
     reviewCodeNotReadableByAgent:true,rootControlledPublicRequestDirectory:true,
     refusedOverwrite:true,activationNotPerformedInCI:true,
