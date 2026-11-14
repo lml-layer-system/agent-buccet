@@ -10,7 +10,7 @@ Parent tracker: [#21](https://github.com/lml-layer-system/agent-buccet/issues/21
 - **No green without both actual attack AND authorized positive-control evidence** at the same successful main-branch workflow run, source SHA, run attempt, exact job ID and OS runner labels. Require three unexpired GitHub artifacts (attack, authorized, detector-sensitivity) with exact artifact IDs and SHA-256 digest metadata.
 - **No platform-laundering**: macOS G07 requires macOS evidence, Windows G08 requires Windows evidence; G09/G10 require all three supported OS targets. A green packaging build is not an isolation proof.
 - **No baseline-laundering**: merged #18 evidence is a protected-native baseline, not proof of the new 10 gates.
-- **No silent skipped/waived** state or unsupported-OS label promoted to green.
+- **No silent skipped/waived** state or unsupported-OS label promoted to green. A genuine failed future attack is recorded as **RED** with a reproducer, source SHA, failed GitHub run/job, and null green evidence. RED always blocks release.
 - **No hand-edited issue checkbox**: with CI credentials, the issue #21 checklist and acceptance manifest must agree.
 - **No premature tag publication**: when merged, `.github/workflows/release.yml` invokes `--release` before publishing npm/packages. Release requires 10/10 and every evidence source SHA must equal the tag commit SHA.
 - **No attack execution in the fence script.** The script checks contract structure and authenticated evidence metadata; the actual attack/recovery suites are separate future work.
@@ -36,7 +36,7 @@ Each run must be a successful GitHub push workflow **on main** named exactly `Fr
 
 `frontier03-G01-linux-attack`, `frontier03-G01-linux-authorized`, and `frontier03-G01-linux-sensitivity` (replace gate/platform as appropriate).
 
-**These artifacts must contain actual observed effect/recovery traces, not just a PASS string.** This checker verifies GitHub's metadata and immutable binding, not the underlying scientific meaning. A code/review policy must protect the evidence producer and checker, or a privileged maintainer could weaken them.
+**These artifacts must contain actual observed effect/recovery traces, not just a PASS string.** A gate may be `UNVERIFIED` (no evidence), `RED` (a confirmed failed run and precise reproducer), or `GREEN` (complete independently bound positive, negative and sensitivity evidence). Only GREEN can release. This checker verifies GitHub's metadata and immutable binding, not the underlying scientific meaning. A code/review policy must protect the evidence producer and checker, or a privileged maintainer could weaken them.
 
 ## Install-time dependencies / governance boundary
 
