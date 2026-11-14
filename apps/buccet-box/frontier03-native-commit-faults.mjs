@@ -121,6 +121,16 @@ try {
   assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
   assert.ok(!traceContent().includes("rename:after"));
   report("file-fsync-EIO-no-publication");
+  // A controlled pre-commit I/O failure must not accumulate root-only
+  // temporary payloads. The vulnerable guard leaves .buccet-fs-* here,
+  // eventually exhausting protected storage under repeated failed writes.
+  const leakedStage = must(sudo("find", [
+    root + "/files", "-maxdepth", "1", "-type", "f",
+    "-name", ".buccet-fs-*", "-print",
+  ]), "enumerate root-owned unpublished stages");
+  assert.equal(leakedStage.trim(), "",
+    "G01/G02: rejected precommit write left privileged temporary payload");
+  report("file-fsync-EIO-no-stage-residue");
 
   resetTrace();
   const postcommit = act("write", "files/payload.txt", "EXISTS_BUT_DURABILITY_UNKNOWN",
