@@ -275,11 +275,57 @@ try {
   assert.equal(traceContent().includes("fsync:directory"), false);
   report("mutation-sensitivity-missing-dir-fsync-detected");
 
+  // G10 regression sensitivity: deliberately remove EACH NEW G09 structural
+  // protection in isolated C builds. A weak test that merely checks the real
+  // guard's success path would not catch these unsafe, externally visible
+  // responses. Mutants are root-owned disposable TEST artifacts only.
+  async function compileMutant(label, needle, replacement) {
+    assert.equal(src.split(needle).length, 2,
+      "mutant " + label + " requires exact native source anchor");
+    const sourceFile = path.join(temp, label + ".c");
+    const binaryFile = path.join(temp, label);
+    const installedFile = root + "/" + label;
+    await writeFile(sourceFile, src.replace(needle, replacement));
+    must(run("cc", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
+      sourceFile, "-o", binaryFile]), "compile test-only " + label);
+    must(sudo("install", ["-o", "root", "-g", "root", "-m", "0500",
+      binaryFile, installedFile]), "pin disposable " + label);
+    return installedFile;
+  }
+  const mkdirMutant = await compileMutant("mutant-unsafe-mkdir",
+    "    require_protected_directory(opened);\n    close(opened);",
+    "    /* MUTANT ONLY: existing unsafe mkdir leaf is falsely trusted */\n    close(opened);");
+  const unsafeMkdirReceipt = act("mkdir", "files/existing-unsafe-mode",
+    undefined, {}, mkdirMutant);
+  assert.equal(unsafeMkdirReceipt.status, 0,
+    "mutant must reveal false protected success on existing 0777 directory");
+  assert.equal(must(sudo("stat", ["-c", "%u:%a:%F", unsafeMode]),
+    "unsafe mkdir mutant did not alter test fixture").trim(), "0:777:directory");
+  report("mutation-sensitivity-unsafe-existing-mkdir-detected");
+
+  const pathMutant = await compileMutant("mutant-partial-path-validation",
+    "  preflight_relative_path(relative);\n  int fd = dup(rootfd);",
+    "  /* MUTANT ONLY: no all-component preflight before mkdirat */\n  int fd = dup(rootfd);");
+  const mutantOrphan = root + "/files/mutant-rejected-parent";
+  assert.notEqual(sudo("test", ["-e", mutantOrphan]).status, 0);
+  const mutatedPath = act("write",
+    "files/mutant-rejected-parent/../blocked.txt", "NO_EFFECT_IS_REQUIRED",
+    {}, pathMutant);
+  assert.equal(mutatedPath.status, 73,
+    "mutant guard must still reject explicit traversal suffix");
+  assert.equal(sudo("test", ["-d", mutantOrphan]).status, 0,
+    "mutant must expose side-effected parent despite denying request");
+  must(sudo("rm", ["-rf", "--", mutantOrphan]),
+    "remove solely mutated test-only partial parent");
+  report("mutation-sensitivity-denied-path-parent-side-effect-detected");
+
+
   console.log("FRONTIER03_NATIVE_COMMIT_FAULT_SUMMARY", JSON.stringify({
     nativeGuard: guard, actualKernelRename: true, injectedDirectoryEIO: true,
     injectedFileEIO: true, injectedNativeWriteENOSPC: true,
     sigkillBeforeAndAfterRename: true,
     crossDirectoryDurability: true, mutantBlindSpotDemonstrated: true,
+    unsafeMkdirMutantDetected: true, partialPathValidationMutantDetected: true,
     wholeServiceGateAcceptance: false, realPowerLoss: false,
   }));
 } catch (error) {
