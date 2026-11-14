@@ -7,6 +7,13 @@ on:
       - "apps/buccet-box/frontier-*"
       - ".github/workflows/frontier-batch-02.yml"
       - "native/box-fs-guard.c"
+      - "src/box/session-authority.ts"
+      - "src/runtime/state.ts"
+      - "src/runtime/types.ts"
+      - "src/runtime/store.ts"
+      - "scripts/agent-buccet-mcp-server.ts"
+      - "cli/buccet.ts"
+      - "contracts/engines/agent-buccet-mcp-contract.ts"
   workflow_dispatch:
 
 permissions:
@@ -52,3 +59,17 @@ jobs:
         run: sh scripts/build-box-fs-guard.sh
       - name: Attempt to restore a different agent identity's grants
         run: node apps/buccet-box/frontier-session.mjs
+
+  mcp-host-owner-binding:
+    name: Real CLI host launch + inherited owner capability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Run actual MCP host-integration contract with independent process and FD proof
+        run: npm run test:agent-buccet:mcp
