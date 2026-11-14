@@ -13,6 +13,7 @@ on:
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
+      - "apps/buccet-box/fs-default-deny.test.mjs"
       - "apps/buccet-box/native-production-controller.mjs"
       - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
@@ -28,6 +29,7 @@ on:
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
+      - "apps/buccet-box/fs-default-deny.test.mjs"
       - "apps/buccet-box/native-production-controller.mjs"
       - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
@@ -49,6 +51,18 @@ jobs:
           node-version: "22"
       - name: Verify original five races and real allowed write
         run: node apps/buccet-box/frontier-races.mjs
+
+  secure-default-execution:
+    name: Default filesystem behavior denies direct guard when broker is missing
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Verify missing, incomplete or spoofed broker never grants direct write
+        run: node --test apps/buccet-box/fs-default-deny.test.mjs
 
   independent-principal-probe:
     name: Verify OS denies same-UID agent mutation while broker principal can execute
