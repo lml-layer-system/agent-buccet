@@ -432,6 +432,101 @@ try {
     unit: gateUnit, state: serviceEvidence(gateUnit),
   }));
 
+
+  // G03: exercise the ACTUAL privileged issuer, dedicated non-root OS UID,
+  // root-owned key file, signed public gate request, human operator approval,
+  // and issuer revocation. A manually planted HMAC registry alone does not
+  // prove the credential-distribution boundary in the shipped installer.
+  const isolatedSession = "isolated_" + id.replaceAll("-", "");
+  const isolatedActor = "issuer_actor_" + id.replaceAll("-", "");
+  const isolatedUid = "12345";
+  const issued = must(stage + "/node", [
+    root + "/host-enroll.mjs", root, "enroll",
+    isolatedSession, isolatedActor, isolatedUid,
+  ]);
+  assert.match(issued, /BUCCET_HOST_ENROLLED/,
+    "production privileged host issuer did not enroll dedicated UID");
+  const proofPath = "/run/buccet-native-host-credentials/" + id +
+    "/" + isolatedSession + ".key";
+  assert.equal(must("stat", ["-c", "%u:%a:%h:%F", proofPath]),
+    "12345:400:1:regular file",
+    "G03 dedicated host key not bound to a separate OS principal");
+  const secret = must("setpriv", [
+    "--reuid=12345", "--regid=12345", "--clear-groups", "cat", proofPath,
+  ]);
+  assert.match(secret, /^[a-f0-9]{64}$/, "dedicated host cannot read its own key");
+  assert.equal(issued.includes(secret), false, "G03 issuer printed host secret");
+  assert.notEqual(run("cat", [proofPath]).status, 0,
+    "G03 untrusted agent UID could read dedicated host proof key");
+  deny("setpriv", ["--reuid=12346", "--regid=12346", "--clear-groups",
+    "cat", proofPath], "G03 separate non-root UID stole trusted host key");
+  deny("setpriv", ["--reuid=65534", "--regid=65534", "--clear-groups",
+    "cat", proofPath], "G03 hostile UID 65534 stole dedicated host key");
+  const isolatedHostCode = "const fs=require(\"node:fs\"),crypto=require(\"node:crypto\"),net=require(\"node:net\");\nconst [proof,socketPath,sessionId,actorId,target]=process.argv.slice(1);\nconst secret=fs.readFileSync(proof,\"utf8\").trim();\nif(!/^[0-9a-f]{64}$/.test(secret))process.exit(81);\nconst proposal={op:\"write\",path:target,content:\"DEDICATED_UID_EXACT_BYTES\"};\nconst issuedAt=new Date().toISOString(),nonce=crypto.randomBytes(16).toString(\"hex\");\nconst mac=crypto.createHmac(\"sha256\",Buffer.from(secret,\"hex\")).update(JSON.stringify([\"agent-buccet-protected-host-v1\",sessionId,actorId,issuedAt,nonce,proposal])).digest(\"hex\");\nconst socket=net.createConnection({path:socketPath});\nlet response=\"\";\nsocket.once(\"connect\",()=>socket.write(JSON.stringify({...proposal,host:{sessionId,actorId,issuedAt,nonce,mac}})+\"\\\\n\"));\nsocket.on(\"data\",chunk=>response+=String(chunk));\nsocket.once(\"end\",()=>{process.stdout.write(response);process.exit(0)});\nsocket.once(\"error\",err=>{process.stderr.write(String(err.code||err.message));process.exit(82)});\n";
+  function startDedicatedHost(target) {
+    let stdout = "", stderr = "";
+    const proc = spawn("sudo", ["-n", "setpriv", "--reuid=12345",
+      "--regid=12345", "--clear-groups", process.execPath, "-e",
+      isolatedHostCode, proofPath, gateRequest, isolatedSession, isolatedActor,
+      target], { env, stdio: ["ignore", "pipe", "pipe"] });
+    proc.stdout.on("data", chunk => { stdout += String(chunk); });
+    proc.stderr.on("data", chunk => { stderr += String(chunk); });
+    const completed = new Promise((resolve, reject) => {
+      proc.once("error", reject);
+      proc.once("close", (code, signal) =>
+        resolve({ code, signal, stdout, stderr }));
+    });
+    return { proc, completed };
+  }
+  const isolatedPositivePath = "allowed/issuer-positive.txt";
+  const positiveHost = startDedicatedHost(isolatedPositivePath);
+  const positiveRow = await wait(() => operator({ command: "list" }).pending?.find(
+    row => row.path === isolatedPositivePath),
+    "G03 actual dedicated-UID signed host request never reached operator gate");
+  assert.equal(positiveRow.host?.verified, true);
+  assert.equal(positiveRow.host?.sessionId, isolatedSession);
+  assert.equal(operator({ command: "approve", requestId: positiveRow.requestId,
+    sha256: positiveRow.sha256 }).approved, true);
+  const positiveDone = await Promise.race([
+    positiveHost.completed,
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("dedicated-UID positive host transport timed out")), 9000)),
+  ]);
+  assert.equal(positiveDone.code, 0,
+    "dedicated-UID host failed: " + positiveDone.stderr);
+  assert.equal(JSON.parse(positiveDone.stdout.trim()).ok, true,
+    "independent OS-principal host was not accepted after root approval");
+  assert.equal(mustBroker("read", isolatedPositivePath),
+    "DEDICATED_UID_EXACT_BYTES",
+    "dedicated-UID approved host committed wrong bytes");
+
+  const isolatedRevokedPath = "allowed/issuer-revoked.txt";
+  const revokedHost = startDedicatedHost(isolatedRevokedPath);
+  const revokedRow = await wait(() => operator({ command: "list" }).pending?.find(
+    row => row.path === isolatedRevokedPath),
+    "G03 dedicated-UID revocation request never reached operator queue");
+  const revoked = must(stage + "/node", [
+    root + "/host-enroll.mjs", root, "revoke", isolatedSession, isolatedActor,
+  ]);
+  assert.match(revoked, /BUCCET_HOST_REVOKED/);
+  deny("test", ["-e", proofPath],
+    "G03 issuer revoked registry entry but left readable dedicated key");
+  assert.equal(operator({ command: "approve", requestId: revokedRow.requestId,
+    sha256: revokedRow.sha256 }).approved, true,
+    "operator click must still test downstream root revocation");
+  const revokedDone = await Promise.race([
+    revokedHost.completed,
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("revoked dedicated-UID request never completed")), 9000)),
+  ]);
+  assert.equal(revokedDone.code, 0,
+    "revoked host failed to receive denial: " + revokedDone.stderr);
+  assert.equal(JSON.parse(revokedDone.stdout.trim()).ok, false,
+    "revoked dedicated-UID host still executed after root approval");
+  deny("test", ["-e", root + "/" + isolatedRevokedPath],
+    "G03 revoked independently issued host produced protected bytes");
+  console.log("F03_G03_PASS real root issuer dedicated UID 12345 key isolation, positive exact bytes and live revocation");
+
   // Kernel-enforced isolation is a negative control; service stays usable.
   deny("setpriv", ["--reuid=65534", "--regid=65534", "--clear-groups",
     "stat", root + "/policy.json"], "G02: hostile UID read protected policy");
@@ -615,6 +710,7 @@ try {
     crashedSignedHostProofReplayDenied:true,
     sameUIDHostSecretInaccessible:true, forgedActorMACDenied:true,
     sameUIDProcFDIsolation:true, protectedReplayLedgerPathReserved:true,
+    actualHostIssuerDedicatedUIDIsolation:true, issuerRevocationBeforeEffect:true,
     newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
   }));
@@ -633,6 +729,7 @@ try {
     privileged("rm", ["-f", "--", "/etc/systemd/system/" + unit]);
   }
   privileged("systemctl", ["daemon-reload"]);
+  privileged("rm", ["-rf", "--", "/run/buccet-native-host-credentials/" + id]);
   const cleaned=privileged("rm", ["-rf", "--", root, stage, gateRun]);
   if(cleaned.status!==0) {
     console.error("FRONTIER03_CLEANUP_FAILED", cleaned.stderr);
