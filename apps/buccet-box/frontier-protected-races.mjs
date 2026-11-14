@@ -116,13 +116,20 @@ function attackUntrusted(operations) {
   return outcomes;
 }
 async function waitReady(gate, pending) {
-  for (let count = 0; count < 600; count++) {
+  let ended = false, earlyResult;
+  pending.then(result => { ended = true; earlyResult = result; },
+    error => { ended = true; earlyResult = String(error); });
+  for (let count = 0; count < 800; count++) {
     try { await access(path.join(gate, "ready")); return (await readFile(path.join(gate, "ready"), "utf8")).trim(); }
     catch { /* wait for real renameat pre-commit barrier */ }
+    if (ended) {
+      throw new Error("real executor finished before renameat barrier: " + JSON.stringify(earlyResult));
+    }
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  const outcome = await Promise.race([pending, Promise.resolve("no result")]);
-  throw new Error("actual native renameat barrier was not reached: " + JSON.stringify(outcome));
+  let wrapperArmed = false;
+  try { await access(path.join(gate, "wrapper-armed")); wrapperArmed = true; } catch {}
+  throw new Error("actual native renameat barrier not reached; wrapperArmed=" + wrapperArmed);
 }
 function record(label, details) {
   console.log("FRONTIER_PROTECTED_PASS", label, JSON.stringify(details));
@@ -178,6 +185,9 @@ const nativeWrapper = [
   'if(snprintf(gate,sizeof(gate),"%s/gate-%s",GATE_ROOT,name)>= (int)sizeof(gate))return 82;',
   'if(snprintf(armed,sizeof(armed),"%s/armed",gate)>= (int)sizeof(armed))return 83;',
   'if(access(armed,F_OK)==0){',
+  'char diagnostic[PATH_MAX];',
+  'snprintf(diagnostic,sizeof(diagnostic),"%s/wrapper-armed",gate);',
+  'FILE *marker=fopen(diagnostic,"w");if(marker){fputs("armed",marker);fclose(marker);}',
   'setenv("LD_PRELOAD",INTERPOSER,1);',
   'setenv("BUCCET_TEST_RENAME_GATE",gate,1);',
   'setenv("BUCCET_TEST_OLD_PREFIX",',
