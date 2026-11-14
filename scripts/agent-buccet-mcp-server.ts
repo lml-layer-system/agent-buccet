@@ -34,6 +34,8 @@ type ParsedArgs = {
   dryRun: boolean;
   /** Explicit host-provisioned FD; untrusted CLI actor/session strings are not credentials. */
   mcpOwnerProofFd?: number;
+  /** Already read by an in-process trusted CLI before loading session state. */
+  mcpOwnerProof?: string;
 };
 
 function usage(): never {
@@ -491,8 +493,8 @@ export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.
     } = boundary;
     // Only the trusted host launch channel can present a session capability.
     // Neither --session-id nor --actor-id confers owner authority.
-    const ownerProof = args.mcpOwnerProofFd === undefined
-      ? null : readMcpSessionOwnerProof(args.mcpOwnerProofFd);
+    const ownerProof = args.mcpOwnerProof ?? (args.mcpOwnerProofFd === undefined
+      ? null : readMcpSessionOwnerProof(args.mcpOwnerProofFd));
     if (args.mcpOwnerProofFd !== undefined && !ownerProof) {
       throw new Error("BUCCET_SESSION_PROOF_DENIED: invalid trusted host owner pipe");
     }
