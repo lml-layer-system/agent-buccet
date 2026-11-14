@@ -14,8 +14,9 @@
  * UCON-02: detection only recognized `don't|do not|never … delete` with an ASCII
  *   apostrophe, and only for fs.delete. It missed the typographic apostrophe
  *   phones and macOS insert ("don’t"), "dont", remove/erase/wipe/rm, a move that
- *   takes the file away, and an `rm` shell command. All are now covered; an
- *   overwrite (an edit) is deliberately not treated as a delete.
+ *   takes the file away, and an `rm` shell command. All are now covered. An
+ *   overwrite also counts (it destroys the content; see the user-constraint-verbs
+ *   contract), while an append does not.
  */
 import assert from "node:assert/strict";
 import { promises as fs } from "node:fs";
@@ -83,6 +84,7 @@ async function main() {
     ["don't delete notes.txt", "tool.exec", "rm /ws/notes.txt"],
     ["don't delete notes.txt", "tool.exec", "bash", "rm -f /ws/notes.txt"],
     ["don't delete anything", "fs.delete", "/ws/other.txt"],
+    ["don't delete notes.txt", "fs.write", "/ws/notes.txt"], // an overwrite destroys the content
   ];
   for (const [input, ak, target, payload] of prohibited) {
     assert.equal(
@@ -93,7 +95,7 @@ async function main() {
   }
   const allowed: Array<[string, BoundaryActionKind, string, string?]> = [
     ["don't delete notes.txt", "fs.delete", "/ws/old.txt"], // a different file
-    ["don't delete notes.txt", "fs.write", "/ws/notes.txt"], // an edit, not a delete
+    ["don't delete notes.txt", "fs.append", "/ws/notes.txt"], // append keeps the content
     ["don't delete notes.txt", "tool.exec", "cat /ws/notes.txt"], // not destructive
     ["please delete notes.txt", "fs.delete", "/ws/notes.txt"], // no negation
   ];

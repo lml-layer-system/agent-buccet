@@ -95,6 +95,7 @@
     "test:agent-buccet:policy-binding": "node contracts/boundaries/agent-buccet-policy-binding-contract.ts",
     "test:agent-buccet:egress-contract": "node contracts/boundaries/agent-buccet-egress-contract.ts",
     "test:agent-buccet:user-constraint-claude-redteam": "node contracts/law/agent-buccet-user-constraint-claude-redteam.ts",
+    "test:agent-buccet:user-constraint-verbs-claude-redteam": "node contracts/law/agent-buccet-user-constraint-verbs-claude-redteam.ts",
     "test:agent-buccet:spend-boundary": "node contracts/boundaries/agent-buccet-spend-boundary-contract.ts",
     "test:agent-buccet:spend-drain-claude-redteam": "node contracts/boundaries/agent-buccet-spend-drain-claude-redteam.ts",
     "test:agent-buccet:spend-amount-binding-claude-redteam": "node contracts/boundaries/agent-buccet-spend-amount-binding-claude-redteam.ts",
