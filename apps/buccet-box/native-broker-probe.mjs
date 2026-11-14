@@ -74,6 +74,16 @@ try {
     path.join(repo, "native/box-fs-broker.mjs"), broker]);
   sudo("install", ["-o", "root", "-g", "root", "-m", "0644",
     path.join(repo, "native/box-fs-broker-client.mjs"), client]);
+  sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0700",
+    path.join(managedRoot, "src/box"), path.join(managedRoot, "apps/buccet-box")]);
+  for (const [source, destination] of [
+    ["src/box/confined-fs.ts", "src/box/confined-fs.ts"],
+    ["src/box/protected-fs-broker.ts", "src/box/protected-fs-broker.ts"],
+    ["apps/buccet-box/native-broker-api-test.mjs", "apps/buccet-box/native-broker-api-test.mjs"],
+  ]) {
+    sudo("install", ["-o", "root", "-g", "root", "-m", "0644",
+      path.join(repo, source), path.join(managedRoot, destination)]);
+  }
   child = spawn("sudo", ["-n", process.execPath, broker, managedRoot, guard, socket], {
     stdio: ["ignore", "pipe", "pipe"], env: stdEnv,
   });
@@ -100,6 +110,17 @@ try {
   trusted("move", "nested/allowed.txt", "move-parent/moved.txt");
   assert.equal(trusted("read", "move-parent/moved.txt"), "AUTHORIZED|APPEND");
 
+  // The actual Buccet production file-tool API must use this same broker
+  // transport in strict mode, not quietly fall back to direct native exec.
+  const api = run("sudo", ["-n", "env",
+    "AGENT_BUCCET_FS_BROKER_SOCKET=" + socket,
+    "AGENT_BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "AGENT_BUCCET_REQUIRE_ISOLATED_FS=1",
+    process.execPath, path.join(managedRoot, "apps/buccet-box/native-broker-api-test.mjs"),
+  ]);
+  assert.equal(api.status, 0, "Buccet runtime broker API failed: " + api.stderr + api.stdout);
+  assert.match(api.stdout, /NATIVE_BROKER_RUNTIME_API_PASS/);
+
   // Five corresponding mutation classes under the SAME untrusted UID.
   deniedMutation("unlink", "move-parent/moved.txt");
   deniedMutation("rename", "nested", "/tmp/buccet-reparent-denied");
@@ -119,6 +140,7 @@ try {
     kernelDeniedMutations: 5,
     untrustedSocketDenied: true,
     traversalDenied: true,
+    protectedRuntimeApiVerified: true,
     productionRouteMigrated: false,
   }));
 } finally {
