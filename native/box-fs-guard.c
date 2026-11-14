@@ -15,6 +15,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
 #include <unistd.h>
 
 /*
@@ -214,9 +215,18 @@ int main(int argc, char **argv) {
   require_protected_executor();
   const char *op = argv[1];
   int root = directory_root(argv[2]);
+  /*
+   * A broker-local queue does not survive SIGKILL: its already-spawned C
+   * guard can outlive the daemon and race a new daemon generation. Use an
+   * inode-scoped KERNEL flock, shared by all native guard processes for this
+   * root, from BEFORE reading the append base until AFTER durable commit.
+   * This is advisory against root peers; the untrusted agent cannot mutate
+   * this independently root-owned namespace or start the privileged guard.
+   */
+  if (flock(root, LOCK_EX) < 0) fail("cannot acquire protected root transaction lock");
   char *leaf = NULL;
   int parent = parent_from_root(root, argv[3], !strcmp(op,"write") || !strcmp(op,"mkdir"), &leaf);
-  close(root);
+  /* Keep root fd and its kernel lock open across the entire native effect. */
   if (!strcmp(op,"read")) {
     int input = openat(parent, leaf, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
     if (input < 0) fail("read target missing or symlinked");
@@ -263,5 +273,6 @@ int main(int argc, char **argv) {
     errno = EINVAL; fail("unrecognized operation");
   }
   close(parent); free(leaf);
+  close(root); /* release kernel lock only after the operation has finished */
   return 0;
 }
