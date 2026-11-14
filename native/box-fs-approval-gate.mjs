@@ -205,6 +205,18 @@ async function main() {
       })) });
       return;
     }
+    if (body?.command === "inspect") {
+      const row = typeof body.requestId === "string"
+        ? pending.get(body.requestId) : null;
+      if (!row) {
+        send(socket, { ok: false, error: "no live request to inspect" }); return;
+      }
+      // Only the root operator channel exposes the ENTIRE exact request.
+      // Public request clients never receive other actors' payloads.
+      send(socket, { ok: true, requestId: row.requestId,
+        sha256: row.digest, proposal: row.proposal });
+      return;
+    }
     if (body?.command !== "approve" && body?.command !== "deny") {
       send(socket, { ok: false, error: "unknown operator decision" }); return;
     }
