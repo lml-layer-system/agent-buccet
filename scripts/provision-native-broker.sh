@@ -7,6 +7,23 @@
 # remains a separate prerequisite for autonomous operation.
 set -eu
 fail() { printf 'BUCCET_PROVISION_DENIED: %s\n' "$*" >&2; exit 73; }
+# Privileged setup cannot execute a script or interpreter supplied from the
+# same-UID agent's mutable checkout. Only root-owned, non-writable ancestry
+# may provide code invoked with elevated authority.
+trusted_executable_tree() {
+  entry=$1
+  [ -n "$entry" ] && [ "${entry#/}" != "$entry" ] ||
+    fail "trusted executable path must be absolute"
+  while [ "$entry" != "/" ]; do
+    [ -e "$entry" ] && [ ! -L "$entry" ] ||
+      fail "trusted executable has missing or linked ancestor"
+    [ "$(stat -c '%u' "$entry")" = "0" ] ||
+      fail "trusted executable has non-root owner"
+    [ -z "$(find "$entry" -maxdepth 0 -perm /022 -print)" ] ||
+      fail "trusted executable has group/other writable ancestor"
+    entry=$(dirname "$entry")
+  done
+}
 if [ "$#" -ne 5 ] && [ "$#" -ne 6 ]; then
   fail "usage: provision-native-broker.sh INSTANCE GUARD BROKER GUARD_SHA256 BROKER_SHA256 [--files-only]"
 fi
@@ -41,8 +58,15 @@ BASE=/var/lib/buccet-native
 ROOT=$BASE/$INSTANCE
 [ ! -L "$BASE" ] && [ ! -L "$ROOT" ] || fail "refusing symlinked managed root"
 [ ! -e "$ROOT" ] || fail "managed instance already exists; refuse overwrite"
+# Both privileged code origins are checked before installing any code.
+# A root-admin must first stage this reviewed installer in a protected tree.
+INSTALLER=$(readlink -f "$0") || fail "cannot resolve trusted installer"
+trusted_executable_tree "$INSTALLER"
 NODE=$(command -v node) || fail "node binary unavailable"
 case "$NODE" in /*) ;; *) fail "node must resolve to absolute trusted executable" ;; esac
+NODE=$(readlink -f "$NODE") || fail "cannot resolve Node executable"
+trusted_executable_tree "$NODE"
+[ -f "$NODE" ] && [ -x "$NODE" ] || fail "untrusted or unavailable Node interpreter"
 # Install in directories inaccessible to a same-user untrusted agent.
 install -d -o root -g root -m 0700 "$BASE" || fail "cannot create protected base"
 install -d -o root -g root -m 0700 "$ROOT" || fail "cannot create protected root"
