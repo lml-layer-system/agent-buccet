@@ -34,7 +34,7 @@ import { checkTrackConstraint } from "./../../src/law/upl-tracks.ts";
 
 const actorId = "user:spend-drain-redteam";
 
-async function scenario(args: { declaredCap?: number; attempts: number }) {
+async function scenario(args: { declaredCap?: number; attempts: number; legacy?: boolean }) {
   const store = await createPersistentBoundaryRuntimeStore({
     sessionId: `spend-drain-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     actorId,
@@ -82,7 +82,7 @@ async function scenario(args: { declaredCap?: number; attempts: number }) {
     lawIds: ["UPL.SPEND.ALLOW.01"],
     createdAt: new Date().toISOString(),
   });
-  const ledger = await writeApprovedUserPathLaw({
+  const written = await writeApprovedUserPathLaw({
     ledger: await loadUserPathLedger(),
     request: seed,
     witness,
@@ -96,6 +96,22 @@ async function scenario(args: { declaredCap?: number; attempts: number }) {
     },
     decision: { choice: "allow_as_law" },
   });
+  // A ledger written before standing spend law always carried a period bound:
+  // its corridor has no spendMaxPeriodAmountNormalized / spendPeriodWindow.
+  const ledger = args.legacy
+    ? {
+        ...written,
+        userApprovedLawPaths: written.userApprovedLawPaths.map((entry) => {
+          if (!entry.trackConstraint?.allowedActionKinds.includes("agent.spend")) return entry;
+          const {
+            spendMaxPeriodAmountNormalized: _cap,
+            spendPeriodWindow: _window,
+            ...rest
+          } = entry.trackConstraint;
+          return { ...entry, trackConstraint: rest as typeof entry.trackConstraint };
+        }),
+      }
+    : written;
   store.replaceConfig({
     ...store.getConfig(),
     upl: ledger,
@@ -153,6 +169,18 @@ async function main() {
     drain.executed,
     1,
     "exactly the approved spend runs; repeats hit the cumulative bound",
+  );
+
+  // ---- Legacy ledger: an uncapped corridor written before this fix ----
+  const legacy = await scenario({ attempts: 12, legacy: true });
+  assert.equal(
+    legacy.corridor?.spendMaxPeriodAmountNormalized,
+    undefined,
+    "sanity: legacy corridor is uncapped",
+  );
+  assert.ok(
+    legacy.total <= 10,
+    `a pre-existing uncapped spend law must not stay drainable (executed ${legacy.executed}, total $${legacy.total.toFixed(2)})`,
   );
 
   // ---- Positive control: a declared period cap is honored, not clamped ----

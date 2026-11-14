@@ -436,7 +436,6 @@ function periodBoundsFor(
     if (entry.status !== "ACTIVE" || !c) continue;
     if (entry.scope === "SESSION" && entry.sessionId !== config.session.sessionId) continue;
     if (!c.allowedActionKinds.includes("agent.spend")) continue;
-    if (c.spendMaxPeriodAmountNormalized === undefined) continue;
     if (
       c.spendAllowedPrincipals?.length &&
       !c.spendAllowedPrincipals.includes(spendIntent.principal)
@@ -444,10 +443,18 @@ function periodBoundsFor(
       continue;
     if (c.spendAllowedBucketIds?.length && !c.spendAllowedBucketIds.includes(spendIntent.bucketId))
       continue;
+    // Corridors written before standing spend law always carried a period
+    // bound have none: bound them by their own per-spend max per 24h, so an
+    // existing ledger is not left drainable until every law is re-approved.
+    const cap = c.spendMaxPeriodAmountNormalized ?? c.spendMaxAmountNormalized;
+    if (cap === undefined) continue;
     bounds.push({
-      cap: c.spendMaxPeriodAmountNormalized,
+      cap,
       window: c.spendPeriodWindow ?? "24h",
-      source: `standing law ${entry.id}`,
+      source:
+        c.spendMaxPeriodAmountNormalized === undefined
+          ? `legacy uncapped standing law ${entry.id}`
+          : `standing law ${entry.id}`,
     });
   }
   return bounds;
