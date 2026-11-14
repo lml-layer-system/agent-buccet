@@ -146,6 +146,32 @@ try {
     "verify positive protected directory").trim(), "0:700:directory");
   report("existing-mkdir-protects-inode-ownership-and-permissions");
 
+  // G09/G05 denied-path atomicity: traversal validation must finish BEFORE
+  // the guard creates missing intermediate directories. A path with a later
+  // ".." or reserved internal component is never authorized; refusing it
+  // after mkdirat leaves an unauthorized durable filesystem side effect.
+  const maliciousPaths = [
+    ["files/denied-parent-dotdot/../rejected.txt",
+      root + "/files/denied-parent-dotdot"],
+    ["files/denied-parent-ledger/.buccet-host-nonces/rejected.txt",
+      root + "/files/denied-parent-ledger"],
+  ];
+  for (const [relative, directory] of maliciousPaths) {
+    assert.notEqual(sudo("test", ["-e", directory]).status, 0,
+      "red fixture had unexpected prior directory");
+    const refused = act("write", relative, "FORBIDDEN_PATH_NO_SIDE_EFFECTS");
+    assert.equal(refused.status, 73,
+      "native rejected-path control failed to deny " + relative);
+    assert.notEqual(sudo("test", ["-e", directory]).status, 0,
+      "G09 invalid suffix caused unauthorized root-owned parent mkdir " + relative);
+  }
+  const goodDeepPath = "files/valid-prefix-created/approved.txt";
+  must(act("write", goodDeepPath, "AUTHORIZED_DEEP_WRITE"),
+    "positive authorized auto-created parent after prevalidation");
+  assert.equal(read(goodDeepPath), "AUTHORIZED_DEEP_WRITE");
+  report("rejected-path-does-not-create-intermediate-parent-directories");
+
+
 
   resetTrace();
   const diskFull = act("write", "files/payload.txt", "MUST_NOT_PUBLISH_FULL_DISK",
