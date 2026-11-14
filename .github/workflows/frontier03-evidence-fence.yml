@@ -1,0 +1,51 @@
+name: Frontier03 evidence fence (policy only)
+
+# This job does not run attacks. It enforces the evidence contract and prevents
+# self-reported/stale green on PRs and the eventual release acceptance check.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    paths:
+      - "contracts/security/frontier03-acceptance.json"
+      - "scripts/security/frontier03-fence.mjs"
+      - ".github/workflows/frontier03-evidence-fence.yml"
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "preflight checks structure; release demands all 10 independently verified"
+        required: true
+        type: choice
+        default: preflight
+        options:
+          - preflight
+          - release
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+
+jobs:
+  evidence-integrity:
+    name: Frontier03 / evidence integrity (no attacks)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Reject fabricated gates and contradictory tracker states
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          FENCE_MODE: ${{ inputs.mode }}
+        run: |
+          if [ "$FENCE_MODE" = "release" ]; then
+            node scripts/security/frontier03-fence.mjs \
+              contracts/security/frontier03-acceptance.json --release
+          else
+            node scripts/security/frontier03-fence.mjs \
+              contracts/security/frontier03-acceptance.json
+          fi
