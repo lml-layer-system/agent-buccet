@@ -1,5 +1,12 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
+/*
+ * Expose BSD extensions (notably O_NOFOLLOW) on macOS/BSD. Without this, the
+ * _POSIX_C_SOURCE define above puts clang in strict-POSIX mode under -std=c11
+ * and hides O_NOFOLLOW, so this guard fails to compile on the macOS DMG build.
+ * Ignored by glibc, so Linux is unaffected.
+ */
+#define _DARWIN_C_SOURCE
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
