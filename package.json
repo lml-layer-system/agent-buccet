@@ -177,7 +177,8 @@
     "agent-buccet:run": "node scripts/agent-buccet-run.ts",
     "agent-buccet:cli": "node cli/buccet.ts",
     "install:agent-buccet": "sh scripts/install-agent-buccet.sh",
-    "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts"
+    "package:agent-buccet": "node scripts/prepare-agent-buccet-package.ts",
+    "test:agent-buccet:upl-corridor-normalize": "node contracts/law/agent-buccet-upl-corridor-claude-redteam.ts"
   },
   "dependencies": {},
   "devDependencies": {
