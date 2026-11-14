@@ -120,6 +120,27 @@ static void check_component(const char *piece) {
     errno = EINVAL; fail("reserved private native or host-replay component");
   }
 }
+/*
+ * A rejected relative path must have ZERO native effects. Parsing and
+ * validating one component at a time while mkdirat(create=1) runs can create
+ * a protected intermediate directory before a later ".." or reserved
+ * component fails. Preflight EVERY component before opening or creating
+ * ANY part of the requested path.
+ */
+static void preflight_relative_path(const char *relative) {
+  if (!relative || !relative[0] || relative[0] == '/' ||
+      strstr(relative, "//") || relative[strlen(relative) - 1] == '/') {
+    errno = EINVAL; fail("invalid relative path");
+  }
+  char *copy = strdup(relative);
+  if (!copy) fail("out of memory");
+  char *save = NULL;
+  for (char *piece = strtok_r(copy, "/", &save); piece;
+       piece = strtok_r(NULL, "/", &save)) {
+    check_component(piece);
+  }
+  free(copy);
+}
 static void write_all(int fd, const void *data, size_t length) {
   const char *buf = (const char *)data;
   while (length > 0) {
@@ -173,9 +194,7 @@ static int directory_root(const char *absolute) {
 }
 /* Caller owns returned parent fd and leaf name. */
 static int parent_from_root(int rootfd, const char *relative, int create, char **leaf) {
-  if (!relative || !relative[0] || relative[0] == '/' || strstr(relative, "//") || relative[strlen(relative)-1] == '/') {
-    errno = EINVAL; fail("invalid relative path");
-  }
+  preflight_relative_path(relative);
   int fd = dup(rootfd);
   if (fd < 0) fail("cannot pin authorized root");
   require_protected_directory(fd);
