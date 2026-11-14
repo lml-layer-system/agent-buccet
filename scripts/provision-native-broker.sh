@@ -82,9 +82,33 @@ case "$NODE" in /*) ;; *) fail "node must resolve to absolute trusted executable
 NODE=$(readlink -f "$NODE") || fail "cannot resolve Node executable"
 trusted_executable_tree "$NODE"
 [ -f "$NODE" ] && [ -x "$NODE" ] || fail "untrusted or unavailable Node interpreter"
-# Install in directories inaccessible to a same-user untrusted agent.
+# The instance did not exist at preflight. Only delete resources owned by
+# THIS installation. Never remove another instance or a preexisting root.
+# A failed release is a rollback, not a half-provisioned privileged service.
+ROOT_CREATED=0
+UNIT_CREATED=0
+INSTALL_COMMITTED=0
+UNIT=/etc/systemd/system/buccet-native-$INSTANCE.service
+rollback_if_uncommitted() {
+  status=$?
+  trap - EXIT
+  if [ "$INSTALL_COMMITTED" -ne 1 ]; then
+    if [ "$UNIT_CREATED" -eq 1 ]; then
+      systemctl stop "buccet-native-$INSTANCE.service" >/dev/null 2>&1 || :
+      systemctl disable "buccet-native-$INSTANCE.service" >/dev/null 2>&1 || :
+      /usr/bin/rm -f -- "$UNIT"
+      systemctl daemon-reload >/dev/null 2>&1 || :
+    fi
+    if [ "$ROOT_CREATED" -eq 1 ]; then
+      /usr/bin/rm -rf -- "$ROOT"
+    fi
+  fi
+  exit "$status"
+}
 install -d -o root -g root -m 0700 "$BASE" || fail "cannot create protected base"
+trap rollback_if_uncommitted EXIT
 install -d -o root -g root -m 0700 "$ROOT" || fail "cannot create protected root"
+ROOT_CREATED=1
 GUARD=$ROOT/box-fs-guard
 BROKER=$ROOT/broker.mjs
 CONTROLLER=$ROOT/policy-controller.mjs
@@ -113,15 +137,16 @@ chown root:root "$POLICY"
 [ "$(stat -c '%u:%a' "$GUARD")" = "0:500" ] || fail "native guard ownership invalid"
 [ "$(stat -c '%u:%a' "$BROKER")" = "0:400" ] || fail "broker ownership invalid"
 if [ "$FILES_ONLY" = "--files-only" ]; then
+  INSTALL_COMMITTED=1
   printf 'BUCCET_PROVISIONED_FILES_ONLY root=%s socket=%s\n' "$ROOT" "$SOCKET"
   exit 0
 fi
 # This service is not reachable by an untrusted user or agent. Only a separate
 # trusted authorization controller running under the privileged principal can
 # connect to the socket. No socket chmod or group delegation is performed.
-UNIT=/etc/systemd/system/buccet-native-$INSTANCE.service
 [ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] || fail "refusing existing service unit"
 umask 077
+UNIT_CREATED=1
 cat > "$UNIT" <<EOF
 [Unit]
 Description=Agent Buccet protected native filesystem broker ($INSTANCE)
@@ -169,4 +194,5 @@ while [ "$attempt" -lt 100 ]; do
   sleep 0.1
 done
 [ -S "$SOCKET" ] || fail "broker socket not created within bounded readiness window"
+INSTALL_COMMITTED=1
 printf 'BUCCET_PROVISIONED_PROTECTED root=%s socket=%s\n' "$ROOT" "$SOCKET"
