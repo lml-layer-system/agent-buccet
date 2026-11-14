@@ -472,6 +472,44 @@ try {
   })+"\n");
   must("install",["-o","root","-g","root","-m","0400",
     registry,root+"/host-identities.json"]);
+
+  // G03 OS identity boundary: the process with the untrusted runner's UID
+  // and a separate unprivileged UID may know the actor/session NAMES but must
+  // not be able to extract the independent root issuer's HMAC secret.
+  const untrustedRegistry=run("cat",[root+"/host-identities.json"]);
+  assert.notEqual(untrustedRegistry.status,0,
+    "G03 same-UID agent could read root-issued host credential registry");
+  deny("setpriv",["--reuid=65534","--regid=65534","--clear-groups",
+    "cat",root+"/host-identities.json"],
+    "G03 independently unprivileged UID read root-only host secret");
+  const spoofedPath="allowed/forged-actor-label.txt";
+  const spoofedProposal={op:"write",path:spoofedPath,content:"MUST_NOT_EXECUTE"};
+  const spoofed=await submitPending(spoofedProposal,who,{
+    ...spoofedProposal,
+    host:{
+      sessionId:who.sessionId,actorId:who.actorId,
+      issuedAt:new Date().toISOString(),
+      nonce:randomBytes(16).toString("hex"),
+      mac:"0".repeat(64),
+    },
+  });
+  const spoofedReceipt=await Promise.race([
+    spoofed.response,
+    new Promise(resolve=>setTimeout(()=>{
+      spoofed.socket.destroy();
+      resolve({ok:false,error:"missing explicit forged-proof rejection"});
+    },2500)),
+  ]);
+  assert.equal(spoofedReceipt.ok,false,
+    "G03 copied trusted actor label with fake MAC gained root gate access");
+  assert.match(String(spoofedReceipt.error),/host proof|unattested|invalid/i,
+    "G03 forged actor proof failed without a verified integrity reason");
+  assert.equal(operator({command:"list"}).pending?.length,0,
+    "G03 forged actor label entered root operator approval queue");
+  deny("test",["-e",root+"/"+spoofedPath],
+    "G03 forged host identity produced protected bytes");
+  console.log("F03_G03_PASS same-UID secret denial and forged actor-MAC proof refusal");
+
   const staleName="allowed/old-unapproved.txt";
   const pending=await submitPending({
     op:"write",path:staleName,content:"SHOULD_NOT_EXECUTE",
@@ -555,6 +593,7 @@ try {
     realBrokerKillRecovery:true, realGateKillRecovery:true,
     crashedPendingApprovalInvalidated:true,
     crashedSignedHostProofReplayDenied:true,
+    sameUIDHostSecretInaccessible:true, forgedActorMACDenied:true,
     newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
   }));
