@@ -155,7 +155,16 @@ try {
   killed(crashBefore, "pre-rename");
   assert.equal(read("files/payload.txt"), "EXISTS_BUT_DURABILITY_UNKNOWN");
   assert.match(traceContent(), /rename:before/);
-  report("SIGKILL-before-actual-rename-leaves-previous-bytes");
+  // A SIGKILL bypasses all userspace error handlers. The next independently
+  // privileged guard invocation must reconcile abandoned staging while under
+  // the same kernel root lock; stale private approved bytes are not an
+  // acceptable indefinitely persisted crash artifact.
+  const stranded = sudo("find", [root + "/files", "-maxdepth", "1",
+    "-type", "f", "-name", ".buccet-fs-*", "-printf", "%f\\n"]);
+  assert.equal(stranded.status, 0, "cannot inspect root staging after crash");
+  assert.equal(stranded.stdout.trim(), "",
+    "native SIGKILL stranded root-only staged bytes after restart/read recovery");
+  report("SIGKILL-before-rename-recovers-old-bytes-and-removes-abandoned-staging");
 
   resetTrace();
   const crashAfter = act("write", "files/payload.txt", "PUBLISHED_NO_RECEIPT",
