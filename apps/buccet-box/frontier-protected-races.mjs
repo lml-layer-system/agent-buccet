@@ -120,23 +120,17 @@ async function waitReady(gate, pending) {
   pending.then(result => { ended = true; earlyResult = result; },
     error => { ended = true; earlyResult = String(error); });
   for (let count = 0; count < 800; count++) {
-    try { await access(path.join(gate, "ready")); return privileged("cat", [path.join(gate, "ready")]).trim(); }
-    catch { /* wait for real renameat pre-commit barrier */ }
-    if (ended) {
-      throw new Error("real executor finished before renameat barrier: " + JSON.stringify(earlyResult));
-    }
+    try {
+      await access(path.join(gate, "ready"));
+      // Native guard runs as root and creates its marker mode 0600. The
+      // trusted CI orchestrator, never the untrusted agent, reads that marker.
+      return privileged("cat", [path.join(gate, "ready")]).trim();
+    } catch { /* wait for the genuine renameat pause */ }
+    if (ended) throw new Error("real executor finished before renameat barrier: " +
+      JSON.stringify(earlyResult));
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  let wrapperArmed = false, interposerLoaded = false,
-    renameSeen = "none", conditionTrue = false, markerResult = "none";
-  try { await access(path.join(gate, "wrapper-armed")); wrapperArmed = true; } catch {}
-  try { await access(path.join(gate, "interposer-loaded")); interposerLoaded = true; } catch {}
-  try { renameSeen = await readFile(path.join(gate, "rename-seen"), "utf8"); } catch {}
-  try { await access(path.join(gate, "matched-rename")); conditionTrue = true; } catch {}
-  try { markerResult = await readFile(path.join(gate, "marker-result"), "utf8"); } catch {}
-  throw new Error("actual native renameat barrier not reached; wrapperArmed=" +
-    wrapperArmed + ", interposerLoaded=" + interposerLoaded + ", renameSeen=" +
-    renameSeen + ", conditionTrue=" + conditionTrue + ", markerResult=" + markerResult);
+  throw new Error("native guard did not reach the original renameat barrier");
 }
 function record(label, details) {
   console.log("FRONTIER_PROTECTED_PASS", label, JSON.stringify(details));
@@ -192,9 +186,6 @@ const nativeWrapper = [
   'if(snprintf(gate,sizeof(gate),"%s/gate-%s",GATE_ROOT,name)>= (int)sizeof(gate))return 82;',
   'if(snprintf(armed,sizeof(armed),"%s/armed",gate)>= (int)sizeof(armed))return 83;',
   'if(access(armed,F_OK)==0){',
-  'char diagnostic[PATH_MAX*2];',
-  'snprintf(diagnostic,sizeof(diagnostic),"%s/wrapper-armed",gate);',
-  'FILE *marker=fopen(diagnostic,"w");if(marker){fputs("armed",marker);fclose(marker);}',
   'setenv("LD_PRELOAD",INTERPOSER,1);',
   'setenv("BUCCET_TEST_RENAME_GATE",gate,1);',
   'setenv("BUCCET_TEST_OLD_PREFIX",',
@@ -207,47 +198,11 @@ let server;
 try {
   required("cc", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
     path.join(repository, "native/box-fs-guard.c"), "-o", compiledGuard]);
-  // Preserve the real renameat interposer while adding only a loader marker
-  // to distinguish a missing preload from a missed renameat interception.
-  const constructor = path.join(local, "preload-loaded.c");
-  await writeFile(constructor, [
-    "#define _GNU_SOURCE",
-    "#include <stdlib.h>",
-    "#include <stdio.h>",
-    '#include <limits.h>',
-    'static void __attribute__((constructor)) witness(void){',
-    'const char *gate=getenv("BUCCET_TEST_RENAME_GATE");',
-    'if(gate){char name[PATH_MAX*2];',
-    'snprintf(name,sizeof(name),"%s/interposer-loaded",gate);',
-    'FILE *out=fopen(name,"w");if(out){fputs("loaded",out);fclose(out);}}}',
-  ].join("\n"));
-  const interposerOriginal = await readFile(
-    path.join(repository, "apps/buccet-box/frontier-rename-barrier.c"), "utf8");
-  const splice = '  const char *prefix = getenv("BUCCET_TEST_OLD_PREFIX");';
-  assert.ok(interposerOriginal.includes(splice));
-  const diagnostic = [
-    splice,
-    '  if(gate && *gate){char seen[8192];',
-    '  if(snprintf(seen,sizeof(seen),"%s/rename-seen",gate)<(int)sizeof(seen)){',
-    '  FILE *log=fopen(seen,"w");if(log){fprintf(log,"%s|%s|cmp=%d|length=%zu",oldpath,',
-    '    prefix?prefix:"",prefix?strncmp(oldpath,prefix,strlen(prefix)):-1,',
-    '    prefix?strlen(prefix):0);fclose(log);}',
-    '  }}',
-  ].join("\n");
-  const instrumentedSource = path.join(local, "instrumented-interposer.c");
-  const condition = '    char ready[4096], release[4096];';
-  assert.ok(interposerOriginal.includes(condition));
-  const instrumentedBarrier = interposerOriginal.replace(splice, diagnostic).replace(
-    condition,
-    [
-      '    char matchPath[8192];snprintf(matchPath,sizeof(matchPath),"%s/matched-rename",gate);',
-      '    FILE *match=fopen(matchPath,"w");if(match){fputs("matched",match);fclose(match);}',
-      condition,
-    ].join("\n"),
-  );
-  await writeFile(instrumentedSource, instrumentedBarrier);
+  // Compile the exact, unchanged original commit-barrier interposer.
+  // The attack timing and success criteria are not modified for this test.
   required("cc", ["-shared", "-fPIC", "-O2", "-Wall", "-Wextra", "-Werror",
-    instrumentedSource, constructor, "-o", compiledInterposer, "-ldl"]);
+    path.join(repository, "apps/buccet-box/frontier-rename-barrier.c"),
+    "-o", compiledInterposer, "-ldl"]);
   const wrapperSource = path.join(local, "frontier-wrapper.c");
   await writeFile(wrapperSource, nativeWrapper);
   required("cc", ["-std=c11", "-O2", "-Wall", "-Wextra", "-Werror",
