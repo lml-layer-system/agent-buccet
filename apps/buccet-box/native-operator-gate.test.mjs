@@ -23,7 +23,8 @@ const operatorSock = runtimeDir + "/operator.sock";
 const guard = managed + "/box-fs-guard";
 const policy = managed + "/policy.json";
 const local = await mkdtemp(path.join(os.tmpdir(), "buccet-gated-test-"));
-const source = path.join(repo, "src/box/confined-fs.ts");
+const clientRoot = "/var/lib/buccet-gated-client-" + nonce;
+const source = path.join(clientRoot, "src/box/confined-fs.ts");
 const brokerCode = path.join(repo, "native/box-fs-broker.mjs");
 const gateCode = path.join(repo, "native/box-fs-approval-gate.mjs");
 const env = { PATH:"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG:"C" };
@@ -125,6 +126,18 @@ async function awaitAgent(agentResult){
 try {
   sudo("install",["-d","-o","root","-g","root","-m","0700",managed]);
   sudo("install",["-d","-o","root","-g","root","-m","0755",runtimeDir]);
+  // The CI checkout lives under runner-private /home, which cannot be read
+  // by an untrusted UID. Install the EXACT real scoped executor modules into
+  // a root-owned read-only fixture accessible to that UID without granting
+  // it write access to its own trusted source code.
+  sudo("install",["-d","-o","root","-g","root","-m","0755",
+    clientRoot,path.join(clientRoot,"src"),path.join(clientRoot,"src/box")]);
+  for(const module of [
+    "confined-fs.ts","protected-fs-broker.ts","protected-fs-gate.ts"
+  ]){
+    sudo("install",["-o","root","-g","root","-m","0644",
+      path.join(repo,"src/box",module),path.join(clientRoot,"src/box",module)]);
+  }
   sudo("install",["-o","root","-g","root","-m","0500",
     path.join(repo,"native/build/box-fs-guard"),guard]);
   const localPolicy=path.join(local,"policy.json");
@@ -225,7 +238,7 @@ try {
       ]);
     }
   }
-  const clean=run("sudo",["-n","rm","-rf","--",managed,runtimeDir]);
+  const clean=run("sudo",["-n","rm","-rf","--",managed,runtimeDir,clientRoot]);
   if(clean.status!==0){console.error("FS_GATE_CLEANUP_FAILED",clean.stderr);process.exitCode=1;}
   await rm(local,{force:true,recursive:true});
 }
