@@ -71,12 +71,40 @@ for item in "$ROOT/box-fs-guard" "$ROOT/broker.mjs" "$ROOT/policy-controller.mjs
     fail "protected broker policy or code not installed"
 done
 [ ! -e "$ROOT/approval-gate.mjs" ] && [ ! -e "$ROOT/operator-review.mjs" ] &&
-[ ! -e "$ROOT/host-enroll.mjs" ] ||
-  fail "refusing to overwrite a privileged gate installation"
-[ ! -L /run/buccet-native-gates ] && [ ! -L "$RUN" ] ||
-  fail "request namespace is symlinked"
+[ ! -e "$ROOT/host-enroll.mjs" ] &&
+[ ! -e "$ROOT/host-identities.json" ] ||
+  fail "refusing to overwrite an existing privileged gate installation"
+[ ! -L /run/buccet-native-gates ] && [ ! -L "$RUN" ] &&
+[ ! -e "$RUN" ] ||
+  fail "request namespace is linked or already exists"
+UNIT=/etc/systemd/system/buccet-operator-gate-$INSTANCE.service
+[ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] ||
+  fail "refusing an existing operator gate unit"
+RUN_CREATED=0
+UNIT_CREATED=0
+INSTALL_COMMITTED=0
+rollback_if_uncommitted() {
+  status=$?
+  trap - EXIT
+  if [ "$INSTALL_COMMITTED" -ne 1 ]; then
+    if [ "$UNIT_CREATED" -eq 1 ]; then
+      systemctl stop "buccet-operator-gate-$INSTANCE.service" >/dev/null 2>&1 || :
+      systemctl disable "buccet-operator-gate-$INSTANCE.service" >/dev/null 2>&1 || :
+      /usr/bin/rm -f -- "$UNIT"
+      systemctl daemon-reload >/dev/null 2>&1 || :
+    fi
+    /usr/bin/rm -f -- "$ROOT/approval-gate.mjs" "$ROOT/operator-review.mjs" \
+      "$ROOT/host-enroll.mjs" "$ROOT/host-identities.json"
+    if [ "$RUN_CREATED" -eq 1 ]; then
+      /usr/bin/rm -rf -- "$RUN"
+    fi
+  fi
+  exit "$status"
+}
+trap rollback_if_uncommitted EXIT
 install -d -o root -g root -m 0755 /run/buccet-native-gates "$RUN" ||
   fail "cannot install root-controlled request namespace"
+RUN_CREATED=1
 [ "$(stat -c '%u:%a' "$RUN")" = "0:755" ] ||
   fail "untrusted public request directory"
 install -o root -g root -m 0400 "$GATE_SRC" "$ROOT/approval-gate.mjs" ||
@@ -102,13 +130,13 @@ chown root:root "$REGISTRY"
 [ "$(sha256sum "$ROOT/host-enroll.mjs" | cut -d' ' -f1)" = "$ENROLLER_HASH" ] ||
   fail "privileged operator gate or host issuer changed during installation"
 if [ "$OPTION" = "--files-only" ]; then
+  INSTALL_COMMITTED=1
   printf 'BUCCET_GATE_PROVISIONED_FILES_ONLY root=%s request=%s\n' "$ROOT" "$RUN/request.sock"
   exit 0
 fi
 command -v systemctl >/dev/null 2>&1 || fail "systemd unavailable"
-UNIT=/etc/systemd/system/buccet-operator-gate-$INSTANCE.service
-[ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] || fail "refusing existing gate service unit"
 umask 077
+UNIT_CREATED=1
 cat > "$UNIT" <<EOF
 [Unit]
 Description=Agent Buccet independent operator approval gate ($INSTANCE)
@@ -159,4 +187,5 @@ while [ "$attempt" -lt 100 ]; do
 done
 [ -S "$RUN/request.sock" ] && [ -S "$RUN/operator.sock" ] ||
   fail "operator gate sockets unavailable within bounded readiness window"
+INSTALL_COMMITTED=1
 printf 'BUCCET_GATE_PROVISIONED_PROTECTED request=%s operator=%s\n' "$RUN/request.sock" "$RUN/operator.sock"
