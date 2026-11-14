@@ -12,12 +12,22 @@ on:
       - "native/box-fs-broker.mjs"
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
+      - "apps/buccet-box/native-broker-api-test.mjs"
+      - "src/box/confined-fs.ts"
+      - "src/box/protected-fs-broker.ts"
       - ".github/workflows/native-isolation-frontier.yml"
   pull_request:
     paths:
       - "native/box-fs-guard.c"
       - "apps/buccet-box/frontier-races.mjs"
       - "apps/buccet-box/frontier-rename-barrier.c"
+      - "apps/buccet-box/native-isolation-probe.mjs"
+      - "native/box-fs-broker.mjs"
+      - "native/box-fs-broker-client.mjs"
+      - "apps/buccet-box/native-broker-probe.mjs"
+      - "apps/buccet-box/native-broker-api-test.mjs"
+      - "src/box/confined-fs.ts"
+      - "src/box/protected-fs-broker.ts"
       - ".github/workflows/native-isolation-frontier.yml"
 
 permissions:
