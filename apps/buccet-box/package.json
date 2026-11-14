@@ -14,7 +14,7 @@
     "test:queue": "node adversarial-approval-queue.mjs"
   },
   "devDependencies": {
-    "electron": "^38.0.0",
+    "electron": "^45.3.2",
     "electron-builder": "^26.0.12",
     "playwright": "^1.58.2"
   },
