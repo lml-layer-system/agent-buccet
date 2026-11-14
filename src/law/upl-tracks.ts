@@ -283,27 +283,242 @@ function inferChatOutputShape(
 
 // Allowed flags whitelist — blocks flag injection from user-supplied UPL patterns.
 const _REGEX_ALLOWED_FLAGS = /^[gimu]*$/;
-// Nested-quantifier heuristic: closing group followed by a quantifier is the canonical ReDoS shape.
-const _REGEX_NESTED_QUANTIFIER = /[)]\s*[+*{]/;
+// Caps: bound the pattern body and the text matched against it so that even a
+// safe pattern cannot be weaponised with a pathological input.
+const _REGEX_MAX_BODY = 400;
+const _REGEX_MAX_INPUT = 8192;
 
-function matchesTrackPattern(text: string, pattern: string): boolean {
+// ---- Linear-time regex gate (ReDoS defense) ----
+//
+// A corridor regex is only compiled and run if it is provably free of
+// catastrophic backtracking. The guarantee rests on two structural rules:
+//
+//   1. No quantifier may be applied to a GROUP ( `)*`, `)+`, `){n,}` ) — this
+//      removes the exponential family ( `(a+)+`, `(a|a)*`, `(.*)*` ).
+//   2. No two UNBOUNDED quantifiers whose atoms can match a COMMON character
+//      may sit next to each other, even across zero-width/optional atoms in
+//      between — this removes the polynomial family ( `.*.*`, `\w+\w+`,
+//      `[a-z]+[a-z]+`, `\w+x?\w+` ).
+//
+// Quantifiers separated by a mandatory distinct literal (e.g. the many `\s+`
+// runs in `git\s+status...rg\b`) stay linear and are accepted. The old guard
+// only looked for a `)`-prefixed quantifier, so group-less adjacent stars like
+// `.*.*.*` slipped through and backtracked super-linearly.
+type RegexAtom = { cls: Set<number>; unbounded: boolean; optional: boolean; group?: RegexSeq };
+type RegexSeq = RegexAtom[][]; // alternation runs, each a concatenation of atoms
+
+const _ASCII = 128;
+function _classAll(): Set<number> {
+  const s = new Set<number>();
+  for (let i = 0; i < _ASCII; i++) s.add(i);
+  return s;
+}
+function _classPred(f: (c: string) => boolean): Set<number> {
+  const s = new Set<number>();
+  for (let i = 0; i < _ASCII; i++) if (f(String.fromCharCode(i))) s.add(i);
+  return s;
+}
+const _CLASS_WORD = _classPred((c) => /[A-Za-z0-9_]/.test(c));
+const _CLASS_DIGIT = _classPred((c) => /[0-9]/.test(c));
+const _CLASS_SPACE = _classPred((c) => /\s/.test(c));
+function _complement(s: Set<number>): Set<number> {
+  const r = new Set<number>();
+  for (let i = 0; i < _ASCII; i++) if (!s.has(i)) r.add(i);
+  return r;
+}
+function _classOfEscape(ch: string): Set<number> {
+  if (ch === "w") return _CLASS_WORD;
+  if (ch === "d") return _CLASS_DIGIT;
+  if (ch === "s") return _CLASS_SPACE;
+  if (ch === "W") return _complement(_CLASS_WORD);
+  if (ch === "D") return _complement(_CLASS_DIGIT);
+  if (ch === "S") return _complement(_CLASS_SPACE);
+  return new Set<number>([ch.charCodeAt(0) & 0x7f]);
+}
+function _classOfCharClass(src: string): Set<number> {
+  const neg = src[1] === "^";
+  const body = src.slice(neg ? 2 : 1, -1);
+  const s = new Set<number>();
+  for (let i = 0; i < body.length; i++) {
+    const c = body[i];
+    if (c === "\\") {
+      for (const x of _classOfEscape(body[i + 1] ?? "")) s.add(x);
+      i++;
+      continue;
+    }
+    if (body[i + 1] === "-" && body[i + 2] !== undefined && body[i + 2] !== "]") {
+      const a = c.charCodeAt(0);
+      const b = body[i + 2].charCodeAt(0);
+      for (let k = a; k <= b && k < _ASCII; k++) s.add(k);
+      i += 2;
+      continue;
+    }
+    if (c.charCodeAt(0) < _ASCII) s.add(c.charCodeAt(0));
+  }
+  return neg ? _complement(s) : s;
+}
+function _classesOverlap(a: Set<number>, b: Set<number>): boolean {
+  const [small, big] = a.size <= b.size ? [a, b] : [b, a];
+  for (const x of small) if (big.has(x)) return true;
+  return false;
+}
+function _parseRegexSeq(body: string, start: number, end: number): RegexSeq {
+  const runs: RegexAtom[][] = [[]];
+  let i = start;
+  while (i < end) {
+    const c = body[i];
+    let atom: RegexAtom | null = null;
+    let consumed = 1;
+    if (c === "\\") {
+      atom = { cls: _classOfEscape(body[i + 1] ?? ""), unbounded: false, optional: false };
+      consumed = 2;
+    } else if (c === "[") {
+      let j = i + 1;
+      if (body[j] === "^") j++;
+      if (body[j] === "]") j++;
+      while (j < end && body[j] !== "]") {
+        if (body[j] === "\\") j++;
+        j++;
+      }
+      const src = body.slice(i, j + 1);
+      atom = { cls: _classOfCharClass(src), unbounded: false, optional: false };
+      consumed = src.length;
+    } else if (c === "(") {
+      let depth = 0;
+      let j = i;
+      for (; j < end; j++) {
+        if (body[j] === "\\") {
+          j++;
+          continue;
+        }
+        if (body[j] === "(") depth++;
+        else if (body[j] === ")") {
+          depth--;
+          if (depth === 0) break;
+        }
+      }
+      const prefix = body.slice(i).match(/^\(\?[a-z]*:/) ??
+        body.slice(i).match(/^\(\?[:=!]/) ?? ["("];
+      const inner = _parseRegexSeq(body, i + prefix[0].length, j);
+      atom = { cls: _classAll(), unbounded: false, optional: false, group: inner };
+      consumed = j - i + 1;
+    } else if (c === "|") {
+      runs.push([]);
+      i++;
+      continue;
+    } else if (c === ".") {
+      atom = { cls: _classAll(), unbounded: false, optional: false };
+      consumed = 1;
+    } else if (c === "^" || c === "$") {
+      atom = null;
+      consumed = 1;
+    } else {
+      atom = { cls: new Set<number>([c.charCodeAt(0) & 0x7f]), unbounded: false, optional: false };
+      consumed = 1;
+    }
+    i += consumed;
+    if (i < end && atom) {
+      const q = body[i];
+      if (q === "*") {
+        atom.unbounded = true;
+        atom.optional = true;
+        i++;
+        if (body[i] === "?" || body[i] === "+") i++;
+      } else if (q === "+") {
+        atom.unbounded = true;
+        i++;
+        if (body[i] === "?" || body[i] === "+") i++;
+      } else if (q === "?") {
+        atom.optional = true;
+        i++;
+        if (body[i] === "?") i++;
+      } else if (q === "{") {
+        const m = body.slice(i).match(/^\{(\d*),?(\d*)\}/);
+        if (m) {
+          atom.unbounded = /,\}$/.test(m[0]);
+          atom.optional = /^\{0?,/.test(m[0]) || /^\{0\}/.test(m[0]);
+          i += m[0].length;
+          if (body[i] === "?") i++;
+        }
+      }
+    }
+    if (atom) runs[runs.length - 1].push(atom);
+  }
+  return runs;
+}
+function _hasAdjacentOverlap(seq: RegexSeq): boolean {
+  for (const run of seq) {
+    for (let k = 0; k < run.length; k++) {
+      if (!run[k].unbounded) continue;
+      // Walk forward over atoms that can be zero-width (optional / `*`) to the
+      // next unbounded quantifier: if its atom shares a character with run[k],
+      // the two can backtrack against overlapping input — reject.
+      for (let m = k + 1; m < run.length; m++) {
+        const mid = run[m];
+        if (mid.unbounded) {
+          if (_classesOverlap(run[k].cls, mid.cls)) return true;
+          if (!mid.optional) break;
+          continue;
+        }
+        if (mid.optional) continue;
+        break;
+      }
+    }
+    for (const atom of run) {
+      if (atom.group && _hasAdjacentOverlap(atom.group)) return true;
+    }
+  }
+  return false;
+}
+/**
+ * Compile a corridor regex body only if it is provably linear-time; otherwise
+ * return null. Null means "unsafe or malformed" — callers must resolve it
+ * fail-closed per corridor polarity, never by silently falling back to a
+ * substring of the raw pattern (that degrade made protective DENY rails
+ * evaporate).
+ */
+function compileLinearTrackRegex(body: string, flags: string): RegExp | null {
+  if (!_REGEX_ALLOWED_FLAGS.test(flags)) return null;
+  if (body.length > _REGEX_MAX_BODY) return null;
+  if (/\)\s*[*+{]/.test(body)) return null; // quantifier on a group — exponential family
+  let seq: RegexSeq;
+  try {
+    seq = _parseRegexSeq(body, 0, body.length);
+  } catch {
+    return null;
+  }
+  if (_hasAdjacentOverlap(seq)) return null; // adjacent overlapping quantifiers — polynomial family
+  try {
+    return new RegExp(body, flags);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Match `text` against a corridor `pattern`.
+ *
+ * A `/body/flags` literal is treated as a regex and compiled through the
+ * linear-time gate; a plain string is a case-insensitive substring corridor.
+ * When a regex literal cannot be safely compiled, this returns
+ * `onUnsafeRegex` — the caller's fail-closed value for that corridor's
+ * polarity (deny rails pass `true` so an unusable deny pattern still fires;
+ * allow rails pass `false` so an unusable allow pattern grants nothing). It is
+ * NEVER downgraded to a substring match of the raw slashed pattern.
+ */
+function matchesTrackPattern(text: string, pattern: string, onUnsafeRegex = false): boolean {
   const trimmedPattern = pattern.trim();
   if (!trimmedPattern) {
     return true;
   }
   const regexLiteral = trimmedPattern.match(/^\/(.+)\/([a-z]*)$/i);
   if (regexLiteral) {
-    const body = regexLiteral[1];
-    const flags = regexLiteral[2];
-    // Reject: disallowed flags or nested-quantifier ReDoS shape.
-    if (!_REGEX_ALLOWED_FLAGS.test(flags) || _REGEX_NESTED_QUANTIFIER.test(body)) {
-      return text.toLowerCase().includes(trimmedPattern.toLowerCase());
+    const re = compileLinearTrackRegex(regexLiteral[1], regexLiteral[2]);
+    if (!re) {
+      return onUnsafeRegex;
     }
-    try {
-      return new RegExp(body, flags).test(text);
-    } catch {
-      return text.toLowerCase().includes(trimmedPattern.toLowerCase());
-    }
+    const bounded = text.length > _REGEX_MAX_INPUT ? text.slice(0, _REGEX_MAX_INPUT) : text;
+    return re.test(bounded);
   }
   return text.toLowerCase().includes(trimmedPattern.toLowerCase());
 }
@@ -355,7 +570,13 @@ function buildRequestTrackText(request: BoundaryActionRequest): string {
 export function checkTrackConstraint(
   constraint: BoundaryUplTrackConstraint,
   request: BoundaryActionRequest,
+  options?: { unsafeRegexInsideCorridor?: boolean },
 ): string | null {
+  // How an unsafe/malformed corridor regex resolves, fail-closed by polarity:
+  // a DENY corridor (inside => deny) treats it as matching so the deny still
+  // fires; an ALLOW corridor (inside => grant) treats it as non-matching so it
+  // surfaces as a corridor exit (track_violation) and grants nothing.
+  const onUnsafeRegex = options?.unsafeRegexInsideCorridor ?? false;
   const allowedActionKinds =
     constraint.actionCorridor?.allowedActionKinds ?? constraint.allowedActionKinds;
   // 1. Action kind must be in the allowed set.
@@ -399,7 +620,7 @@ export function checkTrackConstraint(
         : value;
     const matches = targetPatterns.some((pattern) => {
       if (matchMode === "regex") {
-        return matchesTrackPattern(normalizedTarget, pattern);
+        return matchesTrackPattern(normalizedTarget, pattern, onUnsafeRegex);
       }
       if (matchMode === "exact") {
         return target === pattern;
@@ -420,7 +641,7 @@ export function checkTrackConstraint(
   if (constraint.requestTextPatterns?.length) {
     const requestText = buildRequestTrackText(request);
     const matches = constraint.requestTextPatterns.some((pattern) =>
-      matchesTrackPattern(requestText, pattern),
+      matchesTrackPattern(requestText, pattern, onUnsafeRegex),
     );
     if (!matches) {
       return `request text exits the approved execution corridor (track: ${constraint.description})`;
@@ -599,6 +820,191 @@ export function checkTrackConstraint(
   }
 
   return null;
+}
+
+type TrackTargetScope = { norm: string; mode: "exact" | "prefix" | "regex" };
+
+function lexicalTrackPrefix(value: string): string {
+  return value.startsWith("/")
+    ? path.posix.normalize(normalizeTrackTarget(value)).replace(/\/+$/, "") || "/"
+    : value;
+}
+
+/**
+ * The target scopes (patterns) of `constraint` that actually match `request`,
+ * each tagged with the resolved match mode and a comparable normalized form.
+ * Regex scopes are opaque for subset reasoning and kept as-is.
+ */
+function matchedTrackTargetScopes(
+  constraint: BoundaryUplTrackConstraint,
+  request: BoundaryActionRequest,
+): TrackTargetScope[] {
+  const targetPatterns = [
+    ...(constraint.actionCorridor?.targetPattern ? [constraint.actionCorridor.targetPattern] : []),
+    ...(constraint.targetPatterns ?? []),
+    ...(constraint.targetPattern ? [constraint.targetPattern] : []),
+  ];
+  if (targetPatterns.length === 0) return [];
+
+  const target = request.target;
+  const normalizedTarget = normalizeTrackTarget(target);
+  const isPathLike =
+    target.startsWith("/") ||
+    target.startsWith("./") ||
+    target.startsWith("../") ||
+    target.includes(path.sep);
+  const matchMode =
+    constraint.actionCorridor?.targetMatchMode ??
+    constraint.targetMatchMode ??
+    (isPathLike ? "prefix" : "exact");
+
+  const out: TrackTargetScope[] = [];
+  for (const pattern of targetPatterns) {
+    if (matchMode === "regex") {
+      if (matchesTrackPattern(normalizedTarget, pattern))
+        out.push({ norm: pattern, mode: "regex" });
+    } else if (matchMode === "exact") {
+      if (target === pattern) out.push({ norm: lexicalTrackPrefix(pattern), mode: "exact" });
+    } else {
+      const t = lexicalTrackPrefix(target);
+      const p = lexicalTrackPrefix(pattern);
+      if (t === p || t.startsWith(`${p}/`)) out.push({ norm: p, mode: "prefix" });
+    }
+  }
+  return out;
+}
+
+function trackScopeStrictlyNarrower(allow: TrackTargetScope, deny: TrackTargetScope): boolean {
+  if (deny.mode === "exact") return false; // deny pinned to one target: nothing is a strict subset
+  const dn = deny.norm;
+  const boundary = dn === "/" ? "/" : `${dn}/`;
+  if (allow.mode === "exact") return allow.norm !== dn && allow.norm.startsWith(boundary);
+  return allow.norm.length > dn.length && allow.norm.startsWith(boundary); // deeper subtree
+}
+
+/**
+ * Whether the ALLOW's matched target scope is a provable STRICT SUBSET of the
+ * DENY's — a genuine deeper carve-out (`/ws/public` inside a `/ws` deny). A
+ * deny that narrows via an opaque regex/glob scope, or an allow with no
+ * comparable target scope, is never treated as carved out: the deny stands.
+ */
+function trackAllowTargetCarvesOutDeny(
+  denyConstraint: BoundaryUplTrackConstraint,
+  allowConstraint: BoundaryUplTrackConstraint,
+  request: BoundaryActionRequest,
+): boolean {
+  const allowScopes = matchedTrackTargetScopes(allowConstraint, request).filter(
+    (s) => s.mode !== "regex",
+  );
+  if (allowScopes.length === 0) return false;
+  const denyScopes = matchedTrackTargetScopes(denyConstraint, request);
+  if (denyScopes.some((s) => s.mode === "regex")) return false; // opaque deny — incomparable
+  if (denyScopes.length === 0) return false; // deny not target-restricted: let specificity decide
+  const denyRef = denyScopes.reduce((a, b) => (b.norm.length > a.norm.length ? b : a));
+  return allowScopes.some((a) => trackScopeStrictlyNarrower(a, denyRef));
+}
+
+/**
+ * Specificity of a track constraint RELATIVE TO a specific request: how many
+ * distinct constraint dimensions actively gate THIS request.
+ *
+ * This differs from a raw field count in two ways that matter for ranking a
+ * matching ALLOW against a matching DENY on the same request:
+ *
+ *   1. List dimensions are DEDUPLICATED (counted by distinct value), so
+ *      padding a corridor with a duplicated target/text pattern buys nothing.
+ *   2. Surface-conditional dimensions (review/output/expression/completion and
+ *      spend) count only when the request actually exercises that surface — a
+ *      plain `fs.write` with no review context is not narrowed by a
+ *      `reviewSurface` / `reviewInvariantLawId`, so those must not inflate its
+ *      score. Counting them unconditionally let a same-breadth allow padded
+ *      with inert review metadata outrank a protective deny.
+ *
+ * Used only to break an allow-vs-deny tie; the deny stands unless the allow is
+ * genuinely more specific about dimensions that bind this request.
+ */
+export function trackRequestEngagedSpecificity(
+  constraint: BoundaryUplTrackConstraint,
+  request: BoundaryActionRequest,
+): number {
+  const distinct = (values?: readonly string[]): number =>
+    values?.length ? new Set(values).size : 0;
+
+  let score = 0;
+
+  // Target corridor — always engaged (every request has a target).
+  const targets = new Set<string>([
+    ...(constraint.actionCorridor?.targetPattern ? [constraint.actionCorridor.targetPattern] : []),
+    ...(constraint.targetPatterns ?? []),
+    ...(constraint.targetPattern ? [constraint.targetPattern] : []),
+  ]);
+  score += targets.size;
+
+  // Request-text and flag corridors — always evaluated against the request.
+  score += distinct(constraint.requestTextPatterns);
+  score += distinct(constraint.requiredFlags);
+
+  // Review / output / expression / completion corridors are only checked when
+  // the request carries a review context; otherwise they do not narrow it.
+  if (request.reviewContext) {
+    if (constraint.reviewSurface) score += 1;
+    if (constraint.reviewInvariantLawId) score += 1;
+    if (constraint.actionCorridor?.reviewSurface) score += 1;
+    if (constraint.outputShape) score += 1;
+    score += distinct(constraint.requiredTextPatterns);
+    score += distinct(constraint.forbiddenTextPatterns);
+    score += distinct(constraint.outputCorridor?.requiredTextPatterns);
+    score += distinct(constraint.outputCorridor?.forbiddenTextPatterns);
+    if (constraint.completionGrammar) score += 1;
+    if (constraint.completionCorridor?.grammar) score += 1;
+    if (constraint.expressionProfile) score += 1;
+    if (constraint.expressionCorridor) score += 1;
+  }
+
+  // Spend corridors are only checked when the request declares a spend intent.
+  if (request.spendIntent) {
+    if (constraint.spendMaxAmountNormalized !== undefined) score += 1;
+    score += distinct(constraint.spendAllowedDestinationKinds);
+    score += distinct(constraint.spendAllowedSourceAuthorityKinds);
+    score += distinct(constraint.spendAllowedCommitIntents);
+    score += distinct(constraint.spendAllowedPrincipals);
+    score += distinct(constraint.spendAllowedPurposes);
+    score += distinct(constraint.spendAllowedBucketIds);
+    score += distinct(constraint.spendAllowedRiskClasses);
+    if (constraint.spendRecurringAllowed !== undefined) score += 1;
+    if (constraint.spendMaxPeriodAmountNormalized !== undefined) score += 1;
+    if (constraint.spendPeriodWindow !== undefined) score += 1;
+  }
+
+  return score;
+}
+
+/**
+ * Whether a matching ALLOW rail may override a matching DENY rail for `request`.
+ *
+ * Fail-closed: a deny stands unless the allow is genuinely more specific in one
+ * of two independent, non-exploitable ways —
+ *   1. its TARGET scope is a strict subset (a deeper carve-out) of the deny's,
+ *      capturing legitimate `/ws/public`-inside-`/ws` carve-outs that a flat
+ *      field count cannot see; or
+ *   2. it engages strictly more request-binding dimensions than the deny
+ *      (request-engaged specificity), capturing allows that narrow via host
+ *      regex / request-text rather than target depth.
+ * Neither path rewards padding: inert metadata and duplicated patterns add no
+ * engaged specificity, and a same-breadth allow is not a strict target subset.
+ */
+export function trackAllowOverridesDeny(
+  denyConstraint: BoundaryUplTrackConstraint,
+  allowConstraint: BoundaryUplTrackConstraint,
+  request: BoundaryActionRequest,
+): boolean {
+  if (trackAllowTargetCarvesOutDeny(denyConstraint, allowConstraint, request)) {
+    return true;
+  }
+  return (
+    trackRequestEngagedSpecificity(allowConstraint, request) >
+    trackRequestEngagedSpecificity(denyConstraint, request)
+  );
 }
 
 /**

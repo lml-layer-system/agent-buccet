@@ -82,6 +82,8 @@
     "test:agent-buccet:chat-boundary": "node contracts/boundaries/agent-buccet-chat-boundary-contract.ts",
     "test:agent-buccet:upl-governance": "node contracts/law/agent-buccet-upl-governance-contract.ts",
     "test:agent-buccet:upl-tracks": "node contracts/law/agent-buccet-upl-tracks-contract.ts",
+    "test:agent-buccet:upl-specificity-claude-redteam": "node contracts/law/agent-buccet-upl-specificity-claude-redteam.ts",
+    "test:agent-buccet:upl-regex-corridor-claude-redteam": "node contracts/law/agent-buccet-upl-regex-corridor-claude-redteam.ts",
     "test:agent-buccet:upl-traffic": "node contracts/law/agent-buccet-upl-traffic-contract.ts",
     "test:agent-buccet:capability-acceptance-intake": "node contracts/teams/agent-buccet-capability-acceptance-intake-contract.ts",
     "test:agent-buccet:live-upl-field": "node contracts/law/agent-buccet-live-upl-field-contract.ts",
