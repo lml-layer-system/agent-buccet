@@ -74,11 +74,11 @@ async function main() {
     console.log("No pending privileged filesystem operations.");
     return;
   }
-  // The public request channel authenticates neither the claimed actor
-  // label nor a particular host process. Only OS-protected gate access and
-  // a separate trusted session identity system can establish that identity.
-  console.log("CAUTION: Requester identity is UNVERIFIED. Compare this operation");
-  console.log("against your trusted host/session context before approving.");
+  // A registered 256-bit launcher key authenticates proof possession.
+  // It is not enough when hostile agents run under the same OS principal and
+  // can inspect the registered host's memory or inherited file descriptors.
+  console.log("CAUTION: Verify this host is OS-isolated from untrusted agents.");
+  console.log("A copied session label without a registered HMAC proof is denied.");
   for (const item of listed.pending) {
     if (typeof item.requestId !== "string" || !/^[a-f0-9-]{36}$/.test(item.requestId) ||
         typeof item.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(item.sha256)) {
@@ -91,6 +91,7 @@ async function main() {
       operation: item.op, path: item.path, to: item.to,
       bytes: item.bytes, preview: item.preview,
     }));
+    console.log("Root-registered host identity: " + JSON.stringify(item.host ?? null));
     console.log("SHA-256 of exact operation and payload: " + item.sha256);
   }
   if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -101,11 +102,19 @@ async function main() {
     const selectedId = (await io.question("\nSelect the exact request ID (or ENTER to decline): ")).trim();
     const selected = listed.pending.find(item => item.requestId === selectedId);
     if (!selected) denied("no matching queued request selected");
+    if (selected.host?.verified !== true ||
+        typeof selected.host?.sessionId !== "string" ||
+        typeof selected.host?.actorId !== "string") {
+      denied("unregistered requester cannot receive privileged human approval");
+    }
     const inspected = await submit(socketPath, {
       command: "inspect", requestId: selected.requestId,
     });
     const exact = inspected.proposal;
     if (!exact || inspected.sha256 !== selected.sha256 ||
+        inspected.host?.verified !== true ||
+        inspected.host.sessionId !== selected.host.sessionId ||
+        inspected.host.actorId !== selected.host.actorId ||
         createHash("sha256").update(JSON.stringify(exact)).digest("hex") !== selected.sha256) {
       denied("operator inspected a changed or unverifiable request");
     }
