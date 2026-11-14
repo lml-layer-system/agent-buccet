@@ -120,7 +120,7 @@ async function waitReady(gate, pending) {
   pending.then(result => { ended = true; earlyResult = result; },
     error => { ended = true; earlyResult = String(error); });
   for (let count = 0; count < 800; count++) {
-    try { await access(path.join(gate, "ready")); return (await readFile(path.join(gate, "ready"), "utf8")).trim(); }
+    try { await access(path.join(gate, "ready")); return privileged("cat", [path.join(gate, "ready")]).trim(); }
     catch { /* wait for real renameat pre-commit barrier */ }
     if (ended) {
       throw new Error("real executor finished before renameat barrier: " + JSON.stringify(earlyResult));
