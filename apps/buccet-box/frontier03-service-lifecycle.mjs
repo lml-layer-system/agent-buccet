@@ -1,0 +1,234 @@
+/**
+ * Frontier03 G01/G02 ACTUAL Linux systemd integration (disposable fixtures).
+ *
+ * This intentionally FAILS if either privileged daemon cannot recover from
+ * SIGKILL, if an untrusted UID gains socket access, if pinned code cannot
+ * install as a real service, or if authorized post-recovery effects fail.
+ *
+ * Never use --files-only as the successful lifecycle control.
+ */
+import assert from "node:assert/strict";
+import { createHash, randomBytes } from "node:crypto";
+import { spawnSync } from "node:child_process";
+import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+assert.equal(process.platform, "linux", "G01/G02 real systemd test is Linux-only");
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const id = "f03-" + randomBytes(6).toString("hex");
+const root = "/var/lib/buccet-native/" + id;
+const stage = "/var/lib/buccet-f03-stage-" + id;
+const gateRun = "/run/buccet-native-gates/" + id;
+const brokerSocket = root + "/broker.sock";
+const gateRequest = gateRun + "/request.sock";
+const gateOperator = gateRun + "/operator.sock";
+const brokerUnit = "buccet-native-" + id + ".service";
+const gateUnit = "buccet-operator-gate-" + id + ".service";
+const tmp = await mkdtemp(path.join(os.tmpdir(), "buccet-f03-systemd-"));
+const env = { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C" };
+const sources = {
+  guard: path.join(repo, "native/build/box-fs-guard"),
+  broker: path.join(repo, "native/box-fs-broker.mjs"),
+  controller: path.join(repo, "native/box-fs-policy-controller.mjs"),
+  gate: path.join(repo, "native/box-fs-approval-gate.mjs"),
+  reviewer: path.join(repo, "native/box-fs-operator-review.mjs"),
+  issuer: path.join(repo, "native/box-fs-host-enroll.mjs"),
+  client: path.join(repo, "native/box-fs-broker-client.mjs"),
+  brokerInstaller: path.join(repo, "scripts/provision-native-broker.sh"),
+  gateInstaller: path.join(repo, "scripts/provision-native-operator-gate.sh"),
+};
+const digest = async file => createHash("sha256").update(await readFile(file)).digest("hex");
+function run(program, args, { input = "", timeout = 25000 } = {}) {
+  const r = spawnSync(program, args, { env, input, encoding: "utf8", timeout });
+  assert.equal(r.error, undefined, String(r.error?.message ?? ""));
+  return r;
+}
+function privileged(program, args, opts) {
+  return run("sudo", ["-n", program, ...args], opts);
+}
+function must(program, args, opts) {
+  const r = privileged(program, args, opts);
+  assert.equal(r.status, 0, program + " failed: " + r.stderr + r.stdout);
+  return r.stdout.trim();
+}
+function deny(program, args, reason) {
+  const r = privileged(program, args);
+  assert.notEqual(r.status, 0, reason + "\n" + r.stdout + r.stderr);
+}
+async function wait(predicate, description, timeout = 9000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      const result = predicate();
+      if (result) return result;
+    } catch { /* service may be in a transient restart state */ }
+    await new Promise(resolve => setTimeout(resolve, 120));
+  }
+  throw Error("FRONTIER03_G01_FAILED: " + description);
+}
+function serviceState(unit) {
+  const r = privileged("systemctl", ["is-active", unit]);
+  return r.status === 0 && r.stdout.trim() === "active";
+}
+function serviceEvidence(unit) {
+  return privileged("systemctl", ["show", "-p", "MainPID", "-p", "NRestarts",
+    "-p", "ActiveState", "-p", "SubState", unit]).stdout.trim();
+}
+function rootBroker(op, rel, param) {
+  const args = [stage + "/node", stage + "/broker-client.mjs",
+    brokerSocket, op, rel];
+  if (param !== undefined) args.push(param);
+  return privileged(args[0], args.slice(1));
+}
+function mustBroker(op, rel, param) {
+  const r = rootBroker(op, rel, param);
+  assert.equal(r.status, 0, "real privileged effect refused: " + r.stderr + r.stdout);
+  return r.stdout.trim();
+}
+function socketStatus(file, expected) {
+  const r = privileged("stat", ["-c", "%u:%a:%F", file]);
+  return r.status === 0 && r.stdout.trim() === expected;
+}
+function logs(unit) {
+  const lines = privileged("journalctl", ["-u", unit, "--no-pager", "-n", "20"]).stdout;
+  return lines.slice(-4200);
+}
+let brokerInstalled = false, gateInstalled = false;
+try {
+  const systemd = privileged("systemctl", ["is-system-running"]);
+  assert.notEqual(systemd.status, 127, "systemd is missing");
+  assert.notEqual(systemd.status, 1, "systemd is not functioning: " + systemd.stderr);
+  must("install", ["-d", "-o", "root", "-g", "root", "-m", "0700", stage]);
+  for (const [name, source, mode] of [
+    ["node", process.execPath, "0500"],
+    ["install-broker.sh", sources.brokerInstaller, "0500"],
+    ["install-gate.sh", sources.gateInstaller, "0500"],
+    ["broker-client.mjs", sources.client, "0400"],
+  ]) must("install", ["-o", "root", "-g", "root", "-m", mode, source, stage + "/" + name]);
+  const h = {};
+  for (const [key, file] of Object.entries(sources)) h[key] = await digest(file);
+  const brokerEnv = [
+    "BUCCET_BROKER_NODE=" + stage + "/node",
+    "BUCCET_POLICY_CONTROLLER_SRC=" + sources.controller,
+    "BUCCET_POLICY_CONTROLLER_SHA256=" + h.controller,
+  ];
+  const brokerArgs = [stage + "/install-broker.sh", id,
+    sources.guard, sources.broker, h.guard, h.broker];
+
+  // G02 negative: a forged release digest cannot create the privileged tree.
+  const forgery = privileged("env", [...brokerEnv, "sh",
+    ...brokerArgs.slice(0, -2), "0".repeat(64), h.broker]);
+  assert.notEqual(forgery.status, 0, "G02: forged guard digest created privileged code");
+  deny("test", ["-e", root], "G02: forged preflight had a filesystem side effect");
+  console.log("F03_G02_PASS forged digest denied before root creation");
+
+  const untrusted = privileged("setpriv", [
+    "--reuid=65534", "--regid=65534", "--clear-groups", "env",
+    ...brokerEnv, "sh", ...brokerArgs]);
+  assert.notEqual(untrusted.status, 0, "G02: unprivileged installer obtained root authority");
+  console.log("F03_G02_PASS unprivileged installer refused");
+
+  const installed = privileged("env", [...brokerEnv, "sh", ...brokerArgs]);
+  brokerInstalled = true;
+  assert.equal(installed.status, 0, "G01 full broker service installation failed: " +
+    installed.stderr + installed.stdout + "\n" + logs(brokerUnit));
+  await wait(() => serviceState(brokerUnit) &&
+    socketStatus(brokerSocket, "0:600:socket"), "broker not active after full systemd installation");
+  console.log("F03_G01_PASS broker systemd boot " + JSON.stringify({
+    unit: brokerUnit, state: serviceEvidence(brokerUnit),
+  }));
+
+  const policySource = path.join(tmp, "policy.json");
+  await writeFile(policySource, JSON.stringify({ schema:1, root, allowed:[
+    {op:"mkdir",prefix:"allowed"},
+    {op:"write",prefix:"allowed"},
+    {op:"read",prefix:"allowed"},
+    {op:"append",prefix:"allowed"},
+    {op:"move",prefix:"allowed"},
+  ] }) + "\n");
+  must("install", ["-o", "root", "-g", "root", "-m", "0400",
+    policySource, root + "/policy.json"]);
+  mustBroker("mkdir", "allowed");
+  mustBroker("write", "allowed/ready.txt", "AUTHORIZED_BEFORE_CRASH");
+  assert.equal(mustBroker("read", "allowed/ready.txt"), "AUTHORIZED_BEFORE_CRASH");
+
+  const hostile = privileged("setpriv", [
+    "--reuid=65534", "--regid=65534", "--clear-groups",
+    "stat", brokerSocket]);
+  assert.notEqual(hostile.status, 0, "G02: untrusted process reached private broker path");
+
+  const gateEnv = [
+    "BUCCET_BROKER_NODE=" + stage + "/node",
+    "BUCCET_HOST_ENROLLER_SRC=" + sources.issuer,
+    "BUCCET_HOST_ENROLLER_SHA256=" + h.issuer,
+  ];
+  const gateArgs = [stage + "/install-gate.sh", id, sources.gate,
+    h.gate, sources.reviewer, h.reviewer];
+  const gateSetup = privileged("env", [...gateEnv, "sh", ...gateArgs]);
+  gateInstalled = true;
+  assert.equal(gateSetup.status, 0, "G01 full gate systemd installation failed: " +
+    gateSetup.stderr + gateSetup.stdout + "\n" + logs(gateUnit));
+  await wait(() => serviceState(gateUnit) &&
+    socketStatus(gateRequest, "0:666:socket") &&
+    socketStatus(gateOperator, "0:600:socket"), "operator gate not active after full systemd installation");
+  console.log("F03_G01_PASS gate systemd boot " + JSON.stringify({
+    unit: gateUnit, state: serviceEvidence(gateUnit),
+  }));
+
+  // Kernel-enforced isolation is a negative control; service stays usable.
+  deny("setpriv", ["--reuid=65534", "--regid=65534", "--clear-groups",
+    "stat", root + "/policy.json"], "G02: hostile UID read protected policy");
+  mustBroker("append", "allowed/ready.txt", "|VALID_AFTER_INSTALL");
+  assert.equal(mustBroker("read", "allowed/ready.txt"),
+    "AUTHORIZED_BEFORE_CRASH|VALID_AFTER_INSTALL");
+
+  const brokerBefore = serviceEvidence(brokerUnit);
+  must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", brokerUnit]);
+  console.log("F03_G01_ATTACK broker SIGKILL at live production service " + brokerBefore);
+  await wait(() => serviceState(brokerUnit) &&
+    rootBroker("read","allowed/ready.txt").status === 0,
+    "root-owned broker failed to recover from abrupt death and resume authorized read", 12000);
+  assert.equal(mustBroker("read", "allowed/ready.txt"),
+    "AUTHORIZED_BEFORE_CRASH|VALID_AFTER_INSTALL");
+  console.log("F03_G01_PASS killed broker recovered " + serviceEvidence(brokerUnit));
+
+  const gateBefore = serviceEvidence(gateUnit);
+  must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
+  console.log("F03_G01_ATTACK gate SIGKILL at live production service " + gateBefore);
+  await wait(() => serviceState(gateUnit) &&
+    socketStatus(gateOperator, "0:600:socket"), 
+    "root-owned gate failed to recover root-only socket after abrupt death", 12000);
+  console.log("F03_G01_PASS killed gate recovered " + serviceEvidence(gateUnit));
+
+  mustBroker("write", "allowed/after-restart.txt", "GENUINE_AUTHORIZED_EFFECT");
+  assert.equal(mustBroker("read", "allowed/after-restart.txt"), "GENUINE_AUTHORIZED_EFFECT");
+  console.log("FRONTIER03_G01_G02_LIFECYCLE_PASS", JSON.stringify({
+    fullSystemdBoot:true, realBrokerAndGate:true,
+    kernelUntrustedUIDDenied:true, forgedDigestDenied:true,
+    realBrokerKillRecovery:true, realGateKillRecovery:true,
+    authorizedEffectsBeforeAndAfterRestart:true,
+  }));
+} catch (error) {
+  console.error("FRONTIER03_G01_G02_RED", error?.stack ?? String(error));
+  console.error("FRONTIER03_SERVICE_BROKER", serviceEvidence(brokerUnit));
+  console.error("FRONTIER03_SERVICE_GATE", serviceEvidence(gateUnit));
+  console.error("FRONTIER03_BROKER_JOURNAL", logs(brokerUnit));
+  console.error("FRONTIER03_GATE_JOURNAL", logs(gateUnit));
+  process.exitCode = 1;
+} finally {
+  for (const [installed,unit] of [[gateInstalled,gateUnit],[brokerInstalled,brokerUnit]]) {
+    if (!installed) continue;
+    privileged("systemctl", ["stop", unit]);
+    privileged("systemctl", ["disable", unit]);
+    privileged("rm", ["-f", "--", "/etc/systemd/system/" + unit]);
+  }
+  privileged("systemctl", ["daemon-reload"]);
+  const cleaned=privileged("rm", ["-rf", "--", root, stage, gateRun]);
+  if(cleaned.status!==0) {
+    console.error("FRONTIER03_CLEANUP_FAILED", cleaned.stderr);
+    process.exitCode=1;
+  }
+  await rm(tmp,{recursive:true,force:true});
+}
