@@ -673,11 +673,12 @@ export function lookupUserPathDecision(args: {
       // the track lookup can apply the wall; a DOMAIN DENY still applies.
       if (
         decision === "allow" &&
-        lookupUserPathTrackDecision({
-          ledger: args.ledger,
-          session: args.session,
-          request: args.request,
-        })?.decision === "deny"
+        (userProhibitedRequest(args.request) ||
+          lookupUserPathTrackDecision({
+            ledger: args.ledger,
+            session: args.session,
+            request: args.request,
+          })?.decision === "deny")
       ) {
         continue;
       }
@@ -685,6 +686,18 @@ export function lookupUserPathDecision(args: {
     }
   }
   return null;
+}
+
+/**
+ * The user explicitly prohibited this action in the current turn (e.g. "don't
+ * delete notes.txt" against a delete of notes.txt). Standing, broad allows
+ * (DOMAIN scope, track corridors) were granted earlier and in general; they
+ * must not auto-approve it. An exact-request allow is unaffected: its hash
+ * covers this flag, so it only exists if a human approved the prohibited
+ * request itself.
+ */
+function userProhibitedRequest(request: BoundaryActionRequest): boolean {
+  return request.flags?.violatesUserConstraint === true;
 }
 
 /**
@@ -729,6 +742,11 @@ export function lookupUserPathTrackDecision(args: {
   })) {
     const polarity = resolveBoundaryUplTrafficPolarity(segment);
     if (!polarity) continue;
+    // A standing corridor is a general grant made earlier; an explicit user
+    // prohibition of THIS action ("don't delete notes.txt") is newer and more
+    // specific. Never let a standing ALLOW auto-approve a request the user has
+    // prohibited — fall through so normal law asks (or, autonomous, denies).
+    if (polarity === "allow" && userProhibitedRequest(args.request)) continue;
     const constraint = segment.entry.trackConstraint;
     if (!constraint) continue;
     if (!constraint.allowedActionKinds.includes(args.request.actionKind)) continue;

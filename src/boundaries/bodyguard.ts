@@ -144,6 +144,7 @@ export function createBoundaryActionRequest(args: {
   const inferredTimeConstraints = inferBoundaryTimeConstraintSignals({
     actionKind: args.actionKind,
     target: args.target,
+    payloadSummary: args.payloadSummary,
     reviewContext: args.reviewContext,
   });
   const novelty = normalizeBoundaryNoveltyState(args.novelty);
