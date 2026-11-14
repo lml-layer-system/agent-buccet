@@ -71,6 +71,11 @@ try{
   assert.match(sudo("env",[nodeEnv,"sh",...requestArgs]),/BUCCET_GATE_PROVISIONED_FILES_ONLY/);
   assert.equal(sudo("stat",["-c","%u:%a",managed+"/approval-gate.mjs"]),"0:400");
   assert.equal(sudo("stat",["-c","%u:%a",managed+"/operator-review.mjs"]),"0:400");
+  assert.equal(sudo("stat",["-c","%u:%a",managed+"/host-identities.json"]),"0:400");
+  const emptyHosts=JSON.parse(sudo("cat",[managed+"/host-identities.json"]));
+  assert.equal(emptyHosts.root,managed);
+  assert.deepEqual(emptyHosts.allowed,[],
+    "privileged installer must never trust caller-supplied actor grants");
   assert.equal(sudo("stat",["-c","%u:%a",runtime]),"0:755");
   assert.equal(sudo("sha256sum",[managed+"/approval-gate.mjs"]).split(" ")[0],gateHash);
   assert.equal(sudo("sha256sum",[managed+"/operator-review.mjs"]).split(" ")[0],reviewerHash);
