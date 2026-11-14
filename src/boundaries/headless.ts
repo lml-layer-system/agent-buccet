@@ -1,4 +1,4 @@
-import { isSensitiveMutationTarget } from "./../law/sensitive-target.ts";
+import { isSensitiveAccessTarget } from "./../law/sensitive-target.ts";
 import { evaluateBoundaryUplTraffic } from "./../law/upl-traffic.ts";
 import type {
   BoundaryApprovalDecision,
@@ -85,6 +85,17 @@ export function createBoundaryHeadlessApprovalHandler(
         // Track-wall collisions and other non-scope approval reasons must deny.
         const scopeOnly =
           approval.lawIds.length > 0 && approval.lawIds.every((id) => id.startsWith("SCOPE."));
+        // Scope expansion is a breadth question, not consent to touch secret
+        // material: never auto-expand onto a credential/secret target.
+        if (
+          scopeOnly &&
+          isSensitiveAccessTarget(approval.request.actionKind, approval.request.target)
+        ) {
+          return {
+            choice: "deny_once",
+            notes: `headless:allow_if_law_clear — sensitive target held from scope auto-expansion (${approval.request.target}); requires explicit human authorization`,
+          };
+        }
         if (!scopeOnly) {
           return {
             choice: "deny_once",
@@ -127,9 +138,9 @@ export function createBoundaryHeadlessApprovalHandler(
         if (traffic.decision === "allow" && traffic.entry) {
           // AUTH-01: a broad standing corridor also covers secret/credential
           // files beneath it. Autonomous mode (no human) must not silently
-          // rewrite those just because the corridor allows the directory —
-          // hold them closed so a human has to authorize them explicitly.
-          if (isSensitiveMutationTarget(approval.request.actionKind, approval.request.target)) {
+          // rewrite — or read — those just because the corridor allows the
+          // directory: hold them closed so a human authorizes them explicitly.
+          if (isSensitiveAccessTarget(approval.request.actionKind, approval.request.target)) {
             return {
               choice: "deny_once",
               notes: `headless:follow_upl — sensitive target held from autonomous auto-allow (${approval.request.target}); requires explicit human authorization`,

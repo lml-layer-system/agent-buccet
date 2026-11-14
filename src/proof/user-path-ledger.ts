@@ -662,10 +662,25 @@ export function lookupUserPathDecision(args: {
     if (!decision) {
       continue;
     }
-    if (
-      segment.entry.pathHash === pathHash ||
-      (segment.entry.scope === "DOMAIN" && segment.entry.domain === domain)
-    ) {
+    if (segment.entry.pathHash === pathHash) {
+      return { entry: segment.entry, decision };
+    }
+    if (segment.entry.scope === "DOMAIN" && segment.entry.domain === domain) {
+      // A DOMAIN-scope ALLOW is a broad grant ("allow FS"), not a decision about
+      // this request. It must not pre-empt a protective track wall that covers
+      // this request (e.g. the base pack's secrets / egress walls) — otherwise
+      // "allow FS" silently also means "allow reading ~/.ssh/id_rsa". Skip it so
+      // the track lookup can apply the wall; a DOMAIN DENY still applies.
+      if (
+        decision === "allow" &&
+        lookupUserPathTrackDecision({
+          ledger: args.ledger,
+          session: args.session,
+          request: args.request,
+        })?.decision === "deny"
+      ) {
+        continue;
+      }
       return { entry: segment.entry, decision };
     }
   }
