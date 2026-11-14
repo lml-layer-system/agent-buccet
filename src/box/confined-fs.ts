@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BoundaryActionKind, BoundaryPathLaw } from "../runtime/types.ts";
+import { runProtectedFilesystemBroker } from "./protected-fs-broker.ts";
 
 const toolActions: Record<string, BoundaryActionKind> = {
   read_file: "fs.read", write_file: "fs.write", append_file: "fs.append",
@@ -51,6 +52,19 @@ function scopedPath(target: string, action: BoundaryActionKind, laws: BoundaryPa
 }
 
 function runGuard(args: string[], content?: string): Promise<string> {
+  const brokerSocket = process.env.AGENT_BUCCET_FS_BROKER_SOCKET;
+  const brokerRoot = process.env.AGENT_BUCCET_FS_BROKER_ROOT;
+  const isolationRequired = process.env.AGENT_BUCCET_REQUIRE_ISOLATED_FS === "1";
+  if (isolationRequired || brokerSocket || brokerRoot) {
+    if (!brokerSocket || !brokerRoot) {
+      throw new Error("BUCCET_FS_DENIED: trusted filesystem broker required but unavailable");
+    }
+    // No direct-execution fallback after a broker was requested. A failed
+    // credential check, unsupported OS or missing daemon is a denial.
+    return runProtectedFilesystemBroker(args, content, brokerSocket, brokerRoot);
+  }
+  // Compatibility-only legacy path. This is NOT the final security boundary
+  // against an adversarial process sharing the executor's OS identity.
   if (process.platform === "win32" || !existsSync(guardBinary)) {
     throw new Error("BUCCET_FS_DENIED: native filesystem guard unavailable");
   }
