@@ -510,6 +510,26 @@ try {
     "G03 forged host identity produced protected bytes");
   console.log("F03_G03_PASS same-UID secret denial and forged actor-MAC proof refusal");
 
+  const gatePid=must("systemctl",["show","-p","MainPID","--value",gateUnit]).trim();
+  assert.match(gatePid,/^[1-9][0-9]+$/,"real gate service PID unavailable");
+  const procEnv=run("cat",["/proc/"+gatePid+"/environ"]);
+  assert.notEqual(procEnv.status,0,
+    "G03 untrusted same-UID agent read privileged gate process environment");
+  const procFD=run("ls",["/proc/"+gatePid+"/fd"]);
+  assert.notEqual(procFD.status,0,
+    "G03 untrusted same-UID agent enumerated privileged gate descriptors");
+  const procArgv=run("cat",["/proc/"+gatePid+"/cmdline"]);
+  if (procArgv.status===0) {
+    assert.ok(!procArgv.stdout.includes(who.secretHex),
+      "G03 root host secret leaked in privileged gate argv");
+  }
+  const ledgerRoute=privileged(root+"/box-fs-guard",[
+    "mkdir",root,".buccet-host-nonces/forged-native-entry"]);
+  assert.notEqual(ledgerRoute.status,0,
+    "G03 native filesystem path accepted reserved root host-nonce namespace");
+  console.log("F03_G03_PASS same-UID proc/env/fd isolation and native ledger namespace denial");
+
+
   const staleName="allowed/old-unapproved.txt";
   const pending=await submitPending({
     op:"write",path:staleName,content:"SHOULD_NOT_EXECUTE",
@@ -594,6 +614,7 @@ try {
     crashedPendingApprovalInvalidated:true,
     crashedSignedHostProofReplayDenied:true,
     sameUIDHostSecretInaccessible:true, forgedActorMACDenied:true,
+    sameUIDProcFDIsolation:true, protectedReplayLedgerPathReserved:true,
     newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
   }));
