@@ -14,9 +14,21 @@ const request = { op: operation, path: filePath };
 if (operation === "move") request.to = toOrContent;
 if (operation === "write" || operation === "append") request.content = toOrContent ?? "";
 const socket = net.connect(socketPath);
-let content = "";
+let content = "", transmitted = false, finished = false;
+function failure(error, confirmedDenial = false) {
+  if (finished) return;
+  finished = true;
+  const uncertain = operation !== "read" && transmitted && !confirmedDenial;
+  console.error(uncertain
+    ? "BUCCET_BROKER_CLIENT_COMMIT_UNCERTAIN: inspect protected state before retry"
+    : "BUCCET_BROKER_CLIENT_DENIED: " + (error?.message ?? String(error)));
+  process.exitCode = uncertain ? 74 : 73;
+}
 socket.setTimeout(16000, () => socket.destroy(new Error("broker request timeout")));
-socket.on("connect", () => socket.write(JSON.stringify(request) + "\n"));
+socket.on("connect", () => {
+  transmitted = true;
+  socket.write(JSON.stringify(request) + "\n");
+});
 socket.on("data", chunk => {
   content += chunk.toString("utf8");
   if (Buffer.byteLength(content) > 8 * 1024 * 1024 + 1024) {
@@ -24,17 +36,22 @@ socket.on("data", chunk => {
   }
 });
 socket.on("end", () => {
+  if (finished) return;
   try {
     const line = content.split("\n", 1)[0];
     const result = JSON.parse(line);
-    if (!result.ok) throw new Error(result.error);
-    process.stdout.write(result.output ?? "");
+    if (!result || result.ok !== true || typeof result.output !== "string") {
+      const confirmedDenial = result?.ok === false && result.uncertain === false;
+      failure(new Error(result?.error ?? "broker receipt unavailable"), confirmedDenial);
+      return;
+    }
+    finished = true;
+    process.stdout.write(result.output);
   } catch (error) {
-    console.error("BUCCET_BROKER_CLIENT_DENIED:", error.message);
-    process.exitCode = 73;
+    failure(error); // invalid or truncated receipt is not a confirmed denial
   }
 });
-socket.on("error", error => {
-  console.error("BUCCET_BROKER_CLIENT_DENIED:", error.message);
-  process.exitCode = 73;
+socket.on("error", error => failure(error));
+socket.on("close", () => {
+  if (!finished) failure(new Error("broker closed without a verified receipt"));
 });
