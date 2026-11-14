@@ -7,6 +7,7 @@
  * A normal MCP agent can submit but cannot invoke this root-only capability.
  */
 import net from "node:net";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { lstatSync } from "node:fs";
 import { createInterface } from "node:readline/promises";
@@ -46,7 +47,9 @@ async function submit(socketPath, message) {
     client.on("connect", () => client.write(JSON.stringify(message) + "\n"));
     client.on("data", chunk => {
       result += chunk.toString("utf8");
-      if (Buffer.byteLength(result) > 65536) finish(Error("operator response too large"));
+      if (Buffer.byteLength(result) > 8 * 1024 * 1024 + 8192) {
+        finish(Error("operator response too large"));
+      }
     });
     client.once("end", () => {
       try {
@@ -93,6 +96,19 @@ async function main() {
     const selectedId = (await io.question("\nSelect the exact request ID (or ENTER to decline): ")).trim();
     const selected = listed.pending.find(item => item.requestId === selectedId);
     if (!selected) denied("no matching queued request selected");
+    const inspected = await submit(socketPath, {
+      command: "inspect", requestId: selected.requestId,
+    });
+    const exact = inspected.proposal;
+    if (!exact || inspected.sha256 !== selected.sha256 ||
+        createHash("sha256").update(JSON.stringify(exact)).digest("hex") !== selected.sha256) {
+      denied("operator inspected a changed or unverifiable request");
+    }
+    // Full payload is shown with JSON escaping rather than trusted text.
+    // A preview-only approval cannot guarantee the operator reviewed bytes
+    // after a truncated prefix.
+    console.log("EXACT OPERATOR REVIEW - full action and full payload:");
+    console.log(JSON.stringify(exact));
     const challenge = "APPROVE " + selected.sha256;
     console.log("To approve this exact action, enter: " + challenge);
     const reply = (await io.question("Type the full confirmation (anything else denies): ")).trim();
