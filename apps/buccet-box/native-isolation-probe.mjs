@@ -53,8 +53,10 @@ function untrustedMutation(operation, source, destination = "") {
       if (e.code !== "EACCES" && e.code !== "EPERM") throw e;
       console.log("KERNEL_REFUSED_" + e.code);
     }`;
-  const result = run("setpriv", [
-    "--reuid=65534", "--regid=65534", "--clear-groups",
+  // The privileged TEST orchestrator drops identity before issuing the
+  // mutation. The attacker itself has no sudo or privilege escalation.
+  const result = run("sudo", [
+    "-n", "setpriv", "--reuid=65534", "--regid=65534", "--clear-groups",
     process.execPath, "-e", attack, operation, source, destination,
   ]);
   assert.equal(result.status, 0, result.stderr + result.stdout);
