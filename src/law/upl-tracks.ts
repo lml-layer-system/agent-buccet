@@ -178,12 +178,15 @@ export function buildAutoTrackConstraint(
         spendAllowedBucketIds: [request.spendIntent.bucketId],
         spendAllowedRiskClasses: [request.spendIntent.riskClass],
         spendRecurringAllowed: request.spendIntent.recurring,
-        ...(request.spendIntent.periodCapNormalized !== undefined
-          ? { spendMaxPeriodAmountNormalized: request.spendIntent.periodCapNormalized }
-          : {}),
-        ...(request.spendIntent.periodWindow
-          ? { spendPeriodWindow: request.spendIntent.periodWindow }
-          : {}),
+        // A standing spend law always carries a CUMULATIVE bound. Without one,
+        // approving a single $X spend "as law" let an autonomous agent repeat
+        // it without limit (each spend under the per-spend cap, amounts varied
+        // by a cent to dodge the identity-keyed recursion guard). When the
+        // approved packet declared no period cap, default to the most
+        // conservative reading: the approved amount per 24h.
+        spendMaxPeriodAmountNormalized:
+          request.spendIntent.periodCapNormalized ?? request.spendIntent.amountNormalized,
+        spendPeriodWindow: request.spendIntent.periodWindow ?? "24h",
         description: `agent spend to ${request.spendIntent.destination} under ${request.spendIntent.amountNormalized}`,
       };
     }
@@ -754,17 +757,22 @@ export function checkTrackConstraint(
         `(track requires: ${constraint.spendRecurringAllowed ? "recurring" : "one-time"} | track: ${constraint.description})`
       );
     }
+    // The corridor's period cap is a CEILING: a request may declare a tighter
+    // cap or none (the spend runtime then enforces the corridor's own bound
+    // against the real executed-spend ledger), but never a looser one.
     if (
       constraint.spendMaxPeriodAmountNormalized !== undefined &&
-      spendIntent.periodCapNormalized !== constraint.spendMaxPeriodAmountNormalized
+      spendIntent.periodCapNormalized !== undefined &&
+      spendIntent.periodCapNormalized > constraint.spendMaxPeriodAmountNormalized
     ) {
       return (
-        `spend period cap '${spendIntent.periodCapNormalized ?? "unset"}' exits the approved execution corridor ` +
-        `(allowed: ${constraint.spendMaxPeriodAmountNormalized} | track: ${constraint.description})`
+        `spend period cap '${spendIntent.periodCapNormalized}' exits the approved execution corridor ` +
+        `(allowed: at most ${constraint.spendMaxPeriodAmountNormalized} | track: ${constraint.description})`
       );
     }
     if (
       constraint.spendPeriodWindow !== undefined &&
+      spendIntent.periodWindow !== undefined &&
       spendIntent.periodWindow !== constraint.spendPeriodWindow
     ) {
       return (
