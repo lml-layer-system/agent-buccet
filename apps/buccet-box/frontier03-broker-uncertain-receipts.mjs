@@ -486,9 +486,53 @@ try {
     command: "approve", requestId: queuedRow.requestId, sha256: queuedRow.sha256,
   });
   assert.equal(clicked.approved, true, "operator click was not accepted");
+
+  // G04 exact-effect interleaving: while the FIRST root native rename is
+  // actually blocked, submit 12 more distinct signed actors. Shuffle operator
+  // decisions in reverse arrival order: 6 APPROVED then client-disconnected,
+  // 3 explicitly denied, 3 approved and kept connected. The 6 canceled
+  // requests must not enter the native guard AFTER the old effect releases.
+  // This is not a deny-everything oracle: three independently registered
+  // actors must still commit exact bytes through the same queue.
+  const mixed = await Promise.all(Array.from({ length: 12 }, async (_, n) => {
+    const credential = multiHosts[n + 1];
+    const pathName = "files/mixed-" + String(n).padStart(2, "0") + ".txt";
+    const payload = "CROSS_ACTOR_EXACT_" + String(n).padStart(2, "0");
+    const transport = await submit({ op: "write", path: pathName, content: payload },
+      credential);
+    return { credential, pathName, payload, ...transport, decision: "" };
+  }));
+  let mixedRows = [];
+  for (let attempt = 0; attempt < 80; attempt++) {
+    const listed = operator({ command: "list" }).pending;
+    mixedRows = listed.filter(row => mixed.some(item => item.pathName === row.path));
+    if (mixedRows.length === mixed.length) break;
+    await new Promise(resolve => setTimeout(resolve, 70));
+  }
+  assert.equal(mixedRows.length, mixed.length,
+    "12 independently signed actors failed to enter the root operator queue");
+  const mixedIndex = new Map(mixed.map(item => [item.pathName, item]));
+  for (const row of [...mixedRows].reverse()) {
+    const item = mixedIndex.get(row.path);
+    assert.equal(row.host?.sessionId, item.credential.sessionId,
+      "cross-session operator request was rebound to another host");
+    assert.equal(row.host?.actorId, item.credential.actorId,
+      "cross-actor operator request was rebound to another principal");
+    const n = Number(item.pathName.match(/(\\d+)\\.txt$/)[1]);
+    const command = n % 4 === 2 ? "deny" : "approve";
+    const decision = operator({ command, requestId: row.requestId, sha256: row.sha256 });
+    assert.equal(decision[command === "approve" ? "approved" : "denied"], true,
+      "mixed-order operator decision failed");
+    item.decision = command === "deny" ? "denied" :
+      n % 4 === 3 ? "approved" : "canceled-after-approval";
+    if (item.decision === "canceled-after-approval") item.socket.destroy();
+  }
+  // Cancellation must be observed by the gate before the held native guard
+  // returns. This is an independently enforced temporal boundary.
+  await new Promise(resolve => setTimeout(resolve, 400));
   const emptyRegistry = path.join(tmp, "host-revoked.json");
   await writeFile(emptyRegistry, JSON.stringify({
-    schema: 1, root, allowed: [],
+    schema: 1, root, allowed: multiHosts.slice(1),
   }) + "\n");
   must(sudo("install", ["-o", "root", "-g", "root", "-m", "0400",
     emptyRegistry, root + "/host-identities.json"]),
@@ -511,6 +555,38 @@ try {
     "revoked host produced protected native file after operator click");
   assert.equal(operator({ command: "list" }).pending.length, 0,
     "revoked request remained replayable in root operator gate");
+
+  const mixedResults = await Promise.race([
+    Promise.all(mixed.map(async item => ({ item, receipt: await item.response }))),
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("mixed-actor cancellation left stuck broker queue")), 20000)),
+  ]);
+  let positives = 0, canceledAfterClick = 0, explicitlyDenied = 0;
+  for (const { item, receipt } of mixedResults) {
+    if (item.decision === "approved") {
+      positives++;
+      assert.equal(receipt?.ok, true, "legitimate surviving actor lost approval");
+      assert.equal(actualRead(item.pathName), item.payload,
+        "approved cross-actor request published wrong bytes");
+    } else {
+      assert.notEqual(receipt?.ok, true,
+        "canceled/denied cross-actor request obtained successful receipt");
+      assert.notEqual(sudo("test", ["-e", root + "/" + item.pathName]).status, 0,
+        "canceled/denied cross-actor request published protected bytes");
+      if (item.decision === "canceled-after-approval") canceledAfterClick++;
+      else explicitlyDenied++;
+    }
+  }
+  assert.equal(positives, 3);
+  assert.equal(canceledAfterClick, 6);
+  assert.equal(explicitlyDenied, 3);
+  console.log("FRONTIER03_G04_MIXED_12_ACTOR_CANCEL_PASS", JSON.stringify({
+    independentlySignedActors: 12, rootOperatorReverseOrder: true,
+    approvedAndExactBytes: positives, canceledAfterOperatorApproval: canceledAfterClick,
+    operatorDenied: explicitlyDenied, unauthorizedNativeEffects: 0,
+    priorNativeRenamePausedDuringDecisions: true,
+    originalRevokedActorEffectDenied: true,
+  }));
   console.log("FRONTIER03_SIGNED_GATE_REVOKED_AFTER_CLICK_PASS", JSON.stringify({
     originalHmacVerified: true, firstRealNativeRenamePaused: true,
     secondOperatorApprovalAcknowledged: true, rootHostIdentityRevoked: true,
@@ -524,6 +600,7 @@ try {
     signedOperatorGateCovered: true, brokerClientAndControllerCovered: true,
     signedGate128ClientStress: true,
     signedHostPostApprovalRevocation: true,
+    mixedActorCancelAfterApproval: true,
   }));
 } catch (error) {
   console.error("FRONTIER03_BROKER_RECEIPT_RED", error?.stack ?? String(error));
