@@ -9,6 +9,7 @@
  * OS-level enforcement or host-native tool coverage.
  */
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { mkdtemp, mkdir, readFile, writeFile, rm, stat, symlink, link as makeHardLink, unlink, rename } from "node:fs/promises";
 import os from "node:os";
@@ -90,6 +91,7 @@ async function main() {
   const candidate = path.join(workspace, "candidate.txt");
   const actorId = "user:defensive-redteam";
   const sessionId = "redteam-" + Date.now();
+  const ownerProof = randomBytes(32).toString("hex");
   let box, child, mcp;
   const findings = [];
   const violations = [];
@@ -106,7 +108,7 @@ async function main() {
     // Seed once, then restore that same session in the real MCP server.
     const boundary = await import("../../src/index.ts");
     const store = await boundary.createPersistentBoundaryRuntimeStore({
-      sessionId, actorId, sessionsDir, dryRun: false, hydrationMode: "full",
+      sessionId, actorId, sessionsDir, mcpOwnerProof: ownerProof, dryRun: false, hydrationMode: "full",
     });
     const scoped = await boundary.openBoundaryPath({
       config: store.getConfig(),
@@ -130,11 +132,13 @@ async function main() {
       "--actor-id", actorId,
       "--sessions-dir", sessionsDir,
       "--home", home,
+      "--session-owner-fd", "3",
     ], { cwd: root, env: {
       ...process.env,
       AGENT_BUCCET_HOME: home,
       // Native hook/host programs are deliberately not invoked by this test.
-    }, stdio: ["pipe", "pipe", "pipe"] });
+    }, stdio: ["pipe", "pipe", "pipe", "pipe"] });
+    child.stdio[3].end(ownerProof + "\n");
     mcp = mcpClient(child);
 
     const init = await mcp.request("initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "hostile-agent", version: "1" } });
@@ -580,8 +584,10 @@ async function main() {
     let grantedShellChild = null;
     try {
       const shellSessionId = sessionId + "-explicit-shell-grant";
+      const shellOwnerProof = randomBytes(32).toString("hex");
       const shellStore = await boundary.createPersistentBoundaryRuntimeStore({
-        sessionId: shellSessionId, actorId, sessionsDir, dryRun: false, hydrationMode: "full",
+        sessionId: shellSessionId, actorId, sessionsDir,
+        mcpOwnerProof: shellOwnerProof, dryRun: false, hydrationMode: "full",
       });
       const shellPath = await boundary.openBoundaryPath({
         config: shellStore.getConfig(),
@@ -610,7 +616,9 @@ async function main() {
         "--actor-id", actorId,
         "--sessions-dir", sessionsDir,
         "--home", home,
-      ], { cwd: root, env: { ...process.env, AGENT_BUCCET_HOME: home }, stdio: ["pipe", "pipe", "pipe"] });
+        "--session-owner-fd", "3",
+      ], { cwd: root, env: { ...process.env, AGENT_BUCCET_HOME: home }, stdio: ["pipe", "pipe", "pipe", "pipe"] });
+      grantedShellChild.stdio[3].end(shellOwnerProof + "\n");
       grantedShellMcp = mcpClient(grantedShellChild);
       const shellInit = await grantedShellMcp.request("initialize", {
         protocolVersion: "2024-11-05", capabilities: {},
