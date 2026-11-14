@@ -4,7 +4,7 @@ import {
   createBoundaryActionRequest,
 } from "./../boundaries/bodyguard.ts";
 import { inferBoundaryProtectedMaterialSignals } from "./../boundaries/secrets-boundary.ts";
-import { isSensitiveMutationTarget } from "./../law/sensitive-target.ts";
+import { isSensitiveAccessTarget } from "./../law/sensitive-target.ts";
 import { appendBoundaryLedger } from "./../proof/ledger.ts";
 import { evaluateAdmission, initialAdmissionState, markCanyonLedgered } from "./admission.ts";
 import { admitBoundaryNoveltyState, normalizeBoundaryNoveltyState } from "./novelty.ts";
@@ -690,7 +690,7 @@ function holdSensitiveAllow(
   actionKind: BoundaryActionKind,
   target: string,
 ): { decision: "allow" | "deny" | "require_approval"; reason: string } {
-  if (decision === "allow" && isSensitiveMutationTarget(actionKind, target)) {
+  if (decision === "allow" && isSensitiveAccessTarget(actionKind, target)) {
     return {
       decision: "require_approval",
       reason: `sensitive target requires explicit human authorization and is not auto-allowed by standing scope: ${target}`,
