@@ -217,7 +217,11 @@ try {
   sudo("install",["-o","root","-g","root","-m","0400",localPolicy,policy]);
   const broker=launched("sudo",["-n",process.execPath,brokerCode,managed,guard,privateSock]);
   await ready(broker,"BUCCET_PROTECTED_BROKER_READY");
-  const gate=launched("sudo",["-n",process.execPath,gateCode,managed,privateSock,publicSock,operatorSock]);
+  // Legacy raw-API positive controls explicitly opt into unbound-host mode.
+  // The production installer creates an independently protected registry;
+  // subsequent MCP tests below enforce it and reject unregistered clients.
+  const gate=launched("sudo",["-n","env","BUCCET_GATE_TEST_ALLOW_UNBOUND_HOST=1",
+    process.execPath,gateCode,managed,privateSock,publicSock,operatorSock]);
   await ready(gate,"BUCCET_APPROVAL_GATE_READY");
   assert.equal(sudo("stat",["-c","%u:%a",publicSock]),"0:666");
   assert.equal(sudo("stat",["-c","%u:%a",operatorSock]),"0:600");
@@ -302,6 +306,7 @@ try {
   await mkdir(sessionsDir,{recursive:true});
   const actorId = "user:integration-human";
   const sessionId = "protected-mcp-"+nonce;
+  const secretHex = randomBytes(32).toString("hex");
   const boundary = await import("../../src/index.ts");
   const store = await boundary.createPersistentBoundaryRuntimeStore({
     sessionId,actorId,sessionsDir,dryRun:false,hydrationMode:"full",
@@ -317,6 +322,30 @@ try {
       "fs.write","fs.read","fs.append"])],
   });
   await store.persist();
+  // The independent OS root is the identity issuer. Session/actor claims
+  // are accepted only with a HMAC key recorded in this root-only registry.
+  const hostRegistry = path.join(local,"host-identities.json");
+  await writeFile(hostRegistry,JSON.stringify({
+    schema:1,root:managed,
+    allowed:[{sessionId,actorId,secretHex}],
+  }),{mode:0o600});
+  sudo("install",["-o","root","-g","root","-m","0400",
+    hostRegistry,path.join(managed,"host-identities.json")]);
+
+  // A direct same-user caller can copy the actor label but not provide the
+  // trusted launcher's inherited proof. Even the root operator cannot
+  // accidentally approve a request that never enters its vetted queue.
+  const forgedIdentity = agent("write_file",{
+    path:managed+"/allowed/forged-host-label.txt",
+    content:"HOST_IMPERSONATION_ATTEMPT",
+  });
+  const forgedReply = await awaitAgent(forgedIdentity);
+  assert.equal(forgedReply.ok,false,
+    "unregistered actor inherited a privileged filesystem request");
+  assert.equal(operator({command:"list"}).pending.length,0);
+  assert.notEqual(run("sudo",["-n","test","-e",
+    managed+"/allowed/forged-host-label.txt"]).status,0);
+
   boxServer = createBuccetBoxBackend({home:boxHome,notify:()=>{}});
   await boxServer.start();
   mcpProcess = spawn(process.execPath,[
@@ -330,9 +359,13 @@ try {
       AGENT_BUCCET_REQUIRE_ISOLATED_FS:"1",
       AGENT_BUCCET_FS_BROKER_ROOT:managed,
       AGENT_BUCCET_FS_REQUEST_SOCKET:publicSock,
+      AGENT_BUCCET_FS_HOST_PROOF_FD:"3",
     },
-    stdio:["pipe","pipe","pipe"],
+    stdio:["pipe","pipe","pipe","pipe"],
   });
+  // Trusted launcher transmits the root-issued secret by inherited pipe.
+  // It is never part of process.argv, environment variables or Box storage.
+  mcpProcess.stdio[3].end(secretHex+"\n");
   const mcp = mcpTransport(mcpProcess);
   const init=await mcp.request("initialize",{
     protocolVersion:"2024-11-05",capabilities:{},
@@ -366,6 +399,10 @@ try {
   [item]=await waitPending();
   assert.equal(item.op,"write");
   assert.equal(item.path,"allowed/mcp-box-allowed.txt");
+  assert.equal(item.host?.verified,true,
+    "root gate did not independently authenticate the protected host");
+  assert.equal(item.host?.sessionId,sessionId);
+  assert.equal(item.host?.actorId,actorId);
   assert.equal(item.bytes,Buffer.byteLength("MCP_PLUS_BOX_PLUS_ROOT"));
   assert.equal(operator({command:"approve",requestId:item.requestId,
     sha256:item.sha256}).approved,true);
@@ -402,7 +439,10 @@ try {
     realMCPServer:true,realBuccetBox:true,realNativeBroker:true,
     deniedBeforeBoxConsent:true,allowedOnlyAfterBothIndependentApprovals:true,
     rootOperatorDeniedAfterBoxAllowed:true,missingBoxFailClosed:true,
-    exactPayloadVerifiedByBothLayers:true,unverifiedHostActorIdentityRemaining:true,
+    exactPayloadVerifiedByBothLayers:true,
+    independentlyRegisteredHostProof:true,
+    copiedActorLabelWithoutProofRejected:true,
+    sameUIDMemoryTheftRequiresSeparateOSPrincipal:true,
   }));
 
   console.log("FS_MCP_OPERATOR_GATE_PASS",JSON.stringify({
