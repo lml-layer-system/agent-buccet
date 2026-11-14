@@ -5,7 +5,7 @@
  * Root broker rechecks a separate immutable operator path policy.
  */
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -25,8 +25,9 @@ const policy = managed + "/policy.json";
 const local = await mkdtemp(path.join(os.tmpdir(), "buccet-gated-test-"));
 const clientRoot = "/var/lib/buccet-gated-client-" + nonce;
 const source = path.join(clientRoot, "src/box/confined-fs.ts");
-const brokerCode = path.join(repo, "native/box-fs-broker.mjs");
-const gateCode = path.join(repo, "native/box-fs-approval-gate.mjs");
+const brokerCode = path.join(managed,"broker.mjs");
+const gateCode = path.join(managed,"approval-gate.mjs");
+const reviewerCode = path.join(managed,"operator-review.mjs");
 const env = { PATH:"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG:"C" };
 const serverProcesses = [];
 let latestAgent = null;
@@ -140,6 +141,17 @@ try {
   }
   sudo("install",["-o","root","-g","root","-m","0500",
     path.join(repo,"native/build/box-fs-guard"),guard]);
+  for(const [name,location] of [
+    ["box-fs-broker.mjs",brokerCode],
+    ["box-fs-approval-gate.mjs",gateCode],
+    ["box-fs-operator-review.mjs",reviewerCode],
+  ]){
+    const src=path.join(repo,"native",name);
+    sudo("install",["-o","root","-g","root","-m","0400",src,location]);
+    const originalHash=createHash("sha256").update(await readFile(src)).digest("hex");
+    const installedHash=sudo("sha256sum",[location]).split(" ")[0];
+    assert.equal(installedHash,originalHash,"privileged code differs from verified source");
+  }
   const localPolicy=path.join(local,"policy.json");
   await writeFile(localPolicy,JSON.stringify({
     schema:1,root:managed,
@@ -166,6 +178,16 @@ try {
   let [item]=await waitPending();
   assert.equal(item.op,"mkdir");
   assert.equal(item.path,"allowed");
+  const inspected=operator({command:"inspect",requestId:item.requestId});
+  assert.equal(inspected.sha256,item.sha256);
+  assert.equal(inspected.proposal.op,"mkdir");
+  assert.equal(createHash("sha256").update(JSON.stringify(inspected.proposal)).digest("hex"),item.sha256);
+  // The privileged human reviewer cannot be scripted into a blind approval
+  // over a noninteractive pipe. Root may list requests but cannot auto-accept.
+  const nonTTYReview=run("sudo",["-n",process.execPath,reviewerCode,operatorSock]);
+  assert.notEqual(nonTTYReview.status,0,"non-interactive root reviewer must not approve");
+  assert.match(nonTTYReview.stderr,/interactive operator TTY is mandatory/);
+  assert.equal(operator({command:"list"}).pending.length,1);
   assert.notEqual(operator({command:"approve",requestId:item.requestId,sha256:item.sha256},false).status,0,
     "untrusted agent somehow accessed the operator-only socket");
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:"0".repeat(64)}).ok,false,
