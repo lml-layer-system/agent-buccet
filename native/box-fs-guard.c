@@ -39,6 +39,35 @@
  */
 static int staged_parent = -1;
 static char staged_name[96];
+/*
+ * Only freshly created MOVE destination parents are owned by this tentative
+ * transaction. Keep their pinned parent fds and exact entry names, reverse
+ * ordered; a precommit native failure can then remove only empty directories
+ * allocated by THIS move. Never delete unknown or nonempty directories.
+ * SIGKILL still needs separate durable recovery; it cannot invoke handlers.
+ */
+struct move_created_parent {
+  int parent;
+  char *name;
+  struct move_created_parent *previous;
+};
+static struct move_created_parent *move_created = NULL;
+static int track_move_parents = 0;
+static int move_published = 0;
+static int rollback_uncommitted_move_parents(void) {
+  if (move_published) return 0;
+  while (move_created) {
+    struct move_created_parent *entry = move_created;
+    if (unlinkat(entry->parent, entry->name, AT_REMOVEDIR) < 0 &&
+        errno != ENOENT) return -1;
+    if (fsync(entry->parent) < 0) return -1;
+    move_created = entry->previous;
+    close(entry->parent);
+    free(entry->name);
+    free(entry);
+  }
+  return 0;
+}
 static int cleanup_failed_stage(void) {
   if (staged_parent < 0 || !staged_name[0]) return 0;
   if (unlinkat(staged_parent, staged_name, 0) < 0 && errno != ENOENT) return -1;
@@ -49,9 +78,13 @@ static int cleanup_failed_stage(void) {
 }
 static void fail(const char *message) {
   int saved = errno;
-  if (cleanup_failed_stage() < 0) {
-    fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: staging rollback not durable (%s)\n",
-      strerror(errno));
+  int cleanup_error = 0;
+  if (cleanup_failed_stage() < 0) cleanup_error = errno;
+  if (rollback_uncommitted_move_parents() < 0 && !cleanup_error)
+    cleanup_error = errno;
+  if (cleanup_error) {
+    fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: tentative resource rollback not durable (%s)\n",
+      strerror(cleanup_error));
     exit(74);
   }
   if (saved) fprintf(stderr, "BUCCET_FS_DENIED: %s (%s)\n", message, strerror(saved));
@@ -66,6 +99,11 @@ static void fail(const char *message) {
  */
 static void commit_uncertain(const char *message) {
   int saved = errno;
+  // An EIO while synchronizing newly allocated destination ancestry occurs
+  // before native rename. Attempt precise rollback, but keep the receipt
+  // UNCERTAIN: the kernel may not have persisted either metadata transition.
+  if (track_move_parents && !move_published)
+    (void)rollback_uncommitted_move_parents();
   if (saved) fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s (%s)\n", message, strerror(saved));
   else fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s\n", message);
   exit(74);
@@ -192,6 +230,27 @@ static int directory_root(const char *absolute) {
   free(copy);
   return fd;
 }
+static struct move_created_parent *prepare_move_parent(int parent, const char *name) {
+  if (!track_move_parents) return NULL;
+  struct move_created_parent *entry = calloc(1, sizeof(*entry));
+  if (!entry) fail("cannot allocate move rollback record");
+  entry->parent = dup(parent);
+  if (entry->parent < 0) {
+    free(entry); fail("cannot pin move destination rollback parent");
+  }
+  entry->name = strdup(name);
+  if (!entry->name) {
+    close(entry->parent); free(entry);
+    fail("cannot retain exact created destination directory name");
+  }
+  return entry;
+}
+static void discard_move_parent(struct move_created_parent *entry) {
+  if (!entry) return;
+  close(entry->parent);
+  free(entry->name);
+  free(entry);
+}
 /* Caller owns returned parent fd and leaf name. */
 static int parent_from_root(int rootfd, const char *relative, int create, char **leaf) {
   preflight_relative_path(relative);
@@ -208,8 +267,19 @@ static int parent_from_root(int rootfd, const char *relative, int create, char *
     if (!nextPiece) { *leaf = strdup(piece); if (!*leaf) fail("out of memory"); free(copy); return fd; }
     int next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (next < 0 && errno == ENOENT && create) {
+      struct move_created_parent *owned = prepare_move_parent(fd, piece);
       int made = mkdirat(fd, piece, 0700);
-      if (made < 0 && errno != EEXIST) fail("cannot create authorized subdirectory");
+      int create_error = errno;
+      if (made == 0 && owned) {
+        owned->previous = move_created;
+        move_created = owned;
+      } else {
+        discard_move_parent(owned);
+      }
+      if (made < 0 && create_error != EEXIST) {
+        errno = create_error;
+        fail("cannot create authorized subdirectory");
+      }
       if (made == 0) sync_directory_after_mutation(fd);
       next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     }
@@ -302,6 +372,7 @@ static void move_regular(int srcParent, const char *srcLeaf, int dstParent, cons
   close(src);
   check_existing_target(dstParent, dstLeaf);
   if (renameat(srcParent, srcLeaf, dstParent, dstLeaf) < 0) fail("confined rename failed");
+  move_published = 1; // never roll back directories after publication
   /* A cross-directory move mutates TWO directory entries. */
   sync_directory_after_mutation(dstParent);
   sync_directory_after_mutation(srcParent);
@@ -389,8 +460,10 @@ int main(int argc, char **argv) {
     close(verifiedSource);
     int dstRoot = directory_root(argv[4]);
     char *dstLeaf = NULL;
+    track_move_parents = 1;
     int dstParent = parent_from_root(dstRoot, argv[5], 1, &dstLeaf);
     move_regular(parent, leaf, dstParent, dstLeaf);
+    track_move_parents = 0;
     close(dstRoot); close(dstParent); free(dstLeaf);
   } else {
     errno = EINVAL; fail("unrecognized operation");
