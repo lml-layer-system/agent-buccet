@@ -115,8 +115,9 @@ static void check_component(const char *piece) {
   }
   // Internal private temp names are never valid agent/operator path targets.
   // This reservation makes crash-recovery sweeping unambiguous.
-  if (strncmp(piece, ".buccet-fs-", 11) == 0) {
-    errno = EINVAL; fail("reserved private staging component");
+  if (strncmp(piece, ".buccet-fs-", 11) == 0 ||
+      strcmp(piece, ".buccet-host-nonces") == 0) {
+    errno = EINVAL; fail("reserved private native or host-replay component");
   }
 }
 static void write_all(int fd, const void *data, size_t length) {
