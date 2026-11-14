@@ -287,6 +287,8 @@ export type BoundarySession = {
   actorId: string;
   createdAt: string;
   expiresAt?: string;
+  /** Hash of host-provisioned MCP owner secret; never the secret itself. */
+  mcpOwnerDigest?: string;
   dryRun: boolean;
   persistent: boolean;
   status: "active" | "ended";
