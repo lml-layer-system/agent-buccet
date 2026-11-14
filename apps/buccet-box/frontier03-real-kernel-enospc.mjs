@@ -15,6 +15,8 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
+import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -22,6 +24,8 @@ assert.equal(process.platform, "linux", "real Linux kernel ENOSPC required");
 const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const guard = path.join(repo, "native/build/box-fs-guard");
 const root = "/var/lib/buccet-native/f03-true-enospc-" + randomBytes(7).toString("hex");
+const tmp = mkdtempSync(path.join(os.tmpdir(), "f03-true-enospc-"));
+const payloadPath = path.join(tmp, "actual-payload.txt");
 const oldBytes = "ORIGINAL_DURABLE_ROOT_BYTES_" + randomBytes(8).toString("hex");
 const updatedBytes = "ROOT_RECOVERED_AFTER_TRUE_ENOSPC_" + randomBytes(8).toString("hex");
 const env = {
@@ -42,6 +46,14 @@ function pass(result, label) {
 }
 function act(op, rel, input = "") {
   return sudo(guard, [op, root, rel], input);
+}
+function actFromFile(op, rel) {
+  // Large spawnSync "input" can raise EPIPE in the TEST HARNESS when the
+  // native guard correctly exits as soon as write(2) returns ENOSPC.
+  // A file-backed STDIN keeps all payload bytes available until the child
+  // exits and preserves the real, unmodified native guard return status.
+  return sudo("sh", ["-c", 'exec "$1" "$2" "$3" "$4" < "$5"',
+    "sh", guard, op, root, rel, payloadPath]);
 }
 function bytes(rel) {
   return pass(act("read", rel), "read " + rel);
@@ -102,7 +114,8 @@ try {
     LD_PRELOAD: false, actualKernelFilesystem: true,
   }));
   const payload = "X".repeat(512 * 1024);
-  const refusedWrite = act("write", "data/state.txt", payload);
+  writeFileSync(payloadPath, payload, { mode: 0o600 });
+  const refusedWrite = actFromFile("write", "data/state.txt");
   assert.equal(refusedWrite.status, 73,
     "real disk-full write must fail before publication: " + refusedWrite.stderr);
   assert.match(refusedWrite.stderr, /No space left on device/,
@@ -112,7 +125,7 @@ try {
   noTemp("real ENOSPC write");
   console.log("F03_REAL_ENOSPC_PASS true-kernel-write-denied-no-destination-change");
 
-  const refusedAppend = act("append", "data/state.txt", payload);
+  const refusedAppend = actFromFile("append", "data/state.txt");
   assert.equal(refusedAppend.status, 73,
     "real disk-full append must fail before publication: " + refusedAppend.stderr);
   assert.match(refusedAppend.stderr, /No space left on device/,
@@ -159,4 +172,5 @@ try {
       process.exitCode = 1;
     }
   }
+  rmSync(tmp, { recursive: true, force: true });
 }
