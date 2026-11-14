@@ -225,6 +225,24 @@ try {
     'require("node:fs").writeFileSync(process.argv[1],"AGENT_CAN_WRITE_OUTSIDE")', free]);
   assert.equal(accessResult.status, 0, "outside destination not attacker-writable: " + accessResult.stderr);
 
+  // Trusted operator policy is a separate root-owned object: the untrusted
+  // agent cannot fabricate grants even if it learns all request parameters.
+  // Every path used by the original five attacks is explicitly inside this
+  // isolated synthetic scope. No outside destination is authorized.
+  const prefixes = [
+    "benign.txt", "payload.txt", "nested", "move-target",
+    "source.txt", "append-base.txt", "source-replaced.txt", "replaced-dest.txt",
+  ];
+  const operatorPolicy = {
+    schema:1, root:managed,
+    allowed:["read","write","append","move","mkdir","delete"].flatMap(op =>
+      prefixes.map(prefix => ({ op, prefix }))),
+  };
+  const localPolicyFile = path.join(local, "operator-policy.json");
+  await writeFile(localPolicyFile, JSON.stringify(operatorPolicy));
+  privileged("install", ["-o","root","-g","root","-m","0400",
+    localPolicyFile, path.join(managed,"policy.json")]);
+
   server = spawn("sudo", ["-n", process.execPath, broker, managed, rootWrapper, socket],
     { env, stdio: ["ignore", "pipe", "pipe"] });
   let brokerLog = "";
@@ -300,7 +318,8 @@ try {
     authorizedPositiveControlExecuted: true, originalRaceFamilies: 5,
     eachMutationAttemptedAtRealCommit: true,
     protectedRealExecutor: "executeScopedFileTool -> trusted broker -> native guard",
-    attackerUid: 65534, brokerUid: 0, passed: cases,
+    attackerUid: 65534, brokerUid: 0,
+    independentOperatorPolicyEnforced: true, passed: cases,
   }));
 } finally {
   if (server && server.exitCode === null) {
