@@ -34,6 +34,42 @@ static void fail(const char *message) {
   else fprintf(stderr, "BUCCET_FS_DENIED: %s\n", message);
   exit(73);
 }
+/*
+ * Structural boundary: this native helper must never run as a same-UID agent
+ * on an attacker-writable namespace. Only the independently privileged,
+ * root-owned broker can enter the execution path. A valid fd alone does not
+ * prevent a different same-UID process from renaming its directory.
+ *
+ * BUCCET_INSECURE_TEST_ONLY deliberately compiles the historical vulnerable
+ * behavior for a disposable red-team control. NEVER enable it in a release.
+ */
+static void require_protected_executor(void) {
+#ifndef BUCCET_INSECURE_TEST_ONLY
+  if (geteuid() != 0) {
+    errno = EPERM; fail("native effects require an independent privileged broker");
+  }
+#endif
+}
+static void require_protected_directory(int fd) {
+#ifndef BUCCET_INSECURE_TEST_ONLY
+  struct stat st;
+  if (fstat(fd, &st) < 0) fail("cannot verify protected directory identity");
+  if (!S_ISDIR(st.st_mode) || st.st_uid != 0 || (st.st_mode & 0022) != 0) {
+    errno = EPERM; fail("untrusted or writable filesystem namespace");
+  }
+#else
+  (void)fd;
+#endif
+}
+static void require_protected_regular_file(const struct stat *st) {
+#ifndef BUCCET_INSECURE_TEST_ONLY
+  if (st->st_uid != 0 || (st->st_mode & 0022) != 0) {
+    errno = EPERM; fail("target file is mutable by an untrusted OS principal");
+  }
+#else
+  (void)st;
+#endif
+}
 static void check_component(const char *piece) {
   if (!piece || !piece[0] || !strcmp(piece, ".") || !strcmp(piece, "..") || strchr(piece, '/')) {
     errno = EINVAL; fail("invalid path component");
@@ -76,6 +112,7 @@ static int directory_root(const char *absolute) {
   if (!realpath(absolute, resolved)) fail("scope root missing or unreadable");
   int fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0) fail("cannot open filesystem root");
+  require_protected_directory(fd);
   char *copy = strdup(resolved + 1);
   if (!copy) fail("out of memory");
   char *save = NULL;
@@ -83,6 +120,7 @@ static int directory_root(const char *absolute) {
     check_component(piece);
     int next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (next < 0) fail("scope root has missing or symlinked directory");
+    require_protected_directory(next);
     close(fd); fd = next;
   }
   free(copy);
@@ -95,6 +133,7 @@ static int parent_from_root(int rootfd, const char *relative, int create, char *
   }
   int fd = dup(rootfd);
   if (fd < 0) fail("cannot pin authorized root");
+  require_protected_directory(fd);
   char *copy = strdup(relative);
   if (!copy) fail("out of memory");
   char *save = NULL;
@@ -109,6 +148,7 @@ static int parent_from_root(int rootfd, const char *relative, int create, char *
       next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     }
     if (next < 0) fail("symlinked, missing, or inaccessible parent directory");
+    require_protected_directory(next);
     close(fd); fd = next; piece = nextPiece;
   }
   errno = EINVAL; fail("relative path is empty"); return -1;
@@ -119,6 +159,7 @@ static void regular_unique(int fd) {
   if (!S_ISREG(st.st_mode) || st.st_nlink != 1) {
     errno = EPERM; fail("target is not a unique regular file");
   }
+  require_protected_regular_file(&st);
 }
 static void check_existing_target(int parent, const char *leaf) {
   struct stat st;
@@ -129,6 +170,7 @@ static void check_existing_target(int parent, const char *leaf) {
   if (!S_ISREG(st.st_mode) || st.st_nlink != 1) {
     errno = EPERM; fail("target entry is linked, shared, or nonregular");
   }
+  require_protected_regular_file(&st);
 }
 static int private_temp(int parent, char *name, size_t nameSize) {
   for (unsigned int attempt = 0; attempt < 10000; attempt++) {
@@ -149,6 +191,7 @@ static void move_regular(int srcParent, const char *srcLeaf, int dstParent, cons
 }
 int main(int argc, char **argv) {
   if (argc < 4 || argc > 6) { errno = EINVAL; fail("usage: guard OP ROOT RELATIVE [DEST_ROOT DEST_RELATIVE]"); }
+  require_protected_executor();
   const char *op = argv[1];
   int root = directory_root(argv[2]);
   char *leaf = NULL;
