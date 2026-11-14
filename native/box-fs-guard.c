@@ -29,8 +29,30 @@
  *
  * This is an actuator, not a second policy engine or system-wide sandbox.
  */
+/*
+ * Staged writes are not published until renameat. Failures before that point
+ * must remove the private inode, including its sensitive staged bytes.
+ * The parent descriptor remains pinned and root-locked for this entire phase.
+ * SIGKILL cannot run this handler; orphaned crash-state cleanup is a separate
+ * recovery obligation, not falsely claimed here.
+ */
+static int staged_parent = -1;
+static char staged_name[96];
+static int cleanup_failed_stage(void) {
+  if (staged_parent < 0 || !staged_name[0]) return 0;
+  if (unlinkat(staged_parent, staged_name, 0) < 0 && errno != ENOENT) return -1;
+  staged_name[0] = '\0';
+  if (fsync(staged_parent) < 0) return -1;
+  staged_parent = -1;
+  return 0;
+}
 static void fail(const char *message) {
   int saved = errno;
+  if (cleanup_failed_stage() < 0) {
+    fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: staging rollback not durable (%s)\n",
+      strerror(errno));
+    exit(74);
+  }
   if (saved) fprintf(stderr, "BUCCET_FS_DENIED: %s (%s)\n", message, strerror(saved));
   else fprintf(stderr, "BUCCET_FS_DENIED: %s\n", message);
   exit(73);
@@ -243,6 +265,8 @@ int main(int argc, char **argv) {
     check_existing_target(parent, leaf);
     char tmp[96];
     int destination = private_temp(parent, tmp, sizeof(tmp));
+    staged_parent = parent;
+    snprintf(staged_name, sizeof(staged_name), "%s", tmp);
     if (append) { copy_stream(original, destination); close(original); }
     copy_stream(STDIN_FILENO, destination);
     if (fsync(destination) < 0) fail("cannot fsync confined output");
@@ -250,6 +274,10 @@ int main(int argc, char **argv) {
     /* Rename changes ONLY this pinned directory entry; it does not write
        through any substituted symlink or hardlink inode. */
     if (renameat(parent, tmp, parent, leaf) < 0) fail("cannot commit confined output");
+    // From here the file may be published. Never "roll back" by removing
+    // a name whose inode was already renamed into the authorized destination.
+    staged_name[0] = '\0';
+    staged_parent = -1;
     sync_directory_after_mutation(parent);
   } else if (!strcmp(op,"delete")) {
     check_existing_target(parent, leaf);
