@@ -121,7 +121,8 @@ function signedRequest(request,who){
     sessionId:who.sessionId,actorId:who.actorId,issuedAt,nonce,mac,
   }};
 }
-async function submitPending(request,who){
+async function submitPending(request,who,reuseEnvelope=null){
+  const envelope = reuseEnvelope ?? signedRequest(request,who);
   const socket=net.createConnection({path:gateRequest});
   let raw="",settled=false;
   const response=new Promise(resolve=>{
@@ -136,12 +137,12 @@ async function submitPending(request,who){
   });
   await new Promise((resolve,reject)=>{
     socket.once("connect",()=>{
-      socket.write(JSON.stringify(signedRequest(request,who))+"\n");
+      socket.write(JSON.stringify(envelope)+"\n");
       resolve();
     });
     socket.once("error",reject);
   });
-  return {socket,response};
+  return {socket,response,envelope};
 }
 let brokerInstalled = false, gateInstalled = false;
 try {
@@ -497,6 +498,40 @@ try {
   deny("test",["-e",root+"/"+staleName],
     "stale unapproved request executed in protected root");
 
+  // G03 RED CONTROL: the exact same HMAC, nonce, issuedAt and payload consumed
+  // by the crashed gate must NOT be accepted by the replacement gate. Denying
+  // the old operator request ID alone is insufficient if a signed host packet
+  // can be replayed into a fresh pending request after SIGKILL.
+  const replay = await submitPending({
+    op:"write",path:staleName,content:"SHOULD_NOT_EXECUTE",
+  },who,pending.envelope);
+  let replayQueued;
+  for (let attempt=0; attempt<18; attempt++) {
+    replayQueued=operator({command:"list"}).pending?.find(x=>x.path===staleName);
+    if (replayQueued) break;
+    await new Promise(resolve=>setTimeout(resolve,70));
+  }
+  if (replayQueued) {
+    operator({command:"deny",requestId:replayQueued.requestId,
+      sha256:replayQueued.sha256});
+  }
+  const replayResponse=await Promise.race([
+    replay.response,
+    new Promise(resolve=>setTimeout(()=>{
+      replay.socket.destroy();
+      resolve({ok:false,error:"missing explicit replay rejection"});
+    },2500)),
+  ]);
+  assert.equal(replayQueued,undefined,
+    "G03 pre-crash signed host proof reentered the replacement operator queue");
+  assert.equal(replayResponse.ok,false);
+  assert.match(String(replayResponse.error),/replay|stale|expired|invalid/i,
+    "cross-generation host replay was not explicitly refused");
+  deny("test",["-e",root+"/"+staleName],
+    "G03 host proof replay caused unapproved protected effect");
+  console.log("F03_G03_PASS precrash host-HMAC nonce cannot replay after gate SIGKILL");
+
+
   const newName="allowed/new-approved.txt";
   const fresh=await submitPending({
     op:"write",path:newName,content:"AUTHORIZED_AFTER_CRASH",
@@ -519,6 +554,7 @@ try {
     kernelUntrustedUIDDenied:true, forgedDigestDenied:true,
     realBrokerKillRecovery:true, realGateKillRecovery:true,
     crashedPendingApprovalInvalidated:true,
+    crashedSignedHostProofReplayDenied:true,
     newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
   }));
