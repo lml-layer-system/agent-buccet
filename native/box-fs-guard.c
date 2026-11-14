@@ -374,6 +374,19 @@ int main(int argc, char **argv) {
     close(opened);
   } else if (!strcmp(op,"move")) {
     if (argc != 6) { errno = EINVAL; fail("move requires destination root and relative path"); }
+    /*
+     * G06 prepare-before-allocation: parent_from_root(..., create=1) can
+     * durably mkdir destination ancestry. Verify the source exists, is
+     * nonsymlinked, root-owned and uniquely linked BEFORE that irreversible
+     * preparatory effect. move_regular() re-verifies after destination
+     * resolution; the root flock excludes cooperating broker generations.
+     */
+    preflight_relative_path(argv[5]);
+    int verifiedSource = openat(parent, leaf,
+      O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
+    if (verifiedSource < 0) fail("move source missing or symlinked");
+    regular_unique(verifiedSource);
+    close(verifiedSource);
     int dstRoot = directory_root(argv[4]);
     char *dstLeaf = NULL;
     int dstParent = parent_from_root(dstRoot, argv[5], 1, &dstLeaf);
