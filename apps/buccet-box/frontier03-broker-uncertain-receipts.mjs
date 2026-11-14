@@ -402,16 +402,88 @@ try {
   }));
 
 
+
+  // G01 host revocation AFTER an operator click but BEFORE the queued effect.
+  // First positive request has already passed the signed host check and is
+  // actually paused in the native renameat interposer. Second approval is
+  // queued behind it; revoking the host registry must invalidate the second
+  // effect BEFORE it enters the native guard. A no-op/deny-everything gate
+  // fails the first positive control.
+  const firstAction = approveAndReceive({
+    op: "write", path: "files/slow-revoke.txt", content: "FIRST_ALREADY_AT_NATIVE_RENAME",
+  }).then(result => ({ result }), error => ({ error }));
+  let reachedNative = false;
+  for (let attempt = 0; attempt < 90; attempt++) {
+    const observed = sudo("cat", [trace]);
+    if (observed.status === 0 &&
+        observed.stdout.includes("rename:paused-before-commit")) {
+      reachedNative = true;
+      break;
+    }
+    await new Promise(resolve => setTimeout(resolve, 80));
+  }
+  assert.equal(reachedNative, true,
+    "first signed approval never reached real precommit renameat barrier");
+  const queuedPath = "files/revoked-after-click.txt";
+  const queuedRequest = await submit({
+    op: "write", path: queuedPath, content: "REVOKED_MUST_NOT_PUBLISH",
+  });
+  let queuedRow;
+  for (let attempt = 0; attempt < 70; attempt++) {
+    queuedRow = operator({ command: "list" }).pending.find(p => p.path === queuedPath);
+    if (queuedRow) break;
+    await new Promise(resolve => setTimeout(resolve, 70));
+  }
+  assert.ok(queuedRow, "second signed host action was not queued");
+  assert.equal(queuedRow.host?.verified, true, "queued action was not originally signed");
+  const clicked = operator({
+    command: "approve", requestId: queuedRow.requestId, sha256: queuedRow.sha256,
+  });
+  assert.equal(clicked.approved, true, "operator click was not accepted");
+  const emptyRegistry = path.join(tmp, "host-revoked.json");
+  await writeFile(emptyRegistry, JSON.stringify({
+    schema: 1, root, allowed: [],
+  }) + "\n");
+  must(sudo("install", ["-o", "root", "-g", "root", "-m", "0400",
+    emptyRegistry, root + "/host-identities.json"]),
+    "independent root operator revokes queued host credentials");
+  must(sudo("touch", [root + "/release-revoke"]),
+    "release real native renameat after revoked second approval");
+  const firstObserved = await firstAction;
+  if (firstObserved.error) throw firstObserved.error;
+  assert.equal(firstObserved.result.ok, true,
+    "already-authorized in-flight native effect lost legitimate positive control");
+  assert.equal(actualRead("files/slow-revoke.txt"), "FIRST_ALREADY_AT_NATIVE_RENAME");
+  const revokedReceipt = await Promise.race([
+    queuedRequest.response,
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("revoked queued host request never completed")), 10000)),
+  ]);
+  assert.equal(revokedReceipt?.ok, false,
+    "revoked approved-but-queued host executed after revocation");
+  assert.notEqual(sudo("test", ["-e", root + "/" + queuedPath]).status, 0,
+    "revoked host produced protected native file after operator click");
+  assert.equal(operator({ command: "list" }).pending.length, 0,
+    "revoked request remained replayable in root operator gate");
+  console.log("FRONTIER03_SIGNED_GATE_REVOKED_AFTER_CLICK_PASS", JSON.stringify({
+    originalHmacVerified: true, firstRealNativeRenamePaused: true,
+    secondOperatorApprovalAcknowledged: true, rootHostIdentityRevoked: true,
+    firstActualFileBytes: "FIRST_ALREADY_AT_NATIVE_RENAME",
+    revokedSecondFileAbsent: true, downstreamReverificationEnforced: true,
+  }));
+
   console.log("FRONTIER03_BROKER_RECEIPT_SUMMARY", JSON.stringify({
     actualRootBroker: true, productionCGuardExecuted: true,
     deniedVersusUncertainDistinguished: true, actualPublishedBytesVerified: true,
     signedOperatorGateCovered: true, brokerClientAndControllerCovered: true,
     signedGate128ClientStress: true,
+    signedHostPostApprovalRevocation: true,
   }));
 } catch (error) {
   console.error("FRONTIER03_BROKER_RECEIPT_RED", error?.stack ?? String(error));
   process.exitCode = 1;
 } finally {
+  sudo("touch", [root + "/release-revoke"]); // unblock a faulted native guard
   if (gateDaemon && gateDaemon.exitCode === null) {
     gateDaemon.kill("SIGTERM");
     await Promise.race([
