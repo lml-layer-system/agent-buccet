@@ -43,13 +43,24 @@ esac
 command -v sha256sum >/dev/null 2>&1 || fail "sha256sum unavailable"
 command -v install >/dev/null 2>&1 || fail "install unavailable"
 command -v systemctl >/dev/null 2>&1 || [ -n "$FILES_ONLY" ] || fail "systemd unavailable"
-for hash in "$GUARD_EXPECTED" "$BROKER_EXPECTED"; do
+# Trusted policy controller code must also be release-digest pinned. It
+# authorizes effects from an independent root-only policy, never agent claims.
+CONTROLLER_SRC=${BUCCET_POLICY_CONTROLLER_SRC:-}
+CONTROLLER_EXPECTED=${BUCCET_POLICY_CONTROLLER_SHA256:-}
+[ -n "$CONTROLLER_SRC" ] && [ -n "$CONTROLLER_EXPECTED" ] ||
+  fail "root-owned policy controller artifact and SHA256 required"
+for hash in "$GUARD_EXPECTED" "$BROKER_EXPECTED" "$CONTROLLER_EXPECTED"; do
   case "$hash" in *[!a-f0-9]*|"") fail "expected SHA256 must use lowercase hexadecimal" ;; esac
   [ "${#hash}" -eq 64 ] || fail "expected SHA256 must contain exactly 64 hex characters"
 done
 [ -f "$GUARD_SRC" ] && [ ! -L "$GUARD_SRC" ] || fail "missing native guard source"
 [ -f "$BROKER_SRC" ] && [ ! -L "$BROKER_SRC" ] || fail "missing broker source"
 [ -r "$GUARD_SRC" ] && [ -r "$BROKER_SRC" ] || fail "unreadable deployment sources"
+[ -f "$CONTROLLER_SRC" ] && [ ! -L "$CONTROLLER_SRC" ] &&
+  [ -r "$CONTROLLER_SRC" ] || fail "missing trusted policy controller source"
+controller_actual=$(sha256sum "$CONTROLLER_SRC" | cut -d' ' -f1)
+[ "$controller_actual" = "$CONTROLLER_EXPECTED" ] ||
+  fail "trusted policy controller does not match pinned release digest"
 guard_actual=$(sha256sum "$GUARD_SRC" | cut -d' ' -f1)
 broker_actual=$(sha256sum "$BROKER_SRC" | cut -d' ' -f1)
 [ "$guard_actual" = "$GUARD_EXPECTED" ] || fail "native guard does not match pinned release digest"
@@ -76,13 +87,28 @@ install -d -o root -g root -m 0700 "$BASE" || fail "cannot create protected base
 install -d -o root -g root -m 0700 "$ROOT" || fail "cannot create protected root"
 GUARD=$ROOT/box-fs-guard
 BROKER=$ROOT/broker.mjs
+CONTROLLER=$ROOT/policy-controller.mjs
+POLICY=$ROOT/policy.json
 SOCKET=$ROOT/broker.sock
 install -o root -g root -m 0500 "$GUARD_SRC" "$GUARD" || fail "cannot install guard"
 install -o root -g root -m 0400 "$BROKER_SRC" "$BROKER" || fail "cannot install broker"
+install -o root -g root -m 0400 "$CONTROLLER_SRC" "$CONTROLLER" ||
+  fail "cannot install trusted policy controller"
+# DENY ALL until an OS-privileged operator deliberately installs and reviews
+# an independently protected policy for this exact managed root.
+printf '{"schema":1,"root":"%s","allowed":[]}\n' "$ROOT" > "$POLICY"
+chmod 0400 "$POLICY"
+chown root:root "$POLICY"
 [ "$(sha256sum "$GUARD" | cut -d' ' -f1)" = "$GUARD_EXPECTED" ] ||
   fail "native guard changed during protected installation"
 [ "$(sha256sum "$BROKER" | cut -d' ' -f1)" = "$BROKER_EXPECTED" ] ||
   fail "broker changed during protected installation"
+[ "$(sha256sum "$CONTROLLER" | cut -d' ' -f1)" = "$CONTROLLER_EXPECTED" ] ||
+  fail "policy controller changed during protected installation"
+[ "$(stat -c '%u:%a' "$CONTROLLER")" = "0:400" ] ||
+  fail "policy controller permissions invalid"
+[ "$(stat -c '%u:%a' "$POLICY")" = "0:400" ] ||
+  fail "operator policy permissions invalid"
 [ "$(stat -c '%u:%a' "$ROOT")" = "0:700" ] || fail "managed root permissions invalid"
 [ "$(stat -c '%u:%a' "$GUARD")" = "0:500" ] || fail "native guard ownership invalid"
 [ "$(stat -c '%u:%a' "$BROKER")" = "0:400" ] || fail "broker ownership invalid"
