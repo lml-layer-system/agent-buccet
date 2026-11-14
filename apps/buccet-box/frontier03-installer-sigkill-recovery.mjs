@@ -159,6 +159,56 @@ try {
     "broker unit-created SIGKILL left systemd privilege descriptor");
   console.log("F03_G02_PASS SIGKILL after broker systemd unit creation rolled back");
 
+  // Stronger negative: kill the privileged installer AFTER systemd activation
+  // succeeded. The incomplete marker remains, but its LIVE service must
+  // never be auto-deleted as though it were an abandoned dead installation.
+  const activeId = id + "-live";
+  const activeRoot = "/var/lib/buccet-native/" + activeId;
+  const activeUnit = "buccet-native-" + activeId + ".service";
+  const activeMarker = "/var/lib/buccet-native/.buccet-broker-install-" +
+    activeId + ".incomplete";
+  const activeBin = stage + "/activation-kill-bin";
+  good(sudo("install",["-d","-o","root","-g","root","-m","0700",activeBin]),
+    "prepare post-activation SIGKILL injector");
+  const activeSrc = path.join(tmp,"kill-active-installer.sh");
+  await writeFile(activeSrc,
+    '#!/bin/sh\n' +
+    'if [ "$1" = enable ]; then\n' +
+    '  /usr/bin/systemctl "$@" || exit $?\n' +
+    '  /bin/kill -KILL "$PPID"\n' +
+    '  exit 137\n' +
+    'fi\nexec /usr/bin/systemctl "$@"\n');
+  good(sudo("install",["-o","root","-g","root","-m","0500",
+    activeSrc,activeBin+"/systemctl"]), "pin post-activation SIGKILL fixture");
+  const activeArgs = ["sh",stage+"/install-broker.sh",activeId,
+    files.guard,files.broker,digest.guard,digest.broker];
+  try {
+    const interruptedLive = sudo("env",["PATH="+activeBin+":/usr/bin:/bin",
+      ...benv,...activeArgs]);
+    assert.notEqual(interruptedLive.status,0,
+      "post-activation SIGKILL did not stop the original installer");
+    assert.equal(active(activeUnit),true,
+      "actual systemd service was not active when its installer died");
+    assert.equal(sudo("test",["-f",activeMarker]).status,0,
+      "interrupted installed service lost its recovery witness");
+    const unsafeRecovery = sudo("env",[...benv,...activeArgs,
+      "--recover-incomplete"]);
+    assert.notEqual(unsafeRecovery.status,0,
+      "recovery destroyed a still-running root-owned systemd broker");
+    assert.equal(active(activeUnit),true,
+      "refused recovery must preserve live privileged broker");
+    assert.equal(sudo("test",["-f",activeRoot+"/box-fs-guard"]).status,0,
+      "refused recovery removed active native code");
+    console.log("F03_G02_PASS SIGKILL after broker activation refuses destructive recovery");
+  } finally {
+    sudo("systemctl",["stop",activeUnit]);
+    sudo("systemctl",["disable",activeUnit]);
+    sudo("rm",["-f","--","/etc/systemd/system/"+activeUnit]);
+    sudo("systemctl",["daemon-reload"]);
+    sudo("rm",["-rf","--",activeRoot,activeMarker]);
+  }
+
+
 
   good(sudo("env",[...benv,...bargs]), "clean real broker install after SIGKILL recovery");
   brokerBooted = true;
