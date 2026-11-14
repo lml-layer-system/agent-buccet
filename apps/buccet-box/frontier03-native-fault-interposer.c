@@ -63,6 +63,11 @@ int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
     raise(SIGKILL);
     _exit(92);
   }
+  /* Deterministic prepublication rename failure, not a process crash. */
+  if (getenv("BUCCET_F03_RENAME_EIO")) {
+    errno = EIO;
+    return -1;
+  }
   int result = real_renameat(oldfd, oldname, newfd, newname);
   if (result == 0) {
     trace_event("rename:after");
