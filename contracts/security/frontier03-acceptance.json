@@ -21,7 +21,8 @@
     "requireSameRunAttackAndPositiveControl": true,
     "rejectTestOnlyInsecureBuildAsProductionProof": true,
     "rejectUnboundStatusClaims": true,
-    "requireIssueCheckboxConsistency": true
+    "requireIssueCheckboxConsistency": true,
+    "requireVerifiedPrerequisiteClosure": true
   },
   "gates": [
     {
@@ -39,7 +40,10 @@
         "authorized post-recovery operation"
       ],
       "expectedJob": "Frontier03 / G01 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G02"
+      ]
     },
     {
       "id": "G02",
@@ -56,7 +60,8 @@
         "successful authorized effect"
       ],
       "expectedJob": "Frontier03 / G02 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": []
     },
     {
       "id": "G03",
@@ -73,7 +78,10 @@
         "valid host execution"
       ],
       "expectedJob": "Frontier03 / G03 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G02"
+      ]
     },
     {
       "id": "G04",
@@ -90,7 +98,11 @@
         "correct parallel authorized effects"
       ],
       "expectedJob": "Frontier03 / G04 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G01",
+        "G03"
+      ]
     },
     {
       "id": "G05",
@@ -107,7 +119,11 @@
         "authorized reviewed-byte import"
       ],
       "expectedJob": "Frontier03 / G05 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G02",
+        "G03"
+      ]
     },
     {
       "id": "G06",
@@ -124,7 +140,11 @@
         "authorized migration positive control"
       ],
       "expectedJob": "Frontier03 / G06 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G01",
+        "G05"
+      ]
     },
     {
       "id": "G07",
@@ -141,7 +161,11 @@
         "authorized macOS file effects"
       ],
       "expectedJob": "Frontier03 / G07 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G03",
+        "G04"
+      ]
     },
     {
       "id": "G08",
@@ -158,7 +182,11 @@
         "authorized Windows file effects"
       ],
       "expectedJob": "Frontier03 / G08 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G03",
+        "G04"
+      ]
     },
     {
       "id": "G09",
@@ -175,7 +203,14 @@
         "legitimate intended actuator positive controls"
       ],
       "expectedJob": "Frontier03 / G09 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G08"
+      ]
     },
     {
       "id": "G10",
@@ -192,7 +227,18 @@
         "legitimate progress and resource controls"
       ],
       "expectedJob": "Frontier03 / G10 evidence",
-      "evidence": null
+      "evidence": null,
+      "dependsOn": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "G06",
+        "G07",
+        "G08",
+        "G09"
+      ]
     }
   ]
 }
