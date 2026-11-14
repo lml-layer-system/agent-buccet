@@ -234,9 +234,24 @@ for (let i=0; i<10; i++) {
     if (gate.evidence !== null) reject(anchor.id+" UNVERIFIED must have null evidence");
     continue;
   }
-  if (gate.state !== "GREEN") {
-    reject(anchor.id+" only UNVERIFIED or GREEN; skip/waiver/unsupported cannot pass");
+  if (gate.state === "RED") {
+    // A real failed future attack must be visible, not silently relabeled
+    // UNVERIFIED; its failure trace must be verifiable but cannot be a pass.
+    const bad=gate.failure;
+    if (gate.evidence!==null || !OBJECT(bad) ||
+        !TEXT(bad.observation,30) || !TEXT(bad.reproducer,24) ||
+        !SHA.test(bad.sourceSha??"") ||
+        !INTEGER(bad.runId) || !INTEGER(bad.jobId)) {
+      reject(anchor.id+" RED must retain precise failed-run trace and null green evidence");
+    }
     continue;
+  }
+  if (gate.state !== "GREEN") {
+    reject(anchor.id+" invalid state: skip/waiver/unsupported never counts");
+    continue;
+  }
+  if (gate.failure !== undefined && gate.failure !== null) {
+    reject(anchor.id+" GREEN cannot retain an unresolved RED failure");
   }
   claimed.push(gate);
   const ev=gate.evidence;
@@ -310,6 +325,22 @@ async function checkLive() {
     }
   }
   const cache=new Map();
+  for(const gate of spec.gates??[]) {
+    if (gate?.state !== "RED" || !OBJECT(gate.failure)) continue;
+    const bad=gate.failure;
+    if (!INTEGER(bad.runId) || !INTEGER(bad.jobId)) continue;
+    const [run,jobs]=await Promise.all([
+      api("/actions/runs/"+bad.runId),
+      api("/actions/runs/"+bad.runId+"/jobs?per_page=100"),
+    ]);
+    const failedJob=(jobs.jobs??[]).find(x=>
+      x.id===bad.jobId && x.run_id===bad.runId &&
+      x.conclusion==="failure" && x.status==="completed");
+    if (run.head_sha!==bad.sourceSha ||
+        run.status!=="completed" || !failedJob) {
+      reject(gate.id+" RED failure trace is not tied to a genuine failed GitHub job");
+    }
+  }
   for(const gate of claimed) {
     if (!OBJECT(gate.evidence) || !Array.isArray(gate.evidence.runs)) continue;
     for(const att of gate.evidence.runs) {
