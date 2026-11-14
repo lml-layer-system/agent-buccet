@@ -1,5 +1,6 @@
 #define _GNU_SOURCE
 #include <stdio.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -29,6 +30,11 @@ int main(int argc, char **argv) {
       if (setenv("BUCCET_F03_CRASH_RENAME", "after", 1) != 0) return 84;
     } else if (!strcmp(argv[3], "files/pre-eio.txt")) {
       if (setenv("BUCCET_F03_FILE_FSYNC_EIO", "1", 1) != 0) return 85;
+    } else if (!strcmp(argv[3], "files/slow-revoke.txt")) {
+      char release[PATH_MAX];
+      int written = snprintf(release, sizeof(release), "%s/release-revoke", argv[2]);
+      if (written < 0 || (size_t)written >= sizeof(release)) return 87;
+      if (setenv("BUCCET_F03_PAUSE_RENAME_UNTIL", release, 1) != 0) return 88;
     }
   }
   execv(BUCCET_F03_REAL_GUARD, argv);
