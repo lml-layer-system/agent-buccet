@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/frontier03-g01g02-systemd.yml"
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
+      - "apps/buccet-box/frontier03-installer-sigkill-recovery.mjs"
       - "apps/buccet-box/frontier03-native-commit-faults.mjs"
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
       - "apps/buccet-box/frontier03-test-guard-wrapper.c"
@@ -22,6 +23,7 @@ on:
     paths:
       - ".github/workflows/frontier03-g01g02-systemd.yml"
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
+      - "apps/buccet-box/frontier03-installer-sigkill-recovery.mjs"
       - "apps/buccet-box/frontier03-native-commit-faults.mjs"
       - "apps/buccet-box/frontier03-native-fault-interposer.c"
       - "apps/buccet-box/frontier03-test-guard-wrapper.c"
@@ -61,5 +63,7 @@ jobs:
         run: node apps/buccet-box/frontier03-broker-concurrent-append.mjs
       - name: Attack surviving old native guard against new broker generation at real renameat
         run: node apps/buccet-box/frontier03-cross-generation-append.mjs
+      - name: Kill actual privileged installer without EXIT trap and require safe explicit recovery
+        run: node apps/buccet-box/frontier03-installer-sigkill-recovery.mjs
       - name: Attack actual broker and gate service death; test kernel isolation and authorized effects
         run: node apps/buccet-box/frontier03-service-lifecycle.mjs
