@@ -185,7 +185,8 @@ try {
   sudo("install",["-d","-o","root","-g","root","-m","0755",
     clientRoot,path.join(clientRoot,"src"),path.join(clientRoot,"src/box")]);
   for(const module of [
-    "confined-fs.ts","protected-fs-broker.ts","protected-fs-gate.ts"
+    "confined-fs.ts","protected-fs-broker.ts","protected-fs-gate.ts",
+    "host-attestation.ts"
   ]){
     sudo("install",["-o","root","-g","root","-m","0644",
       path.join(repo,"src/box",module),path.join(clientRoot,"src/box",module)]);
