@@ -97,9 +97,13 @@ function logs(unit) {
 }
 let brokerInstalled = false, gateInstalled = false;
 try {
+  const pid1 = privileged("ps", ["-p","1","-o","comm="]);
+  assert.equal(pid1.status,0,"unable to identify real init process");
+  assert.equal(pid1.stdout.trim(),"systemd",
+    "G01 demands ACTUAL systemd as PID 1 (not a fake systemctl binary)");
   const systemd = privileged("systemctl", ["is-system-running"]);
-  assert.notEqual(systemd.status, 127, "systemd is missing");
-  assert.notEqual(systemd.status, 1, "systemd is not functioning: " + systemd.stderr);
+  assert.ok(["running","degraded","starting"].includes(systemd.stdout.trim()),
+    "real systemd not usable: " + systemd.stdout + systemd.stderr);
   must("install", ["-d", "-o", "root", "-g", "root", "-m", "0700", stage]);
   for (const [name, source, mode] of [
     ["node", process.execPath, "0500"],
