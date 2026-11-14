@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -52,6 +53,22 @@ test("actual MCP-side bridge client delivers the UPL question and receives one h
   const { box } = await fixture(t);
   const bridge = await loadBuccetBoxBridge();
   assert.ok(bridge);
+  // The legitimate runtime, not the token holder, signs the pending action.
+  // The same unsigned request is rejected by the compromised-token attack.
+  await appendBoundaryLedger("APPROVAL_REQUESTED", {
+    sessionId: proposal.sessionId,
+    actorId: proposal.actorId,
+    requestId: proposal.requestId,
+    actionKind: proposal.actionKind,
+    target: proposal.target,
+    decision: "require_approval",
+    reason: proposal.reason,
+    lawIds: proposal.lawIds,
+    metadata: {
+      approvalPayloadHash: createHash("sha256").update(proposal.payloadSummary ?? "").digest("hex"),
+    },
+    createdAt: new Date().toISOString(),
+  });
   const pendingAnswer = bridge.requestApproval(proposal);
   const held = await waitPending(box);
   assert.equal(held.requestId, proposal.requestId);

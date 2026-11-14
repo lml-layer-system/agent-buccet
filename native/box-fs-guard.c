@@ -1,5 +1,11 @@
 #define _GNU_SOURCE
 #define _POSIX_C_SOURCE 200809L
+/* Darwin hides O_NOFOLLOW/O_DIRECTORY under strict POSIX feature macros.
+ * Explicitly opt in to those required system interfaces; never fall back
+ * to following symlinks if the platform does not offer them. */
+#if defined(__APPLE__)
+#define _DARWIN_C_SOURCE 1
+#endif
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
@@ -52,9 +58,43 @@ static void copy_stream(int from, int to) {
 }
 static int directory_root(const char *absolute) {
   if (!absolute || absolute[0] != '/') { errno = EINVAL; fail("root must be absolute"); }
+  const char *canonical = absolute;
+#if defined(__APPLE__)
+  /*
+   * macOS has system-owned stable aliases /var -> private/var,
+   * /tmp -> private/tmp and /etc -> private/etc. Those aliases are
+   * encountered in ordinary mktemp() and operator-approved roots.
+   *
+   * Resolve ONLY these specific, verified Apple aliases, not user-defined
+   * symlinks. Follow-up traversal is still descriptor-relative O_NOFOLLOW
+   * for every path component under the canonical system root.
+   */
+  char *macCanonical = NULL;
+  const char *aliases[] = { "/var", "/tmp", "/etc" };
+  for (size_t i = 0; i < sizeof(aliases) / sizeof(aliases[0]); i++) {
+    const char *alias = aliases[i];
+    size_t len = strlen(alias);
+    if (strncmp(absolute, alias, len) != 0 ||
+        (absolute[len] != '/' && absolute[len] != '\0')) continue;
+    char linkTarget[96];
+    ssize_t n = readlink(alias, linkTarget, sizeof(linkTarget) - 1);
+    char expected[96];
+    int expectedLen = snprintf(expected, sizeof(expected), "private%s", alias);
+    if (n <= 0 || expectedLen < 0 || expectedLen >= (int)sizeof(expected) ||
+        n != expectedLen || memcmp(linkTarget, expected, (size_t)n) != 0) {
+      errno = EPERM; fail("untrusted macOS system directory alias");
+    }
+    size_t bytes = strlen(absolute) + strlen("/private") + 1;
+    macCanonical = malloc(bytes);
+    if (!macCanonical) fail("cannot allocate canonical system path");
+    snprintf(macCanonical, bytes, "/private%s", absolute);
+    canonical = macCanonical;
+    break;
+  }
+#endif
   int fd = open("/", O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
   if (fd < 0) fail("cannot open filesystem root");
-  char *copy = strdup(absolute + 1);
+  char *copy = strdup(canonical + 1);
   if (!copy) fail("out of memory");
   char *save = NULL;
   for (char *piece = strtok_r(copy, "/", &save); piece; piece = strtok_r(NULL, "/", &save)) {
@@ -64,6 +104,9 @@ static int directory_root(const char *absolute) {
     close(fd); fd = next;
   }
   free(copy);
+#if defined(__APPLE__)
+  free(macCanonical);
+#endif
   return fd;
 }
 /* Caller owns returned parent fd and leaf name. */

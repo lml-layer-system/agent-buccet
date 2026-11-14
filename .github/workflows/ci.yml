@@ -23,6 +23,8 @@ jobs:
       - run: npm ci
       - name: Desktop bridge interaction contract
         run: node --test apps/buccet-box/backend.test.mjs
+      - name: Signed approval consumption and crash replay invariants
+        run: node --test apps/buccet-box/approval-consumption.test.mjs
       - name: MCP-side Box bridge contract
         run: node --test apps/buccet-box/bridge.test.mjs
       - name: Redirect hop regression

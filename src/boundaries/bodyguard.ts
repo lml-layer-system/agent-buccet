@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createBoundaryGravityService } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
 import { createBoundaryGravityAttachment } from "./../engines/gravity/gravity.ts";
 import { buildTelegramBoundaryProposal } from "./../integrations/telegram.ts";
@@ -411,6 +411,9 @@ export async function recordBoundaryApprovalRequested(args: {
     lawIds: args.lawIds,
     metadata: {
       provenance: args.request.provenance,
+      // Signed operator-prompt identity: matching request metadata is not
+      // sufficient unless the exact reviewed payload preview is also bound.
+      approvalPayloadHash: createHash("sha256").update(args.request.payloadSummary ?? "").digest("hex"),
       ...noveltyLedgerMetadata(args.request),
       ...spendLedgerMetadata(args.request),
     },
@@ -488,6 +491,9 @@ async function requestApproval(
     decision: "require_approval",
     reason: approval.reason,
     lawIds,
+    metadata: {
+      approvalPayloadHash: createHash("sha256").update(approval.request.payloadSummary ?? "").digest("hex"),
+    },
     createdAt: new Date().toISOString(),
   });
 

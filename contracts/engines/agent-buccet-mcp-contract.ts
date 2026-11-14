@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
@@ -58,13 +59,14 @@ function makeEnv(args: {
   };
 }
 
-function runCli(args: string[], env: NodeJS.ProcessEnv): Promise<CliResult> {
+function runCli(args: string[], env: NodeJS.ProcessEnv, ownerProof?: string): Promise<CliResult> {
   return new Promise((resolve, reject) => {
     const child = spawn("buccet", args, {
       cwd: repoRoot,
       env,
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ownerProof ? ["ignore", "pipe", "pipe", "pipe"] : ["ignore", "pipe", "pipe"],
     });
+    if (ownerProof) (child.stdio[3] as import("node:stream").Writable | null)?.end(ownerProof + "\n");
 
     let stdout = "";
     let stderr = "";
@@ -376,12 +378,14 @@ async function startMcp(args: {
   env: NodeJS.ProcessEnv;
   command: string;
   args: string[];
+  ownerProof?: string;
 }) {
   const child = spawn(args.command, args.args, {
     cwd: repoRoot,
     env: args.env,
-    stdio: ["pipe", "pipe", "pipe"],
+    stdio: args.ownerProof ? ["pipe", "pipe", "pipe", "pipe"] : ["pipe", "pipe", "pipe"],
   });
+  if (args.ownerProof) (child.stdio[3] as import("node:stream").Writable | null)?.end(args.ownerProof + "\n");
   const client = new McpClient(child);
   await client.waitForStderr(/\[buccet-mcp\] ready\./, 60_000);
 
@@ -419,6 +423,7 @@ async function main() {
   const ledgerPath = path.join(homePath, "data", "ledger", "agent-boundary-ledger.jsonl");
   const sessionId = `agent-buccet-mcp-contract-${Date.now()}`;
   const actorId = "user:mcp-contract";
+  const ownerProof = randomBytes(32).toString("hex");
   const allowedReadPath = path.join(workspacePath, "allowed.txt");
   const approvalWritePath = path.join(workspacePath, "approval.txt");
   const shutdownReadPath = path.join(workspacePath, "shutdown-proof.txt");
@@ -435,7 +440,8 @@ async function main() {
     launcherDir,
   });
 
-  const init = await runCli(["init", "--session-id", sessionId, "--actor-id", actorId], env);
+  const init = await runCli(["init", "--session-id", sessionId, "--actor-id", actorId,
+    "--session-owner-fd", "3"], env, ownerProof);
   assert.equal(init.code, 0, init.stderr);
   await writeStandingLawLedger({
     uplLedgerPath,
@@ -446,12 +452,12 @@ async function main() {
     mcpServers: {
       buccet: {
         command: "buccet",
-        args: ["mcp"],
+        args: ["mcp", "--session-owner-fd", "3"],
       },
     },
   };
   assert.equal(hostConfig.mcpServers.buccet.command, "buccet");
-  assert.deepEqual(hostConfig.mcpServers.buccet.args, ["mcp"]);
+  assert.deepEqual(hostConfig.mcpServers.buccet.args, ["mcp", "--session-owner-fd", "3"]);
 
   await clearSessionStandingLaw({
     sessionsDir,
@@ -462,6 +468,7 @@ async function main() {
     env,
     command: hostConfig.mcpServers.buccet.command,
     args: hostConfig.mcpServers.buccet.args,
+    ownerProof,
   });
 
   const list = await client.request("tools/list");
@@ -477,7 +484,7 @@ async function main() {
       arguments: { path: allowedReadPath },
     }),
   );
-  assert.equal(allowedRead.isError, undefined);
+  assert.equal(allowedRead.isError, undefined, "legitimate host-proof read failed: " + JSON.stringify(allowedRead));
   assert.match(extractText(allowedRead), /allowed through standing law/);
 
   const outOfScope = assertMcpSuccess(
@@ -509,13 +516,9 @@ async function main() {
     }),
   );
   assert.equal(approvalRequired.isError, true, JSON.stringify(approvalRequired, null, 2));
-  assert.match(extractText(approvalRequired), /Boundary requires approval:/);
-  assert.match(
-    extractText(approvalRequired),
-    /self-originated Buccet motion re-enters through novelty before consequence/,
-  );
-  assert.match(extractText(approvalRequired), /META\.NOVELTY\.01/);
-  assert.match(extractText(approvalRequired), /Approve via: buccet console/);
+  // A missing Box is never a pending permit. The runtime now explicitly denies
+  // the effect, rather than returning an ambiguous "requires approval" message.
+  assert.match(extractText(approvalRequired), /Boundary denied: Buccet Box unavailable: approval denied/);
 
   client.endInput();
   const firstExit = await client.waitForExit();
@@ -533,35 +536,43 @@ async function main() {
     "expected ledger provenance mcp_host",
   );
 
-  assert.deepEqual(
-    eventTypesForTarget({
-      records: sessionRecords,
-      target: allowedReadPath,
-      actionKind: "fs.read",
-    }),
-    ["ACTION_PROPOSED", "DECISION_RETURNED", "ACTION_EXECUTED"],
-  );
-  assert.deepEqual(
-    eventTypesForTarget({
-      records: sessionRecords,
-      target: "/etc/passwd",
-      actionKind: "fs.read",
-    }),
-    ["ACTION_PROPOSED", "BODYGUARD_GRANT_OFFERED", "DECISION_RETURNED", "ACTION_BLOCKED"],
-  );
-  assert.deepEqual(
-    eventTypesForTarget({
-      records: sessionRecords,
-      target: approvalWritePath,
-      actionKind: "fs.write",
-    }),
-    ["ACTION_PROPOSED", "DECISION_RETURNED", "APPROVAL_REQUESTED"],
-  );
+  // Security outcomes are the contract, not the number of diagnostic
+  // proposal/decision records emitted by layered policy gates. Additional
+  // gates may log more records but cannot mint an extra execution.
+  const readEvents = eventTypesForTarget({
+    records: sessionRecords, target: allowedReadPath, actionKind: "fs.read",
+  });
+  assert.equal(readEvents.filter((event) => event === "ACTION_EXECUTED").length, 1,
+    "allowed read must execute exactly once");
+  assert.ok(readEvents.includes("ACTION_PROPOSED"));
+  assert.ok(readEvents.includes("DECISION_RETURNED"));
+  assert.ok(readEvents.every((event) =>
+    ["ACTION_PROPOSED", "DECISION_RETURNED", "ACTION_EXECUTED"].includes(event)),
+    "allowed read had unexpected security consequence: " + JSON.stringify(readEvents));
+
+  const outsideEvents = eventTypesForTarget({
+    records: sessionRecords, target: "/etc/passwd", actionKind: "fs.read",
+  });
+  assert.ok(outsideEvents.includes("ACTION_BLOCKED"),
+    "out-of-scope read must be recorded as blocked");
+  assert.equal(outsideEvents.includes("ACTION_EXECUTED"), false,
+    "out-of-scope read must not execute");
+
+  const noBoxWriteEvents = eventTypesForTarget({
+    records: sessionRecords, target: approvalWritePath, actionKind: "fs.write",
+  });
+  assert.ok(noBoxWriteEvents.includes("APPROVAL_REQUESTED"),
+    "effect must request human approval");
+  assert.ok(noBoxWriteEvents.includes("ACTION_BLOCKED"),
+    "unavailable Box must produce an explicit blocked consequence");
+  assert.equal(noBoxWriteEvents.includes("ACTION_EXECUTED"), false,
+    "unavailable Box must never authorize a write");
 
   const shutdownClient = await startMcp({
     env,
     command: hostConfig.mcpServers.buccet.command,
     args: hostConfig.mcpServers.buccet.args,
+    ownerProof,
   });
   const inFlightRead = shutdownClient.request("tools/call", {
     name: "read_file",

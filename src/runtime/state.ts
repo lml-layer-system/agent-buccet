@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { digestMcpSessionOwner } from "./../box/session-authority.ts";
 import { assertBoundaryGravityEventAllowed } from "./../engines/gravity/gravity-adapter/gravity-service.ts";
 import { DEFAULT_BOUNDARY_LAWS } from "./../law/laws.ts";
 import { appendBoundaryLedger, readAllBoundaryLedgerRecords } from "./../proof/ledger.ts";
@@ -405,6 +406,7 @@ export async function hydrateBoundaryRuntimeConfig(args: {
 export async function startPersistentBoundarySession(args: {
   sessionId: string;
   actorId: string;
+  mcpOwnerProof?: string;
   dryRun?: boolean;
   expiresAt?: string;
   teamSlug?: string;
@@ -419,6 +421,7 @@ export async function startPersistentBoundarySession(args: {
     sessionId: args.sessionId,
     actorId: args.actorId,
     createdAt,
+    ...(args.mcpOwnerProof ? { mcpOwnerDigest: digestMcpSessionOwner(args.sessionId, args.actorId, args.mcpOwnerProof) } : {}),
     expiresAt: args.expiresAt,
     dryRun: args.dryRun ?? false,
     persistent: true,

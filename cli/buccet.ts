@@ -4482,6 +4482,7 @@ async function ensureStore(
     config: BuccetConfig;
     sessionsDir: string;
     hydrationMode?: "full" | "light";
+    mcpOwnerProof?: string;
   },
 ) {
   const restored = await boundary.restoreBoundaryRuntimeStore({
@@ -4497,6 +4498,7 @@ async function ensureStore(
     actorId: args.config.actorId,
     dryRun: args.config.dryRun,
     sessionsDir: args.sessionsDir,
+    ...(args.mcpOwnerProof ? { mcpOwnerProof: args.mcpOwnerProof } : {}),
     hydrationMode: args.hydrationMode ?? "full",
   });
 }
@@ -4779,6 +4781,7 @@ async function handleInit(rest: string[]) {
   let dryRun = false;
   let includeDefaultScope = true;
   let armNow = false;
+  let mcpOwnerProofFd: number | undefined;
   const scopes: string[] = [];
 
   for (let index = 0; index < rest.length; index += 1) {
@@ -4808,6 +4811,12 @@ async function handleInit(rest: string[]) {
     }
     if (token === "--arm-now") {
       armNow = true;
+      continue;
+    }
+    if (token === "--session-owner-fd") {
+      const fd = Number(rest[++index] ?? usage());
+      if (!Number.isSafeInteger(fd) || fd < 3 || fd > 1024) usage();
+      mcpOwnerProofFd = fd;
       continue;
     }
     usage();
@@ -4842,9 +4851,15 @@ async function handleInit(rest: string[]) {
     console.error(`[buccet-init-profile] ${label}: ${Date.now() - initStartedAt}ms`);
   };
 
+  const mcpOwnerProof = mcpOwnerProofFd === undefined ? undefined :
+    (await import("../src/box/session-authority.ts")).readMcpSessionOwnerProof(mcpOwnerProofFd);
+  if (mcpOwnerProofFd !== undefined && !mcpOwnerProof) {
+    throw new Error("BUCCET_SESSION_PROOF_DENIED: missing trusted launcher proof for init");
+  }
   const store = await ensureStore(boundary, {
     config: nextConfig,
     sessionsDir: home.sessionsDir,
+    ...(mcpOwnerProof ? { mcpOwnerProof } : {}),
     hydrationMode: "light",
   });
   profileMark("store ready");
@@ -10613,6 +10628,7 @@ async function handleMcp(rest: string[]) {
   let sessionId = config.sessionId;
   let actorId = config.actorId;
   let dryRun = config.dryRun;
+  let mcpOwnerProofFd: number | undefined;
   for (let i = 0; i < rest.length; i++) {
     const t = rest[i];
     if (t === "--session-id") {
@@ -10625,7 +10641,20 @@ async function handleMcp(rest: string[]) {
     }
     if (t === "--dry-run") {
       dryRun = true;
+      continue;
     }
+    if (t === "--session-owner-fd") {
+      const fd = Number(rest[++i] ?? usage());
+      if (!Number.isSafeInteger(fd) || fd < 3 || fd > 1024) usage();
+      mcpOwnerProofFd = fd;
+    }
+  }
+  const { readMcpSessionOwnerProof, verifyMcpSessionOwner } =
+    await import("../src/box/session-authority.ts");
+  const mcpOwnerProof = mcpOwnerProofFd === undefined ? null :
+    readMcpSessionOwnerProof(mcpOwnerProofFd);
+  if (mcpOwnerProofFd !== undefined && !mcpOwnerProof) {
+    throw new Error("BUCCET_SESSION_PROOF_DENIED: trusted host proof missing");
   }
 
   // Load the boundary and ensure the session + scopes are in place — same as
@@ -10641,7 +10670,17 @@ async function handleMcp(rest: string[]) {
   const store = await ensureStore(boundary, {
     config: { ...config, sessionId, actorId, dryRun },
     sessionsDir: home.sessionsDir,
+    ...(mcpOwnerProof ? { mcpOwnerProof } : {}),
   });
+  const restoredSession = store.getConfig();
+  const sensitive = restoredSession.pathLaws.length > 0 ||
+    restoredSession.grants.some((grant) => grant.resourceKind !== "chat");
+  if (restoredSession.session.actorId !== actorId ||
+      ((sensitive || restoredSession.session.mcpOwnerDigest) &&
+       !verifyMcpSessionOwner(sessionId, actorId,
+         restoredSession.session.mcpOwnerDigest, mcpOwnerProof))) {
+    throw new Error("BUCCET_SESSION_PROOF_DENIED: unverified restored host session authority");
+  }
 
   // If no default scopes are configured, fall back to the user's home directory
   // so the base acceptance pack is always seeded and protection is live from
@@ -10693,6 +10732,7 @@ async function handleMcp(rest: string[]) {
       sessionsDir: home.sessionsDir,
       home: homePath,
       dryRun,
+      ...(mcpOwnerProof ? { mcpOwnerProof } : {}),
     });
   } finally {
     for (const [key, value] of previousEnv) {

@@ -1,0 +1,92 @@
+name: Frontier adversarial proving ground — batch 02
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/buccet-box/frontier-*"
+      - "apps/buccet-box/frontier-comb.test.mjs"
+      - ".github/workflows/frontier-batch-02.yml"
+      - "native/box-fs-guard.c"
+      - "src/box/session-authority.ts"
+      - "src/runtime/state.ts"
+      - "src/runtime/types.ts"
+      - "src/runtime/store.ts"
+      - "scripts/agent-buccet-mcp-server.ts"
+      - "cli/buccet.ts"
+      - "contracts/engines/agent-buccet-mcp-contract.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  native-races:
+    name: Deterministic native guard attacks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Attack real native guard at exact commit boundary
+        run: node apps/buccet-box/frontier-races.mjs
+
+  control-plane:
+    name: Compromised-token approval control-plane attacks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Attack real Box operator approval bridge
+        run: node apps/buccet-box/frontier-control.mjs
+
+  cross-agent-identity:
+    name: Session-ID actor confusion against real MCP server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Build native filesystem actuator
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Attempt to restore a different agent identity's grants
+        run: node apps/buccet-box/frontier-session.mjs
+
+  mcp-host-owner-binding:
+    name: Real CLI host launch + inherited owner capability
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Build the actual confined filesystem actuator
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Run actual MCP host-integration contract with independent process and FD proof
+        run: npm run test:agent-buccet:mcp
+
+  preemptive-comb:
+    name: Preemptive boundary invariant comb (no exploit prerequisite)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Sweep signed requests and owner capabilities with deterministic state mutations
+        run: node --test apps/buccet-box/frontier-comb.test.mjs
