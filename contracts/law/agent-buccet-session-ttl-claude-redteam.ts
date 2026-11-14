@@ -88,7 +88,7 @@ const ledgerOf = (approved: BoundaryUplEntry[], denied: BoundaryUplEntry[] = [])
   }) as BoundaryUserPathLedger;
 
 async function main() {
-  delete process.env.AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS;
+  Reflect.deleteProperty(process.env, "AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS");
 
   // ---- Unit: expiry of human session allows ----
   const stale = sessionEntry({ id: "UPL-000101", type: "APPROVED", target: "/ws", ageHours: 13 });
@@ -138,7 +138,7 @@ async function main() {
   assert.equal(decide(ledgerOf([stale]), "/ws/a.txt"), "allow", "TTL 0 disables expiry");
   process.env.AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS = "24";
   assert.equal(decide(ledgerOf([stale]), "/ws/a.txt"), "allow", "a 24h TTL keeps a 13h-old allow");
-  delete process.env.AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS;
+  Reflect.deleteProperty(process.env, "AGENT_BUCCET_SESSION_ALLOW_TTL_HOURS");
 
   // ---- End-to-end: the CLI's fixed session, an allow granted 13h ago ----
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "agent-buccet-session-ttl-"));
