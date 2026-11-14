@@ -44,6 +44,50 @@ function normalizedInstructionSource(request: BoundaryActionRequest): BoundaryRe
   return request.spendIntent?.instructionSource ?? request.provenance;
 }
 
+/**
+ * Parse the magnitude declared by the human-facing `amountRaw` string into a
+ * number comparable to `amountNormalized`. Strips currency symbols/letters and
+ * whitespace, then resolves thousands/decimal separators (US "1,234.56" and EU
+ * "1.234,56" both supported). Returns null when no numeric value is present.
+ */
+function parseDeclaredAmountMagnitude(amountRaw: string): number | null {
+  const cleaned = amountRaw.replace(/[^\d.,-]/g, "");
+  if (!/\d/.test(cleaned)) return null;
+  let s = cleaned;
+  const hasComma = s.includes(",");
+  const hasDot = s.includes(".");
+  if (hasComma && hasDot) {
+    // The separator that appears last is the decimal mark; the other groups thousands.
+    if (s.lastIndexOf(",") > s.lastIndexOf(".")) {
+      s = s.replace(/\./g, "").replace(",", ".");
+    } else {
+      s = s.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    // Comma only: a `\d{1,3}(,\d{3})+` grouping is thousands; otherwise a decimal mark.
+    s = /^-?\d{1,3}(,\d{3})+$/.test(s) ? s.replace(/,/g, "") : s.replace(",", ".");
+  }
+  const value = Number.parseFloat(s);
+  return Number.isFinite(value) ? Math.abs(value) : null;
+}
+
+/**
+ * The gated `amountNormalized` is caller-declared and every spend cap compares
+ * against it, while the human authorizes against the `amountRaw` string shown
+ * in the consent summary. If the two diverge, an agent can show a human (and
+ * the ledger) one amount while the boundary enforces another — e.g. raw
+ * "$5,000.00" with normalized 1 silently clears a cap of 10. Require the
+ * normalized magnitude to match the declared raw amount (small tolerance for
+ * rounding/formatting); an unverifiable or mismatched binding is surfaced for
+ * explicit human authorization rather than auto-cleared.
+ */
+function spendAmountBindingUntrusted(spendIntent: BoundarySpendIntent): boolean {
+  const declared = parseDeclaredAmountMagnitude(spendIntent.amountRaw);
+  if (declared === null) return true; // human-facing amount cannot be verified
+  const tolerance = Math.max(0.01, declared * 0.005);
+  return Math.abs(declared - spendIntent.amountNormalized) > tolerance;
+}
+
 function windowToMs(window: BoundarySpendPeriodWindow): number {
   switch (window) {
     case "1h":
@@ -219,6 +263,18 @@ function evaluateSpendBoundaryCommon(request: BoundaryActionRequest): BoundaryLa
       decision: "deny",
       reason: `spend packet is incomplete for value-boundary commit (${missing.join(", ")})`,
       lawId: "BOUNDARY.SPEND.PACKET.01",
+    });
+  }
+
+  // Bind the gated normalized amount to the human-facing raw amount. Every cap
+  // compares against amountNormalized, but the human authorizes against
+  // amountRaw — an under-declared normalized value otherwise clears caps
+  // silently while the consent summary and ledger show the real amount.
+  if (spendAmountBindingUntrusted(request.spendIntent)) {
+    return buildBoundaryResult({
+      decision: "require_approval",
+      reason: `declared amount '${request.spendIntent.amountRaw}' does not match the normalized gated amount '${request.spendIntent.amountNormalized}' — spend amount binding cannot be trusted`,
+      lawId: "BOUNDARY.SPEND.AMOUNT_BINDING.01",
     });
   }
 

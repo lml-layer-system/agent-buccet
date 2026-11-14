@@ -93,6 +93,7 @@
     "test:agent-buccet:policy-binding": "node contracts/boundaries/agent-buccet-policy-binding-contract.ts",
     "test:agent-buccet:egress-contract": "node contracts/boundaries/agent-buccet-egress-contract.ts",
     "test:agent-buccet:spend-boundary": "node contracts/boundaries/agent-buccet-spend-boundary-contract.ts",
+    "test:agent-buccet:spend-amount-binding-claude-redteam": "node contracts/boundaries/agent-buccet-spend-amount-binding-claude-redteam.ts",
     "test:agent-buccet:spend-proof": "node contracts/proof/agent-buccet-spend-proof-contract.ts",
     "test:agent-buccet:spend-law-packs": "node contracts/law/agent-buccet-spend-law-packs-contract.ts",
     "test:agent-buccet:spend-proposals": "node contracts/boundaries/agent-buccet-spend-proposals-contract.ts",
