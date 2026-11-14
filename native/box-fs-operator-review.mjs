@@ -74,6 +74,11 @@ async function main() {
     console.log("No pending privileged filesystem operations.");
     return;
   }
+  // The public request channel authenticates neither the claimed actor
+  // label nor a particular host process. Only OS-protected gate access and
+  // a separate trusted session identity system can establish that identity.
+  console.log("CAUTION: Requester identity is UNVERIFIED. Compare this operation");
+  console.log("against your trusted host/session context before approving.");
   for (const item of listed.pending) {
     if (typeof item.requestId !== "string" || !/^[a-f0-9-]{36}$/.test(item.requestId) ||
         typeof item.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(item.sha256)) {
