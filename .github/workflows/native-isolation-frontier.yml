@@ -10,6 +10,7 @@ on:
       - "apps/buccet-box/frontier-rename-barrier.c"
       - "apps/buccet-box/native-isolation-probe.mjs"
       - "native/box-fs-broker.mjs"
+      - "native/box-fs-approval-gate.mjs"
       - "native/box-fs-policy-controller.mjs"
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
@@ -22,6 +23,8 @@ on:
       - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
       - "src/box/protected-fs-broker.ts"
+      - "src/box/protected-fs-gate.ts"
+      - "apps/buccet-box/native-operator-gate.test.mjs"
       - ".github/workflows/native-isolation-frontier.yml"
   pull_request:
     paths:
@@ -30,6 +33,7 @@ on:
       - "apps/buccet-box/frontier-rename-barrier.c"
       - "apps/buccet-box/native-isolation-probe.mjs"
       - "native/box-fs-broker.mjs"
+      - "native/box-fs-approval-gate.mjs"
       - "native/box-fs-policy-controller.mjs"
       - "native/box-fs-broker-client.mjs"
       - "apps/buccet-box/native-broker-probe.mjs"
@@ -42,6 +46,8 @@ on:
       - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
       - "src/box/protected-fs-broker.ts"
+      - "src/box/protected-fs-gate.ts"
+      - "apps/buccet-box/native-operator-gate.test.mjs"
       - ".github/workflows/native-isolation-frontier.yml"
 
 permissions:
@@ -149,3 +155,17 @@ jobs:
         run: sh scripts/build-box-fs-guard.sh
       - name: Verify digest pinning, service root, hostile access denial, and valid file effects
         run: node apps/buccet-box/native-provision.test.mjs
+
+  operator-approved-mcp-filesystem:
+    name: Unprivileged scoped executor requires independent exact root operator approval
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build production native guard
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Run normal scoped FS API as unprivileged agent with root-only manual operator approval
+        run: node apps/buccet-box/native-operator-gate.test.mjs
