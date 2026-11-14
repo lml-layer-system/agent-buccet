@@ -106,9 +106,19 @@ rollback_if_uncommitted() {
   exit "$status"
 }
 install -d -o root -g root -m 0700 "$BASE" || fail "cannot create protected base"
+[ "$(stat -c '%u:%a' "$BASE")" = "0:700" ] ||
+  fail "protected base ownership or permissions invalid"
+# Lock the root-owned base directory itself: no stale lockfiles remain on
+# SIGKILL, and two administrators cannot both claim the same newly made root.
+exec 9< "$BASE" || fail "cannot open installation transaction lock"
+flock -n 9 || fail "another privileged installation is active"
+[ ! -e "$ROOT" ] && [ ! -L "$ROOT" ] ||
+  fail "managed instance appeared during installation; refuse overwrite"
 trap rollback_if_uncommitted EXIT
-install -d -o root -g root -m 0700 "$ROOT" || fail "cannot create protected root"
+# Claim the absent root BEFORE invoking install: a command can create the
+# directory and then return EIO, so recording ownership after success is late.
 ROOT_CREATED=1
+install -d -o root -g root -m 0700 "$ROOT" || fail "cannot create protected root"
 GUARD=$ROOT/box-fs-guard
 BROKER=$ROOT/broker.mjs
 CONTROLLER=$ROOT/policy-controller.mjs

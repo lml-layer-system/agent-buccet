@@ -101,10 +101,24 @@ rollback_if_uncommitted() {
   fi
   exit "$status"
 }
+install -d -o root -g root -m 0755 /run/buccet-native-gates ||
+  fail "cannot install root-controlled request base"
+[ "$(stat -c '%u:%a' /run/buccet-native-gates)" = "0:755" ] ||
+  fail "request base ownership or permissions invalid"
+# An independent OS flock survives parallel installer processes but is
+# automatically released on crash; a stale lock pathname is never trusted.
+exec 9< /run/buccet-native-gates || fail "cannot open operator install lock"
+flock -n 9 || fail "another privileged gate installation is active"
+[ ! -e "$RUN" ] && [ ! -L "$RUN" ] &&
+[ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] &&
+[ ! -e "$ROOT/approval-gate.mjs" ] && [ ! -e "$ROOT/operator-review.mjs" ] &&
+[ ! -e "$ROOT/host-enroll.mjs" ] && [ ! -e "$ROOT/host-identities.json" ] ||
+  fail "operator installation appeared concurrently; refuse overwrite"
 trap rollback_if_uncommitted EXIT
-install -d -o root -g root -m 0755 /run/buccet-native-gates "$RUN" ||
-  fail "cannot install root-controlled request namespace"
+# A failed command can create the namespace before returning EIO.
 RUN_CREATED=1
+install -d -o root -g root -m 0755 "$RUN" ||
+  fail "cannot install root-controlled request namespace"
 [ "$(stat -c '%u:%a' "$RUN")" = "0:755" ] ||
   fail "untrusted public request directory"
 install -o root -g root -m 0400 "$GATE_SRC" "$ROOT/approval-gate.mjs" ||
