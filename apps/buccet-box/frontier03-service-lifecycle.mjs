@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import net from "node:net";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -253,6 +253,68 @@ try {
   assert.equal(serviceState(brokerUnit),false,
     "G02 failed install left privileged service active");
   console.log("F03_G02_PASS failed broker unit activation rolled back code and service");
+
+  // G02 concurrency boundary: pause AFTER the first installer acquires its
+  // filesystem lock but BEFORE it creates its root. A second root installer
+  // sees no target yet and must STILL fail before allocating authority.
+  const raceId = id + "-race";
+  const raceRoot = "/var/lib/buccet-native/" + raceId;
+  const raceUnit = "buccet-native-" + raceId + ".service";
+  const raceBin = stage + "/race-bin";
+  const raceReady = stage + "/race-ready";
+  const raceRelease = stage + "/race-release";
+  must("/usr/bin/install", ["-d", "-o", "root", "-g", "root", "-m", "0700", raceBin]);
+  const raceScript = path.join(tmp, "race-install.sh");
+  await writeFile(raceScript,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'if [ "$last" = ' + JSON.stringify(raceRoot) + ' ]; then\n' +
+    '  /usr/bin/touch ' + JSON.stringify(raceReady) + '\n' +
+    '  until [ -e ' + JSON.stringify(raceRelease) +
+    ' ]; do /usr/bin/sleep 0.05; done\nfi\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    raceScript, raceBin + "/install"]);
+  const raceArgs = [stage + "/install-broker.sh", raceId,
+    sources.guard, sources.broker, h.guard, h.broker];
+  let raceOut = "", raceErr = "";
+  const raceProc = spawn("sudo", ["-n", "env",
+    "PATH=" + raceBin + ":/usr/bin:/bin", ...brokerEnv, "sh", ...raceArgs],
+  { env, stdio: ["ignore", "pipe", "pipe"] });
+  raceProc.stdout.on("data", chunk => { raceOut += String(chunk); });
+  raceProc.stderr.on("data", chunk => { raceErr += String(chunk); });
+  const raceFinished = new Promise((resolve, reject) => {
+    raceProc.once("error", reject);
+    raceProc.once("close", (code, signal) => resolve({ code, signal }));
+  });
+  try {
+    await wait(() => privileged("test", ["-e", raceReady]).status === 0,
+      "first installer never reached protected pre-root interleaving");
+    deny("test", ["-e", raceRoot],
+      "race fixture must pause BEFORE either installer makes the instance");
+    const second = privileged("env", [...brokerEnv, "sh", ...raceArgs]);
+    assert.notEqual(second.status, 0, "second privileged install bypassed transaction lock");
+    assert.match(second.stderr, /another privileged installation is active/,
+      "second install failed for a reason other than the lock");
+    deny("test", ["-e", raceRoot], "competing installer created a root while locked");
+    must("touch", [raceRelease]);
+    const first = await raceFinished;
+    assert.equal(first.code, 0, "first installer damaged by the losing race: " + raceErr + raceOut);
+    assert.equal(serviceState(raceUnit), true, "winning installer service not running");
+    assert.equal(socketStatus(raceRoot + "/broker.sock", "0:600:socket"), true);
+    console.log("F03_G02_PASS competing root installers serialized before root creation");
+  } finally {
+    privileged("touch", [raceRelease]);
+    if (raceProc.exitCode === null) {
+      await Promise.race([raceFinished, new Promise(resolve => setTimeout(resolve, 2500))]);
+      if (raceProc.exitCode === null) raceProc.kill("SIGKILL");
+    }
+    privileged("systemctl", ["stop", raceUnit]);
+    privileged("systemctl", ["disable", raceUnit]);
+    privileged("rm", ["-f", "--", "/etc/systemd/system/" + raceUnit]);
+    privileged("systemctl", ["daemon-reload"]);
+    privileged("rm", ["-rf", "--", raceRoot]);
+  }
+
 
   const installed = privileged("env", [...brokerEnv, "sh", ...brokerArgs]);
   brokerInstalled = true;
