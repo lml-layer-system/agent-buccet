@@ -27,7 +27,10 @@ const EXPECTED = [
       "stale socket/replay exclusion",
       "authorized post-recovery operation"
     ],
-    "expectedJob": "Frontier03 / G01 evidence"
+    "expectedJob": "Frontier03 / G01 evidence",
+    "dependsOn": [
+      "G02"
+    ]
   },
   {
     "id": "G02",
@@ -42,7 +45,8 @@ const EXPECTED = [
       "untrusted UID denial",
       "successful authorized effect"
     ],
-    "expectedJob": "Frontier03 / G02 evidence"
+    "expectedJob": "Frontier03 / G02 evidence",
+    "dependsOn": []
   },
   {
     "id": "G03",
@@ -57,7 +61,10 @@ const EXPECTED = [
       "replay/rotation/revocation",
       "valid host execution"
     ],
-    "expectedJob": "Frontier03 / G03 evidence"
+    "expectedJob": "Frontier03 / G03 evidence",
+    "dependsOn": [
+      "G02"
+    ]
   },
   {
     "id": "G04",
@@ -72,7 +79,11 @@ const EXPECTED = [
       "cancel/revoke/timeout invalidation",
       "correct parallel authorized effects"
     ],
-    "expectedJob": "Frontier03 / G04 evidence"
+    "expectedJob": "Frontier03 / G04 evidence",
+    "dependsOn": [
+      "G01",
+      "G03"
+    ]
   },
   {
     "id": "G05",
@@ -87,7 +98,11 @@ const EXPECTED = [
       "no out-of-scope read or write",
       "authorized reviewed-byte import"
     ],
-    "expectedJob": "Frontier03 / G05 evidence"
+    "expectedJob": "Frontier03 / G05 evidence",
+    "dependsOn": [
+      "G02",
+      "G03"
+    ]
   },
   {
     "id": "G06",
@@ -102,7 +117,11 @@ const EXPECTED = [
       "idempotent retries and cleanup",
       "authorized migration positive control"
     ],
-    "expectedJob": "Frontier03 / G06 evidence"
+    "expectedJob": "Frontier03 / G06 evidence",
+    "dependsOn": [
+      "G01",
+      "G05"
+    ]
   },
   {
     "id": "G07",
@@ -117,7 +136,11 @@ const EXPECTED = [
       "launchd lifecycle and filesystem semantics",
       "authorized macOS file effects"
     ],
-    "expectedJob": "Frontier03 / G07 evidence"
+    "expectedJob": "Frontier03 / G07 evidence",
+    "dependsOn": [
+      "G03",
+      "G04"
+    ]
   },
   {
     "id": "G08",
@@ -132,7 +155,11 @@ const EXPECTED = [
       "service crash and recovery",
       "authorized Windows file effects"
     ],
-    "expectedJob": "Frontier03 / G08 evidence"
+    "expectedJob": "Frontier03 / G08 evidence",
+    "dependsOn": [
+      "G03",
+      "G04"
+    ]
   },
   {
     "id": "G09",
@@ -147,7 +174,14 @@ const EXPECTED = [
       "no direct/root fallback",
       "legitimate intended actuator positive controls"
     ],
-    "expectedJob": "Frontier03 / G09 evidence"
+    "expectedJob": "Frontier03 / G09 evidence",
+    "dependsOn": [
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G08"
+    ]
   },
   {
     "id": "G10",
@@ -162,7 +196,18 @@ const EXPECTED = [
       "guard mutation must trigger red",
       "legitimate progress and resource controls"
     ],
-    "expectedJob": "Frontier03 / G10 evidence"
+    "expectedJob": "Frontier03 / G10 evidence",
+    "dependsOn": [
+      "G01",
+      "G02",
+      "G03",
+      "G04",
+      "G05",
+      "G06",
+      "G07",
+      "G08",
+      "G09"
+    ]
   }
 ];
 const PLATFORMS = {
@@ -187,6 +232,7 @@ const REQUIRED_FLAGS = [
   "rejectTestOnlyInsecureBuildAsProductionProof",
   "rejectUnboundStatusClaims",
   "requireIssueCheckboxConsistency",
+  "requireVerifiedPrerequisiteClosure",
 ];
 const mistakes = [];
 function reject(reason) { mistakes.push(reason); }
@@ -219,6 +265,21 @@ if (!spec.weightedWorkPlan || spec.weightedWorkPlan.percentTotal !== 100 ||
     !spec.weightedWorkPlan.unit.includes("NOT measured risk")) {
   reject("percentages are ESTIMATED WORK SHARES, not measured risk/guarantee");
 }
+// No cycles or undeclared dependency edges. A graph made circular by later
+// edits cannot be used to certify a set of green requirements.
+const visiting=new Set(), visited=new Set();
+function visit(id) {
+  if (visiting.has(id)) { reject("circular gate prerequisite at "+id); return; }
+  if (visited.has(id)) return;
+  visiting.add(id);
+  const gate=EXPECTED.find(x=>x.id===id);
+  if(!gate) { reject("unknown dependency "+id); visiting.delete(id); return; }
+  for(const dep of gate.dependsOn) visit(dep);
+  visiting.delete(id);
+  visited.add(id);
+}
+for(const gate of EXPECTED) visit(gate.id);
+
 let work = 0;
 const claimed = [];
 for (let i=0; i<10; i++) {
@@ -233,6 +294,17 @@ for (let i=0; i<10; i++) {
   if (gate.state === "UNVERIFIED") {
     if (gate.evidence !== null) reject(anchor.id+" UNVERIFIED must have null evidence");
     continue;
+  }
+  // Dependents may NOT stay GREEN when their upstream authority/evidence is
+  // RED or UNVERIFIED. This is a graph implication check, not a runtime test.
+  if (gate.state === "GREEN") {
+    for(const predecessor of anchor.dependsOn) {
+      if (!spec.gates.some(other=>other?.id===predecessor &&
+            other.state==="GREEN")) {
+        reject(anchor.id+" cannot be GREEN while prerequisite "+
+          predecessor+" is not independently GREEN");
+      }
+    }
   }
   if (gate.state === "RED") {
     // A real failed future attack must be visible, not silently relabeled
