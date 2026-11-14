@@ -204,7 +204,7 @@ try {
       });
       socket.once("error", reject);
     });
-    return response;
+    return { response };
   }
   const gatePath = path.join(repo, "native/box-fs-approval-gate.mjs");
   gateDaemon = spawn("sudo", ["-n", process.execPath, gatePath,
@@ -227,7 +227,7 @@ try {
   }
   assert.equal(gateReady, true, "real signed operator gate not ready: " + gateLogs);
   async function approveAndReceive(proposal) {
-    const response = await submit(proposal);
+    const { response } = await submit(proposal);
     let row;
     for (let n = 0; n < 60; n++) {
       row = operator({ command: "list" }).pending?.find(p => p.path === proposal.path);
