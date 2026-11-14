@@ -120,7 +120,14 @@ try {
   assert.match(precommit.stderr, /BUCCET_FS_DENIED/);
   assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
   assert.ok(!traceContent().includes("rename:after"));
-  report("file-fsync-EIO-no-publication");
+  // The original target is safe, but orphaned private inode data is ALSO a
+  // privileged partial state. An EIO before commit must remove its staging.
+  const residue = sudo("find", [root + "/files", "-maxdepth", "1",
+    "-type", "f", "-name", ".buccet-fs-*", "-printf", "%f\\n"]);
+  assert.equal(residue.status, 0, "cannot inspect protected staging residue");
+  assert.equal(residue.stdout.trim(), "",
+    "ENOSPC/EIO left private native staging bytes after refusal");
+  report("file-fsync-EIO-no-publication-or-staging-residue");
 
   resetTrace();
   const postcommit = act("write", "files/payload.txt", "EXISTS_BUT_DURABILITY_UNKNOWN",
