@@ -153,7 +153,20 @@ chown root:root "$UNIT"
 systemctl daemon-reload || fail "cannot reload systemd"
 systemctl enable --now "buccet-native-$INSTANCE.service" ||
   fail "protected broker service failed to start"
-[ -S "$SOCKET" ] || fail "broker socket not created"
-[ "$(stat -c '%u:%a' "$SOCKET")" = "0:600" ] ||
-  fail "broker socket permissions invalid"
+# systemd Type=simple reports unit activation before Node has finished
+# binding its socket. The installer must wait for REAL daemon readiness.
+# A bounded wait prevents a false failed deployment or unbounded stall.
+attempt=0
+while [ "$attempt" -lt 100 ]; do
+  if [ -S "$SOCKET" ]; then
+    [ "$(stat -c '%u:%a' "$SOCKET")" = "0:600" ] ||
+      fail "broker socket permissions invalid"
+    break
+  fi
+  systemctl is-active --quiet "buccet-native-$INSTANCE.service" ||
+    fail "broker service exited before becoming ready"
+  attempt=$((attempt + 1))
+  sleep 0.1
+done
+[ -S "$SOCKET" ] || fail "broker socket not created within bounded readiness window"
 printf 'BUCCET_PROVISIONED_PROTECTED root=%s socket=%s\n' "$ROOT" "$SOCKET"
