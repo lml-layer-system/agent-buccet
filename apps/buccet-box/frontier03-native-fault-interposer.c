@@ -82,6 +82,18 @@ int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
     if (!real_renameat) _exit(91);
   }
   trace_event("rename:before");
+  const char *pause = getenv("BUCCET_F03_PAUSE_RENAME_UNTIL");
+  if (pause && *pause) {
+    trace_event("rename:paused-before-commit");
+    for (unsigned int attempt = 0; attempt < 400 && access(pause, F_OK) != 0;
+         ++attempt) {
+      usleep(50000);
+    }
+    if (access(pause, F_OK) != 0) {
+      errno = ETIMEDOUT;
+      return -1;
+    }
+  }
   const char *crash = getenv("BUCCET_F03_CRASH_RENAME");
   if (crash && strcmp(crash, "before") == 0) {
     raise(SIGKILL);
