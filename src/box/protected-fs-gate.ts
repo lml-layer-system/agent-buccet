@@ -33,7 +33,7 @@ function trustedPublicGate(socketPath: string, managedRoot: string): void {
   let socket;
   try { socket = lstatSync(socketPath); } catch { deny("request socket unavailable"); }
   if (!socket.isSocket() || socket.uid !== 0 ||
-      (socket.mode & 0o022) !== 0 || (socket.mode & 0o600) !== 0o600) {
+      (socket.mode & 0o777) !== 0o666) {
     // Root-owned 0666 UNIX socket is intentionally reachable for REQUESTS,
     // never for operator decisions. Its root-owned parent prevents replacement.
     deny("untrusted or inaccessible request socket");
