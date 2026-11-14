@@ -205,17 +205,17 @@ try {
     must(res, "root-only operator command");
     return JSON.parse(res.stdout.trim());
   }
-  function hostSigned(request) {
+  function hostSigned(request, credential = who) {
     const issuedAt = new Date().toISOString();
     const nonce = randomBytes(16).toString("hex");
-    const mac = createHmac("sha256", Buffer.from(who.secretHex, "hex"))
+    const mac = createHmac("sha256", Buffer.from(credential.secretHex, "hex"))
       .update(JSON.stringify(["agent-buccet-protected-host-v1",
-        who.sessionId, who.actorId, issuedAt, nonce, request])).digest("hex");
+        credential.sessionId, credential.actorId, issuedAt, nonce, request])).digest("hex");
     return { ...request, host: {
-      sessionId: who.sessionId, actorId: who.actorId, issuedAt, nonce, mac,
+      sessionId: credential.sessionId, actorId: credential.actorId, issuedAt, nonce, mac,
     } };
   }
-  async function submit(request) {
+  async function submit(request, credential = who) {
     const socket = net.createConnection({ path: gateRequestSocket });
     let raw = "", settled = false;
     const response = new Promise(resolve => {
@@ -234,7 +234,7 @@ try {
     });
     await new Promise((resolve, reject) => {
       socket.once("connect", () => {
-        socket.write(JSON.stringify(hostSigned(request)) + "\n");
+        socket.write(JSON.stringify(hostSigned(request, credential)) + "\n");
         resolve();
       });
       socket.once("error", reject);
@@ -313,6 +313,23 @@ try {
   assert.notEqual(sudo("test", ["-e", root + "/denied/nope.txt"]).status, 0);
   console.log("F03_GATE_RECEIPT_PASS signed-policy-denial-definitive");
 
+  // A mass of requests from ONE actor is not a real cross-session isolation
+  // oracle. Re-register 17 independently rooted host credentials; the
+  // 128-client flood deliberately interleaves those actor/session identities.
+  const multiHosts = [who, ...Array.from({ length: 16 }, (_, i) => ({
+    sessionId: "parallel_host_" + i + "_" + randomBytes(6).toString("hex"),
+    actorId: "parallel_operator_" + i + "_" + randomBytes(6).toString("hex"),
+    secretHex: randomBytes(32).toString("hex"),
+  }))];
+  const multiRegistry = path.join(tmp, "parallel-host-identities.json");
+  await writeFile(multiRegistry, JSON.stringify({
+    schema: 1, root, allowed: multiHosts,
+  }) + "\n");
+  must(sudo("install", ["-o", "root", "-g", "root", "-m", "0400",
+    multiRegistry, root + "/host-identities.json"]),
+    "provision 17 separate root-owned HMAC identities");
+
+
   // G01/G04 stress: 128 unique, independently HMAC-signed host requests
   // simultaneously hit the PUBLIC gate. Capacity pressure must neither
   // execute an unapproved request nor let a replayed/tampered operator digest
@@ -321,10 +338,11 @@ try {
   const burst = await Promise.all(Array.from({ length: COUNT }, async (_, n) => {
     const pathName = "files/pressure-" + String(n).padStart(3, "0") + ".txt";
     const payload = "SIGNED_EXACT_" + String(n).padStart(3, "0");
+    const credential = multiHosts[n % multiHosts.length];
     const { response, socket } = await submit({
       op: "write", path: pathName, content: payload,
-    });
-    return { pathName, payload, response, socket, approved: false };
+    }, credential);
+    return { pathName, payload, credential, response, socket, approved: false };
   }));
   // A bounded asynchronous read of the root host registry occurs for every
   // request; allow the kernel/socket event loop to process the whole burst.
@@ -345,6 +363,10 @@ try {
     assert.equal(row.host?.verified, true, "a pressure request bypassed host proof");
     assert.ok(indexed.has(row.path), "unexpected pending root request");
     const item = indexed.get(row.path);
+    assert.equal(row.host?.sessionId, item.credential.sessionId,
+      "cross-session approval identity was confused");
+    assert.equal(row.host?.actorId, item.credential.actorId,
+      "cross-actor approval identity was confused");
     if (i < approveCount) {
       // An operator's approval must bind the full exact digest and retire
       // atomically before it can be replayed against another request.
@@ -408,7 +430,7 @@ try {
     explicitlyDenied: operatorDenied.length, disconnected: canceled.length,
     capacityRejected: COUNT - queue.length, allExactEffects: true,
     staleApprovalReplaysRejected: true, digestSubstitutionRejected: true,
-    signedHostProofVerified: true,
+    signedHostProofVerified: true, independentlyRegisteredActors: multiHosts.length,
   }));
 
 
