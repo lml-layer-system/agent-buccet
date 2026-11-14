@@ -133,6 +133,29 @@ try {
     "AUTHORIZED_CROSS_PARENT");
   report("denied-source-move-does-not-create-privileged-destination-parent");
 
+  // G06 later-commit fault: the source exists and is root-owned, but the
+  // kernel rename returns EIO AFTER destination ancestry was prepared.
+  // A denied move must not strand fresh privileged directory resources or
+  // modify source bytes; a normal move still needs to create safe ancestry.
+  const eioSource = "src/rename-eio-source.txt";
+  const eioTarget = "dst/rename-eio-new-parent/final.txt";
+  const eioParent = root + "/dst/rename-eio-new-parent";
+  must(act("write", eioSource, "MOVE_EIO_ORIGINAL"), "stage native rename-EIO move");
+  assert.notEqual(sudo("test", ["-e", eioParent]).status, 0);
+  resetTrace();
+  const eioMove = act("move", eioSource, eioTarget,
+    { BUCCET_F03_RENAME_EIO: 1 });
+  assert.equal(eioMove.status, 73,
+    "injected native rename EIO must fail without claiming commit");
+  assert.match(traceContent(), /rename:injected-EIO-before-commit/,
+    "native EIO fault did not reach actual renameat syscall");
+  assert.equal(read(eioSource), "MOVE_EIO_ORIGINAL");
+  assert.notEqual(sudo("test", ["-e", root + "/" + eioTarget]).status, 0);
+  assert.notEqual(sudo("test", ["-e", eioParent]).status, 0,
+    "G06 failed renameat stranded protected destination ancestry");
+  report("precommit-rename-EIO-reverts-new-move-destination-parent");
+
+
 
   resetTrace();
   must(act("delete", "dst/move.txt"), "durable native delete");
