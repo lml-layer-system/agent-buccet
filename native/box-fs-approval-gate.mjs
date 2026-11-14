@@ -87,7 +87,10 @@ async function callBroker(socketPath, request) {
       client.destroy();
       if (error) reject(error); else resolve(value);
     }
-    client.on("connect", () => client.end(JSON.stringify(request) + "\n"));
+    // Keep the connection half-open until the broker has completed the
+    // operation and returned its receipt. end() here prematurely closes the
+    // server response side on the native broker's default allowHalfOpen=false.
+    client.on("connect", () => client.write(JSON.stringify(request) + "\n"));
     client.on("data", chunk => {
       response += chunk.toString("utf8");
       if (Buffer.byteLength(response) > MAX_CONTENT + 8192) {
