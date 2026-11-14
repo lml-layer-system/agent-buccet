@@ -8,6 +8,7 @@ on:
       - "native/box-fs-guard.c"
       - "apps/buccet-box/frontier-races.mjs"
       - "apps/buccet-box/frontier-rename-barrier.c"
+      - "apps/buccet-box/native-isolation-probe.mjs"
       - ".github/workflows/native-isolation-frontier.yml"
   pull_request:
     paths:
@@ -31,3 +32,17 @@ jobs:
           node-version: "22"
       - name: Verify original five races and real allowed write
         run: node apps/buccet-box/frontier-races.mjs
+
+  independent-principal-probe:
+    name: Verify OS denies same-UID agent mutation while broker principal can execute
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build native actuator
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Exercise protected principal and legitimate write/append/move
+        run: node apps/buccet-box/native-isolation-probe.mjs
