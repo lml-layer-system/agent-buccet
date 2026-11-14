@@ -934,9 +934,11 @@ function trackAllowTargetCarvesOutDeny(
 export function trackRequestEngagedSpecificity(
   constraint: BoundaryUplTrackConstraint,
   request: BoundaryActionRequest,
+  options?: { discountNonNarrowing?: boolean },
 ): number {
   const distinct = (values?: readonly string[]): number =>
     values?.length ? new Set(values).size : 0;
+  const discount = options?.discountNonNarrowing === true;
 
   let score = 0;
 
@@ -946,10 +948,14 @@ export function trackRequestEngagedSpecificity(
     ...(constraint.targetPatterns ?? []),
     ...(constraint.targetPattern ? [constraint.targetPattern] : []),
   ]);
-  score += targets.size;
+  score += discount
+    ? [...targets].filter((p) => targetPatternNarrows(constraint, request, p)).length
+    : targets.size;
 
   // Request-text and flag corridors — always evaluated against the request.
-  score += distinct(constraint.requestTextPatterns);
+  score += discount
+    ? new Set((constraint.requestTextPatterns ?? []).filter(requestTextPatternNarrows)).size
+    : distinct(constraint.requestTextPatterns);
   score += distinct(constraint.requiredFlags);
 
   // Review / output / expression / completion corridors are only checked when
@@ -1009,10 +1015,50 @@ export function trackAllowOverridesDeny(
   if (trackAllowTargetCarvesOutDeny(denyConstraint, allowConstraint, request)) {
     return true;
   }
+  // Asymmetric on purpose: patterns that match everything (`/.*/`, `""`, a
+  // `"/"` target prefix) narrow nothing, so they must not inflate the ALLOW's
+  // score. The deny keeps its full count — this only ever removes overrides.
   return (
-    trackRequestEngagedSpecificity(allowConstraint, request) >
+    trackRequestEngagedSpecificity(allowConstraint, request, { discountNonNarrowing: true }) >
     trackRequestEngagedSpecificity(denyConstraint, request)
   );
+}
+
+// Inputs no real corridor is about. A pattern that still matches them excludes
+// nothing, so it does not narrow the corridor.
+const _NARROWING_PROBE_TEXTS = ["", "zz-buccet-narrowing-probe-7f3a", "\n"];
+const _NARROWING_PROBE_PATH = "/zz-buccet-narrowing-probe-7f3a/unrelated/x";
+const _NARROWING_PROBE_TOKEN = "zz-buccet-narrowing-probe-7f3a-unrelated";
+
+function requestTextPatternNarrows(pattern: string): boolean {
+  return !_NARROWING_PROBE_TEXTS.every((text) => matchesTrackPattern(text, pattern));
+}
+
+/**
+ * Whether `pattern`, interpreted the way checkTrackConstraint would for a
+ * target shaped like `request.target`, excludes an unrelated target.
+ */
+function targetPatternNarrows(
+  constraint: BoundaryUplTrackConstraint,
+  request: BoundaryActionRequest,
+  pattern: string,
+): boolean {
+  const target = request.target;
+  const isPathLike =
+    target.startsWith("/") ||
+    target.startsWith("./") ||
+    target.startsWith("../") ||
+    target.includes(path.sep);
+  const probe = isPathLike ? _NARROWING_PROBE_PATH : _NARROWING_PROBE_TOKEN;
+  const matchMode =
+    constraint.actionCorridor?.targetMatchMode ??
+    constraint.targetMatchMode ??
+    (isPathLike ? "prefix" : "exact");
+  if (matchMode === "regex") return !matchesTrackPattern(normalizeTrackTarget(probe), pattern);
+  if (matchMode === "exact") return probe !== pattern;
+  const t = lexicalTrackPrefix(probe);
+  const p = lexicalTrackPrefix(pattern);
+  return !(t === p || t.startsWith(`${p}/`) || p === "/");
 }
 
 /**

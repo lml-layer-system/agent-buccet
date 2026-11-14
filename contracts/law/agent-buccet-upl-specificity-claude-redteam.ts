@@ -143,8 +143,61 @@ async function main() {
     "a broad parent-dir allow must NOT override a deny protecting a sensitive subset (regex/glob scope)",
   );
 
+  // Non-narrowing padding: a pattern that matches EVERYTHING excludes nothing,
+  // so it must not count as extra specificity. Residual of the field-count fix:
+  // an allow padded with `/.*/`, `/(?:)/`, an empty request-text pattern, or a
+  // `"/"` target prefix still outranked a same-breadth protective deny.
+  const pads: Array<[string, Partial<BoundaryUplTrackConstraint>]> = [
+    ["requestText /.*/", { targetPattern: "/ws", requestTextPatterns: ["/.*/"] }],
+    ["requestText /(?:)/", { targetPattern: "/ws", requestTextPatterns: ["/(?:)/"] }],
+    ['requestText ""', { targetPattern: "/ws", requestTextPatterns: [""] }],
+    ['extra target "/"', { targetPatterns: ["/ws", "/"] }],
+  ];
+  for (const [label, pad] of pads) {
+    const padded = entry(`allow-pad-${label}`, "APPROVED", {
+      allowedActionKinds: ["fs.write"],
+      description: `allow padded with ${label}`,
+      ...pad,
+    });
+    const d = lookupUserPathTrackDecision({
+      ledger: {
+        specVersion: 1,
+        userApprovedLawPaths: [padded],
+        userDeniedLawPaths: [deny],
+      } as BoundaryUserPathLedger,
+      session,
+      request: req("/ws/.env"),
+    });
+    assert.equal(
+      d?.decision,
+      "deny",
+      `an allow padded with a match-everything ${label} must not outrank the deny`,
+    );
+  }
+  // A request-text pattern that genuinely narrows still counts.
+  const realText = entry("allow-real-text", "APPROVED", {
+    allowedActionKinds: ["fs.write"],
+    targetPattern: "/ws",
+    requestTextPatterns: ["fs.write"],
+    description: "allow with a narrowing request-text corridor",
+  });
+  const d4 = lookupUserPathTrackDecision({
+    ledger: {
+      specVersion: 1,
+      userApprovedLawPaths: [realText],
+      userDeniedLawPaths: [deny],
+    } as BoundaryUserPathLedger,
+    session,
+    request: req("/ws/.env"),
+  });
+  assert.equal(
+    d4?.decision,
+    "allow",
+    "a narrowing request-text pattern still counts toward specificity",
+  );
+
   console.log(
-    "specificity: padded same-breadth allow no longer outranks a deny; real carve-out still wins; broad parent allow cannot pierce a sensitive-subset deny",
+    "specificity: padded same-breadth allow no longer outranks a deny (field-count and match-everything padding); real carve-out and narrowing corridors still win; broad parent allow cannot pierce a sensitive-subset deny",
   );
 }
 
