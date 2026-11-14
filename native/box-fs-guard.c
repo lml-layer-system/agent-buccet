@@ -28,8 +28,33 @@
  *
  * This is an actuator, not a second policy engine or system-wide sandbox.
  */
+/*
+ * Keep the current private write/append staging inode reachable for cleanup
+ * when a controlled pre-commit error exits through fail(). An interrupted
+ * native process (SIGKILL/power loss) cannot run this cleanup; those recovery
+ * semantics remain a separate acceptance obligation.
+ */
+static int unpublished_parent = -1;
+static char unpublished_name[96];
+static void discard_unpublished_or_uncertain(void) {
+  if (unpublished_parent < 0) return;
+  int parent = unpublished_parent;
+  unpublished_parent = -1;
+  if (unlinkat(parent, unpublished_name, 0) < 0 && errno != ENOENT) {
+    fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: unable to remove rejected temporary data (%s)\n",
+            strerror(errno));
+    exit(74);
+  }
+  /* A successful unlink alone does not establish durable staging cleanup. */
+  if (fsync(parent) < 0) {
+    fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: unable to sync staging cleanup (%s)\n",
+            strerror(errno));
+    exit(74);
+  }
+}
 static void fail(const char *message) {
   int saved = errno;
+  discard_unpublished_or_uncertain();
   if (saved) fprintf(stderr, "BUCCET_FS_DENIED: %s (%s)\n", message, strerror(saved));
   else fprintf(stderr, "BUCCET_FS_DENIED: %s\n", message);
   exit(73);
@@ -233,6 +258,8 @@ int main(int argc, char **argv) {
     check_existing_target(parent, leaf);
     char tmp[96];
     int destination = private_temp(parent, tmp, sizeof(tmp));
+    unpublished_parent = parent;
+    snprintf(unpublished_name, sizeof(unpublished_name), "%s", tmp);
     if (append) { copy_stream(original, destination); close(original); }
     copy_stream(STDIN_FILENO, destination);
     if (fsync(destination) < 0) fail("cannot fsync confined output");
@@ -241,6 +268,8 @@ int main(int argc, char **argv) {
        through any substituted symlink or hardlink inode. */
     if (renameat(parent, tmp, parent, leaf) < 0) fail("cannot commit confined output");
     sync_directory_after_mutation(parent);
+    unpublished_parent = -1;
+    unpublished_name[0] = '\0';
   } else if (!strcmp(op,"delete")) {
     check_existing_target(parent, leaf);
     if (unlinkat(parent, leaf, 0) < 0) fail("cannot unlink confined entry");
