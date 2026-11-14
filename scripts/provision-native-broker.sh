@@ -62,7 +62,11 @@ ROOT=$BASE/$INSTANCE
 # A root-admin must first stage this reviewed installer in a protected tree.
 INSTALLER=$(readlink -f "$0") || fail "cannot resolve trusted installer"
 trusted_executable_tree "$INSTALLER"
-NODE=$(command -v node) || fail "node binary unavailable"
+# A release operator may specify a separately installed root-owned Node.
+# The interpreter must be independently trusted; CI toolcache can be writable
+# by the runner, so it is NOT accepted merely because it is on PATH.
+NODE=${BUCCET_BROKER_NODE:-}
+if [ -z "$NODE" ]; then NODE=$(command -v node) || fail "node binary unavailable"; fi
 case "$NODE" in /*) ;; *) fail "node must resolve to absolute trusted executable" ;; esac
 NODE=$(readlink -f "$NODE") || fail "cannot resolve Node executable"
 trusted_executable_tree "$NODE"
