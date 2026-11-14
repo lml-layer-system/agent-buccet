@@ -101,6 +101,7 @@ try {
     ["src/box/confined-fs.ts", "src/box/confined-fs.ts"],
     ["src/box/protected-fs-broker.ts", "src/box/protected-fs-broker.ts"],
     ["src/box/protected-fs-gate.ts", "src/box/protected-fs-gate.ts"],
+    ["src/box/host-attestation.ts", "src/box/host-attestation.ts"],
     ["apps/buccet-box/native-broker-api-test.mjs", "apps/buccet-box/native-broker-api-test.mjs"],
   ]) {
     sudo("install", ["-o", "root", "-g", "root", "-m", "0644",
