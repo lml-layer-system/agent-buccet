@@ -51,6 +51,30 @@ int fsync(int fd) {
   }
   return real_fsync(fd);
 }
+/*
+ * Actual kernel's tiny-full-filesystem outcome, injected at the real write()
+ * boundary of the shipped C guard. This does not emulate a real disk quota
+ * or media power loss; it proves prepublication handling of ENOSPC.
+ * Trace descriptors use O_APPEND, staging descriptors do not.
+ */
+ssize_t write(int fd, const void *buffer, size_t length) {
+  static ssize_t (*real_write)(int, const void *, size_t) = NULL;
+  if (!real_write) {
+    *(void **)(&real_write) = dlsym(RTLD_NEXT, "write");
+    if (!real_write) _exit(94);
+  }
+  if (fd > 2 && getenv("BUCCET_F03_WRITE_ENOSPC")) {
+    const int flags = fcntl(fd, F_GETFL);
+    struct stat st;
+    if (flags >= 0 && (flags & O_ACCMODE) == O_WRONLY &&
+        !(flags & O_APPEND) && fstat(fd, &st) == 0 && S_ISREG(st.st_mode)) {
+      trace_event("write:ENOSPC");
+      errno = ENOSPC;
+      return -1;
+    }
+  }
+  return real_write(fd, buffer, length);
+}
 int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
   static int (*real_renameat)(int, const char *, int, const char *) = NULL;
   if (!real_renameat) {
