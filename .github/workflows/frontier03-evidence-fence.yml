@@ -49,3 +49,33 @@ jobs:
             node scripts/security/frontier03-fence.mjs \
               contracts/security/frontier03-acceptance.json
           fi
+      - name: Negative control — a zero-evidence release MUST be blocked
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Create a TEST-ONLY zero-evidence manifest even after future
+          # accepted gates exist. The release predicate must never silently
+          # permit a 0/10 source or treat preflight as publication evidence.
+          node --input-type=module - <<'NODE'
+          import { readFileSync, writeFileSync } from "node:fs";
+          const source = JSON.parse(readFileSync("contracts/security/frontier03-acceptance.json", "utf8"));
+          for (const gate of source.gates) {
+            gate.state = "UNVERIFIED";
+            gate.evidence = null;
+            delete gate.failure;
+          }
+          writeFileSync("/tmp/frontier03-zero-evidence-negative.json",
+            JSON.stringify(source, null, 2) + "\n");
+          NODE
+          if node scripts/security/frontier03-fence.mjs \
+              /tmp/frontier03-zero-evidence-negative.json --release \
+              > "$RUNNER_TEMP/frontier03-release-must-deny.log" 2>&1; then
+            cat "$RUNNER_TEMP/frontier03-release-must-deny.log"
+            echo "FRONTIER03_NEGATIVE_CONTROL_RED: release accepted zero evidence"
+            exit 1
+          fi
+          grep -F "FRONTIER03_FENCE_BLOCKED" "$RUNNER_TEMP/frontier03-release-must-deny.log"
+          grep -F "10/10 required before publication: observed 0/10 claims" \
+            "$RUNNER_TEMP/frontier03-release-must-deny.log"
+          echo "FRONTIER03_ZERO_EVIDENCE_RELEASE_DENIAL_PASS"
