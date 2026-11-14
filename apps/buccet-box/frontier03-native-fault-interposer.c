@@ -94,6 +94,12 @@ int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
       return -1;
     }
   }
+  const char *fault = getenv("BUCCET_F03_RENAME_EIO");
+  if (fault && *fault) {
+    trace_event("rename:injected-EIO-before-commit");
+    errno = EIO;
+    return -1;
+  }
   const char *crash = getenv("BUCCET_F03_CRASH_RENAME");
   if (crash && strcmp(crash, "before") == 0) {
     raise(SIGKILL);
