@@ -7,7 +7,9 @@
 import assert from "node:assert/strict";
 import { createHash, randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import readline from "node:readline";
+import { createBuccetBoxBackend } from "./backend.mjs";
 import path from "node:path";
 import os from "node:os";
 import { fileURLToPath } from "node:url";
@@ -30,7 +32,7 @@ const gateCode = path.join(managed,"approval-gate.mjs");
 const reviewerCode = path.join(managed,"operator-review.mjs");
 const env = { PATH:"/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG:"C" };
 const serverProcesses = [];
-let latestAgent = null;
+let latestAgent = null, boxServer = null, mcpProcess = null;
 function run(cmd, args, input="") {
   const result = spawnSync(cmd, args, { input, encoding:"utf8", timeout: 25000, env });
   assert.equal(result.error, undefined, result.error?.message);
@@ -118,6 +120,55 @@ async function waitPending(count=1){
   throw Error("root operator did not receive exact pending proposal; agent="+
     JSON.stringify(latestAgent?.snapshot()) + "; server="+
     JSON.stringify(serverProcesses.map(child=>({pid:child.pid,exitCode:child.exitCode}))));
+}
+function mcpTransport(child) {
+  const waiting = new Map();
+  const errors = [];
+  let counter = 0;
+  child.stderr.on("data", chunk => errors.push(String(chunk).slice(-1000)));
+  readline.createInterface({ input: child.stdout }).on("line", line => {
+    try {
+      const msg = JSON.parse(line);
+      const waiter = waiting.get(msg.id);
+      if (waiter) {
+        clearTimeout(waiter.timer);
+        waiting.delete(msg.id);
+        waiter.resolve(msg);
+      }
+    } catch { errors.push("malformed MCP line"); }
+  });
+  child.once("exit", code => {
+    for(const [id, waiter] of waiting) {
+      clearTimeout(waiter.timer);
+      waiter.reject(new Error("MCP exited " + code + ": " + errors.slice(-3).join(" ")));
+      waiting.delete(id);
+    }
+  });
+  return {
+    errors,
+    request(method, params, timeoutMs = 30000) {
+      const id = ++counter;
+      return new Promise((resolve, reject) => {
+        const timer = setTimeout(() => {
+          waiting.delete(id);
+          reject(new Error("MCP request timeout " + method + " errors=" + errors.slice(-3).join(" ")));
+        }, timeoutMs);
+        waiting.set(id, { resolve, reject, timer });
+        child.stdin.write(JSON.stringify({jsonrpc:"2.0",id,method,params}) + "\n");
+      });
+    },
+    call(name, args) {
+      return this.request("tools/call", { name, arguments: args });
+    },
+  };
+}
+async function waitBox(box, label) {
+  for (let n=0;n<800;n++) {
+    const first=box.state().pending[0];
+    if (first) return first;
+    await new Promise(resolve=>setTimeout(resolve,10));
+  }
+  throw new Error("missing real Box approval prompt for " + label);
 }
 async function awaitAgent(agentResult){
   const result=await agentResult.finished;
@@ -243,6 +294,117 @@ try {
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256}).ok,false);
   assert.notEqual(run("sudo",["-n","test","-e",managed+"/allowed/abandoned.txt"]).status,0);
 
+  // End-to-end bridge acceptance: actual MCP/Bodyguard -> real Box approval
+  // -> separate privileged operator -> root policy -> native guard. The
+  // previous direct API probe alone does not prove that chain is reachable.
+  const boxHome = path.join(local, "mcp-box-home");
+  const sessionsDir = path.join(boxHome,"sessions");
+  await mkdir(sessionsDir,{recursive:true});
+  const actorId = "user:integration-human";
+  const sessionId = "protected-mcp-"+nonce;
+  const boundary = await import("../../src/index.ts");
+  const store = await boundary.createPersistentBoundaryRuntimeStore({
+    sessionId,actorId,sessionsDir,dryRun:false,hydrationMode:"full",
+  });
+  const opened = await boundary.openBoundaryPath({
+    config: store.getConfig(), rootPath:managed,
+    grantedActions:["fs.write","fs.read","fs.append"],
+    issuedBy:actorId,seedBaseAcceptance:false,
+  });
+  store.replaceConfig({
+    ...opened.config,
+    approvalRequiredFor:[...new Set([...(opened.config.approvalRequiredFor??[]),
+      "fs.write","fs.read","fs.append"])],
+  });
+  await store.persist();
+  boxServer = createBuccetBoxBackend({home:boxHome,notify:()=>{}});
+  await boxServer.start();
+  mcpProcess = spawn(process.execPath,[
+    path.join(repo,"scripts/agent-buccet-mcp-server.ts"),
+    "--session-id",sessionId,"--actor-id",actorId,
+    "--sessions-dir",sessionsDir,"--home",boxHome,
+  ],{
+    cwd:repo,
+    env:{
+      ...process.env,AGENT_BUCCET_HOME:boxHome,
+      AGENT_BUCCET_REQUIRE_ISOLATED_FS:"1",
+      AGENT_BUCCET_FS_BROKER_ROOT:managed,
+      AGENT_BUCCET_FS_REQUEST_SOCKET:publicSock,
+    },
+    stdio:["pipe","pipe","pipe"],
+  });
+  const mcp = mcpTransport(mcpProcess);
+  const init=await mcp.request("initialize",{
+    protocolVersion:"2024-11-05",capabilities:{},
+    clientInfo:{name:"protected-integration-fixture",version:"1"},
+  });
+  assert.equal(init.result?.serverInfo?.name,"agent-buccet");
+  const deniedTarget=managed+"/allowed/mcp-box-denied.txt";
+  const deniedBox=mcp.call("write_file",{path:deniedTarget,content:"BOX_DENIED",
+    approved:true,authorization:{role:"root"}});
+  let boxRow=await waitBox(boxServer,"negative human decision");
+  assert.equal(boxRow.target,deniedTarget);
+  assert.equal(operator({command:"list"}).pending.length,0,
+    "MCP submitted a native effect before an ordinary Box decision");
+  assert.equal(boxServer.settle(boxRow.approvalId,"deny_once"),true);
+  const denyReply=await deniedBox;
+  assert.equal(denyReply.result?.isError,true,"denied Box action should fail");
+  assert.equal(operator({command:"list"}).pending.length,0);
+  assert.notEqual(run("sudo",["-n","test","-e",deniedTarget]).status,0);
+
+  const allowedTarget=managed+"/allowed/mcp-box-allowed.txt";
+  const boxAllowed=mcp.call("write_file",{
+    path:allowedTarget,content:"MCP_PLUS_BOX_PLUS_ROOT",
+  });
+  boxRow=await waitBox(boxServer,"positive Box decision");
+  assert.equal(boxRow.target,allowedTarget);
+  assert.match(boxRow.payloadSummary,/sha256=[a-f0-9]{64}/,
+    "Box must show full exact payload fingerprint before confirmation");
+  assert.equal(operator({command:"list"}).pending.length,0,
+    "unapproved Box effect reached independently privileged gate");
+  assert.equal(boxServer.settle(boxRow.approvalId,"allow_once"),true);
+  [item]=await waitPending();
+  assert.equal(item.op,"write");
+  assert.equal(item.path,"allowed/mcp-box-allowed.txt");
+  assert.equal(item.bytes,Buffer.byteLength("MCP_PLUS_BOX_PLUS_ROOT"));
+  assert.equal(operator({command:"approve",requestId:item.requestId,
+    sha256:item.sha256}).approved,true);
+  const successful=await boxAllowed;
+  assert.equal(successful.result?.isError,undefined,
+    "normal MCP + Box + privileged operator did not execute: "+
+      JSON.stringify(successful).slice(0,900));
+  assert.equal(sudo("cat",[allowedTarget]),"MCP_PLUS_BOX_PLUS_ROOT");
+
+  const rootDeniedTarget=managed+"/allowed/mcp-privileged-denied.txt";
+  const denyAtRoot=mcp.call("write_file",{
+    path:rootDeniedTarget,content:"NOT_WITHOUT_ROOT_APPROVAL",
+  });
+  boxRow=await waitBox(boxServer,"privileged denial");
+  assert.equal(boxServer.settle(boxRow.approvalId,"allow_once"),true);
+  [item]=await waitPending();
+  assert.equal(operator({command:"deny",requestId:item.requestId,
+    sha256:item.sha256}).denied,true);
+  const rootDenied=await denyAtRoot;
+  assert.equal(rootDenied.result?.isError,true);
+  assert.notEqual(run("sudo",["-n","test","-e",rootDeniedTarget]).status,0);
+
+  await boxServer.stop();
+  boxServer=null;
+  const absentTarget=managed+"/allowed/mcp-box-absent.txt";
+  const absent=await mcp.call("write_file",{
+    path:absentTarget,content:"NO_BOX_NO_EXECUTION",
+  });
+  assert.equal(absent.result?.isError,true,
+    "protected MCP must not bypass Box when it is unavailable");
+  assert.equal(operator({command:"list"}).pending.length,0);
+  assert.notEqual(run("sudo",["-n","test","-e",absentTarget]).status,0);
+  console.log("FS_BOX_TO_PRIVILEGED_MCP_PASS",JSON.stringify({
+    realMCPServer:true,realBuccetBox:true,realNativeBroker:true,
+    deniedBeforeBoxConsent:true,allowedOnlyAfterBothIndependentApprovals:true,
+    rootOperatorDeniedAfterBoxAllowed:true,missingBoxFailClosed:true,
+    exactPayloadVerifiedByBothLayers:true,unverifiedHostActorIdentityRemaining:true,
+  }));
+
   console.log("FS_MCP_OPERATOR_GATE_PASS",JSON.stringify({
     actualScopedExecutor:true,unprivilegedAgentUid:65534,privilegedBrokerUid:0,
     operatorSocketUnreachableToAgent:true,
@@ -253,6 +415,16 @@ try {
     BoxApprovalRemainsAdditionalUntrustedUserSideGate:true,
   }));
 } finally {
+  if (mcpProcess && mcpProcess.exitCode === null) {
+    mcpProcess.stdin.end();
+    mcpProcess.kill("SIGTERM");
+    await Promise.race([
+      new Promise(resolve=>mcpProcess.once("close",resolve)),
+      new Promise(resolve=>setTimeout(resolve,2000)),
+    ]);
+    if(mcpProcess.exitCode===null) mcpProcess.kill("SIGKILL");
+  }
+  if (boxServer) await boxServer.stop().catch(()=>{});
   for(const server of serverProcesses.reverse()){
     if(server.exitCode===null){
       server.kill("SIGTERM");
