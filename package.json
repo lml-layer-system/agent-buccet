@@ -87,6 +87,7 @@
     "test:agent-buccet:upl-specificity-claude-redteam": "node contracts/law/agent-buccet-upl-specificity-claude-redteam.ts",
     "test:agent-buccet:upl-regex-corridor-claude-redteam": "node contracts/law/agent-buccet-upl-regex-corridor-claude-redteam.ts",
     "test:agent-buccet:upl-traffic": "node contracts/law/agent-buccet-upl-traffic-contract.ts",
+    "test:agent-buccet:session-ttl-claude-redteam": "node contracts/law/agent-buccet-session-ttl-claude-redteam.ts",
     "test:agent-buccet:capability-acceptance-intake": "node contracts/teams/agent-buccet-capability-acceptance-intake-contract.ts",
     "test:agent-buccet:live-upl-field": "node contracts/law/agent-buccet-live-upl-field-contract.ts",
     "test:agent-buccet:base-upl-acceptance": "node contracts/law/agent-buccet-base-upl-acceptance-contract.ts",
