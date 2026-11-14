@@ -452,8 +452,9 @@ try {
   must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
   console.log("F03_G01_ATTACK gate SIGKILL at live production service " + gateBefore);
   await wait(() => serviceState(gateUnit) &&
-    socketStatus(gateOperator, "0:600:socket"), 
-    "root-owned gate failed to recover root-only socket after abrupt death", 12000);
+    socketStatus(gateOperator, "0:600:socket") &&
+    operator({command:"list"}).ok === true,
+    "root-owned gate failed to recover LIVE root-only socket after abrupt death", 12000);
   console.log("F03_G01_PASS killed gate recovered " + serviceEvidence(gateUnit));
 
   // G01: signed request pending at the moment of SIGKILL is never reused
@@ -484,8 +485,9 @@ try {
     JSON.stringify({requestId:stale.requestId,digest:stale.sha256}));
   await wait(()=>serviceState(gateUnit) &&
     socketStatus(gateRequest,"0:666:socket") &&
-    socketStatus(gateOperator,"0:600:socket"),
-    "gate failed to recover with pending request invalidation",12000);
+    socketStatus(gateOperator,"0:600:socket") &&
+    operator({command:"list"}).ok === true,
+    "gate failed to recover with LIVE operator listener and pending request invalidation",12000);
   const oldApproval=operator({
     command:"approve",requestId:stale.requestId,sha256:stale.sha256,
   });
