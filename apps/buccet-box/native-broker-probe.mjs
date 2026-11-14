@@ -15,6 +15,7 @@ const managedRoot = "/var/lib/buccet-broker-probe-" + randomBytes(10).toString("
 assert.match(managedRoot, /^\/var\/lib\/buccet-broker-probe-[a-f0-9]{20}$/);
 const broker = path.join(managedRoot, "broker.mjs");
 const client = path.join(managedRoot, "client.mjs");
+const productionController = path.join(repo, "apps/buccet-box/native-production-controller.mjs");
 const guard = path.join(managedRoot, "box-fs-guard");
 const socket = path.join(managedRoot, "broker.sock");
 const stdEnv = { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C" };
@@ -30,11 +31,28 @@ function sudo(command, args) {
   return r.stdout;
 }
 function trusted(op, relativePath, extra) {
-  const args = ["-n", process.execPath, client, socket, op, relativePath];
-  if (extra !== undefined) args.push(extra);
-  const r = run("sudo", args);
-  assert.equal(r.status, 0, "trusted broker request failed: " + r.stderr);
-  return r.stdout;
+  // This is the real executeScopedFileTool -> protected broker -> native guard
+  // production actuator call chain, not the prototype raw socket client.
+  const mapping = {
+    read: "read_file", write: "write_file", append: "append_file",
+    move: "move_file", mkdir: "make_directory", delete: "delete_file",
+  };
+  const tool = mapping[op];
+  assert.ok(tool);
+  const args = op === "move"
+    ? { from: path.join(managedRoot, relativePath), to: path.join(managedRoot, extra) }
+    : { path: path.join(managedRoot, relativePath),
+      ...(op === "write" || op === "append" ? { content: extra ?? "" } : {}) };
+  const runArgs = ["-n", "env",
+    "BUCCET_FS_BACKEND=broker",
+    "BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "BUCCET_FS_BROKER_SOCKET=" + socket,
+    process.execPath, productionController, JSON.stringify({ tool, args })];
+  const r = run("sudo", runArgs);
+  assert.equal(r.status, 0, "actual protected executor failed: " + r.stderr + r.stdout);
+  const reply = JSON.parse(r.stdout.trim());
+  assert.equal(reply.ok, true);
+  return reply.result;
 }
 function deniedMutation(operation, relative, target = "") {
   const code = 'const fs=require("node:fs");' +
@@ -128,6 +146,37 @@ try {
   deniedMutation("write", "move-parent/moved.txt");
   deniedMutation("unlink", "move-parent/moved.txt");
   deniedSocketConnection();
+
+  // An agent may know every input parameter and even call the exact production
+  // helper, but its separate untrusted UID cannot become the controller.
+  const agentAttempt = run("sudo", [
+    "-n", "setpriv", "--reuid=65534", "--regid=65534", "--clear-groups",
+    "env", "BUCCET_FS_BACKEND=broker",
+    "BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "BUCCET_FS_BROKER_SOCKET=" + socket,
+    process.execPath, productionController, JSON.stringify({
+      tool: "write_file",
+      args: { path: path.join(managedRoot, "move-parent/moved.txt"), content: "UNAUTHORIZED" },
+    }),
+  ]);
+  assert.notEqual(agentAttempt.status, 0,
+    "an untrusted agent executed the production filesystem controller");
+  assert.equal(trusted("read", "move-parent/moved.txt"), "AUTHORIZED|APPEND");
+
+  // A missing broker never causes the real executor to fall back to the
+  // same-UID native guard. Even trusted callers must fail closed.
+  const missingBroker = run("sudo", [
+    "-n", "env", "BUCCET_FS_BACKEND=broker",
+    "BUCCET_FS_BROKER_ROOT=" + managedRoot,
+    "BUCCET_FS_BROKER_SOCKET=" + path.join(managedRoot, "missing.sock"),
+    process.execPath, productionController, JSON.stringify({
+      tool: "write_file",
+      args: { path: path.join(managedRoot, "move-parent/moved.txt"), content: "FALLBACK_BREACH" },
+    }),
+  ]);
+  assert.notEqual(missingBroker.status, 0,
+    "a missing protected broker unexpectedly permitted a native write");
+  assert.equal(trusted("read", "move-parent/moved.txt"), "AUTHORIZED|APPEND");
 
   // Even the trusted controller can address only the broker-managed root.
   const escape = run("sudo", ["-n", process.execPath, client, socket,
