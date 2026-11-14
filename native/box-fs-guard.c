@@ -8,6 +8,7 @@
  */
 #define _DARWIN_C_SOURCE
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
@@ -112,6 +113,11 @@ static void check_component(const char *piece) {
   if (!piece || !piece[0] || !strcmp(piece, ".") || !strcmp(piece, "..") || strchr(piece, '/')) {
     errno = EINVAL; fail("invalid path component");
   }
+  // Internal private temp names are never valid agent/operator path targets.
+  // This reservation makes crash-recovery sweeping unambiguous.
+  if (strncmp(piece, ".buccet-fs-", 11) == 0) {
+    errno = EINVAL; fail("reserved private staging component");
+  }
 }
 static void write_all(int fd, const void *data, size_t length) {
   const char *buf = (const char *)data;
@@ -212,6 +218,54 @@ static void check_existing_target(int parent, const char *leaf) {
   }
   require_protected_regular_file(&st);
 }
+/*
+ * A SIGKILL bypasses error handlers and leaves uncommitted private inodes.
+ * The root-level kernel flock excludes concurrent cooperating native guards,
+ * including old broker generations, so staged files in the pinned parent
+ * matching this exact internal name grammar are abandoned by definition.
+ * Never touch a nonregular, non-root-owned, linked or permissive entry.
+ */
+static int stage_name(const char *n) {
+  const char *p = n;
+  if (strncmp(p, ".buccet-fs-", 11) != 0) return 0;
+  p += 11;
+  if (*p < '0' || *p > '9') return 0;
+  while (*p >= '0' && *p <= '9') p++;
+  if (*p++ != '-') return 0;
+  if (*p < '0' || *p > '9') return 0;
+  while (*p >= '0' && *p <= '9') p++;
+  return *p == '\0';
+}
+static void recover_crashed_staging(int parent) {
+  int scanfd = dup(parent);
+  if (scanfd < 0) fail("cannot inspect protected staging directory");
+  DIR *d = fdopendir(scanfd);
+  if (!d) { close(scanfd); fail("cannot open protected staging directory"); }
+  struct dirent *entry;
+  int removed = 0;
+  errno = 0;
+  while ((entry = readdir(d)) != NULL) {
+    if (stage_name(entry->d_name)) {
+      struct stat st;
+      if (fstatat(parent, entry->d_name, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+        if (errno != ENOENT) fail("cannot inspect stale stage inode");
+      } else {
+        if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
+            (st.st_mode & 0777) != 0600) {
+          errno = EPERM; fail("unsafe private stage recovery candidate");
+        }
+        if (unlinkat(parent, entry->d_name, 0) < 0)
+          fail("cannot remove abandoned root-only staging inode");
+        removed++;
+      }
+    }
+    errno = 0;
+  }
+  if (errno != 0) fail("cannot complete private staging scan");
+  closedir(d);
+  if (removed && fsync(parent) < 0)
+    commit_uncertain("cannot durably reconcile crashed private staging");
+}
 static int private_temp(int parent, char *name, size_t nameSize) {
   for (unsigned int attempt = 0; attempt < 10000; attempt++) {
     snprintf(name, nameSize, ".buccet-fs-%ld-%u", (long)getpid(), attempt);
@@ -248,6 +302,8 @@ int main(int argc, char **argv) {
   if (flock(root, LOCK_EX) < 0) fail("cannot acquire protected root transaction lock");
   char *leaf = NULL;
   int parent = parent_from_root(root, argv[3], !strcmp(op,"write") || !strcmp(op,"mkdir"), &leaf);
+  /* A post-crash read/write is a recovery entrypoint, not merely a lookup. */
+  recover_crashed_staging(parent);
   /* Keep root fd and its kernel lock open across the entire native effect. */
   if (!strcmp(op,"read")) {
     int input = openat(parent, leaf, O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
