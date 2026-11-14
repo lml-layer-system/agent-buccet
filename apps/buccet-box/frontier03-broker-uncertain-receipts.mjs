@@ -422,6 +422,20 @@ try {
     }
     await new Promise(resolve => setTimeout(resolve, 80));
   }
+  if (!reachedNative) {
+    const observed = await Promise.race([
+      firstAction, new Promise(resolve => setTimeout(() => resolve({ pending: true }), 250)),
+    ]);
+    const tr = sudo("cat", [trace]);
+    console.error("F03_REVOCATION_DIAGNOSTIC", JSON.stringify({
+      firstAction: observed.error ? String(observed.error?.stack ?? observed.error) : observed,
+      pending: operator({ command: "list" }),
+      syscallTraceStatus: tr.status,
+      syscallTraceTail: tr.stdout.slice(-1000),
+      syscallTraceError: tr.stderr.slice(-250),
+      gateLogTail: gateLogs.slice(-1400),
+    }));
+  }
   assert.equal(reachedNative, true,
     "first signed approval never reached real precommit renameat barrier");
   const queuedPath = "files/revoked-after-click.txt";
