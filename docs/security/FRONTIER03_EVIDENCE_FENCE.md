@@ -7,6 +7,7 @@ Parent tracker: [#21](https://github.com/lml-layer-system/agent-buccet/issues/21
 ## What the fence enforces once installed on main
 
 - A **closed ten-gate inventory**: exactly G01–G10, with each failure class, issue mapping, effort estimate, positive/negative obligations, named CI job, and OS coverage frozen independently inside the checker. All start UNVERIFIED.
+- **Dependency closure:** 26 directed prerequisite links are pinned as a verified acyclic graph. A downstream gate cannot be counted GREEN while any required upstream gate is RED or UNVERIFIED. Reopening an upstream gate invalidates downstream acceptance without manual monitoring.
 - **No green without both actual attack AND authorized positive-control evidence** at the same successful main-branch workflow run, source SHA, run attempt, exact job ID and OS runner labels. Require three unexpired GitHub artifacts (attack, authorized, detector-sensitivity) with exact artifact IDs and SHA-256 digest metadata.
 - **No platform-laundering**: macOS G07 requires macOS evidence, Windows G08 requires Windows evidence; G09/G10 require all three supported OS targets. A green packaging build is not an isolation proof.
 - **No baseline-laundering**: merged #18 evidence is a protected-native baseline, not proof of the new 10 gates.
@@ -57,6 +58,21 @@ Each run must be a successful GitHub push workflow **on main** named exactly `Fr
 - A full system-security guarantee: 10/10 measures completion of the ten agreed contracts only.
 
 **This is an acceptance-control fence, not a substitute for runtime authorization and OS isolation.**
+
+
+## Dependency closure (26 edges, independent graph contract)
+
+- G01 depends on G02.
+- G02 depends on none.
+- G03 depends on G02.
+- G04 depends on G01 and G03.
+- G05 depends on G02 and G03.
+- G06 depends on G01 and G05.
+- G07 and G08 each depend on G03 and G04.
+- G09 depends on G04, G05, G06, G07, and G08.
+- G10 depends on G01 through G09.
+
+Every edge is an implication that *must* hold for a dependent gate to be accepted. Acyclicity is checked by the policy validator. The graph is a model of required authority and evidence, not proof that the dependent implementation is already correct. A later RED upstream result automatically blocks any dependent GREEN claim at the next enforced check.
 
 ## Contradictions filtered by the pretest comb (not runtime attack results)
 
