@@ -239,7 +239,7 @@ try {
       });
       socket.once("error", reject);
     });
-    return { response };
+    return { response, socket };
   }
   const gatePath = path.join(repo, "native/box-fs-approval-gate.mjs");
   gateDaemon = spawn("sudo", ["-n", process.execPath, gatePath,
@@ -310,10 +310,103 @@ try {
   assert.notEqual(sudo("test", ["-e", root + "/denied/nope.txt"]).status, 0);
   console.log("F03_GATE_RECEIPT_PASS signed-policy-denial-definitive");
 
+  // G01/G04 stress: 128 unique, independently HMAC-signed host requests
+  // simultaneously hit the PUBLIC gate. Capacity pressure must neither
+  // execute an unapproved request nor let a replayed/tampered operator digest
+  // cause an effect. Each success is checked against actual root-owned bytes.
+  const COUNT = 128;
+  const burst = await Promise.all(Array.from({ length: COUNT }, async (_, n) => {
+    const pathName = "files/pressure-" + String(n).padStart(3, "0") + ".txt";
+    const payload = "SIGNED_EXACT_" + String(n).padStart(3, "0");
+    const { response, socket } = await submit({
+      op: "write", path: pathName, content: payload,
+    });
+    return { pathName, payload, response, socket, approved: false };
+  }));
+  // A bounded asynchronous read of the root host registry occurs for every
+  // request; allow the kernel/socket event loop to process the whole burst.
+  let queue = [];
+  for (let attempt = 0; attempt < 50; attempt++) {
+    queue = operator({ command: "list" }).pending;
+    if (queue.length >= 16) break;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  assert.ok(queue.length > 0 && queue.length <= 16,
+    "gate pending capacity leaked under >100 signed requests: " + queue.length);
+  const indexed = new Map(burst.map(item => [item.pathName, item]));
+  const approved = [], denied = [], canceled = [];
+  const approveCount = Math.min(8, queue.length);
+  const denyCount = Math.min(4, queue.length - approveCount);
+  for (let i = 0; i < queue.length; i++) {
+    const row = queue[i];
+    assert.equal(row.host?.verified, true, "a pressure request bypassed host proof");
+    assert.ok(indexed.has(row.path), "unexpected pending root request");
+    const item = indexed.get(row.path);
+    if (i < approveCount) {
+      // An operator's approval must bind the full exact digest and retire
+      // atomically before it can be replayed against another request.
+      const forged = operator({
+        command: "approve", requestId: row.requestId, sha256: "0".repeat(64),
+      });
+      assert.equal(forged.ok, false, "tampered digest accepted under pressure");
+      const valid = operator({
+        command: "approve", requestId: row.requestId, sha256: row.sha256,
+      });
+      assert.equal(valid.approved, true, "legitimate approval lost under pressure");
+      const replay = operator({
+        command: "approve", requestId: row.requestId, sha256: row.sha256,
+      });
+      assert.equal(replay.ok, false, "one-shot approval replayed");
+      item.approved = true;
+      approved.push(item);
+    } else if (i < approveCount + denyCount) {
+      const valid = operator({
+        command: "deny", requestId: row.requestId, sha256: row.sha256,
+      });
+      assert.equal(valid.denied, true, "valid deny not honored");
+      denied.push(item);
+    } else {
+      item.socket.destroy(); // cancellation before any approval
+      canceled.push(item);
+    }
+  }
+  const receipts = await Promise.race([
+    Promise.all(burst.map(async item => ({ item, result: await item.response }))),
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("128-client signed gate storm left stuck pending transports")), 20000)),
+  ]);
+  assert.equal(receipts.length, COUNT);
+  const accepted = receipts.filter(({ result }) => result?.ok === true);
+  assert.equal(accepted.length, approved.length,
+    "a receipt under pressure reported success without root approval");
+  for (const { item, result } of receipts) {
+    if (item.approved) {
+      assert.equal(result?.ok, true, "approved request had no positive control");
+      assert.equal(actualRead(item.pathName), item.payload,
+        "approved signed request committed wrong exact bytes");
+    } else {
+      assert.notEqual(result?.ok, true,
+        "unapproved, denied, or canceled request unexpectedly succeeded");
+      assert.notEqual(sudo("test", ["-e", root + "/" + item.pathName]).status, 0,
+        "unapproved signed request produced a filesystem effect");
+    }
+  }
+  assert.equal(operator({ command: "list" }).pending.length, 0,
+    "pending queue leaked signed requests after denial and disconnection");
+  console.log("FRONTIER03_SIGNED_GATE_128_STORM_PASS", JSON.stringify({
+    submitted: COUNT, rootApproved: approved.length,
+    explicitlyDenied: denied.length, disconnected: canceled.length,
+    capacityRejected: COUNT - queue.length, allExactEffects: true,
+    staleApprovalReplaysRejected: true, digestSubstitutionRejected: true,
+    signedHostProofVerified: true,
+  }));
+
+
   console.log("FRONTIER03_BROKER_RECEIPT_SUMMARY", JSON.stringify({
     actualRootBroker: true, productionCGuardExecuted: true,
     deniedVersusUncertainDistinguished: true, actualPublishedBytesVerified: true,
     signedOperatorGateCovered: true, brokerClientAndControllerCovered: true,
+    signedGate128ClientStress: true,
   }));
 } catch (error) {
   console.error("FRONTIER03_BROKER_RECEIPT_RED", error?.stack ?? String(error));
