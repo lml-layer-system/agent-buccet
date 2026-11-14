@@ -158,9 +158,9 @@ async function verifyRegisteredHost(managedRoot, body, proposal, consumeNonce) {
   const file = path.join(managedRoot, "host-identities.json");
   let stat;
   try { stat = lstatSync(file); }
-  catch (error) {
-    if (error?.code === "ENOENT" &&
-        process.env.BUCCET_GATE_TEST_ALLOW_UNBOUND_HOST === "1") return null;
+  catch {
+    // Production never accepts unsigned requests. A test environment variable
+    // must not convert a missing root-issued host registry into authority.
     deny("no independently provisioned host identities");
   }
   if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== 0 ||
