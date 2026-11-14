@@ -131,6 +131,19 @@ try {
   assert.equal(leakedStage.trim(), "",
     "G01/G02: rejected precommit write left privileged temporary payload");
   report("file-fsync-EIO-no-stage-residue");
+  // If cleanup's own directory fsync fails, the no-effect durability
+  // guarantee is not established. Propagate UNCERTAIN rather than DENIED.
+  resetTrace();
+  const cleanupSyncEio = act("write", "files/payload.txt", "NEVER_PUBLISHED",
+    { BUCCET_F03_FILE_FSYNC_EIO: 1, BUCCET_F03_DIR_FSYNC_EIO: 1 });
+  assert.equal(cleanupSyncEio.status, 74,
+    "failed staging cleanup durability must report uncertain, not denied");
+  assert.match(cleanupSyncEio.stderr,
+    /BUCCET_FS_COMMIT_UNCERTAIN: unable to sync staging cleanup/);
+  assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
+  assert.ok(!traceContent().includes("rename:after"));
+  ensureTrace("fsync:directory", 1);
+  report("staging-cleanup-fsync-EIO-explicit-uncertainty");
 
   resetTrace();
   const postcommit = act("write", "files/payload.txt", "EXISTS_BUT_DURABILITY_UNKNOWN",
