@@ -140,6 +140,41 @@ try {
 
   assert.equal(brokerCall({ op: "read", path: "files/ok.txt" }).ok, true);
 
+  // Other root-owned callers must not downgrade an ambiguous commit to a
+  // definite denial or ordinary success just because the broker socket replied.
+  const cli = path.join(repo, "native/box-fs-broker-client.mjs");
+  const policyController = path.join(repo, "native/box-fs-policy-controller.mjs");
+  const cliGood = sudo(process.execPath, [cli, socket, "write",
+    "files/cli-ok.txt", "CLI_EXACT_SUCCESS"]);
+  must(cliGood, "legitimate trusted broker client");
+  assert.equal(actualRead("files/cli-ok.txt"), "CLI_EXACT_SUCCESS");
+  const cliPost = sudo(process.execPath, [cli, socket, "write",
+    "files/post-eio.txt", "CLI_EFFECT_UNCERTAIN"]);
+  assert.equal(cliPost.status, 74, "broker client must distinguish unknown mutation");
+  assert.match(cliPost.stderr, /BUCCET_BROKER_CLIENT_COMMIT_UNCERTAIN/);
+  assert.equal(actualRead("files/post-eio.txt"), "CLI_EFFECT_UNCERTAIN");
+  const cliPre = sudo(process.execPath, [cli, socket, "write",
+    "files/pre-eio.txt", "NEVER_PUBLISH"]);
+  assert.equal(cliPre.status, 73, "precommit fault is a confirmed rejection");
+  assert.notEqual(sudo("test", ["-e", root + "/files/pre-eio.txt"]).status, 0);
+  console.log("F03_CONTROLLER_RECEIPT_PASS broker-client-uncertain-versus-denied");
+
+  const controllerGood = sudo(process.execPath, [policyController, root,
+    "write", "files/controller-ok.txt"], "CONTROLLER_EXACT_SUCCESS");
+  must(controllerGood, "trusted policy controller legitimate effect");
+  assert.equal(actualRead("files/controller-ok.txt"), "CONTROLLER_EXACT_SUCCESS");
+  const controllerPost = sudo(process.execPath, [policyController, root,
+    "write", "files/post-eio.txt"], "CONTROLLER_EFFECT_UNCERTAIN");
+  assert.equal(controllerPost.status, 74, "controller must not turn EIO into denial");
+  assert.match(controllerPost.stderr, /BUCCET_POLICY_COMMIT_UNCERTAIN/);
+  assert.equal(actualRead("files/post-eio.txt"), "CONTROLLER_EFFECT_UNCERTAIN");
+  const controllerPre = sudo(process.execPath, [policyController, root,
+    "write", "files/pre-eio.txt"], "NEVER_PUBLISH");
+  assert.equal(controllerPre.status, 73, "controller must preserve confirmed denial");
+  assert.notEqual(sudo("test", ["-e", root + "/files/pre-eio.txt"]).status, 0);
+  console.log("F03_CONTROLLER_RECEIPT_PASS policy-controller-uncertain-versus-denied");
+
+
   // The operator path below uses the actual root approval gate and correctly
   // HMAC-signed host requests; NO test-only host authentication bypass.
   must(sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0755",
@@ -278,7 +313,7 @@ try {
   console.log("FRONTIER03_BROKER_RECEIPT_SUMMARY", JSON.stringify({
     actualRootBroker: true, productionCGuardExecuted: true,
     deniedVersusUncertainDistinguished: true, actualPublishedBytesVerified: true,
-    signedOperatorGateCovered: true,
+    signedOperatorGateCovered: true, brokerClientAndControllerCovered: true,
   }));
 } catch (error) {
   console.error("FRONTIER03_BROKER_RECEIPT_RED", error?.stack ?? String(error));
