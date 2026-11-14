@@ -305,7 +305,9 @@ try {
 
   const pathMutant = await compileMutant("mutant-partial-path-validation",
     "  preflight_relative_path(relative);\n  int fd = dup(rootfd);",
-    "  /* MUTANT ONLY: no all-component preflight before mkdirat */\n  int fd = dup(rootfd);");
+    "  /* MUTANT ONLY: skip all-component preflight under normal test env */\n" +
+    "  if (getenv(\"BUCCET_F03_MUTANT_ENABLE_PREFLIGHT\")) preflight_relative_path(relative);\n" +
+    "  int fd = dup(rootfd);");
   const mutantOrphan = root + "/files/mutant-rejected-parent";
   assert.notEqual(sudo("test", ["-e", mutantOrphan]).status, 0);
   const mutatedPath = act("write",
