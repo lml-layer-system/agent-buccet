@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { BoundaryActionKind, BoundaryPathLaw } from "../runtime/types.ts";
 import { runProtectedFilesystemBroker } from "./protected-fs-broker.ts";
+import { runProtectedApprovalGate } from "./protected-fs-gate.ts";
 
 const toolActions: Record<string, BoundaryActionKind> = {
   read_file: "fs.read", write_file: "fs.write", append_file: "fs.append",
@@ -54,6 +55,16 @@ function scopedPath(target: string, action: BoundaryActionKind, laws: BoundaryPa
 function runGuard(args: string[], content?: string): Promise<string> {
   const brokerSocket = process.env.AGENT_BUCCET_FS_BROKER_SOCKET;
   const brokerRoot = process.env.AGENT_BUCCET_FS_BROKER_ROOT;
+  const requestSocket = process.env.AGENT_BUCCET_FS_REQUEST_SOCKET;
+  // Unprivileged MCP processes may submit an EXACT proposed effect but have
+  // no access to the broker or root-only operator channel. Operator approval
+  // is additional to Bodyguard/Box; it is never inferred from agent input.
+  if (requestSocket) {
+    if (!brokerRoot) {
+      throw new Error("BUCCET_FS_DENIED: protected operator gate requires a bound root");
+    }
+    return runProtectedApprovalGate(args, content, requestSocket, brokerRoot);
+  }
   // Safe by default. Absence of a configured broker never authorizes a
   // same-UID direct native operation; an agent can control its own environment
   // but cannot obtain access to a separately protected broker workspace.
