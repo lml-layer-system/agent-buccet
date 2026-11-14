@@ -18,7 +18,9 @@ const root = "/var/lib/buccet-native/" + id;
 const socket = path.join(root, "broker.sock");
 const guard = path.join(root, "box-fs-guard");
 const broker = path.join(root, "broker.mjs");
-const provision = path.join(repo, "scripts/provision-native-broker.sh");
+const installerStage = "/var/lib/buccet-native-installer-test-" + id;
+const provision = path.join(installerStage, "provision.sh");
+const sourceProvision = path.join(repo, "scripts/provision-native-broker.sh");
 const nativeGuard = path.join(repo, "native/build/box-fs-guard");
 const sourceBroker = path.join(repo, "native/box-fs-broker.mjs");
 const client = path.join(repo, "native/box-fs-broker-client.mjs");
@@ -41,6 +43,11 @@ const brokerHash = await digest(sourceBroker);
 const args = [provision,id,nativeGuard,sourceBroker,guardHash,brokerHash,"--files-only"];
 let server;
 try {
+  // Privileged installer is installed from the reviewed checkout into a
+  // protected, root-owned staging tree BEFORE being invoked as root.
+  sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0700", installerStage]);
+  sudo("install", ["-o", "root", "-g", "root", "-m", "0500",
+    sourceProvision, provision]);
   const bad = run("sudo", ["-n","sh",provision,id,nativeGuard,sourceBroker,"0".repeat(64),brokerHash,"--files-only"]);
   assert.notEqual(bad.status,0,"tampered artifact digest did not stop installation");
   const noPrivilege = run("sudo", ["-n","setpriv","--reuid=65534","--regid=65534",
@@ -108,7 +115,7 @@ try {
       new Promise(r=>setTimeout(r,3000))]);
   }
   // Only the randomized instance rooted under /var/lib/buccet-native.
-  const cleanup=run("sudo",["-n","rm","-rf","--",root]);
+  const cleanup=run("sudo",["-n","rm","-rf","--",root,installerStage]);
   if(cleanup.status!==0){
     console.error("BUCCET_DEPLOYMENT_TEST_CLEANUP_FAILED",cleanup.stderr);
     process.exitCode=1;
