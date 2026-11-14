@@ -13,7 +13,7 @@
 import net from "node:net";
 import path from "node:path";
 import { lstatSync, existsSync, statSync } from "node:fs";
-import { chmod } from "node:fs/promises";
+import { chmod, readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 
 const LIMIT = 8 * 1024 * 1024;
@@ -59,14 +59,50 @@ function relativePath(p) {
   }
   return p;
 }
+async function requireIndependentPolicy(operation, paths) {
+  // Policy is owned by the root broker principal, not by the agent or the
+  // calling process. Check EVERY request; raw socket access is not a grant.
+  const file = path.join(managedRoot, "policy.json");
+  let st;
+  try { st = lstatSync(file); }
+  catch { throw new Error("BUCCET_BROKER_DENIED: protected operator policy unavailable"); }
+  if (!st.isFile() || st.isSymbolicLink() || st.uid !== 0 ||
+      (st.mode & 0o077) !== 0 || st.nlink !== 1 || st.size > 65536) {
+    throw new Error("BUCCET_BROKER_DENIED: untrusted operator policy file");
+  }
+  let policy;
+  try { policy = JSON.parse(await readFile(file, "utf8")); }
+  catch { throw new Error("BUCCET_BROKER_DENIED: unreadable operator policy"); }
+  if (!policy || policy.schema !== 1 || policy.root !== managedRoot ||
+      !Array.isArray(policy.allowed) || policy.allowed.length > 64) {
+    throw new Error("BUCCET_BROKER_DENIED: invalid operator policy");
+  }
+  const now = Date.now();
+  const match = (entry, p) => entry && entry.op === operation &&
+    typeof entry.prefix === "string" && !!entry.prefix &&
+    !entry.prefix.startsWith("/") &&
+    entry.prefix.split("/").every(part => part && part !== "." && part !== "..") &&
+    (entry.expiresAt === undefined ||
+      (typeof entry.expiresAt === "string" &&
+       Number.isFinite(Date.parse(entry.expiresAt)) &&
+       Date.parse(entry.expiresAt) > now)) &&
+    (p === entry.prefix || p.startsWith(entry.prefix + "/"));
+  if (!paths.every(p => policy.allowed.some(entry => match(entry, p)))) {
+    throw new Error("BUCCET_BROKER_DENIED: independent operator policy denied action");
+  }
+}
 async function runGuard(body) {
   if (!body || typeof body !== "object" || !operations.has(body.op)) {
     throw new Error("BUCCET_BROKER_DENIED: invalid operation");
   }
   const operation = body.op;
   const src = relativePath(body.path);
+  const target = operation === "move" ? relativePath(body.to) : undefined;
+  // Every operation, including read and both move paths, is bound to an
+  // independently protected grant. No policy => no effects.
+  await requireIndependentPolicy(operation, target ? [src, target] : [src]);
   const args = [operation, managedRoot, src];
-  if (operation === "move") args.push(managedRoot, relativePath(body.to));
+  if (operation === "move") args.push(managedRoot, target);
   const content = operation === "write" || operation === "append" ? body.content : "";
   if (typeof content !== "string" || Buffer.byteLength(content) > LIMIT) {
     throw new Error("BUCCET_BROKER_DENIED: payload must be bounded text");
