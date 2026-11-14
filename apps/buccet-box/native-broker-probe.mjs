@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { spawn, spawnSync } from "node:child_process";
 import path from "node:path";
+import { writeFile, rm } from "node:fs/promises";
+import os from "node:os";
 import { fileURLToPath } from "node:url";
 
 assert.equal(process.platform, "linux");
@@ -18,6 +20,7 @@ const client = path.join(managedRoot, "client.mjs");
 const productionController = path.join(repo, "apps/buccet-box/native-production-controller.mjs");
 const guard = path.join(managedRoot, "box-fs-guard");
 const socket = path.join(managedRoot, "broker.sock");
+const localPolicy = path.join(os.tmpdir(), "buccet-probe-policy-" + randomBytes(9).toString("hex"));
 const stdEnv = { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C" };
 
 function run(cmd, args, input = "") {
@@ -120,6 +123,18 @@ try {
     });
   });
   assert.equal(ready, true);
+  // Even the root-only socket is insufficient without independent operator
+  // policy. A raw caller does not get implicit authority from socket access.
+  const withoutPolicy = run("sudo", ["-n",process.execPath,client,socket,"mkdir","nested"]);
+  assert.notEqual(withoutPolicy.status, 0,
+    "private broker executed a command without protected operator approval");
+  const prefixes = ["nested", "move-parent", "api-allowed.txt", "api-moved.txt"];
+  const allowed = ["read","write","append","move","mkdir","delete"]
+    .flatMap(op => prefixes.map(prefix => ({ op, prefix })));
+  await writeFile(localPolicy, JSON.stringify({ schema:1, root:managedRoot, allowed }));
+  sudo("install", ["-o","root","-g","root","-m","0400",
+    localPolicy, path.join(managedRoot,"policy.json")]);
+  await rm(localPolicy,{force:true});
   trusted("mkdir", "nested");
   trusted("mkdir", "move-parent");
   trusted("write", "nested/allowed.txt", "AUTHORIZED|");
@@ -190,6 +205,7 @@ try {
     untrustedSocketDenied: true,
     traversalDenied: true,
     protectedRuntimeApiVerified: true,
+    independentRootPolicyRequired: true,
     productionRouteMigrated: false,
   }));
 } finally {
@@ -200,6 +216,7 @@ try {
       new Promise(resolve => setTimeout(resolve, 3000)),
     ]);
   }
+  await rm(localPolicy,{force:true});
   const cleanup = run("sudo", ["-n", "rm", "-rf", "--", managedRoot]);
   if (cleanup.status !== 0) {
     console.error("BROKER_PROBE_CLEANUP_FAILED", cleanup.stderr);
