@@ -263,13 +263,16 @@ try {
   assert.equal(gateReady, true, "real signed operator gate not ready: " + gateLogs);
   async function approveAndReceive(proposal) {
     const { response } = await submit(proposal);
-    let row;
+    let row, earlyReceipt = null;
+    void response.then(receipt => { earlyReceipt = receipt; });
     for (let n = 0; n < 60; n++) {
+      if (earlyReceipt !== null) break;
       row = operator({ command: "list" }).pending?.find(p => p.path === proposal.path);
       if (row) break;
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    assert.ok(row, "root gate did not queue signed request " + proposal.path);
+    assert.ok(row, "root gate did not queue signed request " + proposal.path +
+      "; premature receipt=" + JSON.stringify(earlyReceipt));
     assert.equal(row.host?.verified, true, "host HMAC not validated");
     const decision = operator({
       command: "approve", requestId: row.requestId, sha256: row.sha256,
@@ -393,6 +396,13 @@ try {
   }
   assert.equal(operator({ command: "list" }).pending.length, 0,
     "pending queue leaked signed requests after denial and disconnection");
+  // Node resolves request receipt on the peer's FIN before the corresponding
+  // server-side connection-close bookkeeping necessarily completes. Do NOT
+  // confuse stale pressure from the completed burst with revocation semantics.
+  // Deliberately close every finished flood transport and require the server
+  // to regain intake capacity for a new legitimate signed positive control.
+  for (const item of burst) item.socket.destroy();
+  await new Promise(resolve => setTimeout(resolve, 500));
   console.log("FRONTIER03_SIGNED_GATE_128_STORM_PASS", JSON.stringify({
     submitted: COUNT, rootApproved: approved.length,
     explicitlyDenied: operatorDenied.length, disconnected: canceled.length,
