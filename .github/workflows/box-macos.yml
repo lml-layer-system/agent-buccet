@@ -7,6 +7,7 @@ on:
       - "apps/buccet-box/**"
       - "src/**"
       - "cli/**"
+      - "native/**"
       - "scripts/agent-buccet-mcp-server.ts"
       - "scripts/prepare-agent-buccet-package.ts"
       - ".github/workflows/box-macos.yml"
