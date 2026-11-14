@@ -456,6 +456,71 @@ try {
   ]);
   assert.match(secret, /^[a-f0-9]{64}$/, "dedicated host cannot read its own key");
   assert.equal(issued.includes(secret), false, "G03 issuer printed host secret");
+
+  // G03 process-level attacker: keep the real dedicated-UID host credential
+  // loaded in a live process, then attack its /proc memory, FDs, environment
+  // and ptrace from the untrusted runner and a second hostile UID. Refusing
+  // only the registry file is not proof of memory/FD privilege separation.
+  const holderCode = [
+    'const fs=require("node:fs");',
+    'const secret=fs.readFileSync(process.argv[1],"utf8").trim();',
+    'if(!/^[0-9a-f]{64}$/.test(secret))process.exit(83);',
+    'console.log("HOST_CREDENTIAL_HELD_PID="+process.pid);',
+    'setInterval(()=>{if(secret.length!==64)process.exit(84)},1000);',
+  ].join("");
+  const holder = spawn("sudo", ["-n", "setpriv", "--reuid=12345",
+    "--regid=12345", "--clear-groups", process.execPath, "-e",
+    holderCode, proofPath], { env, stdio: ["ignore", "pipe", "pipe"] });
+  let holderOutput = "", holderError = "";
+  holder.stdout.on("data", chunk => { holderOutput += String(chunk); });
+  holder.stderr.on("data", chunk => { holderError += String(chunk); });
+  let heldPid;
+  try {
+    for (let attempt = 0; attempt < 70; attempt++) {
+      const match = holderOutput.match(/HOST_CREDENTIAL_HELD_PID=([0-9]+)/);
+      if (match) { heldPid = match[1]; break; }
+      await new Promise(resolve => setTimeout(resolve, 60));
+    }
+    assert.ok(heldPid, "dedicated-UID key-holder never started: " + holderError);
+    assert.equal(privileged("kill", ["-0", heldPid]).status, 0,
+      "credential-holding host exited before hostile process probes");
+    const ptraceCode = [
+      "import ctypes,errno,sys",
+      "pid=int(sys.argv[1])",
+      "libc=ctypes.CDLL(None,use_errno=True)",
+      "rc=libc.ptrace(16,pid,None,None)",
+      "if rc==0:",
+      "    libc.ptrace(17,pid,None,None)",
+      "    sys.exit(0)",
+      "sys.exit(73 if ctypes.get_errno()==errno.EPERM else 74)",
+    ].join("\n");
+    const ptraceProbe = run("python3", ["-c", ptraceCode, heldPid]);
+    assert.equal(ptraceProbe.status, 73,
+      "G03 untrusted UID ptrace was allowed or failed without EPERM: " +
+      ptraceProbe.stderr);
+    assert.notEqual(run("ls", ["/proc/" + heldPid + "/fd"]).status, 0,
+      "G03 untrusted agent enumerated dedicated host file descriptors");
+    assert.notEqual(run("cat", ["/proc/" + heldPid + "/environ"]).status, 0,
+      "G03 untrusted agent read dedicated host environment");
+    assert.notEqual(run("head", ["-c", "1", "/proc/" + heldPid + "/mem"]).status, 0,
+      "G03 untrusted agent read dedicated host process memory");
+    deny("setpriv", ["--reuid=12346", "--regid=12346", "--clear-groups",
+      "ls", "/proc/" + heldPid + "/fd"],
+      "G03 second hostile UID enumerated dedicated host descriptors");
+    assert.equal(privileged("kill", ["-0", heldPid]).status, 0,
+      "G03 hostile probe killed trusted host instead of being denied");
+    console.log("F03_G03_PASS live dedicated host memory, ptrace, FD and env denied to hostile OS UIDs");
+  } finally {
+    if (heldPid) privileged("kill", ["-TERM", heldPid]);
+    await Promise.race([
+      new Promise(resolve => holder.once("close", resolve)),
+      new Promise(resolve => setTimeout(resolve, 2500)),
+    ]);
+    if (heldPid && privileged("kill", ["-0", heldPid]).status === 0) {
+      privileged("kill", ["-KILL", heldPid]);
+    }
+  }
+
   assert.notEqual(run("cat", [proofPath]).status, 0,
     "G03 untrusted agent UID could read dedicated host proof key");
   deny("setpriv", ["--reuid=12346", "--regid=12346", "--clear-groups",
@@ -711,6 +776,7 @@ try {
     sameUIDHostSecretInaccessible:true, forgedActorMACDenied:true,
     sameUIDProcFDIsolation:true, protectedReplayLedgerPathReserved:true,
     actualHostIssuerDedicatedUIDIsolation:true, issuerRevocationBeforeEffect:true,
+    dedicatedHostMemoryPtraceFDIsolation:true,
     newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
   }));
