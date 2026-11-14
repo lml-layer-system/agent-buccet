@@ -142,6 +142,12 @@ try {
   assert.equal(trusted("read", "nested/allowed.txt"), "AUTHORIZED|APPEND");
   trusted("move", "nested/allowed.txt", "move-parent/moved.txt");
   assert.equal(trusted("read", "move-parent/moved.txt"), "AUTHORIZED|APPEND");
+  // Even a root client that bypasses the higher-level controller and speaks
+  // directly to the private socket must not bypass the operator's policy.
+  const rawRootBypass = run("sudo", ["-n",process.execPath,client,socket,
+    "write","ungranted.txt","FORGED_AUTHORITY"]);
+  assert.notEqual(rawRootBypass.status,0,
+    "raw private broker socket bypassed independent root-owned policy");
 
   // The actual Buccet production file-tool API must use this same broker
   // transport in strict mode, not quietly fall back to direct native exec.
@@ -206,6 +212,7 @@ try {
     traversalDenied: true,
     protectedRuntimeApiVerified: true,
     independentRootPolicyRequired: true,
+    directRootSocketPolicyBypassDenied: true,
     productionRouteMigrated: false,
   }));
 } finally {
