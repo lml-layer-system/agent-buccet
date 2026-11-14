@@ -146,7 +146,7 @@ async function verifyRegisteredHost(managedRoot, body, proposal, consumeNonce) {
 async function callBroker(socketPath, request) {
   return new Promise((resolve, reject) => {
     const client = net.createConnection(socketPath);
-    let ended = false, response = "";
+    let ended = false, response = "", sent = false;
     const timer = setTimeout(() => finish(new Error("privileged broker timed out")), 16_000);
     timer.unref();
     function finish(error, value) {
@@ -154,12 +154,20 @@ async function callBroker(socketPath, request) {
       ended = true;
       clearTimeout(timer);
       client.destroy();
+      // After a mutating request has been transmitted, transport loss gives
+      // no reliable evidence that the native syscall did NOT commit.
+      if (error && sent && request.op !== "read" && error.uncertain !== false) {
+        error.uncertain = true;
+      }
       if (error) reject(error); else resolve(value);
     }
     // Keep the connection half-open until the broker has completed the
     // operation and returned its receipt. end() here prematurely closes the
     // server response side on the native broker's default allowHalfOpen=false.
-    client.on("connect", () => client.write(JSON.stringify(request) + "\n"));
+    client.on("connect", () => {
+      sent = true;
+      client.write(JSON.stringify(request) + "\n");
+    });
     client.on("data", chunk => {
       response += chunk.toString("utf8");
       if (Buffer.byteLength(response) > MAX_CONTENT + 8192) {
@@ -170,7 +178,14 @@ async function callBroker(socketPath, request) {
       try {
         const result = JSON.parse(response.split("\n", 1)[0]);
         if (!result || result.ok !== true || typeof result.output !== "string") {
-          throw Error("protected broker refused operation");
+          const error = Error(result?.uncertain === true
+            ? "BUCCET_GATE_COMMIT_UNCERTAIN: protected native effect not durably confirmed"
+            : "protected broker refused operation");
+          if (result?.ok === false && result.uncertain === false) {
+            error.uncertain = false; // independently confirmed rejection
+          }
+          if (result?.uncertain === true) error.uncertain = true;
+          throw error;
         }
         finish(undefined, result.output);
       } catch (error) { finish(error); }
@@ -371,8 +386,12 @@ async function main() {
           { host: row.hostProof }, row.proposal, false);
         const output = await callBroker(nativeSocket, row.proposal);
         send(row.socket, { ok: true, output });
-      } catch {
-        send(row.socket, { ok: false, error: "protected broker denied effect" });
+      } catch (error) {
+        const uncertain = error?.uncertain === true;
+        send(row.socket, uncertain
+          ? { ok: false, uncertain: true,
+              error: "BUCCET_GATE_COMMIT_UNCERTAIN: inspect protected state before retry" }
+          : { ok: false, uncertain: false, error: "protected broker denied effect" });
       }
     };
     serial = serial.then(effect, effect);
