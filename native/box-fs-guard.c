@@ -346,6 +346,12 @@ int main(int argc, char **argv) {
     if (created == 0) sync_directory_after_mutation(parent);
     int opened = openat(parent, leaf, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
     if (opened < 0) fail("created directory was substituted");
+    // mkdirat(...)=EEXIST is not proof that the leaf is independently
+    // protected: a preexisting 0777 or non-root-owned directory must NEVER
+    // be blessed with a success receipt. Apply the same inode/rights check
+    // used for every traversed protected parent, including on idempotent
+    // mkdir operations.
+    require_protected_directory(opened);
     close(opened);
   } else if (!strcmp(op,"move")) {
     if (argc != 6) { errno = EINVAL; fail("move requires destination root and relative path"); }
