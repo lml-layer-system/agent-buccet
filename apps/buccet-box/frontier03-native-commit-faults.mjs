@@ -113,6 +113,40 @@ try {
   ensureTrace("fsync:directory", 1);
   report("mkdir-parent-fsync");
 
+  // G09 actuator boundary: mkdirat(...)=EEXIST is NOT proof the existing
+  // leaf is a root-owned confined directory. A positive mkdir receipt over a
+  // world-writable or untrusted-UID leaf would bless attacker-controlled state.
+  // Deny it, leave the unsafe inode untouched, and preserve a real positive
+  // control on an existing independently protected directory.
+  const unsafeMode = root + "/files/existing-unsafe-mode";
+  const unsafeOwner = root + "/files/existing-unsafe-owner";
+  must(sudo("install", ["-d", "-o", "root", "-g", "root", "-m", "0777", unsafeMode]),
+    "stage world-writable existing directory under protected parent");
+  const unsafeModeBefore = must(sudo("stat", ["-c", "%u:%a:%F", unsafeMode]),
+    "inspect world-writable root-owned existing directory").trim();
+  assert.equal(unsafeModeBefore, "0:777:directory");
+  const mkdirMode = act("mkdir", "files/existing-unsafe-mode");
+  assert.equal(mkdirMode.status, 73,
+    "G09 existing 0777 directory received FALSE protected mkdir success");
+  assert.equal(must(sudo("stat", ["-c", "%u:%a:%F", unsafeMode]),
+    "verify refused world-writable leaf unchanged").trim(), unsafeModeBefore);
+  must(sudo("install", ["-d", "-o", "65534", "-g", "65534", "-m", "0700", unsafeOwner]),
+    "stage untrusted-UID-owned existing directory");
+  const unsafeOwnerBefore = must(sudo("stat", ["-c", "%u:%a:%F", unsafeOwner]),
+    "inspect untrusted-UID-owned existing directory").trim();
+  assert.equal(unsafeOwnerBefore, "65534:700:directory");
+  const mkdirOwner = act("mkdir", "files/existing-unsafe-owner");
+  assert.equal(mkdirOwner.status, 73,
+    "G09 existing untrusted-UID-owned directory received FALSE protected mkdir success");
+  assert.equal(must(sudo("stat", ["-c", "%u:%a:%F", unsafeOwner]),
+    "verify refused untrusted owner unchanged").trim(), unsafeOwnerBefore);
+  const mkdirSafe = act("mkdir", "files/fresh-dir");
+  must(mkdirSafe, "idempotent root-owned protected mkdir positive control");
+  assert.equal(must(sudo("stat", ["-c", "%u:%a:%F", root + "/files/fresh-dir"]),
+    "verify positive protected directory").trim(), "0:700:directory");
+  report("existing-mkdir-protects-inode-ownership-and-permissions");
+
+
   resetTrace();
   const diskFull = act("write", "files/payload.txt", "MUST_NOT_PUBLISH_FULL_DISK",
     { BUCCET_F03_WRITE_ENOSPC: 1 });
