@@ -14,6 +14,7 @@ on:
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
       - "apps/buccet-box/fs-default-deny.test.mjs"
+      - "apps/buccet-box/native-guard-default-deny.mjs"
       - "apps/buccet-box/native-provision.test.mjs"
       - "scripts/provision-native-broker.sh"
       - "apps/buccet-box/native-production-controller.mjs"
@@ -32,6 +33,7 @@ on:
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
       - "apps/buccet-box/fs-default-deny.test.mjs"
+      - "apps/buccet-box/native-guard-default-deny.mjs"
       - "apps/buccet-box/native-provision.test.mjs"
       - "scripts/provision-native-broker.sh"
       - "apps/buccet-box/native-production-controller.mjs"
@@ -45,7 +47,7 @@ permissions:
 
 jobs:
   native-commit-isolation:
-    name: Attack actual native commit after hostile mutation
+    name: Production native guard must refuse user-owned mutable namespaces
     runs-on: ubuntu-24.04
     timeout-minutes: 6
     steps:
@@ -53,8 +55,32 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Verify original five races and real allowed write
-        run: node apps/buccet-box/frontier-races.mjs
+      - name: Build the shipped native guard (never the insecure diagnostic build)
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Reject direct writes and moves from untrusted and privileged callers to mutable roots
+        run: node apps/buccet-box/native-guard-default-deny.mjs
+
+  legacy-direct-attack-sentinel:
+    name: Explicit UNSAFE test build reproduces five known direct-guard races
+    runs-on: ubuntu-24.04
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Assert vulnerability corpus remains real in the nonshipped legacy diagnostic
+        shell: bash
+        run: |
+          set +e
+          node apps/buccet-box/frontier-races.mjs --legacy-unsafe-control >legacy.log 2>&1
+          code=$?
+          set -e
+          cat legacy.log
+          test "$code" -ne 0
+          grep -q 'FRONTIER_PASS positive control' legacy.log
+          test "$(grep -c '^FRONTIER_BREACH ' legacy.log)" -eq 5
+          echo 'LEGACY_UNSAFE_DIAGNOSTIC_PASS: five actual breaches retained ONLY in the explicitly insecure test build'
 
   secure-default-execution:
     name: Default filesystem behavior denies direct guard when broker is missing
