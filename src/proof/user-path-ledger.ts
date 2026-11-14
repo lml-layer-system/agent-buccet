@@ -18,7 +18,12 @@ import type {
   BoundaryUplStatus,
   BoundaryUserPathLedger,
 } from "./../runtime/types.ts";
-import { buildAutoTrackConstraint, checkTrackConstraint, isTrackSurface } from "./../law/upl-tracks.ts";
+import {
+  buildAutoTrackConstraint,
+  checkTrackConstraint,
+  isTrackSurface,
+  trackTargetMatchSpecificity,
+} from "./../law/upl-tracks.ts";
 
 const moduleDir = path.dirname(fileURLToPath(import.meta.url));
 const UPL_RELATIVE_PATH = path.join("data", "agent-buccet-law-foundation", "user-path-ledger.json");
@@ -749,9 +754,19 @@ export function lookupUserPathTrackDecision(args: {
   const bestAllow = allowMatches[0];
 
   if (bestDeny && bestAllow) {
-    const denySpecificity = trackConstraintSpecificity(bestDeny.entry);
-    const allowSpecificity = trackConstraintSpecificity(bestAllow.entry);
-    if (allowSpecificity > denySpecificity) {
+    // Fail-closed tiebreak: a protective DENY is only overridden by an ALLOW
+    // that is genuinely more specific about the TARGET (a deeper carve-out), not
+    // one that merely carries more unrelated constraint fields. Ranking by raw
+    // field count let a same-breadth allow padded with metadata (e.g. an extra
+    // reviewInvariantLawId, or a duplicated target pattern) silently defeat a
+    // deny. On a target-specificity tie, deny wins.
+    const denyTarget = bestDeny.entry.trackConstraint
+      ? trackTargetMatchSpecificity(bestDeny.entry.trackConstraint, args.request)
+      : 0;
+    const allowTarget = bestAllow.entry.trackConstraint
+      ? trackTargetMatchSpecificity(bestAllow.entry.trackConstraint, args.request)
+      : 0;
+    if (allowTarget > denyTarget) {
       return { entry: bestAllow.entry, decision: "allow" };
     }
     return { entry: bestDeny.entry, decision: "deny" };

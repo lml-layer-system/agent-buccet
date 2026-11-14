@@ -602,6 +602,59 @@ export function checkTrackConstraint(
 }
 
 /**
+ * How narrowly this constraint's TARGET matches `request` — the length of the
+ * longest target pattern that actually matches. Used to rank a matching ALLOW
+ * against a matching DENY: a deny is only overridden by an allow that is
+ * genuinely more specific about the TARGET (a deeper carve-out), not one that
+ * merely carries more unrelated constraint fields. Returns 0 when the
+ * constraint places no target restriction (broadest), which must never outrank
+ * a targeted rail.
+ */
+export function trackTargetMatchSpecificity(
+  constraint: BoundaryUplTrackConstraint,
+  request: BoundaryActionRequest,
+): number {
+  const targetPatterns = [
+    ...(constraint.actionCorridor?.targetPattern ? [constraint.actionCorridor.targetPattern] : []),
+    ...(constraint.targetPatterns ?? []),
+    ...(constraint.targetPattern ? [constraint.targetPattern] : []),
+  ];
+  if (targetPatterns.length === 0) return 0;
+
+  const target = request.target;
+  const normalizedTarget = normalizeTrackTarget(target);
+  const isPathLike =
+    target.startsWith("/") ||
+    target.startsWith("./") ||
+    target.startsWith("../") ||
+    target.includes(path.sep);
+  const matchMode =
+    constraint.actionCorridor?.targetMatchMode ??
+    constraint.targetMatchMode ??
+    (isPathLike ? "prefix" : "exact");
+  const lexicalPrefix = (value: string): string =>
+    value.startsWith("/")
+      ? path.posix.normalize(normalizeTrackTarget(value)).replace(/\/+$/, "") || "/"
+      : value;
+
+  let best = 0;
+  for (const pattern of targetPatterns) {
+    let matched: boolean;
+    if (matchMode === "regex") {
+      matched = matchesTrackPattern(normalizedTarget, pattern);
+    } else if (matchMode === "exact") {
+      matched = target === pattern;
+    } else {
+      const t = lexicalPrefix(target);
+      const p = lexicalPrefix(pattern);
+      matched = t === p || t.startsWith(`${p}/`);
+    }
+    if (matched) best = Math.max(best, pattern.length);
+  }
+  return best;
+}
+
+/**
  * Summarise an active track constraint for display in the operator console (`buccet console`).
  */
 export function formatTrackConstraint(constraint: BoundaryUplTrackConstraint): string {
