@@ -114,6 +114,23 @@ try {
   report("mkdir-parent-fsync");
 
   resetTrace();
+  const diskFull = act("write", "files/payload.txt", "MUST_NOT_PUBLISH_FULL_DISK",
+    { BUCCET_F03_WRITE_ENOSPC: 1 });
+  assert.equal(diskFull.status, 73, "ENOSPC during native write must deny before publication");
+  assert.match(diskFull.stderr, /BUCCET_FS_DENIED/);
+  assert.equal(read("files/payload.txt"), "ORIGINAL|APPENDED");
+  assert.match(traceContent(), /write:ENOSPC/,
+    "ENOSPC fault must reach actual native write syscall");
+  assert.ok(!traceContent().includes("rename:after"),
+    "ENOSPC incorrectly advanced the native commit window");
+  const diskResidue = sudo("find", [root + "/files", "-maxdepth", "1",
+    "-type", "f", "-name", ".buccet-fs-*", "-printf", "%f\\n"]);
+  assert.equal(diskResidue.status, 0);
+  assert.equal(diskResidue.stdout.trim(), "",
+    "ENOSPC left private staged bytes even though publication failed");
+  report("actual-native-write-ENOSPC-no-effects-no-staging-residue");
+
+  resetTrace();
   const precommit = act("write", "files/payload.txt", "SHOULD_NOT_PUBLISH",
     { BUCCET_F03_FILE_FSYNC_EIO: 1 });
   assert.equal(precommit.status, 73, "failed data fsync must refuse before rename");
@@ -200,7 +217,8 @@ try {
 
   console.log("FRONTIER03_NATIVE_COMMIT_FAULT_SUMMARY", JSON.stringify({
     nativeGuard: guard, actualKernelRename: true, injectedDirectoryEIO: true,
-    injectedFileEIO: true, sigkillBeforeAndAfterRename: true,
+    injectedFileEIO: true, injectedNativeWriteENOSPC: true,
+    sigkillBeforeAndAfterRename: true,
     crossDirectoryDurability: true, mutantBlindSpotDemonstrated: true,
     wholeServiceGateAcceptance: false, realPowerLoss: false,
   }));
