@@ -10,8 +10,22 @@ type BoundaryTimeConstraintSignals = {
   reviewContext?: Partial<BoundaryReviewContext>;
 };
 
-const DELETE_NEGATION_PREFIX =
-  /\b(?:do not|don't|never|must not|should not|cannot|can't)\s+delete\b/i;
+// Negations and destructive verbs a user actually types. "don't" also arrives as
+// "dont" and with a typographic apostrophe (phones/macOS auto-curl it), which is
+// normalized before matching; "remove"/"erase"/"wipe"/"rm" mean the same thing.
+const NEGATION = String.raw`(?:do\s+not|don'?t|never|must\s+not|mustn'?t|should\s+not|shouldn'?t|cannot|can'?t)`;
+const DESTRUCTIVE_VERB = String.raw`(?:delete|remove|erase|wipe|rm|trash|destroy|unlink|shred)`;
+const DELETE_NEGATION_PREFIX = new RegExp(String.raw`\b${NEGATION}\s+${DESTRUCTIVE_VERB}\b`, "i");
+const DELETE_NEGATION_CLAUSE = new RegExp(
+  String.raw`\b${NEGATION}\s+${DESTRUCTIVE_VERB}\s+([^.!?\n;]+)`,
+  "gi",
+);
+// Shell commands that remove a file from its path.
+const DESTRUCTIVE_COMMAND = /(?:^|[\s;&|(])(?:rm|rmdir|unlink|shred|del|erase|trash|mv)(?=\s)/i;
+
+function normalizeApostrophes(value: string): string {
+  return value.replace(/[‘’ʼ´`]/g, "'");
+}
 const DELETE_GLOBAL_TAIL =
   /\b(?:anything|any(?:thing| files?)|files?|them|it|this|that|whatever)\b/i;
 const DELETE_CONSTRAINT_LAW_ID = "TIME.CONSTRAINT.DELETE.01";
@@ -39,9 +53,7 @@ function extractDeleteConstraintTargets(userInput: string): {
   const targets: string[] = [];
   let matchAll = false;
 
-  for (const match of userInput.matchAll(
-    /\b(?:do not|don't|never|must not|should not|cannot|can't)\s+delete\s+([^.!?\n;]+)/gi,
-  )) {
+  for (const match of userInput.matchAll(DELETE_NEGATION_CLAUSE)) {
     const clause = match[1]?.trim();
     if (!clause) {
       continue;
@@ -93,19 +105,43 @@ function deleteConstraintMatchesTarget(target: string, constraintTarget: string)
   );
 }
 
+/**
+ * Does this action remove `target` from where it lives? A delete obviously; a
+ * move/rename takes it away from its path just the same; and a shell command
+ * that runs rm/unlink/shred/mv on it. (An overwrite is an edit, not a delete,
+ * and is deliberately not treated as one.)
+ */
+function removesTarget(args: {
+  actionKind: BoundaryActionKind;
+  target: string;
+  payloadSummary?: string;
+}): { removes: boolean; subject: string } {
+  if (args.actionKind === "fs.delete" || args.actionKind === "fs.move") {
+    return { removes: true, subject: args.target };
+  }
+  if (args.actionKind === "tool.exec") {
+    const command = [args.target, args.payloadSummary ?? ""].join(" ").trim();
+    return { removes: DESTRUCTIVE_COMMAND.test(` ${command}`), subject: command };
+  }
+  return { removes: false, subject: args.target };
+}
+
 function inferDeleteConstraintSignals(args: {
   actionKind: BoundaryActionKind;
   target: string;
+  payloadSummary?: string;
   reviewContext?: BoundaryReviewContext;
 }): BoundaryTimeConstraintSignals {
-  const userInput = args.reviewContext?.userInput?.trim();
-  if (args.actionKind !== "fs.delete" || !userInput || !DELETE_NEGATION_PREFIX.test(userInput)) {
+  const rawInput = args.reviewContext?.userInput?.trim();
+  const userInput = rawInput ? normalizeApostrophes(rawInput) : undefined;
+  const removal = removesTarget(args);
+  if (!removal.removes || !userInput || !DELETE_NEGATION_PREFIX.test(userInput)) {
     return { flags: {} };
   }
 
   const extracted = extractDeleteConstraintTargets(userInput);
   const matchingTarget = extracted.targets.find((target) =>
-    deleteConstraintMatchesTarget(args.target, target),
+    deleteConstraintMatchesTarget(removal.subject, target),
   );
   if (!extracted.matchAll && !matchingTarget) {
     return { flags: {} };
@@ -133,6 +169,7 @@ function inferDeleteConstraintSignals(args: {
 export function inferBoundaryTimeConstraintSignals(args: {
   actionKind: BoundaryActionKind;
   target: string;
+  payloadSummary?: string;
   reviewContext?: BoundaryReviewContext;
 }): BoundaryTimeConstraintSignals {
   return inferDeleteConstraintSignals(args);
