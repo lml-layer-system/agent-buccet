@@ -112,6 +112,14 @@ try {
   console.log("F03_G02_ATTACK SIGKILL broker installer after privileged native code installed");
   const naive = sudo("env",[...benv,...bargs]);
   assert.notEqual(naive.status,0,"fresh installer blindly accepted crashed privileged tree");
+  // Deliberately weaken witness rights: privileged rollback must not trust it
+  // or destroy the root merely because a path has the expected name.
+  good(sudo("chmod", ["0644", brokerMarker]), "tamper broker witness permissions");
+  assert.notEqual(sudo("env",[...benv,...bargs,"--recover-incomplete"]).status,0,
+    "recovery accepted an untrusted broker witness");
+  assert.equal(sudo("test",["-f",root+"/box-fs-guard"]).status,0,
+    "rejected witness mutated uncommitted executable resources");
+  good(sudo("chmod", ["0600", brokerMarker]), "restore verified broker witness");
   const recover = sudo("env",[...benv,...bargs,"--recover-incomplete"]);
   good(recover,"explicit interrupted broker installation recovery");
   absent(root,"broker SIGKILL recovery left privileged code root");
@@ -177,6 +185,12 @@ try {
   console.log("F03_G02_ATTACK SIGKILL operator gate installer after root gate code installed");
   const badRetry = sudo("env",[...genv,...gargs]);
   assert.notEqual(badRetry.status,0,"gate install blindly reused interrupted namespace");
+  good(sudo("chmod", ["0644", gateMarker]), "tamper gate witness permissions");
+  assert.notEqual(sudo("env",[...genv,...gargs,"--recover-incomplete"]).status,0,
+    "recovery accepted an untrusted gate witness");
+  assert.equal(sudo("test",["-f",root+"/approval-gate.mjs"]).status,0,
+    "rejected gate witness mutated root privileged code");
+  good(sudo("chmod", ["0600", gateMarker]), "restore verified gate witness");
   const recoverGate = sudo("env",[...genv,...gargs,"--recover-incomplete"]);
   good(recoverGate,"explicit interrupted gate installation recovery");
   absent(root+"/approval-gate.mjs","gate recovery left privileged script");
@@ -215,6 +229,16 @@ try {
   good(sudo("env",[...genv,...gargs]),"real gate install after interrupted recovery");
   gateBooted = true;
   assert.equal(active(gateUnit),true,"gate not active after recovered installation");
+  assert.notEqual(sudo("env",[...benv,...bargs,"--recover-incomplete"]).status,0,
+    "recovery must never delete a healthy broker without verified witness");
+  assert.notEqual(sudo("env",[...genv,...gargs,"--recover-incomplete"]).status,0,
+    "recovery must never delete a healthy active operator gate");
+  assert.equal(active(brokerUnit),true);
+  assert.equal(active(gateUnit),true);
+  assert.equal(good(sudo(stage+"/node",[stage+"/broker-client.mjs",
+    root+"/broker.sock","read","allowed/ready.txt"]),"healthy recovery refusal positive"),
+    "PRESERVE_BROKER_DATA");
+  console.log("F03_G02_PASS forged/reused recovery refused without damaging healthy services");
   console.log("FRONTIER03_INSTALLER_SIGKILL_RECOVERY_PASS",JSON.stringify({
     actualSystemd:true,brokerSIGKILL:true,gateSIGKILL:true,
     explicitRecovery:true,originalBrokerDataIntact:true,
