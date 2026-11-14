@@ -14,6 +14,8 @@ on:
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
       - "apps/buccet-box/fs-default-deny.test.mjs"
+      - "apps/buccet-box/native-provision.test.mjs"
+      - "scripts/provision-native-broker.sh"
       - "apps/buccet-box/native-production-controller.mjs"
       - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
@@ -30,6 +32,8 @@ on:
       - "apps/buccet-box/native-broker-probe.mjs"
       - "apps/buccet-box/native-broker-api-test.mjs"
       - "apps/buccet-box/fs-default-deny.test.mjs"
+      - "apps/buccet-box/native-provision.test.mjs"
+      - "scripts/provision-native-broker.sh"
       - "apps/buccet-box/native-production-controller.mjs"
       - "apps/buccet-box/frontier-protected-races.mjs"
       - "src/box/confined-fs.ts"
@@ -103,3 +107,17 @@ jobs:
           node-version: "22"
       - name: Hold actual native renameat and attempt hostile mutation from untrusted UID
         run: node apps/buccet-box/frontier-protected-races.mjs
+
+  deploy-protected-broker:
+    name: Deploy signed-off code to root-owned workspace and test real isolated broker
+    runs-on: ubuntu-24.04
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build native guard for protected installation
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Verify digest pinning, service root, hostile access denial, and valid file effects
+        run: node apps/buccet-box/native-provision.test.mjs
