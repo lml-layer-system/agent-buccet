@@ -21,6 +21,7 @@ import { pathToFileURL } from "node:url";
 import { loadBuccetBoxBridge } from "../src/box/bridge.ts";
 import { fetchBuccetApprovedDestination } from "../src/box/safe-http.ts";
 import { executeScopedFileTool } from "../src/box/confined-fs.ts";
+import { configureProtectedFilesystemHost } from "../src/box/host-attestation.ts";
 import type { BoundaryPathLaw } from "../src/runtime/types.ts";
 
 // ─── arg parsing ────────────────────────────────────────────────────────────
@@ -453,6 +454,20 @@ const TOOL_BOUNDARY_MAP: Record<string, ToolBoundaryMapping> = {
 export async function runBuccetMcpServer(input: ParsedArgs | string[] = process.argv.slice(2)) {
   const args = Array.isArray(input) ? parseArgs(input) : input;
   const originalCwd = process.cwd();
+
+  // An agent-controlled actor/session label is not host authentication.
+  // The privileged gate accepts a proof only if an independent root-owned
+  // host registry already binds it to this session/actor. No proof in argv,
+  // environment, mutable session files or Box bearer-token storage.
+  if (process.env.AGENT_BUCCET_FS_REQUEST_SOCKET) {
+    const descriptor = Number(process.env.AGENT_BUCCET_FS_HOST_PROOF_FD);
+    if (!Number.isSafeInteger(descriptor) || descriptor < 3 || descriptor > 1024) {
+      throw new Error("BUCCET_HOST_DENIED: protected filesystem requires an inherited launcher proof FD");
+    }
+    configureProtectedFilesystemHost({
+      sessionId: args.sessionId, actorId: args.actorId, fd: descriptor,
+    });
+  }
 
   try {
     // Change to the Buccet home so relative paths resolve correctly.
