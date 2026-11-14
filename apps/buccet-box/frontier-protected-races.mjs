@@ -185,7 +185,7 @@ const nativeWrapper = [
   'if(snprintf(gate,sizeof(gate),"%s/gate-%s",GATE_ROOT,name)>= (int)sizeof(gate))return 82;',
   'if(snprintf(armed,sizeof(armed),"%s/armed",gate)>= (int)sizeof(armed))return 83;',
   'if(access(armed,F_OK)==0){',
-  'char diagnostic[PATH_MAX];',
+  'char diagnostic[PATH_MAX*2];',
   'snprintf(diagnostic,sizeof(diagnostic),"%s/wrapper-armed",gate);',
   'FILE *marker=fopen(diagnostic,"w");if(marker){fputs("armed",marker);fclose(marker);}',
   'setenv("LD_PRELOAD",INTERPOSER,1);',
