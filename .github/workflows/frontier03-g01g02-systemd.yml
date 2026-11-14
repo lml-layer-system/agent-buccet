@@ -7,6 +7,9 @@ on:
     paths:
       - ".github/workflows/frontier03-g01g02-systemd.yml"
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
+      - "apps/buccet-box/frontier03-native-commit-faults.mjs"
+      - "apps/buccet-box/frontier03-native-fault-interposer.c"
+      - "native/box-fs-guard.c"
       - "scripts/provision-native-broker.sh"
       - "scripts/provision-native-operator-gate.sh"
       - "native/box-fs-broker.mjs"
@@ -15,6 +18,9 @@ on:
     paths:
       - ".github/workflows/frontier03-g01g02-systemd.yml"
       - "apps/buccet-box/frontier03-service-lifecycle.mjs"
+      - "apps/buccet-box/frontier03-native-commit-faults.mjs"
+      - "apps/buccet-box/frontier03-native-fault-interposer.c"
+      - "native/box-fs-guard.c"
       - "scripts/provision-native-broker.sh"
       - "scripts/provision-native-operator-gate.sh"
       - "native/box-fs-broker.mjs"
@@ -39,5 +45,7 @@ jobs:
         run: |
           systemctl --version
           sudo systemctl list-unit-files --type service --no-pager >/dev/null
+      - name: Force actual native commit-window SIGKILL, fsync EIO and unsafe mutant detection
+        run: node apps/buccet-box/frontier03-native-commit-faults.mjs
       - name: Attack actual broker and gate service death; test kernel isolation and authorized effects
         run: node apps/buccet-box/frontier03-service-lifecycle.mjs
