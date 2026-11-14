@@ -6,7 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Agent Buccet</title>
   <link rel="stylesheet" href="./styles.css" />
-  <script src="./renderer.js" defer></script>
+  <script src="./renderer.js" type="module"></script>
 </head>
 <body>
   <div class="window">
@@ -46,6 +46,7 @@
           <div><span>Reason</span><strong id="approval-reason"></strong></div>
           <div id="approval-payload-row" hidden><span>Details</span><strong id="approval-payload"></strong></div>
         </div>
+        <p id="approval-warning" class="approval-warning" role="alert" hidden></p>
         <div class="actions">
           <button id="allow-once" class="btn allow" type="button">Allow once</button>
           <button id="deny-once" class="btn deny" type="button">Deny</button>
