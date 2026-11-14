@@ -1,0 +1,105 @@
+#!/bin/sh
+# Explicit privileged deployment of Buccet's protected Linux filesystem broker.
+#
+# MUST be run by an OS administrator from a verified, trusted release source.
+# This installs a root-owned broker and native guard, NOT a way for an untrusted
+# agent to gain root access. The independent policy controller/host launcher
+# remains a separate prerequisite for autonomous operation.
+set -eu
+fail() { printf 'BUCCET_PROVISION_DENIED: %s\n' "$*" >&2; exit 73; }
+if [ "$#" -ne 5 ] && [ "$#" -ne 6 ]; then
+  fail "usage: provision-native-broker.sh INSTANCE GUARD BROKER GUARD_SHA256 BROKER_SHA256 [--files-only]"
+fi
+INSTANCE=$1
+GUARD_SRC=$2
+BROKER_SRC=$3
+GUARD_EXPECTED=$4
+BROKER_EXPECTED=$5
+FILES_ONLY=${6:-}
+case "$INSTANCE" in
+  ""|*[!a-z0-9-]*|-*|*- ) fail "instance must use lowercase letters, digits and hyphens" ;;
+esac
+[ "${#INSTANCE}" -ge 4 ] && [ "${#INSTANCE}" -le 32 ] || fail "instance length must be 4..32"
+[ -z "$FILES_ONLY" ] || [ "$FILES_ONLY" = "--files-only" ] || fail "invalid option"
+[ "$(id -u)" -eq 0 ] || fail "installation requires the OS administrator"
+[ "$(uname -s)" = Linux ] || fail "only Linux isolated broker is supported"
+command -v sha256sum >/dev/null 2>&1 || fail "sha256sum unavailable"
+command -v install >/dev/null 2>&1 || fail "install unavailable"
+command -v systemctl >/dev/null 2>&1 || [ -n "$FILES_ONLY" ] || fail "systemd unavailable"
+for hash in "$GUARD_EXPECTED" "$BROKER_EXPECTED"; do
+  case "$hash" in *[!a-f0-9]*|"") fail "expected SHA256 must use lowercase hexadecimal" ;; esac
+  [ "${#hash}" -eq 64 ] || fail "expected SHA256 must contain exactly 64 hex characters"
+done
+[ -f "$GUARD_SRC" ] && [ ! -L "$GUARD_SRC" ] || fail "missing native guard source"
+[ -f "$BROKER_SRC" ] && [ ! -L "$BROKER_SRC" ] || fail "missing broker source"
+[ -r "$GUARD_SRC" ] && [ -r "$BROKER_SRC" ] || fail "unreadable deployment sources"
+guard_actual=$(sha256sum "$GUARD_SRC" | cut -d' ' -f1)
+broker_actual=$(sha256sum "$BROKER_SRC" | cut -d' ' -f1)
+[ "$guard_actual" = "$GUARD_EXPECTED" ] || fail "native guard does not match pinned release digest"
+[ "$broker_actual" = "$BROKER_EXPECTED" ] || fail "broker does not match pinned release digest"
+BASE=/var/lib/buccet-native
+ROOT=$BASE/$INSTANCE
+[ ! -L "$BASE" ] && [ ! -L "$ROOT" ] || fail "refusing symlinked managed root"
+[ ! -e "$ROOT" ] || fail "managed instance already exists; refuse overwrite"
+NODE=$(command -v node) || fail "node binary unavailable"
+case "$NODE" in /*) ;; *) fail "node must resolve to absolute trusted executable" ;; esac
+# Install in directories inaccessible to a same-user untrusted agent.
+install -d -o root -g root -m 0700 "$BASE" || fail "cannot create protected base"
+install -d -o root -g root -m 0700 "$ROOT" || fail "cannot create protected root"
+GUARD=$ROOT/box-fs-guard
+BROKER=$ROOT/broker.mjs
+SOCKET=$ROOT/broker.sock
+install -o root -g root -m 0500 "$GUARD_SRC" "$GUARD" || fail "cannot install guard"
+install -o root -g root -m 0400 "$BROKER_SRC" "$BROKER" || fail "cannot install broker"
+[ "$(sha256sum "$GUARD" | cut -d' ' -f1)" = "$GUARD_EXPECTED" ] ||
+  fail "native guard changed during protected installation"
+[ "$(sha256sum "$BROKER" | cut -d' ' -f1)" = "$BROKER_EXPECTED" ] ||
+  fail "broker changed during protected installation"
+[ "$(stat -c '%u:%a' "$ROOT")" = "0:700" ] || fail "managed root permissions invalid"
+[ "$(stat -c '%u:%a' "$GUARD")" = "0:500" ] || fail "native guard ownership invalid"
+[ "$(stat -c '%u:%a' "$BROKER")" = "0:400" ] || fail "broker ownership invalid"
+if [ "$FILES_ONLY" = "--files-only" ]; then
+  printf 'BUCCET_PROVISIONED_FILES_ONLY root=%s socket=%s\n' "$ROOT" "$SOCKET"
+  exit 0
+fi
+# This service is not reachable by an untrusted user or agent. Only a separate
+# trusted authorization controller running under the privileged principal can
+# connect to the socket. No socket chmod or group delegation is performed.
+UNIT=/etc/systemd/system/buccet-native-$INSTANCE.service
+[ ! -e "$UNIT" ] && [ ! -L "$UNIT" ] || fail "refusing existing service unit"
+umask 077
+cat > "$UNIT" <<EOF
+[Unit]
+Description=Agent Buccet protected native filesystem broker ($INSTANCE)
+After=local-fs.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+UMask=0077
+ExecStart=$NODE $BROKER $ROOT $GUARD $SOCKET
+WorkingDirectory=/
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=$ROOT
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+LockPersonality=true
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target
+EOF
+chmod 0644 "$UNIT"
+chown root:root "$UNIT"
+systemctl daemon-reload || fail "cannot reload systemd"
+systemctl enable --now "buccet-native-$INSTANCE.service" ||
+  fail "protected broker service failed to start"
+[ -S "$SOCKET" ] || fail "broker socket not created"
+[ "$(stat -c '%u:%a' "$SOCKET")" = "0:600" ] ||
+  fail "broker socket permissions invalid"
+printf 'BUCCET_PROVISIONED_PROTECTED root=%s socket=%s\n' "$ROOT" "$SOCKET"
