@@ -7,10 +7,11 @@
   "main": "main.mjs",
   "scripts": {
     "start": "electron .",
-    "test": "node --test backend.test.mjs runtime-launch.test.mjs display-safety.test.mjs",
+    "test": "node --test backend.test.mjs runtime-launch.test.mjs display-safety.test.mjs consent-binding.test.mjs",
     "build:mac": "electron-builder --mac dmg --arm64 --x64 --publish never",
     "test:gui": "node gui-smoke.mjs",
-    "test:consent": "node adversarial-consent-display.mjs"
+    "test:consent": "node adversarial-consent-display.mjs",
+    "test:queue": "node adversarial-approval-queue.mjs"
   },
   "devDependencies": {
     "electron": "^38.0.0",

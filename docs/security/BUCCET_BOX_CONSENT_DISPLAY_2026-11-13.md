@@ -7,10 +7,17 @@ and driven like a human operator with Playwright's `_electron` driver — real
 window, real localhost bridge, real `scripts/agent-buccet-mcp-server.ts`, real
 confined-fs actuator (`native/box-fs-guard.c`), real filesystem side effects.
 Not a CLI simulation.
-**Status:** One **medium/high** finding class (consent-display spoofing)
-confirmed and **fixed** in this change; one **informational** observation.
+**Status:** Two **medium/high** consent-integrity finding classes
+(display spoofing + approval auto-advance) confirmed and **fixed** in this
+change; two **informational/least-privilege** observations on autonomous mode.
 The existing FS-01…06 / BOX-01 / LEDGER-01/02 remediations
 ([prior report](./BUCCET_BOX_REDTEAM_2026-11-13.md)) were not regressed.
+
+**Structural principle behind the fixes:** the operator's authorization must be
+durably bound to *the exact proposal they actually reviewed* — legible in the
+field they read (CONSENT-01) and identified by the specific request on screen
+when they decided (CONSENT-02). Both fixes implement that binding rather than
+patching one spoofing trick at a time.
 
 ---
 
@@ -114,6 +121,72 @@ This changes **display only**; it never alters the bytes the runtime executes.
   fires for each vector. Run: `xvfb-run -a node apps/buccet-box/adversarial-consent-display.mjs`.
 - `backend.test.mjs`, `runtime-launch.test.mjs`, and the real-window
   `gui-smoke.mjs` still pass (renderer is now an ES module).
+
+## CONSENT-02 — approval auto-advance / fatigue race (fixed)
+
+Reproduced end-to-end in the real window. Two requests are queued: **A** benign
+(`fs.write /ws/report.txt`) then **B** dangerous (`fs.delete /ws/.env`). The
+operator allows A; the window **instantly** auto-populates B with the **Allow**
+button live in the exact same position, with no confirmation and no debounce. A
+second click — a double-tap, a stuck key, or plain approval-momentum —
+registered at **0 ms** and approved **B** (`allow_once` for the `.env` delete)
+without the operator ever consciously reviewing it:
+
+```
+allow A  →  window shows B instantly, Allow enabled in the same spot
+2nd click @0ms  →  B (fs.delete /ws/.env) approved: {mode:"interactive",choice:"allow_once"}
+```
+
+The operator's intent to allow A was silently converted into authorization of B.
+The decision was also only ever bound to `pending[0]`, not to the identity of
+the request the human actually looked at.
+
+### Fix — decision binding + review dwell (authoritative, in the backend)
+
+1. **Per-proposal fingerprint.** Each held request carries a SHA-256 over its
+   canonical identity (`requestId`, `actorId`, `actionKind`, `target`,
+   `payloadSummary`). The window reports the fingerprint of the request it had
+   on screen; `settle()` refuses any decision whose fingerprint does not match
+   the held row — a click can never apply to a different request that has since
+   taken the front.
+2. **Review dwell.** A freshly-surfaced front request is not allowable for
+   `REVIEW_DWELL_MS` (650 ms). An **ALLOW** that lands before a human could have
+   read a just-promoted request is refused by the backend; the window shows the
+   button as **“Review…”** and disabled. **Deny is never delayed** — denying
+   fast is always safe.
+
+Both checks live in `backend.mjs` (`settle`), so they hold even if the renderer
+is wrong or bypassed; the renderer adds the matching UX.
+
+![fixed — the auto-advanced fs.delete /ws/.env is held in a review dwell](./assets/box-consent/consent-07-queue-review-dwell.png)
+
+Regression: `consent-binding.test.mjs` (wrong-fingerprint refused; fast allow
+refused; allow after dwell accepted; a promoted request restarts its own dwell)
+and `adversarial-approval-queue.mjs` (asserts the promoted dangerous request is
+non-allowable in the real window).
+
+## AUTH-01 — autonomous mode trusts the whole corridor, including in-scope secrets (least-privilege)
+
+With a standing workspace acceptance and the box set to **Autonomous**, a real
+agent overwrote an **in-scope** `.env.production` (`KEY=original` → `KEY=ATTACKER`)
+with **no human prompt** — the same corridor that authorizes `report.txt`
+authorizes every sensitive dotfile beneath it. This is consistent with the
+documented autonomous contract, but it means "grant a workspace + go autonomous"
+silently trusts credentials, `.git/config`, and similar in-scope sensitive files.
+**Recommendation:** treat sensitive in-scope targets (dotfiles, key/secret
+material) as hold-for-human even in autonomous mode, or require autonomous
+corridors to be explicit allow-lists rather than a directory root. *(Not changed
+in this PR — it alters runtime UPL semantics and deserves its own change.)*
+
+## AUTH-02 — UPL corridor matches the unnormalized target (backstopped)
+
+`checkTrackConstraint` prefix-matches the raw request target, so a corridor for
+`/ws/project` matches `/ws/project/../secret` even though it resolves outside.
+In autonomous mode this yielded an allow verdict — but the confined-fs executor
+**denied it** at execution (`target is outside user-opened reachable scope`), so
+no escape occurred. It is a defense-in-depth dependency, not a live bypass.
+**Recommendation:** normalize targets before corridor matching so the allow rail
+and the executor agree, rather than relying on the executor as the only backstop.
 
 ## INFO-01 — file tools fail closed without the compiled native guard
 

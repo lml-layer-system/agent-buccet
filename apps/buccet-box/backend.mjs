@@ -9,19 +9,36 @@
  * session files. Host runtime protection requires genuine intercept coverage.
  */
 import http from "node:http";
-import { randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { signedDecisionForEvent } from "./verified-events.mjs";
 
+const ALLOW_CHOICES = new Set(["allow_once", "allow_as_law"]);
 const CHOICES = new Set(["allow_once", "deny_once", "allow_as_law", "deny_as_law"]);
 const MODES = new Set(["interactive", "autonomous"]);
 const APPROVAL_TIMEOUT_MS = 5 * 60_000;
 const MAX_BODY_BYTES = 32_768;
 const MAX_ACTIVITY = 200;
+// Minimum time a newly-surfaced request must be on screen before an ALLOW is
+// accepted. Structurally defeats approval-fatigue / auto-advance: a click that
+// lands faster than a human could have read a just-promoted request is refused.
+// Denials are never delayed — denying fast is always safe.
+const REVIEW_DWELL_MS = 650;
 const clean = (value, limit = 2048) => typeof value === "string" ? value.slice(0, limit) : "";
 const normalizeMode = (value) => MODES.has(value) ? value : "interactive";
+
+// Canonical identity of a held proposal. The operator's decision is bound to
+// THIS fingerprint, so a click can never be applied to a different request that
+// has since taken the front of the queue.
+function approvalFingerprint(row) {
+  const canonical = JSON.stringify([
+    "buccet-box-approval-v1",
+    row.requestId, row.actorId, row.actionKind, row.target, row.payloadSummary ?? "",
+  ]);
+  return createHash("sha256").update(canonical).digest("hex");
+}
 
 function readBody(req) {
   return new Promise((resolve, reject) => {
@@ -71,16 +88,36 @@ export function createBuccetBoxBackend({
   let token = "";
   let activity = [];
   const pending = new Map();
+  // Which held request is currently at the front of the queue, and when it
+  // arrived there. A decision is only "review-ready" once it has been presented
+  // for REVIEW_DWELL_MS, so the auto-advanced next request cannot inherit the
+  // momentum of the click that cleared the previous one.
+  let headId = null;
+  let headPresentedAt = 0;
+
+  function refreshHead() {
+    const front = pending.keys().next().value ?? null;
+    if (front !== headId) {
+      headId = front;
+      headPresentedAt = front ? Date.now() : 0;
+    }
+  }
 
   function state() {
+    refreshHead();
+    const now = Date.now();
     return {
       mode,
       running: server !== null && server.listening,
-      pending: [...pending].map(([approvalId, row]) => ({
+      pending: [...pending].map(([approvalId, row], index) => ({
         approvalId, requestId: row.requestId, actorId: row.actorId,
         actionKind: row.actionKind, target: row.target, reason: row.reason,
         lawIds: row.lawIds, payloadSummary: row.payloadSummary,
         question: row.question, createdAt: row.createdAt,
+        fingerprint: row.fingerprint,
+        // Only the front request carries a review clock; it becomes allowable
+        // REVIEW_DWELL_MS after it surfaced.
+        reviewReadyInMs: index === 0 ? Math.max(0, REVIEW_DWELL_MS - (now - headPresentedAt)) : REVIEW_DWELL_MS,
       })),
       activity: activity.map((entry) => ({ ...entry })),
     };
@@ -94,11 +131,27 @@ export function createBuccetBoxBackend({
     await fs.rename(file, activityPath);
   }
 
-  function settle(approvalId, choice) {
+  // `operator` carries the decision made in the window: the fingerprint of the
+  // request that was actually on screen, used to bind the click to that exact
+  // proposal and to enforce the review dwell. Internal callers (timeout, mode
+  // switch, shutdown) omit it and always settle immediately (deny).
+  function settle(approvalId, choice, operator = null) {
     const row = pending.get(approvalId);
     if (!row || !CHOICES.has(choice)) return false;
+    if (operator) {
+      // The decision must match the exact proposal the operator reviewed...
+      if (operator.fingerprint !== row.fingerprint) return false;
+      // ...and an ALLOW must not land before a human could have read a
+      // freshly-surfaced front request.
+      refreshHead();
+      if (ALLOW_CHOICES.has(choice) && approvalId === headId &&
+          Date.now() - headPresentedAt < REVIEW_DWELL_MS) {
+        return false;
+      }
+    }
     pending.delete(approvalId);
     clearTimeout(row.timer);
+    refreshHead();
     row.resolve({ mode: "interactive", choice });
     emit();
     return true;
@@ -174,7 +227,7 @@ export function createBuccetBoxBackend({
     const approvalId = randomUUID();
     const answer = await new Promise((resolve) => {
       const timer = setTimeout(() => settle(approvalId, "deny_once"), APPROVAL_TIMEOUT_MS);
-      pending.set(approvalId, {
+      const row = {
         requestId,
         actorId: clean(body.actorId, 200),
         actionKind,
@@ -186,7 +239,10 @@ export function createBuccetBoxBackend({
         createdAt: new Date().toISOString(),
         timer,
         resolve,
-      });
+      };
+      row.fingerprint = approvalFingerprint(row);
+      pending.set(approvalId, row);
+      refreshHead();
       notify({ type: "approval", actionKind, target });
       emit();
     });

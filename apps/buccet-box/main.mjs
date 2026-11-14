@@ -198,9 +198,11 @@ ipcMain.handle("box:set-mode", async (event, mode) => {
   if (event.sender !== win?.webContents) throw new Error("unauthorized window");
   return backend.setMode(mode);
 });
-ipcMain.handle("box:decide", (event, id, choice) => {
+ipcMain.handle("box:decide", (event, id, choice, fingerprint) => {
   if (event.sender !== win?.webContents) throw new Error("unauthorized window");
-  return backend.settle(id, choice);
+  // The window reports which exact proposal it had on screen; the backend binds
+  // the decision to that fingerprint and enforces the review dwell.
+  return backend.settle(id, choice, typeof fingerprint === "string" ? { fingerprint } : null);
 });
 ipcMain.handle("box:connect", async (event, host) => {
   if (event.sender !== win?.webContents) throw new Error("unauthorized window");

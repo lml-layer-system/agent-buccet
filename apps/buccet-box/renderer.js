@@ -2,6 +2,7 @@ import { sanitizeForDisplay, LONG_TARGET_THRESHOLD } from "./display-safety.mjs"
 const api = window.buccetBox;
 let current = null;
 let busy = false;
+let reviewTimer = null;
 
 const byId = (id) => document.getElementById(id);
 function text(id, value) { byId(id).textContent = value == null ? "" : String(value); }
@@ -83,8 +84,19 @@ function render(next) {
       warn.hidden = true;
       warn.textContent = "";
     }
-    byId("allow-once").disabled = busy;
+    // Review dwell: a freshly-surfaced request cannot be allowed until it has
+    // been on screen long enough to read. This defeats approval-fatigue — a
+    // click meant for the previous request cannot carry into this one. Deny is
+    // always available.
+    const readyInMs = Math.max(0, Number(approval.reviewReadyInMs) || 0);
+    const allowReady = readyInMs <= 0;
+    byId("allow-once").disabled = busy || !allowReady;
+    byId("allow-once").textContent = allowReady ? "Allow once" : "Review…";
     byId("deny-once").disabled = busy;
+    clearTimeout(reviewTimer);
+    if (!allowReady) {
+      reviewTimer = setTimeout(async () => { try { render(await api.getState()); } catch {} }, readyInMs + 40);
+    }
   }
   text("cursor-status", next.hosts?.cursor ? "MCP configured · restart Cursor" : "Not configured");
   text("claude-status", next.hosts?.claude ? "MCP configured · restart Claude" : "Not configured");
@@ -97,7 +109,7 @@ async function resolve(choice) {
   byId("allow-once").disabled = true;
   byId("deny-once").disabled = true;
   try {
-    await api.decide(current.pending[0].approvalId, choice);
+    await api.decide(current.pending[0].approvalId, choice, current.pending[0].fingerprint);
   } catch (error) {
     text("connection-result", error.message || String(error));
   } finally {
