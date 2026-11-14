@@ -34,7 +34,9 @@ function brokerIdentity(socketPath: string, managedRoot: string): void {
     deny("socket and root mismatch");
   }
   checkProtectedAncestors(managedRoot);
-  const socket = lstatSync(socketPath);
+  let socket;
+  try { socket = lstatSync(socketPath); }
+  catch { deny("trusted socket unavailable"); }
   if (!socket.isSocket() || socket.uid !== 0 || (socket.mode & 0o077) !== 0) {
     deny("socket lacks trusted root owner or exclusive access");
   }
