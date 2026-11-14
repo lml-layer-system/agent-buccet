@@ -172,10 +172,21 @@ async function runGuard(body) {
     });
     proc.stderr.on("data", chunk => { error += chunk.toString("utf8").slice(0, 512); });
     proc.on("error", reject);
-    proc.on("close", code => {
+    proc.on("close", (code, signal) => {
       clearTimeout(timeout);
       if (failed || code !== 0) {
-        reject(new Error("BUCCET_BROKER_DENIED: " + (error.slice(0, 768) || "native guard unavailable")));
+        // A killed/missing native guard could have crossed renameat before
+        // its receipt; exit 74 explicitly means a post-mutation fsync failed.
+        // Never tell clients their mutating effect was definitively denied.
+        const uncertain = operation !== "read" &&
+          (failed || signal !== null || code === 74 ||
+            error.includes("BUCCET_FS_COMMIT_UNCERTAIN"));
+        const reason = uncertain
+          ? "BUCCET_BROKER_COMMIT_UNCERTAIN: inspect protected state before retry"
+          : "BUCCET_BROKER_DENIED: " + (error.slice(0, 768) || "native guard unavailable");
+        const failure = new Error(reason);
+        failure.uncertain = uncertain;
+        reject(failure);
       } else {
         resolve(output);
       }
@@ -204,7 +215,8 @@ const server = net.createServer((client) => {
       client.end(JSON.stringify({ ok: true, output }) + "\n");
     } catch (error) {
       client.end(JSON.stringify({
-        ok: false, error: String(error?.message || "BUCCET_BROKER_DENIED").slice(0, 900),
+        ok: false, uncertain: error?.uncertain === true,
+        error: String(error?.message || "BUCCET_BROKER_DENIED").slice(0, 900),
       }) + "\n");
     }
   });
