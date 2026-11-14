@@ -206,6 +206,32 @@ try {
     "G02: interrupted installation created a live service unit");
   console.log("F03_G02_PASS injected partial native install rolled back without root residue");
 
+  // Inject failure after the broker has already written its systemd unit.
+  // A transactional installer must remove the unit and protected root; a
+  // path-only rollback would miss the privilege-bearing service descriptor.
+  const ctlFaultDir=stage+"/systemctl-fault-bin";
+  must("/usr/bin/install",["-d","-o","root","-g","root","-m","0700",ctlFaultDir]);
+  const ctlFaultSrc=path.join(tmp,"systemctl-fault.sh");
+  await writeFile(ctlFaultSrc,
+    '#!/bin/sh\n' +
+    'if [ "$1" = enable ]; then exit 76; fi\n' +
+    'exec /usr/bin/systemctl "$@"\n');
+  must("/usr/bin/install",["-o","root","-g","root","-m","0500",
+    ctlFaultSrc,ctlFaultDir+"/systemctl"]);
+  const brokerUnitFault=privileged("env",[
+    "PATH="+ctlFaultDir+":/usr/bin:/bin",...brokerEnv,
+    "sh",...brokerArgs,
+  ]);
+  assert.notEqual(brokerUnitFault.status,0,
+    "G02 simulated systemctl failure did not stop installation");
+  deny("test",["-e",root],
+    "G02 installation left a privileged root after unit-activation error");
+  deny("test",["-e","/etc/systemd/system/"+brokerUnit],
+    "G02 installation left a service unit after activation error");
+  assert.equal(serviceState(brokerUnit),false,
+    "G02 failed install left privileged service active");
+  console.log("F03_G02_PASS failed broker unit activation rolled back code and service");
+
   const installed = privileged("env", [...brokerEnv, "sh", ...brokerArgs]);
   brokerInstalled = true;
   assert.equal(installed.status, 0, "G01 full broker service installation failed: " +
@@ -269,6 +295,23 @@ try {
   assert.equal(mustBroker("read", "allowed/ready.txt"),"AUTHORIZED_BEFORE_CRASH",
     "G02: failed gate installation damaged the running protected broker");
   console.log("F03_G02_PASS interrupted gate install rolled back without harming broker");
+
+  const gateUnitFault=privileged("env",[
+    "PATH="+ctlFaultDir+":/usr/bin:/bin",...gateEnv,
+    "sh",...gateArgs,
+  ]);
+  assert.notEqual(gateUnitFault.status,0,
+    "G02 simulated gate service activation failure did not abort");
+  deny("test",["-e","/etc/systemd/system/"+gateUnit],
+    "G02 failed gate installation left a privileged systemd unit");
+  deny("test",["-e",root+"/approval-gate.mjs"],
+    "G02 failed gate activation left privileged executable code");
+  deny("test",["-e",gateRun],
+    "G02 failed gate activation left an attacker-visible request endpoint");
+  assert.equal(serviceState(brokerUnit),true,
+    "G02 failed operator gate activation damaged existing protected broker");
+  assert.equal(mustBroker("read","allowed/ready.txt"),"AUTHORIZED_BEFORE_CRASH");
+  console.log("F03_G02_PASS failed gate unit activation rolled back without collateral effects");
 
   const gateSetup = privileged("env", [...gateEnv, "sh", ...gateArgs]);
   gateInstalled = true;
