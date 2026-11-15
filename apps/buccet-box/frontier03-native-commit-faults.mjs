@@ -155,6 +155,33 @@ try {
     "G06 failed renameat stranded protected destination ancestry");
   report("precommit-rename-EIO-reverts-new-move-destination-parent");
 
+  // G06 kill exactly AFTER the kernel has made the destination parent but
+  // BEFORE native C can persist an in-memory rollback list. The NEXT actual
+  // authorized native read must reconcile the interrupted move transaction,
+  // without changing the original source bytes or retaining orphan dirs.
+  const crashSource = "src/move-sigkill-source.txt";
+  const crashParent = root + "/dst/move-sigkill-new-parent";
+  must(act("write", crashSource, "UNCHANGED_AFTER_CRASH"),
+    "create exact approved source for SIGKILL move");
+  assert.notEqual(sudo("test", ["-e", crashParent]).status, 0);
+  resetTrace();
+  const crashDuringMkdir = act("move", crashSource,
+    "dst/move-sigkill-new-parent/nested/target.txt",
+    { BUCCET_F03_CRASH_MOVE_MKDIR: 1 });
+  killed(crashDuringMkdir, "G06 after destination mkdirat but before caller resumes");
+  assert.match(traceContent(), /mkdir:created-before-SIGKILL/,
+    "fault interposer never reached live kernel mkdirat");
+  assert.equal(sudo("test", ["-d", crashParent]).status, 0,
+    "G06 attack never left real created parent as observable RED state");
+  assert.equal(read(crashSource), "UNCHANGED_AFTER_CRASH",
+    "G06 restart recovery damaged original source content");
+  assert.notEqual(sudo("test", ["-e", crashParent]).status, 0,
+    "G06 SIGKILL left orphan privileged destination parent after next guarded read");
+  assert.notEqual(sudo("test", ["-e", root +
+    "/dst/move-sigkill-new-parent/nested/target.txt"]).status, 0);
+  report("SIGKILL-after-destination-mkdir-recovered-no-orphan");
+
+
   // G06 crash-durable migration preparation: kill the real guard AFTER the
   // kernel creates the first nested destination directory. The next
   // independently privileged guard invocation under the root flock MUST
