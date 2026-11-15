@@ -87,10 +87,17 @@ int mkdirat(int dirfd, const char *pathname, mode_t mode) {
     if (!real_mkdirat) _exit(95);
   }
   int result = real_mkdirat(dirfd, pathname, mode);
-  if (result == 0 && getenv("BUCCET_F03_CRASH_MOVE_MKDIR")) {
-    trace_event("mkdir:created-then-SIGKILL");
-    raise(SIGKILL);
-    _exit(96);
+  const char *kill_after = getenv("BUCCET_F03_CRASH_MOVE_MKDIR");
+  if (result == 0 && kill_after && *kill_after) {
+    static unsigned int created = 0;
+    created++;
+    unsigned long nth = strtoul(kill_after, NULL, 10);
+    if (nth == 0) nth = 1;
+    if (created == nth) {
+      trace_event("mkdir:created-then-SIGKILL");
+      raise(SIGKILL);
+      _exit(96);
+    }
   }
   return result;
 }
