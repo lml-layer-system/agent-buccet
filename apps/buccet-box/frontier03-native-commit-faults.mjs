@@ -183,6 +183,52 @@ try {
   assert.equal(read(killedDestination), "MOVE_CRASH_ORIGINAL_EXACT");
   report("SIGKILL-after-mkdir-before-move-recovers-durable-intent-and-exact-bytes");
 
+  // G06 exact commit ambiguity: a SIGKILL AFTER actual source->dest rename
+  // but BEFORE userspace returns or retires the fsynced move intent must NOT
+  // roll back the newly created destination ancestry. The next root-locked
+  // guard invocation identifies the moved inode at its exact destination,
+  // re-syncs both parents, and retires ONLY the intent witness.
+  const afterSource = "src/move-killed-after-rename.txt";
+  const afterDest = "dst/move-killed-after-parent/deep/final.txt";
+  must(act("write", afterSource, "PUBLISHED_WITHOUT_RECEIPT"),
+    "stage source for post-rename native move crash");
+  resetTrace();
+  const afterKill = act("move", afterSource, afterDest,
+    { BUCCET_F03_CRASH_RENAME: "after" });
+  killed(afterKill, "G06 actual native move SIGKILL after rename before receipt");
+  assert.match(traceContent(), /rename:after/,
+    "postcommit test did not hit actual native renameat");
+  assert.equal(sudo("test", ["-f", root + "/" + afterDest]).status, 0,
+    "native rename did not actually publish bytes before process death");
+  assert.notEqual(sudo("test", ["-e", root + "/" + afterSource]).status, 0,
+    "native move death left a stale original source");
+  assert.equal(read(afterDest), "PUBLISHED_WITHOUT_RECEIPT",
+    "postcommit move recovery rolled back already published exact bytes");
+  assert.notEqual(sudo("test", ["-e", root + "/.buccet-move-intent"]).status, 0,
+    "postcommit recovery left replayable protected move intent");
+  assert.equal(sudo("test", ["-d", root + "/dst/move-killed-after-parent"]).status, 0,
+    "postcommit recovery removed an already committed destination ancestor");
+  report("SIGKILL-after-move-rename-preserves-published-inode-and-retires-intent");
+
+  const beforeSource = "src/move-killed-before-rename.txt";
+  const beforeDest = "dst/move-killed-before-parent/deep/final.txt";
+  must(act("write", beforeSource, "UNPUBLISHED_ORIGINAL"),
+    "stage source for pre-rename native move crash");
+  resetTrace();
+  const beforeKill = act("move", beforeSource, beforeDest,
+    { BUCCET_F03_CRASH_RENAME: "before" });
+  killed(beforeKill, "G06 actual native move SIGKILL before rename");
+  assert.match(traceContent(), /rename:before/,
+    "precommit test did not hit actual native renameat");
+  assert.equal(read(beforeSource), "UNPUBLISHED_ORIGINAL",
+    "precommit move recovery failed to preserve original source inode");
+  assert.notEqual(sudo("test", ["-e", root + "/dst/move-killed-before-parent"]).status, 0,
+    "precommit SIGKILL left private destination directory ancestry");
+  assert.notEqual(sudo("test", ["-e", root + "/.buccet-move-intent"]).status, 0,
+    "precommit recovery did not retire fsynced move intent");
+  report("SIGKILL-before-move-rename-preserves-old-inode-and-cleans-ancestry");
+
+
 
 
 
@@ -410,7 +456,8 @@ try {
     nativeGuard: guard, actualKernelRename: true, injectedDirectoryEIO: true,
     injectedFileEIO: true, injectedNativeWriteENOSPC: true,
     sigkillBeforeAndAfterRename: true,
-    crossDirectoryDurability: true, mutantBlindSpotDemonstrated: true,
+    crossDirectoryDurability: true, moveJournalSIGKILLBothCommitSides: true,
+    mutantBlindSpotDemonstrated: true,
     unsafeMkdirMutantDetected: true, partialPathValidationMutantDetected: true,
     wholeServiceGateAcceptance: false, realPowerLoss: false,
   }));
