@@ -155,6 +155,35 @@ try {
     "G06 failed renameat stranded protected destination ancestry");
   report("precommit-rename-EIO-reverts-new-move-destination-parent");
 
+  // G06 crash-durable migration preparation: kill the real guard AFTER the
+  // kernel creates the first nested destination directory. The next
+  // independently privileged guard invocation under the root flock MUST
+  // reconcile the journal and remove only its empty, uncommitted parents.
+  const killedSource = "src/move-killed-before-rename.txt";
+  const killedDestination = "dst/move-killed-parent/deep/final.txt";
+  const killedParent = root + "/dst/move-killed-parent";
+  must(act("write", killedSource, "MOVE_CRASH_ORIGINAL_EXACT"),
+    "prepare source for real SIGKILL during native destination mkdir");
+  assert.notEqual(sudo("test", ["-e", killedParent]).status, 0);
+  resetTrace();
+  const killedMove = act("move", killedSource, killedDestination,
+    { BUCCET_F03_CRASH_MOVE_MKDIR: 1 });
+  killed(killedMove, "SIGKILL after actual move mkdirat");
+  assert.match(traceContent(), /mkdir:created-then-SIGKILL/,
+    "test failed to reach real native mkdirat syscall");
+  assert.equal(sudo("test", ["-d", killedParent]).status, 0,
+    "crash test never created the destination parent");
+  assert.equal(read(killedSource), "MOVE_CRASH_ORIGINAL_EXACT",
+    "crash recovery damaged or failed to expose original protected source");
+  assert.notEqual(sudo("test", ["-e", killedParent]).status, 0,
+    "G06 authorized restart/read failed to reconcile SIGKILL-created parent");
+  assert.notEqual(sudo("test", ["-e", root + "/" + killedDestination]).status, 0);
+  must(act("move", killedSource, killedDestination),
+    "G06 fresh authorized move after crash reconciliation");
+  assert.equal(read(killedDestination), "MOVE_CRASH_ORIGINAL_EXACT");
+  report("SIGKILL-after-mkdir-before-move-recovers-durable-intent-and-exact-bytes");
+
+
 
 
   resetTrace();
