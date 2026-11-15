@@ -1093,7 +1093,9 @@ try {
   ];
   const e7Witnesses = e7Committed.map(([relative, expected]) => {
     const file = root + "/" + relative;
-    const diskHash = must("sha256sum", [file]).split(/\\s+/)[0];
+    const diskHash = must("sha256sum", [file]).slice(0, 64);
+    assert.match(diskHash, /^[0-9a-f]{64}$/,
+      "E7 did not collect a real hex SHA256 from protected disk");
     const expectedHash = createHash("sha256").update(expected).digest("hex");
     assert.equal(diskHash, expectedHash,
       "E7 protected disk bytes differed from exact authorized payload " + relative);
