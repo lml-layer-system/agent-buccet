@@ -434,7 +434,9 @@ try {
   report("mutation-sensitivity-unsafe-existing-mkdir-detected");
 
   const pathMutant = await compileMutant("mutant-partial-path-validation",
+    "static int parent_from_root(int rootfd, const char *relative, int create, char **leaf) {\n" +
     "  preflight_relative_path(relative);\n  int fd = dup(rootfd);",
+    "static int parent_from_root(int rootfd, const char *relative, int create, char **leaf) {\n" +
     "  /* MUTANT ONLY: skip all-component preflight under normal test env */\n" +
     "  if (getenv(\"BUCCET_F03_MUTANT_ENABLE_PREFLIGHT\")) preflight_relative_path(relative);\n" +
     "  int fd = dup(rootfd);");
