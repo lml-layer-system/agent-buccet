@@ -318,6 +318,262 @@ static void regular_unique(int fd) {
   }
   require_protected_regular_file(&st);
 }
+
+/*
+ * G06 crash-durable intent protocol for moves that create destination
+ * ancestry. The root flock excludes concurrent cooperating guard generations.
+ * The intent is fully fsynced and published BEFORE any destination mkdirat.
+ * SIGKILL during journal preparation leaves only a disposable .tmp file.
+ * Recovery never removes preexisting directories: first_created is the exact
+ * first absent destination ancestor, recorded before mkdir under the lock.
+ *
+ * This protocol covers SAME-ROOT moves only when creating ancestry. A move
+ * across two distinct roots with missing destination parents is refused until
+ * a cross-root locking and durable journal protocol is established.
+ */
+struct move_intent_record {
+  char magic[24];
+  char source[PATH_MAX];
+  char dest_root[PATH_MAX];
+  char destination[PATH_MAX];
+  char first_created[PATH_MAX];
+  uint64_t source_device;
+  uint64_t source_inode;
+};
+static void intent_string(char *out, size_t capacity, const char *value) {
+  if (!value || strlen(value) >= capacity) {
+    errno = ENAMETOOLONG; fail("move intent path exceeds durable record bounds");
+  }
+  memcpy(out, value, strlen(value) + 1);
+}
+static char *first_missing_move_parent(int dstRoot, const char *relative) {
+  preflight_relative_path(relative);
+  int fd = dup(dstRoot);
+  if (fd < 0) fail("cannot pin destination root during move preflight");
+  char *copy = strdup(relative);
+  if (!copy) fail("cannot allocate destination preflight");
+  char built[PATH_MAX] = "";
+  char *save = NULL;
+  char *piece = strtok_r(copy, "/", &save);
+  while (piece) {
+    char *nextPiece = strtok_r(NULL, "/", &save);
+    if (!nextPiece) break; /* leaf is not a parent */
+    size_t used = strlen(built);
+    int n = snprintf(built + used, sizeof(built) - used,
+      "%s%s", used ? "/" : "", piece);
+    if (n < 0 || (size_t)n >= sizeof(built) - used) {
+      errno = ENAMETOOLONG; fail("destination ancestry exceeds journal bounds");
+    }
+    int next = openat(fd, piece, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (next < 0) {
+      if (errno != ENOENT) fail("move destination ancestry is unsafe");
+      char *first = strdup(built);
+      if (!first) fail("cannot retain first missing destination parent");
+      close(fd); free(copy);
+      return first;
+    }
+    require_protected_directory(next);
+    close(fd); fd = next; piece = nextPiece;
+  }
+  close(fd); free(copy);
+  return NULL;
+}
+static int protected_path_status(int rootfd, const char *relative, int directory,
+                                 struct stat *identity) {
+  preflight_relative_path(relative);
+  int fd = dup(rootfd);
+  if (fd < 0) fail("cannot pin recovery path root");
+  char *copy = strdup(relative);
+  if (!copy) fail("cannot allocate recovery path");
+  char *save = NULL;
+  char *piece = strtok_r(copy, "/", &save);
+  while (piece) {
+    char *nextPiece = strtok_r(NULL, "/", &save);
+    int flags = O_RDONLY | O_NOFOLLOW | O_CLOEXEC;
+    if (nextPiece || directory) flags |= O_DIRECTORY;
+    else flags |= O_NONBLOCK;
+    int next = openat(fd, piece, flags);
+    if (next < 0 && errno == ENOENT) {
+      close(fd); free(copy); return 0;
+    }
+    if (next < 0) fail("unsafe or inaccessible move recovery path");
+    if (nextPiece || directory) require_protected_directory(next);
+    else regular_unique(next);
+    close(fd); fd = next; piece = nextPiece;
+  }
+  if (identity && fstat(fd, identity) < 0)
+    fail("cannot verify recovered move inode identity");
+  close(fd); free(copy);
+  return 1;
+}
+static void publish_move_intent(int rootfd, const char *source,
+                                const char *destRoot, const char *destination,
+                                const char *firstCreated,
+                                const struct stat *sourceIdentity) {
+  struct move_intent_record record = {0};
+  intent_string(record.magic, sizeof(record.magic), MOVE_MAGIC);
+  intent_string(record.source, sizeof(record.source), source);
+  char resolved[PATH_MAX];
+  if (!realpath(destRoot, resolved))
+    fail("cannot canonicalize move journal destination root");
+  intent_string(record.dest_root, sizeof(record.dest_root), resolved);
+  intent_string(record.destination, sizeof(record.destination), destination);
+  intent_string(record.first_created, sizeof(record.first_created), firstCreated);
+  record.source_device = (uint64_t)sourceIdentity->st_dev;
+  record.source_inode = (uint64_t)sourceIdentity->st_ino;
+  struct stat prior;
+  if (fstatat(rootfd, MOVE_INTENT, &prior, AT_SYMLINK_NOFOLLOW) == 0) {
+    errno = EEXIST; fail("prior move intent not reconciled");
+  }
+  if (errno != ENOENT) fail("cannot inspect prior move intent");
+  int fd = openat(rootfd, MOVE_INTENT_TEMP,
+    O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600);
+  if (fd < 0) fail("cannot reserve private move intent preparation");
+  write_all(fd, &record, sizeof(record));
+  if (fsync(fd) < 0) commit_uncertain("cannot durably write pre-create move intent");
+  if (close(fd) < 0) commit_uncertain("cannot close durable move intent");
+  if (renameat(rootfd, MOVE_INTENT_TEMP, rootfd, MOVE_INTENT) < 0)
+    fail("cannot atomically publish move intent");
+  move_intent_root = rootfd;
+  move_intent_active = 1;
+  if (fsync(rootfd) < 0)
+    commit_uncertain("cannot durably publish pre-create move intent");
+}
+static void remove_recovery_move_parents(int dstRoot,
+                                         const struct move_intent_record *record) {
+  char *prefixes[PATH_MAX / 2] = {0};
+  size_t count = 0;
+  char built[PATH_MAX] = "";
+  char *copy = strdup(record->destination);
+  if (!copy) fail("cannot allocate move recovery ancestry");
+  char *save = NULL;
+  char *piece = strtok_r(copy, "/", &save);
+  int found = 0;
+  while (piece) {
+    char *nextPiece = strtok_r(NULL, "/", &save);
+    if (!nextPiece) break; /* final leaf is not a created directory */
+    size_t used = strlen(built);
+    int n = snprintf(built + used, sizeof(built) - used,
+      "%s%s", used ? "/" : "", piece);
+    if (n < 0 || (size_t)n >= sizeof(built) - used) {
+      errno = ENAMETOOLONG; fail("recovery ancestry exceeds path bounds");
+    }
+    if (!strcmp(built, record->first_created)) found = 1;
+    if (found) {
+      if (count >= PATH_MAX / 2) {
+        errno = ENAMETOOLONG; fail("recovery ancestry too deep");
+      }
+      prefixes[count] = strdup(built);
+      if (!prefixes[count]) fail("cannot retain recovery directory identity");
+      count++;
+    }
+    piece = nextPiece;
+  }
+  free(copy);
+  if (!found) {
+    errno = EINVAL; fail("move intent first-created path is not destination ancestry");
+  }
+  while (count) {
+    char *relative = prefixes[--count];
+    if (protected_path_status(dstRoot, relative, 1, NULL)) {
+      char *leaf = NULL;
+      int parent = parent_from_root(dstRoot, relative, 0, &leaf);
+      if (unlinkat(parent, leaf, AT_REMOVEDIR) < 0)
+        fail("cannot remove abandoned move-owned destination directory");
+      sync_directory_after_mutation(parent);
+      close(parent); free(leaf);
+    }
+    free(relative);
+  }
+}
+static void recover_crashed_move(int rootfd) {
+  /*
+   * An incomplete temporary intent cannot have authorized any mkdir:
+   * publish+fsync of the final intent is strictly before the first mkdir.
+   */
+  struct stat st;
+  if (fstatat(rootfd, MOVE_INTENT_TEMP, &st, AT_SYMLINK_NOFOLLOW) == 0) {
+    if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
+        (st.st_mode & 07777) != 0600) {
+      errno = EPERM; fail("unsafe incomplete move intent candidate");
+    }
+    if (unlinkat(rootfd, MOVE_INTENT_TEMP, 0) < 0)
+      fail("cannot remove incomplete move intent");
+    sync_directory_after_mutation(rootfd);
+  } else if (errno != ENOENT) {
+    fail("cannot inspect incomplete move intent");
+  }
+  if (fstatat(rootfd, MOVE_INTENT, &st, AT_SYMLINK_NOFOLLOW) < 0) {
+    if (errno == ENOENT) return;
+    fail("cannot inspect crash move intent");
+  }
+  if (!S_ISREG(st.st_mode) || st.st_uid != 0 || st.st_nlink != 1 ||
+      (st.st_mode & 07777) != 0600 ||
+      st.st_size != (off_t)sizeof(struct move_intent_record)) {
+    errno = EPERM; fail("corrupt or unsafe durable move intent");
+  }
+  int fd = openat(rootfd, MOVE_INTENT, O_RDONLY | O_NOFOLLOW | O_CLOEXEC);
+  if (fd < 0) fail("cannot open durable move intent");
+  struct move_intent_record record;
+  size_t done = 0;
+  while (done < sizeof(record)) {
+    ssize_t n = read(fd, (char *)&record + done, sizeof(record) - done);
+    if (n < 0 && errno == EINTR) continue;
+    if (n <= 0) fail("truncated durable move intent");
+    done += (size_t)n;
+  }
+  close(fd);
+  if (!memchr(record.magic, 0, sizeof(record.magic)) ||
+      strcmp(record.magic, MOVE_MAGIC) ||
+      !memchr(record.source, 0, sizeof(record.source)) ||
+      !memchr(record.dest_root, 0, sizeof(record.dest_root)) ||
+      !memchr(record.destination, 0, sizeof(record.destination)) ||
+      !memchr(record.first_created, 0, sizeof(record.first_created))) {
+    errno = EINVAL; fail("invalid durable move intent schema");
+  }
+  preflight_relative_path(record.source);
+  preflight_relative_path(record.destination);
+  preflight_relative_path(record.first_created);
+  if (record.dest_root[0] != '/') {
+    errno = EINVAL; fail("invalid durable move destination root");
+  }
+  struct stat sourceIdentity = {0}, destIdentity = {0};
+  int sourcePresent = protected_path_status(rootfd, record.source, 0, &sourceIdentity);
+  int dstRoot = directory_root(record.dest_root);
+  struct stat rootIdentity, dstIdentity;
+  if (fstat(rootfd, &rootIdentity) < 0 || fstat(dstRoot, &dstIdentity) < 0)
+    fail("cannot verify recovery root identities");
+  if (rootIdentity.st_dev != dstIdentity.st_dev ||
+      rootIdentity.st_ino != dstIdentity.st_ino) {
+    errno = EXDEV; fail("move journal recovery cannot cross independent roots");
+  }
+  int destinationPresent = protected_path_status(dstRoot, record.destination, 0, &destIdentity);
+  if (sourcePresent && !destinationPresent) {
+    if ((uint64_t)sourceIdentity.st_dev != record.source_device ||
+        (uint64_t)sourceIdentity.st_ino != record.source_inode) {
+      errno = EPERM; fail("move source inode changed after crash");
+    }
+    remove_recovery_move_parents(dstRoot, &record);
+  } else if (!sourcePresent && destinationPresent) {
+    if ((uint64_t)destIdentity.st_dev != record.source_device ||
+        (uint64_t)destIdentity.st_ino != record.source_inode) {
+      errno = EPERM; fail("published move destination inode identity mismatch");
+    }
+    char *srcLeaf = NULL, *dstLeaf = NULL;
+    int srcParent = parent_from_root(rootfd, record.source, 0, &srcLeaf);
+    int dstParent = parent_from_root(dstRoot, record.destination, 0, &dstLeaf);
+    sync_directory_after_mutation(srcParent);
+    sync_directory_after_mutation(dstParent);
+    close(srcParent); close(dstParent); free(srcLeaf); free(dstLeaf);
+  } else {
+    errno = EPERM; fail("ambiguous move crash state; manual recovery required");
+  }
+  if (unlinkat(rootfd, MOVE_INTENT, 0) < 0)
+    fail("cannot retire reconciled move intent");
+  sync_directory_after_mutation(rootfd);
+  close(dstRoot);
+}
+
 static void check_existing_target(int parent, const char *leaf) {
   struct stat st;
   if (fstatat(parent, leaf, &st, AT_SYMLINK_NOFOLLOW) < 0) {
