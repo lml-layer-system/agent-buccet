@@ -431,6 +431,20 @@ try {
   console.log("F03_G01_PASS gate systemd boot " + JSON.stringify({
     unit: gateUnit, state: serviceEvidence(gateUnit),
   }));
+  // G01 E7: a burst-safe recovery budget must remain FINITE. The previous
+  // implicit 5/10s systemd default made reverse ordered recovery hit
+  // start-limit-hit after real SIGKILL and operator restarts; disabling
+  // StartLimitIntervalSec entirely would conceal a crash-loop vulnerability.
+  for (const unit of [brokerUnit, gateUnit]) {
+    const burst = must("systemctl",
+      ["show", "-p", "StartLimitBurst", "--value", unit]).trim();
+    const window = must("systemctl",
+      ["show", "-p", "StartLimitIntervalUSec", "--value", unit]).trim();
+    assert.equal(burst, "12", "G01 E7 finite bounded restart budget missing " + unit);
+    assert.ok(window && window !== "0" && window !== "0s",
+      "G01 E7 restart rate limiting was accidentally disabled on " + unit);
+  }
+  console.log("F03_G01_E7_PASS finite-nonzero-systemd-start-budget");
 
 
   // G03: exercise the ACTUAL privileged issuer, dedicated non-root OS UID,
