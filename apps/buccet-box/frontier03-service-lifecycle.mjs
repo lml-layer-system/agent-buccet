@@ -945,6 +945,10 @@ try {
   // operator request ID must never replay after gate restart.
   const approvedPath = "allowed/e7-approved-gate-killed.txt";
   const approvedBytes = "E7_APPROVED_BEFORE_GATE_DEATH_EXACT";
+  const reviewedBrokerPid = must("systemctl",
+    ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+  const reviewedBrokerRestarts = must("systemctl",
+    ["show", "-p", "NRestarts", "--value", brokerUnit]).trim();
   let approvalBrokerStopped = false;
   try {
     must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
@@ -998,7 +1002,13 @@ try {
   }, "E7 authorized transmitted gate effect was lost/torn after crashed gate", 13000);
   await e7ApproveExact("allowed/e7-after-reviewed-kill-positive.txt",
     "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT");
-  console.log("F03_G01_E7_PASS operator-reviewed-gate-SIGKILL-exact-effect-no-stale-consent");
+  assert.equal(must("systemctl",
+    ["show", "-p", "MainPID", "--value", brokerUnit]).trim(), reviewedBrokerPid,
+    "E7 approved gate loss crashed the actual protected broker PID");
+  assert.equal(must("systemctl",
+    ["show", "-p", "NRestarts", "--value", brokerUnit]).trim(), reviewedBrokerRestarts,
+    "E7 broker recovery masked a crash when gate transport disconnected");
+  console.log("F03_G01_E7_PASS operator-reviewed-gate-SIGKILL-exact-effect-no-stale-consent-and-live-broker");
 
   // E7 postcommit receipt loss, through ACTUAL installed systemd gate+broker:
   // gate transmits a signed/root-approved request while broker is SIGSTOPped;
