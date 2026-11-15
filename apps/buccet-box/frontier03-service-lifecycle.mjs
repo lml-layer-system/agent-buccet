@@ -1115,6 +1115,10 @@ try {
     ["allowed/e7-approved-gate-killed.txt", "E7_APPROVED_BEFORE_GATE_DEATH_EXACT"],
     ["allowed/e7-after-reviewed-kill-positive.txt",
       "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT"],
+    ["allowed/e7-postcommit-gate-killed.txt",
+      "E7_POSTCOMMIT_GATE_KILL_PUBLISHED_EXACT"],
+    ["allowed/e7-postcommit-recovery-positive.txt",
+      "E7_FRESH_POSTCOMMIT_KILL_APPROVAL"],
   ];
   const e7Witnesses = e7Committed.map(([relative, expected]) => {
     const file = root + "/" + relative;
