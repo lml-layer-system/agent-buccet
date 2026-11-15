@@ -1000,6 +1000,51 @@ try {
     "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT");
   console.log("F03_G01_E7_PASS operator-reviewed-gate-SIGKILL-exact-effect-no-stale-consent");
 
+  // E7 retained reproducible forensic witness: actual *protected on-disk*
+  // bytes/metadata, not solely a successful RPC result or self-reported
+  // green test. Real kernel inode identity, owner/mode, and sha256 are checked
+  // against the known exact per-phase bytes and preserved with source/run SHA.
+  const e7Committed = [
+    ["allowed/e7-gate-restarted-positive.txt", "E7_GATE_RESTART_APPROVED_BYTES"],
+    ["allowed/e7-reversed-order-positive.txt", "E7_REQUIRED_BROKER_FIRST_THEN_GATE"],
+    ["allowed/e7-killed-controller-inflight.txt",
+      "E7_ROOT_POLICY_CONTROLLER_ALREADY_AUTHORIZED"],
+    ["allowed/e7-controller-death-positive.txt",
+      "E7_FRESH_AFTER_POLICY_CONTROLLER_DEATH"],
+    ["allowed/e7-approved-gate-killed.txt", "E7_APPROVED_BEFORE_GATE_DEATH_EXACT"],
+    ["allowed/e7-after-reviewed-kill-positive.txt",
+      "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT"],
+  ];
+  const e7Witnesses = e7Committed.map(([relative, expected]) => {
+    const file = root + "/" + relative;
+    const diskHash = must("sha256sum", [file]).split(/\\s+/)[0];
+    const expectedHash = createHash("sha256").update(expected).digest("hex");
+    assert.equal(diskHash, expectedHash,
+      "E7 protected disk bytes differed from exact authorized payload " + relative);
+    const metadata = must("stat", ["-c", "%u:%a:%d:%i:%s", file]);
+    assert.match(metadata, /^0:600:[0-9]+:[0-9]+:[0-9]+$/,
+      "E7 protected file inode/permissions wrong " + relative);
+    return { relative, sha256: diskHash, rootMetadata: metadata };
+  });
+  const orderedJournal = privileged("journalctl", [
+    "-u", brokerUnit, "-u", gateUnit, "--no-pager",
+    "--output=short-iso", "-n", "80",
+  ]);
+  assert.equal(orderedJournal.status, 0,
+    "E7 could not obtain real systemd journal for both service generations");
+  assert.match(orderedJournal.stdout, /Started|Stopped|Stopping/,
+    "E7 systemd journal did not capture service lifecycle ordering");
+  console.log("F03_G01_E7_FORENSIC_PASS", JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    sourceSHA: process.env.GITHUB_SHA ?? "local-run",
+    brokerService: serviceEvidence(brokerUnit),
+    gateService: serviceEvidence(gateUnit),
+    journalSHA256: createHash("sha256").update(orderedJournal.stdout).digest("hex"),
+    journalTail: orderedJournal.stdout.slice(-2700),
+    exactRootInodes: e7Witnesses,
+  }));
+
+
   console.log("FRONTIER03_G01_G02_LIFECYCLE_PASS", JSON.stringify({
     fullSystemdBoot:true, realBrokerAndGate:true,
     kernelUntrustedUIDDenied:true, forgedDigestDenied:true,
