@@ -183,6 +183,77 @@ try {
   assert.equal(read(killedDestination), "MOVE_CRASH_ORIGINAL_EXACT");
   report("SIGKILL-after-mkdir-before-move-recovers-durable-intent-and-exact-bytes");
 
+  // Multi-level SIGKILL: rollback must unwind ALL and ONLY newly created
+  // parents, not a pre-existing protected ancestor.
+  const preexisting = "dst/move-crash-preexisting";
+  must(act("mkdir", preexisting), "stage protected preexisting destination ancestor");
+  const twoSource = "src/move-killed-second-mkdir.txt";
+  const twoDestination = preexisting + "/new-a/new-b/final.txt";
+  must(act("write", twoSource, "TWO_LEVELS_ORIGINAL_EXACT"),
+    "prepare two-level move SIGKILL fixture");
+  resetTrace();
+  const secondMkdirCrash = act("move", twoSource, twoDestination,
+    { BUCCET_F03_CRASH_MOVE_MKDIR: 2 });
+  killed(secondMkdirCrash, "SIGKILL after second actual native mkdirat");
+  assert.match(traceContent(), /mkdir:created-then-SIGKILL/);
+  assert.equal(sudo("test", ["-d", root + "/" + preexisting + "/new-a/new-b"]).status, 0,
+    "two-level crash injector did not create both destination parents");
+  assert.equal(read(twoSource), "TWO_LEVELS_ORIGINAL_EXACT");
+  assert.notEqual(sudo("test", ["-e", root + "/" + preexisting + "/new-a"]).status, 0,
+    "G06 restart did not unwind both newly created destination ancestors");
+  assert.equal(sudo("test", ["-d", root + "/" + preexisting]).status, 0,
+    "G06 crash recovery deleted a PREEXISTING protected ancestor");
+  report("SIGKILL-after-second-mkdir-unwinds-only-created-parents");
+
+  // An untrusted or corrupted root journal must NOT be interpreted as
+  // authority to delete protected directories. Deny and preserve evidence;
+  // once the root operator restores exact 0600 metadata, recover normally.
+  const tamperSource = "src/move-journal-tamper.txt";
+  const tamperDestination = "dst/move-journal-tamper-parent/final.txt";
+  const journal = root + "/.buccet-move-intent";
+  const tamperParent = root + "/dst/move-journal-tamper-parent";
+  must(act("write", tamperSource, "JOURNAL_TAMPER_SOURCE_EXACT"),
+    "stage root journal tamper fixture");
+  resetTrace();
+  killed(act("move", tamperSource, tamperDestination,
+    { BUCCET_F03_CRASH_MOVE_MKDIR: 1 }), "journal tamper setup SIGKILL");
+  assert.equal(sudo("test", ["-f", journal]).status, 0,
+    "pre-create journal not present after actual SIGKILL");
+  must(sudo("chmod", ["0666", journal]), "tamper protected journal permissions");
+  const refusedJournal = act("read", tamperSource);
+  assert.equal(refusedJournal.status, 73,
+    "G06 guard trusted a world-writable root move intent journal");
+  assert.equal(sudo("test", ["-d", tamperParent]).status, 0,
+    "G06 unsafe journal was used to delete protected ancestry");
+  must(sudo("chmod", ["0600", journal]), "restore test journal owner-only mode");
+  assert.equal(read(tamperSource), "JOURNAL_TAMPER_SOURCE_EXACT");
+  assert.notEqual(sudo("test", ["-e", tamperParent]).status, 0);
+  report("tampered-durable-move-intent-fails-closed-until-operator-repairs");
+
+  // Opposite side of the rename commit boundary: kill AFTER actual native
+  // rename, BEFORE the caller can retire the durable journal. Recovery must
+  // preserve the published inode, sync both parent directories, and retire
+  // the journal without pretending the killed caller received a receipt.
+  const publishedSource = "src/move-published-no-receipt.txt";
+  const publishedDestination = "dst/move-published-new/deep/final.txt";
+  must(act("write", publishedSource, "PUBLISHED_AFTER_KILL_EXACT"),
+    "stage postcommit move SIGKILL fixture");
+  resetTrace();
+  const postMoveKill = act("move", publishedSource, publishedDestination,
+    { BUCCET_F03_CRASH_RENAME: "after" });
+  killed(postMoveKill, "SIGKILL after actual native move renameat");
+  assert.match(traceContent(), /rename:after/);
+  assert.equal(sudo("test", ["-f", journal]).status, 0,
+    "published move lost its durable crash-recovery journal");
+  assert.notEqual(sudo("test", ["-e", root + "/" + publishedSource]).status, 0,
+    "postcommit SIGKILL left original source entry");
+  assert.equal(read(publishedDestination), "PUBLISHED_AFTER_KILL_EXACT",
+    "postcommit recovery destroyed published authorized move bytes");
+  assert.notEqual(sudo("test", ["-e", journal]).status, 0,
+    "G06 postcommit recovery did not retire reconciled journal");
+  report("SIGKILL-after-move-rename-preserves-published-inode-and-retires-intent");
+
+
   // G06 exact commit ambiguity: a SIGKILL AFTER actual source->dest rename
   // but BEFORE userspace returns or retires the fsynced move intent must NOT
   // roll back the newly created destination ancestry. The next root-locked
