@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -54,6 +55,20 @@ struct move_created_parent {
 static struct move_created_parent *move_created = NULL;
 static int track_move_parents = 0;
 static int move_published = 0;
+/* One durable move intent per protected root, serialized by its kernel flock. */
+#define MOVE_INTENT ".buccet-move-intent"
+#define MOVE_INTENT_TEMP ".buccet-move-intent.tmp"
+#define MOVE_MAGIC "BUCCET_MOVE_V1"
+static int move_intent_root = -1;
+static int move_intent_active = 0;
+static int clear_move_intent(void) {
+  if (!move_intent_active) return 0;
+  if (unlinkat(move_intent_root, MOVE_INTENT, 0) < 0 && errno != ENOENT)
+    return -1;
+  if (fsync(move_intent_root) < 0) return -1;
+  move_intent_active = 0;
+  return 0;
+}
 static int rollback_uncommitted_move_parents(void) {
   if (move_published) return 0;
   while (move_created) {
@@ -82,6 +97,8 @@ static void fail(const char *message) {
   if (cleanup_failed_stage() < 0) cleanup_error = errno;
   if (rollback_uncommitted_move_parents() < 0 && !cleanup_error)
     cleanup_error = errno;
+  if (!cleanup_error && !move_published && clear_move_intent() < 0)
+    cleanup_error = errno;
   if (cleanup_error) {
     fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: tentative resource rollback not durable (%s)\n",
       strerror(cleanup_error));
@@ -102,8 +119,10 @@ static void commit_uncertain(const char *message) {
   // An EIO while synchronizing newly allocated destination ancestry occurs
   // before native rename. Attempt precise rollback, but keep the receipt
   // UNCERTAIN: the kernel may not have persisted either metadata transition.
-  if (track_move_parents && !move_published)
-    (void)rollback_uncommitted_move_parents();
+  if (track_move_parents && !move_published) {
+    if (rollback_uncommitted_move_parents() == 0)
+      (void)clear_move_intent();
+  }
   if (saved) fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s (%s)\n", message, strerror(saved));
   else fprintf(stderr, "BUCCET_FS_COMMIT_UNCERTAIN: %s\n", message);
   exit(74);
@@ -154,7 +173,9 @@ static void check_component(const char *piece) {
   // Internal private temp names are never valid agent/operator path targets.
   // This reservation makes crash-recovery sweeping unambiguous.
   if (strncmp(piece, ".buccet-fs-", 11) == 0 ||
-      strcmp(piece, ".buccet-host-nonces") == 0) {
+      strcmp(piece, ".buccet-host-nonces") == 0 ||
+      strcmp(piece, MOVE_INTENT) == 0 ||
+      strcmp(piece, MOVE_INTENT_TEMP) == 0) {
     errno = EINVAL; fail("reserved private native or host-replay component");
   }
 }
@@ -391,6 +412,7 @@ int main(int argc, char **argv) {
    * this independently root-owned namespace or start the privileged guard.
    */
   if (flock(root, LOCK_EX) < 0) fail("cannot acquire protected root transaction lock");
+  recover_crashed_move(root);
   char *leaf = NULL;
   int parent = parent_from_root(root, argv[3], !strcmp(op,"write") || !strcmp(op,"mkdir"), &leaf);
   /* A post-crash read/write is a recovery entrypoint, not merely a lookup. */
@@ -457,13 +479,33 @@ int main(int argc, char **argv) {
       O_RDONLY | O_NOFOLLOW | O_NONBLOCK | O_CLOEXEC);
     if (verifiedSource < 0) fail("move source missing or symlinked");
     regular_unique(verifiedSource);
+    struct stat sourceIdentity;
+    if (fstat(verifiedSource, &sourceIdentity) < 0)
+      fail("cannot pin move source identity");
     close(verifiedSource);
     int dstRoot = directory_root(argv[4]);
+    char *firstMissing = first_missing_move_parent(dstRoot, argv[5]);
+    if (firstMissing) {
+      struct stat srcRootIdentity, dstRootIdentity;
+      if (fstat(root, &srcRootIdentity) < 0 ||
+          fstat(dstRoot, &dstRootIdentity) < 0)
+        fail("cannot verify same-root move journaling scope");
+      if (srcRootIdentity.st_dev != dstRootIdentity.st_dev ||
+          srcRootIdentity.st_ino != dstRootIdentity.st_ino) {
+        errno = EXDEV;
+        fail("cross-root move creating destination ancestry requires a separate lock protocol");
+      }
+      publish_move_intent(root, argv[3], argv[4], argv[5],
+        firstMissing, &sourceIdentity);
+      free(firstMissing);
+    }
     char *dstLeaf = NULL;
     track_move_parents = 1;
     int dstParent = parent_from_root(dstRoot, argv[5], 1, &dstLeaf);
     move_regular(parent, leaf, dstParent, dstLeaf);
     track_move_parents = 0;
+    if (clear_move_intent() < 0)
+      commit_uncertain("cannot durably retire completed move intent");
     close(dstRoot); close(dstParent); free(dstLeaf);
   } else {
     errno = EINVAL; fail("unrecognized operation");
