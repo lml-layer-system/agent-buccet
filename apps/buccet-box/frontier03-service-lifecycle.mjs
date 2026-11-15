@@ -1000,6 +1000,82 @@ try {
     "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT");
   console.log("F03_G01_E7_PASS operator-reviewed-gate-SIGKILL-exact-effect-no-stale-consent");
 
+  // E7 postcommit receipt loss, through ACTUAL installed systemd gate+broker:
+  // gate transmits a signed/root-approved request while broker is SIGSTOPped;
+  // freeze gate BEFORE letting broker commit, observe the exact root-owned
+  // output entry, then SIGKILL the gate before it can deliver its receipt.
+  // A committed result must survive, but dead gate must never assert success
+  // or make the retired exact approval reusable after restart.
+  const publishedPath = "allowed/e7-postcommit-gate-killed.txt";
+  const publishedBytes = "E7_POSTCOMMIT_GATE_KILL_PUBLISHED_EXACT";
+  let postBrokerPaused = false;
+  let postGatePaused = false;
+  try {
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
+    postBrokerPaused = true;
+    const request = await submitPending({
+      op: "write", path: publishedPath, content: publishedBytes,
+    }, who);
+    const row = await wait(() => operator({ command: "list" }).pending?.find(
+      entry => entry.path === publishedPath),
+      "E7 postcommit fixture never queued signed request");
+    assert.equal(row.host?.verified, true,
+      "E7 postcommit approval used unverified host proof");
+    assert.equal(operator({ command: "approve",
+      requestId: row.requestId, sha256: row.sha256 }).approved, true,
+      "E7 postcommit fixture failed real operator approval");
+    const gateMainPid = must("systemctl",
+      ["show", "-p", "MainPID", "--value", gateUnit]).trim();
+    assert.match(gateMainPid, /^[1-9][0-9]+$/);
+    const connected = await wait(() => {
+      const sockets = privileged("ss", ["-xap"]);
+      return sockets.status === 0 &&
+        sockets.stdout.includes(brokerSocket) &&
+        sockets.stdout.includes("pid=" + gateMainPid + ",") &&
+        sockets.stdout.includes("ESTAB");
+    }, "E7 approved gate not actually connected to stopped native broker", 7000);
+    assert.equal(connected, true);
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", gateUnit]);
+    postGatePaused = true;
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    postBrokerPaused = false;
+    await wait(() => privileged("test", ["-f", root + "/" + publishedPath]).status === 0,
+      "E7 root broker failed to publish native effect before gate receipt", 14000);
+    assert.equal(mustBroker("read", publishedPath), publishedBytes,
+      "E7 gate-receipt-loss fixture did not commit exact intended bytes");
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
+    postGatePaused = false;
+    const receipt = await Promise.race([
+      request.response,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 postcommit killed gate left client hanging")), 6000)),
+    ]);
+    assert.notEqual(receipt.ok, true,
+      "E7 dead gate delivered a fabricated success receipt");
+    await wait(() => serviceState(gateUnit) &&
+      operator({ command: "list" }).ok === true,
+      "E7 gate failed to return after postcommit receipt-loss SIGKILL", 16000);
+    assert.equal(operator({
+      command: "approve", requestId: row.requestId, sha256: row.sha256,
+    }).ok, false,
+    "E7 postcommit dead gate allowed stale operator consent replay");
+    assert.equal(mustBroker("read", publishedPath), publishedBytes,
+      "E7 postcommit gate recovery rolled back published exact bytes");
+    console.log("F03_G01_E7_PASS postcommit-gate-SIGKILL-no-success-receipt-and-exact-bytes", JSON.stringify({
+      realSystemdGate: true, liveBrokerConnection: connected,
+      publishedBeforeGateDeath: true, preservedExactBytes: true,
+      staleOperatorConsentRejected: true, returnedFalseSuccess: false,
+    }));
+  } finally {
+    if (postBrokerPaused) privileged("systemctl",
+      ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    if (postGatePaused) privileged("systemctl",
+      ["kill", "--kill-whom=main", "-s", "SIGCONT", gateUnit]);
+  }
+  await e7ApproveExact("allowed/e7-postcommit-recovery-positive.txt",
+    "E7_FRESH_POSTCOMMIT_KILL_APPROVAL");
+
+
   // E7 retained reproducible forensic witness: actual *protected on-disk*
   // bytes/metadata, not solely a successful RPC result or self-reported
   // green test. Real kernel inode identity, owner/mode, and sha256 are checked
@@ -1059,6 +1135,7 @@ try {
     authorizedEffectsBeforeAndAfterRestart:true,
     e7SystemdReverseOrderingAndControllerDeath:true,
     e7ReviewedGateDeathUnderPausedRealBroker:true,
+    e7PostcommitGateDeathAfterExactNativePublication:true,
   }));
 } catch (error) {
   console.error("FRONTIER03_G01_G02_RED", error?.stack ?? String(error));
