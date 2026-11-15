@@ -524,6 +524,37 @@ try {
     "remove solely mutated test-only partial parent");
   report("mutation-sensitivity-denied-path-parent-side-effect-detected");
 
+  // G10 adversarial mutation: deleting only the durable pre-create move intent
+  // MUST make the exact SIGKILL test go RED again. In-memory rollback is
+  // insufficient after kill -9. The mutant is independently root-pinned and
+  // must never be used as the real guard in a systemd service.
+  const journalMutant = await compileMutant("mutant-no-durable-move-intent",
+    "  struct move_intent_record record = {0};",
+    "  if (getenv(\"BUCCET_F03_MUTANT_SKIP_MOVE_INTENT\")) return;\n" +
+    "  struct move_intent_record record = {0};");
+  const mutantMoveSource = "src/mutant-no-journal.txt";
+  const mutantMoveTarget = "dst/mutant-no-journal-parent/deep/final.txt";
+  const mutantMoveParent = root + "/dst/mutant-no-journal-parent";
+  must(act("write", mutantMoveSource, "MUTANT_CRASH_ORIGINAL"),
+    "stage signed positive source for journal mutation");
+  resetTrace();
+  const mutantCrash = act("move", mutantMoveSource, mutantMoveTarget,
+    { BUCCET_F03_MUTANT_SKIP_MOVE_INTENT: 1,
+      BUCCET_F03_CRASH_MOVE_MKDIR: 1 }, journalMutant);
+  killed(mutantCrash, "journal mutant SIGKILL after native destination mkdirat");
+  assert.match(traceContent(), /mkdir:created-then-SIGKILL/,
+    "mutated guard never reached actual kernel mkdirat");
+  assert.equal(read(mutantMoveSource), "MUTANT_CRASH_ORIGINAL",
+    "mutated guard unexpectedly damaged source bytes");
+  assert.equal(sudo("test", ["-d", mutantMoveParent]).status, 0,
+    "without pre-create journal the same attack should strand a root directory");
+  assert.notEqual(sudo("test", ["-e", root + "/.buccet-move-intent"]).status, 0,
+    "journal-disabled mutant accidentally published a durable recovery witness");
+  must(sudo("rmdir", ["--", mutantMoveParent]),
+    "remove only the mutation-created empty root directory");
+  report("mutation-sensitivity-no-durable-move-intent-exposes-crash-orphan");
+
+
 
   console.log("FRONTIER03_NATIVE_COMMIT_FAULT_SUMMARY", JSON.stringify({
     nativeGuard: guard, actualKernelRename: true, injectedDirectoryEIO: true,
@@ -532,6 +563,7 @@ try {
     crossDirectoryDurability: true, moveJournalSIGKILLBothCommitSides: true,
     mutantBlindSpotDemonstrated: true,
     unsafeMkdirMutantDetected: true, partialPathValidationMutantDetected: true,
+    durableMoveIntentMutantDetected: true,
     wholeServiceGateAcceptance: false, realPowerLoss: false,
   }));
 } catch (error) {
