@@ -111,8 +111,21 @@ int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
   // Commit-window faults must target the actual SOURCE->DEST move, not the
   // internal durable-intent rename which necessarily happens first.
   if (strcmp(oldname, ".buccet-move-intent.tmp") == 0 &&
-      strcmp(newname, ".buccet-move-intent") == 0)
-    return real_renameat(oldfd, oldname, newfd, newname);
+      strcmp(newname, ".buccet-move-intent") == 0) {
+    const char *phase = getenv("BUCCET_F03_CRASH_MOVE_INTENT_PHASE");
+    if (phase && strcmp(phase, "before") == 0) {
+      trace_event("intent:prepublish-SIGKILL");
+      raise(SIGKILL);
+      _exit(97);
+    }
+    int journal_result = real_renameat(oldfd, oldname, newfd, newname);
+    if (journal_result == 0 && phase && strcmp(phase, "after") == 0) {
+      trace_event("intent:published-before-mkdir-SIGKILL");
+      raise(SIGKILL);
+      _exit(98);
+    }
+    return journal_result;
+  }
   trace_event("rename:before");
   const char *pause = getenv("BUCCET_F03_PAUSE_RENAME_UNTIL");
   if (pause && *pause) {
