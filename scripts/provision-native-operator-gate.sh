@@ -218,6 +218,11 @@ UNIT_CREATED=1
 cat > "$UNIT" <<EOF
 [Unit]
 Description=Agent Buccet independent operator approval gate ($INSTANCE)
+# Finite rate limiting, but not systemd's default 5 starts / 10 seconds:
+# a deliberate stop/restart after crash recovery must not lock out valid work.
+# Persistent crash loops still hit start-limit-hit (never disable the fence).
+StartLimitIntervalSec=60s
+StartLimitBurst=12
 Requires=buccet-native-$INSTANCE.service
 After=buccet-native-$INSTANCE.service
 
