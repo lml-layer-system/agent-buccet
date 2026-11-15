@@ -120,6 +120,12 @@ int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
     *(void **)(&real_renameat) = dlsym(RTLD_NEXT, "renameat");
     if (!real_renameat) _exit(91);
   }
+  // Journal publication is a distinct pre-create durability barrier.
+  // Commit-window faults must target the actual SOURCE->DEST move, not the
+  // internal durable-intent rename which necessarily happens first.
+  if (strcmp(oldname, ".buccet-move-intent.tmp") == 0 &&
+      strcmp(newname, ".buccet-move-intent") == 0)
+    return real_renameat(oldfd, oldname, newfd, newname);
   trace_event("rename:before");
   const char *pause = getenv("BUCCET_F03_PAUSE_RENAME_UNTIL");
   if (pause && *pause) {
