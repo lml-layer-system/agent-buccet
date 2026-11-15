@@ -97,16 +97,24 @@ async function communicate(socketPath, payload) {
   }
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({ path: socketPath });
-    let finished = false, response = "";
+    let finished = false, sent = false, response = "";
     function complete(error, result) {
       if (finished) return;
       finished = true;
       socket.destroy();
+      // An incomplete mutating request's receipt is NOT proof of no effect.
+      if (error && sent && payload.op !== "read" && error.uncertain !== false) {
+        error.uncertain = true;
+        error.message = "BUCCET_POLICY_COMMIT_UNCERTAIN: inspect protected state before retry";
+      }
       if (error) reject(error);
       else resolve(result);
     }
     socket.setTimeout(16000, () => complete(new Error("protected broker timed out")));
-    socket.once("connect", () => socket.write(serialized));
+    socket.once("connect", () => {
+      sent = true;
+      socket.write(serialized);
+    });
     socket.on("data", chunk => {
       response += chunk.toString("utf8");
       if (Buffer.byteLength(response) > MAX_RESPONSE) {
@@ -118,7 +126,12 @@ async function communicate(socketPath, payload) {
       try {
         const result = JSON.parse(response.split("\n", 1)[0]);
         if (!result || result.ok !== true || typeof result.output !== "string") {
-          throw new Error("broker refused effect");
+          const error = new Error(result?.uncertain === true
+            ? "BUCCET_POLICY_COMMIT_UNCERTAIN: native effect not durably confirmed"
+            : "broker refused effect");
+          if (result?.ok === false && result.uncertain === false) error.uncertain = false;
+          if (result?.uncertain === true) error.uncertain = true;
+          throw error;
         }
         complete(null, result.output);
       } catch (error) { complete(error); }
@@ -162,6 +175,8 @@ async function main() {
   process.stdout.write(output);
 }
 main().catch(error => {
-  console.error("BUCCET_POLICY_DENIED:", error instanceof Error ? error.message : "policy check failed");
-  process.exitCode = 73;
+  const uncertain = error?.uncertain === true;
+  console.error(uncertain ? "BUCCET_POLICY_COMMIT_UNCERTAIN:" : "BUCCET_POLICY_DENIED:",
+    error instanceof Error ? error.message : "policy check failed");
+  process.exitCode = uncertain ? 74 : 73;
 });

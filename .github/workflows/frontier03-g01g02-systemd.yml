@@ -1,0 +1,109 @@
+name: Frontier03 G01-G02 actual systemd failures
+
+on:
+  push:
+    branches:
+      - "security/frontier03-g01g02-attack-20261114"
+    paths:
+      - ".github/workflows/frontier03-g01g02-systemd.yml"
+      - "apps/buccet-box/frontier03-service-lifecycle.mjs"
+      - "apps/buccet-box/frontier03-installer-sigkill-recovery.mjs"
+      - "apps/buccet-box/frontier03-native-commit-faults.mjs"
+      - "apps/buccet-box/frontier03-real-kernel-enospc.mjs"
+      - "apps/buccet-box/frontier03-native-fault-interposer.c"
+      - "apps/buccet-box/frontier03-test-guard-wrapper.c"
+      - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
+      - "apps/buccet-box/frontier03-cross-generation-append.mjs"
+      - "apps/buccet-box/frontier03-broker-concurrent-append.mjs"
+      - "native/box-fs-guard.c"
+      - "scripts/provision-native-broker.sh"
+      - "scripts/provision-native-operator-gate.sh"
+      - "native/box-fs-broker.mjs"
+      - "native/box-fs-approval-gate.mjs"
+  pull_request:
+    paths:
+      - ".github/workflows/frontier03-g01g02-systemd.yml"
+      - "apps/buccet-box/frontier03-service-lifecycle.mjs"
+      - "apps/buccet-box/frontier03-installer-sigkill-recovery.mjs"
+      - "apps/buccet-box/frontier03-native-commit-faults.mjs"
+      - "apps/buccet-box/frontier03-real-kernel-enospc.mjs"
+      - "apps/buccet-box/frontier03-native-fault-interposer.c"
+      - "apps/buccet-box/frontier03-test-guard-wrapper.c"
+      - "apps/buccet-box/frontier03-broker-uncertain-receipts.mjs"
+      - "apps/buccet-box/frontier03-cross-generation-append.mjs"
+      - "apps/buccet-box/frontier03-broker-concurrent-append.mjs"
+      - "native/box-fs-guard.c"
+      - "scripts/provision-native-broker.sh"
+      - "scripts/provision-native-operator-gate.sh"
+      - "native/box-fs-broker.mjs"
+      - "native/box-fs-approval-gate.mjs"
+
+permissions:
+  contents: read
+
+jobs:
+  actual-systemd-lifecycle:
+    name: G01-G02 actual systemd crash and authorized recovery (Linux)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build real shipped native C guard
+        run: sh scripts/build-box-fs-guard.sh
+      - name: Confirm systemd host environment (no mock service accepted)
+        run: |
+          systemctl --version
+          sudo systemctl list-unit-files --type service --no-pager >/dev/null
+      # Diagnostic artifacts only. This PR-head producer is NOT yet the
+      # protected/independent acceptance witness specified by issue #28.
+      - name: Record exact build and Linux systemd provenance
+        run: |
+          set -eu
+          mkdir -p "$RUNNER_TEMP/frontier03-observations"
+          git rev-parse HEAD > "$RUNNER_TEMP/frontier03-observations/source-sha.txt"
+          uname -a > "$RUNNER_TEMP/frontier03-observations/uname.txt"
+          systemctl --version > "$RUNNER_TEMP/frontier03-observations/systemd.txt"
+          node --version > "$RUNNER_TEMP/frontier03-observations/node.txt"
+          sha256sum native/build/box-fs-guard native/box-fs-broker.mjs \
+            native/box-fs-approval-gate.mjs scripts/provision-native-broker.sh \
+            scripts/provision-native-operator-gate.sh \
+            > "$RUNNER_TEMP/frontier03-observations/source-sha256.txt"
+      - name: Exhaust an actual isolated root-owned Linux filesystem and prove native ENOSPC rollback
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-real-kernel-enospc.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/true-kernel-enospc.log"
+      - name: Force actual native commit-window SIGKILL, fsync EIO and unsafe mutant detection
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-native-commit-faults.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/native-commit-faults.log"
+      - name: Verify real broker denial versus uncertain receipts under native faults
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-broker-uncertain-receipts.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/broker-receipts.log"
+      - name: Expose live protected-broker concurrent append lost-update race
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-broker-concurrent-append.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/concurrent-append.log"
+      - name: Attack surviving old native guard against new broker generation at real renameat
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-cross-generation-append.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/cross-generation.log"
+      - name: Kill actual privileged installer without EXIT trap and require safe explicit recovery
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-installer-sigkill-recovery.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/installer-sigkill.log"
+      - name: Attack actual broker and gate service death; test kernel isolation and authorized effects
+        run: |
+          set -o pipefail
+          node apps/buccet-box/frontier03-service-lifecycle.mjs 2>&1 | tee "$RUNNER_TEMP/frontier03-observations/systemd-lifecycle.log"
+      - name: Retain reproducible diagnostic logs and source identifiers
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontier03-observations-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/frontier03-observations
+          if-no-files-found: error
+          retention-days: 30

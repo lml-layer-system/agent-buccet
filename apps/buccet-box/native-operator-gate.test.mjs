@@ -193,12 +193,28 @@ try {
   }
   sudo("install",["-o","root","-g","root","-m","0500",
     path.join(repo,"native/build/box-fs-guard"),guard]);
+  // Legacy raw-API controls require unbound host access. Make that a
+  // distinct TEST-ONLY source fixture; never ship or execute those controls
+  // under the actual privileged production gate. The real production gate is
+  // reinstalled byte-for-byte for the later MCP + Box + operator acceptance.
+  const productionGateSrc=path.join(repo,"native","box-fs-approval-gate.mjs");
+  const productionGateText=await readFile(productionGateSrc,"utf8");
+  assert.equal(productionGateText.includes("BUCCET_GATE_TEST_ALLOW_UNBOUND_HOST"),false,
+    "production gate still includes environment-controlled unsigned-host bypass");
+  const legacyNeedle='    deny("no independently provisioned host identities");';
+  assert.equal(productionGateText.split(legacyNeedle).length,2,
+    "test-only legacy fixture could not identify exact missing-host rejection");
+  const legacySource=productionGateText.replace(legacyNeedle,
+    '    if(process.env.BUCCET_GATE_TEST_ALLOW_UNBOUND_HOST==="1") return null;\n'+legacyNeedle);
+  const legacyGateFixture=path.join(local,"ONLY-legacy-unsigned-gate.fixture.mjs");
+  await writeFile(legacyGateFixture,legacySource,{mode:0o600});
   for(const [name,location] of [
     ["box-fs-broker.mjs",brokerCode],
     ["box-fs-approval-gate.mjs",gateCode],
     ["box-fs-operator-review.mjs",reviewerCode],
   ]){
-    const src=path.join(repo,"native",name);
+    const src=name==="box-fs-approval-gate.mjs"
+      ? legacyGateFixture : path.join(repo,"native",name);
     sudo("install",["-o","root","-g","root","-m","0400",src,location]);
     const originalHash=createHash("sha256").update(await readFile(src)).digest("hex");
     const installedHash=sudo("sha256sum",[location]).split(" ")[0];
@@ -218,9 +234,8 @@ try {
   sudo("install",["-o","root","-g","root","-m","0400",localPolicy,policy]);
   const broker=launched("sudo",["-n",process.execPath,brokerCode,managed,guard,privateSock]);
   await ready(broker,"BUCCET_PROTECTED_BROKER_READY");
-  // Legacy raw-API positive controls explicitly opt into unbound-host mode.
-  // The production installer creates an independently protected registry;
-  // subsequent MCP tests below enforce it and reject unregistered clients.
+  // Only the fixture-local gate variant accepts legacy unbound host calls.
+  // The actual shipped gate has no environment-controlled unsigned pathway.
   const gate=launched("sudo",["-n","env","BUCCET_GATE_TEST_ALLOW_UNBOUND_HOST=1",
     process.execPath,gateCode,managed,privateSock,publicSock,operatorSock]);
   await ready(gate,"BUCCET_APPROVAL_GATE_READY");
@@ -299,9 +314,41 @@ try {
   assert.equal(operator({command:"approve",requestId:item.requestId,sha256:item.sha256}).ok,false);
   assert.notEqual(run("sudo",["-n","test","-e",managed+"/allowed/abandoned.txt"]).status,0);
 
+  // Transition from the isolated legacy fixture to the byte-for-byte shipped
+  // production gate. The live production process intentionally receives the
+  // historic test environment flag; it MUST remain irrelevant and fail closed
+  // when no root host identity registry is present.
+  gate.child.kill("SIGTERM");
+  await Promise.race([
+    new Promise(resolve=>gate.child.once("close",resolve)),
+    new Promise(resolve=>setTimeout(resolve,3500)),
+  ]);
+  if(gate.child.exitCode===null) gate.child.kill("SIGKILL");
+  await new Promise(resolve=>setTimeout(resolve,200));
+  sudo("install",["-o","root","-g","root","-m","0400",
+    productionGateSrc,gateCode]);
+  const productionHash=createHash("sha256").update(productionGateText).digest("hex");
+  assert.equal(sudo("sha256sum",[gateCode]).split(" ")[0],productionHash,
+    "later MCP+Box proof must execute the exact shipped production gate");
+  const productionGate=launched("sudo",["-n","env",
+    "BUCCET_GATE_TEST_ALLOW_UNBOUND_HOST=1",
+    process.execPath,gateCode,managed,privateSock,publicSock,operatorSock]);
+  await ready(productionGate,"BUCCET_APPROVAL_GATE_READY");
+  const oldBypassProbe=agent("write_file",{
+    path:managed+"/allowed/no-unsigned-host-env-bypass.txt",
+    content:"ENV_FLAG_SHALL_NOT_GRANT_HOST_AUTHORITY",
+  });
+  const oldBypassResult=await awaitAgent(oldBypassProbe);
+  assert.equal(oldBypassResult.ok,false,
+    "shipped gate admitted unsigned client via historic env test flag");
+  assert.equal(operator({command:"list"}).pending.length,0,
+    "unsigned client reached operator queue without registered root host");
+  assert.notEqual(run("sudo",["-n","test","-e",
+    managed+"/allowed/no-unsigned-host-env-bypass.txt"]).status,0);
+  console.log("FS_G03_PASS shipped-gate-env-bypass-removed-real-unauthenticated-denial");
   // End-to-end bridge acceptance: actual MCP/Bodyguard -> real Box approval
   // -> separate privileged operator -> root policy -> native guard. The
-  // previous direct API probe alone does not prove that chain is reachable.
+  // previous legacy raw API fixture never counts as production proof.
   const boxHome = path.join(local, "mcp-box-home");
   const sessionsDir = path.join(boxHome,"sessions");
   await mkdir(sessionsDir,{recursive:true});

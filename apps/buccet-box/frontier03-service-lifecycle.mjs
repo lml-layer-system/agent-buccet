@@ -1,0 +1,1193 @@
+/**
+ * Frontier03 G01/G02 ACTUAL Linux systemd integration (disposable fixtures).
+ *
+ * This intentionally FAILS if either privileged daemon cannot recover from
+ * SIGKILL, if an untrusted UID gains socket access, if pinned code cannot
+ * install as a real service, or if authorized post-recovery effects fail.
+ *
+ * Never use --files-only as the successful lifecycle control.
+ */
+import assert from "node:assert/strict";
+import { createHash, createHmac, randomBytes } from "node:crypto";
+import net from "node:net";
+import { spawn, spawnSync } from "node:child_process";
+import { readFile, mkdtemp, writeFile, rm } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+assert.equal(process.platform, "linux", "G01/G02 real systemd test is Linux-only");
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const id = "f03-" + randomBytes(6).toString("hex");
+const root = "/var/lib/buccet-native/" + id;
+const stage = "/var/lib/buccet-f03-stage-" + id;
+const gateRun = "/run/buccet-native-gates/" + id;
+const brokerSocket = root + "/broker.sock";
+const gateRequest = gateRun + "/request.sock";
+const gateOperator = gateRun + "/operator.sock";
+const brokerUnit = "buccet-native-" + id + ".service";
+const gateUnit = "buccet-operator-gate-" + id + ".service";
+const tmp = await mkdtemp(path.join(os.tmpdir(), "buccet-f03-systemd-"));
+const env = { PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", LANG: "C" };
+const sources = {
+  guard: path.join(repo, "native/build/box-fs-guard"),
+  broker: path.join(repo, "native/box-fs-broker.mjs"),
+  controller: path.join(repo, "native/box-fs-policy-controller.mjs"),
+  gate: path.join(repo, "native/box-fs-approval-gate.mjs"),
+  reviewer: path.join(repo, "native/box-fs-operator-review.mjs"),
+  issuer: path.join(repo, "native/box-fs-host-enroll.mjs"),
+  client: path.join(repo, "native/box-fs-broker-client.mjs"),
+  brokerInstaller: path.join(repo, "scripts/provision-native-broker.sh"),
+  gateInstaller: path.join(repo, "scripts/provision-native-operator-gate.sh"),
+};
+const digest = async file => createHash("sha256").update(await readFile(file)).digest("hex");
+function run(program, args, { input = "", timeout = 25000 } = {}) {
+  const r = spawnSync(program, args, { env, input, encoding: "utf8", timeout });
+  assert.equal(r.error, undefined, String(r.error?.message ?? ""));
+  return r;
+}
+function privileged(program, args, opts) {
+  return run("sudo", ["-n", program, ...args], opts);
+}
+function must(program, args, opts) {
+  const r = privileged(program, args, opts);
+  assert.equal(r.status, 0, program + " failed: " + r.stderr + r.stdout);
+  return r.stdout.trim();
+}
+function deny(program, args, reason) {
+  const r = privileged(program, args);
+  assert.notEqual(r.status, 0, reason + "\n" + r.stdout + r.stderr);
+}
+async function wait(predicate, description, timeout = 9000) {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    try {
+      const result = predicate();
+      if (result) return result;
+    } catch { /* service may be in a transient restart state */ }
+    await new Promise(resolve => setTimeout(resolve, 120));
+  }
+  throw Error("FRONTIER03_G01_FAILED: " + description);
+}
+function serviceState(unit) {
+  const r = privileged("systemctl", ["is-active", unit]);
+  return r.status === 0 && r.stdout.trim() === "active";
+}
+function serviceEvidence(unit) {
+  return privileged("systemctl", ["show", "-p", "MainPID", "-p", "NRestarts",
+    "-p", "ActiveState", "-p", "SubState", unit]).stdout.trim();
+}
+function rootBroker(op, rel, param) {
+  const args = [stage + "/node", stage + "/broker-client.mjs",
+    brokerSocket, op, rel];
+  if (param !== undefined) args.push(param);
+  return privileged(args[0], args.slice(1));
+}
+function mustBroker(op, rel, param) {
+  const r = rootBroker(op, rel, param);
+  assert.equal(r.status, 0, "real privileged effect refused: " + r.stderr + r.stdout);
+  return r.stdout.trim();
+}
+function socketStatus(file, expected) {
+  const r = privileged("stat", ["-c", "%u:%a:%F", file]);
+  return r.status === 0 && r.stdout.trim() === expected;
+}
+function logs(unit) {
+  const lines = privileged("journalctl", ["-u", unit, "--no-pager", "-n", "20"]).stdout;
+  return lines.slice(-4200);
+}
+const operatorCode = [
+  'const net=require("node:net");',
+  'const s=net.createConnection({path:process.argv[1]});',
+  'let out="";',
+  's.once("connect",()=>s.write(process.argv[2]+"\\n"));',
+  's.on("data",x=>out+=x);',
+  's.once("end",()=>process.stdout.write(out));',
+  's.once("error",e=>{console.error(e.code);process.exitCode=73});',
+].join("");
+function operator(command) {
+  const r=privileged(stage+"/node",[
+    "-e",operatorCode,gateOperator,JSON.stringify(command)]);
+  assert.equal(r.status,0,"root-only operator socket unavailable: "+r.stderr);
+  return JSON.parse(r.stdout.trim());
+}
+function signedRequest(request,who){
+  const issuedAt=new Date().toISOString();
+  const nonce=randomBytes(16).toString("hex");
+  const mac=createHmac("sha256",Buffer.from(who.secretHex,"hex"))
+    .update(JSON.stringify(["agent-buccet-protected-host-v1",
+      who.sessionId,who.actorId,issuedAt,nonce,request])).digest("hex");
+  return {...request,host:{
+    sessionId:who.sessionId,actorId:who.actorId,issuedAt,nonce,mac,
+  }};
+}
+async function submitPending(request,who,reuseEnvelope=null){
+  const envelope = reuseEnvelope ?? signedRequest(request,who);
+  const socket=net.createConnection({path:gateRequest});
+  let raw="",settled=false;
+  const response=new Promise(resolve=>{
+    const finish=v=>{if(settled)return;settled=true;resolve(v);};
+    socket.on("data",x=>raw+=String(x));
+    socket.once("end",()=>{
+      try{finish(JSON.parse(raw.split("\n",1)[0]));}
+      catch{finish({ok:false,error:"no complete receipt"});}
+    });
+    socket.once("error",e=>finish({ok:false,error:e.code??"transport error"}));
+    socket.once("close",()=>finish({ok:false,error:"closed"}));
+  });
+  await new Promise((resolve,reject)=>{
+    socket.once("connect",()=>{
+      socket.write(JSON.stringify(envelope)+"\n");
+      resolve();
+    });
+    socket.once("error",reject);
+  });
+  return {socket,response,envelope};
+}
+let brokerInstalled = false, gateInstalled = false;
+try {
+  const pid1 = privileged("ps", ["-p","1","-o","comm="]);
+  assert.equal(pid1.status,0,"unable to identify real init process");
+  assert.equal(pid1.stdout.trim(),"systemd",
+    "G01 demands ACTUAL systemd as PID 1 (not a fake systemctl binary)");
+  const systemd = privileged("systemctl", ["is-system-running"]);
+  assert.ok(["running","degraded","starting"].includes(systemd.stdout.trim()),
+    "real systemd not usable: " + systemd.stdout + systemd.stderr);
+  must("install", ["-d", "-o", "root", "-g", "root", "-m", "0700", stage]);
+  for (const [name, source, mode] of [
+    ["node", process.execPath, "0500"],
+    ["install-broker.sh", sources.brokerInstaller, "0500"],
+    ["install-gate.sh", sources.gateInstaller, "0500"],
+    ["broker-client.mjs", sources.client, "0400"],
+  ]) must("install", ["-o", "root", "-g", "root", "-m", mode, source, stage + "/" + name]);
+  const h = {};
+  for (const [key, file] of Object.entries(sources)) h[key] = await digest(file);
+  const brokerEnv = [
+    "BUCCET_BROKER_NODE=" + stage + "/node",
+    "BUCCET_POLICY_CONTROLLER_SRC=" + sources.controller,
+    "BUCCET_POLICY_CONTROLLER_SHA256=" + h.controller,
+  ];
+  const brokerArgs = [stage + "/install-broker.sh", id,
+    sources.guard, sources.broker, h.guard, h.broker];
+
+  // G02 negative: a forged release digest cannot create the privileged tree.
+  const forgery = privileged("env", [...brokerEnv, "sh",
+    ...brokerArgs.slice(0, -2), "0".repeat(64), h.broker]);
+  assert.notEqual(forgery.status, 0, "G02: forged guard digest created privileged code");
+  deny("test", ["-e", root], "G02: forged preflight had a filesystem side effect");
+  console.log("F03_G02_PASS forged digest denied before root creation");
+
+  const untrusted = privileged("setpriv", [
+    "--reuid=65534", "--regid=65534", "--clear-groups", "env",
+    ...brokerEnv, "sh", ...brokerArgs]);
+  assert.notEqual(untrusted.status, 0, "G02: unprivileged installer obtained root authority");
+  console.log("F03_G02_PASS unprivileged installer refused");
+
+  // G02 adversarial partial-install fault: a root-owned trusted command
+  // injects EIO after the managed directory exists, just as real disk errors
+  // can happen after a series of successful privileged filesystem effects.
+  // A failed privileged install MUST NOT leave an orphaned protected root.
+  const faultRoot = stage + "/fault-bin";
+  must("/usr/bin/install", ["-d", "-o", "root", "-g", "root", "-m", "0700", faultRoot]);
+  const faultScript = path.join(tmp, "fault-install.sh");
+  await writeFile(faultScript,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'case "$last" in */box-fs-guard) exit 74;; esac\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    faultScript, faultRoot + "/install"]);
+  const interrupted = privileged("env", [
+    "PATH=" + faultRoot + ":/usr/bin:/bin",
+    ...brokerEnv, "sh", ...brokerArgs,
+  ]);
+  assert.notEqual(interrupted.status, 0, "G02 injected install EIO did not abort");
+  deny("test", ["-e", root],
+    "G02: interrupted installation left orphaned privileged root (rollback missing)");
+  deny("test", ["-e", "/etc/systemd/system/" + brokerUnit],
+    "G02: interrupted installation created a live service unit");
+  console.log("F03_G02_PASS injected partial native install rolled back without root residue");
+
+  // RED control: installation may create the root and then report I/O error
+  // BEFORE the caller records success. Rollback must still own that attempt.
+  const rootCreateSrc = path.join(tmp, "fault-root-create.sh");
+  await writeFile(rootCreateSrc,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'if [ "$last" = ' + JSON.stringify(root) +
+    ' ]; then /usr/bin/install "$@" || exit $?; exit 79; fi\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    rootCreateSrc, faultRoot + "/install"]);
+  const createThenError = privileged("env", [
+    "PATH=" + faultRoot + ":/usr/bin:/bin", ...brokerEnv, "sh", ...brokerArgs,
+  ]);
+  assert.notEqual(createThenError.status, 0,
+    "G02 injected post-create installer failure was not observed");
+  deny("test", ["-e", root],
+    "G02 post-create I/O failure left a root because rollback flag was set too late");
+  deny("test", ["-e", "/etc/systemd/system/" + brokerUnit],
+    "G02 post-create I/O failure left a service");
+  console.log("F03_G02_PASS root directory creation error still rolls back");
+
+
+  // Inject failure after the broker has already written its systemd unit.
+  // A transactional installer must remove the unit and protected root; a
+  // path-only rollback would miss the privilege-bearing service descriptor.
+  const ctlFaultDir=stage+"/systemctl-fault-bin";
+  must("/usr/bin/install",["-d","-o","root","-g","root","-m","0700",ctlFaultDir]);
+  const ctlFaultSrc=path.join(tmp,"systemctl-fault.sh");
+  await writeFile(ctlFaultSrc,
+    '#!/bin/sh\n' +
+    'if [ "$1" = enable ]; then exit 76; fi\n' +
+    'exec /usr/bin/systemctl "$@"\n');
+  must("/usr/bin/install",["-o","root","-g","root","-m","0500",
+    ctlFaultSrc,ctlFaultDir+"/systemctl"]);
+  const brokerUnitFault=privileged("env",[
+    "PATH="+ctlFaultDir+":/usr/bin:/bin",...brokerEnv,
+    "sh",...brokerArgs,
+  ]);
+  assert.notEqual(brokerUnitFault.status,0,
+    "G02 simulated systemctl failure did not stop installation");
+  deny("test",["-e",root],
+    "G02 installation left a privileged root after unit-activation error");
+  deny("test",["-e","/etc/systemd/system/"+brokerUnit],
+    "G02 installation left a service unit after activation error");
+  assert.equal(serviceState(brokerUnit),false,
+    "G02 failed install left privileged service active");
+  console.log("F03_G02_PASS failed broker unit activation rolled back code and service");
+
+  // G02 concurrency boundary: pause AFTER the first installer acquires its
+  // filesystem lock but BEFORE it creates its root. A second root installer
+  // sees no target yet and must STILL fail before allocating authority.
+  const raceId = id + "-race";
+  const raceRoot = "/var/lib/buccet-native/" + raceId;
+  const raceUnit = "buccet-native-" + raceId + ".service";
+  const raceBin = stage + "/race-bin";
+  const raceReady = stage + "/race-ready";
+  const raceRelease = stage + "/race-release";
+  must("/usr/bin/install", ["-d", "-o", "root", "-g", "root", "-m", "0700", raceBin]);
+  const raceScript = path.join(tmp, "race-install.sh");
+  await writeFile(raceScript,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'if [ "$last" = ' + JSON.stringify(raceRoot) + ' ]; then\n' +
+    '  /usr/bin/touch ' + JSON.stringify(raceReady) + '\n' +
+    '  until [ -e ' + JSON.stringify(raceRelease) +
+    ' ]; do /usr/bin/sleep 0.05; done\nfi\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    raceScript, raceBin + "/install"]);
+  const raceArgs = [stage + "/install-broker.sh", raceId,
+    sources.guard, sources.broker, h.guard, h.broker];
+  let raceOut = "", raceErr = "";
+  const raceProc = spawn("sudo", ["-n", "env",
+    "PATH=" + raceBin + ":/usr/bin:/bin", ...brokerEnv, "sh", ...raceArgs],
+  { env, stdio: ["ignore", "pipe", "pipe"] });
+  raceProc.stdout.on("data", chunk => { raceOut += String(chunk); });
+  raceProc.stderr.on("data", chunk => { raceErr += String(chunk); });
+  const raceFinished = new Promise((resolve, reject) => {
+    raceProc.once("error", reject);
+    raceProc.once("close", (code, signal) => resolve({ code, signal }));
+  });
+  try {
+    await wait(() => privileged("test", ["-e", raceReady]).status === 0,
+      "first installer never reached protected pre-root interleaving");
+    deny("test", ["-e", raceRoot],
+      "race fixture must pause BEFORE either installer makes the instance");
+    const second = privileged("env", [...brokerEnv, "sh", ...raceArgs]);
+    assert.notEqual(second.status, 0, "second privileged install bypassed transaction lock");
+    assert.match(second.stderr, /another privileged installation is active/,
+      "second install failed for a reason other than the lock");
+    deny("test", ["-e", raceRoot], "competing installer created a root while locked");
+    must("touch", [raceRelease]);
+    const first = await raceFinished;
+    assert.equal(first.code, 0, "first installer damaged by the losing race: " + raceErr + raceOut);
+    assert.equal(serviceState(raceUnit), true, "winning installer service not running");
+    assert.equal(socketStatus(raceRoot + "/broker.sock", "0:600:socket"), true);
+    console.log("F03_G02_PASS competing root installers serialized before root creation");
+  } finally {
+    privileged("touch", [raceRelease]);
+    if (raceProc.exitCode === null) {
+      await Promise.race([raceFinished, new Promise(resolve => setTimeout(resolve, 2500))]);
+      if (raceProc.exitCode === null) raceProc.kill("SIGKILL");
+    }
+    privileged("systemctl", ["stop", raceUnit]);
+    privileged("systemctl", ["disable", raceUnit]);
+    privileged("rm", ["-f", "--", "/etc/systemd/system/" + raceUnit]);
+    privileged("systemctl", ["daemon-reload"]);
+    privileged("rm", ["-rf", "--", raceRoot]);
+  }
+
+
+  const installed = privileged("env", [...brokerEnv, "sh", ...brokerArgs]);
+  brokerInstalled = true;
+  assert.equal(installed.status, 0, "G01 full broker service installation failed: " +
+    installed.stderr + installed.stdout + "\n" + logs(brokerUnit));
+  await wait(() => serviceState(brokerUnit) &&
+    socketStatus(brokerSocket, "0:600:socket"), "broker not active after full systemd installation");
+  console.log("F03_G01_PASS broker systemd boot " + JSON.stringify({
+    unit: brokerUnit, state: serviceEvidence(brokerUnit),
+  }));
+
+  const policySource = path.join(tmp, "policy.json");
+  await writeFile(policySource, JSON.stringify({ schema:1, root, allowed:[
+    {op:"mkdir",prefix:"allowed"},
+    {op:"write",prefix:"allowed"},
+    {op:"read",prefix:"allowed"},
+    {op:"append",prefix:"allowed"},
+    {op:"move",prefix:"allowed"},
+  ] }) + "\n");
+  must("install", ["-o", "root", "-g", "root", "-m", "0400",
+    policySource, root + "/policy.json"]);
+  mustBroker("mkdir", "allowed");
+  mustBroker("write", "allowed/ready.txt", "AUTHORIZED_BEFORE_CRASH");
+  assert.equal(mustBroker("read", "allowed/ready.txt"), "AUTHORIZED_BEFORE_CRASH");
+
+  const hostile = privileged("setpriv", [
+    "--reuid=65534", "--regid=65534", "--clear-groups",
+    "stat", brokerSocket]);
+  assert.notEqual(hostile.status, 0, "G02: untrusted process reached private broker path");
+
+  const gateEnv = [
+    "BUCCET_BROKER_NODE=" + stage + "/node",
+    "BUCCET_HOST_ENROLLER_SRC=" + sources.issuer,
+    "BUCCET_HOST_ENROLLER_SHA256=" + h.issuer,
+  ];
+  const gateArgs = [stage + "/install-gate.sh", id, sources.gate,
+    h.gate, sources.reviewer, h.reviewer];
+  // G02 second fault point: native broker must survive a failed gate
+  // installation, but partial reviewer code/host registry/public directory
+  // may not be left active or registered with any privilege.
+  const gateFaultBin = stage + "/gate-fault-bin";
+  must("/usr/bin/install", ["-d", "-o", "root", "-g", "root",
+    "-m", "0700", gateFaultBin]);
+  const gateFaultSource = path.join(tmp, "fault-gate-install.sh");
+  await writeFile(gateFaultSource,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'case "$last" in */approval-gate.mjs) exit 75;; esac\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    gateFaultSource, gateFaultBin + "/install"]);
+  const gateFault = privileged("env", [
+    "PATH=" + gateFaultBin + ":/usr/bin:/bin",
+    ...gateEnv, "sh", ...gateArgs,
+  ]);
+  assert.notEqual(gateFault.status, 0, "G02 injected gate install EIO did not abort");
+  deny("test", ["-e", root + "/approval-gate.mjs"],
+    "G02: failed gate install left privileged executable residue");
+  deny("test", ["-e", root + "/host-identities.json"],
+    "G02: failed gate install left an unintended registration");
+  deny("test", ["-e", gateRun],
+    "G02: failed gate install left a public request namespace");
+  assert.equal(mustBroker("read", "allowed/ready.txt"),"AUTHORIZED_BEFORE_CRASH",
+    "G02: failed gate installation damaged the running protected broker");
+  console.log("F03_G02_PASS interrupted gate install rolled back without harming broker");
+
+  // Second create-then-error checkpoint: the public request namespace can be
+  // created before the installation command returns failure.
+  const gateCreateSrc = path.join(tmp, "fault-gate-create.sh");
+  await writeFile(gateCreateSrc,
+    '#!/bin/sh\nfor last; do :; done\n' +
+    'if [ "$last" = ' + JSON.stringify(gateRun) +
+    ' ]; then /usr/bin/install "$@" || exit $?; exit 81; fi\n' +
+    'exec /usr/bin/install "$@"\n');
+  must("/usr/bin/install", ["-o", "root", "-g", "root", "-m", "0500",
+    gateCreateSrc, gateFaultBin + "/install"]);
+  const createGateThenError = privileged("env", [
+    "PATH=" + gateFaultBin + ":/usr/bin:/bin", ...gateEnv, "sh", ...gateArgs,
+  ]);
+  assert.notEqual(createGateThenError.status, 0,
+    "G02 injected post-create gate failure was not observed");
+  deny("test", ["-e", gateRun],
+    "G02 post-create gate failure left the public privileged request namespace");
+  deny("test", ["-e", root + "/approval-gate.mjs"],
+    "G02 post-create gate failure left a partial privileged script");
+  assert.equal(mustBroker("read", "allowed/ready.txt"), "AUTHORIZED_BEFORE_CRASH");
+  console.log("F03_G02_PASS gate namespace creation error rolls back");
+
+
+  const gateUnitFault=privileged("env",[
+    "PATH="+ctlFaultDir+":/usr/bin:/bin",...gateEnv,
+    "sh",...gateArgs,
+  ]);
+  assert.notEqual(gateUnitFault.status,0,
+    "G02 simulated gate service activation failure did not abort");
+  deny("test",["-e","/etc/systemd/system/"+gateUnit],
+    "G02 failed gate installation left a privileged systemd unit");
+  deny("test",["-e",root+"/approval-gate.mjs"],
+    "G02 failed gate activation left privileged executable code");
+  deny("test",["-e",gateRun],
+    "G02 failed gate activation left an attacker-visible request endpoint");
+  assert.equal(serviceState(brokerUnit),true,
+    "G02 failed operator gate activation damaged existing protected broker");
+  assert.equal(mustBroker("read","allowed/ready.txt"),"AUTHORIZED_BEFORE_CRASH");
+  console.log("F03_G02_PASS failed gate unit activation rolled back without collateral effects");
+
+  const gateSetup = privileged("env", [...gateEnv, "sh", ...gateArgs]);
+  gateInstalled = true;
+  assert.equal(gateSetup.status, 0, "G01 full gate systemd installation failed: " +
+    gateSetup.stderr + gateSetup.stdout + "\n" + logs(gateUnit));
+  await wait(() => serviceState(gateUnit) &&
+    socketStatus(gateRequest, "0:666:socket") &&
+    socketStatus(gateOperator, "0:600:socket"), "operator gate not active after full systemd installation");
+  console.log("F03_G01_PASS gate systemd boot " + JSON.stringify({
+    unit: gateUnit, state: serviceEvidence(gateUnit),
+  }));
+  // G01 E7: a burst-safe recovery budget must remain FINITE. The previous
+  // implicit 5/10s systemd default made reverse ordered recovery hit
+  // start-limit-hit after real SIGKILL and operator restarts; disabling
+  // StartLimitIntervalSec entirely would conceal a crash-loop vulnerability.
+  for (const unit of [brokerUnit, gateUnit]) {
+    const burst = must("systemctl",
+      ["show", "-p", "StartLimitBurst", "--value", unit]).trim();
+    const window = must("systemctl",
+      ["show", "-p", "StartLimitIntervalUSec", "--value", unit]).trim();
+    assert.equal(burst, "12", "G01 E7 finite bounded restart budget missing " + unit);
+    assert.ok(window && window !== "0" && window !== "0s",
+      "G01 E7 restart rate limiting was accidentally disabled on " + unit);
+  }
+  console.log("F03_G01_E7_PASS finite-nonzero-systemd-start-budget");
+
+
+  // G03: exercise the ACTUAL privileged issuer, dedicated non-root OS UID,
+  // root-owned key file, signed public gate request, human operator approval,
+  // and issuer revocation. A manually planted HMAC registry alone does not
+  // prove the credential-distribution boundary in the shipped installer.
+  const isolatedSession = "isolated_" + id.replaceAll("-", "");
+  const isolatedActor = "issuer_actor_" + id.replaceAll("-", "");
+  const isolatedUid = "12345";
+  const issued = must(stage + "/node", [
+    root + "/host-enroll.mjs", root, "enroll",
+    isolatedSession, isolatedActor, isolatedUid,
+  ]);
+  assert.match(issued, /BUCCET_HOST_ENROLLED/,
+    "production privileged host issuer did not enroll dedicated UID");
+  const proofPath = "/run/buccet-native-host-credentials/" + id +
+    "/" + isolatedSession + ".key";
+  assert.equal(must("stat", ["-c", "%u:%a:%h:%F", proofPath]),
+    "12345:400:1:regular file",
+    "G03 dedicated host key not bound to a separate OS principal");
+  const secret = must("setpriv", [
+    "--reuid=12345", "--regid=12345", "--clear-groups", "cat", proofPath,
+  ]);
+  assert.match(secret, /^[a-f0-9]{64}$/, "dedicated host cannot read its own key");
+  assert.equal(issued.includes(secret), false, "G03 issuer printed host secret");
+
+  // G03 process-level attacker: keep the real dedicated-UID host credential
+  // loaded in a live process, then attack its /proc memory, FDs, environment
+  // and ptrace from the untrusted runner and a second hostile UID. Refusing
+  // only the registry file is not proof of memory/FD privilege separation.
+  const holderCode = [
+    'const fs=require("node:fs");',
+    'const secret=fs.readFileSync(process.argv[1],"utf8").trim();',
+    'if(!/^[0-9a-f]{64}$/.test(secret))process.exit(83);',
+    'console.log("HOST_CREDENTIAL_HELD_PID="+process.pid);',
+    'setInterval(()=>{if(secret.length!==64)process.exit(84)},1000);',
+  ].join("");
+  const holder = spawn("sudo", ["-n", "setpriv", "--reuid=12345",
+    "--regid=12345", "--clear-groups", process.execPath, "-e",
+    holderCode, proofPath], { env, stdio: ["ignore", "pipe", "pipe"] });
+  let holderOutput = "", holderError = "";
+  holder.stdout.on("data", chunk => { holderOutput += String(chunk); });
+  holder.stderr.on("data", chunk => { holderError += String(chunk); });
+  let heldPid;
+  try {
+    for (let attempt = 0; attempt < 70; attempt++) {
+      const match = holderOutput.match(/HOST_CREDENTIAL_HELD_PID=([0-9]+)/);
+      if (match) { heldPid = match[1]; break; }
+      await new Promise(resolve => setTimeout(resolve, 60));
+    }
+    assert.ok(heldPid, "dedicated-UID key-holder never started: " + holderError);
+    assert.equal(privileged("kill", ["-0", heldPid]).status, 0,
+      "credential-holding host exited before hostile process probes");
+    const ptraceCode = [
+      "import ctypes,errno,sys",
+      "pid=int(sys.argv[1])",
+      "libc=ctypes.CDLL(None,use_errno=True)",
+      "rc=libc.ptrace(16,pid,None,None)",
+      "if rc==0:",
+      "    libc.ptrace(17,pid,None,None)",
+      "    sys.exit(0)",
+      "sys.exit(73 if ctypes.get_errno()==errno.EPERM else 74)",
+    ].join("\n");
+    const ptraceProbe = run("python3", ["-c", ptraceCode, heldPid]);
+    assert.equal(ptraceProbe.status, 73,
+      "G03 untrusted UID ptrace was allowed or failed without EPERM: " +
+      ptraceProbe.stderr);
+    assert.notEqual(run("ls", ["/proc/" + heldPid + "/fd"]).status, 0,
+      "G03 untrusted agent enumerated dedicated host file descriptors");
+    assert.notEqual(run("cat", ["/proc/" + heldPid + "/environ"]).status, 0,
+      "G03 untrusted agent read dedicated host environment");
+    assert.notEqual(run("head", ["-c", "1", "/proc/" + heldPid + "/mem"]).status, 0,
+      "G03 untrusted agent read dedicated host process memory");
+    deny("setpriv", ["--reuid=12346", "--regid=12346", "--clear-groups",
+      "ls", "/proc/" + heldPid + "/fd"],
+      "G03 second hostile UID enumerated dedicated host descriptors");
+    assert.equal(privileged("kill", ["-0", heldPid]).status, 0,
+      "G03 hostile probe killed trusted host instead of being denied");
+    console.log("F03_G03_PASS live dedicated host memory, ptrace, FD and env denied to hostile OS UIDs");
+  } finally {
+    if (heldPid) privileged("kill", ["-TERM", heldPid]);
+    await Promise.race([
+      new Promise(resolve => holder.once("close", resolve)),
+      new Promise(resolve => setTimeout(resolve, 2500)),
+    ]);
+    if (heldPid && privileged("kill", ["-0", heldPid]).status === 0) {
+      privileged("kill", ["-KILL", heldPid]);
+    }
+  }
+
+  assert.notEqual(run("cat", [proofPath]).status, 0,
+    "G03 untrusted agent UID could read dedicated host proof key");
+  deny("setpriv", ["--reuid=12346", "--regid=12346", "--clear-groups",
+    "cat", proofPath], "G03 separate non-root UID stole trusted host key");
+  deny("setpriv", ["--reuid=65534", "--regid=65534", "--clear-groups",
+    "cat", proofPath], "G03 hostile UID 65534 stole dedicated host key");
+  const isolatedHostCode = "const fs=require(\"node:fs\"),crypto=require(\"node:crypto\"),net=require(\"node:net\");\nconst [proof,socketPath,sessionId,actorId,target]=process.argv.slice(1);\nconst secret=fs.readFileSync(proof,\"utf8\").trim();\nif(!/^[0-9a-f]{64}$/.test(secret))process.exit(81);\nconst proposal={op:\"write\",path:target,content:\"DEDICATED_UID_EXACT_BYTES\"};\nconst issuedAt=new Date().toISOString(),nonce=crypto.randomBytes(16).toString(\"hex\");\nconst mac=crypto.createHmac(\"sha256\",Buffer.from(secret,\"hex\")).update(JSON.stringify([\"agent-buccet-protected-host-v1\",sessionId,actorId,issuedAt,nonce,proposal])).digest(\"hex\");\nconst socket=net.createConnection({path:socketPath});\nlet response=\"\";\nsocket.once(\"connect\",()=>socket.write(JSON.stringify({...proposal,host:{sessionId,actorId,issuedAt,nonce,mac}})+\"\\n\"));\nsocket.on(\"data\",chunk=>response+=String(chunk));\nsocket.once(\"end\",()=>{process.stdout.write(response);process.exit(0)});\nsocket.once(\"error\",err=>{process.stderr.write(String(err.code||err.message));process.exit(82)});\n";
+  function startDedicatedHost(target) {
+    let stdout = "", stderr = "";
+    const proc = spawn("sudo", ["-n", "setpriv", "--reuid=12345",
+      "--regid=12345", "--clear-groups", process.execPath, "-e",
+      isolatedHostCode, proofPath, gateRequest, isolatedSession, isolatedActor,
+      target], { env, stdio: ["ignore", "pipe", "pipe"] });
+    proc.stdout.on("data", chunk => { stdout += String(chunk); });
+    proc.stderr.on("data", chunk => { stderr += String(chunk); });
+    const completed = new Promise((resolve, reject) => {
+      proc.once("error", reject);
+      proc.once("close", (code, signal) =>
+        resolve({ code, signal, stdout, stderr }));
+    });
+    return { proc, completed };
+  }
+  const isolatedPositivePath = "allowed/issuer-positive.txt";
+  const positiveHost = startDedicatedHost(isolatedPositivePath);
+  const positiveRow = await wait(() => operator({ command: "list" }).pending?.find(
+    row => row.path === isolatedPositivePath),
+    "G03 actual dedicated-UID signed host request never reached operator gate");
+  assert.equal(positiveRow.host?.verified, true);
+  assert.equal(positiveRow.host?.sessionId, isolatedSession);
+  assert.equal(operator({ command: "approve", requestId: positiveRow.requestId,
+    sha256: positiveRow.sha256 }).approved, true);
+  const positiveDone = await Promise.race([
+    positiveHost.completed,
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("dedicated-UID positive host transport timed out")), 9000)),
+  ]);
+  assert.equal(positiveDone.code, 0,
+    "dedicated-UID host failed: " + positiveDone.stderr);
+  assert.equal(JSON.parse(positiveDone.stdout.trim()).ok, true,
+    "independent OS-principal host was not accepted after root approval");
+  assert.equal(mustBroker("read", isolatedPositivePath),
+    "DEDICATED_UID_EXACT_BYTES",
+    "dedicated-UID approved host committed wrong bytes");
+
+  const isolatedRevokedPath = "allowed/issuer-revoked.txt";
+  const revokedHost = startDedicatedHost(isolatedRevokedPath);
+  const revokedRow = await wait(() => operator({ command: "list" }).pending?.find(
+    row => row.path === isolatedRevokedPath),
+    "G03 dedicated-UID revocation request never reached operator queue");
+  const revoked = must(stage + "/node", [
+    root + "/host-enroll.mjs", root, "revoke", isolatedSession, isolatedActor,
+  ]);
+  assert.match(revoked, /BUCCET_HOST_REVOKED/);
+  deny("test", ["-e", proofPath],
+    "G03 issuer revoked registry entry but left readable dedicated key");
+  assert.equal(operator({ command: "approve", requestId: revokedRow.requestId,
+    sha256: revokedRow.sha256 }).approved, true,
+    "operator click must still test downstream root revocation");
+  const revokedDone = await Promise.race([
+    revokedHost.completed,
+    new Promise((_, reject) => setTimeout(() =>
+      reject(Error("revoked dedicated-UID request never completed")), 9000)),
+  ]);
+  assert.equal(revokedDone.code, 0,
+    "revoked host failed to receive denial: " + revokedDone.stderr);
+  assert.equal(JSON.parse(revokedDone.stdout.trim()).ok, false,
+    "revoked dedicated-UID host still executed after root approval");
+  deny("test", ["-e", root + "/" + isolatedRevokedPath],
+    "G03 revoked independently issued host produced protected bytes");
+  console.log("F03_G03_PASS real root issuer dedicated UID 12345 key isolation, positive exact bytes and live revocation");
+
+  // Kernel-enforced isolation is a negative control; service stays usable.
+  deny("setpriv", ["--reuid=65534", "--regid=65534", "--clear-groups",
+    "stat", root + "/policy.json"], "G02: hostile UID read protected policy");
+  mustBroker("append", "allowed/ready.txt", "|VALID_AFTER_INSTALL");
+  assert.equal(mustBroker("read", "allowed/ready.txt"),
+    "AUTHORIZED_BEFORE_CRASH|VALID_AFTER_INSTALL");
+
+  const brokerBefore = serviceEvidence(brokerUnit);
+  must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", brokerUnit]);
+  console.log("F03_G01_ATTACK broker SIGKILL at live production service " + brokerBefore);
+  await wait(() => serviceState(brokerUnit) &&
+    rootBroker("read","allowed/ready.txt").status === 0,
+    "root-owned broker failed to recover from abrupt death and resume authorized read", 12000);
+  assert.equal(mustBroker("read", "allowed/ready.txt"),
+    "AUTHORIZED_BEFORE_CRASH|VALID_AFTER_INSTALL");
+  console.log("F03_G01_PASS killed broker recovered " + serviceEvidence(brokerUnit));
+
+  const gateBefore = serviceEvidence(gateUnit);
+  must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
+  console.log("F03_G01_ATTACK gate SIGKILL at live production service " + gateBefore);
+  await wait(() => serviceState(gateUnit) &&
+    socketStatus(gateOperator, "0:600:socket") &&
+    operator({command:"list"}).ok === true,
+    "root-owned gate failed to recover LIVE root-only socket after abrupt death", 12000);
+  console.log("F03_G01_PASS killed gate recovered " + serviceEvidence(gateUnit));
+
+  // G01: signed request pending at the moment of SIGKILL is never reused
+  // by the new daemon generation. A fresh, separately approved request must
+  // still complete and commit its EXACT original bytes.
+  const who={
+    sessionId:"trustedhost_"+id.replaceAll("-",""),
+    actorId:"trustedoperator_"+id.replaceAll("-",""),
+    secretHex:randomBytes(32).toString("hex"),
+  };
+  const registry=path.join(tmp,"host-identities.json");
+  await writeFile(registry,JSON.stringify({
+    schema:1,root,allowed:[who],
+  })+"\n");
+  must("install",["-o","root","-g","root","-m","0400",
+    registry,root+"/host-identities.json"]);
+
+  // G03 OS identity boundary: the process with the untrusted runner's UID
+  // and a separate unprivileged UID may know the actor/session NAMES but must
+  // not be able to extract the independent root issuer's HMAC secret.
+  const untrustedRegistry=run("cat",[root+"/host-identities.json"]);
+  assert.notEqual(untrustedRegistry.status,0,
+    "G03 same-UID agent could read root-issued host credential registry");
+  deny("setpriv",["--reuid=65534","--regid=65534","--clear-groups",
+    "cat",root+"/host-identities.json"],
+    "G03 independently unprivileged UID read root-only host secret");
+  const spoofedPath="allowed/forged-actor-label.txt";
+  const spoofedProposal={op:"write",path:spoofedPath,content:"MUST_NOT_EXECUTE"};
+  const spoofed=await submitPending(spoofedProposal,who,{
+    ...spoofedProposal,
+    host:{
+      sessionId:who.sessionId,actorId:who.actorId,
+      issuedAt:new Date().toISOString(),
+      nonce:randomBytes(16).toString("hex"),
+      mac:"0".repeat(64),
+    },
+  });
+  const spoofedReceipt=await Promise.race([
+    spoofed.response,
+    new Promise(resolve=>setTimeout(()=>{
+      spoofed.socket.destroy();
+      resolve({ok:false,error:"missing explicit forged-proof rejection"});
+    },2500)),
+  ]);
+  assert.equal(spoofedReceipt.ok,false,
+    "G03 copied trusted actor label with fake MAC gained root gate access");
+  assert.match(String(spoofedReceipt.error),/host proof|unattested|invalid/i,
+    "G03 forged actor proof failed without a verified integrity reason");
+  assert.equal(operator({command:"list"}).pending?.length,0,
+    "G03 forged actor label entered root operator approval queue");
+  deny("test",["-e",root+"/"+spoofedPath],
+    "G03 forged host identity produced protected bytes");
+  console.log("F03_G03_PASS same-UID secret denial and forged actor-MAC proof refusal");
+
+  const gatePid=must("systemctl",["show","-p","MainPID","--value",gateUnit]).trim();
+  assert.match(gatePid,/^[1-9][0-9]+$/,"real gate service PID unavailable");
+  const procEnv=run("cat",["/proc/"+gatePid+"/environ"]);
+  assert.notEqual(procEnv.status,0,
+    "G03 untrusted same-UID agent read privileged gate process environment");
+  const procFD=run("ls",["/proc/"+gatePid+"/fd"]);
+  assert.notEqual(procFD.status,0,
+    "G03 untrusted same-UID agent enumerated privileged gate descriptors");
+  const procArgv=run("cat",["/proc/"+gatePid+"/cmdline"]);
+  if (procArgv.status===0) {
+    assert.ok(!procArgv.stdout.includes(who.secretHex),
+      "G03 root host secret leaked in privileged gate argv");
+  }
+  const ledgerRoute=privileged(root+"/box-fs-guard",[
+    "mkdir",root,".buccet-host-nonces/forged-native-entry"]);
+  assert.notEqual(ledgerRoute.status,0,
+    "G03 native filesystem path accepted reserved root host-nonce namespace");
+  console.log("F03_G03_PASS same-UID proc/env/fd isolation and native ledger namespace denial");
+
+
+  const staleName="allowed/old-unapproved.txt";
+  const pending=await submitPending({
+    op:"write",path:staleName,content:"SHOULD_NOT_EXECUTE",
+  },who);
+  const stale=await wait(()=>{
+    const list=operator({command:"list"});
+    return list.pending?.find(x=>x.path===staleName);
+  },"root operator never saw signed pending attack");
+  assert.equal(stale.host?.verified,true);
+  must("systemctl",["kill","--kill-whom=main","-s","SIGKILL",gateUnit]);
+  console.log("F03_G01_ATTACK gate SIGKILL while exact request pending "+
+    JSON.stringify({requestId:stale.requestId,digest:stale.sha256}));
+  await wait(()=>serviceState(gateUnit) &&
+    socketStatus(gateRequest,"0:666:socket") &&
+    socketStatus(gateOperator,"0:600:socket") &&
+    operator({command:"list"}).ok === true,
+    "gate failed to recover with LIVE operator listener and pending request invalidation",12000);
+  const oldApproval=operator({
+    command:"approve",requestId:stale.requestId,sha256:stale.sha256,
+  });
+  assert.equal(oldApproval.ok,false,"stale operator approval replayed after restart");
+  const oldReceipt=await pending.response;
+  assert.notEqual(oldReceipt.ok,true,"stale pre-crash request reported success");
+  deny("test",["-e",root+"/"+staleName],
+    "stale unapproved request executed in protected root");
+
+  // G03 RED CONTROL: the exact same HMAC, nonce, issuedAt and payload consumed
+  // by the crashed gate must NOT be accepted by the replacement gate. Denying
+  // the old operator request ID alone is insufficient if a signed host packet
+  // can be replayed into a fresh pending request after SIGKILL.
+  const replay = await submitPending({
+    op:"write",path:staleName,content:"SHOULD_NOT_EXECUTE",
+  },who,pending.envelope);
+  let replayQueued;
+  for (let attempt=0; attempt<18; attempt++) {
+    replayQueued=operator({command:"list"}).pending?.find(x=>x.path===staleName);
+    if (replayQueued) break;
+    await new Promise(resolve=>setTimeout(resolve,70));
+  }
+  if (replayQueued) {
+    operator({command:"deny",requestId:replayQueued.requestId,
+      sha256:replayQueued.sha256});
+  }
+  const replayResponse=await Promise.race([
+    replay.response,
+    new Promise(resolve=>setTimeout(()=>{
+      replay.socket.destroy();
+      resolve({ok:false,error:"missing explicit replay rejection"});
+    },2500)),
+  ]);
+  assert.equal(replayQueued,undefined,
+    "G03 pre-crash signed host proof reentered the replacement operator queue");
+  assert.equal(replayResponse.ok,false);
+  assert.match(String(replayResponse.error),/replay|stale|expired|invalid/i,
+    "cross-generation host replay was not explicitly refused");
+  deny("test",["-e",root+"/"+staleName],
+    "G03 host proof replay caused unapproved protected effect");
+  console.log("F03_G03_PASS precrash host-HMAC nonce cannot replay after gate SIGKILL");
+
+
+  const newName="allowed/new-approved.txt";
+  const fresh=await submitPending({
+    op:"write",path:newName,content:"AUTHORIZED_AFTER_CRASH",
+  },who);
+  const current=await wait(()=>operator({command:"list"}).pending?.find(
+    x=>x.path===newName),
+    "new signed request failed to queue after restart");
+  assert.equal(operator({
+    command:"approve",requestId:current.requestId,sha256:current.sha256,
+  }).approved,true);
+  const receipt=await fresh.response;
+  assert.equal(receipt.ok,true,"legitimate freshly approved request was not executed");
+  assert.equal(mustBroker("read",newName),"AUTHORIZED_AFTER_CRASH");
+  console.log("F03_G01_PASS stale request denied and new operator approved correct bytes");
+
+  mustBroker("write", "allowed/after-restart.txt", "GENUINE_AUTHORIZED_EFFECT");
+  assert.equal(mustBroker("read", "allowed/after-restart.txt"), "GENUINE_AUTHORIZED_EFFECT");
+
+  // G01 E7 finite closeout: real systemd ordered/unordered service failure
+  // matrix. The installed gate Requires=the installed broker; an explicit
+  // broker stop should therefore fail closed as a unit pair, not pretend an
+  // independent gate can keep authorizing while its authority is absent.
+  async function e7ApproveExact(relative, content) {
+    const pending = await submitPending({ op: "write", path: relative, content }, who);
+    const row = await wait(() => operator({ command: "list" }).pending?.find(
+      entry => entry.path === relative), "E7 fresh signed approval never queued");
+    assert.equal(row.host?.verified, true, "E7 unsigned request reached operator");
+    assert.equal(operator({
+      command: "approve", requestId: row.requestId, sha256: row.sha256,
+    }).approved, true, "E7 actual root operator could not approve exact request");
+    const receipt = await Promise.race([
+      pending.response,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 actual approved effect had no receipt")), 12000)),
+    ]);
+    assert.equal(receipt.ok, true, "E7 fresh approved request failed: " +
+      JSON.stringify(receipt));
+    assert.equal(mustBroker("read", relative), content,
+      "E7 approved protected file has wrong exact bytes");
+    return { row, receipt };
+  }
+  const queuedRestartPath = "allowed/e7-gate-queued-killed.txt";
+  const gateQueued = await submitPending({
+    op: "write", path: queuedRestartPath,
+    content: "E7_QUEUED_MUST_NOT_COMMIT",
+  }, who);
+  const queuedEntry = await wait(() => operator({ command: "list" }).pending?.find(
+    entry => entry.path === queuedRestartPath),
+    "E7 gate death test did not reach actual signed pending queue");
+  assert.equal(queuedEntry.host?.verified, true);
+  must("systemctl", ["stop", gateUnit]);
+  await wait(() => !serviceState(gateUnit), "E7 operator gate did not stop cleanly");
+  const queuedGone = await Promise.race([
+    gateQueued.response,
+    new Promise((_, reject) => setTimeout(
+      () => reject(Error("E7 gate stop stranded signed queued socket")), 6000)),
+  ]);
+  assert.notEqual(queuedGone.ok, true, "E7 signed queued request falsely succeeded after gate stop");
+  deny("test", ["-e", root + "/" + queuedRestartPath],
+    "E7 gate shutdown published an unapproved queued request");
+  let offlineGateConnection = false;
+  try {
+    const unexpected = await submitPending({
+      op: "write", path: "allowed/e7-gate-down.txt", content: "NEVER_EXECUTE",
+    }, who);
+    unexpected.socket.destroy();
+  } catch (error) {
+    offlineGateConnection = /ENOENT|ECONNREFUSED|EACCES/.test(String(error?.code ?? error));
+  }
+  assert.equal(offlineGateConnection, true,
+    "E7 public request socket accepted new requests while operator gate was stopped");
+  must("systemctl", ["start", gateUnit]);
+  await wait(() => serviceState(gateUnit) &&
+    socketStatus(gateRequest, "0:666:socket") &&
+    socketStatus(gateOperator, "0:600:socket") &&
+    operator({ command: "list" }).ok === true,
+    "E7 gate did not restore live public+operator listeners after start");
+  assert.equal(operator({
+    command: "approve", requestId: queuedEntry.requestId, sha256: queuedEntry.sha256,
+  }).ok, false, "E7 stale queued consent accepted after clean gate restart");
+  await e7ApproveExact("allowed/e7-gate-restarted-positive.txt",
+    "E7_GATE_RESTART_APPROVED_BYTES");
+  console.log("F03_G01_E7_PASS gate-stop-pending-invalidation-no-fallback-and-positive-restart", JSON.stringify({
+    gateStopped: true, pendingDenied: true, staleApprovalRejected: true,
+    genuineFreshExactBytes: true,
+  }));
+
+  // Deliberately request restart in the reverse dependency order. The real
+  // systemd unit has Requires=broker; starting the GATE while broker is
+  // stopped must activate the broker first (or fail closed), never install a
+  // gate that silently switches to direct native effects.
+  must("systemctl", ["stop", brokerUnit]);
+  await wait(() => !serviceState(brokerUnit) && !serviceState(gateUnit),
+    "E7 gate was still active after its required broker explicitly stopped");
+  const offlineBroker = rootBroker("write", "allowed/e7-broker-outage.txt",
+    "NEVER_WITHOUT_NATIVE_BROKER");
+  assert.notEqual(offlineBroker.status, 0,
+    "E7 stopped broker accepted or executed a native mutation");
+  deny("test", ["-e", root + "/allowed/e7-broker-outage.txt"],
+    "E7 broker outage produced protected bytes through fallback");
+  must("systemctl", ["start", gateUnit]);
+  await wait(() => serviceState(brokerUnit) && serviceState(gateUnit) &&
+    socketStatus(brokerSocket, "0:600:socket") &&
+    operator({ command: "list" }).ok === true,
+    "E7 reverse systemd startup order did not restore both live services", 16000);
+  await e7ApproveExact("allowed/e7-reversed-order-positive.txt",
+    "E7_REQUIRED_BROKER_FIRST_THEN_GATE");
+  console.log("F03_G01_E7_PASS real-systemd-reversed-order-restores-required-broker-no-fallback");
+
+  // Controller is a one-shot protected OS process, not a third unit.
+  // Freeze ACTUAL live broker MainPID while this exact-policy controller
+  // connects and transmits. Kill that controller with SIGKILL, then resume
+  // the real broker. A previously approved exact operation may commit
+  // despite caller death, but it must never mutate beyond those exact bytes
+  // or generate a false success receipt to the dead caller.
+  const controllerPath = "allowed/e7-killed-controller-inflight.txt";
+  const controllerBytes = "E7_ROOT_POLICY_CONTROLLER_ALREADY_AUTHORIZED";
+  const beforeControllerBroker = must("systemctl",
+    ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+  assert.match(beforeControllerBroker, /^[1-9][0-9]+$/);
+  let controllerStoppedBroker = false;
+  let controllerProcess;
+  try {
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
+    controllerStoppedBroker = true;
+    const launcher = 'printf "F03_E7_CONTROLLER_PID=%s\\n" "$$" >&2; exec "$@"';
+    controllerProcess = spawn("sudo", ["-n", "sh", "-c", launcher, "sh",
+      stage + "/node", root + "/policy-controller.mjs",
+      root, "write", controllerPath], { env, stdio: ["pipe", "pipe", "pipe"] });
+    let controllerErr = "", controllerOut = "";
+    controllerProcess.stderr.on("data", chunk => controllerErr += String(chunk));
+    controllerProcess.stdout.on("data", chunk => controllerOut += String(chunk));
+    const controllerExit = new Promise((resolve, reject) => {
+      controllerProcess.once("error", reject);
+      controllerProcess.once("close", (code, signal) => resolve({code, signal}));
+    });
+    controllerProcess.stdin.end(controllerBytes);
+    const controllerPid = await wait(() => {
+      const match = /F03_E7_CONTROLLER_PID=([1-9][0-9]*)/.exec(controllerErr);
+      return match?.[1];
+    }, "E7 privileged controller PID was not recorded");
+    const connected = await wait(() => {
+      const ss = privileged("ss", ["-xap"]);
+      return ss.status === 0 && ss.stdout.includes(brokerSocket) &&
+        ss.stdout.includes("pid=" + controllerPid + ",") &&
+        ss.stdout.includes("ESTAB");
+    }, "E7 controller never established real broker UNIX connection under SIGSTOP", 7000);
+    assert.equal(connected, true);
+    must("kill", ["-KILL", controllerPid]);
+    const deadController = await Promise.race([
+      controllerExit,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 killed policy controller did not exit")), 6000)),
+    ]);
+    assert.notEqual(deadController.code, 0,
+      "E7 actual policy controller exited successfully despite SIGKILL");
+    console.log("F03_G01_E7_ATTACK policy-controller-SIGKILL-while-broker-stopped",
+      JSON.stringify({brokerPID: beforeControllerBroker,
+        controllerPID: controllerPid, connected, exit: deadController}));
+  } finally {
+    if (controllerStoppedBroker) {
+      privileged("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    }
+    if (controllerProcess?.exitCode === null && controllerProcess?.signalCode === null)
+      controllerProcess.kill("SIGKILL");
+  }
+  await wait(() => {
+    const result = rootBroker("read", controllerPath);
+    return result.status === 0 && result.stdout.trim() === controllerBytes;
+  }, "E7 broker failed to commit already-transmitted exact controller effect after crash", 13000);
+  await e7ApproveExact("allowed/e7-controller-death-positive.txt",
+    "E7_FRESH_AFTER_POLICY_CONTROLLER_DEATH");
+  console.log("F03_G01_E7_PASS real-controller-SIGKILL-transmitted-effect-exact-and-fresh-work");
+
+  // Operator approval is NOT native commit. Kill the ROOT operator gate
+  // while an approved request is physically queued on a SIGSTOPped broker.
+  // After resuming, the already-approved exact action may complete but no
+  // dead gate transport may receive a fabricated success. The retired
+  // operator request ID must never replay after gate restart.
+  const approvedPath = "allowed/e7-approved-gate-killed.txt";
+  const approvedBytes = "E7_APPROVED_BEFORE_GATE_DEATH_EXACT";
+  const reviewedBrokerPid = must("systemctl",
+    ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+  const reviewedBrokerRestarts = must("systemctl",
+    ["show", "-p", "NRestarts", "--value", brokerUnit]).trim();
+  let approvalBrokerStopped = false;
+  try {
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
+    approvalBrokerStopped = true;
+    const inflight = await submitPending({
+      op: "write", path: approvedPath, content: approvedBytes,
+    }, who);
+    const inflightEntry = await wait(() => operator({ command: "list" }).pending?.find(
+      entry => entry.path === approvedPath),
+      "E7 gate SIGKILL did not reach actual signed operator-reviewed queue");
+    assert.equal(operator({
+      command: "approve", requestId: inflightEntry.requestId,
+      sha256: inflightEntry.sha256,
+    }).approved, true, "E7 actual root operator approval missing");
+    const gatePid = must("systemctl",
+      ["show", "-p", "MainPID", "--value", gateUnit]).trim();
+    const approvedConnected = await wait(() => {
+      const ss = privileged("ss", ["-xap"]);
+      return ss.status === 0 && ss.stdout.includes(brokerSocket) &&
+        ss.stdout.includes("pid=" + gatePid + ",") &&
+        ss.stdout.includes("ESTAB");
+    }, "E7 approved gate never transmitted to real stopped broker", 7000);
+    assert.equal(approvedConnected, true);
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
+    const lostReceipt = await Promise.race([
+      inflight.response,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 crashed gate left approved caller hanging")), 6000)),
+    ]);
+    assert.notEqual(lostReceipt.ok, true,
+      "E7 killed gate claimed successful native commit to its caller");
+    console.log("F03_G01_E7_ATTACK approved-gate-SIGKILL-precommit",
+      JSON.stringify({brokerPID: beforeControllerBroker, gatePID: gatePid,
+        hadRealConnectedBrokerFD: approvedConnected, clientReceipt: lostReceipt}));
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    approvalBrokerStopped = false;
+    await wait(() => serviceState(gateUnit) &&
+      operator({ command: "list" }).ok === true,
+      "E7 crashed gate did not create fresh operator listener", 16000);
+    assert.equal(operator({ command: "approve",
+      requestId: inflightEntry.requestId,
+      sha256: inflightEntry.sha256 }).ok, false,
+      "E7 old approved request ID was replayable in new gate generation");
+  } finally {
+    if (approvalBrokerStopped)
+      privileged("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+  }
+  await wait(() => {
+    const result = rootBroker("read", approvedPath);
+    return result.status === 0 && result.stdout.trim() === approvedBytes;
+  }, "E7 authorized transmitted gate effect was lost/torn after crashed gate", 13000);
+  await e7ApproveExact("allowed/e7-after-reviewed-kill-positive.txt",
+    "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT");
+  assert.equal(must("systemctl",
+    ["show", "-p", "MainPID", "--value", brokerUnit]).trim(), reviewedBrokerPid,
+    "E7 approved gate loss crashed the actual protected broker PID");
+  assert.equal(must("systemctl",
+    ["show", "-p", "NRestarts", "--value", brokerUnit]).trim(), reviewedBrokerRestarts,
+    "E7 broker recovery masked a crash when gate transport disconnected");
+  console.log("F03_G01_E7_PASS operator-reviewed-gate-SIGKILL-exact-effect-no-stale-consent-and-live-broker");
+
+  // E7 postcommit receipt loss, through ACTUAL installed systemd gate+broker:
+  // gate transmits a signed/root-approved request while broker is SIGSTOPped;
+  // freeze gate BEFORE letting broker commit, observe the exact root-owned
+  // output entry, then SIGKILL the gate before it can deliver its receipt.
+  // A committed result must survive, but dead gate must never assert success
+  // or make the retired exact approval reusable after restart.
+  const publishedPath = "allowed/e7-postcommit-gate-killed.txt";
+  const publishedBytes = "E7_POSTCOMMIT_GATE_KILL_PUBLISHED_EXACT";
+  let postBrokerPaused = false;
+  let postGatePaused = false;
+  try {
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
+    postBrokerPaused = true;
+    const request = await submitPending({
+      op: "write", path: publishedPath, content: publishedBytes,
+    }, who);
+    const row = await wait(() => operator({ command: "list" }).pending?.find(
+      entry => entry.path === publishedPath),
+      "E7 postcommit fixture never queued signed request");
+    assert.equal(row.host?.verified, true,
+      "E7 postcommit approval used unverified host proof");
+    assert.equal(operator({ command: "approve",
+      requestId: row.requestId, sha256: row.sha256 }).approved, true,
+      "E7 postcommit fixture failed real operator approval");
+    const gateMainPid = must("systemctl",
+      ["show", "-p", "MainPID", "--value", gateUnit]).trim();
+    assert.match(gateMainPid, /^[1-9][0-9]+$/);
+    const connected = await wait(() => {
+      const sockets = privileged("ss", ["-xap"]);
+      return sockets.status === 0 &&
+        sockets.stdout.includes(brokerSocket) &&
+        sockets.stdout.includes("pid=" + gateMainPid + ",") &&
+        sockets.stdout.includes("ESTAB");
+    }, "E7 approved gate not actually connected to stopped native broker", 7000);
+    assert.equal(connected, true);
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", gateUnit]);
+    postGatePaused = true;
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    postBrokerPaused = false;
+    await wait(() => privileged("test", ["-f", root + "/" + publishedPath]).status === 0,
+      "E7 root broker failed to publish native effect before gate receipt", 14000);
+    assert.equal(mustBroker("read", publishedPath), publishedBytes,
+      "E7 gate-receipt-loss fixture did not commit exact intended bytes");
+    // The completed native commit is independent of the client. Losing the
+    // gate's transport must NOT propagate ECONNRESET as an uncaught error
+    // that kills and restarts the otherwise healthy root-owned broker.
+    const postcommitBrokerPID = must("systemctl",
+      ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+    const postcommitBrokerRestarts = must("systemctl",
+      ["show", "-p", "NRestarts", "--value", brokerUnit]).trim();
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
+    postGatePaused = false;
+    const receipt = await Promise.race([
+      request.response,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 postcommit killed gate left client hanging")), 6000)),
+    ]);
+    assert.notEqual(receipt.ok, true,
+      "E7 dead gate delivered a fabricated success receipt");
+    await wait(() => serviceState(gateUnit) &&
+      operator({ command: "list" }).ok === true,
+      "E7 gate failed to return after postcommit receipt-loss SIGKILL", 16000);
+    assert.equal(operator({
+      command: "approve", requestId: row.requestId, sha256: row.sha256,
+    }).ok, false,
+    "E7 postcommit dead gate allowed stale operator consent replay");
+    assert.equal(mustBroker("read", publishedPath), publishedBytes,
+      "E7 postcommit gate recovery rolled back published exact bytes");
+    const survivorPID = must("systemctl",
+      ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+    const survivorRestarts = must("systemctl",
+      ["show", "-p", "NRestarts", "--value", brokerUnit]).trim();
+    assert.equal(survivorPID, postcommitBrokerPID,
+      "E7 G01 root broker CRASHED when dead approved gate closed its socket");
+    assert.equal(survivorRestarts, postcommitBrokerRestarts,
+      "E7 G01 broker crash/restart hidden behind successful file bytes");
+    console.log("F03_G01_E7_PASS postcommit-gate-SIGKILL-no-success-receipt-and-exact-bytes", JSON.stringify({
+      realSystemdGate: true, liveBrokerConnection: connected,
+      publishedBeforeGateDeath: true, preservedExactBytes: true,
+      staleOperatorConsentRejected: true, returnedFalseSuccess: false,
+    }));
+  } finally {
+    if (postBrokerPaused) privileged("systemctl",
+      ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    if (postGatePaused) privileged("systemctl",
+      ["kill", "--kill-whom=main", "-s", "SIGCONT", gateUnit]);
+  }
+  await e7ApproveExact("allowed/e7-postcommit-recovery-positive.txt",
+    "E7_FRESH_POSTCOMMIT_KILL_APPROVAL");
+
+
+  // E7 retained reproducible forensic witness: actual *protected on-disk*
+  // bytes/metadata, not solely a successful RPC result or self-reported
+  // green test. Real kernel inode identity, owner/mode, and sha256 are checked
+  // against the known exact per-phase bytes and preserved with source/run SHA.
+  const e7Committed = [
+    ["allowed/e7-gate-restarted-positive.txt", "E7_GATE_RESTART_APPROVED_BYTES"],
+    ["allowed/e7-reversed-order-positive.txt", "E7_REQUIRED_BROKER_FIRST_THEN_GATE"],
+    ["allowed/e7-killed-controller-inflight.txt",
+      "E7_ROOT_POLICY_CONTROLLER_ALREADY_AUTHORIZED"],
+    ["allowed/e7-controller-death-positive.txt",
+      "E7_FRESH_AFTER_POLICY_CONTROLLER_DEATH"],
+    ["allowed/e7-approved-gate-killed.txt", "E7_APPROVED_BEFORE_GATE_DEATH_EXACT"],
+    ["allowed/e7-after-reviewed-kill-positive.txt",
+      "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT"],
+    ["allowed/e7-postcommit-gate-killed.txt",
+      "E7_POSTCOMMIT_GATE_KILL_PUBLISHED_EXACT"],
+    ["allowed/e7-postcommit-recovery-positive.txt",
+      "E7_FRESH_POSTCOMMIT_KILL_APPROVAL"],
+  ];
+  const e7Witnesses = e7Committed.map(([relative, expected]) => {
+    const file = root + "/" + relative;
+    const diskHash = must("sha256sum", [file]).slice(0, 64);
+    assert.match(diskHash, /^[0-9a-f]{64}$/,
+      "E7 did not collect a real hex SHA256 from protected disk");
+    const expectedHash = createHash("sha256").update(expected).digest("hex");
+    assert.equal(diskHash, expectedHash,
+      "E7 protected disk bytes differed from exact authorized payload " + relative);
+    const metadata = must("stat", ["-c", "%u:%a:%d:%i:%s", file]);
+    assert.match(metadata, /^0:600:[0-9]+:[0-9]+:[0-9]+$/,
+      "E7 protected file inode/permissions wrong " + relative);
+    return { relative, sha256: diskHash, rootMetadata: metadata };
+  });
+  const orderedJournal = privileged("journalctl", [
+    "-u", brokerUnit, "-u", gateUnit, "--no-pager",
+    "--output=short-iso", "-n", "80",
+  ]);
+  assert.equal(orderedJournal.status, 0,
+    "E7 could not obtain real systemd journal for both service generations");
+  assert.match(orderedJournal.stdout, /Started|Stopped|Stopping/,
+    "E7 systemd journal did not capture service lifecycle ordering");
+  console.log("F03_G01_E7_FORENSIC_PASS", JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    sourceSHA: process.env.GITHUB_SHA ?? "local-run",
+    brokerService: serviceEvidence(brokerUnit),
+    gateService: serviceEvidence(gateUnit),
+    journalSHA256: createHash("sha256").update(orderedJournal.stdout).digest("hex"),
+    journalTail: orderedJournal.stdout.slice(-2700),
+    exactRootInodes: e7Witnesses,
+  }));
+
+
+  console.log("FRONTIER03_G01_G02_LIFECYCLE_PASS", JSON.stringify({
+    fullSystemdBoot:true, realBrokerAndGate:true,
+    kernelUntrustedUIDDenied:true, forgedDigestDenied:true,
+    realBrokerKillRecovery:true, realGateKillRecovery:true,
+    crashedPendingApprovalInvalidated:true,
+    crashedSignedHostProofReplayDenied:true,
+    sameUIDHostSecretInaccessible:true, forgedActorMACDenied:true,
+    sameUIDProcFDIsolation:true, protectedReplayLedgerPathReserved:true,
+    actualHostIssuerDedicatedUIDIsolation:true, issuerRevocationBeforeEffect:true,
+    dedicatedHostMemoryPtraceFDIsolation:true,
+    newlySignedAndApprovedExactBytesCommitted:true,
+    authorizedEffectsBeforeAndAfterRestart:true,
+    e7SystemdReverseOrderingAndControllerDeath:true,
+    e7ReviewedGateDeathUnderPausedRealBroker:true,
+    e7PostcommitGateDeathAfterExactNativePublication:true,
+  }));
+} catch (error) {
+  console.error("FRONTIER03_G01_G02_RED", error?.stack ?? String(error));
+  console.error("FRONTIER03_SERVICE_BROKER", serviceEvidence(brokerUnit));
+  console.error("FRONTIER03_SERVICE_GATE", serviceEvidence(gateUnit));
+  console.error("FRONTIER03_BROKER_JOURNAL", logs(brokerUnit));
+  console.error("FRONTIER03_GATE_JOURNAL", logs(gateUnit));
+  process.exitCode = 1;
+} finally {
+  for (const [installed,unit] of [[gateInstalled,gateUnit],[brokerInstalled,brokerUnit]]) {
+    if (!installed) continue;
+    privileged("systemctl", ["stop", unit]);
+    privileged("systemctl", ["disable", unit]);
+    privileged("rm", ["-f", "--", "/etc/systemd/system/" + unit]);
+  }
+  privileged("systemctl", ["daemon-reload"]);
+  privileged("rm", ["-rf", "--", "/run/buccet-native-host-credentials/" + id]);
+  const cleaned=privileged("rm", ["-rf", "--", root, stage, gateRun]);
+  if(cleaned.status!==0) {
+    console.error("FRONTIER03_CLEANUP_FAILED", cleaned.stderr);
+    process.exitCode=1;
+  }
+  await rm(tmp,{recursive:true,force:true});
+}
