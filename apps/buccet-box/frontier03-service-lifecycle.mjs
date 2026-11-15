@@ -875,7 +875,7 @@ try {
   try {
     must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
     controllerStoppedBroker = true;
-    const launcher = 'printf "F03_E7_CONTROLLER_PID=%s\\n" "$" >&2; exec "$@"';
+    const launcher = 'printf "F03_E7_CONTROLLER_PID=%s\\n" "$$" >&2; exec "$@"';
     controllerProcess = spawn("sudo", ["-n", "sh", "-c", launcher, "sh",
       stage + "/node", root + "/policy-controller.mjs",
       root, "write", controllerPath], { env, stdio: ["pipe", "pipe", "pipe"] });
