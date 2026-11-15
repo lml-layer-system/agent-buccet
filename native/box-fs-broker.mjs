@@ -213,6 +213,16 @@ function executeGuard(request) {
 const server = net.createServer((client) => {
   let body = "";
   let complete = false;
+  // G01 E7: a peer can disappear after its authorized native effect has
+  // committed but before the broker's receipt reaches the caller. ECONNRESET
+  // is local to this connection; without an 'error' listener Node kills the
+  // ENTIRE privileged broker, stranding other authorized clients and causing
+  // repeated systemd restarts. Consume transport errors per-socket; never
+  // reinterpret them as a confirmed rollback or silently retry a mutation.
+  client.on("error", () => {
+    // The effect (if already submitted) is independently resolved by the
+    // existing guard/uncertainty path; this socket may no longer receive it.
+  });
   client.on("data", async chunk => {
     if (complete) return;
     body += chunk.toString("utf8");
