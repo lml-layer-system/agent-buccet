@@ -1043,6 +1043,13 @@ try {
       "E7 root broker failed to publish native effect before gate receipt", 14000);
     assert.equal(mustBroker("read", publishedPath), publishedBytes,
       "E7 gate-receipt-loss fixture did not commit exact intended bytes");
+    // The completed native commit is independent of the client. Losing the
+    // gate's transport must NOT propagate ECONNRESET as an uncaught error
+    // that kills and restarts the otherwise healthy root-owned broker.
+    const postcommitBrokerPID = must("systemctl",
+      ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+    const postcommitBrokerRestarts = must("systemctl",
+      ["show", "-p", "NRestarts", "--value", brokerUnit]).trim();
     must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
     postGatePaused = false;
     const receipt = await Promise.race([
@@ -1061,6 +1068,14 @@ try {
     "E7 postcommit dead gate allowed stale operator consent replay");
     assert.equal(mustBroker("read", publishedPath), publishedBytes,
       "E7 postcommit gate recovery rolled back published exact bytes");
+    const survivorPID = must("systemctl",
+      ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+    const survivorRestarts = must("systemctl",
+      ["show", "-p", "NRestarts", "--value", brokerUnit]).trim();
+    assert.equal(survivorPID, postcommitBrokerPID,
+      "E7 G01 root broker CRASHED when dead approved gate closed its socket");
+    assert.equal(survivorRestarts, postcommitBrokerRestarts,
+      "E7 G01 broker crash/restart hidden behind successful file bytes");
     console.log("F03_G01_E7_PASS postcommit-gate-SIGKILL-no-success-receipt-and-exact-bytes", JSON.stringify({
       realSystemdGate: true, liveBrokerConnection: connected,
       publishedBeforeGateDeath: true, preservedExactBytes: true,
