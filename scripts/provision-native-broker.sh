@@ -225,6 +225,11 @@ UNIT_CREATED=1
 cat > "$UNIT" <<EOF
 [Unit]
 Description=Agent Buccet protected native filesystem broker ($INSTANCE)
+# Finite rate limiting, but not systemd's default 5 starts / 10 seconds:
+# a deliberate stop/restart after crash recovery must not lock out valid work.
+# Persistent crash loops still hit start-limit-hit (never disable the fence).
+StartLimitIntervalSec=60s
+StartLimitBurst=12
 After=local-fs.target
 
 [Service]
