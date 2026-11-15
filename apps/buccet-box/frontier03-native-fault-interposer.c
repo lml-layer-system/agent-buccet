@@ -94,26 +94,6 @@ int mkdirat(int dirfd, const char *pathname, mode_t mode) {
   }
   return result;
 }
-/*
- * G06 real SIGKILL at the narrowest preparatory commit interval: the kernel
- * has successfully mkdirat()'d an authorized destination ancestor, but the
- * native caller has not yet run the next userspace instruction. EXIT handlers,
- * in-memory rollback lists and shell traps cannot execute here.
- */
-int mkdirat(int fd, const char *name, mode_t mode) {
-  static int (*real_mkdirat)(int, const char *, mode_t) = NULL;
-  if (!real_mkdirat) {
-    *(void **)(&real_mkdirat) = dlsym(RTLD_NEXT, "mkdirat");
-    if (!real_mkdirat) _exit(95);
-  }
-  int result = real_mkdirat(fd, name, mode);
-  if (result == 0 && getenv("BUCCET_F03_CRASH_MOVE_MKDIR")) {
-    trace_event("mkdir:created-before-SIGKILL");
-    raise(SIGKILL);
-    _exit(96);
-  }
-  return result;
-}
 int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
   static int (*real_renameat)(int, const char *, int, const char *) = NULL;
   if (!real_renameat) {
