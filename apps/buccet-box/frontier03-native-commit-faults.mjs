@@ -205,6 +205,42 @@ try {
     "G06 crash recovery deleted a PREEXISTING protected ancestor");
   report("SIGKILL-after-second-mkdir-unwinds-only-created-parents");
 
+  // G06 journal publication death matrix. A SIGKILL BEFORE the atomic
+  // .tmp -> live intent rename leaves only a private temporary record;
+  // a SIGKILL just AFTER publication leaves a live intent but no directory.
+  // Neither is permission to create the destination or replay the move.
+  for (const phase of ["before", "after"]) {
+    const origin = "src/intent-killed-" + phase + ".txt";
+    const destination = "dst/intent-killed-" + phase + "/deep/final.txt";
+    const newParent = root + "/dst/intent-killed-" + phase;
+    const bytes = "INTENT_PUBLICATION_ORIGINAL_" + phase;
+    must(act("write", origin, bytes),
+      "stage authorized source for journal phase " + phase);
+    assert.notEqual(sudo("test", ["-e", newParent]).status, 0);
+    resetTrace();
+    const killedJournal = act("move", origin, destination,
+      { BUCCET_F03_CRASH_MOVE_INTENT_PHASE: phase });
+    killed(killedJournal, "actual durable intent " + phase + " SIGKILL");
+    assert.match(traceContent(), phase === "before"
+      ? /intent:prepublish-SIGKILL/
+      : /intent:published-before-mkdir-SIGKILL/,
+      "test failed to reach exact journal publication interleaving");
+    assert.notEqual(sudo("test", ["-e", newParent]).status, 0,
+      "journal-phase kill prematurely allocated destination directory");
+    assert.equal(read(origin), bytes,
+      "journal recovery changed exact legitimate source bytes");
+    for (const internal of [".buccet-move-intent",
+      ".buccet-move-intent.tmp"]) {
+      assert.notEqual(sudo("test", ["-e", root + "/" + internal]).status, 0,
+        "journal phase recovery left a reusable private witness " + internal);
+    }
+    must(act("move", origin, destination),
+      "positive legitimate move after journal phase recovery");
+    assert.equal(read(destination), bytes);
+    report("SIGKILL-" + phase + "-move-intent-publication-recovers-then-allows-commit");
+  }
+
+
   // An untrusted or corrupted root journal must NOT be interpreted as
   // authority to delete protected directories. Deny and preserve evidence;
   // once the root operator restores exact 0600 metadata, recover normally.
@@ -561,6 +597,7 @@ try {
     injectedFileEIO: true, injectedNativeWriteENOSPC: true,
     sigkillBeforeAndAfterRename: true,
     crossDirectoryDurability: true, moveJournalSIGKILLBothCommitSides: true,
+    moveIntentPublicationSIGKILLBothSides: true,
     mutantBlindSpotDemonstrated: true,
     unsafeMkdirMutantDetected: true, partialPathValidationMutantDetected: true,
     durableMoveIntentMutantDetected: true,
