@@ -75,6 +75,25 @@ ssize_t write(int fd, const void *buffer, size_t length) {
   }
   return real_write(fd, buffer, length);
 }
+/*
+ * G06 TEST ONLY: kill the REAL native C guard after mkdirat actually
+ * created a protected move destination ancestor, before its caller can
+ * fsync, rename, record in memory, or invoke an EXIT/signal handler.
+ */
+int mkdirat(int dirfd, const char *pathname, mode_t mode) {
+  static int (*real_mkdirat)(int, const char *, mode_t) = NULL;
+  if (!real_mkdirat) {
+    *(void **)(&real_mkdirat) = dlsym(RTLD_NEXT, "mkdirat");
+    if (!real_mkdirat) _exit(95);
+  }
+  int result = real_mkdirat(dirfd, pathname, mode);
+  if (result == 0 && getenv("BUCCET_F03_CRASH_MOVE_MKDIR")) {
+    trace_event("mkdir:created-then-SIGKILL");
+    raise(SIGKILL);
+    _exit(96);
+  }
+  return result;
+}
 int renameat(int oldfd, const char *oldname, int newfd, const char *newname) {
   static int (*real_renameat)(int, const char *, int, const char *) = NULL;
   if (!real_renameat) {
