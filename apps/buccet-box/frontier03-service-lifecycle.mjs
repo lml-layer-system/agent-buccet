@@ -767,6 +767,225 @@ try {
 
   mustBroker("write", "allowed/after-restart.txt", "GENUINE_AUTHORIZED_EFFECT");
   assert.equal(mustBroker("read", "allowed/after-restart.txt"), "GENUINE_AUTHORIZED_EFFECT");
+
+  // G01 E7 finite closeout: real systemd ordered/unordered service failure
+  // matrix. The installed gate Requires=the installed broker; an explicit
+  // broker stop should therefore fail closed as a unit pair, not pretend an
+  // independent gate can keep authorizing while its authority is absent.
+  async function e7ApproveExact(relative, content) {
+    const pending = await submitPending({ op: "write", path: relative, content }, who);
+    const row = await wait(() => operator({ command: "list" }).pending?.find(
+      entry => entry.path === relative), "E7 fresh signed approval never queued");
+    assert.equal(row.host?.verified, true, "E7 unsigned request reached operator");
+    assert.equal(operator({
+      command: "approve", requestId: row.requestId, sha256: row.sha256,
+    }).approved, true, "E7 actual root operator could not approve exact request");
+    const receipt = await Promise.race([
+      pending.response,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 actual approved effect had no receipt")), 12000)),
+    ]);
+    assert.equal(receipt.ok, true, "E7 fresh approved request failed: " +
+      JSON.stringify(receipt));
+    assert.equal(mustBroker("read", relative), content,
+      "E7 approved protected file has wrong exact bytes");
+    return { row, receipt };
+  }
+  const queuedRestartPath = "allowed/e7-gate-queued-killed.txt";
+  const gateQueued = await submitPending({
+    op: "write", path: queuedRestartPath,
+    content: "E7_QUEUED_MUST_NOT_COMMIT",
+  }, who);
+  const queuedEntry = await wait(() => operator({ command: "list" }).pending?.find(
+    entry => entry.path === queuedRestartPath),
+    "E7 gate death test did not reach actual signed pending queue");
+  assert.equal(queuedEntry.host?.verified, true);
+  must("systemctl", ["stop", gateUnit]);
+  await wait(() => !serviceState(gateUnit), "E7 operator gate did not stop cleanly");
+  const queuedGone = await Promise.race([
+    gateQueued.response,
+    new Promise((_, reject) => setTimeout(
+      () => reject(Error("E7 gate stop stranded signed queued socket")), 6000)),
+  ]);
+  assert.notEqual(queuedGone.ok, true, "E7 signed queued request falsely succeeded after gate stop");
+  deny("test", ["-e", root + "/" + queuedRestartPath],
+    "E7 gate shutdown published an unapproved queued request");
+  let offlineGateConnection = false;
+  try {
+    const unexpected = await submitPending({
+      op: "write", path: "allowed/e7-gate-down.txt", content: "NEVER_EXECUTE",
+    }, who);
+    unexpected.socket.destroy();
+  } catch (error) {
+    offlineGateConnection = /ENOENT|ECONNREFUSED|EACCES/.test(String(error?.code ?? error));
+  }
+  assert.equal(offlineGateConnection, true,
+    "E7 public request socket accepted new requests while operator gate was stopped");
+  must("systemctl", ["start", gateUnit]);
+  await wait(() => serviceState(gateUnit) &&
+    socketStatus(gateRequest, "0:666:socket") &&
+    socketStatus(gateOperator, "0:600:socket") &&
+    operator({ command: "list" }).ok === true,
+    "E7 gate did not restore live public+operator listeners after start");
+  assert.equal(operator({
+    command: "approve", requestId: queuedEntry.requestId, sha256: queuedEntry.sha256,
+  }).ok, false, "E7 stale queued consent accepted after clean gate restart");
+  await e7ApproveExact("allowed/e7-gate-restarted-positive.txt",
+    "E7_GATE_RESTART_APPROVED_BYTES");
+  console.log("F03_G01_E7_PASS gate-stop-pending-invalidation-no-fallback-and-positive-restart", JSON.stringify({
+    gateStopped: true, pendingDenied: true, staleApprovalRejected: true,
+    genuineFreshExactBytes: true,
+  }));
+
+  // Deliberately request restart in the reverse dependency order. The real
+  // systemd unit has Requires=broker; starting the GATE while broker is
+  // stopped must activate the broker first (or fail closed), never install a
+  // gate that silently switches to direct native effects.
+  must("systemctl", ["stop", brokerUnit]);
+  await wait(() => !serviceState(brokerUnit) && !serviceState(gateUnit),
+    "E7 gate was still active after its required broker explicitly stopped");
+  const offlineBroker = rootBroker("write", "allowed/e7-broker-outage.txt",
+    "NEVER_WITHOUT_NATIVE_BROKER");
+  assert.notEqual(offlineBroker.status, 0,
+    "E7 stopped broker accepted or executed a native mutation");
+  deny("test", ["-e", root + "/allowed/e7-broker-outage.txt"],
+    "E7 broker outage produced protected bytes through fallback");
+  must("systemctl", ["start", gateUnit]);
+  await wait(() => serviceState(brokerUnit) && serviceState(gateUnit) &&
+    socketStatus(brokerSocket, "0:600:socket") &&
+    operator({ command: "list" }).ok === true,
+    "E7 reverse systemd startup order did not restore both live services", 16000);
+  await e7ApproveExact("allowed/e7-reversed-order-positive.txt",
+    "E7_REQUIRED_BROKER_FIRST_THEN_GATE");
+  console.log("F03_G01_E7_PASS real-systemd-reversed-order-restores-required-broker-no-fallback");
+
+  // Controller is a one-shot protected OS process, not a third unit.
+  // Freeze ACTUAL live broker MainPID while this exact-policy controller
+  // connects and transmits. Kill that controller with SIGKILL, then resume
+  // the real broker. A previously approved exact operation may commit
+  // despite caller death, but it must never mutate beyond those exact bytes
+  // or generate a false success receipt to the dead caller.
+  const controllerPath = "allowed/e7-killed-controller-inflight.txt";
+  const controllerBytes = "E7_ROOT_POLICY_CONTROLLER_ALREADY_AUTHORIZED";
+  const beforeControllerBroker = must("systemctl",
+    ["show", "-p", "MainPID", "--value", brokerUnit]).trim();
+  assert.match(beforeControllerBroker, /^[1-9][0-9]+$/);
+  let controllerStoppedBroker = false;
+  let controllerProcess;
+  try {
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
+    controllerStoppedBroker = true;
+    const launcher = 'printf "F03_E7_CONTROLLER_PID=%s\\n" "$" >&2; exec "$@"';
+    controllerProcess = spawn("sudo", ["-n", "sh", "-c", launcher, "sh",
+      stage + "/node", root + "/policy-controller.mjs",
+      root, "write", controllerPath], { env, stdio: ["pipe", "pipe", "pipe"] });
+    let controllerErr = "", controllerOut = "";
+    controllerProcess.stderr.on("data", chunk => controllerErr += String(chunk));
+    controllerProcess.stdout.on("data", chunk => controllerOut += String(chunk));
+    const controllerExit = new Promise((resolve, reject) => {
+      controllerProcess.once("error", reject);
+      controllerProcess.once("close", (code, signal) => resolve({code, signal}));
+    });
+    controllerProcess.stdin.end(controllerBytes);
+    const controllerPid = await wait(() => {
+      const match = /F03_E7_CONTROLLER_PID=([1-9][0-9]*)/.exec(controllerErr);
+      return match?.[1];
+    }, "E7 privileged controller PID was not recorded");
+    const connected = await wait(() => {
+      const ss = privileged("ss", ["-xap"]);
+      return ss.status === 0 && ss.stdout.includes(brokerSocket) &&
+        ss.stdout.includes("pid=" + controllerPid + ",") &&
+        ss.stdout.includes("ESTAB");
+    }, "E7 controller never established real broker UNIX connection under SIGSTOP", 7000);
+    assert.equal(connected, true);
+    must("kill", ["-KILL", controllerPid]);
+    const deadController = await Promise.race([
+      controllerExit,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 killed policy controller did not exit")), 6000)),
+    ]);
+    assert.notEqual(deadController.code, 0,
+      "E7 actual policy controller exited successfully despite SIGKILL");
+    console.log("F03_G01_E7_ATTACK policy-controller-SIGKILL-while-broker-stopped",
+      JSON.stringify({brokerPID: beforeControllerBroker,
+        controllerPID: controllerPid, connected, exit: deadController}));
+  } finally {
+    if (controllerStoppedBroker) {
+      privileged("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    }
+    if (controllerProcess?.exitCode === null && controllerProcess?.signalCode === null)
+      controllerProcess.kill("SIGKILL");
+  }
+  await wait(() => {
+    const result = rootBroker("read", controllerPath);
+    return result.status === 0 && result.stdout.trim() === controllerBytes;
+  }, "E7 broker failed to commit already-transmitted exact controller effect after crash", 13000);
+  await e7ApproveExact("allowed/e7-controller-death-positive.txt",
+    "E7_FRESH_AFTER_POLICY_CONTROLLER_DEATH");
+  console.log("F03_G01_E7_PASS real-controller-SIGKILL-transmitted-effect-exact-and-fresh-work");
+
+  // Operator approval is NOT native commit. Kill the ROOT operator gate
+  // while an approved request is physically queued on a SIGSTOPped broker.
+  // After resuming, the already-approved exact action may complete but no
+  // dead gate transport may receive a fabricated success. The retired
+  // operator request ID must never replay after gate restart.
+  const approvedPath = "allowed/e7-approved-gate-killed.txt";
+  const approvedBytes = "E7_APPROVED_BEFORE_GATE_DEATH_EXACT";
+  let approvalBrokerStopped = false;
+  try {
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGSTOP", brokerUnit]);
+    approvalBrokerStopped = true;
+    const inflight = await submitPending({
+      op: "write", path: approvedPath, content: approvedBytes,
+    }, who);
+    const inflightEntry = await wait(() => operator({ command: "list" }).pending?.find(
+      entry => entry.path === approvedPath),
+      "E7 gate SIGKILL did not reach actual signed operator-reviewed queue");
+    assert.equal(operator({
+      command: "approve", requestId: inflightEntry.requestId,
+      sha256: inflightEntry.sha256,
+    }).approved, true, "E7 actual root operator approval missing");
+    const gatePid = must("systemctl",
+      ["show", "-p", "MainPID", "--value", gateUnit]).trim();
+    const approvedConnected = await wait(() => {
+      const ss = privileged("ss", ["-xap"]);
+      return ss.status === 0 && ss.stdout.includes(brokerSocket) &&
+        ss.stdout.includes("pid=" + gatePid + ",") &&
+        ss.stdout.includes("ESTAB");
+    }, "E7 approved gate never transmitted to real stopped broker", 7000);
+    assert.equal(approvedConnected, true);
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGKILL", gateUnit]);
+    const lostReceipt = await Promise.race([
+      inflight.response,
+      new Promise((_, reject) => setTimeout(
+        () => reject(Error("E7 crashed gate left approved caller hanging")), 6000)),
+    ]);
+    assert.notEqual(lostReceipt.ok, true,
+      "E7 killed gate claimed successful native commit to its caller");
+    console.log("F03_G01_E7_ATTACK approved-gate-SIGKILL-precommit",
+      JSON.stringify({brokerPID: beforeControllerBroker, gatePID: gatePid,
+        hadRealConnectedBrokerFD: approvedConnected, clientReceipt: lostReceipt}));
+    must("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+    approvalBrokerStopped = false;
+    await wait(() => serviceState(gateUnit) &&
+      operator({ command: "list" }).ok === true,
+      "E7 crashed gate did not create fresh operator listener", 16000);
+    assert.equal(operator({ command: "approve",
+      requestId: inflightEntry.requestId,
+      sha256: inflightEntry.sha256 }).ok, false,
+      "E7 old approved request ID was replayable in new gate generation");
+  } finally {
+    if (approvalBrokerStopped)
+      privileged("systemctl", ["kill", "--kill-whom=main", "-s", "SIGCONT", brokerUnit]);
+  }
+  await wait(() => {
+    const result = rootBroker("read", approvedPath);
+    return result.status === 0 && result.stdout.trim() === approvedBytes;
+  }, "E7 authorized transmitted gate effect was lost/torn after crashed gate", 13000);
+  await e7ApproveExact("allowed/e7-after-reviewed-kill-positive.txt",
+    "E7_POST_REVIEW_GATE_CRASH_FRESH_EXACT");
+  console.log("F03_G01_E7_PASS operator-reviewed-gate-SIGKILL-exact-effect-no-stale-consent");
+
   console.log("FRONTIER03_G01_G02_LIFECYCLE_PASS", JSON.stringify({
     fullSystemdBoot:true, realBrokerAndGate:true,
     kernelUntrustedUIDDenied:true, forgedDigestDenied:true,
@@ -779,6 +998,8 @@ try {
     dedicatedHostMemoryPtraceFDIsolation:true,
     newlySignedAndApprovedExactBytesCommitted:true,
     authorizedEffectsBeforeAndAfterRestart:true,
+    e7SystemdReverseOrderingAndControllerDeath:true,
+    e7ReviewedGateDeathUnderPausedRealBroker:true,
   }));
 } catch (error) {
   console.error("FRONTIER03_G01_G02_RED", error?.stack ?? String(error));
